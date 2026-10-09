@@ -113,7 +113,7 @@ jobs:
             version = $version
             source_commit = $sha
             payload = [ordered]@{
-              url = 'https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip'
+              url = 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip'
               sha256 = $payloadHash
               size = $payloadSize
             }
@@ -203,11 +203,11 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $release = Join-Path $PWD 'out/creator-dev-release'
-          gh release view creator-dev --repo ordaxsystems/prototipo-ordax-os *> $null
+          gh release view creator-dev --repo ordaxsystems/ordax-os *> $null
           if ($LASTEXITCODE -ne 0) {
             $global:LASTEXITCODE = 0
             gh release create creator-dev `
-              --repo ordaxsystems/prototipo-ordax-os `
+              --repo ordaxsystems/ordax-os `
               --target '${{ github.sha }}' `
               --title 'OrdaX Creator Development Channel' `
               --prerelease `
@@ -219,18 +219,18 @@ jobs:
             (Join-Path $release 'OrdaX-Creator.exe') `
             (Join-Path $release 'ordax-creator-dev-windows-amd64.zip') `
             (Join-Path $release 'SHA256SUMS') `
-            --repo ordaxsystems/prototipo-ordax-os `
+            --repo ordaxsystems/ordax-os `
             --clobber
           if ($LASTEXITCODE -ne 0) { throw 'failed to upload Creator launcher/payload' }
 
           gh release upload creator-dev `
             (Join-Path $release 'creator-dev-manifest.json') `
-            --repo ordaxsystems/prototipo-ordax-os `
+            --repo ordaxsystems/ordax-os `
             --clobber
           if ($LASTEXITCODE -ne 0) { throw 'failed to publish Creator payload manifest' }
 
           gh release delete-asset creator-dev creator-app.json `
-            --repo ordaxsystems/prototipo-ordax-os `
+            --repo ordaxsystems/ordax-os `
             --yes 2>$null
           $global:LASTEXITCODE = 0
 

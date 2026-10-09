@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.device-update-coverage/1",
   "status": "canonical-prototype-contract",
   "source_authority": {
-    "repository": "ordaxsystems/prototipo-ordax-os",
+    "repository": "ordaxsystems/ordax-os",
     "branch": "main",
     "git_is_source_authority_for_all_product_layers": true,
     "runtime_sparse_checkout_is_not_source_authority": true,

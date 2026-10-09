@@ -24,7 +24,7 @@ CANONICAL_V4_PROOF_SCHEMA = "prototype-ordax.portable-v4-canonical-release-proof
 CANONICAL_V4_PROOF_PATH = Path("docs/evidence/canonical-v4-release-proof.json")
 PRE_USB_NOVA_ORDAX_AUDIT_PATH = Path("tools/creator/pre_usb_nova_ordax_audit.py")
 KEY_ID = "ordax-prototype-release-v1"
-REPOSITORY = "ordaxsystems/prototipo-ordax-os"
+REPOSITORY = "ordaxsystems/ordax-os"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 FINAL_AUTHORIZATION_BLOCKERS = {

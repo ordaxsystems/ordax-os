@@ -228,7 +228,7 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
             "status": "authorized",
             "physical_write_allowed": True,
             "explicit_owner_authorization": True,
-            "source_repository": "ordaxsystems/prototipo-ordax-os",
+            "source_repository": "ordaxsystems/ordax-os",
             "scope": "first-real-stable-mvp-usb-proof",
             "release_sequence": 1,
             "authorization_context_sha256": authorization_context_sha,

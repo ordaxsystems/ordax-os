@@ -25,10 +25,10 @@ const (
 	ManifestSchema     = "prototype-ordax.creator-app-manifest/1"
 	TrustSchema        = "prototype-ordax.release-trust/1"
 	Purpose            = "creator-app-windows-amd64"
-	SourceRepository   = "ordaxsystems/prototipo-ordax-os"
+	SourceRepository   = "ordaxsystems/ordax-os"
 	Recipe             = "creator/app/windows/1"
-	DefaultEnvelopeURL = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-app/creator-app-envelope.json"
-	ArtifactURL        = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe"
+	DefaultEnvelopeURL = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-app/creator-app-envelope.json"
+	ArtifactURL        = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-app/OrdaX-Creator-App.exe"
 	ArtifactName       = "OrdaX-Creator-App.exe"
 
 	currentEnvelopeName = "current-envelope.json"

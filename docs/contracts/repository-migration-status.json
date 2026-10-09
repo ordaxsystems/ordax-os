@@ -2,10 +2,10 @@
   "$schema": "prototype-ordax.repository-migration-status/1",
   "status": "cutover-complete-legacy-retired",
   "canonical_repositories": {
-    "platform": "ordaxsystems/prototipo-ordax-os",
+    "platform": "ordaxsystems/ordax-os",
     "apps": "ordaxsystems/ordax-apps",
     "runtime": "ordaxsystems/ordax-runtime",
-    "control_plane": "ordaxsystems/ordax-control-plane"
+    "control_plane": "ordaxsystems/ordax-platform"
   },
   "legacy_repository": "washingtonmsdj/mcp-blender",
   "gates": {
@@ -65,7 +65,7 @@
     },
     "ordax_control_plane_namespace_transfer": {
       "previous_repository": "washingtonmsdj/ordax-control-plane",
-      "canonical_repository": "ordaxsystems/ordax-control-plane",
+      "canonical_repository": "ordaxsystems/ordax-platform",
       "repository_id": "1406415892",
       "transfer_preserved_history": true,
       "redirect_is_compatibility_only": true

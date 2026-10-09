@@ -222,7 +222,7 @@ class DevBaseConsumerTests(unittest.TestCase):
     ):
         tag = f"ordax-dev-base-{source_commit}"
         prefix = (
-            "https://github.com/ordaxsystems/prototipo-ordax-os/"
+            "https://github.com/ordaxsystems/ordax-os/"
             f"releases/download/{tag}"
         )
         return {

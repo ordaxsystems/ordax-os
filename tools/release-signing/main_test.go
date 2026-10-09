@@ -16,7 +16,7 @@ import (
 func validManifestBytes() []byte {
 	return []byte(`{
   "$schema": "prototype-ordax.release-manifest/1",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "source_commit": "0123456789abcdef0123456789abcdef01234567",
   "release_id": "0123456789abcdef0123456789abcdef01234567",
   "created_from_ci_recipe": "release/native/1",
@@ -36,7 +36,7 @@ func validManifestBytes() []byte {
 func validManifestV2Bytes() []byte {
 	return []byte(`{
   "$schema": "prototype-ordax.release-manifest/2",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "source_commit": "0123456789abcdef0123456789abcdef01234567",
   "release_id": "0123456789abcdef0123456789abcdef01234567",
   "created_from_ci_recipe": "release/portable-usb-v2/1",
@@ -527,7 +527,7 @@ func TestSignAndVerifyPortableV2UsesExistingTrustEnvelopeBoundary(t *testing.T) 
 func validManifestV3Bytes() []byte {
 	return []byte(`{
   "$schema": "prototype-ordax.release-manifest/3",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "source_commit": "0123456789abcdef0123456789abcdef01234567",
   "release_id": "0123456789abcdef0123456789abcdef01234567",
   "created_from_ci_recipe": "release/portable-usb-v2-runtime/1",
@@ -634,7 +634,7 @@ func TestSignAndVerifyPortableV3UsesExistingTrustEnvelopeBoundary(t *testing.T) 
 func validManifestV4Bytes() []byte {
 	return []byte(`{
   "$schema": "prototype-ordax.release-manifest/4",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "source_commit": "0123456789abcdef0123456789abcdef01234567",
   "release_id": "0123456789abcdef0123456789abcdef01234567",
   "created_from_ci_recipe": "release/portable-usb-v2-local-ai/1",

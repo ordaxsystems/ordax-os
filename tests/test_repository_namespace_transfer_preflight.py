@@ -25,8 +25,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
     def test_posttransfer_contract_has_exact_destination_and_preserved_order(self):
         report = audit.validate_contracts(self.ownership, self.status)
         self.assertEqual(report["phase"], "post-transfer")
-        self.assertEqual(report["canonical"], "ordaxsystems/prototipo-ordax-os")
-        self.assertEqual(report["destination"], "ordaxsystems/prototipo-ordax-os")
+        self.assertEqual(report["canonical"], "ordaxsystems/ordax-os")
+        self.assertEqual(report["destination"], "ordaxsystems/ordax-os")
 
     def test_transfer_audit_distinguishes_live_trust_code_from_provenance(self):
         old = "washingtonmsdj/prototipo-ordax-os"
@@ -81,8 +81,21 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
                 )
             )
 
+    def test_retired_slug_historical_assertions_fail_on_extra_authority(self):
+        from tempfile import TemporaryDirectory
+        old = "ordaxsystems/prototipo-ordax-os"
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, lines in audit.RETIRED_SLUG_HISTORICAL_ASSERTIONS.items():
+                file = root / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text("".join("    " + line + "\n" for line in lines), encoding="utf-8")
+                self.assertTrue(audit.verified_retired_historical_assertions(root, name, old))
+                file.write_text(file.read_text(encoding="utf-8") + 'OWNER = "' + old + '"\n', encoding="utf-8")
+                self.assertFalse(audit.verified_retired_historical_assertions(root, name, old))
+
     def test_release_pointer_sha_is_pinned_to_bootstrap_manifest(self):
-        report = audit.release_pointer_integrity(ROOT, "ordaxsystems/prototipo-ordax-os")
+        report = audit.release_pointer_integrity(ROOT, "ordaxsystems/ordax-os")
         self.assertTrue(report["release_pointer_integrity_verified"])
         self.assertEqual(
             report["release_pointer_sha256"],
@@ -90,7 +103,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
         )
         self.assertEqual(
             report["release_pointer_sha256"],
-            "3c3e78d65aee0b120071e6bcee776c83de9e5ea1d8bd1a936d61d09499141741",
+            "a5d34ab75cdef9e8826ccef29baf746f1cbb43f1cac1dc94568e47671d335849",
         )
 
     def test_repointing_release_url_without_new_verified_bootstrap_fails(self):
@@ -105,9 +118,9 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             release = json.loads(
                 (ROOT / "docs/contracts/release-channel.json").read_text(encoding="utf-8")
             )
-            release["source_authority"]["repository"] = "ordaxsystems/prototipo-ordax-os"
+            release["source_authority"]["repository"] = "ordaxsystems/ordax-os"
             release["publication"]["latest_envelope_url"] = (
-                "https://github.com/ordaxsystems/prototipo-ordax-os/"
+                "https://github.com/ordaxsystems/ordax-os/"
                 "releases/latest/download/release-envelope.json"
             )
             (root / "docs/contracts/release-channel.json").write_text(json.dumps(release))
@@ -127,7 +140,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
                 (release["publication"]["latest_envelope_url"] + "\n").encode("utf-8")
             )
             report = audit.release_pointer_integrity(
-                root, "ordaxsystems/prototipo-ordax-os"
+                root, "ordaxsystems/ordax-os"
             )
             self.assertFalse(report["release_pointer_integrity_verified"])
             self.assertNotEqual(
@@ -150,7 +163,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             (root / "docs/contracts").mkdir(parents=True)
             (root / "sdk/app-sdk-v1").mkdir(parents=True)
             (root / "docs/contracts/runtime-component-package.json").write_text(
-                '{"source_repository":"ordaxsystems/prototipo-ordax-os"}',
+                '{"source_repository":"ordaxsystems/ordax-os"}',
                 encoding="utf-8",
             )
             (root / "sdk/app-sdk-v1/runtime-component-package-policy.json").write_text(
@@ -181,8 +194,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
     def test_posttransfer_needs_all_four_owners_in_ssot(self):
         ownership = copy.deepcopy(self.ownership)
         status = copy.deepcopy(self.status)
-        ownership["repositories"]["platform"]["repo"] = "ordaxsystems/prototipo-ordax-os"
-        status["canonical_repositories"]["platform"] = "ordaxsystems/prototipo-ordax-os"
+        ownership["repositories"]["platform"]["repo"] = "ordaxsystems/ordax-os"
+        status["canonical_repositories"]["platform"] = "ordaxsystems/ordax-os"
         migration = ownership["namespace_migration"]
         migration["current_namespace"] = "ordaxsystems"
         migration["status"] = "complete"
@@ -224,8 +237,8 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
             "GITHUB_REPOSITORY_ID": "0",
         })[0])
 
-        # Old bootstrap bytes/sha cannot be used as authority for the new URL.
-        self.assertFalse(audit.release_pointer_integrity(ROOT, target)[
+        # The new URL must be backed by exactly the newly pinned bootstrap bytes.
+        self.assertTrue(audit.release_pointer_integrity(ROOT, target)[
             "release_pointer_integrity_verified"
         ])
         altered = copy.deepcopy(renamed)
@@ -288,10 +301,7 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
 
     def test_rename_workflow_gates_stay_live_only_for_exact_repo_and_ssot(self):
         workflow = (ROOT / ".github/workflows/repository-namespace-transfer-preflight.yml").read_text(encoding="utf-8")
-        allowed = (
-            "(github.repository == 'ordaxsystems/prototipo-ordax-os' || "
-            "github.repository == 'ordaxsystems/ordax-os')"
-        )
+        allowed = "github.repository == 'ordaxsystems/ordax-os'"
         self.assertEqual(workflow.count(allowed), 3)
         self.assertIn("python3 tools/verify/repository_namespace_transfer_preflight.py --require-cutover", workflow)
         self.assertIn("github.ref == 'refs/heads/main'", workflow)
@@ -302,8 +312,9 @@ class RepositoryNamespaceTransferPreflightTests(unittest.TestCase):
     def test_cutover_proof_needs_no_live_legacy_refs_and_exact_github_identity(self):
         report = {
             "phase": "post-transfer",
-            "destination": "ordaxsystems/prototipo-ordax-os",
+            "destination": "ordaxsystems/ordax-os",
             "operational_count": 0,
+            "retired_slug_operational_count": 0,
             "release_pointer_integrity_verified": True,
             "sdk_package_projection_verified": True,
         }

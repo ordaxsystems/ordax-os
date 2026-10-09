@@ -12,8 +12,9 @@ BASE = ROOT / "docs/contracts/base-update.json"
 WORKFLOW = ROOT / ".github/workflows/release-agent-refresh.yml"
 OWNER = ROOT / "system/services/base-update/orchestrator.py"
 
-CURRENT_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
-PREVIOUS_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
+CURRENT_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
+PREVIOUS_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
+FORMER_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
 CURRENT_SEED = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
 
 
@@ -40,10 +41,11 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertEqual(descriptor["unknown_installed_hash_policy"], "block")
         self.assertNotIn(target, descriptor["allowed_from_sha256"])
         self.assertIn(PREVIOUS_REFRESH_TARGET, descriptor["allowed_from_sha256"])
+        self.assertIn(FORMER_REFRESH_TARGET, descriptor["allowed_from_sha256"])
         self.assertEqual(
             descriptor["download_url"],
             (
-                "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
+                "https://github.com/ordaxsystems/ordax-os/releases/download/"
                 f"ordax-release-agent-{target}/ordax-release-agent"
             ),
         )
@@ -64,6 +66,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertNotEqual(seed, target)
         self.assertIn(seed, descriptor["allowed_from_sha256"])
         self.assertIn(PREVIOUS_REFRESH_TARGET, descriptor["allowed_from_sha256"])
+        self.assertIn(FORMER_REFRESH_TARGET, descriptor["allowed_from_sha256"])
         self.assertIn("721f8a3fcec1ccfd2dd75c4d633ff2efd960909287c5e11fcf9abf19e5372740", descriptor["allowed_from_sha256"])
         self.assertIn("102c9aeb531b582b4b60d8e808da7f50871c3ea2353c2dc82bd6373f9edc28da", descriptor["allowed_from_sha256"])
 
@@ -131,8 +134,8 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertIn("gh release download", workflow)
         self.assertIn("RELEASE_AGENT_PUBLISHED_ASSET_READBACK=VERIFIED", workflow)
         publisher = workflow.split("  publish:", 1)[1]
-        self.assertIn("github.repository == 'ordaxsystems/prototipo-ordax-os'", publisher)
-        self.assertIn('test "$GITHUB_REPOSITORY" = \'ordaxsystems/prototipo-ordax-os\'', publisher)
+        self.assertIn("github.repository == 'ordaxsystems/ordax-os'", publisher)
+        self.assertIn('test "$GITHUB_REPOSITORY" = \'ordaxsystems/ordax-os\'', publisher)
         self.assertIn('test "$GITHUB_REPOSITORY_ID" = \'1371063347\'', publisher)
         self.assertIn('gh release download "$tag" --repo "$repo"', publisher)
         self.assertIn('test ! -L "$published"', publisher)
@@ -150,6 +153,8 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
         self.assertIn("test \"$GITHUB_REPOSITORY_ID\" = '1371063347'", audit)
         self.assertIn('gh release download "ordax-release-agent-$PINNED_SHA256"', audit)
         self.assertIn('--repo "$GITHUB_REPOSITORY"', audit)
+        self.assertIn("ordaxsystems/ordax-os", audit)
+        self.assertNotIn("prototipo-ordax-os", audit)
         self.assertIn("sha256sum --check --status", audit)
         self.assertIn('stat -c \'%s\'', audit)
         self.assertIn("RELEASE_AGENT_NEW_BUILD_AUTHORIZED=NO", audit)

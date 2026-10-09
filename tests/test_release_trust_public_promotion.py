@@ -72,7 +72,7 @@ class PublicReleaseTrustPromotionTests(unittest.TestCase):
 
         proof_manifest = {
             "$schema": "prototype-ordax.release-manifest/1",
-            "source_repository": "ordaxsystems/prototipo-ordax-os",
+            "source_repository": "ordaxsystems/ordax-os",
             "source_commit": "1" * 40,
             "release_id": "1" * 40,
             "created_from_ci_recipe": "trust/recovery-proof/1",

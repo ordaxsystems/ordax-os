@@ -38,6 +38,8 @@ IMMUTABLE_HISTORICAL_PATHS = frozenset({
     "docs/contracts/canonical-v4-signing-request.json",
     "docs/contracts/physical-write-authorization.json",
     "system/profile-content-sources/developer-core/v0.1.0/manifest.json",
+    "bootstrap/surface-runtime/APK-LOCK-DRIFT-2026-10-08.md",
+    "bootstrap/windows-compat-runtime/APK-LOCK-REFRESH-2026-10-08.md",
 })
 
 
@@ -85,6 +87,32 @@ NEGATIVE_HISTORICAL_ASSERTIONS = {
 }
 
 
+# Retired intermediate slug is allowed only in exact negative/historical
+# regression lines. Extra references in the same files are operational.
+RETIRED_SLUG_HISTORICAL_ASSERTIONS = {
+    "tests/test_canonical_v4_signing_request_selection.py": [
+        'self.assertEqual(issued["source_repository"], "ordaxsystems/prototipo-ordax-os")',
+    ],
+    "tests/test_release_agent_seed_restore_identity.py": [
+        'self.assertNotIn("ordaxsystems/prototipo-ordax-os", script)',
+        '"GITHUB_REPOSITORY": "ordaxsystems/prototipo-ordax-os",',
+    ],
+    "tests/test_mvp_seed_artifact_bindings.py": [
+        'self.assertNotIn("-Dsbat-distro-url=https://github.com/ordaxsystems/prototipo-ordax-os", builder)',
+    ],
+}
+
+def verified_retired_historical_assertions(root: Path, name: str, old: str) -> bool:
+    expected = RETIRED_SLUG_HISTORICAL_ASSERTIONS.get(name)
+    if expected is None:
+        return False
+    try:
+        lines = (root / name).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return False
+    actual = [line.strip() for line in lines if old in line]
+    return actual == expected
+
 def verified_negative_historical_assertion(root: Path, name: str, old: str) -> bool:
     expected = NEGATIVE_HISTORICAL_ASSERTIONS.get(name)
     if expected is None:
@@ -113,9 +141,14 @@ def tracked_references(root: Path, old_full_name: str) -> dict:
     operational = []
     historical = []
     for name in paths:
-        if is_operational(name) and not verified_negative_historical_assertion(
-            root, name, old_full_name
-        ):
+        historical_assertion = (
+            verified_negative_historical_assertion(root, name, old_full_name)
+            if old_full_name == f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}"
+            else verified_retired_historical_assertions(root, name, old_full_name)
+            if old_full_name == "ordaxsystems/prototipo-ordax-os"
+            else False
+        )
+        if is_operational(name) and not historical_assertion:
             operational.append(name)
         else:
             historical.append(name)

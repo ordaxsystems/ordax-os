@@ -56,7 +56,7 @@ jobs:
           digest = hashlib.sha256(data).hexdigest()
           size = len(data)
           expected_url = (
-              'https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/'
+              'https://github.com/ordaxsystems/ordax-os/releases/download/'
               f'ordax-release-agent-{digest}/ordax-release-agent'
           )
           print('RELEASE_AGENT_REFRESH_SHA256=' + digest)
@@ -93,7 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY_ID" = '1371063347'
-          [[ "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/prototipo-ordax-os$ ]]
+          test "$GITHUB_REPOSITORY" = 'ordaxsystems/ordax-os'
           python3 - "$GITHUB_OUTPUT" <<'PY'
           import json, os, pathlib, re, sys
           descriptor = json.loads(pathlib.Path(
@@ -138,7 +138,7 @@ jobs:
           echo 'PHYSICAL_WRITE_AUTHORIZED=NO'
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/prototipo-ordax-os'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/ordax-os'
     needs: verify
     runs-on: ubuntu-24.04
     permissions:
@@ -160,7 +160,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REPOSITORY" = 'ordaxsystems/prototipo-ordax-os'
+          test "$GITHUB_REPOSITORY" = 'ordaxsystems/ordax-os'
           test "$GITHUB_REPOSITORY_ID" = '1371063347'
 
       - name: Rebuild exact immutable asset
@@ -191,7 +191,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          repo='ordaxsystems/prototipo-ordax-os'
+          repo='ordaxsystems/ordax-os'
           descriptor='system/services/base-update/release-agent-refresh.json'
           digest="$(python3 -c "import json; print(json.load(open('$descriptor'))['target_sha256'])")"
           tag="ordax-release-agent-$digest"

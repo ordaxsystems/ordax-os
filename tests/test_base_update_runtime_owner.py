@@ -51,7 +51,7 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         fixture_agent_sha = sha256(fixture_agent_bytes)
 
         fixture_channel_bytes = (
-            b"https://github.com/ordaxsystems/prototipo-ordax-os/"
+            b"https://github.com/ordaxsystems/ordax-os/"
             b"releases/latest/download/release-envelope.json\n"
         )
         fixture_channel_sha = sha256(fixture_channel_bytes)
@@ -74,7 +74,7 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
                 "target_sha256": fixture_agent_sha,
                 "target_size": len(fixture_agent_bytes),
                 "download_url": (
-                    "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
+                    "https://github.com/ordaxsystems/ordax-os/releases/download/"
                     f"ordax-release-agent-{fixture_agent_sha}/ordax-release-agent"
                 ),
                 "target_path": "/ordax/bootstrap/release-acquisition/ordax-release-agent",
@@ -336,7 +336,7 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
             channel = physical / "bootstrap/config/release-envelope-url"
             channel.parent.mkdir(parents=True, exist_ok=True)
             channel.write_text(
-                "https://github.com/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json\n",
+                "https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json\n",
                 encoding="ascii",
             )
             old = "a" * 40
@@ -415,7 +415,7 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
                     "target_sha256": target_sha,
                     "target_size": len(target),
                     "download_url": (
-                        "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
+                        "https://github.com/ordaxsystems/ordax-os/releases/download/"
                         f"ordax-release-agent-{target_sha}/ordax-release-agent"
                     ),
                     "target_path": "/ordax/bootstrap/release-acquisition/ordax-release-agent",
@@ -588,7 +588,7 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
                     "target_sha256": target_sha,
                     "target_size": len(corrupt),
                     "download_url": (
-                        "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/"
+                        "https://github.com/ordaxsystems/ordax-os/releases/download/"
                         f"ordax-release-agent-{target_sha}/ordax-release-agent"
                     ),
                     "target_path": "/ordax/bootstrap/release-acquisition/ordax-release-agent",

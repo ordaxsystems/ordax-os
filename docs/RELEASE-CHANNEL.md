@@ -38,7 +38,7 @@ bootstrap/config/release-envelope-url
 with exactly:
 
 ```text
-https://github.com/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json
+https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json
 ```
 
 GitHub documents `/releases/latest/download/<asset>` as a direct download form for an asset on the latest Release. The `latest` pointer is intentionally mutable as a **selector**, while the release identity and authenticated payload remain immutable after verification.
@@ -107,7 +107,7 @@ Decoded payload schema:
 ```json
 {
   "$schema": "prototype-ordax.release-manifest/1",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "source_commit": "<lowercase 40-hex>",
   "release_id": "<same source commit>",
   "created_from_ci_recipe": "release/native/1",

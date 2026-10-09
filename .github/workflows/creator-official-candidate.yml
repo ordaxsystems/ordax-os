@@ -141,7 +141,7 @@ jobs:
           for exact in (
               'Purpose             = "creator-portable-physical-windows-amd64"',
               'Recipe              = "creator/physical/portable-windows/2"',
-              'DefaultEnvelopeURL  = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-physical/creator-physical-envelope.json"',
+              'DefaultEnvelopeURL  = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-physical/creator-physical-envelope.json"',
           ):
               assert exact in physical_channel
 

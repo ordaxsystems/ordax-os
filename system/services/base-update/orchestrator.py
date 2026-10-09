@@ -426,7 +426,7 @@ def _validate_release_agent_refresh(
         raise OwnerError("release-agent refresh URL is invalid")
     parsed = urlsplit(url)
     expected_path = (
-        "/ordaxsystems/prototipo-ordax-os/releases/download/"
+        "/ordaxsystems/ordax-os/releases/download/"
         f"ordax-release-agent-{target_sha}/ordax-release-agent"
     )
     if (
@@ -815,7 +815,7 @@ def _materialize_signed_release(
         "--root",
         str(physical_root),
         "--repository",
-        "ordaxsystems/prototipo-ordax-os",
+        "ordaxsystems/ordax-os",
         "--expected-commit",
         source_sha,
     ]

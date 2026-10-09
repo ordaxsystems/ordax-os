@@ -55,12 +55,12 @@ jobs:
       # current SSOT owner, immutable numeric repository ID and bootstrap digest.
       # This is not a dual-owner authority or a redirect fallback.
       - name: Require exact GitHub identity after canonical transfer
-        if: ${{ (github.repository == 'ordaxsystems/prototipo-ordax-os' || github.repository == 'ordaxsystems/ordax-os') }}
+        if: ${{ github.repository == 'ordaxsystems/ordax-os' }}
         run: |
           set -euo pipefail
           python3 tools/verify/repository_namespace_transfer_preflight.py --require-cutover
       - name: Install pinned Go verifier after physical transfer
-        if: ${{ (github.repository == 'ordaxsystems/prototipo-ordax-os' || github.repository == 'ordaxsystems/ordax-os') }}
+        if: ${{ github.repository == 'ordaxsystems/ordax-os' }}
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: '1.27.1'
@@ -70,7 +70,7 @@ jobs:
       # The pre-merge source and repository-ID checks above stay mandatory.
       # A missing signed stable release must still fail closed after cutover.
       - name: Require published stable Ed25519-signed release after transfer
-        if: ${{ (github.repository == 'ordaxsystems/prototipo-ordax-os' || github.repository == 'ordaxsystems/ordax-os') && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        if: ${{ github.repository == 'ordaxsystems/ordax-os' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           # GitHub metadata proves stable publication, not signature.

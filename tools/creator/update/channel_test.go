@@ -17,7 +17,7 @@ func validManifestForTest() Manifest {
 		Version:      "dev-0123456789ab",
 		SourceCommit: "0123456789abcdef0123456789abcdef01234567",
 		Payload: Payload{
-			URL:    "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip",
+			URL:    "https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip",
 			SHA256: strings.Repeat("a", 64),
 			Size:   1234,
 		},

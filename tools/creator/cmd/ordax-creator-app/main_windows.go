@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	physicalchannel "github.com/ordaxsystems/prototipo-ordax-os/tools/creator/physicalchannel"
+	physicalchannel "github.com/ordaxsystems/ordax-os/tools/creator/physicalchannel"
 )
 
 const (

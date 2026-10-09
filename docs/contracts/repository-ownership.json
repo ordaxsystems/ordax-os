@@ -3,7 +3,7 @@
   "status": "canonical",
   "repositories": {
     "platform": {
-      "repo": "ordaxsystems/prototipo-ordax-os",
+      "repo": "ordaxsystems/ordax-os",
       "owns": [
         "base",
         "boot",
@@ -63,7 +63,7 @@
       ]
     },
     "control_plane": {
-      "repo": "ordaxsystems/ordax-control-plane",
+      "repo": "ordaxsystems/ordax-platform",
       "owns": [
         "product-mcp",
         "cloudflare-control-plane",
@@ -113,10 +113,10 @@
     "dual_authority_allowed": false,
     "provenance_rewrite_allowed": false,
     "canonical_targets": {
-      "platform": "ordaxsystems/prototipo-ordax-os",
+      "platform": "ordaxsystems/ordax-os",
       "apps": "ordaxsystems/ordax-apps",
       "runtime": "ordaxsystems/ordax-runtime",
-      "control_plane": "ordaxsystems/ordax-control-plane"
+      "control_plane": "ordaxsystems/ordax-platform"
     },
     "cutover_order": [
       "runtime",

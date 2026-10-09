@@ -23,11 +23,11 @@ const (
 	manifestSchema   = "prototype-ordax.creator-component-manifest/1"
 	trustSchema      = "prototype-ordax.release-trust/1"
 	purpose          = "creator-inspection-windows-amd64"
-	repository       = "ordaxsystems/prototipo-ordax-os"
+	repository       = "ordaxsystems/ordax-os"
 	recipe           = "creator/component/windows/1"
 	bundleName       = "ordax-creator-components-windows-amd64.zip"
 	componentName    = "ordax-creator-physical-test.exe"
-	bundlePathPrefix = "/ordaxsystems/prototipo-ordax-os/releases/download/creator-components/"
+	bundlePathPrefix = "/ordaxsystems/ordax-os/releases/download/creator-components/"
 	maxDocument      = 256 << 10
 	maxPrivateKey    = 16 << 10
 	maxTrust         = 16 << 10

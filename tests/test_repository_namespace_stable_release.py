@@ -151,7 +151,7 @@ class NamespaceStableReleaseGateTests(TestCase):
         self.assertIn("go run . inspect", workflow)
         self.assertIn("--repository \"$GITHUB_REPOSITORY\"", workflow)
         self.assertIn("release-ed25519.json", workflow)
-        self.assertIn("github.repository == 'ordaxsystems/prototipo-ordax-os'", workflow)
+        self.assertNotIn("ordaxsystems/" + "prototipo-ordax-os", workflow)
         self.assertIn("github.repository == 'ordaxsystems/ordax-os'", workflow)
         self.assertIn("--require-cutover", workflow)
         self.assertIn(

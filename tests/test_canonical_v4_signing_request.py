@@ -25,7 +25,7 @@ def digest(payload: bytes) -> str:
 
 class CanonicalV4SigningRequestTests(unittest.TestCase):
     def _request(self):
-        prefix = f"https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/{TAG}/"
+        prefix = f"https://github.com/ordaxsystems/ordax-os/releases/download/{TAG}/"
         return {
             "$schema": module.REQUEST_SCHEMA,
             "status": "pending-public-assembly",

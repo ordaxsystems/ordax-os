@@ -52,7 +52,7 @@ func validManifestBytes() []byte {
 		ReleaseSequence:   1,
 		CreatedFromRecipe: recipe,
 		Bundle: bundle{
-			URL:    "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-components/ordax-creator-components-windows-amd64.zip",
+			URL:    "https://github.com/ordaxsystems/ordax-os/releases/download/creator-components/ordax-creator-components-windows-amd64.zip",
 			SHA256: strings.Repeat("a", 64),
 			Size:   1234,
 		},
@@ -122,7 +122,7 @@ func TestComponentSignerRejectsWrongPurposeSequenceAndURL(t *testing.T) {
 	}
 
 	_ = json.Unmarshal(validManifestBytes(), &m)
-	m.Bundle.URL = "https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-dev/ordax-creator-components-windows-amd64.zip"
+	m.Bundle.URL = "https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-components-windows-amd64.zip"
 	data, _ = json.Marshal(m)
 	if _, err := validateManifest(data); err == nil || !strings.Contains(err.Error(), "creator-components") {
 		t.Fatalf("wrong URL error=%v", err)
@@ -169,7 +169,7 @@ func TestReadRegularRejectsFinalSymlink(t *testing.T) {
 }
 
 func TestComponentSignerRejectsUnknownManifestField(t *testing.T) {
-	data := []byte(`{"$schema":"prototype-ordax.creator-component-manifest/1","purpose":"creator-inspection-windows-amd64","source_repository":"ordaxsystems/prototipo-ordax-os","source_commit":"0123456789abcdef0123456789abcdef01234567","version":"1.0.0","release_sequence":1,"created_from_recipe":"creator/component/windows/1","bundle":{"url":"https://github.com/ordaxsystems/prototipo-ordax-os/releases/download/creator-components/ordax-creator-components-windows-amd64.zip","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1},"file":{"name":"ordax-creator-physical-test.exe","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":1},"unexpected":true}`)
+	data := []byte(`{"$schema":"prototype-ordax.creator-component-manifest/1","purpose":"creator-inspection-windows-amd64","source_repository":"ordaxsystems/ordax-os","source_commit":"0123456789abcdef0123456789abcdef01234567","version":"1.0.0","release_sequence":1,"created_from_recipe":"creator/component/windows/1","bundle":{"url":"https://github.com/ordaxsystems/ordax-os/releases/download/creator-components/ordax-creator-components-windows-amd64.zip","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1},"file":{"name":"ordax-creator-physical-test.exe","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":1},"unexpected":true}`)
 	if _, err := validateManifest(data); err == nil {
 		t.Fatal("unknown manifest field unexpectedly accepted")
 	}

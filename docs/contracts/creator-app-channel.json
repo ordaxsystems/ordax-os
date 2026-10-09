@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.creator-app-channel/1",
   "status": "blocked-canonical-trust-and-code-signing-pending",
   "purpose": "creator-app-windows-amd64",
-  "source_repository": "ordaxsystems/prototipo-ordax-os",
+  "source_repository": "ordaxsystems/ordax-os",
   "release_tag": "creator-app",
   "artifact_name": "OrdaX-Creator-App.exe",
   "envelope_name": "creator-app-envelope.json",

@@ -139,7 +139,7 @@ def test_canonical_trust_rejects_pr_and_manual_toolkits():
     assert "os.environ['GITHUB_EVENT_NAME'] == 'push'" in TOOLKIT
     assert "os.environ['GITHUB_REF'] == 'refs/heads/main'" in TOOLKIT
     for source in (INITIALIZER, FINALIZER):
-        assert "$ToolkitProvenance.source_repository -ne 'ordaxsystems/prototipo-ordax-os'" in source
+        assert "$ToolkitProvenance.source_repository -ne 'ordaxsystems/ordax-os'" in source
         assert "$ToolkitProvenance.source_event -ne 'push'" in source
         assert "$ToolkitProvenance.source_ref -ne 'refs/heads/main'" in source
         assert "$ToolkitProvenance.canonical_trust_ceremony_eligible -ne $true" in source

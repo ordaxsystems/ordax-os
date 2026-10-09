@@ -48,7 +48,7 @@
         {
           "source_path": "boot/esp/EFI/BOOT/BOOTX64.EFI",
           "target_path": "/EFI/BOOT/BOOTX64.EFI",
-          "sha256": "fed636dedec875e4b4b8b1b19d04df1eb919532da87bbbdde78d192d1ab5cb1f",
+          "sha256": "17041f6bcdae189a11880c5926d052f60b289dc2ed16b0c9e7aa681bdb592d03",
           "mode": "0644",
           "logical_owner": "uefi-boot",
           "reason": "Repository-built systemd-boot fallback executable for x86_64 UEFI"
@@ -205,7 +205,7 @@
         {
           "source_path": "bootstrap/config/release-envelope-url",
           "target_path": "/ordax/bootstrap/config/release-envelope-url",
-          "sha256": "3c3e78d65aee0b120071e6bcee776c83de9e5ea1d8bd1a936d61d09499141741",
+          "sha256": "a5d34ab75cdef9e8826ccef29baf746f1cbb43f1cac1dc94568e47671d335849",
           "mode": "0644",
           "logical_owner": "bootstrap-release-channel",
           "reason": "Stable HTTPS pointer to the latest published signed release envelope on GitHub Releases; signature verification remains authoritative"

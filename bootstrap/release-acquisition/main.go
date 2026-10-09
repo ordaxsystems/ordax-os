@@ -30,7 +30,7 @@ const (
 	manifestSchemaV3 = "prototype-ordax.release-manifest/3"
 	manifestSchemaV4 = "prototype-ordax.release-manifest/4"
 	trustSchema      = "prototype-ordax.release-trust/1"
-	defaultRepo    = "ordaxsystems/prototipo-ordax-os"
+	defaultRepo    = "ordaxsystems/ordax-os"
 	maxEnvelope    = 1 << 20
 	maxPayload     = 512 << 10
 	maxArtifact    = int64(16 << 30)

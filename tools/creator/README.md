@@ -111,7 +111,7 @@ The release-channel pointer is now canonical and hash-bound in the minimal-boots
 
 ```text
 /ordax/bootstrap/config/release-envelope-url
- -> https://github.com/ordaxsystems/prototipo-ordax-os/releases/latest/download/release-envelope.json
+ -> https://github.com/ordaxsystems/ordax-os/releases/latest/download/release-envelope.json
 ```
 
 This URL is only a delivery selector. Authenticity depends on the canonical Ed25519 public trust anchor now pinned and hash-bound in the minimal bootstrap:

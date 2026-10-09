@@ -57,7 +57,7 @@ class DevelopmentActivationReadinessTests(unittest.TestCase):
             return {
                 "name": name,
                 "url": (
-                    "https://github.com/ordaxsystems/prototipo-ordax-os/"
+                    "https://github.com/ordaxsystems/ordax-os/"
                     f"releases/download/{tag}/{name}"
                 ),
                 "sha256": hashlib.sha256(payload).hexdigest(),
