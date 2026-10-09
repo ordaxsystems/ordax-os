@@ -1,19 +1,19 @@
 {
   "$schema": "prototype-ordax.public-legal-readiness/1",
-  "status": "not-ready",
+  "status": "legal-documents-source-ready-activation-pending",
   "account_activation_ready": false,
   "documents": {
     "privacy": {
       "route": "/privacidade/",
-      "final": false,
-      "version": null,
-      "effective_date": null
+      "final": true,
+      "version": "2026.10.09",
+      "effective_date": "2026-10-09"
     },
     "terms": {
       "route": "/termos/",
-      "final": false,
-      "version": null,
-      "effective_date": null
+      "final": true,
+      "version": "2026.10.09",
+      "effective_date": "2026-10-09"
     }
   },
   "identity_activation_requirements": {
@@ -36,7 +36,7 @@
   },
   "registration_binding": {
     "status": "source-ready-policy-projection-applied-final-policy-and-e2e-pending",
-    "policy_reviewed": false,
+    "policy_reviewed": true,
     "canonical_document_versions_server_owned": true,
     "client_supplied_document_versions_trusted": false,
     "server_authoritative_receipt_implemented": true,
