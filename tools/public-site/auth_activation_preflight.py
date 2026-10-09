@@ -363,8 +363,14 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
 
     controls = {
         "runtime_account_ready": runtime_legal.get("account_activation_ready") is True,
-        "runtime_login_route": runtime_identity.get("login_url") == "/auth/login",
-        "runtime_register_route": runtime_identity.get("register_url") == "/auth/register",
+        "runtime_login_route": (
+            runtime_legal.get("account_activation_ready") is True
+            and runtime_identity.get("login_url") == "/auth/login"
+        ),
+        "runtime_register_route": (
+            runtime_legal.get("account_activation_ready") is True
+            and runtime_identity.get("register_url") == "/auth/register"
+        ),
         "runtime_recovery_route": runtime_identity.get("recovery_url") == "/auth/recover",
         "runtime_recovery_complete_route": (
             runtime_identity.get("recovery_complete_url") == "/auth/recover/complete"

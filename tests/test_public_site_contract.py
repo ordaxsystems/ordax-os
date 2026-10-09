@@ -103,8 +103,9 @@ class PublicSiteContractTests(unittest.TestCase):
 
     def test_identity_fails_closed_and_downloads_use_generated_catalog(self):
         config = json.loads((SITE / "config" / "public-site.json").read_text(encoding="utf-8"))
-        self.assertIsNone(config["identity"]["login_url"])
-        self.assertIsNone(config["identity"]["register_url"])
+        self.assertEqual(config["identity"]["login_url"], "/auth/login")
+        self.assertEqual(config["identity"]["register_url"], "/auth/register")
+        self.assertTrue(config["legal"]["auth_only_source_enabled"])
         self.assertIsNone(config["identity"]["recovery_url"])
         self.assertIsNone(config["identity"]["recovery_complete_url"])
         self.assertEqual(config["identity"]["turnstile_sitekey"], "0x4AAAAAAFR-Kz0Uc9rNW_iE")
@@ -188,6 +189,8 @@ class PublicSiteContractTests(unittest.TestCase):
             self.assertIn(" disabled>", page)
         self.assertIn('target === expectedTarget', script)
         self.assertIn('account_activation_ready === true', script)
+        self.assertIn('auth_only_source_enabled === true', script)
+        self.assertIn('validSessionReadiness(await loadJson("/auth/session"))', script)
         self.assertIn('loadJson("/auth/registration-policy")', script)
         self.assertIn('value.registrationEnabled === true', script)
         self.assertIn("validRegistrationPolicy", script)
