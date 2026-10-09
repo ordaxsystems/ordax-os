@@ -49,7 +49,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         auth_index = self.edge.index("verifyPublicProxyIdentity(req)")
         context_index = self.edge.index("verifyTrustedPublicRequestContext(req)")
         address_index = self.edge.index("trustedPublicClientAddress(req)")
-        rpc_index = self.edge.index('rpc("ordax_consume_public_auth_rate_limit_v1"')
+        rpc_index = self.edge.index('accountAdminRpc("ordax_consume_public_auth_rate_limit_v1"')
         forward_index = self.edge.index("fetch(innerTarget")
         self.assertLess(auth_index, context_index)
         self.assertLess(context_index, address_index)
@@ -285,12 +285,31 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("sessionVerificationCache.get(req)", self.inner)
         self.assertNotIn("function trustedPublicSiteRequest(req: Request)", self.inner)
 
+    def test_privileged_sql_uses_bounded_apikey_transport_not_secret_as_bearer(self):
+        shared = (
+            ROOT / "infra" / "supabase" / "functions" / "_shared"
+            / "account_privileged_rpc.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("export async function accountPrivilegedRpc", shared)
+        self.assertIn('origin.origin + "/rest/v1/rpc/" + name', shared)
+        self.assertIn("const ALLOWED = new Set(ACCOUNT_RPC_NAMES)", shared)
+        self.assertIn('if (!key.startsWith("sb_secret_"))', shared)
+        self.assertIn("apikey: key", shared)
+        self.assertIn("readBoundedBody(", shared)
+        for gateway in (self.inner, self.edge):
+            self.assertIn(
+                'import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs"',
+                gateway,
+            )
+            self.assertIn("accountAdminRpc(", gateway)
+            self.assertNotIn("adminClient().rpc(", gateway)
+
     def test_direct_native_auth_uses_same_server_authoritative_rate_limit(self):
         self.assertIn("enforceDirectAuthRateLimit(req, path)", self.inner)
         self.assertIn('req.headers.get("cf-connecting-ip")', self.inner)
         self.assertIn("canonicalizeClientAddress", self.inner)
         self.assertIn("authRateLimitBucket(req.method, path)", self.inner)
-        self.assertIn('rpc("ordax_consume_public_auth_rate_limit_v1"', self.inner)
+        self.assertIn('accountAdminRpc("ordax_consume_public_auth_rate_limit_v1"', self.inner)
         self.assertIn("validateRateLimitRpcResult(data, bucket)", self.inner)
         self.assertIn('"native-client-address-required"', self.inner)
         self.assertIn('"auth-rate-limit-unavailable"', self.inner)

@@ -6,6 +6,7 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
@@ -241,15 +242,13 @@ function client(accessToken?: string) {
   });
 }
 
-function adminClient() {
+function accountAdminRpc(name: string, args: Record<string, unknown> = {}) {
   const { url, key } = adminConfig();
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+  return accountPrivilegedRpc({ url, key, name, args });
 }
 
 async function registrationLegalPolicy() {
-  const { data, error: rpcError } = await adminClient().rpc(
+  const { data, error: rpcError } = await accountAdminRpc(
     "ordax_get_account_registration_legal_policy_v1",
     {},
   );
@@ -318,7 +317,7 @@ async function beginRegistrationLegalIntent(email: string, legalAcceptance: stri
     throw new Error("registration-legal-acceptance-required");
   }
   const normalized = email.trim().toLowerCase();
-  const { data, error: rpcError } = await adminClient().rpc(
+  const { data, error: rpcError } = await accountAdminRpc(
     "ordax_begin_account_registration_legal_intent_v1",
     {
       p_normalized_email: normalized,
@@ -342,7 +341,7 @@ async function hasRegistrationLegalReceipt(userId: unknown) {
   if (typeof userId !== "string" || !ACCOUNT_SUBJECT_UUID.test(userId)) {
     throw new Error("account-subject-invalid");
   }
-  const { data, error: rpcError } = await adminClient().rpc(
+  const { data, error: rpcError } = await accountAdminRpc(
     "ordax_account_has_registration_legal_receipt_v1",
     { p_user_id: userId },
   );
@@ -401,7 +400,7 @@ async function enforceDirectAuthRateLimit(req: Request, path: string) {
   let data: unknown;
   let rpcError: unknown;
   try {
-    const result = await adminClient().rpc("ordax_consume_public_auth_rate_limit_v1", {
+    const result = await accountAdminRpc("ordax_consume_public_auth_rate_limit_v1", {
       p_bucket: bucket,
       p_client_address: address,
     });

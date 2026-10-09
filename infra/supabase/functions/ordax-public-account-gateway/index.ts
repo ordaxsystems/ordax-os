@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   trustedPublicClientAddress,
   validateRateLimitRpcResult,
@@ -8,6 +7,7 @@ import { authRateLimitBucket } from "../_shared/auth_rate_limit.mjs";
 import { verifyTrustedPublicRequestContext } from "./public_request_context.mjs";
 import { verifyPublicProxyIdentity } from "./vercel_oidc.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { accountBridgeSecret } from "../_shared/account_service_bridge.mjs";
 import { stripEdgeFunctionPrefix, isPublicBridgeRoute } from "../_shared/account_transport_admission.mjs";
 import { productCookiesFromUpstream } from "../_shared/account_cookie_policy.mjs";
@@ -81,12 +81,9 @@ function publicBridgeKey() {
   return key;
 }
 
-function adminClient() {
+function accountAdminRpc(name: string, args: Record<string, unknown> = {}) {
   const { url } = providerConfig();
-  const secretKey = serverSecretKey();
-  return createClient(url, secretKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+  return accountPrivilegedRpc({ url, key: serverSecretKey(), name, args });
 }
 
 function routePath(url: URL, method: string) {
@@ -206,7 +203,7 @@ Deno.serve(async (req: Request) => {
     let data: unknown;
     let rpcError: unknown;
     try {
-      const result = await adminClient().rpc("ordax_consume_public_auth_rate_limit_v1", {
+      const result = await accountAdminRpc("ordax_consume_public_auth_rate_limit_v1", {
         p_bucket: bucket,
         p_client_address: trustedAddress.address,
       });
