@@ -30,7 +30,7 @@ build = load_build()
 class PublicLegalReadinessTests(unittest.TestCase):
     def test_canonical_legal_gate_is_not_ready(self):
         contract = json.loads(LEGAL_CONTRACT.read_text(encoding="utf-8"))
-        self.assertEqual(contract["status"], "not-ready")
+        self.assertEqual(contract["status"], "legal-documents-source-ready-activation-pending")
         self.assertFalse(contract["account_activation_ready"])
         operator = contract["operator"]
         self.assertEqual(operator["legal_form"], "natural_person")
@@ -48,10 +48,10 @@ class PublicLegalReadinessTests(unittest.TestCase):
             draft = path.read_text(encoding="utf-8")
             self.assertIn("pessoa física", draft)
             self.assertIn("PENDENTE", draft)
-        self.assertFalse(contract["documents"]["privacy"]["final"])
-        self.assertFalse(contract["documents"]["terms"]["final"])
-        self.assertIsNone(contract["documents"]["privacy"]["version"])
-        self.assertIsNone(contract["documents"]["terms"]["version"])
+        self.assertTrue(contract["documents"]["privacy"]["final"])
+        self.assertTrue(contract["documents"]["terms"]["final"])
+        self.assertEqual(contract["documents"]["privacy"]["version"], "2026.10.09")
+        self.assertEqual(contract["documents"]["terms"]["version"], "2026.10.09")
         binding = contract["registration_binding"]
         self.assertTrue(binding["policy_activation_source_ready"])
         self.assertFalse(binding["policy_activation_applied"])
@@ -142,10 +142,10 @@ class PublicLegalReadinessTests(unittest.TestCase):
     def test_readiness_pages_do_not_claim_final_legal_status(self):
         privacy = (SITE / "privacidade" / "index.html").read_text(encoding="utf-8")
         terms = (SITE / "termos" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("não é uma política de privacidade final", privacy)
-        self.assertIn("não estão vigentes", terms)
-        self.assertIn("Conta pública ainda desativada", privacy)
-        self.assertIn("Cadastro permanece fechado", terms)
+        self.assertIn("Política de Privacidade", privacy)
+        self.assertIn("Termos de Uso", terms)
+        self.assertIn("Versão:", privacy)
+        self.assertIn("O aceite é feito pelo próprio usuário", terms)
 
 
 if __name__ == "__main__":
