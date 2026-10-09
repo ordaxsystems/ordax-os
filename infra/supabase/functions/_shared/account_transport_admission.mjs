@@ -26,6 +26,28 @@ export function accountGatewayRoutePath(pathname) {
   return stripEdgeFunctionPrefix(pathname, "ordax-account-gateway") ?? pathname;
 }
 
+// Shared allowlist for the signed public chain Vercel -> public Edge -> inner
+// Account gateway. A named bridge key is authentication, not blanket authority
+// for every Native route; all three hops enforce this same routing decision.
+const PUBLIC_ACCOUNT_ROUTES = new Map([
+  ["/account/export", "GET"],
+  ["/account/spaces", "GET"],
+  ["/account/entitlements/memory-cloud", "GET"],
+  ["/account/close", "POST"],
+]);
+const PUBLIC_ALLOWED_METHODS = new Set(["GET", "POST"]);
+const PUBLIC_ALLOWED_PREFIXES = ["/auth/", "/sync/"];
+
+export function isPublicBridgeRoute(method, pathname) {
+  if (!PUBLIC_ALLOWED_METHODS.has(method) || typeof pathname !== "string"
+      || pathname.length > 2048 || !pathname.startsWith("/")
+      || pathname.includes("\\") || pathname.includes("\0")
+      || pathname.includes("?") || pathname.includes("#")) return false;
+  const exactAccountMethod = PUBLIC_ACCOUNT_ROUTES.get(pathname);
+  if (exactAccountMethod) return exactAccountMethod === method;
+  return PUBLIC_ALLOWED_PREFIXES.some(prefix => pathname.startsWith(prefix));
+}
+
 // These paths are necessarily callable before a user has a session. State-
 // changing routes still require the gateway's direct Native IP/rate limit and
 // all existing feature/consent gates. No /account, /sync, or /network here.
@@ -64,6 +86,9 @@ export async function authorizeAccountTransport(req, path, {
   if (req.headers.has("x-ordax-public-site")) {
     if (!authenticatedAccountBridge(req.headers, rawBridgeSecretKeys)) {
       return { ok: false, code: "public-account-boundary-authentication-required" };
+    }
+    if (!isPublicBridgeRoute(req.method, path)) {
+      return { ok: false, code: "public-account-route-not-allowed" };
     }
     return { ok: true, mode: "service" };
   }
