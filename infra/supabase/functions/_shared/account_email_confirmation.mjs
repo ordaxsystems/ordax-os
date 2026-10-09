@@ -6,8 +6,8 @@ export const PUBLIC_CONFIRMATION_PATH = "/auth/confirm";
 export const PUBLIC_CONFIRMATION_URL = PUBLIC_ACCOUNT_ORIGIN + PUBLIC_CONFIRMATION_PATH;
 const EMAIL_TOKEN_HASH_RE = /^[0-9a-f]{64}$/i;
 
-export function parseSignupConfirmation(url) {
-  if (!(url instanceof URL) || url.pathname !== PUBLIC_CONFIRMATION_PATH) return null;
+export function parseSignupConfirmation(url, routePath = PUBLIC_CONFIRMATION_PATH) {
+  if (!(url instanceof URL) || routePath !== PUBLIC_CONFIRMATION_PATH) return null;
   const entries = [...url.searchParams];
   if (entries.length !== 2) return null;
   const hashes = url.searchParams.getAll("token_hash");
