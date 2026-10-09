@@ -121,7 +121,7 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     )
     need(
         isinstance(operator.get("privacy_contact_email"), str)
-        and re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", operator["privacy_contact_email"]) is not None,
+        and re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", operator["privacy_contact_email"]) is not None,
         "legal-operator-contact",
     )
     need(legal.get("status") == "ready", "legal-status")
