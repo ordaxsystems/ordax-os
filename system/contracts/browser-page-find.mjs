@@ -20,7 +20,8 @@ export function validatePageFindTabId(value) {
 
 export function validatePageFindResult(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) ||
-      value.type !== "page-find.result" || !FIND_STATES.has(value.state)) {
+      value.type !== "page-find.result" || !FIND_STATES.has(value.state) ||
+      Object.keys(value).sort().join(",") !== "count,query,state,tabId,type") {
     throw new TypeError("Page find result is invalid");
   }
   const tabId = validatePageFindTabId(value.tabId);
