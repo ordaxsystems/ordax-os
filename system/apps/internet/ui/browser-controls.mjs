@@ -1422,7 +1422,7 @@ export function mountInternetBrowserControls(
 
   const onKeyDown = (event) => {
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key?.toLowerCase() === "f"
-        && findPort && findSlot()) {
+        && findPort && findSlot()?.contains(event.target)) {
       event.preventDefault();
       openPageFind();
       return;
