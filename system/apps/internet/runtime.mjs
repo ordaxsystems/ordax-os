@@ -59,6 +59,8 @@ export const componentRuntime = Object.freeze({
     projectReferences = null,
     createFavoritesStore = null,
     createHistoryStore = null,
+    createPageSelectionPort = null,
+    intelligence = null,
     enableShortcuts = true,
     reportDiagnostic = null,
   } = {}) {
@@ -68,16 +70,21 @@ export const componentRuntime = Object.freeze({
     if (createHistoryStore !== null && typeof createHistoryStore !== "function") {
       throw new TypeError("Internet createHistoryStore must be a function or null");
     }
+    if (createPageSelectionPort !== null && typeof createPageSelectionPort !== "function") {
+      throw new TypeError("Internet createPageSelectionPort must be a function or null");
+    }
     const releaseStyles = await mountInternetStyles(root);
     let favorites = null;
     let history = null;
     let historyBridge = null;
     let controls = null;
     let shortcuts = null;
+    let pageSelection = null;
 
     const cleanup = () => {
       shortcuts?.destroy();
       controls?.destroy();
+      pageSelection?.dispose();
       historyBridge?.destroy();
       history?.destroy();
       favorites?.destroy();
@@ -85,6 +92,7 @@ export const componentRuntime = Object.freeze({
     };
 
     try {
+      pageSelection = createPageSelectionPort?.() ?? null;
       const favoritesStore = createFavoritesStore?.() ?? null;
       const historyStore = createHistoryStore?.() ?? null;
       favorites = favoritesStore === null
@@ -104,7 +112,7 @@ export const componentRuntime = Object.freeze({
         root,
         browserSession,
         surfaceLifecycle,
-        { projects, projectReferences, favorites, history },
+        { projects, projectReferences, favorites, history, pageSelection, intelligence },
       );
       shortcuts = enableShortcuts
         ? mountInternetBrowserShortcuts(root, browserSession)
