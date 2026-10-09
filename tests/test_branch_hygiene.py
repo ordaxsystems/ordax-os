@@ -100,6 +100,46 @@ class BranchHygieneTests(unittest.TestCase):
         )
         self.assertEqual(candidates, [])
 
+    def test_exact_frozen_release_ref_survives_containment_but_lookalikes_do_not(self):
+        sha = "a" * 40
+        protected = "release-candidate/" + sha
+        lookalikes = [
+            protected + "-suffix",
+            "release-candidate/" + sha.upper(),
+            "release-candidate/not-a-sha",
+            "feature/contained",
+        ]
+        candidates = branch_hygiene.plan_deletions(
+            REPO, [], [],
+            [branch(protected, sha)] + [branch(name, sha) for name in lookalikes],
+            lambda _ref, _sha: 0,
+        )
+        self.assertEqual({item.ref for item in candidates}, set(lookalikes))
+        self.assertTrue(branch_hygiene.is_protected_ref(protected, sha))
+        self.assertTrue(all(not branch_hygiene.is_protected_ref(ref, sha) for ref in lookalikes))
+
+    def test_candidate_name_with_mismatched_target_sha_remains_deletable(self):
+        sha = "a" * 40
+        ref = "release-candidate/" + sha
+        self.assertFalse(branch_hygiene.is_protected_ref(ref, "b" * 40))
+        candidates = branch_hygiene.plan_deletions(
+            REPO, [], [], [branch(ref, "b" * 40)], lambda _ref, _sha: 0,
+        )
+        self.assertEqual([item.ref for item in candidates], [ref])
+
+    def test_exact_release_candidate_head_is_exempt_from_merged_branch_deletion(self):
+        from unittest import mock
+
+        sha = "a" * 40
+        with mock.patch.object(branch_hygiene, "GitHubApi") as api:
+            self.assertEqual(
+                branch_hygiene.delete_merged_head(
+                    REPO, "release-candidate/" + sha, sha
+                ),
+                0,
+            )
+            api.assert_not_called()
+
     def test_changed_branch_is_preserved_at_delete_boundary(self):
         candidate = branch_hygiene.DeleteCandidate(
             ref="feature",
