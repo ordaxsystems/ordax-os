@@ -727,3 +727,32 @@
 @container (max-width: 520px) {
   .ordax-internet-search-provider { flex-basis: 104px; max-width: 104px; }
 }
+
+/* Native user-approved downloads; browser pages never select destination paths. */
+.ordax-internet-downloads-panel {
+  padding: 12px;
+  border-block-end: 1px solid var(--ordax-border, rgba(130,144,170,.35));
+  max-height: 290px;
+  overflow: auto;
+}
+.ordax-internet-downloads-panel[hidden] { display: none !important; }
+.ordax-internet-downloads-panel h3 { margin: 0 0 8px; font-size: .95rem; }
+.ordax-internet-download-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.ordax-internet-download-row + .ordax-internet-download-row {
+  border-block-start: 1px solid var(--ordax-border, rgba(130,144,170,.35));
+}
+.ordax-internet-download-info { min-width: 0; flex: 1 1 auto; display: grid; gap: 3px; }
+.ordax-internet-download-info strong { overflow-wrap: anywhere; font-weight: 600; }
+.ordax-internet-download-info span { color: var(--ordax-muted, #777); font-size: .84rem; }
+.ordax-internet-download-row button {
+  flex: 0 0 auto;
+  border: 1px solid var(--ordax-border, rgba(130,144,170,.35));
+  color: inherit;
+  background: transparent;
+  border-radius: 8px;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+@media (max-width: 620px) {
+  .ordax-internet-download-row { flex-wrap: wrap; }
+}
