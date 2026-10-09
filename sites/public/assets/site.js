@@ -251,8 +251,8 @@
     for (const key of ["erro", "cadastro"]) {
       const code = params.get(key);
       if (code === null) continue;
-      const message = allowed[key]?.[code];
-      if (!message) continue;
+      if (!Object.hasOwn(allowed[key] ?? {}, code)) continue;
+      const message = allowed[key][code];
       notice.textContent = message[1];
       notice.dataset.kind = message[0];
       notice.setAttribute("role", message[0] === "error" ? "alert" : "status");
@@ -265,8 +265,11 @@
     return value
       && value.$schema === "prototype-ordax.public-identity-session/1"
       && value.provider === "supabase"
-      && typeof value.authenticated === "boolean"
-      && (value.status === "authenticated" || value.status === "anonymous");
+      && (
+        (value.authenticated === false && value.status === "anonymous")
+        || (value.authenticated === true && value.status === "authenticated"
+          && typeof value.subject === "string" && value.subject.length > 0)
+      );
   }
 
   async function renderIdentity(config) {
