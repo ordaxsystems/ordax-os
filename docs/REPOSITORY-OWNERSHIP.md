@@ -2,6 +2,8 @@
 
 Status: **SSOT CANÔNICO**
 
+Status de migração: `cutover-complete-legacy-retired` conforme `docs/contracts/repository-migration-status.json`. Repositórios e responsabilidades atuais são definidos por `docs/contracts/repository-ownership.json`; nomes anteriores identificam apenas histórico, não rotas operacionais.
+
 Este documento define a divisão oficial de responsabilidade entre os repositórios first-party do ecossistema OrdaX. Ele existe para evitar ownership duplicado, migrações oportunistas e dependências acidentais entre app, sistema, runtime e infraestrutura remota.
 
 ## Regra central
@@ -103,8 +105,8 @@ Não é owner de:
 ```text
 ChatGPT
   -> ORDAX for ChatGPT / Product MCP
-  -> ordax-control-plane
-  -> ordax-runtime
+  -> ordaxsystems/ordax-platform
+  -> ordaxsystems/ordax-runtime
   -> capability tipada no dispositivo
   -> receipt/audit
 ```
@@ -112,18 +114,18 @@ ChatGPT
 ### ORDAX Studio no Windows
 
 ```text
-ordax-apps/apps/studio
+ordaxsystems/ordax-apps/apps/studio
   -> host adapter Windows
-  -> ordax-runtime
+  -> ordaxsystems/ordax-runtime
   -> capabilities locais/remotas autorizadas
 ```
 
 ### ORDAX Studio no OrdaX OS
 
 ```text
-ordax-apps/apps/studio
+ordaxsystems/ordax-apps/apps/studio
   -> public App SDK/runtime ports
-  -> prototipo-ordax-os
+  -> ordaxsystems/ordax-os
 ```
 
 O OrdaX OS não deve empacotar um segundo ORDAX Runtime apenas para executar o Studio.
@@ -133,10 +135,10 @@ O OrdaX OS não deve empacotar um segundo ORDAX Runtime apenas para executar o S
 Blender, Unity e integrações futuras são adapters/capabilities. Eles não justificam um novo owner de autorização nem um segundo Device Agent.
 
 Regra atual:
-- execução local/runtime-owned -> `ordax-runtime`;
-- UI/apresentação de capability -> `ordax-apps/apps/studio`;
-- autorização remota -> `ordax-control-plane`;
-- contrato público -> `prototipo-ordax-os`.
+- execução local/runtime-owned -> `ordaxsystems/ordax-runtime`;
+- UI/apresentação de capability -> `ordaxsystems/ordax-apps/apps/studio`;
+- autorização remota -> `ordaxsystems/ordax-platform`;
+- contrato público -> `ordaxsystems/ordax-os`.
 
 ## Regra para o legado mcp-blender
 
@@ -146,8 +148,8 @@ Ele não é owner canônico de nenhuma nova feature.
 
 A exclusão só é permitida depois que:
 1. Studio portátil estiver canônico em `ordax-apps`;
-2. Runtime/Device Host estiver canônico e buildável em `ordax-runtime`;
-3. Product MCP/Control Plane/connectors estiverem canônicos e deployáveis em `ordax-control-plane`;
+2. Runtime/Device Host estiver canônico e buildável em `ordaxsystems/ordax-runtime`;
+3. Product MCP/Control Plane/connectors estiverem canônicos e deployáveis em `ordaxsystems/ordax-platform`;
 4. produção e Windows packaging estiverem repointados;
 5. smoke E2E provar ChatGPT -> Control Plane -> Runtime -> capability -> receipt;
 6. busca de build/deploy/launch provar ausência de dependência funcional do legado.
@@ -167,15 +169,15 @@ A exclusão só é permitida depois que:
 
 ## Estado operacional da migração
 
-Atualizado em 2026-10-07.
+Atualizado em 2026-10-08 após validação da migração concluída e dos quatro owners no GitHub.
 
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
 | OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
 | Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
-| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | repositório criado; migração do legado pendente |
-| Incubação antiga | `washingtonmsdj/mcp-blender` | legado congelado; exclusão bloqueada até conclusão dos gates |
+| Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico; transferido e renomeado, histórico preservado |
+| Incubação antiga | `washingtonmsdj/mcp-blender` | legado aposentado; conteúdo funcional removido conforme contrato de migração; exclusão do repositório é decisão independente |
 
 ### Rastreamento cruzado
 
