@@ -662,6 +662,13 @@ class SurfaceUiContractTests(unittest.TestCase):
             # XML namespace identifiers do not request network resources.
             if path.suffix == '.svg':
                 text = text.replace('xmlns="http://www.w3.org/2000/svg"', '')
+            # Explicit user navigation is not a remote asset/runtime dependency.
+            # Only this literal anchor assignment is allowed; imports, images,
+            # fetches or any other remote URL still fail the offline boundary.
+            if path == APPS / "studio" / "ui" / "workspace-controls.mjs":
+                self.assertIn('chatgpt.target = "_blank"', text)
+                self.assertIn('chatgpt.rel = "noopener noreferrer"', text)
+                text = text.replace('chatgpt.href = "https://chatgpt.com/";', '')
             self.assertNotIn("http://", text, path)
             self.assertNotIn("https://", text, path)
             self.assertNotIn("cdn.", text.lower(), path)

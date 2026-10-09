@@ -36,3 +36,13 @@
 .ordax-studio-metrics strong { font-size: 1.25rem; }
 .ordax-studio-metrics span,
 .ordax-studio-security-note { font-size: .82rem; opacity: .72; }
+
+.ordax-studio-workspace h3{margin:0;font-size:1.5rem;font-weight:600}
+.ordax-studio-availability{margin:0;max-width:65ch;line-height:1.65;color:var(--ordax-muted)}
+.ordax-studio-actions{display:flex;gap:10px;flex-wrap:wrap}
+.ordax-studio-actions :is(button,a){padding:10px 16px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-sm);background:var(--ordax-surface);color:var(--ordax-text);font:inherit;text-decoration:none;cursor:pointer}
+.ordax-studio-actions :is(button,a):focus-visible{outline:2px solid var(--ordax-accent);outline-offset:3px}
+.ordax-studio-workspace details{padding:16px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-sm)}
+.ordax-studio-workspace summary{cursor:pointer;color:var(--ordax-muted)}
+.ordax-studio-runtime-state{margin:16px 0}
+.ordax-app-extension[data-app-extension="studio-workspace"]:has([data-studio-workspace])>.ordax-app-panel-body{display:none}

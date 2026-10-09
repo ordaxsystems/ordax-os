@@ -1,5 +1,10 @@
 # Current State
 
+## Studio Web availability — 2026-10-09 source candidate
+
+The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates Projects to its existing app owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).
+
+
 ## Surface visual identity — 2026-10-09 source candidate
 
 Midnight (dark) and Ice (light) implement the approved ribbon/blue-violet visual direction in the shared Surface tokens/composition. The original local ribbon SVG is shared by the shell and loading screen; the generated landscape is a local offline asset with recorded provenance. Navigation, command search, Home shortcuts and the floating dock retain canonical state owners; Settings previews use the same tokens and the existing `appearance.theme` owner. Light remains the default, and preference persistence, accessibility and account-sync authority are unchanged. See [DESKTOP-IDENTITY.md](DESKTOP-IDENTITY.md) for scope, acceptance and ownership. This source candidate does not activate a production release or establish physical-media evidence.

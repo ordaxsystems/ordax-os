@@ -550,6 +550,17 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     await Promise.resolve();
     let root = document.querySelector('#ordax-root');
     result.compositionMounted = Boolean(root?.querySelector('[data-workspace]'));
+    root.querySelector('.ordax-rail [data-launch-app="studio"]')?.click();
+    await Promise.resolve();
+    const studioWorkspace = root.querySelector('[data-studio-workspace="true"]');
+    result.studioNavigationOpensSharedApp = Boolean(studioWorkspace);
+    result.studioWebAvailabilityIsHonest = /ainda não está integrado|not yet integrated/.test(studioWorkspace?.textContent || '');
+    result.studioUnavailableDoesNotDisplayZeroMetrics = studioWorkspace?.querySelector('.ordax-studio-metrics') === null;
+    const studioChatLink = studioWorkspace?.querySelector('a');
+    result.studioChatUsesExternalPublicSite = studioChatLink?.href === 'https://chatgpt.com/' && studioChatLink?.rel === 'noopener noreferrer';
+    studioWorkspace?.querySelector('[data-launch-app="projects"]')?.click();
+    await Promise.resolve();
+    result.studioProjectsUsesExistingOwner = Boolean(root.querySelector('[data-window-id="projects"]'));
     const homeSettings = root.querySelector('.ordax-home-actions [data-launch-app="settings"]');
     homeSettings?.click();
     await Promise.resolve();
@@ -1091,6 +1102,9 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherSubjectMismatchFailsClosed', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
       'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandMaskLoaded', 'localFontLoaded',
       'globalHeaderClearOfWindows',
+      'studioNavigationOpensSharedApp', 'studioWebAvailabilityIsHonest',
+      'studioUnavailableDoesNotDisplayZeroMetrics', 'studioChatUsesExternalPublicSite',
+      'studioProjectsUsesExistingOwner',
       'homeShortcutOpensRealOwner', 'homeRestoresDesktopWithoutDeletingWindows',
       'homeNavigationReflectsWorkspace', 'homeNavigationClearsWhenAppIsActive',
       'dockShortcutOpensRealOwner', 'sharedShortcutLabels', 'localWallpaperBundled', 'localWallpaperDecoded',

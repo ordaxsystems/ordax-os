@@ -16,11 +16,39 @@ function buildWorkspace(documentObject, status, localization) {
   workspace.dataset.studioWorkspace = "true";
   workspace.className = "ordax-studio-workspace";
 
+  const title = documentObject.createElement("h3");
+  title.textContent = t("studio.workspace.title");
+  workspace.append(title);
+  for (const id of ["studio.workspace.availability", "studio.workspace.web"]) {
+    const paragraph = documentObject.createElement("p");
+    paragraph.className = "ordax-studio-availability";
+    paragraph.textContent = t(id);
+    workspace.append(paragraph);
+  }
+  const actions = documentObject.createElement("nav");
+  actions.className = "ordax-studio-actions";
+  const projects = documentObject.createElement("button");
+  projects.type = "button";
+  projects.dataset.launchApp = "projects";
+  projects.textContent = t("studio.workspace.projects");
+  const chatgpt = documentObject.createElement("a");
+  chatgpt.href = "https://chatgpt.com/";
+  chatgpt.target = "_blank";
+  chatgpt.rel = "noopener noreferrer";
+  chatgpt.textContent = t("studio.workspace.chatgpt");
+  actions.append(projects, chatgpt);
+  workspace.append(actions);
+
+  const diagnostics = documentObject.createElement("details");
+  const summary = documentObject.createElement("summary");
+  summary.textContent = t("studio.workspace.diagnostics");
+  diagnostics.append(summary);
+
   const heading = documentObject.createElement("div");
   heading.className = "ordax-studio-runtime-state";
   heading.textContent = t(statusMessageId(status.state));
   heading.dataset.state = status.state;
-  workspace.append(heading);
+  diagnostics.append(heading);
 
   const metrics = documentObject.createElement("div");
   metrics.className = "ordax-studio-metrics";
@@ -29,12 +57,18 @@ function buildWorkspace(documentObject, status, localization) {
     [t("studio.workspace.metric.read"), status.readCount],
     [t("studio.workspace.metric.write"), status.writeCount],
   ].map(([label, value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join("");
-  workspace.append(metrics);
+  if (status.state !== "unavailable") diagnostics.append(metrics);
+  else {
+    const unavailable = documentObject.createElement("p");
+    unavailable.textContent = t("studio.workspace.noReader");
+    diagnostics.append(unavailable);
+  }
 
   const security = documentObject.createElement("p");
   security.className = "ordax-studio-security-note";
   security.textContent = t("studio.workspace.security.readOnly");
-  workspace.append(security);
+  diagnostics.append(security);
+  workspace.append(diagnostics);
   return workspace;
 }
 
