@@ -62,6 +62,25 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertNotIn("washingtonmsdj/prototipo-ordax-os", section)
         self.assertNotIn("PROMOTED_TO_OFFICIAL=NO", section)
 
+    def test_agent_and_readme_entrypoints_follow_official_repo_ssot(self):
+        canonical = self.contract["repositories"]["platform"]["repo"]
+        migration = json.loads(
+            (ROOT / "docs" / "contracts" / "repository-migration-status.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertEqual(migration["canonical_repositories"]["platform"], canonical)
+        self.assertEqual(migration["status"], "cutover-complete-legacy-retired")
+        for entrypoint in ("AGENTS.md", "README.md"):
+            with self.subTest(entrypoint=entrypoint):
+                header = (ROOT / entrypoint).read_text(encoding="utf-8")[:1500]
+                self.assertIn(f"`{canonical}`", header)
+                self.assertIn("docs/contracts/repository-ownership.json", header)
+                self.assertIn("docs/contracts/repository-migration-status.json", header)
+                self.assertIn("Stable/MVP", header)
+                self.assertIn("docs/PROMOTION-GATES.md", header)
+                self.assertNotIn("PROTOTIPO / NAO PROMOVIDO", header)
+                self.assertNotIn("Nao trate este repositorio como sucessor oficial", header)
+
     def test_security_and_ssot_invariants(self):
         invariants = self.contract["invariants"]
         for key, value in invariants.items():
