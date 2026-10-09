@@ -1,4 +1,5 @@
 import { assertBrowserSessionPort } from "../../../contracts/browser-session.mjs";
+import { resolveBrowserNavigation } from "../../../contracts/browser-navigation.mjs";
 import {
   assertBrowserFavoritesPort,
   validateBrowserFavoriteUrl,
@@ -29,14 +30,6 @@ function iconButton(documentObject, glyph, label, action) {
   button.setAttribute("aria-label", label);
   button.dataset.browserAction = action;
   return button;
-}
-
-function normalizedAddress(value, t) {
-  const input = value.trim();
-  if (!input) return "";
-  if (/^https?:\/\//i.test(input)) return input;
-  if (!/\s/.test(input) && input.includes(".")) return "https:" + "//" + input;
-  throw new TypeError(t("internet.address.invalidExample"));
 }
 
 function displayHost(url, emptyLabel = "") {
@@ -472,7 +465,7 @@ export function mountInternetBrowserControls(
 
     handledSurfaceTarget = target;
     try {
-      const url = normalizedAddress(target, t);
+      const url = resolveBrowserNavigation(target, { allowSearch: false })?.url;
       if (!url) return;
       const tab = activeTab();
       clearMessage();
@@ -1220,7 +1213,7 @@ export function mountInternetBrowserControls(
     const tab = activeTab();
     if (!input || !tab) return;
     try {
-      const url = normalizedAddress(input.value, t);
+      const url = resolveBrowserNavigation(input.value)?.url;
       if (!url) return;
       clearMessage();
       port.navigate(tab.id, url);
