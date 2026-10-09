@@ -23,6 +23,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Require official repository and reviewed main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"
+          test "${GITHUB_REF}" = "refs/heads/main"
+
       - name: Resolve active Auth authority and origin from source contracts
         shell: bash
         run: |
@@ -60,14 +67,21 @@ jobs:
         run: |
           set -euo pipefail
           python - "${RUNNER_TEMP}/auth-provider-proof.json" <<'PY'
+          import hashlib
           import json
+          import os
           import pathlib
           import sys
 
           data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-          assert data["$schema"] == "prototype-ordax.auth-provider-proof/1"
+          assert data["$schema"] == "prototype-ordax.auth-provider-proof/2"
           assert data["provider"] == "supabase"
           assert data["project_ref"] == "redacted"
+          expected_binding = hashlib.sha256(
+              ("supabase-auth-project/1:" + os.environ["SUPABASE_PROJECT_REF"]).encode("ascii")
+          ).hexdigest()
+          assert data["project_binding"] == expected_binding
+          assert data["source_commit"] == os.environ["GITHUB_SHA"]
           assert data["ready"] is True
           assert all(data["checks"].values())
           serialized = json.dumps(data, sort_keys=True).lower()
