@@ -413,3 +413,44 @@ from the canonical Surface token owner. Each page receives a local stylesheet
 link in the **generated bundle**, not the in-progress HTML source; no second
 palette is edited. Supabase email templates use the same colors through
 `tools/brand/build.py` and verified generated HTML. See `docs/BRAND-SSOT.md`.
+
+### Independent public legal-policy digest audit — 2026-10-09
+
+The **single server-owned public registration-policy projection** at
+`/auth/registration-policy` provides the current policy version, canonical
+privacy/terms URLs and their immutable SHA-256 content digests. The source
+`legal.account_activation_ready` describes a separate, broader product gate;
+it must not be inferred from the policy endpoint or an anonymous Supabase
+session. Do not invent a second local policy authority.
+
+`.github/workflows/public-legal-integrity.yml` runs bounded unit tests on
+relevant PRs, and performs a **read-only, anonymous, six-hourly** check of the
+live policy and both HTML documents. The live check never follows redirects,
+accepts only the canonical HTTPS host, restricts payload sizes and response
+types, and refuses mismatched hashes. A failing live audit is a **legal
+integrity** failure, not evidence of DNS/HTTPS downtime; therefore the
+independent uptime probe retains its distinct green/red signal.
+
+```bash
+python -m unittest tests.test_public_site_network_proof tests.test_public_legal_hash_consistency -v
+python tools/public-site/probe_public_network.py --legal-consistency
+```
+
+On 2026-10-09, a read-only PostgreSQL inspection confirmed one active
+`2026.10.09` legal-policy record and the public policy projection returned
+`active:true, registrationEnabled:true`. **Both recorded digests differed
+from the currently served HTML** at `/privacidade/` and `/termos/`.
+The public pages contained a design-token stylesheet injection absent from
+the corresponding raw source HTML, while the persisted digests also did not
+match either representation. To prevent recurrence, the public builder and the
+legal activation candidate now consume the **same pure render_public_html()**
+owner. Activation hashes the exact bytes produced by this shared public build
+transform, not the unrendered HTML. This does **not** rewrite the currently
+active database policy; treat the existing mismatch as a **release blocker
+for legal-policy consistency** until the actual live documents, reviewed/new
+legal version, published artifact SHA and stored policy can be reconciled with
+fresh evidence.
+Do not mutate historical acceptance receipts, patch production hashes in
+place, or flip `account_activation_ready` to conceal the drift. Changes to
+document bytes require a reviewed/versioned policy activation using the
+existing operator-owned workflow and its exact-publication proof.

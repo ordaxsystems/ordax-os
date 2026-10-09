@@ -22,6 +22,7 @@ from pathlib import Path
 # Both public activation gates use one implementation of operator identity rules.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from legal_operator import operator_blockers
+from public_html_render import render_public_html
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -114,7 +115,7 @@ def verify_published_legal_documents(candidate: dict) -> None:
             route = documents[name]["route"]
             item = candidate[name]
             expected_url = origin + route
-            local_digest = sha256_file(route_file(route))
+            local_digest = sha256_published_html_source(route_file(route))
             if (
                 documents[name].get("final") is not True
                 or item["url"] != expected_url
@@ -160,12 +161,15 @@ def route_file(route: str) -> Path:
     return SITE / relative / "index.html"
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def sha256_published_html_source(path: Path) -> str:
+    """Hash the exact HTML emitted by the canonical public-site builder.
+
+    Source markup is not the production publication: the canonical build
+    injects the shared brand stylesheet link. Policy digests MUST use those
+    emitted bytes, not a separately hashed source or a guessed visual asset.
+    """
+    markup = render_public_html(path.read_text(encoding="utf-8"))
+    return hashlib.sha256(markup.encode("utf-8")).hexdigest()
 
 
 def build_candidate(origin: str) -> dict:
@@ -207,7 +211,7 @@ def build_candidate(origin: str) -> dict:
         result[name] = {
             "version": version,
             "effective_date": effective_date,
-            "sha256": sha256_file(path),
+            "sha256": sha256_published_html_source(path),
             "url": clean + route,
         }
 
