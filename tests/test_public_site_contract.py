@@ -218,7 +218,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('notice.textContent = message[1]', script)
         self.assertNotIn("notice.innerHTML", script)
         self.assertIn('"verifique-email"', script)
-        self.assertIn('"credenciais"', script)
+        self.assertIn('credenciais: ["error",', script)
         self.assertIn('"conta-requer-reconciliacao"', script)
         self.assertIn(".identity-notice[hidden]", css)
 
