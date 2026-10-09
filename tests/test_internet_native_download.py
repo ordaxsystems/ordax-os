@@ -47,7 +47,7 @@ class FakeDownload:
         callback,identifier=self.callbacks[signal]
         return callback(self,*arguments,identifier)
 
-def fake_host(downloads_root):
+def fake_host(downloads_root, *, space_check=None):
     source=ast.parse(HOST.read_text(encoding="utf-8"))
     host=next(n for n in source.body if isinstance(n,ast.ClassDef) and n.name=="OrdaXBrowserHost")
     method_names={
@@ -72,7 +72,7 @@ def fake_host(downloads_root):
     )
     namespace={
         "secrets":secrets,"os":os,"re":re,"GLib":glib,
-        "MAX_DOWNLOAD_BYTES":policy.MAX_DOWNLOAD_BYTES,
+        "ensure_download_space":space_check or policy.ensure_download_space,
         "download_destination":policy.download_destination,
         "safe_download_name":policy.safe_download_name,
         "verified_download":policy.verified_download,
@@ -146,24 +146,51 @@ class BrowserDownloadNativeTests(unittest.TestCase):
             self.assertFalse(host.timeout_download(id))
             self.assertEqual(d2.cancel_count,1)
 
-    def test_oversize_denied_and_partial_download_cleaned(self):
+    def test_multi_gigabyte_declared_download_is_not_rejected_by_hard_cap(self):
         with tempfile.TemporaryDirectory() as root:
-            host=fake_host(root)
-            d=FakeDownload(host.view,bytes_expected=policy.MAX_DOWNLOAD_BYTES+1)
+            known_sizes = []
+            def check_space(folder, requested=None):
+                known_sizes.append(requested)
+                return 16 * (1024 ** 3)
+            host=fake_host(root,space_check=check_space)
+            d=FakeDownload(host.view,bytes_expected=5 * (1024 ** 3))
             host.on_download_started(None,d)
-            d.emit("decide-destination","huge.iso")
+            id=next(iter(host.downloads))
+            d.emit("decide-destination","large.iso")
+            self.assertEqual(host.events[-1]["status"],"pending")
+            host.handle_download_decision("download.approve",id)
+            self.assertEqual(known_sizes[0],5 * (1024 ** 3))
+            self.assertEqual(host.events[-1]["status"],"downloading")
+            self.assertIsNotNone(d.destination)
+            host.handle_download_decision("download.cancel",id)
+            d.emit("finished")
+
+    def test_low_disk_capacity_denies_known_size_and_cleans_unknown_partial(self):
+        with tempfile.TemporaryDirectory() as root:
+            state={"low":False}
+            def check_space(folder, requested=None):
+                if state["low"] or (requested is not None and requested > 1024):
+                    raise policy.DownloadStorageSpaceError("not enough free disk space")
+                return 10 * (1024 ** 3)
+            host=fake_host(root,space_check=check_space)
+            d=FakeDownload(host.view,bytes_expected=1025)
+            host.on_download_started(None,d)
+            id=next(iter(host.downloads))
+            d.emit("decide-destination","too-big-for-volume.iso")
+            self.assertEqual(host.events[-1]["status"],"pending")
+            host.handle_download_decision("download.approve",id)
             self.assertEqual(host.events[-1]["status"],"failed")
             self.assertEqual(d.cancel_count,1)
             d.emit("finished")
-            d2=FakeDownload(host.view)
+            d2=FakeDownload(host.view,bytes_expected=-1)
             host.on_download_started(None,d2)
             id=next(iter(host.downloads))
-            d2.emit("decide-destination","file.bin")
+            d2.emit("decide-destination","unknown-size.bin")
             host.handle_download_decision("download.approve",id)
             path=host.downloads[id]["path"]
             Path(path).write_bytes(b"partial")
             d2.emit("created-destination",d2.destination)
-            d2.received=policy.MAX_DOWNLOAD_BYTES+1
+            state["low"]=True
             d2.emit("received-data",1)
             self.assertEqual(host.events[-1]["status"],"failed")
             d2.emit("finished")
