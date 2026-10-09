@@ -61,7 +61,7 @@ class PublicNetworkProofTests(unittest.TestCase):
     def test_probe_accepts_only_canonical_vetted_hosts(self):
         self.assertEqual(network.CANONICAL_HOST, "ordax.com.br")
         self.assertEqual(network.WWW_HOST, "www.ordax.com.br")
-        self.assertEqual(network.CANONICAL_VERCEL_IPV4, "76.76.21.21")
+        self.assertEqual(network.CANONICAL_VERCEL_IPV4, {"216.198.79.1", "64.29.17.1"})
         self.assertEqual(network.PATHS, ("/", "/login/", "/cadastro/", "/privacidade/", "/termos/"))
         self.assertIsNone(
             network.NoRedirect().redirect_request(None, None, 302, "redirect", {}, "https://other.invalid")
@@ -69,7 +69,7 @@ class PublicNetworkProofTests(unittest.TestCase):
 
     def test_success_proves_pages_anonymous_session_and_www_redirect(self):
         with (
-            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=fake_fetch),
         ):
             stream = io.StringIO()
@@ -81,7 +81,7 @@ class PublicNetworkProofTests(unittest.TestCase):
 
     def test_future_active_identity_must_report_supabase_anonymous(self):
         with (
-            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=lambda h, p, *, accept="text/html":
                          fake_fetch(h, p, accept=accept, ready=True)),
         ):
@@ -92,7 +92,7 @@ class PublicNetworkProofTests(unittest.TestCase):
 
     def test_cloudflare_proxy_address_cannot_count_as_direct_vercel(self):
         with patch.object(network, "resolve_v4", return_value={"104.21.40.1"}):
-            with self.assertRaisesRegex(SystemExit, "dns-apex-not-direct-vercel"):
+            with self.assertRaisesRegex(SystemExit, "dns-apex-not-vercel-preferred-ipv4-pair"):
                 network.main()
 
     def test_failed_static_page_does_not_count_as_uptime(self):
@@ -100,7 +100,7 @@ class PublicNetworkProofTests(unittest.TestCase):
             return Response(503) if path == "/login/" else fake_fetch(host, path, accept=accept)
 
         with (
-            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=failing),
         ):
             with self.assertRaisesRegex(SystemExit, "unexpected-page-status:/login/"):
@@ -110,7 +110,7 @@ class PublicNetworkProofTests(unittest.TestCase):
         for ready, wrong_provider in ((False, "supabase"), (True, "gated")):
             with self.subTest(ready=ready):
                 with (
-                    patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+                    patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
                     patch.object(network, "fetch", side_effect=lambda h, p, *, accept="text/html":
                                  fake_fetch(h, p, accept=accept, ready=ready, provider=wrong_provider)),
                 ):
@@ -130,7 +130,7 @@ class PublicNetworkProofTests(unittest.TestCase):
                     return result
 
                 with (
-                    patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+                    patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
                     patch.object(network, "fetch", side_effect=fake_bad),
                 ):
                     with self.assertRaisesRegex(SystemExit, expected):
@@ -146,7 +146,7 @@ class PublicNetworkProofTests(unittest.TestCase):
             return fake_fetch(host, path, accept=accept)
 
         with (
-            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=disabled),
         ):
             stream = io.StringIO()
@@ -166,7 +166,7 @@ class PublicNetworkProofTests(unittest.TestCase):
             return fake_fetch(host, path, accept=accept, ready=True)
 
         with (
-            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=disabled),
         ):
             with self.assertRaisesRegex(SystemExit, "active-account-session-unavailable"):
@@ -184,7 +184,7 @@ class PublicNetworkProofTests(unittest.TestCase):
             )
 
         with (
-            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
             patch.object(network, "fetch", side_effect=failing),
         ):
             with self.assertRaisesRegex(SystemExit, "unexpected-account-gateway-failure"):
