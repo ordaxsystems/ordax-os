@@ -108,6 +108,22 @@ def readiness(root: Path) -> tuple[list[str], dict[str, bool]]:
     privacy = documents.get("privacy", {})
     terms = documents.get("terms", {})
     registration_binding = legal.get("registration_binding", {})
+    operator = legal.get("operator", {})
+    if not isinstance(operator, dict):
+        operator = {}
+    need(operator.get("legal_form") == "natural_person", "legal-operator-form")
+    need(operator.get("identity_reviewed") is True, "legal-operator-identity-review")
+    need(operator.get("privacy_contact_verified") is True, "legal-operator-contact-verification")
+    need(
+        isinstance(operator.get("legal_name"), str)
+        and bool(operator["legal_name"].strip()),
+        "legal-operator-name",
+    )
+    need(
+        isinstance(operator.get("privacy_contact_email"), str)
+        and re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", operator["privacy_contact_email"]) is not None,
+        "legal-operator-contact",
+    )
     need(legal.get("status") == "ready", "legal-status")
     need(legal.get("account_activation_ready") is True, "legal-account-activation")
     need(lifecycle.get("identity_owner") == "ordax-account-gateway", "account-lifecycle-owner")
