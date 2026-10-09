@@ -147,6 +147,21 @@ controles compartilhados; não existe parser de endereços paralelo na UI.
 física já documentada abaixo. A presença dos testes não significa que foram
 executados em hardware neste PR.
 
+## Links que solicitam nova janela
+
+No host Native/WebKit, uma navegação `NEW_WINDOW_ACTION` deixa de ser
+descartada incondicionalmente. Quando originada de uma ação explícita do
+usuário e de uma aba ainda válida, um destino HTTP(S) público é aberto como
+outra aba isolada no mesmo `WebContext` externo, **sem** receber a ponte
+privilegiada da Surface.
+
+- A decisão original é consumida com `decision.ignore()`; não abre uma janela GTK genérica.
+- `NavigationAction.is_user_gesture()` precisa ser verdadeiro; tentativas programáticas não ganham criação irrestrita de abas.
+- O destino passa pela mesma `allowed_external_uri` do host, inclusive limites de credenciais e acesso à rede local.
+- O limite de 16 abas continua autoritativo no host; abas de páginas usam o namespace `popup-*' sem colidir com `tab-*` da Surface.
+- O modo Web continua sem incorporar páginas externas e não simula a funcionalidade.
+- `tests/test_internet_popup_policy.py` executa a função de política extraída da implementação real em ambiente sem GTK. Prova física de comportamento, foco e compatibilidade no WebKit permanece pendente.
+
 ## First implementation slice
 
 Implemented in source:
