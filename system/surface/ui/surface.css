@@ -168,38 +168,6 @@ svg {
   height: 34px;
 }
 
-.ordax-brand-dot {
-  position: absolute;
-  top: 3px;
-  left: 0;
-  width: 29px;
-  height: 29px;
-  border-radius: 50%;
-  background: var(--ordax-text);
-}
-
-.ordax-brand-slash {
-  position: absolute;
-  top: 0;
-  left: 31px;
-  width: 9px;
-  height: 36px;
-  transform: skewX(-25deg);
-  background: var(--ordax-accent);
-}
-
-.ordax-brand-slash::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  bottom: 1px;
-  width: 19px;
-  height: 3px;
-  transform: skewX(25deg);
-  transform-origin: left;
-  background: var(--ordax-accent);
-}
-
 .ordax-brand-word {
   font-family: var(--ordax-font-display);
   font-size: 2rem;
@@ -347,112 +315,6 @@ kbd {
 .ordax-space-arrow {
   width: 21px;
   height: 21px;
-}
-
-.ordax-identity-art {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 63%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.ordax-art-sun {
-  position: absolute;
-  top: 12%;
-  right: 3%;
-  width: min(43vw, 620px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--ordax-accent);
-}
-
-.ordax-art-arc {
-  position: absolute;
-  top: -4%;
-  left: -12%;
-  width: min(58vw, 820px);
-  aspect-ratio: 1;
-  border: 1.5px solid var(--ordax-text);
-  border-radius: 50%;
-  opacity: 0.88;
-}
-
-.ordax-art-slab {
-  position: absolute;
-  display: block;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
-}
-
-.ordax-art-slab::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.16;
-  background-image:
-    radial-gradient(circle at 22% 18%, rgba(0,0,0,0.25) 0 0.6px, transparent 0.7px),
-    radial-gradient(circle at 72% 64%, rgba(255,255,255,0.45) 0 0.6px, transparent 0.7px);
-  background-size: 8px 8px, 11px 11px;
-}
-
-.ordax-art-slab-a {
-  left: 14%;
-  bottom: 8%;
-  width: 48%;
-  height: 74%;
-  clip-path: polygon(8% 13%, 100% 50%, 100% 100%, 0 100%, 0 24%);
-  background: linear-gradient(118deg, var(--ordax-concrete-light), var(--ordax-concrete-mid));
-}
-
-.ordax-art-slab-b {
-  left: 42%;
-  bottom: 0;
-  width: 49%;
-  height: 43%;
-  clip-path: polygon(0 36%, 76% 0, 100% 19%, 100% 100%, 0 100%);
-  background: linear-gradient(118deg, var(--ordax-bg-start), var(--ordax-concrete-light));
-}
-
-.ordax-art-slab-c {
-  right: -3%;
-  bottom: 0;
-  width: 36%;
-  height: 48%;
-  clip-path: polygon(28% 0, 100% 43%, 100% 100%, 0 100%, 0 17%);
-  background: linear-gradient(122deg, var(--ordax-concrete-dark), #090909);
-}
-
-.ordax-art-vertical {
-  position: absolute;
-  z-index: 7;
-  top: -1%;
-  left: 31%;
-  width: 2px;
-  height: 49%;
-  background: var(--ordax-text);
-}
-
-.ordax-art-vertical::after {
-  content: "";
-  position: absolute;
-  top: 150%;
-  left: 0;
-  width: 2px;
-  height: 160px;
-  background: var(--ordax-text);
-}
-
-.ordax-art-caption {
-  position: absolute;
-  top: 9%;
-  right: 8%;
-  font-size: 0.58rem;
-  font-weight: 650;
-  line-height: 1.9;
-  letter-spacing: 0.35em;
 }
 
 .ordax-window-layer {
@@ -1581,11 +1443,6 @@ button.ordax-tray-item:focus-visible {
     padding-left: 42px;
   }
 
-  .ordax-identity-art {
-    width: 58%;
-    opacity: 0.72;
-  }
-
   .ordax-launcher {
     left: calc(84px + (100vw - 84px) * 0.42);
     width: min(580px, calc(100vw - 112px));
@@ -1719,17 +1576,6 @@ button.ordax-tray-item:focus-visible {
   .ordax-command,
   .ordax-space {
     width: min(430px, 100%);
-  }
-
-  .ordax-identity-art {
-    right: -25%;
-    width: 85%;
-    opacity: 0.22;
-  }
-
-  .ordax-art-caption,
-  .ordax-art-vertical {
-    display: none;
   }
 
   .ordax-window-layer {

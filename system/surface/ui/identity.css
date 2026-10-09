@@ -1,293 +1,173 @@
-/*
- * Shared OrdaX product identity.
- *
- * The public landing is an aesthetic reference only. This layer translates
- * that graphite / glacial language into the real Surface while keeping all
- * product behavior in the existing shell and first-party applications.
- * Semantic color, typography, spacing, focus and motion remain owned by
- * tokens.css; this file owns composition and component presentation.
- */
-
-body {
-  background: var(--ordax-bg);
-  font-weight: 400;
-}
-
-::selection {
-  background: var(--ordax-accent);
-  color: var(--ordax-accent-ink);
-}
-
-/* Desktop frame ---------------------------------------------------------- */
+/* Shared Midnight / Ice composition. All visual policy lives in tokens.css. */
+body { background: var(--ordax-bg); font-weight: 400; }
+::selection { background: var(--ordax-accent); color: var(--ordax-accent-ink); }
 
 .ordax-shell {
-  grid-template-columns: 84px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 52px;
+  grid-template-columns: var(--ordax-rail-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 72px;
   gap: 0;
-  background:
-    radial-gradient(circle at 70% 14%, color-mix(in srgb, var(--ordax-accent) 11%, transparent), transparent 29%),
-    radial-gradient(circle at 92% 74%, color-mix(in srgb, var(--ordax-accent) 6%, transparent), transparent 24%),
-    linear-gradient(145deg, var(--ordax-bg-start), var(--ordax-bg-middle) 54%, var(--ordax-bg-end));
+  background: var(--ordax-bg);
 }
-
 .ordax-workspace::before {
   content: "";
   position: absolute;
   z-index: 0;
   inset: 0;
   pointer-events: none;
-  background:
-    linear-gradient(180deg, transparent 0 66%, color-mix(in srgb, var(--ordax-accent) 5%, transparent) 100%),
-    radial-gradient(ellipse at 68% 44%, color-mix(in srgb, var(--ordax-accent) 5%, transparent), transparent 48%);
+  background: var(--ordax-wallpaper-scrim), url("./brand/midnight-landscape.png") center / cover no-repeat;
+  opacity: var(--ordax-wallpaper-opacity);
 }
-
-/* Navigation rail -------------------------------------------------------- */
-
 .ordax-rail {
   z-index: 130;
-  margin: 12px 0;
-  margin-inline-start: 12px;
-  border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-lg);
-  background: color-mix(in srgb, var(--ordax-rail-bg) 92%, transparent);
-  box-shadow: var(--ordax-shadow-soft);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  margin: 0;
+  border: 0;
+  border-inline-end: 1px solid var(--ordax-border-soft);
+  background: var(--ordax-rail-bg);
+  overflow-y: auto;
+  justify-content: flex-start;
 }
-
-.ordax-rail-nav {
-  gap: 7px;
-  padding: 14px 6px 12px;
+.ordax-rail-brand { display: flex; align-items: center; gap: 10px; padding: 25px 22px 15px; }
+.ordax-brand-word { font-size: 1.18rem; font-weight: 650; letter-spacing: -0.04em; white-space: nowrap; }
+.ordax-brand-word small { font-size: 0.75rem; font-weight: 400; color: var(--ordax-muted); }
+.ordax-brand-symbol {
+  display: block;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  background: var(--ordax-brand-fill);
+  mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
+  -webkit-mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ordax-brand-blue) 35%, transparent));
 }
-
+.ordax-rail-nav { gap: 5px; padding: 18px 14px; }
 .ordax-rail-button {
-  width: 70px;
-  min-height: 60px;
-  gap: 5px;
-  padding: 7px 4px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--ordax-radius-md);
   color: var(--ordax-muted);
-  font-size: 0.66rem;
+  text-align: start;
+  font-size: 0.8rem;
   font-weight: var(--ordax-control-weight);
-  transition:
-    color var(--ordax-motion-base) var(--ordax-ease-standard),
-    background var(--ordax-motion-base) var(--ordax-ease-standard),
-    border-color var(--ordax-motion-base) var(--ordax-ease-standard),
-    transform var(--ordax-motion-base) var(--ordax-ease-standard);
 }
-
-.ordax-rail-button::before {
-  inset-inline-start: -7px;
-  top: 17px;
-  bottom: 17px;
-  width: 2px;
-  border-radius: 99px;
-}
-
-.ordax-rail-button:hover:not(:disabled),
-.ordax-rail-button:focus-visible,
-.ordax-rail-button[data-active="true"] {
+.ordax-rail-button::before { inset-inline-start: -8px; top: 13px; bottom: 13px; width: 2px; border-radius: 99px; }
+.ordax-rail-button:hover:not(:disabled), .ordax-rail-button[data-active="true"] {
   border-color: var(--ordax-border-soft);
-  background: var(--ordax-hover-bg);
+  background: var(--ordax-selected-bg);
   color: var(--ordax-text);
 }
-
-.ordax-rail-button:hover:not(:disabled) {
-  transform: translateY(-1px);
+.ordax-rail-icon { width: 22px; height: 22px; flex: 0 0 auto; color: var(--ordax-accent); }
+.ordax-power-slot { margin-top: auto; padding: 0 14px 16px; }
+.ordax-brandbar { top: 22px; inset-inline: 28px; gap: 20px; min-height: 48px; }
+.ordax-brandbar > .ordax-brand { display: none; }
+.ordax-command {
+  pointer-events: auto;
+  width: min(560px, 65%);
+  min-height: 46px;
+  margin: 0;
+  gap: 12px;
+  padding: 0 16px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-xl);
+  background: var(--ordax-glass);
+  backdrop-filter: blur(18px);
+  color: var(--ordax-muted);
+  box-shadow: var(--ordax-shadow-soft);
 }
-
-.ordax-rail-button[data-active="true"]::before {
-  background: var(--ordax-accent);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--ordax-accent) 36%, transparent);
+.ordax-command:hover, .ordax-command:focus-visible { border-color: var(--ordax-focus); background: var(--ordax-panel); }
+.ordax-command:focus-visible, .ordax-home-action:focus-visible { outline: 2px solid var(--ordax-focus); outline-offset: 3px; }
+.ordax-command-icon { width: 18px; height: 18px; color: var(--ordax-accent); }
+.ordax-command-copy { font-size: 0.82rem; }
+.ordax-command kbd, .ordax-launcher-search kbd { border-inline-start-color: var(--ordax-border-soft); }
+.ordax-desktop { overflow-y: auto; }
+.ordax-home-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 268px;
+  grid-template-areas: "hero meta" "hero space" "quick quick";
+  align-items: start;
+  gap: 18px 28px;
+  width: min(1220px, 100%);
+  padding: calc(var(--ordax-header-height) + 24px) 28px 28px;
+  margin-inline: auto;
 }
-
-.ordax-rail-icon {
-  width: 26px;
-  height: 26px;
-  color: var(--ordax-accent);
-}
-
-.ordax-power-slot {
-  padding: 0 6px 8px;
-}
-
-/* Brand and desktop ------------------------------------------------------ */
-
-.ordax-brandbar {
-  top: 24px;
-  inset-inline: 34px;
-}
-
-.ordax-brand {
-  gap: 10px;
-}
-
-.ordax-brand-symbol {
-  width: 44px;
-  height: 28px;
-}
-
-.ordax-brand-dot {
-  top: 2px;
-  width: 25px;
-  height: 25px;
-  border: 1.5px solid var(--ordax-text);
+.ordax-home-hero {
+  grid-area: hero;
+  display: flex;
+  min-height: clamp(310px, 45vh, 460px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  border-radius: var(--ordax-radius-xl);
   background: transparent;
 }
-
-.ordax-brand-slash {
-  top: 1px;
-  left: 29px;
-  width: 2px;
-  height: 26px;
-  transform: none;
-  background: var(--ordax-muted);
+.ordax-area-kicker, .ordax-section-kicker { color: var(--ordax-muted); font-weight: 600; letter-spacing: 0.14em; }
+.ordax-area-kicker { margin-bottom: 30px; }
+.ordax-home-symbol { width: 66px; height: 66px; margin-bottom: 18px; }
+.ordax-home-title { margin: 0; color: var(--ordax-text); font-size: clamp(2.4rem, 4.3vw, 4.2rem); font-weight: 610; letter-spacing: -0.055em; }
+.ordax-home-title span { font-weight: 350; }
+.ordax-home-tagline { margin: 15px 0 0; color: var(--ordax-text); font-size: 0.72rem; letter-spacing: 0.24em; }
+.ordax-home-meta, .ordax-space {
+  width: 100%;
+  margin: 0;
+  padding: 20px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-lg);
+  background: var(--ordax-glass);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--ordax-shadow-soft);
 }
-
-.ordax-brand-slash::after {
-  display: none;
-}
-
-.ordax-brand-word {
-  font-size: 1.2rem;
-  font-weight: 500;
-  letter-spacing: var(--ordax-tracking-tight);
-}
-
-.ordax-brand-rule {
-  width: 58px;
-  background: var(--ordax-border);
-}
-
-.ordax-home-panel {
-  z-index: 14;
-  width: min(520px, 46vw);
-  padding: clamp(132px, 17vh, 184px) 0 72px clamp(40px, 4.6vw, 82px);
-}
-
-.ordax-area-kicker,
-.ordax-section-kicker {
-  color: var(--ordax-muted);
-  font-weight: 600;
-  letter-spacing: 0.25em;
-}
-
-.ordax-clock {
-  font-size: clamp(4.4rem, 8vw, 7rem);
-  font-weight: 420;
-  line-height: 0.9;
-  letter-spacing: -0.07em;
-}
-
-.ordax-date {
-  color: var(--ordax-muted);
-}
-
-.ordax-command {
-  min-height: 52px;
-  border: 1px solid var(--ordax-border);
-  border-radius: 999px;
-  padding: 0 16px;
-  background: color-mix(in srgb, var(--ordax-panel) 58%, transparent);
-  color: var(--ordax-muted);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--ordax-bg) 48%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  transition:
-    border-color var(--ordax-motion-base) var(--ordax-ease-standard),
-    background var(--ordax-motion-base) var(--ordax-ease-standard),
-    color var(--ordax-motion-base) var(--ordax-ease-standard),
-    transform var(--ordax-motion-base) var(--ordax-ease-standard);
-}
-
-.ordax-command:hover,
-.ordax-command:focus-visible {
-  border-color: var(--ordax-accent);
-  background: var(--ordax-hover-bg);
+.ordax-home-meta { grid-area: meta; }
+.ordax-home-panel > .ordax-space { grid-column: 2; }
+.ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-area: space; }
+.ordax-clock { display: block; font-size: 2.1rem; font-weight: 420; line-height: 1.15; letter-spacing: -0.04em; }
+.ordax-date { margin: 8px 0 0; color: var(--ordax-muted); font-size: 0.72rem; line-height: 1.6; }
+.ordax-section-kicker { font-size: 0.6rem; margin-bottom: 12px; }
+.ordax-space-link { min-height: 44px; gap: 10px; border-bottom-color: var(--ordax-border-soft); font-size: 0.78rem; }
+.ordax-space-link:hover:not(:disabled), .ordax-space-link:focus-visible:not(:disabled) { border-radius: var(--ordax-radius-sm); }
+.ordax-space-icon { width: 22px; height: 22px; color: var(--ordax-accent); }
+.ordax-space-arrow { width: 16px; height: 16px; color: var(--ordax-muted); }
+.ordax-home-actions { grid-area: quick; min-width: 0; }
+.ordax-home-action-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.ordax-home-action {
+  display: flex;
+  min-width: 0;
+  min-height: 96px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-lg);
+  background: var(--ordax-glass);
   color: var(--ordax-text);
-  box-shadow: var(--ordax-glow-soft);
-  transform: translateY(-1px);
+  font-size: 0.75rem;
+  font-weight: var(--ordax-control-weight);
+  text-align: start;
+  cursor: pointer;
 }
-
-.ordax-command kbd,
-.ordax-launcher-search kbd {
-  border-inline-start-color: var(--ordax-border-soft);
-}
-
-.ordax-space {
-  margin-top: clamp(42px, 6vh, 64px);
-}
-
-.ordax-space-link {
-  border-bottom-color: var(--ordax-border-soft);
-  transition:
-    padding var(--ordax-motion-base) var(--ordax-ease-standard),
-    background var(--ordax-motion-base) var(--ordax-ease-standard),
-    color var(--ordax-motion-base) var(--ordax-ease-standard);
-}
-
-.ordax-space-link:hover:not(:disabled),
-.ordax-space-link:focus-visible:not(:disabled) {
-  border-radius: var(--ordax-radius-sm);
-}
-
-/* Atmospheric identity art: restrained, cool and product-owned. */
-.ordax-identity-art {
-  width: 64%;
-  opacity: 0.92;
-}
-
-.ordax-art-sun {
-  top: 22%;
-  right: 11%;
-  width: min(16vw, 190px);
-  border: 1px solid var(--ordax-border);
-  background:
-    radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--ordax-accent) 24%, transparent), transparent 34%),
-    radial-gradient(circle at 64% 66%, color-mix(in srgb, var(--ordax-bg) 96%, black), var(--ordax-panel) 60%, var(--ordax-bg) 100%);
-  box-shadow: -24px 20px 58px color-mix(in srgb, var(--ordax-bg) 60%, transparent), var(--ordax-glow-soft);
-}
-
-.ordax-art-arc {
-  top: 5%;
-  left: 1%;
-  width: min(56vw, 840px);
-  border: 1px solid color-mix(in srgb, var(--ordax-accent) 58%, transparent);
-  transform: rotate(-24deg) scaleY(0.48);
-  opacity: 0.72;
-}
-
-.ordax-art-slab {
-  display: none;
-}
-
-.ordax-art-vertical {
-  top: 10%;
-  left: 72%;
-  width: 1px;
-  height: 38%;
-  transform: rotate(38deg);
-  transform-origin: top;
-  background: linear-gradient(transparent, var(--ordax-border), transparent);
-  opacity: 0.65;
-}
-
-.ordax-art-vertical::after {
-  display: none;
-}
-
-.ordax-art-caption {
-  top: auto;
-  right: 8%;
-  bottom: 12%;
-  color: var(--ordax-muted);
-  font-size: 0.56rem;
-  font-weight: 550;
-  letter-spacing: 0.3em;
-}
+.ordax-home-action .ordax-rail-icon { width: 28px; height: 28px; }
+.ordax-home-action:hover:not(:disabled), .ordax-home-action[data-active="true"] { background: var(--ordax-panel); border-color: var(--ordax-accent); box-shadow: var(--ordax-glow-soft); }
+.ordax-home-action:disabled { opacity: 0.45; cursor: not-allowed; }
+.ordax-home-action span:last-child { max-width: 100%; overflow-wrap: anywhere; }
+.ordax-dock-shortcuts { display: flex; gap: 5px; }
+.ordax-dock-shortcut { display: grid; place-items: center; width: 38px; height: 38px; padding: 8px; border: 1px solid var(--ordax-border-soft); border-radius: var(--ordax-radius-md); background: var(--ordax-subtle-bg); cursor: pointer; }
+.ordax-dock-shortcut > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ordax-dock-shortcut:hover:not(:disabled), .ordax-dock-shortcut[data-active="true"] { background: var(--ordax-selected-bg); border-color: var(--ordax-accent); }
+.ordax-dock-shortcut:focus-visible { outline: 2px solid var(--ordax-focus); outline-offset: 2px; }
+.ordax-dock-shortcut:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Windows --------------------------------------------------------------- */
+
+.ordax-window-layer {
+  inset-block-start: var(--ordax-header-height);
+}
 
 .ordax-window {
   width: min(940px, calc(100% - 92px));
@@ -381,10 +261,10 @@ body {
 /* Launcher, dock and quick panels --------------------------------------- */
 
 .ordax-launcher {
-  left: calc(84px + (100vw - 84px) * 0.34);
+  left: calc(var(--ordax-rail-width) + (100vw - var(--ordax-rail-width)) / 2);
   top: auto;
-  bottom: 64px;
-  width: min(640px, calc(100vw - 132px));
+  bottom: 82px;
+  width: min(640px, calc(100vw - var(--ordax-rail-width) - 48px));
   transform: translateX(-50%);
 }
 
@@ -394,10 +274,8 @@ body {
   padding: 14px;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-xl);
-  background: color-mix(in srgb, var(--ordax-panel) 90%, transparent);
+  background: var(--ordax-panel);
   box-shadow: var(--ordax-shadow), var(--ordax-glow-soft);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
 }
 
 .ordax-launcher-search {
@@ -459,16 +337,17 @@ body {
 }
 
 .ordax-statusbar {
-  margin: 0 12px 10px 12px;
-  min-height: 42px;
+  justify-self: center;
+  width: min(960px, calc(100% - 48px));
+  margin: 6px 24px 14px;
+  min-height: 48px;
   gap: 8px;
   padding: 0 12px 0 14px;
   border: 1px solid var(--ordax-border-soft);
   border-radius: var(--ordax-radius-md);
-  background: color-mix(in srgb, var(--ordax-statusbar-bg) 92%, transparent);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--ordax-bg) 44%, transparent);
+  background: var(--ordax-glass);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ordax-bg) 44%, transparent);
 }
 
 .ordax-running-apps {
@@ -503,17 +382,15 @@ body {
 
 .ordax-quick-panel-layer {
   inset-inline-end: 14px;
-  bottom: 66px;
+  bottom: 82px;
 }
 
 .ordax-quick-panel {
   padding: 18px;
   border-color: var(--ordax-border);
   border-radius: var(--ordax-radius-xl);
-  background: color-mix(in srgb, var(--ordax-panel) 92%, transparent);
+  background: var(--ordax-panel);
   box-shadow: var(--ordax-shadow), var(--ordax-glow-soft);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
 }
 
 .ordax-quick-panel-header {
@@ -552,42 +429,7 @@ body {
 .ordax-settings-network-service[data-state="online"] .ordax-settings-network-dot,
 .ordax-settings-network-item[data-state="connected"] .ordax-settings-network-dot {
   background: var(--ordax-accent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--ordax-accent) 26%, transparent);
-}
-
-/* Settings theme previews remain explicit miniature palette samples. */
-.ordax-settings-theme-preview {
-  border-color: #c5d1e0;
-  background: #eef3f9;
-}
-
-.ordax-settings-theme-preview[data-theme-preview="dark"] {
-  border-color: #243249;
-  background: #080f19;
-}
-
-.ordax-settings-theme-rail {
-  background: #d9e2ed;
-}
-
-.ordax-settings-theme-preview[data-theme-preview="dark"] .ordax-settings-theme-rail {
-  background: #07101b;
-}
-
-.ordax-settings-theme-body {
-  background:
-    linear-gradient(#527eb8 0 0) 9px 10px / 34px 4px no-repeat,
-    linear-gradient(#172b47 0 0) 9px 23px / 46px 3px no-repeat,
-    linear-gradient(#8797aa 0 0) 9px 33px / 33px 3px no-repeat,
-    #eef3f9;
-}
-
-.ordax-settings-theme-preview[data-theme-preview="dark"] .ordax-settings-theme-body {
-  background:
-    linear-gradient(#a9c9f7 0 0) 9px 10px / 34px 4px no-repeat,
-    linear-gradient(#e2ebf7 0 0) 9px 23px / 46px 3px no-repeat,
-    linear-gradient(#8e9db4 0 0) 9px 33px / 33px 3px no-repeat,
-    #090f1b;
+  box-shadow: none;
 }
 
 /* First-party headings use the product type system rather than landing type. */
@@ -603,101 +445,46 @@ body {
   letter-spacing: var(--ordax-tracking-tight);
 }
 
-/* Responsive and accessibility ----------------------------------------- */
-
-@media (max-width: 980px) {
-  .ordax-shell {
-    grid-template-columns: 76px minmax(0, 1fr);
-  }
-
-  .ordax-rail-button {
-    width: 62px;
-  }
-
-  .ordax-home-panel {
-    width: min(560px, 58vw);
-    padding-inline-start: 36px;
-  }
-
-  .ordax-identity-art {
-    opacity: 0.56;
-  }
-
-  .ordax-launcher {
-    left: calc(76px + (100vw - 76px) * 0.36);
-    width: min(620px, calc(100vw - 104px));
-  }
+/* Responsive layouts share the same controls and state owners. */
+@media (max-width: 1100px) {
+  .ordax-rail-brand { justify-content: center; padding-inline: 0; }
+  .ordax-rail-brand .ordax-brand-word { display: none; }
+  .ordax-rail-nav { padding: 12px 8px; }
+  .ordax-rail-button { flex-direction: column; gap: 5px; padding: 8px 2px; font-size: 0.58rem; min-height: 60px; text-align: center; }
+  .ordax-home-panel { grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; padding-inline: 22px; }
+  .ordax-home-action-grid { gap: 8px; }
+  .ordax-home-action { padding: 12px; }
 }
-
 @media (max-width: 760px) {
-  .ordax-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-rail {
-    display: none;
-  }
-
-  .ordax-home-panel {
-    width: min(100%, 560px);
-    padding-inline: 24px;
-  }
-
-  .ordax-identity-art {
-    opacity: 0.3;
-  }
-
-  .ordax-window {
-    width: calc(100% - 20px);
-    max-height: calc(100% - 20px);
-    border-radius: var(--ordax-radius-md);
-  }
-
-  .ordax-launcher {
-    left: 50%;
-    bottom: 64px;
-    width: calc(100% - 24px);
-  }
-
-  .ordax-launcher-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-statusbar {
-    margin-inline: 8px;
-  }
-
-  .ordax-quick-panel-layer {
-    inset-inline-end: 8px;
-    bottom: 64px;
-    width: calc(100vw - 16px);
-  }
+  .ordax-shell { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 64px; }
+  .ordax-workspace { grid-column: 1; grid-row: 1; }
+  .ordax-statusbar { grid-column: 1; grid-row: 2; }
+  .ordax-rail { display: none; }
+  .ordax-brandbar { top: 18px; inset-inline: 16px; gap: 12px; }
+  .ordax-brandbar > .ordax-brand { display: flex; }
+  .ordax-brandbar .ordax-brand-word { display: none; }
+  .ordax-command { flex: 1; width: auto; grid-template-columns: 18px minmax(0, 1fr); }
+  .ordax-command kbd { display: none; }
+  .ordax-home-panel { display: flex; flex-direction: column; padding: 100px 16px 24px; gap: 16px; }
+  .ordax-home-hero { width: 100%; min-height: 260px; padding: 24px 12px; }
+  .ordax-home-title { font-size: 2.6rem; }
+  .ordax-home-tagline { font-size: 0.62rem; letter-spacing: 0.16em; }
+  .ordax-home-symbol { width: 52px; height: 52px; }
+  .ordax-home-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; }
+  .ordax-clock { font-size: 1.6rem; }
+  .ordax-date { margin: 0; text-align: end; }
+  .ordax-home-actions { width: 100%; }
+  .ordax-home-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ordax-home-action { min-height: 88px; padding: 12px; }
+  .ordax-window { width: calc(100% - 20px); max-height: calc(100% - 20px); border-radius: var(--ordax-radius-md); }
+  .ordax-launcher { left: 50%; bottom: 74px; width: calc(100% - 24px); }
+  .ordax-launcher-grid { grid-template-columns: 1fr; }
+  .ordax-statusbar { width: calc(100% - 16px); margin: 4px 8px 10px; padding-inline: 8px; gap: 4px; }
+  .ordax-dock-shortcuts { display: none; }
+  .ordax-quick-panel-layer { inset-inline-end: 8px; bottom: 74px; width: calc(100vw - 16px); }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  .ordax-rail-button,
-  .ordax-command,
-  .ordax-window,
-  .ordax-window-control,
-  .ordax-area-button,
-  .ordax-status-action,
-  .ordax-running-app,
-  .ordax-tray-item,
-  .ordax-quick-action,
-  .ordax-quick-settings-link {
-    transition: none;
-  }
+  .ordax-shell button, .ordax-window { transition: none; }
 }
-
-[data-ordax-motion="reduced"] .ordax-rail-button,
-[data-ordax-motion="reduced"] .ordax-command,
-[data-ordax-motion="reduced"] .ordax-window,
-[data-ordax-motion="reduced"] .ordax-window-control,
-[data-ordax-motion="reduced"] .ordax-area-button,
-[data-ordax-motion="reduced"] .ordax-status-action,
-[data-ordax-motion="reduced"] .ordax-running-app,
-[data-ordax-motion="reduced"] .ordax-tray-item,
-[data-ordax-motion="reduced"] .ordax-quick-action,
-[data-ordax-motion="reduced"] .ordax-quick-settings-link {
-  transition: none;
-}
+[data-ordax-motion="reduced"] .ordax-shell button,
+[data-ordax-motion="reduced"] .ordax-window { transition: none; }

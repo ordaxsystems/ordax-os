@@ -14,7 +14,6 @@ const WEB_COMPOSITION_ROOT_MODULE = 'system/composition/web/main.mjs';
 const ROOT_MODULES = [SURFACE_ROOT_MODULE, WEB_COMPOSITION_ROOT_MODULE];
 const CSS_FILES = [
   'system/surface/ui/tokens.css',
-  'system/surface/ui/identity.css',
   'system/surface/ui/surface.css',
   'system/surface/ui/boot-screen.css',
   'system/surface/ui/workspace-areas.css',
@@ -24,6 +23,7 @@ const CSS_FILES = [
   'system/surface/ui/space-switcher.css',
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
+  'system/surface/ui/identity.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
@@ -120,6 +120,25 @@ async function loadComponentAssetUrls(bundleDir) {
     }),
   );
   return Object.freeze(Object.fromEntries(entries));
+}
+
+// The proof injects CSS into about:blank. Resolve bundled assets locally so
+// masks and fonts exercise the same offline resources as the compositions.
+async function loadStyles(bundleDir) {
+  return (await Promise.all(CSS_FILES.map(async (path) => {
+    let css = await readFile(join(bundleDir, path), 'utf8');
+    const urls = [...css.matchAll(/url\(\s*["']?([^"'\s)]+)["']?\s*\)/g)];
+    for (const match of urls) {
+      const asset = resolveModule(bundleDir, path, match[1]);
+      const mediaType = asset.endsWith('.svg') ? 'image/svg+xml'
+        : asset.endsWith('.woff2') ? 'font/woff2'
+        : asset.endsWith('.png') ? 'image/png' : null;
+      if (!mediaType) throw new Error(`unsupported local CSS asset: ${asset}`);
+      const bytes = await readFile(join(bundleDir, asset));
+      css = css.replace(match[0], `url("data:${mediaType};base64,${bytes.toString('base64')}")`);
+    }
+    return css;
+  }))).join('\n');
 }
 
 function which(command) {
@@ -277,6 +296,16 @@ class CdpClient {
   }
 }
 
+// Keep raster URLs short in the about:blank fixture, while decoding the exact
+// offline bundle bytes. CSS variable substitution need not carry megabytes of
+// base64 inside a declaration. The private proof page owns the Blob lifetime.
+function injectedStylesExpression(styles) {
+  return `(${JSON.stringify(styles)}).replace(/url\\("data:image\\/png;base64,([^\"]+)"\\)/g, (_, encoded) => {
+    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+    return 'url("' + URL.createObjectURL(new Blob([bytes], { type: 'image/png' })) + '")';
+  })`;
+}
+
 function buildProofExpression(moduleSources, styles, assetUrls) {
   const namespace = 'shell';
   const rewritten = Object.fromEntries(
@@ -295,7 +324,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     document.write('<!doctype html><html><head></head><body><div id="ordax-proof-root"></div></body></html>');
     document.close();
     const style = document.createElement('style');
-    style.textContent = ${JSON.stringify(styles)};
+    style.textContent = ${injectedStylesExpression(styles)};
     document.head.append(style);
 
     const urls = Object.create(null);
@@ -400,10 +429,11 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.maximizedDatasetAfterRemaximize = windowBefore.dataset.maximized === 'true';
 
     root.querySelector('[data-launcher-toggle]').click();
-    const systemLaunchBefore = root.querySelector('[data-launch-app="system"]');
+    const systemLaunchBefore = root.querySelector('[data-launcher] [data-launch-app="system"]');
     systemLaunchBefore.focus({ preventScroll: true });
+    result.launcherFocusBeforeSnapshot = document.activeElement === systemLaunchBefore;
     host.emit({ capabilityIds: [], connectivity: 'offline' });
-    const systemLaunchAfter = root.querySelector('[data-launch-app="system"]');
+    const systemLaunchAfter = root.querySelector('[data-launcher] [data-launch-app="system"]');
     result.sameLauncherNodeAfterSnapshot = systemLaunchAfter === systemLaunchBefore;
     result.launcherFocusPreserved = document.activeElement === systemLaunchBefore;
 
@@ -423,7 +453,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'windowVisibleAfterRestore', 'sameInputAfterRestore', 'draftPreservedAfterRestore',
       'scrollPreservedAfterRestore', 'maximizedDatasetAfterRestore', 'sameWindowAfterUnmaximize',
       'maximizedDatasetAfterUnmaximize', 'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize',
-      'sameLauncherNodeAfterSnapshot', 'launcherFocusPreserved', 'windowRemovedAfterClose',
+      'launcherFocusBeforeSnapshot', 'sameLauncherNodeAfterSnapshot', 'launcherFocusPreserved', 'windowRemovedAfterClose',
       'dockRemovedAfterClose', 'focusMovedToWorkspaceOnClose',
     ];
     result.requiredAssertions = Object.fromEntries(required.map((name) => [name, Boolean(result[name])]));
@@ -480,7 +510,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     document.write('<!doctype html><html><head></head><body><div id="ordax-boot-screen" class="ordax-boot-screen" data-state="loading"><span data-ordax-boot-status>Preparando OrdaX…</span></div><div id="ordax-root"></div></body></html>');
     document.close();
     const style = document.createElement('style');
-    style.textContent = ${JSON.stringify(styles)};
+    style.textContent = ${injectedStylesExpression(styles)};
     document.head.append(style);
 
     const namespaceUrls = Object.create(null);
@@ -520,6 +550,43 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     await Promise.resolve();
     let root = document.querySelector('#ordax-root');
     result.compositionMounted = Boolean(root?.querySelector('[data-workspace]'));
+    root.querySelector('.ordax-rail [data-launch-app="studio"]')?.click();
+    await Promise.resolve();
+    const studioWorkspace = root.querySelector('[data-studio-workspace="true"]');
+    result.studioNavigationOpensSharedApp = Boolean(studioWorkspace);
+    result.studioWebAvailabilityIsHonest = /ainda não está integrado|not yet integrated/.test(studioWorkspace?.textContent || '');
+    result.studioUnavailableDoesNotDisplayZeroMetrics = studioWorkspace?.querySelector('.ordax-studio-metrics') === null;
+    const studioChatLink = studioWorkspace?.querySelector('a');
+    result.studioChatUsesExternalPublicSite = studioChatLink?.href === 'https://chatgpt.com/' && studioChatLink?.rel === 'noopener noreferrer';
+    const studioAbout = studioWorkspace?.querySelector('[data-studio-disclosure="about"]');
+    if (studioAbout) studioAbout.open = true;
+    result.studioHasSingleContentHeading = [...root.querySelectorAll('[data-app-extension="studio-workspace"] h3')].filter((heading) => getComputedStyle(heading).display !== 'none').length === 1;
+    studioWorkspace?.querySelector('[data-launch-app="projects"]')?.click();
+    await Promise.resolve();
+    result.studioProjectsUsesExistingOwner = Boolean(root.querySelector('[data-window-id="projects"]'));
+    result.studioDisclosureSurvivesNavigation = root.querySelector('[data-studio-workspace="true"] [data-studio-disclosure="about"]')?.open === true;
+    const homeSettings = root.querySelector('.ordax-home-actions [data-launch-app="settings"]');
+    homeSettings?.click();
+    await Promise.resolve();
+    result.homeShortcutOpensRealOwner = root.querySelector('[data-window-id="settings"] [data-app-extension="settings-overview"]')?.dataset.ordaxSettingsOverviewView !== undefined;
+    root.querySelector('[data-show-desktop]')?.click();
+    await Promise.resolve();
+    result.homeRestoresDesktopWithoutDeletingWindows = parsedStorage('ordax.workspace.v2')?.areas?.[0]?.windows?.some((item) => item.appId === 'settings' && item.minimized === true) === true;
+    result.homeNavigationReflectsWorkspace = root.querySelector('[data-show-desktop]')?.getAttribute('aria-current') === 'page';
+    root.querySelector('.ordax-dock-shortcuts [data-launch-app="files"]')?.click();
+    await Promise.resolve();
+    result.dockShortcutOpensRealOwner = Boolean(root.querySelector('[data-window-id="files"]'));
+    result.homeNavigationClearsWhenAppIsActive = root.querySelector('[data-show-desktop]')?.hasAttribute('aria-current') === false;
+    result.sharedShortcutLabels = [...root.querySelectorAll('.ordax-home-action, .ordax-dock-shortcut')].every((button) => button.getAttribute('aria-label') === root.querySelector('.ordax-rail [data-sidebar-app="' + button.dataset.sidebarApp + '"]')?.getAttribute('aria-label'));
+    const wallpaper = getComputedStyle(root.querySelector('[data-workspace]'), '::before').backgroundImage;
+    const wallpaperUrl = wallpaper.match(/url\\("?(blob:[^"\\)]+)"?\\)/)?.[1];
+    result.localWallpaperBundled = Boolean(wallpaperUrl);
+    result.localWallpaperDecoded = await new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(image.naturalWidth >= 1000 && image.naturalHeight >= 500);
+      image.onerror = () => resolve(false);
+      image.src = wallpaperUrl ?? '';
+    });
     const spaceTrigger = root.querySelector('[data-space-switcher-toggle]');
     result.spaceSwitcherMounted = Boolean(spaceTrigger);
     spaceTrigger?.click();
@@ -671,6 +738,21 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.settingsWindowMounted = Boolean(settingsWindow);
     result.settingsOwnerMounted = Boolean(settingsSlot?.dataset.ordaxSettingsOverviewView !== undefined);
     result.settingsStartsAppearance = settingsSlot?.dataset.settingsActiveSection === 'appearance';
+    result.globalHeaderClearOfWindows = settingsWindow?.getBoundingClientRect().top
+      >= root.querySelector('.ordax-brandbar').getBoundingClientRect().bottom;
+    const previewMatchesRoot = (theme) => {
+      const preview = settingsSlot?.querySelector('[data-theme-preview="' + theme + '"]');
+      if (!preview) return false;
+      return ['--ordax-accent', '--ordax-text', '--ordax-app-bg'].every((token) =>
+        getComputedStyle(preview).getPropertyValue(token).trim()
+        === getComputedStyle(root).getPropertyValue(token).trim());
+    };
+    result.lightPreviewFollowsTokens = previewMatchesRoot('light');
+    const brand = root.querySelector('.ordax-brand-symbol');
+    result.localBrandMaskLoaded = Boolean(brand &&
+      getComputedStyle(brand).maskImage.includes('data:image/svg+xml;base64,'));
+    await document.fonts.ready;
+    result.localFontLoaded = [...document.fonts].some((font) => font.family === 'Inter' && font.status === 'loaded');
 
     const darkButton = settingsSlot?.querySelector(
       '[data-settings-preference-id="appearance.theme"][data-settings-preference-value="dark"]',
@@ -680,6 +762,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     await Promise.resolve();
     result.darkThemeApplied = root.dataset.ordaxTheme === 'dark';
     result.darkThemePersisted = parsedStorage('ordax.preferences.v1')?.['appearance.theme'] === 'dark';
+    result.darkPreviewFollowsTokens = previewMatchesRoot('dark');
 
     const accessibilityButton = settingsSlot?.querySelector('[data-settings-section="accessibility"]');
     result.accessibilityNavigationPresent = Boolean(accessibilityButton);
@@ -1021,6 +1104,15 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
 
     const required = [
       'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherSubjectMismatchFailsClosed', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
+      'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandMaskLoaded', 'localFontLoaded',
+      'globalHeaderClearOfWindows',
+      'studioNavigationOpensSharedApp', 'studioWebAvailabilityIsHonest',
+      'studioUnavailableDoesNotDisplayZeroMetrics', 'studioChatUsesExternalPublicSite',
+      'studioProjectsUsesExistingOwner',
+      'studioHasSingleContentHeading', 'studioDisclosureSurvivesNavigation',
+      'homeShortcutOpensRealOwner', 'homeRestoresDesktopWithoutDeletingWindows',
+      'homeNavigationReflectsWorkspace', 'homeNavigationClearsWhenAppIsActive',
+      'dockShortcutOpensRealOwner', 'sharedShortcutLabels', 'localWallpaperBundled', 'localWallpaperDecoded',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
@@ -1107,7 +1199,7 @@ async function main() {
   if (!existsSync(bundleDir)) throw new Error(`bundle directory does not exist: ${bundleDir}`);
   const modules = await collectModules(bundleDir);
   const assetUrls = await loadComponentAssetUrls(bundleDir);
-  const styles = (await Promise.all(CSS_FILES.map((path) => readFile(join(bundleDir, path), 'utf8')))).join('\n');
+  const styles = await loadStyles(bundleDir);
   const browser = findBrowser();
   const cdpPort = await reserveLoopbackPort();
   const profile = await mkdtemp(join(tmpdir(), 'ordax-browser-smoke-'));

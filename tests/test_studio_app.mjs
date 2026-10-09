@@ -12,6 +12,7 @@ import {
   DEVICE_AGENT_PORT_SCHEMA,
 } from "../system/contracts/device-agent.mjs";
 import { translateSurfaceMessage } from "../system/services/i18n/surface.mjs";
+import { STUDIO_WORKSPACE_SOURCE_MESSAGES, STUDIO_WORKSPACE_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/studio-workspace.mjs";
 
 function reader(capabilities) {
   return Object.freeze({
@@ -61,6 +62,16 @@ test("Studio Surface copy is complete in supported locales", () => {
       assert.equal(typeof copy, "string");
       assert.ok(copy.length > 0, `${locale} must define ${messageId}`);
     }
+  }
+});
+
+test("Studio availability copy separates the OS host panel from the portable product", () => {
+  assert.deepEqual(Object.keys(STUDIO_WORKSPACE_SOURCE_MESSAGES).sort(), Object.keys(STUDIO_WORKSPACE_ENGLISH_MESSAGES).sort());
+  assert.match(STUDIO_WORKSPACE_SOURCE_MESSAGES['studio.workspace.availability'], /ainda não está integrado/);
+  assert.match(STUDIO_WORKSPACE_ENGLISH_MESSAGES['studio.workspace.availability'], /not yet integrated/);
+  for (const catalog of [STUDIO_WORKSPACE_SOURCE_MESSAGES, STUDIO_WORKSPACE_ENGLISH_MESSAGES]) {
+    assert.match(catalog['studio.workspace.web'], /Work\/Codex/);
+    assert.ok(catalog['studio.workspace.noReader'].length > 30);
   }
 });
 

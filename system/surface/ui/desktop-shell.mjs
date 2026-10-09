@@ -9,9 +9,11 @@ const SURFACE_LOCALE = "pt-BR";
 const SURFACE_TIME_ZONE = "America/Bahia";
 
 const ICONS = Object.freeze({
+  home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/></svg>`,
   files: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 8.5v-3A1.5 1.5 0 0 1 5 4h4.3l2.2 2.5"/></svg>`,
   projects: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7.5" height="6.5" rx="1.2"/><rect x="13" y="4" width="7.5" height="6.5" rx="1.2"/><rect x="3.5" y="13.5" width="7.5" height="6.5" rx="1.2"/><rect x="13" y="13.5" width="7.5" height="6.5" rx="1.2"/></svg>`,
   assistant: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H9l-4 3v-13z"/><path d="M9 9h6M9 12h4"/></svg>`,
+  studio: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11m4-7 2 2-2 2m4 0h2"/></svg>`,
   internet: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.8 12h16.4M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5S14.4 18 12 20.5C9.6 18 8.4 15.2 8.4 12S9.6 6 12 3.5z"/></svg>`,
   networkApp: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3.5 19a4.5 4.5 0 0 1 9 0M12.5 18.5a4 4 0 0 1 8 0"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.5 1a8 8 0 0 0-2-1.2L14 3h-4l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2L10 21h4l.4-2.6a8 8 0 0 0 2-1.2l2.5 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>`,
@@ -27,9 +29,9 @@ const ICONS = Object.freeze({
   clock: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/></svg>`,
 });
 
-function railButton(appId, label, icon, t) {
+function railButton(appId, label, icon, t, className = "ordax-rail-button") {
   return `
-    <button type="button" class="ordax-rail-button" data-sidebar-app="${appId}" data-launch-app="${appId}" aria-label="${t("surface.launcher.open", { app: label })}">
+    <button type="button" class="${className}" data-sidebar-app="${appId}" data-launch-app="${appId}" aria-label="${t("surface.launcher.open", { app: label })}">
       <span class="ordax-rail-icon">${icon}</span>
       <span>${label}</span>
     </button>`;
@@ -58,9 +60,12 @@ export function createDesktopShellMarkup(localization) {
   return `
     <div class="ordax-shell" data-ordax-shell>
       <aside class="ordax-rail" aria-label="${t("shell.rail.aria")}">
+        <div class="ordax-rail-brand"><span class="ordax-brand-symbol" aria-hidden="true"></span><span class="ordax-brand-word">OrdaX <small>OS</small></span></div>
         <nav class="ordax-rail-nav">
+          <button type="button" class="ordax-rail-button" data-show-desktop><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button>
           ${railButton("files", t("app.files.title"), ICONS.files, t)}
           ${railButton("projects", t("app.projects.title"), ICONS.projects, t)}
+          ${railButton("studio", t("app.studio.title"), ICONS.studio, t)}
           ${railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)}
           ${railButton("internet", t("app.internet.title"), ICONS.internet, t)}
           ${railButton("network", t("app.network.title"), ICONS.networkApp, t)}
@@ -74,27 +79,35 @@ export function createDesktopShellMarkup(localization) {
       <main class="ordax-workspace" tabindex="-1" data-workspace>
         <header class="ordax-brandbar">
           <div class="ordax-brand" aria-label="OrdaX">
-            <span class="ordax-brand-symbol" aria-hidden="true">
-              <span class="ordax-brand-dot"></span>
-              <span class="ordax-brand-slash"></span>
-            </span>
+            <span class="ordax-brand-symbol" aria-hidden="true"></span>
             <span class="ordax-brand-word">OrdaX</span>
           </div>
-          <span class="ordax-brand-rule" aria-hidden="true"></span>
+          <button type="button" class="ordax-command" data-launcher-toggle aria-expanded="false" aria-controls="ordax-launcher">
+            <span class="ordax-command-icon">${ICONS.search}</span>
+            <span class="ordax-command-copy">${t("shell.launcher.command")}</span>
+            <kbd>Ctrl + K</kbd>
+          </button>
           <div class="ordax-space-switcher-slot" data-space-switcher-slot></div>
         </header>
 
         <section class="ordax-desktop" aria-labelledby="surface-home-title">
           <div class="ordax-home-panel">
-            <p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p>
-            <h1 id="surface-home-title" class="ordax-clock"><time data-ordax-clock>--:--</time></h1>
-            <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p>
-
-            <button type="button" class="ordax-command" data-launcher-toggle aria-expanded="false" aria-controls="ordax-launcher">
-              <span class="ordax-command-icon">${ICONS.search}</span>
-              <span class="ordax-command-copy">${t("shell.launcher.command")}</span>
-              <kbd>Ctrl + K</kbd>
-            </button>
+            <div class="ordax-home-hero">
+              <p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p>
+              <span class="ordax-brand-symbol ordax-home-symbol" aria-hidden="true"></span>
+              <h1 id="surface-home-title" class="ordax-home-title">OrdaX <span>OS</span></h1>
+              <p class="ordax-home-tagline" data-home-tagline>${t("shell.home.tagline")}</p>
+            </div>
+            <div class="ordax-home-meta">
+              <time class="ordax-clock" data-ordax-clock>--:--</time>
+              <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p>
+            </div>
+            <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
+              <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
+              <div class="ordax-home-action-grid">
+                ${["assistant", "projects", "files", "internet", "network", "settings"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id === "network" ? "networkApp" : id], t, "ordax-home-action")).join("")}
+              </div>
+            </section>
 
             <section class="ordax-space" aria-labelledby="ordax-space-title">
               <p id="ordax-space-title" class="ordax-section-kicker">${t("shell.space.title")}</p>
@@ -104,15 +117,6 @@ export function createDesktopShellMarkup(localization) {
             </section>
           </div>
 
-          <div class="ordax-identity-art" aria-hidden="true">
-            <span class="ordax-art-sun"></span>
-            <span class="ordax-art-arc"></span>
-            <span class="ordax-art-slab ordax-art-slab-a"></span>
-            <span class="ordax-art-slab ordax-art-slab-b"></span>
-            <span class="ordax-art-slab ordax-art-slab-c"></span>
-            <span class="ordax-art-vertical"></span>
-            <span class="ordax-art-caption">${t("shell.slogan").split("\n").join("<br>")}</span>
-          </div>
         </section>
 
         <div class="ordax-window-layer" data-window-layer aria-live="polite"></div>
@@ -131,6 +135,9 @@ export function createDesktopShellMarkup(localization) {
 
       <footer class="ordax-dock ordax-statusbar" aria-label="${t("shell.statusbar.aria")}">
         <div class="ordax-area-switcher" data-area-switcher aria-label="${t("shell.areas.aria")}"></div>
+        <div class="ordax-dock-shortcuts">
+          ${["assistant", "files", "projects", "internet"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-dock-shortcut")).join("")}
+        </div>
         <div class="ordax-running-apps" data-running-apps aria-label="${t("shell.runningApps.aria")}"></div>
         <div class="ordax-status-actions" data-update-slot></div>
         <div class="ordax-system-tray" aria-label="${t("shell.systemStatus.aria")}">
@@ -214,12 +221,16 @@ export function syncDesktopShellLocalization(root, localization) {
 
   aria(".ordax-rail", "shell.rail.aria");
   for (const appId of ["files", "projects", "notes", "assistant", "internet", "network", "settings", "account", "system"]) {
-    const button = root.querySelector(`[data-sidebar-app="${appId}"]`);
     const label = t(`app.${appId}.title`);
-    const labelNode = button?.querySelector("span:last-child");
-    if (labelNode) labelNode.textContent = label;
-    button?.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
+    for (const button of root.querySelectorAll(`[data-sidebar-app="${appId}"]`)) {
+      const labelNode = button.querySelector("span:last-child");
+      if (labelNode) labelNode.textContent = label;
+      button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
+    }
   }
+  text("[data-home-nav-label]", "shell.home.title");
+  text("[data-home-tagline]", "shell.home.tagline");
+  text("#ordax-home-actions-title", "shell.home.quickAccess");
   text(".ordax-command-copy", "shell.launcher.command");
   text("#ordax-space-title", "shell.space.title");
   const spaceMessages = new Map([
@@ -234,8 +245,6 @@ export function syncDesktopShellLocalization(root, localization) {
     if (labelNode) labelNode.textContent = label;
     button?.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
   }
-  const slogan = root.querySelector(".ordax-art-caption");
-  if (slogan) slogan.innerHTML = t("shell.slogan").split("\n").join("<br>");
 
   aria("[data-launcher] .ordax-launcher-panel", "shell.launcher.dialog");
   const launcherQuery = root.querySelector("[data-launcher-query]");

@@ -25,58 +25,68 @@ html[data-ordax-text-scale="extra-large"] {
  * not create a second palette per app.
  */
 :root,
-[data-ordax-theme="dark"] {
+[data-ordax-theme="dark"],
+[data-theme-preview="dark"] {
   color-scheme: dark;
 
-  /* Core palette — approved graphite / glacial identity. */
-  --ordax-bg: #080f19;
-  --ordax-app-bg: #090f1b;
-  --ordax-panel: #111e30;
-  --ordax-bg-start: #080f19;
-  --ordax-bg-middle: #0a1320;
-  --ordax-bg-end: #050b13;
-  --ordax-surface: rgba(13, 23, 37, 0.96);
-  --ordax-surface-strong: rgba(17, 30, 48, 0.98);
-  --ordax-window-bg: #090f1b;
-  --ordax-rail-bg: rgba(7, 14, 24, 0.97);
-  --ordax-statusbar-bg: rgba(8, 15, 25, 0.97);
-  --ordax-subtle-bg: rgba(169, 201, 247, 0.045);
-  --ordax-hover-bg: rgba(169, 201, 247, 0.085);
-  --ordax-selected-bg: rgba(169, 201, 247, 0.13);
-  --ordax-border: #243249;
-  --ordax-border-soft: rgba(110, 139, 179, 0.2);
-  --ordax-text: #e2ebf7;
-  --ordax-muted: #8e9db4;
-  --ordax-faint: #607089;
-  --ordax-accent: #a9c9f7;
-  --ordax-accent-strong: #c5dcff;
-  --ordax-accent-ink: #172b47;
-  --ordax-focus: #a9c9f7;
-  --ordax-button-bg: #d1e4ff;
-  --ordax-button-text: #172b47;
+  /* Core palette — Midnight. Brand decoration never replaces semantic state colors. */
+  --ordax-bg: #0a0f1f;
+  --ordax-app-bg: #111827;
+  --ordax-panel: #161f33;
+  --ordax-bg-start: #0a0f1f;
+  --ordax-bg-middle: #10192e;
+  --ordax-bg-end: #080d1a;
+  --ordax-surface: #121b2d;
+  --ordax-surface-strong: #161f33;
+  --ordax-window-bg: #111827;
+  --ordax-rail-bg: #0e1628;
+  --ordax-statusbar-bg: #0e1628;
+  --ordax-subtle-bg: rgba(143, 178, 238, 0.045);
+  --ordax-hover-bg: rgba(143, 178, 238, 0.1);
+  --ordax-selected-bg: rgba(56, 130, 246, 0.18);
+  --ordax-border: #43516e;
+  --ordax-border-soft: rgba(158, 187, 235, 0.22);
+  --ordax-text: #e3f0ff;
+  --ordax-muted: #b8c7df;
+  --ordax-faint: #9dacc5;
+  --ordax-accent: #8dbbff;
+  --ordax-accent-strong: #b7d5ff;
+  --ordax-accent-ink: #101d38;
+  --ordax-focus: #a7d6ff;
+  --ordax-button-bg: #8dbbff;
+  --ordax-button-text: #101d38;
 
   /* Semantic states remain independent from the brand accent. */
-  --ordax-success: #83d2b1;
-  --ordax-success-bg: rgba(131, 210, 177, 0.12);
-  --ordax-warning: #e7c88f;
-  --ordax-warning-bg: rgba(231, 200, 143, 0.12);
-  --ordax-danger: #f0a0a5;
-  --ordax-danger-bg: rgba(240, 160, 165, 0.12);
+  --ordax-success: #93dfbd;
+  --ordax-success-bg: rgba(147, 223, 189, 0.12);
+  --ordax-warning: #f3cd8c;
+  --ordax-warning-bg: rgba(243, 205, 140, 0.12);
+  --ordax-danger: #ffb4bb;
+  --ordax-danger-bg: rgba(255, 180, 187, 0.12);
 
   /* Depth and material. */
-  --ordax-shadow: 0 24px 64px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(169, 201, 247, 0.025);
-  --ordax-shadow-soft: 0 12px 34px rgba(0, 0, 0, 0.28);
-  --ordax-glow-soft: 0 0 42px rgba(115, 166, 232, 0.08);
-  --ordax-concrete-light: #22334a;
-  --ordax-concrete-mid: #142238;
-  --ordax-concrete-dark: #07101b;
+  --ordax-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --ordax-shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.16);
+  /* A valid empty shadow also composes with comma-separated shadow lists. */
+  --ordax-glow-soft: 0 0 24px rgba(56, 130, 246, 0.12);
+
+  /* Shared brand, wallpaper and shell geometry. */
+  --ordax-brand-blue: #3882f6;
+  --ordax-brand-violet: #8b5cf6;
+  --ordax-brand-cyan: #22d3ee;
+  --ordax-brand-fill: conic-gradient(from 215deg, var(--ordax-brand-cyan), var(--ordax-brand-blue), var(--ordax-brand-violet), var(--ordax-text), var(--ordax-brand-blue), var(--ordax-brand-cyan));
+  --ordax-wallpaper-scrim: linear-gradient(90deg, rgba(10, 15, 31, 0.42), rgba(10, 15, 31, 0.25) 48%, rgba(10, 15, 31, 0.65));
+  --ordax-wallpaper-opacity: 1;
+  --ordax-glass: rgba(14, 22, 40, 0.94);
+  --ordax-rail-width: 202px;
+  --ordax-header-height: 92px;
 
   /* Geometry. */
-  --ordax-radius-xs: 6px;
-  --ordax-radius-sm: 8px;
-  --ordax-radius-md: 12px;
-  --ordax-radius-lg: 18px;
-  --ordax-radius-xl: 24px;
+  --ordax-radius-xs: 4px;
+  --ordax-radius-sm: 6px;
+  --ordax-radius-md: 10px;
+  --ordax-radius-lg: 14px;
+  --ordax-radius-xl: 18px;
   --ordax-space-1: 0.25rem;
   --ordax-space-2: 0.5rem;
   --ordax-space-3: 0.75rem;
@@ -88,9 +98,9 @@ html[data-ordax-text-scale="extra-large"] {
   /* Typography. Inter is the canonical UI/display family. */
   --ordax-font: Inter, system-ui, "Segoe UI", sans-serif;
   --ordax-font-display: Inter, system-ui, "Segoe UI", sans-serif;
-  --ordax-title-weight: 450;
+  --ordax-title-weight: 540;
   --ordax-control-weight: 550;
-  --ordax-tracking-tight: -0.035em;
+  --ordax-tracking-tight: -0.025em;
 
   /* Motion. */
   --ordax-motion-fast: 150ms;
@@ -99,61 +109,76 @@ html[data-ordax-text-scale="extra-large"] {
   --ordax-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-[data-ordax-theme="light"] {
+[data-ordax-theme="light"],
+[data-theme-preview="light"] {
   color-scheme: light;
-  --ordax-bg: #eef3f9;
-  --ordax-app-bg: #f7f9fc;
+  --ordax-bg: #edf3fc;
+  --ordax-app-bg: #f8fbff;
   --ordax-panel: #ffffff;
-  --ordax-bg-start: #f6f9fd;
-  --ordax-bg-middle: #edf3fa;
-  --ordax-bg-end: #e6edf6;
-  --ordax-surface: rgba(248, 250, 253, 0.96);
-  --ordax-surface-strong: rgba(255, 255, 255, 0.98);
-  --ordax-window-bg: #f8fafc;
-  --ordax-rail-bg: rgba(235, 241, 248, 0.97);
-  --ordax-statusbar-bg: rgba(241, 246, 251, 0.97);
-  --ordax-subtle-bg: rgba(23, 43, 71, 0.035);
-  --ordax-hover-bg: rgba(23, 43, 71, 0.065);
-  --ordax-selected-bg: rgba(77, 121, 178, 0.11);
-  --ordax-border: #c5d1e0;
-  --ordax-border-soft: rgba(80, 103, 134, 0.16);
-  --ordax-text: #172b47;
-  --ordax-muted: #62748c;
-  --ordax-faint: #8797aa;
-  --ordax-accent: #527eb8;
-  --ordax-accent-strong: #365f96;
-  --ordax-accent-ink: #f7fbff;
-  --ordax-focus: #315f9f;
-  --ordax-button-bg: #172b47;
-  --ordax-button-text: #edf5ff;
-  --ordax-success: #28785d;
-  --ordax-success-bg: rgba(40, 120, 93, 0.1);
-  --ordax-warning: #8b651b;
-  --ordax-warning-bg: rgba(139, 101, 27, 0.1);
-  --ordax-danger: #a33e49;
-  --ordax-danger-bg: rgba(163, 62, 73, 0.1);
-  --ordax-shadow: 0 24px 58px rgba(39, 59, 82, 0.16), 0 0 0 1px rgba(39, 59, 82, 0.025);
-  --ordax-shadow-soft: 0 10px 28px rgba(39, 59, 82, 0.1);
-  --ordax-glow-soft: 0 0 36px rgba(82, 126, 184, 0.06);
-  --ordax-concrete-light: #dbe5f1;
-  --ordax-concrete-mid: #9fb0c5;
-  --ordax-concrete-dark: #28384d;
+  --ordax-bg-start: #edf3fc;
+  --ordax-bg-middle: #e5edfa;
+  --ordax-bg-end: #dce7f8;
+  --ordax-surface: #f1f6fd;
+  --ordax-surface-strong: #ffffff;
+  --ordax-window-bg: #f8fbff;
+  --ordax-rail-bg: #f4f8ff;
+  --ordax-statusbar-bg: #f4f8ff;
+  --ordax-subtle-bg: rgba(35, 70, 128, 0.035);
+  --ordax-hover-bg: rgba(35, 70, 128, 0.07);
+  --ordax-selected-bg: rgba(35, 90, 192, 0.1);
+  --ordax-border: #a5b5d0;
+  --ordax-border-soft: rgba(65, 92, 139, 0.22);
+  --ordax-text: #14213b;
+  --ordax-muted: #4d5e7b;
+  --ordax-faint: #4d5e7b;
+  --ordax-accent: #235ac0;
+  --ordax-accent-strong: #194597;
+  --ordax-accent-ink: #ffffff;
+  --ordax-focus: #235ac0;
+  --ordax-button-bg: #235ac0;
+  --ordax-button-text: #ffffff;
+  --ordax-success: #226944;
+  --ordax-success-bg: rgba(34, 105, 68, 0.1);
+  --ordax-warning: #82570e;
+  --ordax-warning-bg: rgba(130, 87, 14, 0.1);
+  --ordax-danger: #aa3447;
+  --ordax-danger-bg: rgba(170, 52, 71, 0.1);
+  --ordax-shadow: 0 16px 42px rgba(24, 49, 91, 0.14);
+  --ordax-shadow-soft: 0 4px 14px rgba(24, 49, 91, 0.08);
+  --ordax-glow-soft: 0 0 0 transparent;
+  --ordax-wallpaper-scrim: linear-gradient(90deg, rgba(237, 243, 252, 0.94), rgba(237, 243, 252, 0.86) 48%, rgba(237, 243, 252, 0.96));
+  --ordax-wallpaper-opacity: 0.65;
+  --ordax-glass: rgba(248, 251, 255, 0.96);
 }
 
 [data-ordax-theme="light"][data-ordax-contrast="high"] {
-  --ordax-muted: #40546e;
-  --ordax-faint: #52677f;
-  --ordax-border: #6f839d;
-  --ordax-border-soft: rgba(41, 61, 86, 0.34);
-  --ordax-focus: #173f78;
+  --ordax-muted: #27364d;
+  --ordax-faint: #2c3c55;
+  --ordax-border: #445c82;
+  --ordax-border-soft: rgba(30, 55, 95, 0.42);
+  --ordax-focus: #164baf;
 }
 
 [data-ordax-theme="dark"][data-ordax-contrast="high"] {
-  --ordax-muted: #c4d2e4;
-  --ordax-faint: #a5b5cb;
-  --ordax-border: #7187a6;
-  --ordax-border-soft: rgba(193, 215, 244, 0.36);
-  --ordax-focus: #e1edff;
+  --ordax-muted: #dceaff;
+  --ordax-faint: #cedff8;
+  --ordax-border: #90b5ea;
+  --ordax-border-soft: rgba(180, 212, 255, 0.4);
+  --ordax-focus: #e0f3ff;
+}
+
+[data-ordax-contrast="high"] {
+  --ordax-wallpaper-opacity: 0;
+  --ordax-glass: var(--ordax-panel);
+  --ordax-glow-soft: 0 0 0 transparent;
+}
+
+@media (max-width: 1100px) {
+  :root, [data-ordax-theme] { --ordax-rail-width: 76px; }
+}
+
+@media (max-width: 760px) {
+  :root, [data-ordax-theme] { --ordax-rail-width: 0px; --ordax-header-height: 82px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

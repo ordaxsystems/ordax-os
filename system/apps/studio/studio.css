@@ -1,38 +1,106 @@
+/* Host presentation only. Surface owns theme tokens and window geometry. */
+.ordax-app-extension[data-app-extension="studio-workspace"]:has([data-studio-workspace]) {
+  grid-column: 1 / -1;
+  container-type: inline-size;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  min-width: 0;
+}
+.ordax-app-extension[data-app-extension="studio-workspace"]:has([data-studio-workspace]) > :is(.ordax-app-panel-label, .ordax-app-panel-title, .ordax-app-panel-body) {
+  display: none;
+}
 .ordax-studio-workspace {
   display: grid;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 28px;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 36px 28px;
+  color: var(--ordax-text);
+  overflow-wrap: anywhere;
 }
-
-.ordax-studio-runtime-state {
-  font-size: 1.05rem;
-  font-weight: 650;
+.ordax-studio-intro { display: grid; gap: 12px; }
+.ordax-studio-workspace h3 {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: var(--ordax-tracking-tight);
+  line-height: 1.2;
 }
-
-.ordax-studio-runtime-state[data-state="ready"] {
-  opacity: 1;
+.ordax-studio-connection {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .78rem;
+  color: var(--ordax-muted);
 }
-
-.ordax-studio-runtime-state[data-state="degraded"],
-.ordax-studio-runtime-state[data-state="unavailable"] {
-  opacity: .7;
+.ordax-studio-connection::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
 }
-
-.ordax-studio-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.ordax-studio-connection[data-state="ready"] { color: var(--ordax-success); }
+.ordax-studio-workspace .ordax-studio-availability {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--ordax-muted);
+  max-width: 60ch;
 }
-
-.ordax-studio-metrics > div {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid currentColor;
-  border-radius: 10px;
-  opacity: .82;
+.ordax-studio-intro .ordax-studio-availability:last-child { font-size: .82rem; }
+.ordax-studio-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ordax-studio-actions :is(button, a) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 88px;
+  padding: 18px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-md);
+  background: var(--ordax-subtle-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
 }
-
-.ordax-studio-metrics strong { font-size: 1.25rem; }
-.ordax-studio-metrics span,
-.ordax-studio-security-note { font-size: .82rem; opacity: .72; }
+.ordax-studio-actions button { border-color: var(--ordax-accent); }
+.ordax-studio-action-icon { flex: none; width: 24px; height: 24px; color: var(--ordax-accent); }
+.ordax-studio-action-copy { display: grid; gap: 5px; min-width: 0; }
+.ordax-studio-action-copy strong { font-size: .95rem; font-weight: 600; }
+.ordax-studio-action-copy > span { color: var(--ordax-muted); font-size: .8rem; line-height: 1.5; }
+.ordax-studio-actions :is(button, a):hover { background: var(--ordax-surface); border-color: var(--ordax-accent); }
+.ordax-studio-workspace :is(button, a, summary):focus-visible { outline: 2px solid var(--ordax-accent); outline-offset: 3px; }
+.ordax-studio-supporting { border-top: 1px solid var(--ordax-border-soft); }
+.ordax-studio-supporting details { border-bottom: 1px solid var(--ordax-border-soft); }
+.ordax-studio-supporting summary {
+  min-height: 48px;
+  padding-block: 15px;
+  box-sizing: border-box;
+  cursor: pointer;
+  color: var(--ordax-muted);
+  font-size: .85rem;
+  line-height: 1.4;
+}
+.ordax-studio-supporting details > p {
+  margin: 0 0 16px;
+  font-size: .85rem;
+  line-height: 1.6;
+  color: var(--ordax-muted);
+}
+.ordax-studio-runtime-state { margin: 0 0 12px; font-weight: 600; font-size: .9rem; }
+.ordax-studio-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+.ordax-studio-metrics > div { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--ordax-border-soft); border-radius: var(--ordax-radius-sm); }
+.ordax-studio-metrics strong { font-size: 1.1rem; }
+.ordax-studio-metrics span { font-size: .75rem; color: var(--ordax-muted); }
+/* Adapt to the app window, including narrow windows on a wide desktop. */
+@container (max-width: 520px) {
+  .ordax-studio-workspace { padding: 22px 6px; gap: 24px; }
+  .ordax-studio-workspace h3 { font-size: 1.5rem; }
+  .ordax-studio-actions { grid-template-columns: minmax(0, 1fr); }
+  .ordax-studio-actions :is(button, a) { padding: 16px; min-height: 80px; }
+}

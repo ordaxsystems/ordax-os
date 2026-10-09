@@ -1,5 +1,6 @@
 from pathlib import Path
 import unittest
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROLS = ROOT / "system" / "apps" / "internet" / "ui" / "browser-controls.mjs"
@@ -83,12 +84,15 @@ class InternetAccessibilityContractTests(unittest.TestCase):
         self.assertIn('.ordax-internet-project-option[aria-pressed="true"]', styles)
         self.assertIn('.ordax-internet-tab-activate', styles)
 
-        theme_samples = (
-            ("dark-app", "#8e9db4", "#a9c9f7", "#090f1b"),
-            ("dark-panel", "#8e9db4", "#a9c9f7", "#111e30"),
-            ("light-app", "#62748c", "#315f9f", "#f7f9fc"),
-            ("light-panel", "#62748c", "#315f9f", "#ffffff"),
-        )
+        # Sample the actual SSOT, rather than maintaining a second palette in tests.
+        tokens = self.text(ROOT / "system/surface/ui/tokens.css")
+        blocks = list(re.finditer(r"([^{}]+)\{([^{}]+)\}", tokens))
+        theme_samples = []
+        for theme in ("dark", "light"):
+            block = next(m[2] for m in blocks if f'[data-theme-preview="{theme}"]' in m[1])
+            palette = dict(re.findall(r"--ordax-([\w-]+):\s*(#[a-fA-F0-9]{6})\s*;", block))
+            for surface in ("app-bg", "panel"):
+                theme_samples.append((f"{theme}-{surface}", palette["muted"], palette["focus"], palette[surface]))
         for name, secondary, focus, surface in theme_samples:
             with self.subTest(theme=name, token="secondary-text"):
                 self.assertGreaterEqual(contrast_ratio(secondary, surface), 4.5)

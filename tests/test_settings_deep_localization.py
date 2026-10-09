@@ -89,7 +89,7 @@ class SettingsDeepLocalizationTests(unittest.TestCase):
         settings = SETTINGS_CATALOG.read_text(encoding="utf-8")
         network = NETWORK_CATALOG.read_text(encoding="utf-8")
         pairs = (
-            ('"settings.preference.appearance.title": "Tema da Surface"', '"settings.preference.appearance.title": "Surface theme"'),
+            ('"settings.preference.appearance.title": "Tema do OrdaX"', '"settings.preference.appearance.title": "OrdaX theme"'),
             ('"settings.keyboard.title": "Layout do teclado"', '"settings.keyboard.title": "Keyboard layout"'),
             ('"settings.network.title": "Rede e conexões"', '"settings.network.title": "Network and connections"'),
             ('"settings.network.connectivity.online": "Conectividade do host disponível"', '"settings.network.connectivity.online": "Host connectivity available"'),
