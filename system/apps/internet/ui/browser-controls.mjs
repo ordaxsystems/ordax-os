@@ -1,5 +1,7 @@
 import { assertBrowserSessionPort } from "../../../contracts/browser-session.mjs";
 import { assertBrowserPageFindPort, MAX_BROWSER_PAGE_FIND_CHARS } from "../../../contracts/browser-page-find.mjs";
+import { BROWSER_SEARCH_PROVIDERS, BROWSER_SEARCH_PROVIDER } from "../../../contracts/browser-navigation.mjs";
+import { assertBrowserSearchPreferencesPort } from "../../../contracts/browser-search-preferences.mjs";
 import {
   assertBrowserPageSelectionPort,
   validateBrowserPageSelection,
@@ -175,9 +177,18 @@ function createToolbar(documentObject, t) {
   input.setAttribute("aria-label", t("internet.address.aria"));
   input.dataset.browserAddress = "";
   form.append(node(documentObject, "span", "ordax-internet-site-control", "◈"), input);
+  const providerSelect = node(documentObject, "select", "ordax-internet-search-provider");
+  providerSelect.dataset.browserSearchProvider = "";
+  providerSelect.setAttribute("aria-label", t("internet.searchProvider.label"));
+  for (const provider of BROWSER_SEARCH_PROVIDERS) {
+    const option = documentObject.createElement("option");
+    option.value = provider.id;
+    option.textContent = provider.name;
+    providerSelect.append(option);
+  }
   const find = iconButton(documentObject, "⌕", t("internet.pageFind.open"), "find");
   find.dataset.browserFindToggle = "";
-  toolbar.append(form, find, iconButton(documentObject, "☆", t("internet.action.bookmark"), "bookmark"));
+  toolbar.append(form, providerSelect, find, iconButton(documentObject, "☆", t("internet.action.bookmark"), "bookmark"));
   const downloads = iconButton(documentObject, "⇩", t("internet.action.downloads"), "downloads");
   downloads.disabled = true;
   downloads.title = t("internet.downloads.pending");
@@ -370,6 +381,7 @@ export function mountInternetBrowserControls(
     projectReferences = null,
     favorites = null,
     history = null,
+    searchPreferences = null,
     pageSelection = null,
     pageFind = null,
     intelligence = null,
@@ -390,6 +402,8 @@ export function mountInternetBrowserControls(
     : assertProjectWebReferencePort(projectReferences);
   const favoritePort = favorites === null ? null : assertBrowserFavoritesPort(favorites);
   const historyPort = history === null ? null : assertBrowserHistoryPort(history);
+  const searchPreferencesPort = searchPreferences === null
+    ? null : assertBrowserSearchPreferencesPort(searchPreferences);
   const selectionPort = pageSelection === null ? null : assertBrowserPageSelectionPort(pageSelection);
   const findPort = pageFind === null ? null : assertBrowserPageFindPort(pageFind);
   const intelligencePort = intelligence === null ? null : assertIntelligencePort(intelligence);
@@ -1000,6 +1014,17 @@ export function mountInternetBrowserControls(
     }
   };
 
+  const syncSearchProvider = (slot) => {
+    const selector = slot.querySelector("[data-browser-search-provider]");
+    if (!selector) return;
+    const state = searchPreferencesPort?.getSnapshot() ?? null;
+    selector.value = state?.providerId ?? BROWSER_SEARCH_PROVIDER.id;
+    selector.disabled = !searchPreferencesPort || !snapshot.supported;
+    selector.title = t(state?.persistence === "device"
+      ? "internet.searchProvider.persisted"
+      : "internet.searchProvider.session");
+  };
+
   const syncPageFind = (slot) => {
     const tab = activeTab();
     if (findOpen && (findTabId !== tab?.id || !tab?.url || tab.loading)) {
@@ -1126,6 +1151,7 @@ export function mountInternetBrowserControls(
     syncReferenceControls(slot);
     syncFavorites(slot);
     syncHistory(slot);
+    syncSearchProvider(slot);
     syncPageFind(slot);
     syncAssistance(slot);
     syncPanel(slot);
@@ -1511,6 +1537,19 @@ export function mountInternetBrowserControls(
     syncTabs(slot);
   };
 
+  const onChange = (event) => {
+    const selector = event.target.closest("[data-browser-search-provider]");
+    if (!selector || !searchPreferencesPort || !findSlot()?.contains(selector)) return;
+    try {
+      searchPreferencesPort.setProvider(selector.value);
+      clearMessage();
+      render();
+    } catch {
+      setMessage("internet.searchProvider.invalid");
+      render();
+    }
+  };
+
   const onSubmit = (event) => {
     const form = event.target.closest("[data-browser-address-form]");
     if (!form || !root.contains(form)) return;
@@ -1519,7 +1558,9 @@ export function mountInternetBrowserControls(
     const tab = activeTab();
     if (!input || !tab) return;
     try {
-      const url = resolveBrowserNavigation(input.value)?.url;
+      const url = resolveBrowserNavigation(input.value, {
+        searchProviderId: searchPreferencesPort?.getSnapshot().providerId ?? BROWSER_SEARCH_PROVIDER.id,
+      })?.url;
       if (!url) return;
       clearMessage();
       port.navigate(tab.id, url);
@@ -1567,6 +1608,10 @@ export function mountInternetBrowserControls(
     favoriteSnapshot = nextSnapshot;
     render();
   }) ?? (() => {});
+  const unsubscribeSearchPreferences = searchPreferencesPort?.subscribe(() => {
+    const slot = findSlot();
+    if (slot) syncSearchProvider(slot);
+  }) ?? (() => {});
   const unsubscribeHistory = historyPort?.subscribe((nextSnapshot) => {
     historySnapshot = nextSnapshot;
     render();
@@ -1594,6 +1639,7 @@ export function mountInternetBrowserControls(
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKeyDown);
   root.addEventListener("input", onInput);
+  root.addEventListener("change", onChange);
   root.addEventListener("submit", onSubmit);
   windowObject.addEventListener("resize", syncViewport);
   windowObject.addEventListener("scroll", syncViewport, true);
@@ -1610,6 +1656,7 @@ export function mountInternetBrowserControls(
       unsubscribeReferences();
       unsubscribeFavorites();
       unsubscribeHistory();
+      unsubscribeSearchPreferences();
       unsubscribeFind();
       unsubscribeShortcutFind();
       clearPageFind();
@@ -1622,6 +1669,7 @@ export function mountInternetBrowserControls(
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKeyDown);
       root.removeEventListener("input", onInput);
+      root.removeEventListener("change", onChange);
       root.removeEventListener("submit", onSubmit);
       windowObject.removeEventListener("resize", syncViewport);
       windowObject.removeEventListener("scroll", syncViewport, true);
