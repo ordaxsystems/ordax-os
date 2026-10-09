@@ -4,8 +4,6 @@ import {
   MAX_FILE_EXPORT_BYTES,
   MAX_FILE_IMPORT_BYTES,
   assertFileSpacePort,
-  validateFileListing,
-  validateTextFile,
   validateTrashListing,
 } from "../../contracts/file-space.mjs";
 import {
@@ -18,6 +16,10 @@ import {
   validateProjectCatalogSnapshot,
 } from "../../contracts/project-catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import {
+  validateListingForRequest,
+  validateTextForRequest,
+} from "./file-space-response-identity.mjs";
 
 const FILE_WINDOW_SELECTOR = '[data-window-id="files"]';
 const FILE_EXTENSION_SELECTOR = '[data-app-extension="file-space"]';
@@ -1773,7 +1775,7 @@ export function mountFileSpaceControls(
     clearMessage();
     replaceView();
     try {
-      const next = validateFileListing(await port.list(path));
+      const next = validateListingForRequest(await port.list(path), path);
       if (destroyed || ordinal !== requestOrdinal) return false;
       lifecycle.setAppTarget("files", next.path);
       const changedPath = Boolean(listing && listing.path !== next.path);
@@ -1845,7 +1847,7 @@ export function mountFileSpaceControls(
     clearMessage();
     replaceView();
     try {
-      const next = validateTextFile(await port.readTextFile(path));
+      const next = validateTextForRequest(await port.readTextFile(path), path);
       if (destroyed || ordinal !== previewRequestOrdinal) return;
       textPreview = next;
       if (recentPort) recentPort.recordOpened(next.path);
@@ -1925,7 +1927,7 @@ export function mountFileSpaceControls(
               source.name,
             )
           : port.moveEntry(source.sourcePath, source.name, destinationPath);
-      const next = validateFileListing(await operation);
+      const next = validateListingForRequest(await operation, destinationPath);
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
       if (source.mode === "move" && recentPort) {
@@ -2006,8 +2008,8 @@ export function mountFileSpaceControls(
       if (buffer.byteLength !== file.size) {
         throw new TypeError("Selected file size changed while reading");
       }
-      const next = validateFileListing(
-        await port.importFile(targetPath, targetName, new Uint8Array(buffer)),
+      const next = validateListingForRequest(
+        await port.importFile(targetPath, targetName, new Uint8Array(buffer)), targetPath,
       );
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
@@ -2049,12 +2051,13 @@ export function mountFileSpaceControls(
     if (!selected || !listing || pending) return;
     const ordinal = ++requestOrdinal;
     const previousPath = selected.path;
+    const requestedPath = listing.path;
     pending = true;
     clearMessage();
     replaceView();
     try {
-      const next = validateFileListing(
-        await port.trashEntry(listing.path, selected.name),
+      const next = validateListingForRequest(
+        await port.trashEntry(listing.path, selected.name), requestedPath,
       );
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
@@ -2203,12 +2206,13 @@ export function mountFileSpaceControls(
 
     const ordinal = ++requestOrdinal;
     const nextPath = joinPath(listing.path, newName);
+    const requestedPath = listing.path;
     pending = true;
     clearMessage();
     replaceView();
     try {
-      const next = validateFileListing(
-        await port.copyFile(listing.path, selected.name, listing.path, newName),
+      const next = validateListingForRequest(
+        await port.copyFile(listing.path, selected.name, listing.path, newName), requestedPath,
       );
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
@@ -2270,12 +2274,13 @@ export function mountFileSpaceControls(
     const ordinal = ++requestOrdinal;
     const previousPath = selected.path;
     const nextPath = joinPath(listing.path, newName);
+    const requestedPath = listing.path;
     pending = true;
     clearMessage();
     replaceView();
     try {
-      const next = validateFileListing(
-        await port.renameEntry(listing.path, selected.name, newName),
+      const next = validateListingForRequest(
+        await port.renameEntry(listing.path, selected.name, newName), requestedPath,
       );
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
@@ -2321,11 +2326,12 @@ export function mountFileSpaceControls(
       return;
     }
     const ordinal = ++requestOrdinal;
+    const requestedPath = listing.path;
     pending = true;
     clearMessage();
     replaceView();
     try {
-      const next = validateFileListing(await port.createDirectory(listing.path, trimmed));
+      const next = validateListingForRequest(await port.createDirectory(listing.path, trimmed), requestedPath);
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
       creatingDirectory = false;

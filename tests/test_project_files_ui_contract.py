@@ -70,7 +70,7 @@ class ProjectFilesUiContractTests(unittest.TestCase):
         open_block = controls.split("  const openTextFile = async", 1)[1].split(
             "  const activateSelectedPath =", 1
         )[0]
-        validated = "const next = validateTextFile(await port.readTextFile(path));"
+        validated = "const next = validateTextForRequest(await port.readTextFile(path), path);"
         recorded = "projectPort.recordFileOpened(project.id, next.path)"
         self.assertIn(validated, open_block)
         self.assertIn(recorded, open_block)
