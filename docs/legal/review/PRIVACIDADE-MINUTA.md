@@ -8,20 +8,35 @@ preparação até aprovação documentada e publicação versionada.
 
 ## 1. Identificação do responsável
 
-Controlador/responsável pelo tratamento: **[PENDENTE: razão social ou
-identificação jurídica efetiva]**.
+**Forma declarada para a operação inicial: pessoa física, sem empresa constituída.**
+Não se exige CNPJ nesta fase. O operador individual responderá pela Conta OrdaX
+e pelo tratamento dos dados pessoais no âmbito efetivamente aprovado.
+Essa classificação foi informada pelo operador, mas **não substitui sua
+identificação jurídica pública e a revisão de responsabilidades**.
 
-CNPJ (quando aplicável): **[PENDENTE]**.
+Nome civil completo do responsável: **[PENDENTE: confirmação do titular]**.
 
-Endereço ou canal institucional: **[PENDENTE]**.
+Canal público de suporte/contato: **[PENDENTE: e-mail validado]**.
 
 Contato específico para privacidade e direitos dos titulares:
-**[PENDENTE: canal funcional e testado]**.
+**[PENDENTE: e-mail funcional, publicado e testado]**.
 
-Encarregado, se aplicável, ou canal equivalente: **[PENDENTE: definição]**.
+Endereço/canal adicional de correspondência, se juridicamente exigível:
+**[PENDENTE: avaliação jurídica sem expor endereço residencial por padrão]**.
 
-Não substituir esses dados pelo proprietário do repositório ou por um nome de
-domínio sem comprovação de que é a entidade controladora.
+Encarregado, se exigível, ou meio de atendimento equivalente:
+**[PENDENTE: definição conforme obrigações aplicáveis]**.
+
+**Não publicar CPF, endereço residencial, dados financeiros ou outros
+identificadores pessoais desnecessários neste repositório nem no portal.**
+O preenchimento da identificação deve seguir análise de necessidade e o
+meio institucional adequado. Nome exibido em conta do GitHub ou em mensagens
+não substitui confirmação explícita do operador.
+
+Uma futura constituição de empresa deverá ser acompanhada de revisão
+jurídica da titularidade/responsabilidades, atualização versionada dos
+documentos e política do servidor, sem alterar retroativamente recibos
+jurídicos emitidos por versões anteriores.
 
 ## 2. Âmbito
 
