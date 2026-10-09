@@ -39,6 +39,7 @@ function fixture({ authenticated = false, registerOnly = false, failed = false, 
     addEventListener(type, callback) { eventHandlers[type] = callback; },
   };
   const window = {
+    location: { hash: "", pathname: "/login/", search: "" },
     OrdaXPublicI18n: {
       schema: "prototype-ordax.public-site-localization-runtime/1",
       t(id) { return id === "account.navigation.account" ? "Minha conta" : id; },
