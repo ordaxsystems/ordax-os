@@ -188,9 +188,9 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
         self.assertEqual(observation["observed_date"], "2026-10-09")
-        self.assertEqual(observation["public_edge_gateway_version"], 2)
+        self.assertEqual(observation["public_edge_gateway_version"], 3)
         self.assertIn("v28-deployed", observation["edge_gateway"])
-        self.assertIn("canonical-supabase-v2", observation["public_edge_gateway"])
+        self.assertIn("canonical-supabase-v3", observation["public_edge_gateway"])
         self.assertTrue(observation["public_edge_product_cookie_envelope_deployed"])
         self.assertEqual(
             observation["public_edge_product_cookie_envelope_header"],
