@@ -130,10 +130,18 @@ def check_anonymous_account_boundary() -> None:
         fail("session-schema")
     if session.get("authenticated") is not False or session.get("status") != "anonymous":
         fail("unexpected-public-session")
-    expected_provider = "supabase" if legal["account_activation_ready"] else "gated"
-    if session.get("provider") != expected_provider:
-        fail("public-session-provider-gate-mismatch")
-    print("ORDAX_PUBLIC_ACCOUNT_GATE=" + expected_provider, flush=True)
+    # A live anonymous Supabase session is compatible with auth-only login/signup.
+    # account_activation_ready controls broader account/cloud readiness, not the
+    # identity provider of an HTTP 200 session. Registration policy and consent
+    # remain server-authoritative and are NOT validated by this read-only probe.
+    if session.get("provider") != "supabase":
+        fail("public-session-provider-invalid")
+    print("ORDAX_PUBLIC_ACCOUNT_GATE=supabase", flush=True)
+    print(
+        "ORDAX_PUBLIC_LEGAL_ACTIVATION="
+        + ("ready" if legal["account_activation_ready"] else "not-ready"),
+        flush=True,
+    )
 
 def main() -> int:
     if CONTRACT["cloudflare_dns_migration"]["destination_public_site_proxy_mode"] != "dns-only":
