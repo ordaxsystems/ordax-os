@@ -36,24 +36,6 @@ jobs:
   user-cloud-storage-contract:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PGHOST: 127.0.0.1
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: postgres
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -91,7 +73,23 @@ jobs:
           node --test tests/test_user_cloud_storage_reconvergence.mjs
           python3 -m unittest tests.test_user_cloud_storage_source
 
+      - name: Start image-provided PostgreSQL 16 (no Docker Hub dependency)
+        run: |
+          set -euo pipefail
+          sudo systemctl start postgresql.service
+          # The Ubuntu 24.04 x64 runner includes PostgreSQL 16. Fail rather
+          # than silently test migrations against another major version.
+          version="$(sudo -u postgres psql --no-psqlrc -Atc 'SHOW server_version_num')"
+          if [[ ! "$version" =~ ^[0-9]+$ ]] || (( version < 160000 || version >= 170000 )); then
+            echo 'User Cloud Storage proof requires PostgreSQL 16' >&2
+            exit 1
+          fi
+          sudo -u postgres psql --no-psqlrc -v ON_ERROR_STOP=1 -Atc 'SELECT 1' | grep -qx '1'
+
       - name: Prove storage reservation integrity on PostgreSQL 16
         run: |
           set -euo pipefail
-          psql -v ON_ERROR_STOP=1 -f tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql
+          # Peer authentication to the ephemeral local superuser only;
+          # no TCP listener, baked-in password or external container image.
+          sudo -u postgres psql --no-psqlrc -v ON_ERROR_STOP=1 \
+            -f "${GITHUB_WORKSPACE}/tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql"
