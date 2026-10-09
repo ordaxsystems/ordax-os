@@ -136,15 +136,58 @@ class PublicNetworkProofTests(unittest.TestCase):
                     with self.assertRaisesRegex(SystemExit, expected):
                         network.main()
 
+    def test_current_unconfigured_account_gateway_is_reported_as_disabled(self):
+        def disabled(host, path, *, accept="text/html"):
+            if path == "/auth/session":
+                return Response(503, payload={
+                    "$schema": "prototype-ordax.public-site-proxy-error/1",
+                    "error": "account-gateway-unconfigured",
+                })
+            return fake_fetch(host, path, accept=accept)
+
+        with (
+            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "fetch", side_effect=disabled),
+        ):
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                self.assertEqual(network.main(), 0)
+            self.assertIn("ORDAX_PUBLIC_SESSION_STATUS=503", stream.getvalue())
+            self.assertIn("ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured", stream.getvalue())
+            self.assertIn("ORDAX_PUBLIC_NETWORK_PROOF=PASS", stream.getvalue())
+
+    def test_activated_accounts_never_accept_unconfigured_gateway_as_healthy(self):
+        def disabled(host, path, *, accept="text/html"):
+            if path == "/auth/session":
+                return Response(503, payload={
+                    "$schema": "prototype-ordax.public-site-proxy-error/1",
+                    "error": "account-gateway-unconfigured",
+                })
+            return fake_fetch(host, path, accept=accept, ready=True)
+
+        with (
+            patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
+            patch.object(network, "fetch", side_effect=disabled),
+        ):
+            with self.assertRaisesRegex(SystemExit, "active-account-session-unavailable"):
+                network.main()
+
     def test_backend_session_outage_is_not_reported_as_static_site_success(self):
         def failing(host, path, *, accept="text/html"):
-            return Response(503) if path == "/auth/session" else fake_fetch(host, path, accept=accept)
+            return (
+                Response(503, payload={
+                    "$schema": "prototype-ordax.public-site-proxy-error/1",
+                    "error": "account-gateway-unavailable",
+                })
+                if path == "/auth/session"
+                else fake_fetch(host, path, accept=accept)
+            )
 
         with (
             patch.object(network, "resolve_v4", return_value={"76.76.21.21"}),
             patch.object(network, "fetch", side_effect=failing),
         ):
-            with self.assertRaisesRegex(SystemExit, "session-http-status"):
+            with self.assertRaisesRegex(SystemExit, "unexpected-account-gateway-failure"):
                 network.main()
 
 
