@@ -55,7 +55,7 @@ The USB/native-disk runtime uses the WebKitGTK 4.1 engine already appropriate to
 - default-deny website permission requests in the first implementation slice;
 - fail-closed rejection of localhost, loopback, private/link-local and other non-public literal IP navigation;
 - filtering of external WebView resource requests and redirects so literal/local non-public network targets are not intentionally dispatched by the browser plane;
-- blocked downloads until a dedicated user-space download contract is connected.
+- downloads initiated by the unprivileged engine require a separate, explicit Surface approval before the Native host may persist them into the user's bounded `/Downloads` directory.
 
 The external browsing profile separates durable website data from disposable cache:
 
@@ -255,6 +255,42 @@ persistência, fallback e rejeição de IDs desconhecidos.
 O mecanismo de pesquisa é uma preferência do navegador, não um provider
 de IA, nem uma permissão para o Studio ou agentes.
 
+## Downloads seguros, com aprovação explícita
+
+O host WebKitGTK liga `WebContext::download-started` ao adaptador de downloads
+do OrdaX. A página não escolhe o caminho final e nunca recebe a ponte nativa.
+A transferência aguarda `Download::decide-destination` (WebKitGTK 4.1) e não
+avança antes da decisão manual do usuário na Surface.
+
+Contrato: `ordax.browser-download-port/1`. O host emite somente um
+identificador opaco, nome saneado e estado. A Surface apresenta **Salvar em
+Downloads** ou **Cancelar**; apenas a confirmação envia `download.approve`.
+A ação é limitada a um download pendente existente; não há API de escrita
+arbitrária nem confirmação implícita por clique no site.
+
+A política `browser_download_policy.py` grava exclusivamente em
+`/var/lib/ordax-user/Downloads` na configuração Native padrão, que corresponde
+à pasta `/Downloads` em Arquivos. Os nomes reais têm prefixo aleatório
+`download-<id>` para não colidir. O WebKit recebe uma URI de destino apenas
+após aprovação; `allow-overwrite=false` impede substituição de arquivos.
+O diretório não pode ser um link simbólico, o resultado deve ser arquivo
+regular, permissões finais são `0600` e o limite inicial é **64 MiB**.
+
+O host também impõe:
+- origem pública HTTP(S), WebView externa pertencente a uma aba ativa;
+- máximo de quatro transferências simultâneas e 60 segundos para aprovação;
+- verificação do tamanho declarado e dos bytes recebidos, com cancelamento
+  do arquivo acima do limite;
+- limpeza do arquivo parcial criado pelo WebKit em falha/cancelamento;
+- eventos de download sem caminho absoluto, conteúdo, cookies ou tokens;
+- nenhum download no modo Web enquanto não existir motor isolado compatível.
+
+O painel retém apenas os oito eventos mais recentes em memória. **Um arquivo
+salvo nunca é executado automaticamente.** A prova de comportamento com
+WebKitGTK físico continua pendente; testes Node/Python e CI não substituem
+verificações em hardware, permissões efetivas do usuário, tratamento de falta
+de espaço e UX sob falha de rede.
+
 ## First implementation slice
 
 Implemented in source:
@@ -284,7 +320,7 @@ Implemented in source:
 Intentionally not faked yet:
 
 - collections/read-later;
-- downloads;
+- downloads maiores que 64 MiB, download-resume, verificações antivírus e revisão de destinos alternativos;
 - website permission UI;
 - private-session lifecycle;
 - page-to-AI context extraction;
