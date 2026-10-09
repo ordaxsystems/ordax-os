@@ -170,6 +170,7 @@ export function createIntelligenceRuntime({ inferencePort, modelRouterPort = nul
         prompt: renderRequest(request, route),
         maxTokens: request.maxTokens,
       });
+      assertAlive();
       if (result.engineId !== route.engineId || result.modelId !== route.modelId) {
         throw new Error("Local inference identity changed after route selection");
       }

@@ -127,6 +127,79 @@ export function createAuthorizedMemoryIntelligence({ intelligencePort, memoryPor
 }
 
 
+function memoryContextSnapshot(selection, identity) {
+  const selected = validateSpaceSelectionSnapshot(selection.getSnapshot());
+  const account = identity === null ? null : validateIdentitySessionSnapshot(identity.getSnapshot());
+  return {
+    selected,
+    account,
+    binding: JSON.stringify([
+      account?.state ?? null, account?.subjectId ?? null,
+      selected.state, selected.subjectId,
+      selected.selectedSpace?.id ?? null, selected.selectedSpace?.ownerId ?? null,
+    ]),
+  };
+}
+
+async function withCurrentMemoryContext(intelligence, selection, identity, respond) {
+  const captured = memoryContextSnapshot(selection, identity);
+  let changed = false;
+  let closed = false;
+  const cleanups = [];
+  const observe = () => {
+    if (closed || changed) return;
+    try {
+      changed = memoryContextSnapshot(selection, identity).binding !== captured.binding;
+    } catch {
+      changed = true;
+    }
+  };
+  const assertCurrent = () => {
+    // Also revalidate after observers are closed: cleanup belongs to the port
+    // and may itself synchronously change its current authority snapshot.
+    try {
+      changed ||= memoryContextSnapshot(selection, identity).binding !== captured.binding;
+    } catch {
+      changed = true;
+    }
+    if (changed) throw new Error("Intelligence memory context changed during inference");
+  };
+  try {
+    // The latch catches A -> B -> A as well as a changed final snapshot. It is
+    // per request, uses the existing authorities and never switches context.
+    for (const port of [identity, selection].filter(Boolean)) {
+      const unsubscribe = port.subscribe(observe);
+      if (typeof unsubscribe !== "function") {
+        throw new TypeError("Intelligence context subscription requires cleanup");
+      }
+      cleanups.push(unsubscribe);
+    }
+    assertCurrent();
+    const guarded = Object.freeze({
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      getSnapshot: () => intelligence.getSnapshot(),
+      subscribe: (listener) => intelligence.subscribe(listener),
+      respond(value) {
+        // Memory retrieval may synchronously publish a context change. Do not
+        // send the retrieved old-owner context to inference in that case.
+        assertCurrent();
+        return intelligence.respond(value);
+      },
+    });
+    const result = await respond(guarded, captured);
+    assertCurrent();
+    return result;
+  } finally {
+    closed = true;
+    let cleanupFailed = false;
+    for (const unsubscribe of cleanups.reverse()) {
+      try { unsubscribe(); } catch { cleanupFailed = true; }
+    }
+    if (cleanupFailed) throw new Error("Intelligence context observer cleanup failed");
+    assertCurrent();
+  }
+}
+
 export function createSelectedSpaceMemoryIntelligence({
   intelligencePort,
   memoryPort,
@@ -135,11 +208,6 @@ export function createSelectedSpaceMemoryIntelligence({
   const intelligence = assertIntelligencePort(intelligencePort);
   const memory = assertMemoryPort(memoryPort);
   const selection = assertSpaceSelectionPort(spaceSelectionPort);
-  const authorized = createAuthorizedMemoryIntelligence({
-    intelligencePort: intelligence,
-    memoryPort: memory,
-  });
-
   return Object.freeze({
     schema: INTELLIGENCE_PORT_SCHEMA,
     getSnapshot() {
@@ -149,21 +217,25 @@ export function createSelectedSpaceMemoryIntelligence({
       return intelligence.subscribe(listener);
     },
     respond(value) {
-      const snapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
-      if (snapshot.state !== "selected") {
-        return intelligence.respond(validateIntelligenceRequest(value));
-      }
-      return authorized.respond(value, {
-        authorizations: [{
-          schema: "ordax.memory-context-auth/1",
-          authority: "composition",
-          ownerKind: "account",
-          ownerId: snapshot.subjectId,
-          scopes: ["space"],
-          spaceId: snapshot.selectedSpace.id,
-          projectId: null,
-          includeRestricted: false,
-        }],
+      return withCurrentMemoryContext(intelligence, selection, null, (guarded, { selected: snapshot }) => {
+        if (snapshot.state !== "selected") {
+          return guarded.respond(validateIntelligenceRequest(value));
+        }
+        const authorized = createAuthorizedMemoryIntelligence({
+          intelligencePort: guarded, memoryPort: memory,
+        });
+        return authorized.respond(value, {
+          authorizations: [{
+            schema: "ordax.memory-context-auth/1",
+            authority: "composition",
+            ownerKind: "account",
+            ownerId: snapshot.subjectId,
+            scopes: ["space"],
+            spaceId: snapshot.selectedSpace.id,
+            projectId: null,
+            includeRestricted: false,
+          }],
+        });
       });
     },
   });
@@ -180,11 +252,6 @@ export function createIdentityBoundMemoryIntelligence({
   const memory = assertMemoryPort(memoryPort);
   const identity = assertIdentitySessionPort(identitySessionPort);
   const selection = assertSpaceSelectionPort(spaceSelectionPort);
-  const authorized = createAuthorizedMemoryIntelligence({
-    intelligencePort: intelligence,
-    memoryPort: memory,
-  });
-
   return Object.freeze({
     schema: INTELLIGENCE_PORT_SCHEMA,
     getSnapshot() {
@@ -194,52 +261,57 @@ export function createIdentityBoundMemoryIntelligence({
       return intelligence.subscribe(listener);
     },
     async respond(value) {
-      const identitySnapshot = validateIdentitySessionSnapshot(identity.getSnapshot());
-      const selectionSnapshot = validateSpaceSelectionSnapshot(selection.getSnapshot());
-      const authorizations = [{
-        schema: "ordax.memory-context-auth/1",
-        authority: "composition",
-        ownerKind: "device",
-        ownerId: null,
-        scopes: ["device"],
-        spaceId: null,
-        projectId: null,
-        includeRestricted: false,
-      }];
-
-      if (identitySnapshot.state === "signed-in") {
-        authorizations.push({
+      return withCurrentMemoryContext(intelligence, selection, identity, (guarded, {
+        account: identitySnapshot, selected: selectionSnapshot,
+      }) => {
+        const authorizations = [{
           schema: "ordax.memory-context-auth/1",
           authority: "composition",
-          ownerKind: "account",
-          ownerId: identitySnapshot.subjectId,
-          scopes: ["account"],
+          ownerKind: "device",
+          ownerId: null,
+          scopes: ["device"],
           spaceId: null,
           projectId: null,
           includeRestricted: false,
-        });
-      }
+        }];
 
-      if (selectionSnapshot.state === "selected") {
-        if (
-          identitySnapshot.state !== "signed-in"
-          || selectionSnapshot.subjectId !== identitySnapshot.subjectId
-        ) {
-          throw new Error("Selected Space memory requires the current authenticated identity");
+        if (identitySnapshot.state === "signed-in") {
+          authorizations.push({
+            schema: "ordax.memory-context-auth/1",
+            authority: "composition",
+            ownerKind: "account",
+            ownerId: identitySnapshot.subjectId,
+            scopes: ["account"],
+            spaceId: null,
+            projectId: null,
+            includeRestricted: false,
+          });
         }
-        authorizations.push({
-          schema: "ordax.memory-context-auth/1",
-          authority: "composition",
-          ownerKind: "account",
-          ownerId: identitySnapshot.subjectId,
-          scopes: ["space"],
-          spaceId: selectionSnapshot.selectedSpace.id,
-          projectId: null,
-          includeRestricted: false,
-        });
-      }
 
-      return authorized.respond(value, { authorizations });
+        if (selectionSnapshot.state === "selected") {
+          if (
+            identitySnapshot.state !== "signed-in"
+            || selectionSnapshot.subjectId !== identitySnapshot.subjectId
+          ) {
+            throw new Error("Selected Space memory requires the current authenticated identity");
+          }
+          authorizations.push({
+            schema: "ordax.memory-context-auth/1",
+            authority: "composition",
+            ownerKind: "account",
+            ownerId: identitySnapshot.subjectId,
+            scopes: ["space"],
+            spaceId: selectionSnapshot.selectedSpace.id,
+            projectId: null,
+            includeRestricted: false,
+          });
+        }
+
+        const authorized = createAuthorizedMemoryIntelligence({
+          intelligencePort: guarded, memoryPort: memory,
+        });
+        return authorized.respond(value, { authorizations });
+      });
     },
   });
 }
