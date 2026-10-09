@@ -216,10 +216,15 @@
   // Never interpolate query text as HTML or read credentials in JavaScript.
   const IDENTITY_NOTICES = Object.freeze({
     login: {
-      cadastro: { "verifique-email": ["success", "Cadastro recebido. Verifique seu e-mail para confirmar a conta antes de entrar."] },
+      cadastro: {
+        "verifique-email": ["success", "Cadastro recebido. Verifique seu e-mail para confirmar a conta antes de entrar."],
+        confirmado: ["success", "E-mail confirmado. Entre na sua Conta OrdaX para continuar."],
+      },
       erro: {
         formulario: ["error", "Revise o e-mail e a senha informados."],
         credenciais: ["error", "Não foi possível entrar. Confira suas credenciais e tente novamente."],
+        "confirmacao-invalida": ["error", "O link de confirmação expirou ou já foi usado. Entre normalmente se seu e-mail já estiver confirmado."],
+        "confirmacao-indisponivel": ["error", "Não foi possível verificar o e-mail agora. Tente novamente mais tarde."],
         "verificacao-falhou": ["error", "A verificação de segurança não foi concluída. Refaça a verificação e tente entrar novamente."],
         "seguranca-indisponivel": ["error", "A verificação de segurança está temporariamente indisponível. Tente novamente mais tarde."],
         "validacao-conta-indisponivel": ["error", "A validação da conta está indisponível. Tente novamente mais tarde."],
@@ -624,6 +629,11 @@
     }
 
     const page = document.body?.dataset?.page;
+    if (page === "login" && window.location.hash) {
+      // Old hosted Supabase links can return bearer tokens in the URL fragment.
+      // Never parse, exchange or persist them in the public portal.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
     if (page === "download") {
       await initDownload(config);
     } else if (page === "licencas") {

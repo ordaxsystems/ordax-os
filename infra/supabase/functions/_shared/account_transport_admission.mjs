@@ -56,6 +56,7 @@ const NATIVE_BOOTSTRAP = Object.freeze({
     "/health",
     "/auth/login",
     "/auth/register",
+    "/auth/confirm",
     "/auth/registration-policy",
     "/auth/session",
     "/auth/recover/verify",

@@ -8,10 +8,12 @@
     "same_origin_only": true,
     "wildcards_allowed": false,
     "required_paths": [
-      "/auth/recover/verify"
+      "/auth/recover/verify",
+      "/auth/confirm"
     ],
     "origin": "https://ordax.com.br",
-    "recovery_verify_url": "https://ordax.com.br/auth/recover/verify"
+    "recovery_verify_url": "https://ordax.com.br/auth/recover/verify",
+    "signup_confirm_url": "https://ordax.com.br/auth/confirm"
   },
   "provider_verification": {
     "confirm_email": true,
@@ -19,7 +21,7 @@
     "production_origin": false,
     "password_policy": false,
     "observed_date": null,
-    "evidence": "destination origin updated to verified OrdaX canonical domain in source only; Supabase Auth redirect allowlist and recovery email template remain unverified (2026-10-08)",
+    "evidence": "2026-10-09 live signup email redirected to http://localhost:3000; provider Site URL, allowlist, confirmation template and SMTP branding must be corrected on hosted Supabase. This repo prepares server-owned token-hash confirmation; provider configuration not yet verified.",
     "confirm_email_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
     "confirm_email_observed_date": "2026-10-07"
   },

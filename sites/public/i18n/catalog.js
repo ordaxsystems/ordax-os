@@ -5,6 +5,9 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["E-mail confirmado. Entre na sua Conta OrdaX para continuar.", "Email confirmed. Sign in to your OrdaX Account to continue."],
+    ["O link de confirmação expirou ou já foi usado. Entre normalmente se seu e-mail já estiver confirmado.", "This confirmation link has expired or was already used. Sign in normally if your email is already confirmed."],
+    ["Não foi possível verificar o e-mail agora. Tente novamente mais tarde.", "We could not verify your email right now. Please try again later."],
     ["A verificação de segurança não foi concluída. Refaça a verificação e tente entrar novamente.", "Security verification was not completed. Repeat the check and try signing in again."],
     ["A verificação de segurança está temporariamente indisponível. Tente novamente mais tarde.", "Security verification is temporarily unavailable. Please try again later."],
     ["A verificação de segurança não foi concluída. Refaça a verificação antes de criar sua conta.", "Security verification was not completed. Repeat the check before creating your account."],
