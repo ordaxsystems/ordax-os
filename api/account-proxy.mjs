@@ -96,15 +96,28 @@ export function normalizeProductPath(raw, method) {
 // separately from ordax_path. Preserve only the fixed public OTP callback
 // parameters. No arbitrary query forwarding is introduced for other endpoints.
 export function forwardPublicConfirmationQuery(normalizedPath, params) {
-  if (typeof normalizedPath !== "string" || !(params instanceof URLSearchParams)) return null;
-  if (params.getAll("ordax_path").length !== 1) return null;
+  if (typeof normalizedPath !== "string"
+    || !params
+    || typeof params.getAll !== "function"
+    || typeof params[Symbol.iterator] !== "function") return null;
+  const route = new URL(normalizedPath, PUBLIC_ACCOUNT_ORIGIN);
+  if (route.pathname !== PUBLIC_CONFIRMATION_PATH) return null;
+
+  // Vercel can repeat a rewrite parameter when combining the original URL
+  // with the destination query. Accept repeated values ONLY if they resolve
+  // to the same normalized allowlisted callback. Conflicts fail closed.
+  const rewrittenPaths = params.getAll("ordax_path");
+  if (rewrittenPaths.length === 0
+    || rewrittenPaths.some(value => normalizeProductPath(value, "GET") !== normalizedPath)) return null;
+
   const forwarded = new URLSearchParams();
   for (const [key, value] of params) {
-    if (key !== "ordax_path") forwarded.append(key, value);
+    if (key === "ordax_path") continue;
+    if (key !== "token_hash" && key !== "type") return null;
+    forwarded.append(key, value);
   }
   if (forwarded.size === 0) return normalizedPath;
-  const route = new URL(normalizedPath, PUBLIC_ACCOUNT_ORIGIN);
-  if (route.pathname !== PUBLIC_CONFIRMATION_PATH || route.search) return null;
+  if (route.search) return null;
   route.search = forwarded.toString();
   return parseSignupConfirmation(route) ? route.pathname + route.search : null;
 }
