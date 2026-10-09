@@ -4,6 +4,7 @@ import {
 } from "../infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs";
 import { readBoundedBody } from "../infra/supabase/functions/_shared/bounded_body.mjs";
 import { isPublicBridgeRoute } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
+import { PUBLIC_ACCOUNT_ORIGIN, PUBLIC_CONFIRMATION_PATH, parseSignupConfirmation } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
 import { trustedCookieEnvelope } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 export { trustedCookieEnvelope, trustedSetCookie } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 
@@ -89,6 +90,23 @@ export function normalizeProductPath(raw, method) {
   if (parsed.pathname.includes("/../") || parsed.pathname.endsWith("/..")) return null;
   if (!isPublicBridgeRoute(method, parsed.pathname)) return null;
   return `${parsed.pathname}${parsed.search}`;
+}
+
+// Vercel may attach original URL parameters to the rewritten API route
+// separately from ordax_path. Preserve only the fixed public OTP callback
+// parameters. No arbitrary query forwarding is introduced for other endpoints.
+export function forwardPublicConfirmationQuery(normalizedPath, params) {
+  if (typeof normalizedPath !== "string" || !(params instanceof URLSearchParams)) return null;
+  if (params.getAll("ordax_path").length !== 1) return null;
+  const forwarded = new URLSearchParams();
+  for (const [key, value] of params) {
+    if (key !== "ordax_path") forwarded.append(key, value);
+  }
+  if (forwarded.size === 0) return normalizedPath;
+  const route = new URL(normalizedPath, PUBLIC_ACCOUNT_ORIGIN);
+  if (route.pathname !== PUBLIC_CONFIRMATION_PATH || route.search) return null;
+  route.search = forwarded.toString();
+  return parseSignupConfirmation(route) ? route.pathname + route.search : null;
 }
 
 export function normalizeVercelOidcToken(raw) {
@@ -332,7 +350,8 @@ export async function proxyPublicAccountRequest(
   const browserContext = verifyBrowserOriginContext(request, trustedPublicOrigin);
   if (!browserContext.ok) return error(403, browserContext.code);
 
-  const productPath = normalizeProductPath(incoming.searchParams.get("ordax_path"), request.method);
+  const route = normalizeProductPath(incoming.searchParams.get("ordax_path"), request.method);
+  const productPath = route && forwardPublicConfirmationQuery(route, incoming.searchParams);
   if (!productPath) return error(404, "unsupported-account-route");
 
   const gateway = normalizeGatewayUrl(gatewayUrl);
@@ -422,6 +441,9 @@ export async function proxyPublicAccountRequest(
     return error(502, "unsafe-account-gateway-response");
   }
 
+  if (request.method === "GET" && new URL(productPath, PUBLIC_ACCOUNT_ORIGIN).pathname === PUBLIC_CONFIRMATION_PATH) {
+    responseHeaders.set("referrer-policy", "no-referrer");
+  }
   return new Response(upstream.body, {
     status: upstream.status,
     headers: responseHeaders,

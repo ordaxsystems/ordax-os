@@ -8,6 +8,7 @@ import {
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
+import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, parseSignupConfirmation } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -53,6 +54,7 @@ const PUBLIC_WEB_AUTH_ROUTES = new Set([
   "GET /auth/registration-policy",
   "GET /auth/login",
   "GET /auth/register",
+  "GET /auth/confirm",
   "POST /auth/login",
   "POST /auth/register",
   "POST /auth/logout",
@@ -814,6 +816,26 @@ async function closeAccount(req: Request) {
     : redirectResponse("/", [...clearCookies(), ...clearRecoveryCookies()]);
 }
 
+// One-time email token hash is exchanged server-side; any resulting Auth
+// session is revoked immediately. The browser gets no JWT and must sign in
+// normally through the same-origin OrdaX login flow.
+async function confirmPublicSignup(url: URL) {
+  const tokenHash = parseSignupConfirmation(url, PUBLIC_CONFIRMATION_PATH);
+  if (!tokenHash) return redirectResponse("/login/?erro=confirmacao-invalida");
+  try {
+    const result = await client().auth.verifyOtp({ token_hash: tokenHash, type: "email" });
+    if (result.error || !result.data?.user?.id) {
+      return redirectResponse("/login/?erro=confirmacao-invalida");
+    }
+    if (result.data.session?.access_token) {
+      await revokeCurrentSession(result.data.session.access_token);
+    }
+    return redirectResponse("/login/?cadastro=confirmado");
+  } catch {
+    return redirectResponse("/login/?erro=confirmacao-indisponivel");
+  }
+}
+
 async function credentials(req: Request, register: boolean) {
   if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_AUTH_ENABLED && publicSiteRequest(req)))) {
     return error(
@@ -888,6 +910,9 @@ async function credentials(req: Request, register: boolean) {
         email,
         password,
         options: {
+          // Explicit canonical HTTPS fallback if provider template still uses ConfirmationURL.
+          // Provider must also allowlist this exact URL; no localhost fallback is acceptable.
+          emailRedirectTo: PUBLIC_SIGNUP_REDIRECT,
           data: {
             ordax_registration_intent_id: registrationIntentId,
           },
@@ -1163,6 +1188,7 @@ Deno.serve(async (req: Request) => {
 
   if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
   if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
+  if (path === "/auth/confirm" && req.method === "GET") return confirmPublicSignup(url);
   if (path === "/auth/login" && req.method === "POST") return credentials(req, false);
   if (path === "/auth/register" && req.method === "POST") return credentials(req, true);
   if (path === "/auth/recover" && req.method === "POST") return recovery(req);

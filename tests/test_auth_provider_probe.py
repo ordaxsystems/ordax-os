@@ -16,7 +16,14 @@ class AuthProviderProbeTests(unittest.TestCase):
             "mailer_autoconfirm": False,
             "password_min_length": 12,
             "site_url": "https://ordax.com.br",
-            "uri_allow_list": "https://ordax.com.br/auth/recover/verify",
+            "uri_allow_list": "https://ordax.com.br/auth/recover/verify,https://ordax.com.br/login/",
+            "smtp_host": "smtp.resend.com",
+            "smtp_port": 465,
+            "smtp_user": "resend",
+            "smtp_admin_email": "no-reply@auth.ordax.com.br",
+            "smtp_sender_name": "OrdaX",
+            "mailer_subjects_confirmation": "Confirme seu e-mail — Conta OrdaX",
+            "mailer_templates_confirmation_content": '<a href="https://ordax.com.br/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email">Confirmar</a>',
             "mailer_subjects_recovery": "Redefina sua senha OrdaX",
             "mailer_templates_recovery_content": (
                 '<p><a href="{{ .ConfirmationURL }}">Redefinir senha</a></p>'
@@ -32,6 +39,10 @@ class AuthProviderProbeTests(unittest.TestCase):
         self.assertIsNone(proof["source_commit"])
         self.assertEqual(proof["observed"]["password_min_length"], 12)
         self.assertNotIn("mailer_templates_recovery_content", proof)
+        self.assertNotIn("mailer_templates_confirmation_content", proof)
+        self.assertNotIn("smtp_pass", str(proof))
+        self.assertTrue(proof["checks"]["resend_smtp_settings"])
+        self.assertTrue(proof["checks"]["branded_confirmation_template"])
 
     def test_project_and_commit_binding_is_deterministic_and_validated(self):
         ref, commit = "a" * 20, "b" * 40
@@ -75,6 +86,41 @@ class AuthProviderProbeTests(unittest.TestCase):
         proof = MODULE.evaluate(config, "https://ordax.com.br")
         self.assertFalse(proof["checks"]["recovery_template"])
         self.assertFalse(proof["ready"])
+
+    def test_missing_wrong_or_incomplete_smtp_blocks_readiness(self):
+        for field, value in (
+            ("smtp_host", "smtp.evil.invalid"),
+            ("smtp_port", 2525),
+            ("smtp_user", "administrator"),
+            ("smtp_admin_email", "no-reply@other.example"),
+            ("smtp_sender_name", "Supabase Auth"),
+            ("smtp_host", ""),
+        ):
+            with self.subTest(field=field, value=value):
+                config = self.base_config()
+                config[field] = value
+                proof = MODULE.evaluate(config, "https://ordax.com.br")
+                self.assertFalse(proof["checks"]["resend_smtp_settings"])
+                self.assertFalse(proof["ready"])
+
+    def test_default_or_unbranded_confirmation_template_blocks(self):
+        for template in (
+            '<a href="{{ .ConfirmationURL }}">Confirm</a>',
+            '<a href="http://localhost:3000">Confirm</a>',
+            '<a href="https://ordax.com.br/login/">Confirm</a>',
+        ):
+            with self.subTest(template=template):
+                config = self.base_config()
+                config["mailer_templates_confirmation_content"] = template
+                proof = MODULE.evaluate(config, "https://ordax.com.br")
+                self.assertFalse(proof["checks"]["branded_confirmation_template"])
+                self.assertFalse(proof["ready"])
+
+    def test_missing_signup_redirect_blocks(self):
+        config = self.base_config()
+        config["uri_allow_list"] = "https://ordax.com.br/auth/recover/verify"
+        proof = MODULE.evaluate(config, "https://ordax.com.br")
+        self.assertFalse(proof["checks"]["redirect_allowlist"])
 
     def test_origin_must_be_clean_https_origin(self):
         for value in (
