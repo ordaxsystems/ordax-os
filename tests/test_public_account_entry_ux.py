@@ -64,7 +64,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
             self.assertIn("/assets/site.css", styles)
             self.assertEqual(
                 [value for value in styles if "account.css" in value],
-                ["/assets/account.css?v=account-shell-1"],
+                ["/assets/account.css?v=account-ux-2"],
             )
             self.assertTrue(any(
                 name == "body" and tag.get("data-page") == route
@@ -143,7 +143,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
         self.assertIn(".account-ui [hidden]{display:none!important}", css)
         for route in ("login", "cadastro"):
             html, _ = self.read(route)
-            self.assertIn('href="/assets/account.css?v=account-shell-1"', html)
+            self.assertIn('href="/assets/account.css?v=account-ux-2"', html)
             self.assertIn('class="account-benefits"', html)
             self.assertIn('class="account-side-footer"', html)
             self.assertIn('class="account-quicklinks"', html)

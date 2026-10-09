@@ -5,6 +5,17 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Entre na sua Conta OrdaX com autenticação segura.", "Sign in to your OrdaX Account securely."],
+    ["Entre com sua identidade OrdaX. A segurança da sessão é validada pelo serviço oficial; novos recursos serão disponibilizados gradualmente.", "Sign in with your OrdaX identity. Session security is verified by the official service; more features will become available gradually."],
+    ["Privacidade e controle", "Privacy and control"],
+    ["Informe seu e-mail e senha para continuar. A disponibilidade do serviço é verificada automaticamente.", "Enter your email and password to continue. Service availability is verified automatically."],
+    ["Verificando conexão segura", "Checking secure connection"],
+    ["Consultando o serviço de identidade OrdaX.", "Contacting the OrdaX identity service."],
+    ["Conclua a verificação de segurança para habilitar o botão.", "Complete the security check to enable the button."],
+    ["Crie sua Conta OrdaX.", "Create your OrdaX Account."],
+    ["Crie sua Conta OrdaX com segurança.", "Create your OrdaX Account securely."],
+    ["Comece com seu e-mail e uma senha segura. Leia os documentos vigentes antes de criar a conta.", "Start with your email and a secure password. Read the current documents before creating your account."],
+    ["Consultando o serviço de identidade e a política de cadastro.", "Checking the identity service and registration policy."],
     ["Seu espaço.", "Your space."],
     ["Sua identidade.", "Your identity."],
     ["Sua Conta OrdaX reúne identidade e continuidade em um só lugar. O estado do acesso é verificado nesta página antes de liberar qualquer formulário.", "Your OrdaX Account brings identity and continuity into one place. Access status is checked on this page before any form is enabled."],

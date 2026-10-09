@@ -150,3 +150,33 @@
 @media(prefers-reduced-motion:reduce){
   .account-ui *{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
+
+/* Auth-only release: presentation follows live identity readiness, never a static promise. */
+.account-ui .identity-state[data-status="checking"]{border-color:#536b89;background:#13263b}
+.account-ui .identity-state[data-status="checking"] .state-icon{position:relative}
+.account-ui .identity-state[data-status="checking"] .state-icon svg{visibility:hidden}
+.account-ui .identity-state[data-status="checking"] .state-icon::after{
+  content:"";position:absolute;width:20px;height:20px;border:2px solid #c4e0ff50;
+  border-top-color:#d9eeff;border-radius:50%;animation:account-status-spin 1s linear infinite;
+}
+.account-ui .identity-state[data-status="ready"]{border-color:#458f83;background:linear-gradient(115deg,#103932,#102a31)}
+.account-ui .identity-state[data-status="ready"] .state-icon{border-color:#5ea99c;background:#16483f;color:#dcfff3}
+.account-ui .identity-state[data-status="unavailable"]{border-color:#b18c60;background:linear-gradient(115deg,#382d24,#1c2634)}
+.account-ui .identity-state[data-status="unavailable"] .state-icon{border-color:#b18c60;background:#3d3127;color:#ffe3b5}
+.account-ui[data-identity-ready="true"] .gated-guidance,
+.account-ui .identity-state[data-status="checking"]~.gated-guidance{display:none}
+.account-ui .verification-hint{font-size:12px;line-height:1.5;color:#b9cde7;margin:-12px 0 0}
+.account-ui .registration-legal-documents a{
+  display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;padding:9px 12px;
+  border:1px solid #6686a7;border-radius:8px;background:#1b324b;color:#edf6ff;
+}
+.account-ui .registration-legal-documents a:hover{background:#254664}
+.account-ui .registration-legal-documents span{font-size:11px;overflow-wrap:anywhere}
+.account-ui .identity-field input:user-invalid{border-color:#d9838b}
+.account-ui .identity-form button:focus-visible,.account-ui .registration-legal input:focus-visible{
+  outline:3px solid #d2e8ff;outline-offset:3px;
+}
+@keyframes account-status-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  .account-ui .identity-state[data-status="checking"] .state-icon::after{animation:none}
+}
