@@ -39,8 +39,8 @@ class DownloadPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             path, _ = policy.download_destination(root, "download-0123456789abcdef", "a.txt")
             with open(path, "wb") as stream:
-                stream.truncate(256 * 1024 * 1024 + 1)
-            self.assertEqual(policy.verified_download(path), 256 * 1024 * 1024 + 1)
+                stream.truncate(5 * (1024 ** 3) + 1)  # sparse, no 5 GiB allocation
+            self.assertEqual(policy.verified_download(path), 5 * (1024 ** 3) + 1)
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
     def test_capacity_depends_on_volume_not_file_size(self):
         gib = 1024 ** 3
