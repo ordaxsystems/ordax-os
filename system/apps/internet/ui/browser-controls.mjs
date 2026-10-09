@@ -5,6 +5,9 @@ import {
   browserSelectionIntelligenceRequest,
 } from "../../../contracts/browser-page-selection.mjs";
 import { assertIntelligencePort, validateIntelligenceResponse } from "../../../contracts/intelligence.mjs";
+import { assertIdentitySessionPort } from "../../../contracts/identity-session.mjs";
+import { assertSpaceSelectionPort } from "../../../contracts/space-selection.mjs";
+import { assertProfileActivationStatePort } from "../../../contracts/profile-activation-state.mjs";
 import { resolveBrowserNavigation } from "../../../contracts/browser-navigation.mjs";
 import {
   assertBrowserFavoritesPort,
@@ -337,6 +340,9 @@ export function mountInternetBrowserControls(
     history = null,
     pageSelection = null,
     intelligence = null,
+    identitySessionPort = null,
+    spaceSelectionPort = null,
+    profileActivationStatePort = null,
   } = {},
 ) {
   if (!(root instanceof Element)) throw new TypeError("Internet controls require a Surface root Element");
@@ -353,6 +359,9 @@ export function mountInternetBrowserControls(
   const historyPort = history === null ? null : assertBrowserHistoryPort(history);
   const selectionPort = pageSelection === null ? null : assertBrowserPageSelectionPort(pageSelection);
   const intelligencePort = intelligence === null ? null : assertIntelligencePort(intelligence);
+  const scopeIdentity = identitySessionPort === null ? null : assertIdentitySessionPort(identitySessionPort);
+  const scopeSelection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
+  const scopeProfile = profileActivationStatePort === null ? null : assertProfileActivationStatePort(profileActivationStatePort);
   const documentObject = root.ownerDocument;
   const windowObject = documentObject.defaultView;
   let snapshot = port.getSnapshot();
@@ -1415,6 +1424,13 @@ export function mountInternetBrowserControls(
     render();
   }) ?? (() => {});
   const unsubscribeIntelligence = intelligencePort?.subscribe(() => render()) ?? (() => {});
+  const invalidateSelectedContext = () => {
+    clearSelectedPage();
+    render();
+  };
+  const unsubscribeIdentity = scopeIdentity?.subscribe(invalidateSelectedContext) ?? (() => {});
+  const unsubscribeSpaceSelection = scopeSelection?.subscribe(invalidateSelectedContext) ?? (() => {});
+  const unsubscribeProfile = scopeProfile?.subscribe?.(invalidateSelectedContext) ?? (() => {});
   const unsubscribeSurface = lifecycle.subscribeRender(render);
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKeyDown);
@@ -1436,6 +1452,9 @@ export function mountInternetBrowserControls(
       unsubscribeFavorites();
       unsubscribeHistory();
       unsubscribeIntelligence();
+      unsubscribeIdentity();
+      unsubscribeSpaceSelection();
+      unsubscribeProfile();
       unsubscribeSurface();
       clearSelectedPage();
       root.removeEventListener("click", onClick);
