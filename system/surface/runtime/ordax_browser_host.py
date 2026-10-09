@@ -576,6 +576,10 @@ class OrdaXBrowserHost:
             raise RuntimeError(f"invalid browser accelerator {accelerator!r}")
 
         def callback(*_args) -> bool:
+            # This accelerator is global to the GTK Surface, but page search
+            # belongs only to a visible Internet viewport.
+            if action == "focus-page-find" and not self.viewport["visible"]:
+                return False
             if focus_surface:
                 self.surface_view.grab_focus()
             self.emit_host_event({"type": "shortcut", "action": action})
