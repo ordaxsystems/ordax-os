@@ -162,6 +162,47 @@ privilegiada da Surface.
 - O modo Web continua sem incorporar páginas externas e não simula a funcionalidade.
 - `tests/test_internet_popup_policy.py` executa a função de política extraída da implementação real em ambiente sem GTK. Prova física de comportamento, foco e compatibilidade no WebKit permanece pendente.
 
+## Seleção de texto para consulta à IA — fluxo opt-in
+
+O painel **Assistência opcional** permite selecionar texto dentro da aba WebKit
+externa e capturar **somente o texto destacado pelo usuário**, em uma única
+solicitação. Não existe observação automática do DOM, extração de cookies,
+acesso a campos escondidos ou entrega de página integral.
+
+O fluxo tem dois comandos distintos:
+1. **Capturar texto selecionado** envia `page-selection.capture` com identidade
+   de aba e identificador de pedido ao host privilegiado.
+2. O usuário visualiza o trecho em uma prévia somente leitura, pode descartá-lo,
+   incluir uma pergunta e então pressiona **Enviar seleção à IA**.
+
+A segunda ação cria um item `scope=document` e
+`source=untrusted-web-content`, usando o SSOT
+`ordax.intelligence/1`. A consulta é consultiva (`authority=none`) e utiliza
+o provedor de inteligência autorizado pela composição do Space atual; se ele
+estiver indisponível, o botão de envio permanece inativo. Texto de sites nunca
+é tratado como instruções de sistema ou capability.
+
+Limites e proteções:
+- até 4.096 caracteres de texto selecionado (truncamento declarado);
+- limite de 800 caracteres para a pergunta;
+- até uma captura pendente, com request ID e timeout no adaptador Native;
+- recusa de aba inativa, URL não pública, navegação em andamento ou página
+  alterada durante a captura;
+- trecho e resposta ficam apenas em memória, sem histórico, sincronização ou
+  persistência de página;
+- trocas de aba ou URL invalidam a prévia para evitar contexto cruzado;
+- modo Web mantém a captura indisponível sem fabricar um `iframe`.
+
+Provas de contrato:
+`tests/test_browser_page_selection.mjs`,
+`tests/test_native_browser_page_selection.mjs` e
+`tests/test_internet_native_page_selection.py`.
+
+A prova física WebKit/GTK e avaliação de segurança do caminho completo até
+o modelo continuam pendentes. A proteção contra prompt injection é uma
+fronteira de confiança explícita, mas não significa que modelos generativos
+sejam imunes a texto malicioso.
+
 ## First implementation slice
 
 Implemented in source:
