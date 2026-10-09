@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { productCookiesFromUpstream } from "../infra/supabase/functions/_shared/account_cookie_policy.mjs";
 
 import {
   normalizeGatewayUrl,
@@ -153,6 +154,24 @@ test("cookie envelope accepts only unique validated OrdaX cookies", () => {
     /unsafe-upstream-cookie/,
   );
   assert.throws(() => trustedCookieEnvelope("{not-json"), /invalid-cookie-envelope/);
+});
+
+test("product envelope excludes Supabase and Cloudflare transport cookies", () => {
+  const access = "ordax_access=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+  const refresh = "ordax_refresh=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+  const cf = "__cf_bm=bot; Path=/; HttpOnly; Secure; SameSite=None";
+  assert.deepEqual(productCookiesFromUpstream([cf, access, refresh]), [access, refresh]);
+  assert.deepEqual(productCookiesFromUpstream([cf]), []);
+  assert.throws(() => productCookiesFromUpstream([access, access]), /duplicate-upstream-cookie/);
+  assert.throws(() => productCookiesFromUpstream([
+    "ordax_access=value; Domain=evil.example; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=30",
+  ]), /unsafe-upstream-cookie/);
+  assert.throws(() => productCookiesFromUpstream([
+    "ordax_admin=fake; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=30",
+  ]), /unknown-ordax-cookie/);
+  assert.throws(() => productCookiesFromUpstream([
+    cf, "evil=bad\r\nSet-Cookie:ordax_access=secret",
+  ]), /invalid-transport-cookie/);
 });
 
 test("public proxy accepts only GET and POST", async () => {
