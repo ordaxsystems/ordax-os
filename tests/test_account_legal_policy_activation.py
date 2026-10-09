@@ -279,6 +279,11 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self.assertNotIn("pull_request:", text)
         self.assertNotIn("push:", text)
         self.assertIn("activate-reviewed-legal-policy", text)
+        self.assertIn("refs/heads/main", text)
+        self.assertIn("ordaxsystems/ordax-os", text)
+        self.assertIn("exact public document", (
+            ROOT / "docs/PUBLIC-LEGAL-READINESS.md"
+        ).read_text(encoding="utf-8"))
         self.assertIn("secrets.ORDAX_SUPABASE_SECRET_KEY", text)
         self.assertIn("ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRINTED=NO", text)
         self.assertIn("activate_account_legal_policy.py candidate", text)
