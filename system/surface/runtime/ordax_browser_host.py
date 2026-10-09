@@ -29,8 +29,8 @@ from gi.repository import GLib, Gtk, WebKit2  # type: ignore  # noqa: E402
 
 from browser_session_store import load_browser_session, save_browser_session
 from browser_download_policy import (
-    MAX_DOWNLOAD_BYTES,
     download_destination,
+    ensure_download_space,
     safe_download_name,
     verified_download,
 )
@@ -1167,7 +1167,7 @@ class OrdaXBrowserHost:
             item = {
                 "id": download_id, "download": download, "tab_id": tab.tab_id,
                 "file_name": "download.bin", "status": "starting",
-                "path": None, "created": False, "timeout": None,
+                "path": None, "created": False, "timeout": None, "declared_bytes": None,
             }
             self.downloads[download_id] = item
             download.connect("decide-destination", self.on_download_decide_destination, download_id)
@@ -1193,8 +1193,11 @@ class OrdaXBrowserHost:
             if response is None or not allowed_external_uri(response.get_uri()):
                 raise ValueError("unsafe download response")
             response_bytes = response.get_content_length()
-            if response_bytes > MAX_DOWNLOAD_BYTES:
-                raise ValueError("oversized download")
+            # Unknown Content-Length (-1) is legitimate: check the target
+            # filesystem continuously while WebKit streams data to disk.
+            if not isinstance(response_bytes, int) or response_bytes < -1:
+                raise ValueError("invalid download content length")
+            item["declared_bytes"] = response_bytes if response_bytes >= 0 else None
             item["file_name"] = safe_download_name(suggested_name)
             item["timeout"] = GLib.timeout_add_seconds(60, self.timeout_download, download_id)
             self.emit_download_state(item, "pending")
@@ -1221,6 +1224,9 @@ class OrdaXBrowserHost:
             path, name = download_destination(
                 self.download_user_root, download_id, item["file_name"]
             )
+            # Capacity comes from the mounted user volume, not from USB/SSD
+            # mode and never from a fixed per-file byte count.
+            ensure_download_space(os.path.dirname(path), item["declared_bytes"])
             self.remove_download_timeout(item)
             item["file_name"] = name
             item["path"] = path
@@ -1238,11 +1244,15 @@ class OrdaXBrowserHost:
             item["created"] = True
 
     def on_download_received_data(
-        self, download: object, _length: int, download_id: str
+        self, _download: object, _length: int, download_id: str
     ) -> None:
         item = self.downloads.get(download_id)
         if item and item["status"] == "downloading":
-            if download.get_received_data_length() > MAX_DOWNLOAD_BYTES:
+            try:
+                # Streaming disk-space gate: unknown-size downloads and
+                # competing writes must never exhaust the user volume.
+                ensure_download_space(os.path.dirname(item["path"]))
+            except (OSError, ValueError):
                 self.cancel_download_item(item, "failed")
 
     def on_download_failed(self, _download: object, _error: object, download_id: str) -> None:
