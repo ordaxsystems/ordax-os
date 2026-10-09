@@ -204,6 +204,30 @@ o modelo continuam pendentes. A proteção contra prompt injection é uma
 fronteira de confiança explícita, mas não significa que modelos generativos
 sejam imunes a texto malicioso.
 
+## Localizar texto na página (Find in page)
+
+A Surface do Internet ganhou uma barra de busca nativa, ativada por botão
+ou `Ctrl+F`/`Cmd+F`, com consulta, próximo/anterior, Escape e resultado de
+ocorrências. O owner da operação é o `WebKit2.FindController` da aba externa,
+não o DOM do site nem um script com acesso a dados privados.
+Referência: https://webkitgtk.org/reference/webkit2gtk/stable/class.FindController.html
+
+Arquitetura:
+- contrato `ordax.browser-page-find-port/1` separado da sessão `ordax.browser-session/1`;
+- adaptador Native `system/adapters/native/browser-page-find.mjs`;
+- ações tipadas `page-find.search|next|previous|finish`, sem tokens de login ou texto do documento;
+- até 256 caracteres na consulta e 1.000 correspondências reportadas;
+- respostas trazem somente `tabId`, `query`, `state` e `count` — nenhum conteúdo da página;
+- host recusa busca em aba inativa/carregando/URL não permitida; descarta resultados
+  de aba ou consulta alterada; fecha a busca ao trocar de aba ou navegar;
+- modo Web não oferece busca nativa inexistente; mantém controle desabilitado;
+- strings do componente localizadas em pt-BR/en-US.
+
+Validação: `node --test tests/test_browser_page_find.mjs` e
+`python -m unittest tests.test_internet_native_page_find` estão no
+`Surface Web Candidate`. A prova física WebKitGTK/USB, inclusive
+foco do atalho, continua necessária antes de promover lançamento.
+
 ## First implementation slice
 
 Implemented in source:

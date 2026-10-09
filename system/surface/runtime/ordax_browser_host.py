@@ -51,6 +51,8 @@ APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-boots
 TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 MAX_TABS = 16
+MAX_PAGE_FIND_CHARS = 256
+MAX_PAGE_FIND_MATCHES = 1000
 PAGE_SELECTION_MAX_CHARS = 4096
 PAGE_SELECTION_REQUEST_RE = re.compile(r"^selection-[1-9][0-9]{0,8}$")
 MAX_URI_LENGTH = 8192
@@ -62,6 +64,7 @@ INTERNAL_RESOURCE_SCHEMES = frozenset({"about", "blob", "data"})
 LOCAL_HOST_SUFFIXES = (".localhost", ".local", ".home.arpa")
 HOST_SHORTCUTS = (
     ("<Primary>l", "focus-address", True),
+    ("<Primary>f", "focus-page-find", True),
     ("<Primary>t", "new-tab", True),
     ("<Primary>w", "close-tab", False),
     ("<Primary>r", "reload", False),
@@ -207,6 +210,8 @@ class OrdaXBrowserHost:
         self.session_path = os.path.join(self.profile_root, "session.json")
         self.tabs: dict[str, BrowserTab] = {}
         self.active_tab_id: str | None = None
+        self.find_active_tab_id: str | None = None
+        self.find_query = ""
         self.viewport = {"visible": False, "x": 0, "y": 0, "width": 0, "height": 0}
         self.restoring_session = False
         self.last_persisted_session: tuple[tuple[str, ...], int | None] | None = None
@@ -571,6 +576,10 @@ class OrdaXBrowserHost:
             raise RuntimeError(f"invalid browser accelerator {accelerator!r}")
 
         def callback(*_args) -> bool:
+            # This accelerator is global to the GTK Surface, but page search
+            # belongs only to a visible Internet viewport.
+            if action == "focus-page-find" and not self.viewport["visible"]:
+                return False
             if focus_surface:
                 self.surface_view.grab_focus()
             self.emit_host_event({"type": "shortcut", "action": action})
@@ -612,6 +621,11 @@ class OrdaXBrowserHost:
                 if set(payload) != {"type", "requestId", "tabId"}:
                     raise ValueError("Page selection request fields are invalid")
                 self.capture_page_selection(payload.get("requestId"), payload.get("tabId"))
+            elif command in {"page-find.search", "page-find.next", "page-find.previous", "page-find.finish"}:
+                expected = {"type", "tabId", "query"} if command == "page-find.search" else {"type", "tabId"}
+                if set(payload) != expected:
+                    raise ValueError("Page find command fields are invalid")
+                self.handle_page_find(command, payload.get("tabId"), payload.get("query"))
             elif command == "tab.close":
                 self.close_tab(payload.get("tabId"))
             elif command == "tab.activate":
@@ -705,6 +719,9 @@ class OrdaXBrowserHost:
         view.connect("decide-policy", self.on_decide_policy, tab_id)
         view.connect("permission-request", self.on_permission_request, tab_id)
         view.connect("resource-load-started", self.on_resource_load_started, tab_id)
+        find_controller = view.get_find_controller()
+        find_controller.connect("found-text", self.on_find_found, tab_id)
+        find_controller.connect("failed-to-find-text", self.on_find_failed, tab_id)
         self.overlay.add_overlay(view)
         self.overlay.set_overlay_pass_through(view, False)
         view.hide()
@@ -732,8 +749,83 @@ class OrdaXBrowserHost:
             self.emit_snapshot()
             self.persist_session()
 
+    def finish_page_find(self) -> None:
+        previous = self.find_active_tab_id
+        self.find_active_tab_id = None
+        self.find_query = ""
+        if previous is not None and previous in self.tabs:
+            self.tabs[previous].view.get_find_controller().search_finish()
+
+    def handle_page_find(self, action: str, tab_id_value: object, query: object = None) -> None:
+        tab_id = self.valid_tab_id(tab_id_value)
+        tab = self.tabs.get(tab_id)
+        if tab is None or tab_id != self.active_tab_id or tab.loading:
+            raise ValueError("Page find requires an active loaded tab")
+        uri = tab.view.get_uri() or ""
+        if uri != tab.url or not allowed_external_uri(uri):
+            raise ValueError("Page find requires a public loaded page")
+        if action == "page-find.finish":
+            self.finish_page_find()
+            return
+        controller = tab.view.get_find_controller()
+        if action == "page-find.search":
+            if (
+                not isinstance(query, str)
+                or len(query) > MAX_PAGE_FIND_CHARS
+                or any(ord(char) < 0x20 or ord(char) == 0x7f for char in query)
+            ):
+                raise ValueError("Page find query is invalid")
+            self.finish_page_find()
+            if not query:
+                return
+            self.find_active_tab_id = tab_id
+            self.find_query = query
+            controller.search(
+                query,
+                WebKit2.FindOptions.CASE_INSENSITIVE | WebKit2.FindOptions.WRAP_AROUND,
+                MAX_PAGE_FIND_MATCHES,
+            )
+            return
+        if self.find_active_tab_id != tab_id or not self.find_query:
+            raise ValueError("Page find has no active query")
+        if action == "page-find.next":
+            controller.search_next()
+        elif action == "page-find.previous":
+            controller.search_previous()
+        else:
+            raise ValueError("Unknown Page find action")
+
+    def on_find_found(self, controller: object, count: int, tab_id: str) -> None:
+        if tab_id != self.find_active_tab_id or tab_id != self.active_tab_id:
+            return
+        tab = self.tabs.get(tab_id)
+        if tab is None or tab.loading or controller.get_search_text() != self.find_query:
+            return
+        self.emit_host_event({
+            "type": "page-find.result",
+            "tabId": tab_id,
+            "query": self.find_query,
+            "state": "found",
+            "count": min(MAX_PAGE_FIND_MATCHES, max(0, int(count))),
+        })
+
+    def on_find_failed(self, controller: object, tab_id: str) -> None:
+        if tab_id != self.find_active_tab_id or tab_id != self.active_tab_id:
+            return
+        if tab_id not in self.tabs or controller.get_search_text() != self.find_query:
+            return
+        self.emit_host_event({
+            "type": "page-find.result",
+            "tabId": tab_id,
+            "query": self.find_query,
+            "state": "not-found",
+            "count": 0,
+        })
+
     def close_tab(self, tab_id_value: object) -> None:
         tab_id = self.valid_tab_id(tab_id_value)
+        if self.find_active_tab_id == tab_id:
+            self.finish_page_find()
         tab = self.tabs.pop(tab_id, None)
         if tab is None:
             return
@@ -748,6 +840,8 @@ class OrdaXBrowserHost:
         tab_id = self.valid_tab_id(tab_id_value)
         if tab_id not in self.tabs:
             raise ValueError("unknown tab")
+        if self.find_active_tab_id != tab_id:
+            self.finish_page_find()
         self.active_tab_id = tab_id
         self.update_visibility()
         self.emit_snapshot()
@@ -759,6 +853,8 @@ class OrdaXBrowserHost:
             raise ValueError("unknown tab")
         if not isinstance(url_value, str) or not allowed_external_uri(url_value):
             raise ValueError("only public external http/https addresses are allowed")
+        if self.find_active_tab_id == tab_id:
+            self.finish_page_find()
         tab = self.tabs[tab_id]
         tab.url = url_value
         tab.loading = True
@@ -904,6 +1000,8 @@ class OrdaXBrowserHost:
         tab = self.tabs.get(tab_id)
         if tab is None:
             return
+        if event != WebKit2.LoadEvent.FINISHED and self.find_active_tab_id == tab_id:
+            self.finish_page_find()
         tab.loading = event != WebKit2.LoadEvent.FINISHED
         uri = view.get_uri() or ""
         if uri and uri != "about:blank":

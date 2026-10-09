@@ -9,6 +9,7 @@ const EVENT_NAME = "ordax-browser-host";
 const HANDLER_NAME = "ordaxBrowser";
 const SHORTCUT_ACTIONS = new Set([
   "focus-address",
+  "focus-page-find",
   "new-tab",
   "close-tab",
   "reload",

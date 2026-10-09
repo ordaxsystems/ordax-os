@@ -60,6 +60,7 @@ export const componentRuntime = Object.freeze({
     createFavoritesStore = null,
     createHistoryStore = null,
     createPageSelectionPort = null,
+    createPageFindPort = null,
     intelligence = null,
     identitySessionPort = null,
     spaceSelectionPort = null,
@@ -76,6 +77,9 @@ export const componentRuntime = Object.freeze({
     if (createPageSelectionPort !== null && typeof createPageSelectionPort !== "function") {
       throw new TypeError("Internet createPageSelectionPort must be a function or null");
     }
+    if (createPageFindPort !== null && typeof createPageFindPort !== "function") {
+      throw new TypeError("Internet createPageFindPort must be a function or null");
+    }
     const releaseStyles = await mountInternetStyles(root);
     let favorites = null;
     let history = null;
@@ -83,11 +87,13 @@ export const componentRuntime = Object.freeze({
     let controls = null;
     let shortcuts = null;
     let pageSelection = null;
+    let pageFind = null;
 
     const cleanup = () => {
       shortcuts?.destroy();
       controls?.destroy();
       pageSelection?.dispose();
+      pageFind?.dispose();
       historyBridge?.destroy();
       history?.destroy();
       favorites?.destroy();
@@ -96,6 +102,7 @@ export const componentRuntime = Object.freeze({
 
     try {
       pageSelection = createPageSelectionPort?.() ?? null;
+      pageFind = createPageFindPort?.() ?? null;
       const favoritesStore = createFavoritesStore?.() ?? null;
       const historyStore = createHistoryStore?.() ?? null;
       favorites = favoritesStore === null
@@ -115,7 +122,7 @@ export const componentRuntime = Object.freeze({
         root,
         browserSession,
         surfaceLifecycle,
-        { projects, projectReferences, favorites, history, pageSelection, intelligence,
+        { projects, projectReferences, favorites, history, pageSelection, pageFind, intelligence,
           identitySessionPort, spaceSelectionPort, profileActivationStatePort },
       );
       shortcuts = enableShortcuts
