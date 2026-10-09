@@ -12,6 +12,7 @@ on:
       - 'infra/supabase/product/migrations/*user_cloud_storage*'
       - 'tests/test_user_cloud_storage_reconvergence.mjs'
       - 'tests/test_user_cloud_storage_source.py'
+      - 'tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql'
       - '.github/workflows/user-cloud-storage-contract.yml'
   push:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - 'infra/supabase/product/migrations/*user_cloud_storage*'
       - 'tests/test_user_cloud_storage_reconvergence.mjs'
       - 'tests/test_user_cloud_storage_source.py'
+      - 'tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql'
       - '.github/workflows/user-cloud-storage-contract.yml'
 
 permissions:
@@ -33,6 +35,25 @@ permissions:
 jobs:
   user-cloud-storage-contract:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -57,6 +78,9 @@ jobs:
           if (storage.quota.key !== 'storage.user.bytes' || storage.quota.unit !== 'bytes') {
             throw new Error('user cloud storage quota binding drifted');
           }
+          if (storage.quota.upload_reservation_must_reference_exact_quota_reservation !== true) {
+            throw new Error('storage reservation must retain the exact quota reservation identity');
+          }
           if (storage.status !== 'source-foundation-rollout-disabled' || aggregate.public_rollout_enabled !== false) {
             throw new Error('user/account cloud rollout must remain disabled in foundation');
           }
@@ -66,3 +90,8 @@ jobs:
           NODE
           node --test tests/test_user_cloud_storage_reconvergence.mjs
           python3 -m unittest tests.test_user_cloud_storage_source
+
+      - name: Prove storage reservation integrity on PostgreSQL 16
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql
