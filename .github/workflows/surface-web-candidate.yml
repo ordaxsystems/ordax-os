@@ -495,6 +495,7 @@ jobs:
           node --test tests/test_browser_download.mjs
           node --test tests/test_native_browser_page_selection.mjs
           node --test tests/test_project_file_space_continuity.mjs
+          node --test tests/test_files_response_identity.mjs
           node --test tests/test_home_continuation.mjs
           node --test tests/test_notifications.mjs
           node --test tests/test_device_agent_contracts.mjs
