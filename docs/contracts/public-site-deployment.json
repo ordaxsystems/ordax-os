@@ -428,7 +428,7 @@
     "secret_may_exist_in_repository": false,
     "token_max_bytes": 2048,
     "token_forwarded_to_inner_gateway": false,
-    "production_secret_configured": false,
+    "production_secret_configured": true,
     "production_e2e_verified": false,
     "production_hostname_verified": true,
     "production_hostname_verification_evidence": "Cloudflare dedicated OrdaX account GET /accounts/{account_id}/challenges/widgets returned this managed widget with domains ordax.com.br and www.ordax.com.br on 2026-10-09; real Siteverify E2E remains pending"
