@@ -20,7 +20,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}
+      ORDAX_REQUESTED_ORIGIN: ${{ inputs.origin }}
+      ORDAX_ACTIVATION_CONFIRMATION: ${{ inputs.confirmation }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -50,13 +51,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ inputs.confirmation }}" = "activate-reviewed-legal-policy" || {
+          test "${ORDAX_ACTIVATION_CONFIRMATION}" = "activate-reviewed-legal-policy" || {
             echo 'Exact legal-policy activation confirmation is required.' >&2
             exit 2
           }
 
       - name: Require server-only provider credential without printing it
         shell: bash
+        env:
+          ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}
         run: |
           set -euo pipefail
           test -n "${ORDAX_SUPABASE_SECRET_KEY:-}" || {
@@ -70,19 +73,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python tools/public-site/activate_account_legal_policy.py candidate             --origin "${{ inputs.origin }}"             --output "${RUNNER_TEMP}/account-legal-policy-candidate.json"
+          python tools/public-site/activate_account_legal_policy.py candidate             --origin "${ORDAX_REQUESTED_ORIGIN}"             --output "${RUNNER_TEMP}/account-legal-policy-candidate.json"
 
       - name: Apply exact candidate through service-role-only RPC
         shell: bash
+        env:
+          ORDAX_SUPABASE_SECRET_KEY: ${{ secrets.ORDAX_SUPABASE_SECRET_KEY }}
         run: |
           set -euo pipefail
-          python tools/public-site/activate_account_legal_policy.py apply             --origin "${{ inputs.origin }}"             --output "${RUNNER_TEMP}/account-legal-policy-activation-receipt.json"
+          python tools/public-site/activate_account_legal_policy.py apply             --origin "${ORDAX_REQUESTED_ORIGIN}"             --output "${RUNNER_TEMP}/account-legal-policy-activation-receipt.json"
 
       - name: Validate sanitized activation receipt
         shell: bash
         run: |
           set -euo pipefail
-          python - "${RUNNER_TEMP}/account-legal-policy-activation-receipt.json" "${{ inputs.origin }}" "${GITHUB_SHA}" <<'PY'
+          python - "${RUNNER_TEMP}/account-legal-policy-activation-receipt.json" "${ORDAX_REQUESTED_ORIGIN}" "${GITHUB_SHA}" <<'PY'
           import json
           import pathlib
           import sys
