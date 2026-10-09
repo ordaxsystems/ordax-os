@@ -446,3 +446,21 @@ observado, sem inventar proveniência GitHub. A centralização da allowlist
 A função interna segue v5 com `verify_jwt=true`, chave nomeada ainda
 não provisionada e testes E2E pendentes. Conta pública continua fechada;
 não marcar OIDC, gateway service-to-service, login ou cadastro como prontos.
+
+## Diferenciação de falhas na ponte de Conta (source, 2026-10-09)
+
+As provas HTTP reais do domínio `ordax.com.br/auth/session` retornaram
+`503 account-gateway-unavailable`. No Supabase canônico, a função pública
+v2 registrou `503 EDGE_FUNCTION_ERROR` nas mesmas janelas, com tempos de
+execução aproximados de 206–440 ms. Um pedido direto **sem** OIDC à Edge
+v2 retornou `403 public-proxy-authentication-required` (segurança ativa).
+A URL `ORDAX_ACCOUNT_GATEWAY_URL` de produção corresponde ao destino
+canônico da Edge pública, conforme inspeção autenticada read-only na Vercel.
+
+O código da Edge pública (ainda **não implantado** nesta revisão) separa
+agora `account-public-bridge-unconfigured` (credencial nomeada ausente) de
+`account-gateway-unavailable` (transporte interno rejeitado/falhou). Ambos
+mantêm status 503 e não acionam cadastro/login. A implantação anterior v2
+pode produzir o segundo código nos dois cenários e **não permite concluir
+qual deles aconteceu** sem nova prova após implantação revisada. Não tratar
+falhas como estado normal de Conta desativada no monitor público.
