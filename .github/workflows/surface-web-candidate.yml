@@ -170,6 +170,8 @@ on:
       - 'tests/test_browser_session_store.py'
       - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
+      - 'tests/test_internet_sdk_readiness.py'
+      - 'tools/verify/internet_sdk_readiness.py'
       - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
@@ -378,6 +380,8 @@ on:
       - 'tests/test_browser_session_store.py'
       - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
+      - 'tests/test_internet_sdk_readiness.py'
+      - 'tools/verify/internet_sdk_readiness.py'
       - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
@@ -580,6 +584,8 @@ jobs:
           python -m unittest tests.test_browser_session_store -v
           python -m unittest tests.test_internet_accessibility_contract -v
           python -m unittest tests.test_internet_browser_contract -v
+          python -m unittest tests.test_internet_sdk_readiness -v
+          python tools/verify/internet_sdk_readiness.py --check
           python -m unittest tests.test_internet_popup_policy -v
           python -m unittest tests.test_internet_native_page_selection -v
           python -m unittest tests.test_internet_native_page_find -v
