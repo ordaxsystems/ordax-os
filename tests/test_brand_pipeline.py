@@ -54,6 +54,18 @@ class BrandPipelineTests(unittest.TestCase):
             with self.assertRaises(brand.BrandError):
                 brand.render_email("confirmation", templates_dir=path)
 
+    def test_public_site_builder_does_not_shadow_other_build_modules(self):
+        import sys
+        before = sys.modules.get("build")
+        path_before = list(sys.path)
+        public_path = ROOT / "tools/public-site/build.py"
+        public_spec = importlib.util.spec_from_file_location("ordax_public_builder_isolation", public_path)
+        public = importlib.util.module_from_spec(public_spec)
+        public_spec.loader.exec_module(public)
+        self.assertIs(sys.modules.get("build"), before)
+        self.assertEqual(sys.path, path_before)
+        self.assertEqual(public.render_site_css(), brand.render_site_css())
+
     def test_publishing_requires_confirmed_project_and_never_runs_by_default(self):
         with self.assertRaises(brand.BrandError):
             brand.publish_emails(brand.SUPABASE_REF)
