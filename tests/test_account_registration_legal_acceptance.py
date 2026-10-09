@@ -57,8 +57,11 @@ class AccountRegistrationLegalAcceptanceTests(unittest.TestCase):
     def test_public_registration_stays_fail_closed_until_remaining_release_gates_pass(self):
         text = EDGE_GATEWAY.read_text(encoding="utf-8")
 
-        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = true;", text)
-        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = true;", text)
+        self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", text)
+        self.assertIn("const ACCOUNT_REGISTRATION_ENABLED = false;", text)
+        self.assertIn("const PUBLIC_WEB_AUTH_ENABLED = true;", text)
+        self.assertIn("PUBLIC_WEB_AUTH_ROUTES.has(req.method + \" \" + path)", text)
+        self.assertIn("PUBLIC_WEB_AUTH_ENABLED && publicSiteRequest(req)", text)
         self.assertIn("const ACCOUNT_RECOVERY_REQUEST_ENABLED = false;", text)
         self.assertIn("const ACCOUNT_RECOVERY_COMPLETION_ENABLED = false;", text)
 
