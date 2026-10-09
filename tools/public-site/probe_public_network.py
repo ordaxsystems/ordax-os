@@ -8,15 +8,19 @@ is active. It never sends credentials or performs state-changing requests.
 
 from __future__ import annotations
 
+import json
 import socket
+from pathlib import Path
 import ssl
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-CANONICAL_HOST = "ordax.com.br"
-WWW_HOST = "www.ordax.com.br"
-CANONICAL_VERCEL_IPV4 = "76.76.21.21"
+CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs/contracts/public-site-deployment.json"
+CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+CANONICAL_HOST = CONTRACT["vercel_migration"]["target_canonical_domain"]
+WWW_HOST = CONTRACT["vercel_migration"]["target_www_domain"]
+CANONICAL_VERCEL_IPV4 = CONTRACT["cloudflare_dns_migration"]["destination_apex_a_address"]
 PATHS = ("/", "/login/", "/cadastro/", "/privacidade/", "/termos/")
 TIMEOUT_SECONDS = 10
 
@@ -57,6 +61,10 @@ def fetch(hostname: str, path: str):
 
 
 def main() -> int:
+    if CONTRACT["cloudflare_dns_migration"]["destination_public_site_proxy_mode"] != "dns-only":
+        fail("dns-owner-not-in-dns-only-mode")
+    if (CANONICAL_HOST, WWW_HOST) != ("ordax.com.br", "www.ordax.com.br"):
+        fail("noncanonical-domain")
     addresses = resolve_v4(CANONICAL_HOST)
     print("ORDAX_PUBLIC_DNS_APEX_A=" + ",".join(sorted(addresses)), flush=True)
     if addresses != {CANONICAL_VERCEL_IPV4}:
