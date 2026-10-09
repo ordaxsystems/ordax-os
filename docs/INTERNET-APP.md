@@ -274,13 +274,17 @@ A política `browser_download_policy.py` grava exclusivamente em
 `download-<id>` para não colidir. O WebKit recebe uma URI de destino apenas
 após aprovação; `allow-overwrite=false` impede substituição de arquivos.
 O diretório não pode ser um link simbólico, o resultado deve ser arquivo
-regular, permissões finais são `0600` e o limite inicial é **64 MiB**.
+regular, permissões finais são `0600` e **não há limite fixo por tamanho de arquivo**.
 
 O host também impõe:
 - origem pública HTTP(S), WebView externa pertencente a uma aba ativa;
 - máximo de quatro transferências simultâneas e 60 segundos para aprovação;
-- verificação do tamanho declarado e dos bytes recebidos, com cancelamento
-  do arquivo acima do limite;
+- verificação do espaço disponível no volume persistente do usuário antes de
+  iniciar e durante a transferência (inclusive sem `Content-Length`);
+- reserva proporcional de 1% do volume, limitada entre 32 MiB e 1 GiB,
+  para não esgotar o filesystem durante downloads grandes;
+- transferência feita pelo WebKitGTK diretamente ao disco, sem pré-carregar o
+  arquivo na RAM;
 - limpeza do arquivo parcial criado pelo WebKit em falha/cancelamento;
 - eventos de download sem caminho absoluto, conteúdo, cookies ou tokens;
 - nenhum download no modo Web enquanto não existir motor isolado compatível.
@@ -320,7 +324,7 @@ Implemented in source:
 Intentionally not faked yet:
 
 - collections/read-later;
-- downloads maiores que 64 MiB, download-resume, verificações antivírus e revisão de destinos alternativos;
+- retomada de download interrompido, verificação antivírus e revisão de destinos alternativos;
 - website permission UI;
 - private-session lifecycle;
 - extração automática de páginas inteiras para IA (somente seleção explícita e consultiva foi implementada);
