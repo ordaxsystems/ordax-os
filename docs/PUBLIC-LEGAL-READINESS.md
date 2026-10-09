@@ -19,6 +19,38 @@ The pages under `/privacidade/` and `/termos/` are therefore readiness pages, no
 
 The backend receipt mechanism is already implemented without activating registration. It stores no plaintext email in the short-lived intent, trusts no client-supplied document version, and can only create a registration receipt from the server-owned active policy in the same database transaction that creates the product account. A service-role-only projection now supplies the active/effective policy metadata to the gateway; Web and Native source display that same metadata and send only affirmative acceptance. There is deliberately no active legal policy yet and the registration switches remain off, so this mechanism cannot be used to claim that consent has been collected.
 
+## Why creating users directly in the Supabase Dashboard fails
+
+The canonical destination is recorded in
+`infra/supabase/product/account_destination_migration_plan.json`.
+The Auth trigger `private.handle_ordax_account_created()` requires
+`raw_user_meta_data.ordax_registration_intent_id` to point to an unexpired,
+affirmatively accepted intent for a current, active legal policy. The dashboard
+**Add user** form does not execute this OrdaX pre-registration flow and may
+surface `Database error creating new user`. The underlying Auth/Postgres logs
+identify the expected failure as `ordax-registration-legal-intent-required`
+(`23514`).
+
+This must not be fixed by disabling the trigger, inserting directly into
+`auth.users`, granting browser access to privileged RPCs or fabricating a
+legal acceptance. The correct order is:
+
+1. Obtain independently reviewed, final public privacy and terms documents.
+2. Mark the exact documents, versions and dates ready in the reviewed source;
+   activate their hashed policy only with the manually confirmed workflow.
+3. Verify the account gateway and Web/Native registration E2E, with explicit
+   user acceptance, service-only intent creation, and metadata binding in
+   the **same** Auth user transaction that produces the immutable receipt.
+4. Enable public or administrative onboarding only after readiness checks.
+   Administrative onboarding must capture real acceptance too, or use a
+   separately reviewed quarantine/invitation process with no account access
+   before acceptance.
+
+The manual legal activation workflow now resolves its Supabase destination
+from the migration plan, not from the legacy provider project. It is still
+**blocked** while the documents remain drafts and must never be run with
+an old-project service credential.
+
 ## Account activation gate
 
 A live account entry point must remain disabled until all of the following are true:
