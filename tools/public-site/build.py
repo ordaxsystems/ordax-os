@@ -21,6 +21,19 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 
+# Load the brand compiler by an isolated module identity. Importing a generic
+# "build" module or prepending to sys.path shadows the component-package
+# builder elsewhere in the OS foundation and corrupts unrelated releases.
+import importlib.util
+
+_BRAND_COMPILER_PATH = Path(__file__).resolve().parents[1] / "brand" / "build.py"
+_BRAND_SPEC = importlib.util.spec_from_file_location("_ordax_brand_compiler", _BRAND_COMPILER_PATH)
+if _BRAND_SPEC is None or _BRAND_SPEC.loader is None:
+    raise RuntimeError("canonical OrdaX brand compiler unavailable")
+_BRAND_MODULE = importlib.util.module_from_spec(_BRAND_SPEC)
+_BRAND_SPEC.loader.exec_module(_BRAND_MODULE)
+render_site_css = _BRAND_MODULE.render_site_css
+
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
@@ -229,6 +242,19 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
             destination = stage / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, destination)
+
+        # Derived CSS bridge: no manual palette in sites/public and no risk of
+        # overwriting in-progress public-site layouts or source files.
+        token_asset = stage / "assets" / "ordax-design-tokens.css"
+        token_asset.write_text(render_site_css(), encoding="utf-8")
+        for page in stage.rglob("*.html"):
+            markup = page.read_text(encoding="utf-8")
+            if '<link rel="stylesheet" href="/assets/ordax-design-tokens.css">' in markup:
+                raise PublicSiteError("brand tokens link already authored; use the build bridge")
+            if markup.count("</head>") != 1:
+                raise PublicSiteError("public page requires one head for design tokens")
+            markup = markup.replace("</head>", '  <link rel="stylesheet" href="/assets/ordax-design-tokens.css">\n</head>')
+            page.write_text(markup, encoding="utf-8")
 
         catalog = write_catalog(PUBLICATIONS, stage / PUBLIC_CATALOG_RELATIVE)
 
