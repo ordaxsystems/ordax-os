@@ -158,6 +158,29 @@ class BrandPipelineTests(unittest.TestCase):
         self.assertIn('body[data-page="landing"]',
                       (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8"))
 
+    def test_download_materials_share_surface_ssot_without_logo_swap(self):
+        import re
+        css = (ROOT / "sites/public/assets/download.css").read_text(encoding="utf-8")
+        for name in ("bg", "panel", "text", "muted", "accent", "focus",
+                     "warning", "warning-bg", "button-bg", "button-text"):
+            self.assertIn(f"var(--ordax-{name})", css)
+        self.assertEqual(css.count("url('/assets/download-hero.png')"), 2)
+        self.assertIn('[data-page="download"] .brand-mark', css)
+        html = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
+        self.assertIn('data-download-status', html)
+        self.assertIn('class="brand-mark"', html)
+        self.assertNotIn('ordax-symbol.svg', html)
+        for selector in ('body[data-page="download"]', '.download-hero-art',
+                         '.creator-card,.release-explainer', '.catalog-status',
+                         '.journey-steps li', '.erase-notice', '.integrity-panel',
+                         '[data-page="download"] .button-primary'):
+            rules = [m.group(2) for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", css)
+                     if re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S).strip() == selector]
+            self.assertTrue(rules, selector)
+            for decl in re.findall(r"(?:background|border-color|color):[^;]+;", rules[0]):
+                self.assertNotRegex(decl, r"#[0-9a-fA-F]{3,8}\b", selector)
+                self.assertIn('var(--ordax-', decl, selector)
+
     def test_publishing_requires_confirmed_project_and_never_runs_by_default(self):
         with self.assertRaises(brand.BrandError):
             brand.publish_emails(brand.SUPABASE_REF)

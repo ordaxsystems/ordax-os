@@ -132,3 +132,16 @@ Regressões adicionais em `tests/test_brand_pipeline.py` inspecionam os
 materiais visíveis para bloquear o retorno acidental de cores CSS literais
 em fundos e bordas estruturais. A Surface mantém a responsabilidade
 exclusiva pelos tokens de identidade.
+
+## Downloads públicos — SSOT visual (09/10/2026)
+
+A página `/download/` passa a consumir os tokens da Surface em seus
+materiais principais: superfícies do Creator, status do catálogo, botão de
+publicação, cartões do preparo e alerta de apagamento de dados do USB. O
+aviso de risco usa `--ordax-warning` e `--ordax-warning-bg`. Gradientes
+transparentes utilizam `color-mix` sobre a paleta canônica.
+
+O logotipo antigo da navegação, `download-hero.png`, a landing e o controle
+de releases públicas permanecem sem mudanças. O logo novo fica para uma PR
+separada após aprovação do asset correto. Há cores decorativas secundárias
+ainda elegíveis a migrações posteriores, sem bloquear o MVP.
