@@ -686,3 +686,27 @@
 }
 .ordax-internet-assistance [hidden] { display: none !important; }
 .ordax-internet-assistance-clear { margin-inline-start: 8px; }
+
+/* Native WebKit find UI: one shared Surface component, no page DOM injection. */
+.ordax-internet-find-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-block-end: 1px solid var(--ordax-border, rgba(130,144,170,.35));
+  min-width: 0;
+}
+.ordax-internet-find-bar[hidden] { display: none !important; }
+.ordax-internet-find-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 26rem;
+  padding: 8px;
+  background: var(--ordax-panel, transparent);
+  border: 1px solid var(--ordax-border, rgba(130,144,170,.35));
+  color: inherit;
+  border-radius: 8px;
+  font: inherit;
+}
+.ordax-internet-find-status { font-size: .8rem; flex: 1 1 auto; }
+.ordax-internet-find-bar button { flex: 0 0 auto; min-width: 32px; }
