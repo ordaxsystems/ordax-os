@@ -97,6 +97,9 @@ RETIRED_SLUG_HISTORICAL_ASSERTIONS = {
         'self.assertNotIn("ordaxsystems/prototipo-ordax-os", script)',
         '"GITHUB_REPOSITORY": "ordaxsystems/prototipo-ordax-os",',
     ],
+    "tests/test_mvp_seed_artifact_bindings.py": [
+        'self.assertNotIn("-Dsbat-distro-url=https://github.com/ordaxsystems/prototipo-ordax-os", builder)',
+    ],
 }
 
 def verified_retired_historical_assertions(root: Path, name: str, old: str) -> bool:
