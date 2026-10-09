@@ -17,7 +17,7 @@ const BARE_HOST = /^([^\s/?#@:]+(?:\.[^\s/?#@:]+)+)(?::([0-9]{1,5}))?([/?#][^\s]
 // Native browser host to navigate. This is an early UX/security boundary; the
 // Native host still owns the authoritative network policy and DNS resolution.
 function rejectKnownLocalHost(hostname) {
-  const host = hostname.toLowerCase().replace(/\\.$/, "").replace(/^\\[|\\]$/g, "");
+  const host = hostname.toLowerCase().replace(/\.$/, "").replace(/^\[|\]$/g, "");
   if (host === "localhost" || host.endsWith(".localhost")
       || host.endsWith(".local") || host.endsWith(".home.arpa")
       || (!host.includes(".") && !host.includes(":"))) {
@@ -25,7 +25,7 @@ function rejectKnownLocalHost(hostname) {
   }
   // URL() normalizes decimal/hex/octal legacy IPv4 forms and Unicode dots.
   // Reject common non-global IPv4 ranges without doing a network request.
-  if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(host)) {
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)) {
     const [a, b, c] = host.split(".").map(Number);
     if (a === 0 || a === 10 || a === 127 || a >= 224
         || (a === 100 && b >= 64 && b <= 127)
