@@ -1,5 +1,4 @@
 export const BROWSER_DOWNLOAD_PORT_SCHEMA = "ordax.browser-download-port/1";
-export const MAX_BROWSER_DOWNLOAD_BYTES = 64 * 1024 * 1024;
 const IDENTIFIER = /^download-[0-9a-f]{16}$/;
 const STATES = new Set(["pending", "downloading", "saved", "failed", "cancelled"]);
 const FILE_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 ._-]{0,119}$/;
