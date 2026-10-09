@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 SCHEMA = "prototype-ordax.auth-provider-proof/2"
 MIN_PASSWORD_CHARS = 12
+PROVIDER_POLICY_PATH = Path(__file__).resolve().parents[2] / "docs/contracts/public-auth-provider-policy.json"
 RECOVERY_PATH = "/auth/recover/verify"
 PROJECT_REF_RE = re.compile(r"[a-z0-9]{20}\Z")
 COMMIT_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -101,7 +102,41 @@ def evaluate(
     password_ok = password_min >= MIN_PASSWORD_CHARS
     site_url_ok = site_url == origin
     recovery_url = f"{origin}{RECOVERY_PATH}"
+    signup_url = f"{origin}/login/"
     recovery_redirect_ok = recovery_url in normalized_redirects
+    signup_redirect_ok = signup_url.rstrip("/") in normalized_redirects
+
+    # Canonical mail settings are policy-owned, never duplicated as CI inputs.
+    policy = json.loads(PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
+    mail = policy.get("transactional_email")
+    if not isinstance(mail, dict) or mail.get("provider") != "resend":
+        raise ValueError("canonical transactional mail policy required")
+    try:
+        smtp_port = int(config.get("smtp_port"))
+    except (ValueError, TypeError):
+        smtp_port = -1
+    smtp_configured = all((
+        config.get("smtp_host") == mail.get("smtp_host"),
+        smtp_port == mail.get("smtp_port"),
+        config.get("smtp_user") == mail.get("smtp_user"),
+        config.get("smtp_admin_email") == mail.get("sender_email"),
+        config.get("smtp_sender_name") == mail.get("sender_name"),
+    ))
+    # Hosted Auth config GET may redact smtp_pass. Never output the secret;
+    # passing the probe still requires an independent real delivery test.
+    subject = config.get("mailer_subjects_confirmation")
+    template = config.get("mailer_templates_confirmation_content")
+    confirmation_url = policy.get("redirect_policy", {}).get("signup_confirm_url")
+    branded_confirmation = (
+        isinstance(subject, str)
+        and "OrdaX" in subject
+        and isinstance(template, str)
+        and isinstance(confirmation_url, str)
+        and confirmation_url + "?token_hash={{ .TokenHash }}" in template
+        and "type=email" in template
+        and "{{ .ConfirmationURL }}" not in template
+        and "localhost" not in template.lower()
+    )
     redirects_same_origin = bool(redirects) and not wildcard_redirect and not cross_origin_redirect
 
     recovery_subject = config.get("mailer_subjects_recovery")
@@ -118,8 +153,10 @@ def evaluate(
         "confirm_email": confirmation_required,
         "password_policy": password_ok,
         "production_origin": site_url_ok,
-        "redirect_allowlist": recovery_redirect_ok and redirects_same_origin,
+        "redirect_allowlist": recovery_redirect_ok and signup_redirect_ok and redirects_same_origin,
         "recovery_template": recovery_template_configured,
+        "resend_smtp_settings": smtp_configured,
+        "branded_confirmation_template": branded_confirmation,
     }
     return {
         "$schema": SCHEMA,

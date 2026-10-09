@@ -23,12 +23,29 @@
     "observed_date": null,
     "evidence": "2026-10-09 live signup email redirected to http://localhost:3000; provider Site URL, allowlist, confirmation template and SMTP branding must be corrected on hosted Supabase. This repo prepares server-owned token-hash confirmation; provider configuration not yet verified.",
     "confirm_email_evidence": "supabase-auth-v1-settings-mailer-autoconfirm-false",
-    "confirm_email_observed_date": "2026-10-07"
+    "confirm_email_observed_date": "2026-10-07",
+    "smtp_configuration": false,
+    "branded_confirmation_template": false,
+    "smtp_delivery_e2e": false
   },
   "password_policy": {
     "product_minimum_chars": 12,
     "provider_minimum_must_be_at_least_product": true,
     "additional_composition_requirement": "none-defined-by-ordax",
     "compromised_password_screening_owner": "ordax-account-gateway"
+  },
+  "transactional_email": {
+    "provider": "resend",
+    "domain": "auth.ordax.com.br",
+    "region": "sa-east-1",
+    "sender_email": "no-reply@auth.ordax.com.br",
+    "sender_name": "OrdaX",
+    "smtp_host": "smtp.resend.com",
+    "smtp_port": 465,
+    "smtp_user": "resend",
+    "key_policy": "sending_access_domain_scoped_only",
+    "dns_status": "verified",
+    "provider_configuration_status": "smtp-settings-and-branded-confirmation-template-pending",
+    "security_notes": "No SMTP secret in source, tests, logs or public frontend. Supabase retains identity ownership; Resend only delivers messages. DNS verified 2026-10-09; hosted SMTP and delivery E2E not yet proven."
   }
 }
