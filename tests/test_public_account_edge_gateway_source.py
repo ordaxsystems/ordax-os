@@ -152,9 +152,7 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
             ("/account/close", "POST"),
         ):
             self.assertIn(f'["{route}", "{method}"]', shared)
-        self.assertIn("public-account-route-not-allowed", self.inner.replace(
-            "authorizeAccountTransport(req, path", "public-account-route-not-allowed"
-        ) if False else shared)
+        self.assertIn("public-account-route-not-allowed", shared)
         self.assertNotIn('/network/', self.edge)
 
     def test_proxy_targets_only_the_public_boundary_and_uses_runtime_oidc(self):
