@@ -16,7 +16,7 @@ class SignupConfirmationContractTests(unittest.TestCase):
         js = PUBLIC_JS.read_text(encoding="utf-8")
         self.assertIn('emailRedirectTo: PUBLIC_SIGNUP_REDIRECT', inner)
         self.assertIn('"GET /auth/confirm"', inner)
-        self.assertIn('parseSignupConfirmation(url)', inner)
+        self.assertIn('parseSignupConfirmation(url, PUBLIC_CONFIRMATION_PATH)', inner)
         self.assertIn('auth.verifyOtp({ token_hash: tokenHash, type: "email" })', inner)
         self.assertIn('revokeCurrentSession(result.data.session.access_token)', inner)
         self.assertIn('"https://ordax.com.br"', shared)
