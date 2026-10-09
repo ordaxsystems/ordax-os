@@ -122,10 +122,9 @@ class BrandPipelineTests(unittest.TestCase):
         portal = (ROOT / "sites/public/assets/portal.css").read_text(encoding="utf-8")
         # Important visible layers must not contain a second literal palette.
         def rule_body(source, selector):
-            for match in re.finditer(r"([^{}]+)\\{([^{}]*)\\}", source):
-                if match.group(1).strip().startswith("/*"):
-                    continue
-                if match.group(1).strip() == selector:
+            for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", source):
+                candidate = re.sub(r"/\*.*?\*/", "", match.group(1), flags=re.S).strip()
+                if candidate == selector:
                     return match.group(2)
             self.fail("missing css rule: " + selector)
 
@@ -145,7 +144,7 @@ class BrandPipelineTests(unittest.TestCase):
             for selector in selectors:
                 body = rule_body(source, selector)
                 for declaration in re.findall(r"(?:background|border-color|color):[^;]+;", body):
-                    self.assertNotRegex(declaration, r"#[0-9a-fA-F]{3,8}\\b", selector)
+                    self.assertNotRegex(declaration, r"#[0-9a-fA-F]{3,8}\b", selector)
                     self.assertIn("var(--ordax-", declaration, selector)
         self.assertIn("var(--ordax-success-bg)", account)
         self.assertIn("var(--ordax-warning-bg)", account)
