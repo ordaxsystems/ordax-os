@@ -2,17 +2,19 @@
 
 **Status (09/10/2026):** ponte de distribuição implementada; publicação
 de templates de produção somente mediante autorização e segredo configurado.
-O novo símbolo, a Surface e a composição Meia-noite/Gelo estão sob a PR
-[#1532](https://github.com/ordaxsystems/ordax-os/pull/1532) e não são
-reimplementados neste incremento.
+A composição Meia-noite/Gelo, o símbolo vetorial simplificado e seus temas
+foram reconciliados e integrados na `main` pela PR #1546, preservando
+a implementação original da PR #1532, encerrada como substituída.
 
 ## Dono único
 
 - Paleta semântica/tema: `system/surface/ui/tokens.css`. Não copiar cores
   para CSS do site, aplicativos ou HTML de e-mails.
-- Composição e símbolo: `system/surface/ui/identity.css` e a Surface, quando
-  a PR visual correspondente for validada; o logo raster do conceito não é
-  um SVG geométrico aprovado.
+- Composição e símbolo: `system/surface/ui/identity.css` e
+  `system/surface/ui/brand/ordax-symbol.svg`. O SVG é um **símbolo vetorial
+  funcional simplificado**, não uma conversão idêntica do raster 3D do conceito.
+  O bundle público entrega uma cópia verificável em
+  `/assets/ordax-symbol.svg` sem alterar a marca exibida no HTML Web atual.
 - Estrutura e conteúdo de e-mails: `infra/supabase/identity/email-templates/src`.
   Os arquivos adjacentes `confirmation.html` e `recovery.html` são
   **resultados compilados e versionados**, não fontes a editar manualmente.

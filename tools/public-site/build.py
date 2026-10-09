@@ -11,6 +11,7 @@ import re
 import shutil
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from public_release_catalog import (
@@ -36,6 +37,8 @@ render_site_css = _BRAND_MODULE.render_site_css
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
+CANONICAL_SYMBOL = ROOT / "system" / "surface" / "ui" / "brand" / "ordax-symbol.svg"
+PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.svg"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
@@ -121,6 +124,26 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
 
     for path in files:
         suffix = path.suffix.lower()
+        relative_path = path.relative_to(root).as_posix()
+        if suffix == ".svg":
+            # Only the generated copy of the canonical Surface symbol is
+            # served. Never import arbitrary icons into the public origin.
+            if relative_path != PUBLIC_SYMBOL_PATH or root.resolve() == SOURCE.resolve():
+                raise PublicSiteError("noncanonical public SVG asset")
+            if path.read_bytes() != CANONICAL_SYMBOL.read_bytes():
+                raise PublicSiteError("public symbol diverged from Surface owner")
+            try:
+                icon = ET.fromstring(path.read_text(encoding="utf-8"))
+            except ET.ParseError as exc:
+                raise PublicSiteError("invalid canonical SVG") from exc
+            if icon.tag != "{http://www.w3.org/2000/svg}svg":
+                raise PublicSiteError("invalid SVG root")
+            if any(node.tag != "{http://www.w3.org/2000/svg}path" for node in icon):
+                raise PublicSiteError("unexpected SVG child element")
+            if any(any(key.lower().startswith("on") or "href" in key.lower() for key in node.attrib)
+                   for node in icon.iter()):
+                raise PublicSiteError("unsafe SVG attribute")
+            continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
                 f"unexpected public site source type: {path.relative_to(root).as_posix()}"
@@ -247,6 +270,10 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         # overwriting in-progress public-site layouts or source files.
         token_asset = stage / "assets" / "ordax-design-tokens.css"
         token_asset.write_text(render_site_css(), encoding="utf-8")
+        # Use the identical source asset consumed by Native and Surface Web.
+        # Its mask/symbol is exposed for UI composition; existing public HTML
+        # and its in-progress layout remain untouched.
+        shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)
         for page in stage.rglob("*.html"):
             markup = page.read_text(encoding="utf-8")
             if '<link rel="stylesheet" href="/assets/ordax-design-tokens.css">' in markup:
@@ -349,6 +376,8 @@ def verify_bundle(out_dir: Path) -> dict:
         raise PublicSiteError(
             f"bundle file set mismatch: expected={sorted(expected)} actual={sorted(actual)}"
         )
+    if PUBLIC_SYMBOL_PATH not in actual or actual[PUBLIC_SYMBOL_PATH].read_bytes() != CANONICAL_SYMBOL.read_bytes():
+        raise PublicSiteError("canonical OrdaX public symbol asset missing or stale")
 
     for relative, path in actual.items():
         payload = path.read_bytes()
