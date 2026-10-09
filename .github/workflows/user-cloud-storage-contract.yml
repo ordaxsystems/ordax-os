@@ -12,6 +12,7 @@ on:
       - 'infra/supabase/product/migrations/*user_cloud_storage*'
       - 'tests/test_user_cloud_storage_reconvergence.mjs'
       - 'tests/test_user_cloud_storage_source.py'
+      - 'tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql'
       - '.github/workflows/user-cloud-storage-contract.yml'
   push:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - 'infra/supabase/product/migrations/*user_cloud_storage*'
       - 'tests/test_user_cloud_storage_reconvergence.mjs'
       - 'tests/test_user_cloud_storage_source.py'
+      - 'tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql'
       - '.github/workflows/user-cloud-storage-contract.yml'
 
 permissions:
@@ -33,6 +35,7 @@ permissions:
 jobs:
   user-cloud-storage-contract:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -57,6 +60,9 @@ jobs:
           if (storage.quota.key !== 'storage.user.bytes' || storage.quota.unit !== 'bytes') {
             throw new Error('user cloud storage quota binding drifted');
           }
+          if (storage.quota.upload_reservation_must_reference_exact_quota_reservation !== true) {
+            throw new Error('storage reservation must retain the exact quota reservation identity');
+          }
           if (storage.status !== 'source-foundation-rollout-disabled' || aggregate.public_rollout_enabled !== false) {
             throw new Error('user/account cloud rollout must remain disabled in foundation');
           }
@@ -66,3 +72,32 @@ jobs:
           NODE
           node --test tests/test_user_cloud_storage_reconvergence.mjs
           python3 -m unittest tests.test_user_cloud_storage_source
+
+      - name: Start image-provided PostgreSQL 16 (no Docker Hub dependency)
+        run: |
+          set -euo pipefail
+          sudo systemctl start postgresql.service
+          # The Ubuntu 24.04 x64 runner includes PostgreSQL 16. Fail rather
+          # than silently test migrations against another major version.
+          version="$(sudo -u postgres psql --no-psqlrc -Atc 'SHOW server_version_num')"
+          if [[ ! "$version" =~ ^[0-9]+$ ]] || (( version < 160000 || version >= 170000 )); then
+            echo 'User Cloud Storage proof requires PostgreSQL 16' >&2
+            exit 1
+          fi
+          sudo -u postgres psql --no-psqlrc -v ON_ERROR_STOP=1 -Atc 'SELECT 1' | grep -qx '1'
+
+      - name: Prove storage reservation integrity on PostgreSQL 16
+        run: |
+          set -euo pipefail
+          # Hosted runner workspaces are inaccessible to the postgres Unix
+          # account. Stage exact committed SQL inputs in an isolated, readable
+          # directory. Keep \\ir relative includes intact and avoid passwords,
+          # TCP access and Docker Hub entirely.
+          stage="$(mktemp -d)"
+          trap 'rm -rf "$stage"' EXIT
+          chmod 755 "$stage"
+          install -d -m 755 "$stage/tests/sql" "$stage/infra/supabase/product/migrations"
+          install -m 644 tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql "$stage/tests/sql/"
+          cp -R infra/supabase/product/migrations/. "$stage/infra/supabase/product/migrations/"
+          sudo -u postgres psql --no-psqlrc -v ON_ERROR_STOP=1 \
+            -f "$stage/tests/sql/test_user_cloud_storage_quota_reservation_link_v1.sql"
