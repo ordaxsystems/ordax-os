@@ -71,6 +71,10 @@ HOST_SHORTCUTS = (
 def public_network_uri(uri: str, schemes: frozenset[str]) -> bool:
     if not isinstance(uri, str) or not uri or len(uri) > MAX_URI_LENGTH:
         return False
+    # URL parsers and WebKit can interpret backslashes, embedded controls and
+    # userinfo differently. Reject ambiguity before validating the destination.
+    if "\\\\" in uri or any(ord(char) < 0x20 or ord(char) == 0x7f for char in uri):
+        return False
     try:
         parsed = urlsplit(uri)
         # Accessing .port validates malformed/out-of-range explicit ports.
@@ -78,6 +82,8 @@ def public_network_uri(uri: str, schemes: frozenset[str]) -> bool:
     except ValueError:
         return False
     if parsed.scheme.lower() not in schemes or not parsed.hostname:
+        return False
+    if parsed.username is not None or parsed.password is not None:
         return False
 
     host = parsed.hostname.rstrip(".").lower()
