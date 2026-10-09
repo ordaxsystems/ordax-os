@@ -562,6 +562,45 @@ test("public auth fails closed when Turnstile server secret is absent or verific
   assert.equal((await response.json()).error, "bot-verification-unavailable");
 });
 
+
+test("HTML auth form failures redirect safely without leaking credentials; API failures keep status", async () => {
+  const pathCases = [
+    ["/auth/login", "/login/"],
+    ["/auth/register", "/cadastro/"],
+  ];
+  for (const [path, destination] of pathCases) {
+    const form = request(path, {
+      method: "POST",
+      headers: { "accept": "text/html,application/xhtml+xml", "content-type": "application/x-www-form-urlencoded" },
+      body: "email=a%40b.test&password=private-password&cf-turnstile-response=token-12345678901234567890",
+    });
+    const rejected = await proxyPublicAccountRequest(form, options({
+      turnstileSecret: "server-secret",
+      turnstileVerifier: async () => false,
+    }));
+    assert.equal(rejected.status, 303);
+    assert.equal(rejected.headers.get("location"), destination + "?erro=verificacao-falhou");
+    assert.equal(rejected.headers.get("cache-control"), "no-store, max-age=0");
+    assert.doesNotMatch(rejected.headers.get("location"), /a%40b|private-password|token/i);
+
+    const api = await proxyPublicAccountRequest(request(path, {
+      method: "POST",
+      headers: { "accept": "application/json", "content-type": "application/x-www-form-urlencoded" },
+      body: "email=a%40b.test&password=private-password&cf-turnstile-response=token-12345678901234567890",
+    }), options({ turnstileSecret: "server-secret", turnstileVerifier: async () => false }));
+    assert.equal(api.status, 403);
+    assert.equal((await api.json()).error, "bot-verification-failed");
+
+    const unavailable = await proxyPublicAccountRequest(request(path, {
+      method: "POST",
+      headers: { "accept": "text/html", "content-type": "application/x-www-form-urlencoded" },
+      body: "email=a%40b.test&password=private-password&cf-turnstile-response=token-12345678901234567890",
+    }), options({ turnstileSecret: "", turnstileVerifier: async () => false }));
+    assert.equal(unavailable.status, 303);
+    assert.equal(unavailable.headers.get("location"), destination + "?erro=seguranca-indisponivel");
+  }
+});
+
 test("proxy rejects an oversized streamed body even when content-length lies", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;

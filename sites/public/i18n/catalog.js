@@ -5,6 +5,10 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["A verificação de segurança não foi concluída. Refaça a verificação e tente entrar novamente.", "Security verification was not completed. Repeat the check and try signing in again."],
+    ["A verificação de segurança está temporariamente indisponível. Tente novamente mais tarde.", "Security verification is temporarily unavailable. Please try again later."],
+    ["A verificação de segurança não foi concluída. Refaça a verificação antes de criar sua conta.", "Security verification was not completed. Repeat the check before creating your account."],
+    ["A verificação de segurança falhou. Tente novamente.", "Security verification failed. Please try again."],
     ["Entre na sua Conta OrdaX com autenticação segura.", "Sign in to your OrdaX Account securely."],
     ["Entre com sua identidade OrdaX. A segurança da sessão é validada pelo serviço oficial; novos recursos serão disponibilizados gradualmente.", "Sign in with your OrdaX identity. Session security is verified by the official service; more features will become available gradually."],
     ["Privacidade e controle", "Privacy and control"],
