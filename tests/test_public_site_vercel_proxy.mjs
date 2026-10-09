@@ -72,10 +72,14 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
   const result = forwardPublicConfirmationQuery("/auth/confirm", valid);
   assert.equal(result, "/auth/confirm?token_hash=" + hash + "&type=email");
   assert.equal(forwardPublicConfirmationQuery("/auth/confirm", new URLSearchParams({ordax_path: "/auth/confirm"})), "/auth/confirm");
+  // Vercel may duplicate the same destination rewrite field. That must not
+  // make the legitimate confirmation link look like an unsupported route.
+  const twice = new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/confirm&token_hash=" + hash + "&type=email");
+  assert.equal(forwardPublicConfirmationQuery("/auth/confirm", twice), "/auth/confirm?token_hash=" + hash + "&type=email");
   for(const invalid of [
     new URLSearchParams({ordax_path: "/auth/login", token_hash:hash, type:"email"}),
     new URLSearchParams("ordax_path=/auth/confirm&token_hash=" + hash + "&type=email&redirect_to=https://evil.test"),
-    new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/confirm&token_hash=" + hash + "&type=email"),
+    new URLSearchParams("ordax_path=/auth/confirm&ordax_path=/auth/login&token_hash=" + hash + "&type=email"),
   ]) {
     assert.equal(forwardPublicConfirmationQuery(invalid.get("ordax_path"), invalid), null);
   }
@@ -95,6 +99,14 @@ test("Vercel rewritten signup callback preserves only exact one-time OTP params"
     assert.equal(response.headers.get("location"), "/login/?cadastro=confirmado");
     assert.ok(upstreamUrl.includes("/auth/confirm?token_hash="));
     assert.match(upstreamUrl, /type=email/);
+
+    // Reproduce Vercel's repeatable rewrite field in an actual GET callback.
+    const withDuplicateRewrite = new Request(PUBLIC_ORIGIN + "/api/account-proxy?" + twice.toString(), {
+      headers: {"x-forwarded-for":"203.0.113.15"},
+    });
+    const repeatedResponse = await proxyPublicAccountRequest(withDuplicateRewrite, options());
+    assert.equal(repeatedResponse.status, 303);
+    assert.ok(upstreamUrl.includes("/auth/confirm?token_hash="));
   } finally {
     globalThis.fetch = original;
   }
