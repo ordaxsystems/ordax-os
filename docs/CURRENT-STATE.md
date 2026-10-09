@@ -43,13 +43,25 @@ ORDAX_PRODUCTION_REQUIRES_USER_NOTEBOOK_ON=NO
 
 Native contracts, Creator Core, LUKS2/Btrfs work, Native initramfs, ESP and disposable proofs remain valid engineering foundation, but they do not block or appear as user-facing MVP functionality.
 
+## Autoridade de repositório (reconciliada em 2026-10-09)
+
+O bloco `## Repository` abaixo reflete agora o owner canônico real, conforme
+`docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
+A linha `Status date` no início identifica a data do snapshot histórico geral:
+não certifica, sozinha, todas as demais capacidades ali descritas como atuais.
+Os antigos slugs `washingtonmsdj/prototipo-ordax-os` e
+`ordaxsystems/prototipo-ordax-os` permanecem válidos exclusivamente como
+proveniência da transferência/renomeação, não como autoridade operacional.
+Uma Stable pública assinada não é inferida do nome final do repositório;
+seus gates de publicação e hardware continuam independentes.
+
 ## Repository
 
 ```text
-REPOSITORY=washingtonmsdj/prototipo-ordax-os
-ROLE=CLEAN_ROOM_PROTOTYPE
+REPOSITORY=ordaxsystems/ordax-os
+ROLE=OFFICIAL_ORDAX_OS
 DEFAULT_BRANCH=main
-PROMOTED_TO_OFFICIAL=NO
+PROMOTED_TO_OFFICIAL=YES
 LEGACY_REPOSITORY=washingtonmsdj/novo-ordax-os
 LEGACY_REPOSITORY_IS_REFERENCE_ONLY=YES
 GIT_MAIN_IS_SOURCE_AUTHORITY=YES

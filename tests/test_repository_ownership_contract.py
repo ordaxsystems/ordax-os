@@ -52,6 +52,16 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertNotIn("prototipo-ordax-os", active)
         self.assertNotIn("migração do legado pendente", document)
 
+    def test_current_state_snapshot_has_live_canonical_repository(self):
+        snapshot = (ROOT / "docs" / "CURRENT-STATE.md").read_text(encoding="utf-8")
+        section = snapshot.split("## Repository\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn(
+            f"REPOSITORY={self.contract['repositories']['platform']['repo']}", section
+        )
+        self.assertIn("PROMOTED_TO_OFFICIAL=YES", section)
+        self.assertNotIn("washingtonmsdj/prototipo-ordax-os", section)
+        self.assertNotIn("PROMOTED_TO_OFFICIAL=NO", section)
+
     def test_security_and_ssot_invariants(self):
         invariants = self.contract["invariants"]
         for key, value in invariants.items():
