@@ -7,7 +7,13 @@ import {
 } from "../system/apps/assistant/ui/work-strip.mjs";
 import { createPersonalOrdaxRuntime } from "../system/services/personal-ordax/runtime.mjs";
 import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../system/contracts/personal-ordax.mjs";
-import { canRecordAssistantWork, beginAssistantRecordedWork } from "../system/apps/assistant/ui/conversation-controls.mjs";
+import {
+  canRecordAssistantWork,
+  beginAssistantRecordedWork,
+  openAssistantWorkInActivity,
+} from "../system/apps/assistant/ui/conversation-controls.mjs";
+import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
+import { activityApp } from "../system/apps/activity/app.mjs";
 
 const identity = (state = "signed-out", subjectId = null) => ({
   state, subjectId, displayName: state === "signed-in" ? "Conta" : null,
@@ -540,4 +546,93 @@ test("adaptive chart uses canonical overview counts, semantic figure and source 
   assert.match(source, /track\.setAttribute\("aria-hidden", "true"\)/);
   assert.match(source, /figure\.dataset\.assistantWorkSource = overview\.sourceSchema/);
   assert.doesNotMatch(source, /dataset\.assistantWorkPercentage/);
+});
+
+test("verified pending Work can request Activity navigation only through canonical activation", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const space = port("ordax.space-selection/1", unavailableSpace());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id,
+    now: (() => { let t = 300000; return () => t++; })(),
+  });
+  const activation = createAppActivationChannel();
+  const calls = [];
+  const unsubscribe = activation.subscribe(event => calls.push(event));
+  try {
+    const waiting = runtime.create("Revisar permissão");
+    runtime.requestApproval(waiting.id, {
+      actionId: "files.read", toolId: "file-reader",
+      toolArtifactSha256: "c".repeat(64), effect: "read",
+      reason: "Leitura requer aprovação",
+    });
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, waiting.id), true);
+    assert.deepEqual(calls, [{ appId: activityApp.id, target: null }]);
+    assert.equal(runtime.getSnapshot().workItems[0].state, "waiting-approval");
+    assert.equal(runtime.getSnapshot().approvals[0].status, "pending");
+    assert.equal(runtime.getSnapshot().attempts.length, 0);
+    assert.equal(runtime.getSnapshot().decisions.length, 0);
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, null, waiting.id), false);
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, "missing"), false);
+    assert.equal(openAssistantWorkInActivity(runtime, id, space,
+      { schema: "ordax.app-activation/1", publish() {} }, waiting.id), false);
+    assert.equal(calls.length, 1);
+  } finally {
+    unsubscribe();
+    runtime.dispose();
+  }
+});
+
+test("completed Work or mismatched Identity/Space cannot emit Activity activation", async () => {
+  const id = port("ordax.identity-session/1", identity("signed-in", "owner-a"));
+  const space = port("ordax.space-selection/1", selectedSpace(), {
+    select() {}, clear() {},
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, spaceSelectionPort: space,
+    intelligencePort: model(),
+    now: (() => { let t = 310000; return () => t++; })(),
+  });
+  const activation = createAppActivationChannel();
+  const calls = [];
+  const unsubscribe = activation.subscribe(event => calls.push(event));
+  try {
+    const pending = runtime.create("Revisar na empresa", { spaceId: "space-a" });
+    runtime.requestApproval(pending.id, {
+      actionId: "files.read", toolId: "file-reader",
+      toolArtifactSha256: "d".repeat(64), effect: "read",
+      reason: "Verificação pendente",
+    });
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, pending.id), true);
+    assert.equal(calls.length, 1);
+    space.setSnapshot(selectedSpace("space-b"));
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, pending.id), false);
+    id.setSnapshot(identity("signed-in", "owner-b"));
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, pending.id), false);
+    assert.equal(calls.length, 1);
+    // Current owner may have an unrelated completed Work; that is not an
+    // approval and must never create an Activity action/navigation shortcut.
+    space.setSnapshot(selectedSpace("space-b", "owner-b"));
+    const finished = runtime.create("Finalizado", { spaceId: "space-b" });
+    await runtime.run(finished.id);
+    assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, finished.id), false);
+    assert.equal(calls.length, 1);
+  } finally {
+    unsubscribe();
+    runtime.dispose();
+  }
+});
+
+test("Activity review UI uses explicit click and only publishes navigation", async () => {
+  const [ui, runtime, native] = await Promise.all([
+    readFile(new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/apps/assistant/runtime.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.match(native, /personalOrdax,\s*identitySessionPort: identitySession,[\s\S]*?appActivation,/);
+  assert.match(runtime, /appActivation,\s*\}\)/);
+  assert.match(ui, /work\.state === "requires-action"/);
+  assert.match(ui, /dataset\.assistantReviewWork = work\.workItemId/);
+  assert.match(ui, /target\.dataset\.assistantReviewWork !== undefined/);
+  assert.match(ui, /channel\.publish\(\{ appId: activityApp\.id \}\)/);
+  assert.doesNotMatch(ui, /approvalConsent\.approve\(|executeApprovedAction\(|resolveApproval\(/);
 });

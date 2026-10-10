@@ -622,3 +622,21 @@
     grid-row: 2;
   }
 }
+
+/* Navigation-only; authorization and execution remain in the Activity owner. */
+.ordax-assistant-activity-review {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: transparent;
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.73rem;
+  cursor: pointer;
+}
+.ordax-assistant-activity-review:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
