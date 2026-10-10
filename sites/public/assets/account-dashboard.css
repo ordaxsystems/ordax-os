@@ -14,9 +14,7 @@
 .account-icon { width:21px; height:21px; flex-shrink:0; color:var(--ordax-accent); }
 .ordax-symbol {
   display:inline-block; width:34px; height:34px; flex-shrink:0;
-  background:var(--ordax-brand-fill);
-  mask:url("/assets/ordax-symbol.svg") center/contain no-repeat;
-  -webkit-mask:url("/assets/ordax-symbol.svg") center/contain no-repeat;
+  background:url("/assets/ordax-symbol.png") center/contain no-repeat;
 }
 .account-shell { max-width:1600px; margin:auto; min-height:100dvh; display:grid; grid-template-columns:230px minmax(0,1fr); grid-template-rows:auto 1fr; }
 .account-portal .account-header {
@@ -202,6 +200,6 @@
 }
 @media(prefers-reduced-motion:reduce) { .account-portal { scroll-behavior:auto; } }
 @media(forced-colors:active) {
-  .ordax-symbol { background:CanvasText; }
+  .ordax-symbol { background:CanvasText; mask:url("/assets/ordax-symbol.png") center/contain no-repeat; -webkit-mask:url("/assets/ordax-symbol.png") center/contain no-repeat; forced-color-adjust:none; }
   .account-profile,.navigation-art,.account-card { background:Canvas; box-shadow:none; }
 }

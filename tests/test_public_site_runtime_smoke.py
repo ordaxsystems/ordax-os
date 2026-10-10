@@ -33,6 +33,10 @@ preview = load_module("ordax_public_site_preview_smoke", PREVIEW_PATH)
 
 class PublicSiteRuntimeSmokeTests(unittest.TestCase):
     def test_account_assets_and_plan_catalog_are_derived_from_existing_owners(self):
+        self.assertEqual((self.out / build.PUBLIC_SYMBOL_PATH).read_bytes(), build.CANONICAL_SYMBOL.read_bytes())
+        with self.fetch('/' + build.PUBLIC_SYMBOL_PATH) as response:
+            self.assertEqual(response.headers['Content-Type'], 'image/png')
+            self.assertEqual(response.read(), build.CANONICAL_SYMBOL.read_bytes())
         self.assertEqual((self.out / "assets/ordax-landscape.png").read_bytes(), build.CANONICAL_WALLPAPER.read_bytes())
         self.assertEqual((self.out / "assets/fonts" / build.CANONICAL_FONT.name).read_bytes(), build.CANONICAL_FONT.read_bytes())
         self.assertEqual((self.out / "assets/fonts" / build.CANONICAL_FONT_LICENSE.name).read_bytes(), build.CANONICAL_FONT_LICENSE.read_bytes())

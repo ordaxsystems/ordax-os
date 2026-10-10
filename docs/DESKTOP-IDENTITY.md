@@ -11,13 +11,13 @@ This is a product identity contract, not a screenshot contract. Implementations 
 - blue/violet/cyan for brand decoration; accessible semantic accents for controls;
 - thin structural rules, rounded cards, restrained glow and translucent shell materials;
 - Inter as the canonical product type family, with compact, legible controls;
-- an original rounded ribbon-loop vector shared by the navigation, header, Home and loading screen;
+- the user-approved transparent ribbon-loop image shared by the navigation, header, Home and loading screen;
 - labeled lateral navigation on desktop, compact rail on intermediate widths and one-column Home on narrow surfaces;
 - a top command search and real Home shortcuts; a floating dock for areas, app shortcuts, running applications, updates and connectivity.
 
 The original mountain/arc wallpaper is an optional decorative layer behind functional HTML controls. It has no embedded text or UI. Light mode uses a shared scrim, and high contrast removes the wallpaper and translucent material. Application headings remain sized for working interfaces. Palette, geometry and motion are authoritative in the tokens, not duplicated in documentation or app palettes.
 
-The original monochrome symbol is `system/surface/ui/brand/ordax-symbol.svg`; it is repository-authored, has no external references and is rendered through a CSS mask with the shared brand fill. The generated original landscape, its generation brief and SHA-256 are recorded in `system/surface/ui/brand/ARTWORK-SOURCE.md`. Both assets are included by the offline source graph. No external software, runtime generator dependency or new font is introduced.
+The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied byte-for-byte from the transparent image supplied on 2026-10-09. Normal presentation uses its original colors; high contrast and forced colors use the same asset's alpha silhouette. Its SHA-256 and provenance, together with the original landscape, are recorded in `system/surface/ui/brand/ARTWORK-SOURCE.md`. Both assets are included by the offline source graph. The public account/Web compiler copies the symbol from this owner and verifies byte equality; it does not track a second source. No external software, runtime generator dependency or new font is introduced.
 
 ## Shared design-system ownership
 

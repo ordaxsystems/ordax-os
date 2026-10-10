@@ -74,7 +74,6 @@ class BrandPipelineTests(unittest.TestCase):
 
     def test_public_logo_is_derived_from_surface_without_a_duplicate_asset(self):
         import sys
-        import xml.etree.ElementTree as ET
         p = ROOT / "tools/public-site/build.py"
         original_path = list(sys.path)
         try:
@@ -84,12 +83,11 @@ class BrandPipelineTests(unittest.TestCase):
             pspec.loader.exec_module(module)
         finally:
             sys.path[:] = original_path
-        canonical = ROOT / "system/surface/ui/brand/ordax-symbol.svg"
+        canonical = ROOT / "system/surface/ui/brand/ordax-symbol.png"
         self.assertEqual(module.CANONICAL_SYMBOL, canonical)
-        self.assertEqual(module.PUBLIC_SYMBOL_PATH, "assets/ordax-symbol.svg")
-        svg = ET.fromstring(canonical.read_text(encoding="utf-8"))
-        self.assertEqual(svg.tag, "{http://www.w3.org/2000/svg}svg")
-        self.assertTrue(any(node.tag.endswith("path") for node in svg))
+        self.assertEqual(module.PUBLIC_SYMBOL_PATH, "assets/ordax-symbol.png")
+        self.assertEqual(canonical.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertFalse((ROOT / "sites/public" / module.PUBLIC_SYMBOL_PATH).exists())
         self.assertIn("shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)", p.read_text(encoding="utf-8"))
 
     def test_web_auth_and_portal_consume_surface_ssot_without_logo_replacement(self):
@@ -111,7 +109,7 @@ class BrandPipelineTests(unittest.TestCase):
         for route in ("login", "cadastro"):
             html = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
             self.assertIn('class="brand-mark"', html)
-            self.assertNotIn('ordax-symbol.svg', html)
+            self.assertNotIn('ordax-symbol.png', html)
         # Marketing landing and current brand artwork are untouched by this cutover.
         landing = (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8")
         self.assertIn('body[data-page="landing"]', landing)
@@ -121,7 +119,7 @@ class BrandPipelineTests(unittest.TestCase):
         css = (ROOT / "sites/public/assets/account-dashboard.css").read_text(encoding="utf-8")
         self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b")
         self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
-        for name in ("brand-fill", "font", "wallpaper-scrim", "shadow", "border-soft", "focus"):
+        for name in ("font", "wallpaper-scrim", "shadow", "border-soft", "focus"):
             self.assertIn(f"var(--ordax-{name})", css)
             self.assertIn(f"--ordax-{name}:", brand.render_site_css())
         for route in ("conta", "web"):
@@ -186,7 +184,7 @@ class BrandPipelineTests(unittest.TestCase):
         html = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
         self.assertIn('data-download-status', html)
         self.assertIn('class="brand-mark"', html)
-        self.assertNotIn('ordax-symbol.svg', html)
+        self.assertNotIn('ordax-symbol.png', html)
         for selector in ('body[data-page="download"]', '.download-hero-art',
                          '.creator-card,.release-explainer', '.catalog-status',
                          '.journey-steps li', '.erase-notice', '.integrity-panel',

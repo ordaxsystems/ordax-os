@@ -12,7 +12,6 @@ import re
 import shutil
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from public_release_catalog import (
@@ -40,8 +39,8 @@ render_site_font_css = _BRAND_MODULE.render_site_font_css
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
-CANONICAL_SYMBOL = ROOT / "system" / "surface" / "ui" / "brand" / "ordax-symbol.svg"
-PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.svg"
+CANONICAL_SYMBOL = ROOT / "system" / "surface" / "ui" / "brand" / "ordax-symbol.png"
+PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.png"
 CANONICAL_WALLPAPER = ROOT / "system/surface/ui/brand/midnight-landscape.png"
 CANONICAL_FONT = ROOT / "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
 CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
@@ -146,24 +145,13 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
                     or path.read_bytes() != CANONICAL_FONT.read_bytes()):
                 raise PublicSiteError("public font must be the generated canonical Surface asset")
             continue
-        if suffix == ".svg":
-            # Only the generated copy of the canonical Surface symbol is
-            # served. Never import arbitrary icons into the public origin.
-            if relative_path != PUBLIC_SYMBOL_PATH or root.resolve() == SOURCE.resolve():
-                raise PublicSiteError("noncanonical public SVG asset")
-            if path.read_bytes() != CANONICAL_SYMBOL.read_bytes():
+        if relative_path == PUBLIC_SYMBOL_PATH:
+            # The public bundle derives the symbol from its single Surface owner.
+            if (root.resolve() == SOURCE.resolve()
+                    or path.read_bytes() != CANONICAL_SYMBOL.read_bytes()):
                 raise PublicSiteError("public symbol diverged from Surface owner")
-            try:
-                icon = ET.fromstring(path.read_text(encoding="utf-8"))
-            except ET.ParseError as exc:
-                raise PublicSiteError("invalid canonical SVG") from exc
-            if icon.tag != "{http://www.w3.org/2000/svg}svg":
-                raise PublicSiteError("invalid SVG root")
-            if any(node.tag != "{http://www.w3.org/2000/svg}path" for node in icon):
-                raise PublicSiteError("unexpected SVG child element")
-            if any(any(key.lower().startswith("on") or "href" in key.lower() for key in node.attrib)
-                   for node in icon.iter()):
-                raise PublicSiteError("unsafe SVG attribute")
+            if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+                raise PublicSiteError("invalid canonical PNG symbol")
             continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
