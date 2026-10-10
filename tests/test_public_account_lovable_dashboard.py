@@ -63,6 +63,44 @@ class AccountLovableDashboardTests(unittest.TestCase):
         self.assertIn('logout.disabled = false;', site)
         self.assertNotIn('window.localStorage', self.html)
 
+    def test_collapsible_desktop_navigation_and_dynamic_breadcrumb(self):
+        self.assertEqual(self.html.count('data-account-sidebar-toggle'), 1)
+        self.assertIn('aria-controls="account-navigation" aria-expanded="true"', self.html)
+        self.assertIn('data-sidebar-collapse-label', self.html)
+        self.assertIn('data-sidebar-expand-label', self.html)
+        self.assertIn('data-account-breadcrumb-current', self.html)
+        self.assertIn('data-account-breadcrumb-details hidden', self.html)
+        self.assertIn('function setSidebarCollapsed(collapsed)', self.js)
+        self.assertIn('sidebarToggle?.addEventListener("click"', self.js)
+        self.assertIn('setSidebarCollapsed(false)', self.js)
+        self.assertIn('breadcrumbDetails.hidden = !detailed', self.js)
+        self.assertIn('link.textContent.trim().replace', self.js)
+        self.assertIn('@media(min-width:901px)', self.css)
+        self.assertIn('@media(max-width:900px)', self.css)
+        self.assertIn('grid-template-columns:76px minmax(0,1fr)', self.css)
+
+    def test_personal_email_comes_only_from_canonical_verified_session(self):
+        site = (ROOT / "sites/public/assets/site.js").read_text(encoding="utf-8")
+        self.assertEqual(self.html.count('data-account-profile-email'), 1)
+        self.assertEqual(self.html.count('data-account-profile-identity'), 1)
+        self.assertIn('data-account-profile-identity hidden', self.html)
+        self.assertIn('profileEmail.textContent = email.textContent;', site)
+        self.assertIn('profileIdentity.hidden = false;', site)
+        self.assertGreaterEqual(site.count('profileEmail.textContent = "";'), 2)
+        self.assertGreaterEqual(site.count('profileIdentity.hidden = true;'), 2)
+        self.assertIn('if (session.authenticated === true)', site)
+        self.assertIn('action="/auth/logout"', self.html)
+        self.assertNotIn('data-account-profile-name', self.html)
+        self.assertNotIn('data-account-profile-plan', self.html)
+
+    def test_new_labels_are_translated_and_asset_versions_advance(self):
+        for label in ("Recolher navegação", "Expandir navegação", "Localização na conta",
+                      "Informação da sessão autenticada"):
+            self.assertIn('["' + label + '", ', self.i18n)
+        self.assertIn('/assets/account-dashboard.css?v=account-6', self.html)
+        self.assertIn('/assets/account-portal.js?v=account-3', self.html)
+        self.assertIn('/assets/site.js?v=account-4', self.html)
+
     def test_locale_owner_contains_new_user_copy(self):
         for source in ("Informações disponíveis da conta", "Identidade", "Conta OrdaX", "Plano atual",
                        "Não confirmado", "Não verificados", "Seu universo em resumo", "Visão geral da conta"):
