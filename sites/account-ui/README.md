@@ -127,6 +127,24 @@ de produção**. As provas requeridas abaixo continuam independentes.
   idiomas com o restante do site, traduzir os textos React pelo catálogo
   oficial `sites/public/i18n`, sem dicionário paralelo.
 
+### Pacote consolidado e interações reais do frontend
+
+O build estático da Conta foi regenerado pelo workflow pinado,
+sem forçar ref remoto, a partir dos componentes React atuais. O
+`sites/account-ui/prebuilt/index.html` referencia arquivos com hash;
+o CI compara byte a byte esses artefatos com uma recompilação da fonte.
+
+A navegação móvel **Mais** usa o `@radix-ui/react-dialog` já
+instalado: foco contido, Escape, overlay e retorno ao trigger. O atalho
+`Ctrl/⌘+K` abre a pesquisa. O resumo diferencia visitante, verificação
+pendente e sessão autenticada; não pressupõe categoria de plano,
+perfil ou acesso. O teste Chromium confere essas transições e
+a limpeza de e-mail ao expirar a sessão da fixture local.
+
+A promoção para produção permanece vinculada aos checks do último
+commit, à autenticação oficial e ao deployment `READY` do único
+projeto Vercel. A atualização do bundle não prova publicação no domínio.
+
 ### Gates antes do merge
 
 - Comparação de composição/asset em desktop, tablet, celular, teclado,
