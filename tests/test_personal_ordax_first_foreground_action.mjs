@@ -11,6 +11,7 @@ import {
 import { createNativePersonalOrdaxComposition } from "../system/composition/native/personal-ordax.mjs";
 import { createIntelligenceToolGrantAuthority } from "../system/services/intelligence/tool-grants.mjs";
 import { createPersonalActionCatalog } from "../system/services/personal-ordax/action-catalog.mjs";
+import { projectPersonalWorkCanvas } from "../system/services/intelligence/work-canvas.mjs";
 
 function memoryStorage() {
   const values = new Map();
@@ -107,6 +108,20 @@ test("explicit approval executes the verified Native file action and consumes au
   assert.equal(receipt.status, "succeeded");
   assert.equal(receipt.toolArtifactSha256, actions.tool.artifactSha256);
   assert.deepEqual(files.calls, [{ path: "/Documentos", name: "Novo" }]);
+  const verified = projectPersonalWorkCanvas(snapshot, {
+    ownerKind: "account", ownerId: "user-a",
+    spaceId: null, projectId: null, workItemId: work.id,
+  });
+  assert.equal(verified.state, "working");
+  assert.deepEqual(verified.actionEvidence.map(entry => entry.status), ["succeeded"]);
+  assert.equal(verified.actionEvidence[0].actionId, "native-file.ensure-directory");
+  assert.equal(verified.actionEvidence[0].sourceSchema, "ordax.personal-action-attempt/1");
+  assert.equal(verified.actionEvidence[0].finishedAt !== null, true);
+  assert.equal(verified.pendingApproval, null);
+  assert.deepEqual(verified.blocks, []);
+  assert.equal("resourceRef" in verified.actionEvidence[0], false);
+  assert.equal("grantRef" in verified.actionEvidence[0], false);
+  assert.equal("artifactRefs" in verified.actionEvidence[0], false);
   assert.equal(snapshot.workItems[0].state, "queued");
   assert.equal(snapshot.approvals[0].status, "executed");
   assert.ok(snapshot.approvals[0].executedAt);
@@ -282,6 +297,15 @@ test("adapter-entered failure revokes authority and retains an uncertain attempt
   assert.equal(snapshot.approvals[0].status, "revoked");
   assert.equal(snapshot.attempts[0].status, "uncertain");
   assert.equal(runtime.canExecuteApprovedAction(work.id, approval.id), false);
+  const uncertainCanvas = projectPersonalWorkCanvas(snapshot, {
+    ownerKind: "account", ownerId: "user-a",
+    spaceId: null, projectId: null, workItemId: work.id,
+  });
+  assert.equal(uncertainCanvas.state, "requires-action");
+  assert.deepEqual(uncertainCanvas.actionEvidence.map(entry => entry.status), ["uncertain"]);
+  assert.equal(uncertainCanvas.actionEvidence[0].sourceSchema, "ordax.personal-action-attempt/1");
+  assert.equal(uncertainCanvas.resultId, null);
+  assert.deepEqual(uncertainCanvas.blocks, []);
 
   runtime.dispose();
 });
