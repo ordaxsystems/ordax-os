@@ -141,7 +141,7 @@
   }
   function chart(period = "month") {
     const translatedPeriod = (i18n?.fromSource(periods[period]) ?? periods[period]).toLocaleLowerCase(i18n?.getLocale() ?? "pt-BR");
-    return `<div class="usage-chart" role="img" aria-label="${tx("Seu consumo aparecerá aqui")}"><div class="chart-y" aria-hidden="true">${[100, 75, 50, 25, 0].map(n => `<span>${n}%</span>`).join("")}</div><div class="chart-field"><div class="chart-grid" aria-hidden="true"></div><div class="chart-empty">${icon("chart")}<span>${tx("Seu consumo aparecerá aqui")}</span><small>${message("account.usage.unavailablePeriod", { period: translatedPeriod })}</small></div><div class="chart-x" aria-hidden="true">${["01", "05", "10", "15", "20", "25", "30"].map(day => `<span>${day}</span>`).join("")}</div></div></div>`;
+    return `<div class="usage-chart" role="img" aria-label="${tx("Seu consumo aparecerá aqui")}"><div class="chart-field"><div class="chart-grid" aria-hidden="true"></div><div class="chart-empty">${icon("chart")}<span>${tx("Seu consumo aparecerá aqui")}</span><small>${message("account.usage.unavailablePeriod", { period: translatedPeriod })}</small></div></div></div>`;
   }
   function integration(section) {
     if (!section.owner) return "";

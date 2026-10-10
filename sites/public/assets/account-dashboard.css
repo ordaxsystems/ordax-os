@@ -153,15 +153,13 @@ body.account-portal .chart-legend i{width:5px;height:5px;border-radius:50%}
 body.account-portal .legend-violet{background:var(--violet)}
 body.account-portal .legend-cyan{background:var(--cyan)}
 body.account-portal .legend-mint{background:var(--mint)}
-body.account-portal .usage-chart{display:grid;grid-template-columns:30px 1fr;gap:9px;height:175px;margin-top:21px}
-body.account-portal .chart-y{display:flex;flex-direction:column;justify-content:space-between;font-size:7px;color:var(--subtle);padding-bottom:20px}
+body.account-portal .usage-chart{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;height:175px;margin-top:21px}
 body.account-portal .chart-field{position:relative;margin-top:3px}
-body.account-portal .chart-grid{position:absolute;inset:0 0 20px;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--border) calc(25% - 1px),var(--border) 25%);border-bottom:1px solid var(--border);opacity:.55}
-body.account-portal .chart-empty{position:absolute;inset:0 0 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted-foreground)}
+body.account-portal .chart-grid{position:absolute;inset:0;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),var(--border) calc(25% - 1px),var(--border) 25%);border-bottom:1px solid var(--border);opacity:.55}
+body.account-portal .chart-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted-foreground)}
 body.account-portal .chart-empty svg{width:25px;height:25px;color:var(--subtle);stroke-width:1.2}
 body.account-portal .chart-empty span{font-size:10px}
 body.account-portal .chart-empty small{font-size:8px;color:var(--subtle)}
-body.account-portal .chart-x{position:absolute;inset:auto 0 0;display:flex;justify-content:space-between;font-size:7px;color:var(--subtle)}
 body.account-portal .chart-detail{display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:9px;margin-top:16px;color:var(--muted-foreground)}
 body.account-portal .chart-detail svg{width:12px;height:12px}
 body.account-portal .security-summary{text-align:center}
