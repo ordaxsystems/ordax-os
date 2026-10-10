@@ -619,13 +619,31 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("check", help="validate source/config contract only")
+    check_parser = sub.add_parser("check", help="validate source/config contract only")
+    check_parser.add_argument(
+        "--source-contract", type=Path, default=SOURCE_CONTRACT,
+        help="canonical pin or explicitly reviewed staged kernel source contract",
+    )
     build_parser = sub.add_parser("build", help="build kernel candidate and provenance")
     build_parser.add_argument("--work-dir", type=Path, default=ROOT / "out" / "kernel-work")
     build_parser.add_argument("--out-dir", type=Path, default=ROOT / "out" / "kernel")
     build_parser.add_argument("--jobs", type=int, default=max(1, os.cpu_count() or 1))
+    build_parser.add_argument(
+        "--source-contract", type=Path, default=SOURCE_CONTRACT,
+        help="canonical pin or explicitly reviewed staged kernel source contract",
+    )
     args = parser.parse_args()
     try:
+        global SOURCE_CONTRACT
+        selected = args.source_contract
+        if selected.is_symlink() or not selected.is_file():
+            raise BuildError("kernel source contract is missing or unsafe")
+        selected = selected.resolve()
+        canonical = (KERNEL_DIR / "source.json").resolve()
+        candidates = (KERNEL_DIR / "candidates").resolve()
+        if selected != canonical and candidates not in selected.parents:
+            raise BuildError("kernel source contract must be canonical or a reviewed staging candidate")
+        SOURCE_CONTRACT = selected
         if args.command == "check":
             print(json.dumps(check_contract(), indent=2, sort_keys=True))
         else:
