@@ -151,13 +151,16 @@ export function createIntelligenceRuntime({ inferencePort, modelRouterPort = nul
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    async respond(value, { signal = null } = {}) {
+    async respond(value, { signal = null, onDelta = null } = {}) {
       assertAlive();
       const request = validateIntelligenceRequest(value);
       if (signal !== null && !(signal instanceof AbortSignal)) {
         throw new TypeError("Intelligence inference signal must be an AbortSignal");
       }
       if (signal?.aborted) throw new Error("Intelligence request cancelled");
+      if (onDelta !== null && typeof onDelta !== "function") {
+        throw new TypeError("Intelligence onDelta must be a function");
+      }
       if (snapshot.state !== "ready") {
         throw new Error("Ordax Intelligence local inference is not ready");
       }
@@ -173,7 +176,19 @@ export function createIntelligenceRuntime({ inferencePort, modelRouterPort = nul
         systemPrompt: INTELLIGENCE_SYSTEM_PROMPT,
         prompt: renderRequest(request, route),
         maxTokens: request.maxTokens,
-      }, { signal });
+      }, {
+        signal,
+        onDelta: onDelta === null ? null : async (delta) => {
+          assertAlive();
+          if (signal?.aborted) throw new Error("Intelligence request cancelled");
+          if (typeof delta !== "string" || !delta || delta.includes("\0")) {
+            throw new TypeError("Intelligence streamed delta must be nonempty text");
+          }
+          await onDelta(delta);
+          assertAlive();
+          if (signal?.aborted) throw new Error("Intelligence request cancelled");
+        },
+      });
       assertAlive();
       if (signal?.aborted) throw new Error("Intelligence request cancelled");
       if (result.engineId !== route.engineId || result.modelId !== route.modelId) {
