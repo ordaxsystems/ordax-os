@@ -17,9 +17,9 @@ function safeMessage(message) {
   }
   if (message.role === "assistant" && (
     typeof message.engineId !== "string" || !message.engineId.trim()
-    || message.engineId.length > 80
+    || message.engineId.length > 80 || message.engineId.includes("\\0")
     || typeof message.modelId !== "string" || !message.modelId.trim()
-    || message.modelId.length > 160
+    || message.modelId.length > 160 || message.modelId.includes("\\0")
   )) {
     throw new TypeError("Assistant response requires verified model provenance");
   }
@@ -45,7 +45,7 @@ export function projectAssistantResultCanvas(snapshot) {
   const latestResult = last?.role === "assistant" ? last : null;
   let state;
   if (snapshot.state === "unavailable") state = "unavailable";
-  else if (snapshot.lastError && !latestResult) state = "failed";
+  else if (snapshot.lastError) state = "failed";
   else if (snapshot.inferencePending === true) state = "working";
   else if (latestResult) state = "result";
   else if (messages.length === 0) state = snapshot.state === "error" ? "failed" : "idle";
