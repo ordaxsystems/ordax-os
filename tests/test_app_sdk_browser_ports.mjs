@@ -21,6 +21,31 @@ import {
   browserSelectionIntelligenceRequest,
 } from "../system/contracts/browser-page-selection.mjs";
 
+import {
+  IDENTITY_SESSION_SCHEMA,
+  validateIdentitySessionSnapshot,
+  assertIdentitySessionPort,
+} from "../system/contracts/identity-session.mjs";
+import {
+  PROFILE_ACTIVATION_STATE_SCHEMA,
+  PROFILE_ACTIVATION_STATE_PORT_SCHEMA,
+  createEmptyProfileActivationState,
+  assertProfileActivationStatePort,
+} from "../system/contracts/profile-activation-state.mjs";
+import {
+  SPACE_SELECTION_SCHEMA,
+  validateSpaceSelectionSnapshot,
+} from "../system/contracts/space-selection.mjs";
+import {
+  SPACES_PORT_SCHEMA,
+  SPACES_SNAPSHOT_SCHEMA,
+  assertSpacesPort,
+} from "../system/contracts/spaces.mjs";
+import {
+  PROJECT_WEB_REFERENCES_SCHEMA,
+  validateProjectWebReferences,
+} from "../system/contracts/project-web-references.mjs";
+
 const base = new URL("../", import.meta.url);
 const EXPECTED = new Map([
   ["browser-download", "ordax.browser-download-port/1"],
@@ -91,4 +116,59 @@ test("Browser interfaces do not provide a WebKit instance, filesystem access or 
   assert.throws(() => browserSelectionIntelligenceRequest({
     selection, question: "resuma", confirmed: false,
   }), /explicitly confirm/);
+});
+
+test("SDK 1.14 publishes identity, profile, space and web-reference source contracts without native authority", async () => {
+  const bundle = JSON.parse(await readFile(new URL("sdk/app-sdk-v1/bundle.json", base), "utf8"));
+  const byName = new Map(bundle.contracts.map(item => [item.name, item]));
+  const requirements = new Map([
+    ["identity-session", IDENTITY_SESSION_SCHEMA],
+    ["profile-activation-state", PROFILE_ACTIVATION_STATE_SCHEMA],
+    ["profile-activation-state-port", PROFILE_ACTIVATION_STATE_PORT_SCHEMA],
+    ["project-web-references", PROJECT_WEB_REFERENCES_SCHEMA],
+    ["space-selection", SPACE_SELECTION_SCHEMA],
+    ["space-selection-record", "ordax.space-selection-record/1"],
+    ["space-selection-store", "ordax.space-selection-store/1"],
+    ["spaces", SPACES_PORT_SCHEMA],
+    ["spaces-profile-packs", "ordax.profile-packs/1"],
+    ["spaces-snapshot", SPACES_SNAPSHOT_SCHEMA],
+  ]);
+  for (const [name, schema] of requirements) {
+    const item = byName.get(name);
+    assert.ok(item, name);
+    assert.equal(item.schema, schema);
+    assert.equal(item.major, 1);
+    assert.match(item.source_path, /^system\\/contracts\\/[a-z-]+\\.mjs$/);
+    assert.match(item.source_git_blob, /^[0-9a-f]{40}$/);
+  }
+  const snapshot = validateIdentitySessionSnapshot({ state: "signed-out" });
+  assert.deepEqual(snapshot, { state: "signed-out", subjectId: null, displayName: null });
+  const identity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+  };
+  assert.equal(assertIdentitySessionPort(identity), identity);
+  assert.equal(createEmptyProfileActivationState().spaces.length, 0);
+  assert.throws(() => assertProfileActivationStatePort({
+    schema: PROFILE_ACTIVATION_STATE_PORT_SCHEMA,
+    getSnapshot: () => createEmptyProfileActivationState(),
+    refresh: () => {},
+  }), /dispose/);
+  assert.equal(validateSpaceSelectionSnapshot({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unavailable",
+    subjectId: null,
+    selectedSpace: null,
+  }).selectedSpace, null);
+  assert.deepEqual(validateProjectWebReferences([]), []);
+  const readOnlySpaces = {
+    schema: SPACES_PORT_SCHEMA,
+    getSnapshot: () => ({ schema: SPACES_SNAPSHOT_SCHEMA, state: "ready", spaces: [] }),
+    subscribe: () => () => {},
+    refresh: () => {},
+    reset: () => {},
+  };
+  assert.equal(assertSpacesPort(readOnlySpaces), readOnlySpaces);
+  assert.throws(() => assertSpacesPort({ ...readOnlySpaces, execute() {} }), /must not implement/);
 });
