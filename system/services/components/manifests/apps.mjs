@@ -1,8 +1,4 @@
 import { defineComponentManifest } from "../../../contracts/component-manifest.mjs";
-import { filesComponent } from "../../../apps/files/component.mjs";
-
-export { filesComponent };
-
 export const settingsComponent = defineComponentManifest({
   id: "settings",
   title: "Ajustes",
@@ -60,7 +56,6 @@ export const systemComponent = defineComponentManifest({
 });
 
 export const appComponentManifests = Object.freeze([
-  filesComponent,
   settingsComponent,
   accountComponent,
   storeComponent,
