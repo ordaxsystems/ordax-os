@@ -144,3 +144,22 @@ test("caller cannot shadow trusted bound Native context", async () => {
   assert.equal(f.state().mounts, 0);
   assert.match(f.state().reported.message, /cannot add field/);
 });
+
+test("a verified discovery revision is pinned before any runtime module import", async () => {
+  const f = fixture();
+  assert.equal(await f.run({
+    expectedCurrent: { ...revision, revision: revision.revision + 1 },
+  }), null);
+  assert.equal(f.state().imports, 0);
+  assert.equal(f.state().mounts, 0);
+  assert.match(f.state().reported.message, /changed since verified discovery/);
+});
+
+test("a forged discovery identity fails before network access", async () => {
+  const f = fixture();
+  await assert.rejects(() => f.run({
+    expectedCurrent: { ...revision, componentId: "notes" },
+  }), /component identity mismatch/);
+  assert.equal(f.state().reads, 0);
+  assert.equal(f.state().imports, 0);
+});
