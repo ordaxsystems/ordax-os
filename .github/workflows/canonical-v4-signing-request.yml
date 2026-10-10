@@ -9,6 +9,8 @@ on:
       - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/select_active_signing_request.py'
+      - 'tools/release-operator/probe_active_operator_artifacts.py'
+      - 'tests/test_canonical_v4_live_operator_artifacts.py'
       - 'tests/test_canonical_v4_signing_request_selection.py'
       - 'tests/test_build_canonical_v4_request.py'
       - 'tests/test_canonical_v4_execution_owner_guard.py'
@@ -21,6 +23,7 @@ on:
       - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/**'
+      - 'tests/test_canonical_v4_live_operator_artifacts.py'
       - 'tests/test_canonical_v4_signing_request*.py'
       - 'tests/test_build_canonical_v4_request.py'
       - 'tests/test_canonical_v4_execution_owner_guard.py'
@@ -36,8 +39,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      actions: read
     outputs:
-      active: ${{ steps.select.outputs.active }}
+      active: ${{ steps.probe.outputs.active }}
     steps:
       - name: Checkout immutable request provenance
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -49,15 +53,26 @@ jobs:
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_signing_request_selection.py'
           python3 -m unittest discover -v -s tests -p 'test_build_canonical_v4_request.py'
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_execution_owner_guard.py'
+          python3 -m unittest discover -v -s tests -p 'test_canonical_v4_live_operator_artifacts.py'
       - name: Select current request without confusing historical provenance
         id: select
         run: |
           set -euo pipefail
           python3 tools/release-operator/select_active_signing_request.py \
             --github-output "$GITHUB_OUTPUT"
+      - name: Verify operator artifacts exist in canonical GitHub Actions
+        if: steps.select.outputs.active == 'true'
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 tools/release-operator/probe_active_operator_artifacts.py \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: State unsigned assembly availability
         run: |
-          if [ "${{ steps.select.outputs.active }}" = 'true' ]; then
+          if [ "${{ steps.probe.outputs.active }}" = 'true' ]; then
             echo 'CANONICAL_V4_UNSIGNED_ASSEMBLY=ELIGIBLE_FOR_FULL_VERIFICATION'
           else
             echo 'CANONICAL_V4_UNSIGNED_ASSEMBLY=BLOCKED_NO_CANONICAL_REQUEST'
