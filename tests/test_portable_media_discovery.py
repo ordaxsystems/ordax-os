@@ -73,8 +73,10 @@ class PortableMediaDiscoveryTests(unittest.TestCase):
     def test_accepts_unique_esp_and_data_from_same_disk(self):
         result = self.run_selector({"sda1": "ORDAX-ESP", "sda3": "ORDAX-DATA"})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(result.stdout.endswith("/sda1\n" + result.stdout.splitlines()[1] + "\n"))
-        self.assertTrue(result.stdout.splitlines()[1].endswith("/sda3"))
+        devices = result.stdout.splitlines()
+        self.assertEqual(len(devices), 2)
+        self.assertTrue(devices[0].endswith("/sda1"))
+        self.assertTrue(devices[1].endswith("/sda3"))
 
     def test_rejects_two_cloned_usb_media(self):
         result = self.run_selector({
