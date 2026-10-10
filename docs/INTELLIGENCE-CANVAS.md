@@ -224,3 +224,21 @@ resultado ausente, mudança de identidade/Space, status adulterado e
 semântica do `figure`. A suíte existente `Intelligence Foundation`
 é o gate de CI desta fatia. Isso é validação de código, não um
 E2E físico, nem autoriza PDF/galeria/gráficos de vendas.
+
+## Revisão explícita das missões na Activity (P1)
+
+O Assistant Native reutiliza o `ordax.app-activation/1` já conectado à
+Surface para mostrar **Revisar na Activity** apenas em cartões verificados
+com `state=requires-action` e com canal de navegação disponível. Um clique
+revalida Personal/Identity/Space e a presença da missão no recorte atual
+antes de publicar `{ appId: activityApp.id }`, usando o ID do aplicativo
+declarado no owner Activity (não uma string ou rota duplicada).
+
+O canal é **somente intenção de navegação**, sem confirmação de que a
+janela abriu; não existe `target` com ID de Work porque a Activity
+ainda não implementa deep link por missão. O usuário examina a missão
+na própria Activity. Isso não resolve aprovações, não concede grants,
+não executa ferramentas, não confirma sucessos incertos e não expõe
+referências privadas. A Surface Web sem `appActivation` não ganha
+atalho fictício. O teste exerce o canal real da composição e verifica
+ausência de publicação com owner/Space divergentes ou Work concluído.
