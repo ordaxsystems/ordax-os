@@ -33,7 +33,7 @@ jobs:
         run: bun install --frozen-lockfile --ignore-scripts
       - name: Verify canonical OrdaX session contract in React bridge
         working-directory: sites/account-ui/lovable-original
-        run: bun test src/test/official-session.test.ts
+        run: bun test src/test
 
       - name: Compile copied Lovable components
         working-directory: sites/account-ui/lovable-original
