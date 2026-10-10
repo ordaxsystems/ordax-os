@@ -42,6 +42,8 @@ def verify() -> None:
             raise ValueError(f"original image bytes changed: {rel}")
     if not (BASE / "src/lib/account/official-session.tsx").is_file():
         raise ValueError("canonical session adapter missing")
+    if (BASE / "src/lib/account/official-session.ts").exists():
+        raise ValueError("shadow session adapter reintroduced; TSX must be the sole module owner")
     if not (BASE / "src/account-entry.tsx").is_file():
         raise ValueError("static frontend entry missing")
     if not (BASE / "vite.config.account.ts").is_file():
