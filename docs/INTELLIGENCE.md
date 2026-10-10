@@ -86,6 +86,45 @@ Esse corte não adiciona storage, grants, actions, egress, conversa remota
 ou distribuição; Web sem backend permanece indisponível. Regressões de
 contrato, estado, resposta tardia e Memory vivem nos testes da Intelligence.
 
+### Canvas read-only de Work/Activity/Result (P0 de #1572)
+
+A primeira composição funcional de resultado adaptativo está em
+`system/services/intelligence/work-canvas.mjs`, consumida por
+`system/apps/activity/view-model.mjs` e pela UI **Activity já existente**.
+Seu input é somente o snapshot validado de `ordax.personal-runtime/1`;
+ela não cria um novo Work, store, ação, router, autorização ou receipt.
+Os contratos canônicos permanecem `ordax.personal-work-item/1`,
+`ordax.personal-activity/1` e `ordax.personal-work-result/1`.
+
+- O consumidor deve fornecer owner (kind/ID), Space, project e workItemId
+  explícitos, lidos do contexto autorizado pelo owner do runtime. Um mismatch
+  resulta em `unavailable`, sem texto nem eventos. A projeção, por si só,
+  **não é um grant** e não substitui autorização do runtime.
+- Estados visuais `idle|working|requires-action|result|failed|unavailable`
+  provêm exclusivamente de Work e tentativas/approvals canônicos. As etapas
+  vêm dos eventos Activity validados, em ordem de sequência, com máximo de
+  32 itens visíveis; não são criadas por texto do modelo.
+- O único bloco emitido neste corte é **texto puro** de Work Result
+  `kind=intelligence-response`, com `resultId`, modelo e proveniência real.
+  A UI usa `textContent`. Documentos, receitas estruturadas, galerias,
+  gráficos, imagens e URLs/artefatos ficam indisponíveis até existir o port
+  de dados correspondente com validação e grants de leitura. Referências
+  presentes no resultado não são expostas como links.
+- Trabalho completado sem Result retido não vira sucesso visual. Tentativa
+  incerta não vira sucesso visual. Percentual e `requestId` são `null`
+  quando o SSOT não fornece essas informações. O estado consultativo mantém
+  `authority=none`, `toolExecution=false`.
+- O teste `tests/test_intelligence_work_canvas.mjs` cobre o ciclo real
+  Personal OrdaX com inferência injetada localmente, projeção em Activity,
+  ausência de backend, schemas/payloads inválidos, contexto trocado,
+  eventos duplicados, approvals e tentativas incertas. A suíte roda pelo
+  workflow `Intelligence Foundation`. Não é prova de E2E físico ou deploy.
+
+Esta é a **fatia P0**, não a Surface minimalista final de Intelligence.
+Os próximos cortes de #1572 devem integrar componentes de Canvas na Surface
+com contexto autorizado e resolver dados multimodais por seus próprios owners,
+sem tratar protótipos Lovable como fonte de verdade nem inferir ações de texto.
+
 Ordax Intelligence is a system capability, not an application.
 
 The first-party Assistant may later provide a conversational Surface, but it is

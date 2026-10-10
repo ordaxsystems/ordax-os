@@ -306,7 +306,7 @@ export function mountPersonalActivityControls(
       list.append(node(documentObject, "p", "ordax-activity-empty", t("activity.empty")));
     } else {
       for (const entry of [...view.work].reverse()) {
-        const { item, activities, result } = entry;
+        const { item, canvas } = entry;
         const article = node(documentObject, "article", "ordax-activity-work");
         article.dataset.personalWorkId = item.id;
 
@@ -389,17 +389,21 @@ export function mountPersonalActivityControls(
         top.append(actions);
         article.append(top);
 
-        const latest = activities.at(-1);
-        if (latest) {
-          article.append(
-            node(
-              documentObject,
-              "p",
-              "ordax-activity-latest",
-              `${t("activity.latest")}: ${latest.summary}`,
-            ),
-          );
+        // Timeline entries come exclusively from validated Personal OrdaX
+        // Activity events. Never infer completion or synthetic percentages.
+        const timeline = node(documentObject, "ol", "ordax-activity-canvas-timeline");
+        timeline.dataset.personalWorkCanvasState = canvas.state;
+        for (const step of canvas.steps) {
+          const line = node(documentObject, "li", "ordax-activity-latest", step.summary);
+          line.dataset.personalWorkCanvasSequence = String(step.sequence);
+          line.dataset.personalWorkCanvasEvent = step.type;
+          timeline.append(line);
         }
+        if (canvas.stepsTruncated) {
+          timeline.append(node(documentObject, "li", "ordax-activity-latest",
+            "…"));
+        }
+        if (timeline.childElementCount > 0) article.append(timeline);
 
         if (entry.latestAttempt) {
           const attempt = entry.latestAttempt;
@@ -709,18 +713,18 @@ export function mountPersonalActivityControls(
           article.append(approvedBox);
         }
 
-        if (result) {
+        if (canvas.state === "result" && canvas.blocks.length > 0) {
           const resultBox = node(documentObject, "section", "ordax-activity-result");
-          resultBox.append(
-            node(documentObject, "strong", "", t("activity.result.title")),
-            node(documentObject, "p", "", result.text),
-            node(
-              documentObject,
-              "span",
-              "ordax-activity-result-meta",
-              `${result.engineId} · ${result.modelId} · authority=${result.authority}`,
-            ),
-          );
+          resultBox.dataset.personalWorkCanvasResultId = canvas.resultId;
+          resultBox.append(node(documentObject, "strong", "", t("activity.result.title")));
+          for (const block of canvas.blocks) {
+            // textContent only; model text is never interpreted as HTML or JSON.
+            if (block.kind === "text") {
+              resultBox.append(node(documentObject, "p", "", block.text));
+            }
+          }
+          resultBox.append(node(documentObject, "span", "ordax-activity-result-meta",
+            `${canvas.provenance.engineId} · ${canvas.provenance.modelId} · authority=${canvas.authority}`));
           article.append(resultBox);
         }
         list.append(article);

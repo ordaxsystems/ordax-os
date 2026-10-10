@@ -203,6 +203,39 @@
   background: color-mix(in srgb, var(--ordax-danger) 6%, transparent);
 }
 
+
+/* Bounded, receipt-backed Canvas timeline; no animated/fabricated progress. */
+.ordax-activity-canvas-timeline {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0;
+  padding: 0 0 0 16px;
+  border-left: 2px solid var(--ordax-border-soft);
+  list-style: none;
+}
+
+.ordax-activity-canvas-timeline > li {
+  position: relative;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ordax-activity-canvas-timeline > li::before {
+  content: "";
+  position: absolute;
+  left: -21px;
+  top: 0.45em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ordax-muted);
+}
+
+.ordax-activity-canvas-timeline > li[data-personal-work-canvas-event="completed"]::before {
+  background: var(--ordax-accent);
+}
+
 @media (max-width: 760px) {
   .ordax-activity-header,
   .ordax-activity-work-top {
