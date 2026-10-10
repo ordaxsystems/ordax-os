@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -79,6 +80,25 @@ def expected_apps():
 
 
 class CanonicalDocumentFreshnessTests(unittest.TestCase):
+    def test_first_party_app_registry_snapshot_matches_runtime_catalog(self):
+        state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
+        runtime = subprocess.run(
+            [
+                "node", "--input-type=module", "-e",
+                'import {listFirstPartyApps} from "./system/apps/catalog.mjs"; '
+                'process.stdout.write(JSON.stringify(listFirstPartyApps().map(app => app.id)));',
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        app_ids = json.loads(runtime.stdout)
+        self.assertEqual(
+            state["FIRST_PARTY_APP_REGISTRY"],
+            ",".join(app_id.upper() for app_id in app_ids),
+        )
+
     def test_product_version_snapshot_matches_runtime_and_contract(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
         product = PRODUCT_VERSION.read_text(encoding="utf-8")
