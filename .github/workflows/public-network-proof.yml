@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/public-network-proof.yml'
       - 'tools/public-site/probe_public_network.py'
+      - 'tools/public-site/public_identity_state.py'
       - 'tests/test_public_site_network_proof.py'
       - 'docs/contracts/public-site-deployment.json'
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - '.github/workflows/public-network-proof.yml'
       - 'tools/public-site/probe_public_network.py'
+      - 'tools/public-site/public_identity_state.py'
       - 'tests/test_public_site_network_proof.py'
       - 'docs/contracts/public-site-deployment.json'
   workflow_dispatch:
@@ -38,6 +40,6 @@ jobs:
           python-version: '3.12'
           check-latest: false
       - name: Validate network probe locally without real requests
-        run: python -m unittest tests.test_public_site_network_proof -v
+        run: python -m unittest discover -s tests -p 'test_public_site_network_proof.py' -v
       - name: Prove DNS and public HTTPS from independent runner
         run: python tools/public-site/probe_public_network.py

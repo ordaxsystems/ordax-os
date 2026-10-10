@@ -47,6 +47,8 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_public_site_deployment_proof.py'
+      - 'tests/test_public_site_network_proof.py'
       - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
@@ -121,6 +123,8 @@ on:
       - 'tests/test_public_identity_gateway.py'
       - 'tests/test_public_site_runtime_smoke.py'
       - 'tests/test_public_site_deployment.py'
+      - 'tests/test_public_site_deployment_proof.py'
+      - 'tests/test_public_site_network_proof.py'
       - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
@@ -207,6 +211,8 @@ jobs:
           python -m unittest tests.test_account_lifecycle_edge -v
           python -m unittest tests.test_public_site_runtime_smoke -v
           python -m unittest tests.test_public_site_deployment -v
+          python -m unittest discover -s tests -p 'test_public_site_deployment_proof.py' -v
+          python -m unittest discover -s tests -p 'test_public_site_network_proof.py' -v
           python -m unittest tests.test_vercel_identity_preflight -v
           python -m unittest tests.test_public_legal_readiness -v
           python -m unittest tests.test_account_legal_policy_activation -v
