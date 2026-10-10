@@ -376,3 +376,39 @@ test("Native Assistant UI requires explicit Work CTA, retains chat Enter behavio
   assert.match(source, /if \(event\.key === "Enter" && !event\.shiftKey\)/);
   assert.doesNotMatch(source, /executeApprovedAction\(|requestApproval\(|grantRef|resourceRef/);
 });
+
+
+test("owner switch during recorded reasoning cannot commit an old owner result into new Space", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const space = port("ordax.space-selection/1", unavailableSpace());
+  let resolveResponse;
+  const delayed = {
+    ...model(),
+    respond() {
+      return new Promise((resolve) => { resolveResponse = resolve; });
+    },
+  };
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, intelligencePort: delayed,
+    now: (() => { let t = 120000; return () => t++; })(),
+  });
+  try {
+    const action = beginAssistantRecordedWork(runtime, id, space, { state: "ready" }, "Análise interrompida");
+    assert.equal(action.accepted, true);
+    await Promise.resolve();
+    assert.equal(runtime.getSnapshot().workItems[0].state, "running");
+    id.setSnapshot(identity("signed-in", "owner-a"));
+    assert.deepEqual(runtime.getSnapshot().workItems, []);
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "ready" }, "Outra tarefa"), false);
+    resolveResponse({
+      schema: "ordax.intelligence-response/1", text: "Resultado do owner anterior",
+      engineId: "llama.cpp", modelId: "verified", authority: "none",
+    });
+    await assert.rejects(action.pending, /context changed/);
+    assert.deepEqual(runtime.getSnapshot().results, []);
+    assert.deepEqual(projectAssistantWorkStrip(
+      runtime.getSnapshot(), id.getSnapshot(), space.getSnapshot()).cards, []);
+  } finally {
+    runtime.dispose();
+  }
+});
