@@ -40,7 +40,7 @@ def current_artifact_names(kernel_source_contract: Path) -> tuple[str, list[str]
     if (
         source.get("$schema") != "prototype-ordax.kernel-source/1"
         or not isinstance(version, str)
-        or re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+", version) is None
+        or re.fullmatch(r"[0-9]+[.][0-9]+[.][0-9]+", version) is None
     ):
         fail("invalid canonical kernel source schema or version")
     return version, [
