@@ -32,6 +32,9 @@ type activationState struct {
 	Pending       *slotIdentity `json:"pending"`
 	Rejected      *slotIdentity `json:"rejected"`
 	PendingHealth string        `json:"pending_health"`
+	// Same SSOT as the current slot. A user-initiated uninstall must survive
+	// reboot and signed image refresh without a parallel Store preference DB.
+	UserRemoved   bool          `json:"user_removed,omitempty"`
 }
 
 func emptyActivationState(componentID string) activationState {
@@ -80,6 +83,9 @@ func validateActivationState(value activationState, componentID string) error {
 		if err := validateSlotIdentity(identity); err != nil {
 			return err
 		}
+	}
+	if value.UserRemoved && value.Current != nil {
+		return errors.New("runtime component explicitly removed cannot have a current slot")
 	}
 	if value.Pending == nil && value.PendingHealth != "unknown" {
 		return errors.New("runtime component pending health exists without a pending slot")
@@ -346,7 +352,7 @@ func resolveRuntimeSlot(root, componentID, trustPath, target string) (activation
 	case "current":
 		identity = state.Current
 		if identity == nil {
-			bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+			bundledFallback := !state.UserRemoved && canonicalSourceRepository(componentID) == sourceRepository
 			return state, "", componentPackageManifest{}, bundledFallback, nil
 		}
 	case "pending":
@@ -599,6 +605,8 @@ func promotePendingStateAtRevision(
 		promoted := identity
 		state.Previous = state.Current
 		state.Current = &promoted
+		// A verified, explicitly requested install becomes the new current owner.
+		state.UserRemoved = false
 		state.Pending = nil
 		state.Rejected = nil
 		state.PendingHealth = "unknown"
@@ -717,7 +725,8 @@ func uninstallCurrentStateAtRevision(
 			state.Previous == nil &&
 			state.Pending == nil &&
 			state.Rejected == nil &&
-			state.PendingHealth == "unknown" {
+			state.PendingHealth == "unknown" &&
+			state.UserRemoved {
 			// Safe idempotent retry after the exact uninstall transition.
 			return state, nil
 		}
@@ -739,6 +748,8 @@ func uninstallCurrentStateAtRevision(
 		state.Pending = nil
 		state.Rejected = nil
 		state.PendingHealth = "unknown"
+		// Persist with the same atomic activation-state revision as removal.
+		state.UserRemoved = true
 		state.Revision++
 		return state, nil
 	})
@@ -750,7 +761,7 @@ func resolveCurrentState(root, componentID, trustPath string) (activationState, 
 		return activationState{}, "", false, err
 	}
 	if state.Current == nil {
-		bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+		bundledFallback := !state.UserRemoved && canonicalSourceRepository(componentID) == sourceRepository
 		return state, "", bundledFallback, nil
 	}
 	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
