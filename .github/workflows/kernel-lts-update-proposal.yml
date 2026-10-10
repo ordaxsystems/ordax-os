@@ -40,10 +40,28 @@ jobs:
           import json, os
           from pathlib import Path
           value = json.loads((Path(os.environ['RUNNER_TEMP']) / 'kernel-discovery.json').read_text())
-          assert value['status'] in ('up-to-date', 'update-available')
+          assert value['status'] in ('up-to-date', 'update-available', 'lts-line-upgrade-required')
           print('update=' + str(value['status'] == 'update-available').lower())
-          print('version=' + value['latest'])
+          print('version=' + value.get('latest', ''))
+          print('family_upgrade=' + str(value['status'] == 'lts-line-upgrade-required').lower())
           PY
+
+      - name: File one LTS family migration notice if upstream maintenance ends
+        if: steps.detect.outputs.family_upgrade == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current="$(python3 -c 'import json,os; from pathlib import Path; print(json.loads((Path(os.environ["RUNNER_TEMP"])/"kernel-discovery.json").read_text())["current_candidate"])')"
+          series="${current%.*}"
+          title="Kernel LTS family migration required: $series"
+          if gh issue list --state open --limit 100 --json title --jq '.[].title' | grep -Fxq "$title"; then
+            echo "Existing LTS migration issue retained; no duplicate created."
+            exit 0
+          fi
+          gh issue create \
+            --title "$title" \
+            --body "The official kernel.org longterm release feed no longer lists the active LTS family ($series). A deliberate family migration is required, with ABI, UAPI, driver, QEMU, Native, Portable, rollback and physical-gate proofs. Do not auto-promote a different family or authorize physical media writes."
 
       - name: Install upstream signature verification dependencies
         if: steps.detect.outputs.update == 'true'
