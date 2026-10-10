@@ -160,7 +160,9 @@ def main() -> int:
     prove.add_argument("--source-commit", required=True)
     args = parser.parse_args()
     try:
-        path, source = select_candidate()
+        path, source = select_candidate(require_newer=(args.command == "prove"))
+        active = read_json(CANONICAL)
+        available = version_tuple(source["version"]) > version_tuple(active["version"])
         if args.command == "select":
             if args.github_output:
                 if Path(os.environ.get("GITHUB_OUTPUT", "")) != args.github_output:
@@ -168,8 +170,10 @@ def main() -> int:
                 with args.github_output.open("a", encoding="utf-8") as stream:
                     stream.write(f"source_contract={path.relative_to(ROOT)}\n")
                     stream.write(f"version={source['version']}\n")
+                    stream.write(f"available={str(available).lower()}\n")
             print(f"CANDIDATE_SOURCE_CONTRACT={path.relative_to(ROOT)}")
             print(f"CANDIDATE_VERSION={source['version']}")
+            print(f"CANDIDATE_NEWER_THAN_ACTIVE={str(available).upper()}")
         else:
             print(json.dumps(verify_candidate(args.out_dir, source_commit=args.source_commit),
                              indent=2, sort_keys=True))
