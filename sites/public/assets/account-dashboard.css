@@ -179,7 +179,7 @@
   .account-search-toggle .account-icon { width:19px; height:19px; color:inherit; }
   .account-search-toggle:hover { background:var(--ordax-hover-bg); }
   .account-portal .account-header .account-header-actions { gap:0; }
-  .account-header-actions .header-profile-link { width:44px; padding:0; justify-content:center; }
+  .account-portal .account-header-actions .header-profile-link { width:44px; padding:0; justify-content:center; }
   .header-profile-link [data-auth-nav-label] { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
   .header-profile-arrow { display:none; }
   .account-portal .site-nav { font-size:11px; }
