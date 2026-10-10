@@ -1,0 +1,46 @@
+name: Kernel Upstream Signature Tests
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/kernel/verify_upstream_signature.py'
+      - 'tests/test_kernel_upstream_signature.py'
+      - '.github/workflows/kernel-upstream-signature-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/kernel/verify_upstream_signature.py'
+      - 'tests/test_kernel_upstream_signature.py'
+      - '.github/workflows/kernel-upstream-signature-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  openpgp-regressions:
+    name: Strict detached-signature verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate required local verification programs
+        run: |
+          set -euo pipefail
+          command -v gpg
+          command -v xz
+          gpg --version
+          xz --version
+
+      - name: Test real offline detached OpenPGP verification and rejection
+        run: python -m unittest discover -s tests -p 'test_kernel_upstream_signature.py' -v
