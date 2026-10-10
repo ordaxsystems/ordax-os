@@ -3,10 +3,10 @@ import {
 } from "../../contracts/component-runtime.mjs";
 import { assertFileSpacePort } from "../../contracts/file-space.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
-import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
-import { filesComponent } from "./component.mjs";
+import { mountFileSpaceControls } from "./file-space-controls.mjs";
+import { filesComponent } from "../../apps/files/component.mjs";
 
-const FILES_STYLESHEET_URL = new URL("../../surface/ui/files.css", import.meta.url).href;
+const FILES_STYLESHEET_URL = new URL("./files.css", import.meta.url).href;
 
 // The platform provides capabilities, not host filesystem paths or store keys.
 // The same controller remains the only Files UI implementation during cutover.

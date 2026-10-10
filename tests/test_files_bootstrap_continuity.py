@@ -14,7 +14,7 @@ class FilesBootstrapContinuityTests(unittest.TestCase):
         for relative in (
             "system/apps/files/app.mjs",
             "system/apps/files/component.mjs",
-            "system/apps/files/runtime.mjs",
+            "system/surface/ui/files-component-runtime.mjs",
             "system/surface/ui/file-space-controls.mjs",
             "system/surface/ui/file-space-response-identity.mjs",
             "system/services/components/manifests/apps.mjs",
@@ -44,7 +44,7 @@ class FilesBootstrapContinuityTests(unittest.TestCase):
         self.assertNotIn('services/components/manifests/apps.mjs', app)
         self.assertIn('import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";', native)
         self.assertIn('const fileSpaceControls = mountFileSpaceControls(', native)
-        runtime = (ROOT / "system/apps/files/runtime.mjs").read_text(encoding="utf-8")
+        runtime = (ROOT / "system/surface/ui/files-component-runtime.mjs").read_text(encoding="utf-8")
         self.assertIn('export const componentRuntime = Object.freeze({', runtime)
         self.assertIn('mountFileSpaceControls(', runtime)
         self.assertIn('assertFileSpacePort(fileSpace)', runtime)

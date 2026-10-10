@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { componentRuntime } from "../system/apps/files/runtime.mjs";
+import { componentRuntime } from "../system/surface/ui/files-component-runtime.mjs";
 import {
   validateComponentRuntime,
   validateMountedComponent,
