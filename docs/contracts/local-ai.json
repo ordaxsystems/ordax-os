@@ -21,7 +21,11 @@
     "listen_scope": "127.0.0.1-only",
     "client_endpoint_policy": "literal-http-127.0.0.1-or-exact-native-same-origin-bridge",
     "native_same_origin_endpoint": "/__ordax/native/local-ai",
-    "native_bridge_paths": ["GET /health", "GET /v1/models", "POST /v1/chat/completions"],
+    "native_bridge_paths": [
+      "GET /health",
+      "GET /v1/models",
+      "POST /v1/chat/completions"
+    ],
     "native_bridge_host_origin_restriction": true,
     "native_bridge_not_a_local_process_authentication_boundary": true,
     "stable_ephemeral_inference_key_required": true,
@@ -115,5 +119,13 @@
     "small_model_first": true,
     "hardware_probe_before_start": true,
     "failure_must_not_block_surface": true
+  },
+  "inference_transport_cancel": {
+    "source": "system/services/local-ai/runtime.mjs",
+    "optional_abort_signal": "generate(request, { signal })",
+    "scope": "active-inference-http-only",
+    "cancel_other_operations": false,
+    "server_engine_abort_proven": false,
+    "late_completions_discarded": true
   }
 }
