@@ -2,6 +2,12 @@
 
 > **Decisão 2026-10-10 — guia de retomada, não nova autoridade de código.** Este arquivo na raiz foi criado para que outros chats/agents entendam o trabalho e prossigam sem reiniciar, duplicar sistemas ou interpretar testes simulados como release. Revalidar a `main` e as PRs antes de implementar. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
 
+## Tarefa de implementação ativa — próximo chat
+
+**[Issue #1572 — Resultados adaptativos e progresso real de missões](https://github.com/ordaxsystems/ordax-os/issues/1572)** é o roteiro executável desta experiência Jarvis. **Comece pela P0**: auditar os contratos `ordax.intelligence-conversation-capabilities/1`, `ordax.personal-work-activity/result` existentes, depois entregar uma **PR pequena de código + testes** com projeção segura read-only do resultado e dos eventos reais para a UI. Só então compor Canvas minimalista, receitas/docs/gráficos/galeria e progresso real com estados verificados. Não criar PR documental vazia, novo broker, store ou pipeline para contornar owners existentes. Acompanhar #848 (Work) e #1154 (coordenação entre clientes) sem duplicar suas responsabilidades.
+
+**Estado da experiência pretendida:** repouso = apenas símbolo + campo de comando/voz/anexo quando habilitados; solicitações simples exibem resultados visuais adaptativos; missões usam progressos de Work/Activity/receipts reais. A estrutura da tela não é a imagem de receita ou um Studio simplificado. As imagens e protótipos Lovable são referências de UI, não provas de operação de IA. Sem evento verificável, não afirmar que uma etapa foi realizada.
+
 ## Leitura obrigatória
 
 1. `AGENTS.md`, `docs/README.md`, `docs/contracts/repository-ownership.json` e `docs/CURRENT-STATE.md` — autoridade e estado atual.
