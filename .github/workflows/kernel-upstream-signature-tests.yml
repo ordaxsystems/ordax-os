@@ -5,12 +5,16 @@ on:
     paths:
       - 'bootstrap/kernel/verify_upstream_signature.py'
       - 'tests/test_kernel_upstream_signature.py'
+      - 'tests/test_kernel_build_authentication_gate.py'
+      - 'bootstrap/kernel/build.py'
       - '.github/workflows/kernel-upstream-signature-tests.yml'
   push:
     branches: [main]
     paths:
       - 'bootstrap/kernel/verify_upstream_signature.py'
       - 'tests/test_kernel_upstream_signature.py'
+      - 'tests/test_kernel_build_authentication_gate.py'
+      - 'bootstrap/kernel/build.py'
       - '.github/workflows/kernel-upstream-signature-tests.yml'
   workflow_dispatch:
 
@@ -43,4 +47,6 @@ jobs:
           xz --version
 
       - name: Test real offline detached OpenPGP verification and rejection
-        run: python -m unittest discover -s tests -p 'test_kernel_upstream_signature.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_kernel_upstream_signature.py' -v
+          python -m unittest discover -s tests -p 'test_kernel_build_authentication_gate.py' -v
