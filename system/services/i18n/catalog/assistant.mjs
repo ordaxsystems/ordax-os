@@ -65,6 +65,9 @@ export const ASSISTANT_SOURCE_MESSAGES = Object.freeze({
   "assistant.input.aria": "Mensagem para a OrdaX",
   "assistant.action.clear": "Limpar conversa",
   "assistant.action.send": "Enviar",
+  "assistant.action.recordWork": "Executar como análise registrada",
+  "assistant.work.submission.explainer": "Análise registrada usa Work/Activity e solicita uma resposta ao modelo. Não executa ações no computador nem trabalha em segundo plano.",
+  "assistant.work.submission.error": "A análise não pôde ser iniciada ou concluída. Consulte Activity para conferir o Work registrado.",
   "assistant.action.sending": "Enviando…",
   "assistant.footnote": "Este histórico é temporário. Memory persistente continua sob as regras da OrdaX e não é criada por este app nesta versão.",
 });
@@ -136,6 +139,9 @@ export const ASSISTANT_ENGLISH_MESSAGES = Object.freeze({
   "assistant.input.aria": "Message to OrdaX",
   "assistant.action.clear": "Clear conversation",
   "assistant.action.send": "Send",
+  "assistant.action.recordWork": "Run as recorded analysis",
+  "assistant.work.submission.explainer": "Recorded analysis uses Work/Activity and requests a model response. It does not perform computer actions or execute in the background.",
+  "assistant.work.submission.error": "The analysis could not start or finish. Check Activity for any recorded Work.",
   "assistant.action.sending": "Sending…",
   "assistant.footnote": "This history is temporary. Persistent Memory remains governed by OrdaX rules and is not created by this app in this version.",
 });
