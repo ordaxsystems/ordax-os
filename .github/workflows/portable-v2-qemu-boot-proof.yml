@@ -15,6 +15,7 @@ on:
       - 'docs/contracts/minimal-bootstrap.json'
       - 'tests/test_bootstrap_current_verification.py'
       - 'tests/test_portable_verified_boot_selection.py'
+      - 'tests/test_portable_media_discovery.py'
       - 'tests/test_portable_activation_state_helper.py'
       - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
@@ -56,6 +57,7 @@ on:
       - 'docs/contracts/minimal-bootstrap.json'
       - 'tests/test_bootstrap_current_verification.py'
       - 'tests/test_portable_verified_boot_selection.py'
+      - 'tests/test_portable_media_discovery.py'
       - 'tests/test_portable_activation_state_helper.py'
       - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
@@ -133,6 +135,7 @@ jobs:
           python -m unittest tests.test_portable_v3_cold_health_qemu_proof -v
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
           python -m unittest discover -s tests -p 'test_portable_verified_boot_selection.py' -v
+          python -m unittest discover -s tests -p 'test_portable_media_discovery.py' -v
           python -m unittest discover -s tests -p 'test_portable_activation_state_helper.py' -v
           python -m unittest discover -s tests -p 'test_portable_exact_runtime_handoff.py' -v
           sh -n bootstrap/entrypoint
