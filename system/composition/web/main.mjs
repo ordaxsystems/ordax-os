@@ -4,6 +4,7 @@ import { createSameOriginIdentityCredentials } from "../../adapters/web/identity
 import { createSameOriginAccountLifecycle } from "../../adapters/web/account-lifecycle.mjs";
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
+import { createUnavailableWebSpaceSelection } from "../../adapters/web/space-selection.mjs";
 import { createWebBrowserSession } from "../../adapters/web/browser-session.mjs";
 import { createWebPreferenceStore } from "../../adapters/web/preferences.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
@@ -272,6 +273,8 @@ const assistantComponent = await loadOptionalComponentRuntime({
     root,
     surfaceLifecycle: surface,
     intelligence: null,
+    identitySessionPort: identitySession,
+    spaceSelectionPort: createUnavailableWebSpaceSelection(),
   },
   onError(error) {
     console.warn("OrdaX Assistant runtime unavailable", error);

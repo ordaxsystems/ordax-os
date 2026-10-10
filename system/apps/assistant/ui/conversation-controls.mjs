@@ -1,6 +1,7 @@
 import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
+import { projectAssistantResultCanvas } from "./result-view-model.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="assistant-conversation"]';
 
@@ -77,69 +78,73 @@ export function mountAssistantConversationControls(
       mountedSlot = null;
       return;
     }
+    // This snapshot comes from the *existing* scoped conversation runtime.
+    // No model-generated progress, HTML, actions or data sources are promoted.
+    const view = projectAssistantResultCanvas(snapshot);
     mountedSlot = slot;
     slot.replaceChildren();
     slot.classList.add("ordax-assistant-host");
+    slot.dataset.assistantCanvasState = view.state;
 
     const header = node(documentObject, "header", "ordax-assistant-header");
-    const copy = node(documentObject, "div");
-    copy.append(
-      node(documentObject, "span", "ordax-assistant-eyebrow", t("assistant.eyebrow")),
-      node(documentObject, "h3", "ordax-assistant-title", t("assistant.title")),
-      node(documentObject, "p", "ordax-assistant-description", t("assistant.description")),
-    );
+    const heading = node(documentObject, "div", "ordax-assistant-heading");
+    const emblem = node(documentObject, "span", "ordax-assistant-emblem", "✦");
+    emblem.setAttribute("aria-hidden", "true");
+    heading.append(emblem, node(documentObject, "h3", "ordax-assistant-title", t("assistant.title")));
     const status = node(documentObject, "span", "ordax-assistant-status", stateCopy(snapshot.state));
     status.dataset.state = snapshot.state;
-    header.append(copy, status);
+    header.append(heading, status);
     slot.append(header);
-    const provider = snapshot.providerCapabilities;
-    const providerLabel = provider?.provider === "local"
-      ? `${t("assistant.provider.local")} · ${provider.engineId} / ${provider.modelId}`
-      : t("assistant.provider.unavailable");
-    slot.append(node(documentObject, "p", "ordax-assistant-provider", providerLabel));
 
-    const transcript = node(documentObject, "div", "ordax-assistant-transcript");
-    transcript.setAttribute("role", "log");
-    transcript.setAttribute("aria-live", "polite");
-    transcript.setAttribute("aria-label", t("assistant.transcript.aria"));
-    if (snapshot.messages.length === 0) {
-      transcript.append(
-        node(documentObject, "p", "ordax-assistant-empty", t("assistant.empty")),
-      );
-    } else {
-      for (const message of snapshot.messages) {
-        const article = node(
-          documentObject,
-          "article",
-          `ordax-assistant-message ordax-assistant-message-${message.role}`,
-        );
-        article.dataset.assistantMessageId = message.id;
-        article.append(
-          node(
-            documentObject,
-            "strong",
-            "ordax-assistant-message-role",
-            message.role === "user" ? t("assistant.role.user") : t("assistant.role.assistant"),
-          ),
-          node(documentObject, "p", "ordax-assistant-message-text", message.text),
-        );
-        transcript.append(article);
+    const canvas = node(documentObject, "section", "ordax-assistant-canvas");
+    canvas.dataset.assistantCanvas = view.state;
+    canvas.setAttribute("role", "region");
+    canvas.setAttribute("aria-label", t("assistant.canvas.aria"));
+    if (view.state === "idle") {
+      canvas.append(node(documentObject, "p", "ordax-assistant-empty", t("assistant.empty")));
+    } else if (view.state === "result") {
+      const lastPrompt = [...view.history].reverse().find((item) => item.role === "user");
+      if (lastPrompt) {
+        canvas.append(node(documentObject, "p", "ordax-assistant-query", lastPrompt.text));
       }
+      for (const block of view.blocks) {
+        if (block.kind !== "text") continue;
+        const article = node(documentObject, "article", "ordax-assistant-result-text");
+        article.dataset.assistantResultMessageId = view.resultMessageId;
+        article.append(
+          node(documentObject, "span", "ordax-assistant-result-label", t("assistant.canvas.response")),
+          // textContent only; even apparent Markdown, HTML and URLs are untrusted text.
+          node(documentObject, "p", "ordax-assistant-result-body", block.text),
+          node(documentObject, "p", "ordax-assistant-result-provenance",
+            `${t("assistant.provider.local")} · ${block.provenance.engineId} / ${block.provenance.modelId}`),
+        );
+        canvas.append(article);
+      }
+    } else if (view.state === "working") {
+      const progress = node(documentObject, "p", "ordax-assistant-pending", t("assistant.canvas.working"));
+      progress.setAttribute("role", "status");
+      canvas.append(progress);
+    } else if (view.state === "unavailable") {
+      canvas.append(node(documentObject, "p", "ordax-assistant-unavailable",
+        t("assistant.canvas.unavailable")));
     }
-    slot.append(transcript);
+    // Failed/discarded requests have no fabricated result; the existing
+    // conversation error notice below explains what happened.
+    if (canvas.childElementCount > 0) slot.append(canvas);
 
-    if (snapshot.lastError) {
+    if (snapshot.lastError || view.state === "failed") {
       const discarded = snapshot.lastError === "response-discarded";
-      const error = node(documentObject, "p", discarded ? "ordax-assistant-notice" : "ordax-assistant-error",
+      const notice = node(documentObject, "p",
+        discarded ? "ordax-assistant-notice" : "ordax-assistant-error",
         t(discarded ? "assistant.notice.discarded" : "assistant.error.response"));
-      error.setAttribute("role", discarded ? "status" : "alert");
-      slot.append(error);
+      notice.setAttribute("role", discarded ? "status" : "alert");
+      slot.append(notice);
     }
 
     const form = node(documentObject, "div", "ordax-assistant-compose");
     const textarea = documentObject.createElement("textarea");
     textarea.maxLength = INTELLIGENCE_MAX_PROMPT_CHARS;
-    textarea.rows = 3;
+    textarea.rows = view.state === "idle" ? 2 : 3;
     textarea.placeholder = t("assistant.input.placeholder");
     textarea.setAttribute("aria-label", t("assistant.input.aria"));
     textarea.dataset.assistantInput = "";
@@ -151,14 +156,9 @@ export function mountAssistantConversationControls(
     const clear = node(documentObject, "button", "ordax-assistant-clear", t("assistant.action.clear"));
     clear.type = "button";
     clear.dataset.assistantClear = "";
-    clear.disabled = snapshot.state === "busy" || snapshot.messages.length === 0;
-
-    const send = node(
-      documentObject,
-      "button",
-      "ordax-assistant-send",
-      snapshot.state === "busy" ? t("assistant.action.sending") : t("assistant.action.send"),
-    );
+    clear.disabled = snapshot.state === "busy" || view.history.length === 0;
+    const send = node(documentObject, "button", "ordax-assistant-send",
+      snapshot.state === "busy" ? t("assistant.action.sending") : t("assistant.action.send"));
     send.type = "button";
     send.dataset.assistantSend = "";
     send.disabled = !canSubmitAssistantDraft(snapshot, draft);
@@ -174,9 +174,33 @@ export function mountAssistantConversationControls(
     form.append(actions);
     slot.append(form);
 
-    slot.append(
-      node(documentObject, "p", "ordax-assistant-footnote", t("assistant.footnote")),
-    );
+    const provider = snapshot.providerCapabilities;
+    const providerLabel = provider?.provider === "local"
+      ? `${t("assistant.provider.local")} · ${provider.engineId} / ${provider.modelId}`
+      : t("assistant.provider.unavailable");
+    slot.append(node(documentObject, "p", "ordax-assistant-provider", providerLabel));
+
+    if (view.history.length > 0) {
+      const details = node(documentObject, "details", "ordax-assistant-history");
+      const summary = node(documentObject, "summary", "", t("assistant.history.title"));
+      const transcript = node(documentObject, "div", "ordax-assistant-transcript");
+      transcript.setAttribute("role", "log");
+      transcript.setAttribute("aria-label", t("assistant.transcript.aria"));
+      for (const message of view.history) {
+        const entry = node(documentObject, "article",
+          `ordax-assistant-message ordax-assistant-message-${message.role}`);
+        entry.dataset.assistantMessageId = message.id;
+        entry.append(
+          node(documentObject, "strong", "ordax-assistant-message-role",
+            t(message.role === "user" ? "assistant.role.user" : "assistant.role.assistant")),
+          node(documentObject, "p", "ordax-assistant-message-text", message.text),
+        );
+        transcript.append(entry);
+      }
+      details.append(summary, transcript);
+      slot.append(details);
+    }
+    slot.append(node(documentObject, "p", "ordax-assistant-footnote", t("assistant.footnote")));
   };
 
   const submit = () => {
