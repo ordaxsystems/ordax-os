@@ -4,7 +4,7 @@ import {
   validateWorkspaceRecord,
   validateWorkspaceTarget,
 } from "../../contracts/workspace-store.mjs";
-import { getFirstPartyApp, isAppAvailable } from "../../apps/catalog.mjs";
+import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import {
   recoverPreferenceSnapshot,
   setPreferenceValue,
@@ -99,12 +99,12 @@ function validateWindowCoordinate(value, name) {
   return Math.round(value);
 }
 
-function recoverWorkspaceWindows(workspace, capabilityIds) {
+function recoverWorkspaceWindows(workspace, capabilityIds, appCatalog) {
   const windows = [];
   const singletonApps = new Set();
   for (const windowState of workspace.windows) {
-    const app = getFirstPartyApp(windowState.appId);
-    if (!isAppAvailable(app, capabilityIds)) continue;
+    const app = appCatalog.get(windowState.appId);
+    if (!appCatalog.isAvailable(app, capabilityIds)) continue;
     if (app.singleton) {
       if (windowState.id !== app.id || singletonApps.has(app.id)) continue;
       singletonApps.add(app.id);
@@ -116,8 +116,8 @@ function recoverWorkspaceWindows(workspace, capabilityIds) {
   return windows;
 }
 
-function recoverArea(area, capabilityIds) {
-  const windows = recoverWorkspaceWindows(area, capabilityIds);
+function recoverArea(area, capabilityIds, appCatalog) {
+  const windows = recoverWorkspaceWindows(area, capabilityIds, appCatalog);
   const highestOrdinal = windows.reduce(
     (highest, windowState) => Math.max(highest, windowState.placementOrdinal),
     0,
@@ -157,7 +157,8 @@ export function createWorkspaceSnapshot(state) {
   });
 }
 
-export function createSurfaceState(snapshot, preferenceSeed = {}, workspaceSeed = null) {
+export function createSurfaceState(snapshot, preferenceSeed = {}, workspaceSeed = null, appCatalog = defaultAppRuntimeCatalog) {
+  assertAppRuntimeCatalog(appCatalog);
   const safeSnapshot = validateSurfaceSnapshot(snapshot);
   const workspace = validateWorkspaceRecord(workspaceSeed);
   return freezeState({
@@ -166,12 +167,13 @@ export function createSurfaceState(snapshot, preferenceSeed = {}, workspaceSeed 
     capabilityIds: safeSnapshot.capabilityIds,
     activeAreaId: workspace.activeAreaId,
     nextAreaOrdinal: workspace.nextAreaOrdinal,
-    areas: workspace.areas.map((area) => recoverArea(area, safeSnapshot.capabilityIds)),
+    areas: workspace.areas.map((area) => recoverArea(area, safeSnapshot.capabilityIds, appCatalog)),
     preferences: recoverPreferenceSnapshot(preferenceSeed),
   });
 }
 
-export function reduceSurfaceState(state, action) {
+export function reduceSurfaceState(state, action, appCatalog = defaultAppRuntimeCatalog) {
+  assertAppRuntimeCatalog(appCatalog);
   switch (action?.type) {
     case "launcher.toggle":
       return freezeState({ ...state, launcherOpen: !state.launcherOpen });
@@ -203,8 +205,8 @@ export function reduceSurfaceState(state, action) {
       });
     }
     case "app.launch": {
-      const app = getFirstPartyApp(action.appId);
-      if (!isAppAvailable(app, state.capabilityIds)) return state;
+      const app = appCatalog.get(action.appId);
+      if (!appCatalog.isAvailable(app, state.capabilityIds)) return state;
       const hasTarget = Object.prototype.hasOwnProperty.call(action, "target");
       const target = hasTarget ? validateWorkspaceTarget(action.target) : undefined;
       const area = getActiveArea(state);
