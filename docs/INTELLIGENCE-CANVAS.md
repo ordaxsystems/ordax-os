@@ -151,3 +151,41 @@ execução autorizada de ferramenta Native fake **apenas nos testes** e a
 falha incerta depois da entrada no adapter. O workflow
 `Intelligence Foundation` executa essas suítes. Nenhum destes testes implica
 E2E em dispositivo/serviço real, leitura de PDF em produção ou release USB.
+
+
+## Comando explícito como Work com resultado durável (P1)
+
+O Assistant Native agora oferece **duas ações distintas**: `Enviar` preserva
+a conversa efêmera e seu contexto; `Executar como análise registrada`
+recebe consentimento por clique explícito e utiliza **a mesma instância**
+`personalOrdax.create(goal, { spaceId, projectId: null })` seguida de
+`personalOrdax.run(workItemId)`. Enter continua enviando chat, nunca
+criando Work automaticamente. O botão só é oferecido quando a conversa
+está pronta e o snapshot Personal/Identity/Space é compatível.
+
+`resolveAssistantWorkScope` é o **mesmo fence** aplicado à projeção read-only:
+device signed-out com Space indisponível, ou conta autenticada com Space
+selecionado (ou unselected global). A solicitação global não inventa
+`projectId`. O limite do objetivo de Work usa a constante já canônica
+`PERSONAL_ORDAX_MAX_GOAL_CHARS`, menor que o limite do prompt do chat;
+pedidos grandes continuam disponíveis somente como chat.
+
+`run` significa exclusivamente **raciocínio foreground** pela porta
+Intelligence que já existe, não ação do sistema, shell, ferramenta MCP,
+fluxo autônomo, background ou garantia de completar missão real.
+O estado `queued/running/completed/failed`, os eventos Activity e o texto
+Result surgem apenas do runtime Personal; nenhum progresso é simulado
+pelo frontend. Falha antes de iniciar o raciocínio mantém Work em queued,
+sem fabricar resultado; a mensagem genérica orienta consultar Activity.
+A autorização, aprovação e execução de ferramentas seguem inteiramente
+na Activity e no executor existente.
+
+A Surface Web permanece sem esse botão quando falta runtime Personal ou
+owner/Space validado. Mudanças de owner/Space e estado inválido negam
+novos Work; o runtime Personal mantém o fence após chamadas em voo.
+
+Testes adicionados à suíte já conectada a `Intelligence Foundation`:
+fluxo Native de Work `create→run→Activity→Result` com engine controlada
+de teste, isolamento entre Spaces, owner mismatch, limite de tamanho,
+estado ocupado e indisponibilidade da inferência. CI de código não prova
+execução em PC real ou provedor externo.
