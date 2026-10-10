@@ -27,6 +27,14 @@
     "target_git_repository": "ordaxsystems/ordax-os",
     "target_project_assigned_domain": "ordax-os-public-tau.vercel.app",
     "target_project_assigned_domain_verified": true,
+    "canonical_public_alias_redirect_owner": "vercel-project-alias",
+    "canonical_public_alias_redirect_target": "ordax.com.br",
+    "canonical_public_alias_redirect_http_status": 307,
+    "canonical_public_alias_redirects": [
+      "ordax-os-public-tau.vercel.app",
+      "ordax-os-public-ordaxsystems.vercel.app",
+      "ordax-os-public-git-main-ordaxsystems.vercel.app"
+    ],
     "expected_production_domain": "ordax-os-public.vercel.app",
     "expected_production_domain_bound": false,
     "expected_production_domain_block_reason": "Vercel 409 owned-on-other-team on 2026-10-08; do not transfer or use the legacy-team domain without ownership cutover",

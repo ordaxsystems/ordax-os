@@ -49,14 +49,18 @@ enquanto novos commits da `main` eram publicados separadamente.
    histórico Git verificável, **produção e preview** só constroem
    ao mudar Site, API, dependências e seus contratos diretos.
    Histórico ausente/ambíguo sempre constrói, em fail-safe.
-3. `vercel.json`: aliases públicos estáveis
+3. Os três aliases públicos estáveis
    `ordax-os-public-tau.vercel.app`,
    `ordax-os-public-ordaxsystems.vercel.app` e
    `ordax-os-public-git-main-ordaxsystems.vercel.app`
-   redirecionam 308 para `https://ordax.com.br/:path*`,
-   preservando caminho e a origem única de login.
-   Endereços imutáveis de preview continuam sujeitos ao
-   Vercel Authentication/SSO do time.
+   foram configurados pelo **mecanismo de alias nativo da Vercel**,
+   todos com `redirect=ordax.com.br`. A verificação real confirmou
+   **307** em `/conta/` e `/auth/session` no alias `tau`,
+   chegando a `https://ordax.com.br`. O redirect nativo ocorre
+   antes de servir HTML estático; uma primeira tentativa de
+   `vercel.json redirects` cobria o proxy, mas não `/conta/`.
+   Essa regra duplicada foi retirada do código. Endereços imutáveis
+   de preview continuam sujeitos à proteção Vercel Authentication/SSO.
 4. Contrato `docs/contracts/public-site-deployment.json`
    atualiza apenas fatos verificados: Git deixou de ficar
    congelado e as variáveis de ambiente de produção e
@@ -67,8 +71,9 @@ enquanto novos commits da `main` eram publicados separadamente.
 ## Critérios de aceitação
 
 - Os testes novos `test_public_canonical_host_redirects.py`
-  exigem hosts exatos, um destino HTTPS, redirecionamento apenas
-  de hosts Vercel e mesmos rewrites canônicos de Account.
+  exigem a configuração de alias nativa declarada no contrato de
+  implantação, **nenhum redirect duplicado em `vercel.json`**,
+  e os mesmos rewrites canônicos de Account.
 - Os testes existentes `test_public_site_deployment.py`
   confirmam Git deploy habilitado, filtro por fontes públicas,
   build ao alterar Site e fail-safe por histórico não disponível.

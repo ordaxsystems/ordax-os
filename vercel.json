@@ -3,26 +3,6 @@
   "framework": null,
   "outputDirectory": "out/public-site",
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "ordax-os-public-tau.vercel.app" }],
-      "destination": "https://ordax.com.br/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "ordax-os-public-ordaxsystems.vercel.app" }],
-      "destination": "https://ordax.com.br/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "ordax-os-public-git-main-ordaxsystems.vercel.app" }],
-      "destination": "https://ordax.com.br/:path*",
-      "permanent": true
-    }
-  ],
   "rewrites": [
     {
       "source": "/auth/:path*",

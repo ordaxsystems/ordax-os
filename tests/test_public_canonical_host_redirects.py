@@ -1,44 +1,46 @@
-"""Canonical public host routing: one Vercel project, one login origin.
+"""Canonical OrdaX public host: exactly one Git/Vercel project and auth origin.
 
-The Vercel production/project aliases must not become independent account
-origins. Each forwards to the same verified custom domain without proxying
-credentials or inventing alternate auth sessions. Preview deployments remain
-subject to their independent platform protection.
+Vercel project-alias records perform host redirects *before* filesystem
+delivery. Source-defined redirects were insufficient for static /conta/.
+The official deployment contract records the required alias configuration,
+while native Vercel alias records remain the runtime authority.
 """
 import json
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG = ROOT / "vercel.json"
 EXPECTED_HOSTS = {
     "ordax-os-public-tau.vercel.app",
     "ordax-os-public-ordaxsystems.vercel.app",
     "ordax-os-public-git-main-ordaxsystems.vercel.app",
 }
-CANONICAL = "https://ordax.com.br"
+CANONICAL = "ordax.com.br"
 
 
 class CanonicalPublicHostTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.config = json.loads(CONFIG.read_text(encoding="utf-8"))
+        cls.config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+        cls.contract = json.loads((
+            ROOT / "docs/contracts/public-site-deployment.json"
+        ).read_text(encoding="utf-8"))
 
-    def test_all_known_public_vercel_aliases_redirect_to_canonical_origin(self):
-        redirects = self.config["redirects"]
-        self.assertEqual(len(redirects), len(EXPECTED_HOSTS))
-        seen = set()
-        for rule in redirects:
-            self.assertEqual(rule["source"], "/:path*")
-            self.assertEqual(rule["destination"], CANONICAL + "/:path*")
-            self.assertIs(rule["permanent"], True)
-            self.assertEqual(len(rule["has"]), 1)
-            matcher = rule["has"][0]
-            self.assertEqual(matcher["type"], "host")
-            seen.add(matcher["value"])
-        self.assertEqual(seen, EXPECTED_HOSTS)
+    def test_native_vercel_alias_redirect_is_the_only_owner(self):
+        migration = self.contract["vercel_migration"]
+        self.assertEqual(migration["target_project"], "ordax-os-public")
+        self.assertEqual(migration["target_git_repository"], "ordaxsystems/ordax-os")
+        self.assertEqual(migration["target_canonical_domain"], CANONICAL)
+        self.assertEqual(migration["canonical_public_alias_redirect_owner"], "vercel-project-alias")
+        self.assertEqual(migration["canonical_public_alias_redirect_target"], CANONICAL)
+        self.assertEqual(migration["canonical_public_alias_redirect_http_status"], 307)
+        self.assertEqual(set(migration["canonical_public_alias_redirects"]), EXPECTED_HOSTS)
+        self.assertNotIn(CANONICAL, EXPECTED_HOSTS)
+        # Do not duplicate platform alias routing in application redirects,
+        # which can miss static routes under the deployment filesystem.
+        self.assertNotIn("redirects", self.config)
 
-    def test_auth_rewrites_follow_redirects_and_target_single_owner(self):
+    def test_single_origin_auth_proxy_and_auto_git_deployment(self):
         self.assertEqual(
             [(r["source"], r["destination"]) for r in self.config["rewrites"]],
             [
@@ -47,12 +49,11 @@ class CanonicalPublicHostTests(unittest.TestCase):
                 ("/account/:path*", "/api/account-proxy?ordax_path=/account/:path*"),
             ],
         )
-        self.assertNotIn("ordax.com.br", EXPECTED_HOSTS)
-        for rule in self.config["redirects"]:
-            self.assertNotIn("cookie", json.dumps(rule).lower())
-            self.assertNotIn("authorization", json.dumps(rule).lower())
+        self.assertTrue(self.config["git"]["deploymentEnabled"])
+        self.assertFalse(self.contract["vercel_migration"]["automatic_git_deployments_frozen"])
+        self.assertEqual(self.contract["vercel_adapter"]["canonical_public_origin"], "https://ordax.com.br")
 
-    def test_deployment_does_not_enable_legacy_host_auth(self):
+    def test_source_build_gates_only_public_site_inputs(self):
         self.assertEqual(self.config["outputDirectory"], "out/public-site")
         self.assertEqual(
             self.config["ignoreCommand"],
