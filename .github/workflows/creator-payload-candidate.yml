@@ -14,6 +14,9 @@ on:
       - 'bootstrap/config/**'
       - 'bootstrap/entrypoint'
       - 'tools/creator/assemble.py'
+      - 'bootstrap/base/alpine_core.py'
+      - 'bootstrap/stable-base/build.py'
+      - 'tests/test_kernel_consumer_ssot.py'
       - 'tools/creator/core/**'
       - 'tools/creator/cmd/**'
       - 'docs/contracts/minimal-bootstrap.json'
@@ -30,6 +33,9 @@ on:
       - 'bootstrap/config/**'
       - 'bootstrap/entrypoint'
       - 'tools/creator/assemble.py'
+      - 'bootstrap/base/alpine_core.py'
+      - 'bootstrap/stable-base/build.py'
+      - 'tests/test_kernel_consumer_ssot.py'
       - 'tools/creator/core/**'
       - 'tools/creator/cmd/**'
       - 'docs/contracts/minimal-bootstrap.json'
@@ -68,6 +74,11 @@ jobs:
           go-version: '1.27.1'
           check-latest: false
           cache: false
+
+      - name: Validate canonical kernel artifact consumers
+        run: |
+          python -m unittest discover -s tests -p 'test_kernel_consumer_ssot.py' -v
+          python -m unittest discover -s tests -p 'test_creator_payload_assembler.py' -v
 
       - name: Restore canonical release-agent seed for bootstrap assembly
         run: bash bootstrap/release-acquisition/restore_pinned_seed.sh

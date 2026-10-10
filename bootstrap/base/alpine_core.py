@@ -60,6 +60,29 @@ class BuildError(RuntimeError):
     pass
 
 
+def pinned_kernel_version(contract_path: Path | None = None) -> str:
+    """Read the kernel ABI identity from its canonical source contract."""
+    path = contract_path or ROOT / "bootstrap/kernel/source.json"
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise BuildError("kernel source contract must be a regular file")
+        contract = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise BuildError(f"cannot read canonical kernel source contract: {exc}") from exc
+    version = contract.get("version")
+    if (
+        contract.get("$schema") != "prototype-ordax.kernel-source/1"
+        or not isinstance(version, str)
+        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None
+    ):
+        raise BuildError("canonical kernel version is invalid")
+    return version
+
+
+def kernel_module_archive_path(contract_path: Path | None = None) -> Path:
+    return ROOT / "out/kernel" / f"kernel-modules-{pinned_kernel_version(contract_path)}.tar"
+
+
 def stage(name: str) -> None:
     print(f"ORDAX_DEV_BASE_STAGE={name}", flush=True)
 
@@ -673,7 +696,7 @@ def main() -> int:
     parser.add_argument(
         "--kernel-modules",
         type=Path,
-        default=ROOT / "out/kernel/kernel-modules-6.6.52.tar",
+        default=kernel_module_archive_path(),
     )
     parser.add_argument("--out-dir", type=Path, default=ROOT / "out/dev-base")
     args = parser.parse_args()
