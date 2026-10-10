@@ -60,6 +60,7 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         landing = (ROOT / "sites/public/index.html").read_text(encoding="utf-8")
         download = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
         account = (ROOT / "sites/public/conta/index.html").read_text(encoding="utf-8")
+        account_controller = (ROOT / "sites/public/assets/account-portal.js").read_text(encoding="utf-8")
         self.assertIn("diretamente pelo pendrive", landing)
         self.assertIn("pós-MVP", landing)
         self.assertNotIn("Usar ou instalar", landing)
@@ -70,7 +71,8 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         contract = json.loads(
             (ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8")
         )
-        self.assertIn("Assinaturas pagas ainda não estão disponíveis", account)
+        self.assertIn('src="/assets/account-portal.js"', account)
+        self.assertIn("Assinaturas pagas ainda não estão disponíveis", account_controller)
         self.assertFalse(contract["commerce"]["billing_implemented"])
         self.assertFalse(contract["commerce"]["pricing_published"])
         self.assertFalse(contract["commerce"]["paid_plans_purchasable"])

@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+
 ROOT = Path(__file__).resolve().parents[2]
 GATEWAY_ROOT = ROOT / "services" / "public-identity"
 GATEWAY_PATH = GATEWAY_ROOT / "gateway.py"

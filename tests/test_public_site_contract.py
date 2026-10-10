@@ -25,6 +25,30 @@ class PublicSiteContractTests(unittest.TestCase):
         ):
             self.assertTrue((SITE / relative).is_file(), relative)
 
+    def test_one_canonical_account_preserves_identity_and_service_boundaries(self):
+        contract = json.loads(PUBLIC_CONTRACT.read_text(encoding="utf-8"))
+        presentation = contract["account_area"]["presentation"]
+        self.assertNotIn("experimental_layout", contract["account_area"])
+        self.assertNotIn("account_layout_preview", contract["routes"])
+        self.assertEqual(presentation["source"], "sites/public/conta/index.html")
+        self.assertTrue(presentation["may_access_account_services"])
+        self.assertFalse(presentation["may_activate_account_services"])
+        self.assertFalse(presentation["may_simulate_user_data"])
+        self.assertEqual(presentation["supported_service_routes"], ["GET /auth/session", "POST /auth/logout"])
+        port = contract["account_area"]["session_presentation_port"]
+        self.assertEqual(presentation["session_client"], port["schema"])
+        self.assertEqual(port["snapshot_fields"], ["status", "email"])
+        self.assertEqual(port["authority"], "none")
+        self.assertFalse(port["identity_persistence_allowed"])
+        self.assertFalse(port["credential_exposure_allowed"])
+        provenance = json.loads((ROOT / presentation["provenance"]).read_text(encoding="utf-8"))
+        self.assertEqual(provenance["route"], contract["account_area"]["route"])
+        self.assertTrue(provenance["boundary"]["official_account_replaced"])
+        markup = (SITE / "conta/index.html").read_text(encoding="utf-8")
+        self.assertIn('data-public-locale-slot', markup)
+        self.assertIn('content="noindex, nofollow"', markup)
+        self.assertLess(markup.index('/assets/site.js'), markup.index('/assets/account-portal.js'))
+
     def test_public_site_is_distinct_from_product_web_mode(self):
         contract = json.loads(PUBLIC_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(contract["status"], "foundation-same-origin-adapter-gated-auth-and-recovery-forms-source-ready-not-deployed")
@@ -130,10 +154,10 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn("Verificando conexão segura", register)
         self.assertIn("Recuperação ainda não configurada", recovery)
         self.assertIn("Conclusão da recuperação ainda não ativada", recovery_complete)
-        self.assertIn('data-account-authenticated hidden', account)
-        self.assertIn('data-account-state', account)
-        self.assertIn('action="/auth/logout" method="post"', account)
-        self.assertIn('data-account-email', account)
+        self.assertIn('id="account-session"', account)
+        self.assertIn('id="profile-menu-trigger"', account)
+        portal = (SITE / "assets/account-portal.js").read_text(encoding="utf-8")
+        self.assertIn('account.bindProfileMenu', portal)
         self.assertIn('href="/web/"', account)
         config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
         self.assertFalse(config["product"]["web"]["enabled"])
@@ -226,7 +250,7 @@ class PublicSiteContractTests(unittest.TestCase):
             self.assertIn('aria-live="polite"', html)
             self.assertIn('method="post"', html)
 
-        self.assertIn('loadJson("/auth/session")', script)
+        self.assertIn('loadJson("/auth/session", signal)', script)
         self.assertIn('value.provider === "supabase"', script)
         self.assertIn('value.$schema === "prototype-ordax.public-identity-session/1"', script)
         self.assertIn("validSessionReadiness", script)

@@ -40,8 +40,6 @@ on:
       - 'docs/BUILD-AUTONOMY.md'
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_account_entry_ux.py'
-      - 'tests/test_public_account_lovable_overview.py'
-      - 'tests/test_public_account_lovable_dashboard.py'
       - 'tests/test_public_site_localization.mjs'
       - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
@@ -56,6 +54,8 @@ on:
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
       - 'tests/test_public_profile_menu.mjs'
+      - 'tests/test_public_account_session_client.mjs'
+      - 'tests/test_public_account_candidate.mjs'
       - 'tests/test_public_account_web_entry.mjs'
       - 'tests/test_public_signup_legal_integrity.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
@@ -121,8 +121,6 @@ on:
       - 'docs/BUILD-AUTONOMY.md'
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_account_entry_ux.py'
-      - 'tests/test_public_account_lovable_overview.py'
-      - 'tests/test_public_account_lovable_dashboard.py'
       - 'tests/test_public_site_localization.mjs'
       - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
@@ -137,6 +135,8 @@ on:
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
       - 'tests/test_public_profile_menu.mjs'
+      - 'tests/test_public_account_session_client.mjs'
+      - 'tests/test_public_account_candidate.mjs'
       - 'tests/test_public_account_web_entry.mjs'
       - 'tests/test_public_signup_legal_integrity.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
@@ -197,6 +197,8 @@ jobs:
           node --test tests/test_public_site_vercel_proxy.mjs
           node --test tests/test_public_auth_header_nav.mjs
           node --test tests/test_public_profile_menu.mjs
+          node --test tests/test_public_account_session_client.mjs
+          node --test tests/test_public_account_candidate.mjs
           node --test tests/test_public_account_web_entry.mjs
           node --test tests/test_public_signup_legal_integrity.mjs
           node --test tests/test_public_proxy_request_context.mjs
@@ -214,8 +216,6 @@ jobs:
           python -m unittest tests.test_account_release_session_revocation_proof -v
           python -m unittest tests.test_public_site_contract -v
           python -m unittest tests.test_public_account_entry_ux -v
-          python -m unittest tests.test_public_account_lovable_overview -v
-          python -m unittest tests.test_public_account_lovable_dashboard -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v
           python -m unittest tests.test_public_identity_gateway -v
@@ -269,11 +269,12 @@ jobs:
             --evidence-dir out/account-viewport-proof
 
       - name: Upload account viewport evidence
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: ordax-account-viewports-${{ github.sha }}
           path: out/account-viewport-proof/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Upload public site candidate

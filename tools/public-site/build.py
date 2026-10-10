@@ -45,6 +45,7 @@ PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.png"
 CANONICAL_WALLPAPER = ROOT / "system/surface/ui/brand/midnight-landscape.png"
 CANONICAL_FONT = ROOT / "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
 CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
+ACCOUNT_LAYOUT_PROVENANCE = ROOT / "docs/evidence/public-account-layout-reference-2026-10-10.json"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
@@ -75,9 +76,11 @@ REQUIRED_FILES = (
     "recuperar/index.html",
     "recuperar/nova-senha/index.html",
     "conta/index.html",
+    "assets/account-landscape.jpg",
     "web/index.html",
     "assets/account-dashboard.css",
     "assets/account-portal.js",
+    "assets/web-entry.css",
     "licencas/index.html",
     "privacidade/index.html",
     "termos/index.html",
@@ -96,6 +99,11 @@ class PublicSiteError(RuntimeError):
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def public_page_routes(paths) -> list[str]:
+    return sorted("/" + path[:-len("index.html")] for path in paths
+                  if path == "index.html" or path.endswith("/index.html"))
 
 
 def same_origin_path(value: object) -> bool:
@@ -153,6 +161,17 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
                 raise PublicSiteError("public symbol diverged from Surface owner")
             if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
                 raise PublicSiteError("invalid canonical PNG symbol")
+            continue
+        # The account layout owns one source-pinned illustration. It is
+        # intentionally separate from the canonical Surface wallpaper.
+        if suffix == ".jpg" and relative_path == "assets/account-landscape.jpg":
+            payload = path.read_bytes()
+            if not payload.startswith(b"\xff\xd8\xff"):
+                raise PublicSiteError("invalid account layout JPEG")
+            illustration = json.loads(ACCOUNT_LAYOUT_PROVENANCE.read_text(encoding="utf-8"))["illustration"]
+            if (len(payload) != illustration["size"]
+                    or sha256_bytes(payload) != illustration["sha256"]):
+                raise PublicSiteError("account layout illustration differs from recorded provenance")
             continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
@@ -317,16 +336,16 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         for page in stage.rglob("*.html"):
             try:
                 markup = render_public_html(page.read_text(encoding="utf-8"))
-                if page.relative_to(stage).as_posix() in ("conta/index.html", "web/index.html"):
-                    # A new account layout must never reuse stale cached CSS or
-                    # presentation code. Stable bytes keep a stable URL; no clock.
-                    for asset in (
-                        "assets/account-dashboard.css", "assets/account-portal.js",
-                        "assets/ordax-design-tokens.css", "assets/ordax-font.css",
-                    ):
-                        version = sha256_bytes((stage / asset).read_bytes())[:16]
-                        pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
-                        markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
+                # Shared portal consumers must never reuse stale cached CSS or
+                # presentation code. Stable bytes keep a stable URL; no clock.
+                for asset in (
+                    "assets/account-dashboard.css", "assets/account-portal.js",
+                    "assets/ordax-design-tokens.css", "assets/ordax-font.css",
+                    "assets/web-entry.css", "assets/site.js",
+                ):
+                    version = sha256_bytes((stage / asset).read_bytes())[:16]
+                    pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
+                    markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
                 marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
                 if marker in markup:
                     plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
@@ -375,7 +394,7 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
                 }
             ],
             "framework_runtime_dependency": False,
-            "routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/licencas/", "/privacidade/", "/termos/"],
+            "routes": public_page_routes(record["path"] for record in records),
             "public_release_catalog": {
                 "path": "/" + PUBLIC_CATALOG_RELATIVE.as_posix(),
                 "status": catalog["status"],
@@ -435,6 +454,8 @@ def verify_bundle(out_dir: Path) -> dict:
         raise PublicSiteError(
             f"bundle file set mismatch: expected={sorted(expected)} actual={sorted(actual)}"
         )
+    if manifest.get("routes") != public_page_routes(actual):
+        raise PublicSiteError("public route inventory differs from built pages")
     if PUBLIC_SYMBOL_PATH not in actual or actual[PUBLIC_SYMBOL_PATH].read_bytes() != CANONICAL_SYMBOL.read_bytes():
         raise PublicSiteError("canonical OrdaX public symbol asset missing or stale")
     for relative, canonical in (
