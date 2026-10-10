@@ -254,3 +254,14 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Read-only scoped navigation. Selection never grants or executes an action. */
+.ordax-activity-work[data-personal-activity-selected="true"] {
+  border-color: var(--ordax-accent);
+  outline: 1px solid var(--ordax-accent);
+  outline-offset: -1px;
+}
+.ordax-activity-work[data-personal-activity-selected="true"]:focus-visible {
+  outline: 2px solid var(--ordax-accent);
+  outline-offset: 2px;
+}

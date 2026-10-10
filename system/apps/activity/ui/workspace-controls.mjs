@@ -1,9 +1,13 @@
 import { assertPersonalApprovalConsent } from "../../../contracts/personal-approval-consent.mjs";
 import { assertPersonalActivityExportPort } from "../../../contracts/personal-activity-export.mjs";
+import { assertIdentitySessionPort } from "../../../contracts/identity-session.mjs";
+import { assertSpaceSelectionPort } from "../../../contracts/space-selection.mjs";
 import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../../../contracts/personal-ordax-store.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { createPersonalActivityExportDocument } from "../../../services/personal-ordax/export.mjs";
 import { projectPersonalActivitySnapshot } from "../view-model.mjs";
+import { activityApp } from "../app.mjs";
+import { resolvePersonalActivityWorkTarget } from "../work-navigation.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="personal-activity"]';
 const TERMINAL_STATES = new Set(["completed", "failed", "cancelled"]);
@@ -60,6 +64,7 @@ export function mountPersonalActivityControls(
   surfaceLifecycle,
   approvalConsentValue = null,
   activityExportValue = null,
+  { identitySessionPort = null, spaceSelectionPort = null } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Activity controls require a Surface root Element");
@@ -71,6 +76,8 @@ export function mountPersonalActivityControls(
   const activityExport = activityExportValue === null
     ? null
     : assertPersonalActivityExportPort(activityExportValue);
+  const identity = identitySessionPort === null ? null : assertIdentitySessionPort(identitySessionPort);
+  const spaceSelection = spaceSelectionPort === null ? null : assertSpaceSelectionPort(spaceSelectionPort);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const t = lifecycle.localization.translate;
   const documentObject = root.ownerDocument;
@@ -89,6 +96,7 @@ export function mountPersonalActivityControls(
   let exportStatus = null;
   let exportBusy = false;
   let mountedSlot = null;
+  let lastFocusedTarget = null;
 
   const render = () => {
     if (destroyed) return;
@@ -119,7 +127,22 @@ export function mountPersonalActivityControls(
       return;
     }
 
-    const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot());
+    const source = personalOrdax.getSnapshot();
+    const view = projectPersonalActivitySnapshot(source);
+    // The Surface lifecycle owns the persisted window locator, while
+    // Personal+Identity+Space remain the owners of the actual Work rights.
+    const appTarget = lifecycle.getAppTarget(activityApp.id);
+    let selectedWork = null;
+    if (identity !== null && spaceSelection !== null) {
+      try {
+        selectedWork = resolvePersonalActivityWorkTarget(
+          appTarget, source, identity.getSnapshot(), spaceSelection.getSnapshot(),
+        );
+      } catch {
+        selectedWork = null;
+      }
+    }
+    if (selectedWork === null) lastFocusedTarget = null;
     const currentProposalOwnerKey = view.ownerKind === "account"
       ? `account:${view.ownerId}`
       : "device";
@@ -309,6 +332,11 @@ export function mountPersonalActivityControls(
         const { item, canvas } = entry;
         const article = node(documentObject, "article", "ordax-activity-work");
         article.dataset.personalWorkId = item.id;
+        if (selectedWork?.workItemId === item.id) {
+          article.dataset.personalActivitySelected = "true";
+          article.tabIndex = -1;
+          article.setAttribute("aria-label", `${t("activity.navigation.selected")}: ${item.goal}`);
+        }
 
         const top = node(documentObject, "div", "ordax-activity-work-top");
         const goal = node(documentObject, "div");
@@ -731,6 +759,14 @@ export function mountPersonalActivityControls(
       }
     }
     slot.append(list);
+    if (selectedWork !== null && lastFocusedTarget !== appTarget) {
+      const card = list.querySelector('[data-personal-activity-selected="true"]');
+      if (card) {
+        lastFocusedTarget = appTarget;
+        card.focus({ preventScroll: true });
+        card.scrollIntoView?.({ block: "nearest" });
+      }
+    }
   };
 
   const runAction = async (id, action) => {
@@ -1141,6 +1177,10 @@ export function mountPersonalActivityControls(
   root.addEventListener("input", onInput);
   root.addEventListener("click", onClick);
   const unsubscribeRuntime = personalOrdax?.subscribe(() => render()) ?? (() => {});
+  // Work may not publish a new event when the selected Space changes (for
+  // example, a completed Work). Revalidate the displayed locator immediately.
+  const unsubscribeIdentity = identity?.subscribe(() => render()) ?? (() => {});
+  const unsubscribeSpace = spaceSelection?.subscribe(() => render()) ?? (() => {});
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
 
   return Object.freeze({
@@ -1148,6 +1188,8 @@ export function mountPersonalActivityControls(
       if (destroyed) return;
       destroyed = true;
       unsubscribeRender();
+      unsubscribeSpace();
+      unsubscribeIdentity();
       unsubscribeRuntime();
       root.removeEventListener("input", onInput);
       root.removeEventListener("click", onClick);

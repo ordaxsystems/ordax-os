@@ -1001,6 +1001,8 @@ async function start() {
       surfaceLifecycle: surface,
       personalOrdax,
       activityExport: personalActivityExport,
+      identitySessionPort: identitySession,
+      spaceSelectionPort: spaceSelection,
     },
     onError(error) {
       reportClientDiagnostic("activity-runtime", error);

@@ -14,6 +14,11 @@ import {
 } from "../system/apps/assistant/ui/conversation-controls.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
 import { activityApp } from "../system/apps/activity/app.mjs";
+import {
+  PERSONAL_ACTIVITY_WORK_TARGET_SCHEMA,
+  createPersonalActivityWorkTarget,
+  resolvePersonalActivityWorkTarget,
+} from "../system/apps/activity/work-navigation.mjs";
 
 const identity = (state = "signed-out", subjectId = null) => ({
   state, subjectId, displayName: state === "signed-in" ? "Conta" : null,
@@ -566,7 +571,13 @@ test("verified pending Work can request Activity navigation only through canonic
       reason: "Leitura requer aprovação",
     });
     assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, waiting.id), true);
-    assert.deepEqual(calls, [{ appId: activityApp.id, target: null }]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].appId, activityApp.id);
+    assert.equal(typeof calls[0].target, "string");
+    assert.deepEqual(resolvePersonalActivityWorkTarget(calls[0].target,
+      runtime.getSnapshot(), id.getSnapshot(), space.getSnapshot()), {
+      workItemId: waiting.id,
+    });
     assert.equal(runtime.getSnapshot().workItems[0].state, "waiting-approval");
     assert.equal(runtime.getSnapshot().approvals[0].status, "pending");
     assert.equal(runtime.getSnapshot().attempts.length, 0);
@@ -633,6 +644,147 @@ test("Activity review UI uses explicit click and only publishes navigation", asy
   assert.match(ui, /work\.state === "requires-action"/);
   assert.match(ui, /dataset\.assistantReviewWork = work\.workItemId/);
   assert.match(ui, /target\.dataset\.assistantReviewWork !== undefined/);
-  assert.match(ui, /channel\.publish\(\{ appId: activityApp\.id \}\)/);
+  assert.match(ui, /channel\.publish\(\{ appId: activityApp\.id, target \}\)/);
+  assert.match(ui, /createPersonalActivityWorkTarget\(personal\.getSnapshot\(\), workItemId\)/);
   assert.doesNotMatch(ui, /approvalConsent\.approve\(|executeApprovedAction\(|resolveApproval\(/);
+});
+
+
+test("Activity Work target is canonical, scoped and survives genuine Native app activation", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const selection = port("ordax.space-selection/1", unavailableSpace());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, now: (() => { let t = 350000; return () => t++; })(),
+  });
+  const activation = createAppActivationChannel();
+  const events = [];
+  const unsubscribe = activation.subscribe(x => events.push(x));
+  try {
+    const work = runtime.create("Confirmação de leitura");
+    runtime.requestApproval(work.id, {
+      actionId: "files.read", toolId: "file-reader",
+      toolArtifactSha256: "d".repeat(64), effect: "read",
+      reason: "Autorizar leitura específica",
+    });
+    assert.equal(openAssistantWorkInActivity(runtime, id, selection, activation, work.id), true);
+    assert.equal(events.length, 1);
+    const event = events[0];
+    const payload = JSON.parse(event.target);
+    assert.equal(payload.schema, PERSONAL_ACTIVITY_WORK_TARGET_SCHEMA);
+    assert.equal(payload.workItemId, work.id);
+    assert.equal(payload.ownerKind, "device");
+    assert.equal(payload.ownerId, null);
+    assert.equal(payload.spaceId, null);
+    assert.equal(payload.projectId, null);
+    assert.deepEqual(resolvePersonalActivityWorkTarget(event.target,
+      runtime.getSnapshot(), id.getSnapshot(), selection.getSnapshot()),
+      { workItemId: work.id });
+    assert.equal(Object.isFrozen(resolvePersonalActivityWorkTarget(event.target,
+      runtime.getSnapshot(), id.getSnapshot(), selection.getSnapshot())), true);
+    assert.equal(runtime.getSnapshot().approvals[0].status, "pending");
+    assert.deepEqual(runtime.getSnapshot().decisions, []);
+    assert.deepEqual(runtime.getSnapshot().attempts, []);
+    assert.equal(createPersonalActivityWorkTarget(runtime.getSnapshot(), "missing"), null);
+  } finally {
+    unsubscribe();
+    runtime.dispose();
+  }
+});
+
+test("Activity target refuses owner A to B reuse of identical Work ID and Space crossing", async () => {
+  const id = port("ordax.identity-session/1", identity("signed-in", "owner-a"));
+  const space = port("ordax.space-selection/1", selectedSpace(), { select() {}, clear() {} });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, spaceSelectionPort: space,
+    now: (() => { let n = 360000; return () => n++; })(),
+  });
+  try {
+    const itemA = runtime.create("Missão da conta A", { spaceId: "space-a" });
+    const targetA = createPersonalActivityWorkTarget(runtime.getSnapshot(), itemA.id);
+    assert.deepEqual(resolvePersonalActivityWorkTarget(targetA,
+      runtime.getSnapshot(), id.getSnapshot(), space.getSnapshot()),
+      { workItemId: itemA.id });
+    assert.equal(resolvePersonalActivityWorkTarget(targetA, runtime.getSnapshot(),
+      id.getSnapshot(), selectedSpace("space-b")), null);
+    id.setSnapshot(identity("signed-in", "owner-b"));
+    space.setSnapshot(selectedSpace("space-a", "owner-b"));
+    const itemB = runtime.create("Outra conta, mesmo ordinal", { spaceId: "space-a" });
+    assert.equal(itemA.id, itemB.id);
+    assert.equal(resolvePersonalActivityWorkTarget(targetA,
+      runtime.getSnapshot(), id.getSnapshot(), space.getSnapshot()), null);
+    const targetB = createPersonalActivityWorkTarget(runtime.getSnapshot(), itemB.id);
+    assert.notEqual(targetA, targetB);
+    assert.deepEqual(resolvePersonalActivityWorkTarget(targetB,
+      runtime.getSnapshot(), id.getSnapshot(), space.getSnapshot()),
+      { workItemId: itemB.id });
+    id.setSnapshot(identity("signed-out"));
+    space.setSnapshot(unavailableSpace());
+    assert.equal(resolvePersonalActivityWorkTarget(targetB,
+      runtime.getSnapshot(), id.getSnapshot(), space.getSnapshot()), null);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("unknown, forged, malformed and cross-project Activity locators fail closed", () => {
+  const id = port("ordax.identity-session/1", identity());
+  const runtime = createPersonalOrdaxRuntime({ identitySessionPort: id });
+  try {
+    const item = runtime.create("Real Work");
+    const target = createPersonalActivityWorkTarget(runtime.getSnapshot(), item.id);
+    const obj = JSON.parse(target);
+    const expectInvalid = candidate => {
+      assert.equal(resolvePersonalActivityWorkTarget(candidate,
+        runtime.getSnapshot(), id.getSnapshot(), unavailableSpace()), null);
+    };
+    for (const change of [
+      { schema: "wrong/2" },
+      { workItemId: "personal-work-999" },
+      { workItemId: "../other" },
+      { ownerKind: "account", ownerId: "owner-z" },
+      { spaceId: "space-a" },
+      { projectId: "project-a" },
+      { grantRef: "forbidden" },
+    ]) expectInvalid(JSON.stringify({ ...obj, ...change }));
+    expectInvalid(null);
+    expectInvalid("{bad");
+    expectInvalid("x".repeat(4097));
+    expectInvalid(JSON.stringify(["personal-work-1"]));
+    assert.equal(resolvePersonalActivityWorkTarget(target,
+      runtime.getSnapshot(), identity("signed-in", "owner-z"), unavailableSpace()), null);
+    const missing = {
+      ...runtime.getSnapshot(),
+      workItems: [],
+      activities: [],
+    };
+    expectInvalid(JSON.stringify({ ...obj, workItemId: "personal-work-2" }));
+    assert.equal(resolvePersonalActivityWorkTarget(target,
+      missing, id.getSnapshot(), unavailableSpace()), null);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Activity owner renders a scoped Surface target only after verifying source and Identity/Space", async () => {
+  const [activityUI, activityRuntime, native, surface, css] = await Promise.all([
+    readFile(new URL("../system/apps/activity/ui/workspace-controls.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/apps/activity/runtime.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/apps/activity/activity.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(native, /activityExport: personalActivityExport,\s*identitySessionPort: identitySession,\s*spaceSelectionPort: spaceSelection/);
+  assert.match(activityRuntime, /\{ identitySessionPort, spaceSelectionPort \}/);
+  assert.match(activityUI, /resolvePersonalActivityWorkTarget\(/);
+  assert.match(activityUI, /lifecycle\.getAppTarget\(activityApp\.id\)/);
+  assert.match(activityUI, /article\.dataset\.personalActivitySelected = "true"/);
+  assert.match(activityUI, /card\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(activityUI, /card\.scrollIntoView\?\.\(\{ block: "nearest" \}\)/);
+  assert.match(activityUI, /identity\?\.subscribe\(\(\) => render\(\)\)/);
+  assert.match(activityUI, /spaceSelection\?\.subscribe\(\(\) => render\(\)\)/);
+  assert.match(activityUI, /unsubscribeSpace\(\)/);
+  assert.match(activityUI, /unsubscribeIdentity\(\)/);
+  assert.match(surface, /getAppTarget\(appId\)/);
+  assert.match(css, /data-personal-activity-selected="true"/);
+  assert.doesNotMatch(activityUI, /\.publish\(\{\s*appId:\s*activityApp\.id/);
 });

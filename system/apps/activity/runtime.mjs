@@ -69,6 +69,8 @@ export const componentRuntime = Object.freeze({
     surfaceLifecycle,
     personalOrdax = null,
     activityExport = null,
+    identitySessionPort = null,
+    spaceSelectionPort = null,
   } = {}) {
     const releaseStyles = await mountActivityStyles(root);
     let controls = null;
@@ -84,6 +86,7 @@ export const componentRuntime = Object.freeze({
         surfaceLifecycle,
         personalOrdax?.approvalConsent ?? null,
         activityExport,
+        { identitySessionPort, spaceSelectionPort },
       );
       let destroyed = false;
       return Object.freeze({
