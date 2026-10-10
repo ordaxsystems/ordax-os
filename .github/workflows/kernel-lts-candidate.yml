@@ -1,15 +1,22 @@
-name: Kernel Next LTS 6.6.158 Candidate
+name: Kernel LTS Candidate
 
 on:
   pull_request:
     paths:
       - 'bootstrap/kernel/build.py'
       - 'bootstrap/kernel/verify_upstream_signature.py'
-      - 'bootstrap/kernel/candidates/6.6.158.json'
+      - 'bootstrap/kernel/candidate_pipeline.py'
+      - 'bootstrap/kernel/update_engine.py'
+      - 'bootstrap/kernel/candidates/**'
       - 'bootstrap/kernel/config/ordax.fragment'
       - 'tests/test_kernel_build_authentication_gate.py'
+      - 'tests/test_kernel_upstream_signature.py'
       - 'tests/test_kernel_module_release_abi.py'
-      - '.github/workflows/kernel-next-6-6-158-candidate.yml'
+      - 'tests/test_kernel_candidate_pipeline.py'
+      - 'tests/test_kernel_update_engine.py'
+      - 'tests/test_kernel_candidate_ci_scope.py'
+      - '.github/workflows/kernel-lts-candidate.yml'
+      - '.github/workflows/kernel-lts-update-proposal.yml'
   workflow_dispatch:
 
 permissions:
@@ -30,8 +37,19 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+          check-latest: false
+
+      - name: Resolve selected LTS source contract
+        id: candidate
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/candidate_pipeline.py select --github-output "$GITHUB_OUTPUT"
+          python3 -m unittest discover -s tests -p 'test_kernel_candidate_pipeline.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_update_engine.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_candidate_ci_scope.py' -v
 
       - name: Install exact proposed-kernel build and signature dependencies
+        if: steps.candidate.outputs.available == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -39,62 +57,45 @@ jobs:
             gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
             dwarves kmod xz-utils pkg-config gnupg
 
-      - name: Validate legacy build compatibility and signed-source policy
+      - name: Validate active kernel and selected signed candidate
+        if: steps.candidate.outputs.available == 'true'
         run: |
           set -euo pipefail
           python3 bootstrap/kernel/build.py check
           python3 bootstrap/kernel/build.py check \
-            --source-contract bootstrap/kernel/candidates/6.6.158.json
+            --source-contract "${{ steps.candidate.outputs.source_contract }}"
           python3 -m unittest discover -s tests -p 'test_kernel_build_authentication_gate.py' -v
           python3 -m unittest discover -s tests -p 'test_kernel_upstream_signature.py' -v
           python3 -m unittest discover -s tests -p 'test_kernel_module_release_abi.py' -v
 
-      - name: Build authenticated 6.6.158 kernel and modules in isolated candidate lane
+      - name: Build authenticated staged kernel and modules
+        if: steps.candidate.outputs.available == 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           python3 bootstrap/kernel/build.py build \
-            --source-contract bootstrap/kernel/candidates/6.6.158.json \
+            --source-contract "${{ steps.candidate.outputs.source_contract }}" \
             --jobs 4 \
             --work-dir out/kernel-next-work \
             --out-dir out/kernel-next
           python3 bootstrap/kernel/verify.py out/kernel-next
 
-      - name: Require exact staged identity and upstream signature in provenance
+      - name: Verify candidate identity, upstream signature and exact artifact digests
+        if: steps.candidate.outputs.available == 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          out=Path('out/kernel-next')
-          p=json.loads((out/'kernel-provenance.json').read_text(encoding='utf-8'))
-          assert p['source_commit'] == os.environ['ORDAX_SOURCE_COMMIT']
-          assert p['kernel_version'] == '6.6.158'
-          assert p['upstream_archive_sha256'] == '9eb33173b0e04e898d431587c78c47ee6e19e3fdf2ea007323de82af14bb2a4f'
-          proof=p['upstream_authentication']
-          assert proof['status'] == 'verified'
-          assert proof['trusted_primary_fingerprint'] == '647F28654894E3BD457199BE38DBBDC86092693E'
-          assert proof['physical_write_authorized'] is False
-          assert p['physical_artifact_authorized'] is False
-          assert p['promotable_to_physical'] is False
-          assert set(p['artifacts']) == {
-              'kernel-6.6.158.config',
-              'kernel-modules-6.6.158.tar',
-              'vmlinuz-6.6.158',
-          }
-          print('KERNEL_6_6_158_CANDIDATE_SOURCE_SIGNED=YES')
-          print('KERNEL_6_6_158_MODULES_BUILT_AND_VERIFIED=YES')
-          print('KERNEL_6_6_158_STABLE_MVP_PROMOTED=NO')
-          print('KERNEL_6_6_158_PHYSICAL_WRITE_AUTHORIZED=NO')
-          PY
+          python3 bootstrap/kernel/candidate_pipeline.py prove \
+            --out-dir out/kernel-next \
+            --source-commit "$ORDAX_SOURCE_COMMIT"
 
-      - name: Upload only isolated kernel candidate proof
+      - name: Upload staged candidate only
+        if: steps.candidate.outputs.available == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: ordax-kernel-6.6.158-staged-${{ github.event.pull_request.head.sha || github.sha }}
+          name: ordax-kernel-${{ steps.candidate.outputs.version }}-staged-${{ github.event.pull_request.head.sha || github.sha }}
           path: out/kernel-next/
           if-no-files-found: error
           retention-days: 14
