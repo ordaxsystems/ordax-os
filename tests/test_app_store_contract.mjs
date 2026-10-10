@@ -421,3 +421,24 @@ test("Store never reactivates a stale lifecycle request after catalog replacemen
   assert.match(source, /if \(!isCurrentRequest\(\)\) return;/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|new Map\(\)/);
 });
+
+test("Store Essentials is a view over existing verified entries, not a second catalog or installed claim", async () => {
+  const items = validateAppStoreCatalogSnapshot({
+    schema: APP_STORE_CATALOG_SCHEMA,
+    state: "ready",
+    entries: [
+      entry({ appId: "notes", title: "Notas" }),
+      entry({ appId: "calculator", title: "Calculadora", installable: false, state: "blocked", blockedReason: "runtime-module-read-unavailable" }),
+      entry({ appId: "studio", title: "Studio" }),
+    ],
+    reason: null, authority: "none",
+  }).entries;
+  assert.deepEqual(filterStoreEntries(items, "essentials").map(item => item.appId), ["notes", "calculator"]);
+  assert.deepEqual(filterStoreEntries(items, "essentials", "Calculadora").map(item => item.appId), ["calculator"]);
+  const calculator = filterStoreEntries(items, "essentials").find(item => item.appId === "calculator");
+  assert.equal(calculator.installable, false, "Essentials membership never bypasses Native lifecycle gates");
+  const locale = await readFile(new URL("../system/services/i18n/catalog/store.mjs", import.meta.url), "utf8");
+  for (const key of ["store.navigation.essentials", "store.section.essentials", "store.section.description.essentials"]) {
+    assert.equal(locale.split('"' + key + '"').length, 3, key + " must exist in both locales");
+  }
+});
