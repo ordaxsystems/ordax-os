@@ -1,6 +1,9 @@
 import { validateIdentitySessionSnapshot } from "../../../contracts/identity-session.mjs";
 import { validateSpaceSelectionSnapshot } from "../../../contracts/space-selection.mjs";
-import { validatePersonalOrdaxRuntimeSnapshot } from "../../../contracts/personal-ordax-store.mjs";
+import {
+  PERSONAL_ORDAX_RUNTIME_SCHEMA,
+  validatePersonalOrdaxRuntimeSnapshot,
+} from "../../../contracts/personal-ordax-store.mjs";
 import { projectPersonalWorkCanvas } from "../../../services/intelligence/work-canvas.mjs";
 
 // Pure read-only projection of the *existing* Personal OrdaX owner. It never
@@ -45,11 +48,40 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
   const personal = validatePersonalOrdaxRuntimeSnapshot(personalSnapshot);
   const visibleSpace = scope.spaceId;
   const scoped = personal.workItems.filter((item) =>
-    // Projects have no active selection in this global Assistant. They stay
-    // available in their authorized Personal OrdaX/Activity owner only.
+    // The global Assistant has no project selection. Only explicit owner and
+    // Space scopes can contribute to *either* cards or status measurements.
     item.projectId === null && (item.spaceId === null || item.spaceId === visibleSpace)
     && (scope.ownerKind === "account" || item.spaceId === null)
   );
+  const scopedCanvases = scoped.map((item) => Object.freeze({
+    item,
+    canvas: projectPersonalWorkCanvas(personal, {
+      ownerKind: personal.ownerKind,
+      ownerId: personal.ownerId,
+      spaceId: item.spaceId,
+      projectId: item.projectId,
+      workItemId: item.id,
+    }),
+  }));
+  // Counts come from the same validated Work Canvas projection as the cards,
+  // across ALL visible Work (not merely the three cards on screen).
+  // A completed Work missing its canonical Result is "unavailable", not success.
+  const categories = Object.freeze([
+    "requires-action", "working", "result", "failed", "unavailable",
+  ]);
+  const counts = new Map(categories.map((kind) => [kind, 0]));
+  for (const { canvas } of scopedCanvases) {
+    counts.set(canvas.state, counts.get(canvas.state) + 1);
+  }
+  const overview = Object.freeze({
+    sourceSchema: PERSONAL_ORDAX_RUNTIME_SCHEMA,
+    total: scopedCanvases.length,
+    groups: Object.freeze(categories.map((kind) => Object.freeze({
+      kind, count: counts.get(kind),
+    }))),
+    completionPercent: null,
+    authority: "none",
+  });
   // Priority affects only presentation, never Work state or permissions.
   // A real outstanding approval / uncertain execution must not be hidden
   // behind newer completed responses under the three-card display limit.
@@ -65,18 +97,11 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
     if (work.state === "failed" || work.state === "cancelled") return 2;
     return 3; // Completed work is still available, but cannot hide pending action.
   };
-  const ranked = scoped.slice().sort((a, b) =>
-    priority(a) - priority(b)
-      || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
-      || a.id.localeCompare(b.id));
-  const cards = ranked.slice(0, MAX_CARDS).map((item) => {
-    const canvas = projectPersonalWorkCanvas(personal, {
-      ownerKind: personal.ownerKind,
-      ownerId: personal.ownerId,
-      spaceId: item.spaceId,
-      projectId: item.projectId,
-      workItemId: item.id,
-    });
+  const ranked = scopedCanvases.slice().sort((a, b) =>
+    priority(a.item) - priority(b.item)
+      || Date.parse(b.item.updatedAt) - Date.parse(a.item.updatedAt)
+      || a.item.id.localeCompare(b.item.id));
+  const cards = ranked.slice(0, MAX_CARDS).map(({ item, canvas }) => {
     return Object.freeze({
       workItemId: item.id,
       spaceId: item.spaceId,
@@ -99,5 +124,6 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
     schema: ASSISTANT_WORK_STRIP_SCHEMA,
     cards: Object.freeze(cards),
     remainingCount: Math.max(0, ranked.length - cards.length),
+    overview,
   });
 }

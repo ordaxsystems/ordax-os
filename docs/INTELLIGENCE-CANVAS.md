@@ -189,3 +189,38 @@ fluxo Native de Work `create→run→Activity→Result` com engine controlada
 de teste, isolamento entre Spaces, owner mismatch, limite de tamanho,
 estado ocupado e indisponibilidade da inferência. CI de código não prova
 execução em PC real ou provedor externo.
+
+
+## Visualização quantitativa adaptativa de Work autorizado (P1)
+
+O painel Native de Intelligence inclui agora um **gráfico recolhível de
+contagens por estado** quando existem pelo menos dois Work registrados
+e autorizados no contexto atual. A fonte única é
+`ordax.personal-runtime/1`, já verificada por
+`validatePersonalOrdaxRuntimeSnapshot`; `projectAssistantWorkStrip`
+projeta **todos** os itens visíveis (não apenas os três cartões da
+previsualização), usando para cada item a mesma decisão canônica
+`projectPersonalWorkCanvas` da Activity.
+
+As cinco categorias são `requires-action`, `working` (inclusive Work
+pausado), `result` (somente quando existe Result validado),
+`failed` (falha/cancelamento) e `unavailable` (inclusive completed
+sem Result verificável). As barras representam proporções do **total
+de registros visíveis** e cada linha apresenta a contagem inteira,
+não percentual de execução nem de conclusão da missão.
+Não são números de vendas, gráficos empresariais ou sucesso de ações
+externas. O snapshot é revalidado após troca de owner/Space e não inclui
+itens vinculados a projeto sem seleção de projeto.
+
+O gráfico é um `figure` com `figcaption` e texto acessível,
+oculto sob `details` por padrão para preservar o campo de comando como
+experiência principal. Não surge com zero ou um Work; a UI não faz
+inferência de tipo por leitura de texto gerado pelo modelo e não
+necessita de nova API, store, canal de inferência, grant ou executor.
+
+`tests/test_assistant_work_strip.mjs` cobre totais maiores que o
+limite de cartões, aprovação pendente, pausa, cancelamento, resultados,
+resultado ausente, mudança de identidade/Space, status adulterado e
+semântica do `figure`. A suíte existente `Intelligence Foundation`
+é o gate de CI desta fatia. Isso é validação de código, não um
+E2E físico, nem autoriza PDF/galeria/gráficos de vendas.
