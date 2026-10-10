@@ -698,3 +698,16 @@ func TestSchemaAwareActivationVerifierKeepsReleaseV1Working(t *testing.T) {
 		t.Fatalf("release/1 activation compatibility regressed: %+v", release)
 	}
 }
+
+func TestExplicitRemovalCannotCoexistWithCurrentSlot(t *testing.T) {
+	state := emptyActivationState("internet")
+	state.UserRemoved = true
+	state.Current = &slotIdentity{
+		Version: "1.0.0",
+		SourceCommit: "1111111111111111111111111111111111111111",
+	}
+	if err := validateActivationState(state, "internet"); err == nil ||
+		!strings.Contains(err.Error(), "explicitly removed cannot have a current slot") {
+		t.Fatalf("contradictory installed and removed state was accepted: %v", err)
+	}
+}
