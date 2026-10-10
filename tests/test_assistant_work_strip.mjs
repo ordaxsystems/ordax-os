@@ -780,6 +780,10 @@ test("Activity owner renders a scoped Surface target only after verifying source
   assert.match(activityUI, /article\.dataset\.personalActivitySelected = "true"/);
   assert.match(activityUI, /card\.focus\(\{ preventScroll: true \}\)/);
   assert.match(activityUI, /card\.scrollIntoView\?\.\(\{ block: "nearest" \}\)/);
+  assert.match(activityUI, /identity\?\.subscribe\(\(\) => render\(\)\)/);
+  assert.match(activityUI, /spaceSelection\?\.subscribe\(\(\) => render\(\)\)/);
+  assert.match(activityUI, /unsubscribeSpace\(\)/);
+  assert.match(activityUI, /unsubscribeIdentity\(\)/);
   assert.match(surface, /getAppTarget\(appId\)/);
   assert.match(css, /data-personal-activity-selected="true"/);
   assert.doesNotMatch(activityUI, /\.publish\(\{\s*appId:\s*activityApp\.id/);
