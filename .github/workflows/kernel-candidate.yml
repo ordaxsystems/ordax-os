@@ -5,12 +5,18 @@ on:
     branches: [main]
     paths:
       - "bootstrap/kernel/**"
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - "tests/test_kernel_artifact_verifier.py"
       - "tests/test_kernel_build_authentication_gate.py"
       - ".github/workflows/kernel-candidate.yml"
   pull_request:
     paths:
       - "bootstrap/kernel/**"
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - "tests/test_kernel_artifact_verifier.py"
       - "tests/test_kernel_build_authentication_gate.py"
       - ".github/workflows/kernel-candidate.yml"
