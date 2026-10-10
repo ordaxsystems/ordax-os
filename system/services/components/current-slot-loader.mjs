@@ -112,10 +112,14 @@ function verifiedModuleUrl(source, current) {
 export async function loadVerifiedCurrentComponentRuntime({
   componentId, source, fetchImpl, importModule,
   context = Object.freeze({}), timeout = 5_000, onError = null,
+  expectedCurrent = null,
 } = {}) {
   const id = validateComponentId(componentId);
   const slotSource = assertComponentSlotSource(source);
   const limit = timeoutMs(timeout);
+  const expected = expectedCurrent === null ? null : validateComponentRuntimeMetadata(expectedCurrent, {
+    componentId: id, state: "current",
+  });
   if (typeof fetchImpl !== "function" || typeof importModule !== "function") {
     throw new TypeError("Current component requires fetch and import ports");
   }
@@ -126,6 +130,9 @@ export async function loadVerifiedCurrentComponentRuntime({
   try {
     const current = await readCurrent(slotSource, id, fetchImpl, limit);
     if (current.source === "absent") return null;
+    if (expected !== null && !identityMatches(expected, current)) {
+      throw new Error("Current slot changed since verified discovery");
+    }
     if (current.source !== "slot") {
       throw new TypeError("Bundled source cannot be used as an installed component slot");
     }
