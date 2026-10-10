@@ -24,6 +24,7 @@ boot/esp/loader/loader.conf text eol=lf
 boot/esp/loader/entries/ordax.conf text eol=lf
 boot/esp/loader/entries/ordax-recovery.conf text eol=lf
 bootstrap/entrypoint text eol=lf
+bootstrap/initramfs/portable_init.sh text eol=lf
 bootstrap/network/bring-up text eol=lf
 bootstrap/network/udhcpc.script text eol=lf
 bootstrap/config/product-mode text eol=lf

@@ -196,23 +196,36 @@ select_verified_release() {
         return 0
     fi
 
-    [ "$slot" = "candidate" ] || return 1
-    /sbin/ordax-portable-state rollback \
-        "$STATE_MOUNT" "$PORTABLE_ROOT" "$commit" >/dev/null 2>&1 ||
-        return 1
+    if [ "$slot" = "candidate" ]; then
+        /sbin/ordax-portable-state rollback \
+            "$STATE_MOUNT" "$PORTABLE_ROOT" "$commit" >/dev/null 2>&1 ||
+            return 1
 
-    selection="$(/sbin/ordax-portable-state select-boot "$STATE_MOUNT" "$PORTABLE_ROOT" 2>/dev/null || true)"
-    set -- $selection
-    slot=${1:-}
-    commit=${2:-}
-    extra=${3:-}
-    [ -z "$extra" ] || return 1
-    case "$slot" in
-        current|known-good) ;;
-        *) return 1 ;;
-    esac
-    is_sha "$commit" || return 1
-    verify_selected_release "$slot" "$commit"
+        selection="$(/sbin/ordax-portable-state select-boot "$STATE_MOUNT" "$PORTABLE_ROOT" 2>/dev/null || true)"
+        set -- $selection
+        slot=${1:-}
+        commit=${2:-}
+        extra=${3:-}
+        [ -z "$extra" ] || return 1
+        case "$slot" in
+            current|known-good) ;;
+            *) return 1 ;;
+        esac
+        is_sha "$commit" || return 1
+        if verify_selected_release "$slot" "$commit"; then
+            return 0
+        fi
+    fi
+
+    # State selection alone does not attest the release bytes. An invalid
+    # current must not prevent the separate known-good slot from being
+    # resolved and verified offline. No slot is retargeted by this fallback.
+    [ "$slot" = "current" ] || return 1
+    fallback_commit="$(/sbin/ordax-portable-state resolve \
+        "$STATE_MOUNT" "$PORTABLE_ROOT" known-good 2>/dev/null)" || return 1
+    is_sha "$fallback_commit" || return 1
+    [ "$fallback_commit" != "$commit" ] || return 1
+    verify_selected_release known-good "$fallback_commit"
 }
 select_verified_release ||
     rescue "no candidate/current/known-good release is safely selectable and exactly verified"

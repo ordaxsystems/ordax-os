@@ -88,6 +88,14 @@ current_release_sha() {
 boot_current() {
     [ -x "$CURRENT_ENTRYPOINT" ] || return 1
     source_sha=$(current_release_sha) || recovery "current release identity is invalid"
+    [ -x "$RELEASE_AGENT" ] || recovery "offline release verifier is missing"
+    # Reuse the canonical exact verifier for the already selected release;
+    # never execute a current tree based only on a valid symlink identity.
+    "$RELEASE_AGENT" activate-exact --root /ordax --trust "$RELEASE_TRUST" \
+        --expected-commit "$source_sha" >/dev/null \
+        || recovery "current release failed exact offline verification"
+    verified_sha=$(current_release_sha) || recovery "verified current identity is invalid"
+    [ "$verified_sha" = "$source_sha" ] || recovery "current release changed during verification"
     mode=$(product_mode) || recovery "product mode identity is missing or invalid"
     gateway_origin=$(account_gateway_base_url || true)
     if [ -n "$gateway_origin" ]; then
