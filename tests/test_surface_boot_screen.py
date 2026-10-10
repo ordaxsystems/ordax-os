@@ -86,6 +86,32 @@ class SurfaceBootScreenTests(unittest.TestCase):
                 source.index("bootScreen.ready()"),
             )
 
+    def test_native_video_hand_off_is_optional_not_uefi_splash(self):
+        branding = json.loads(BRANDING.read_text(encoding="utf-8"))
+        cinematic = branding["surface_loading"]["native_cinematic"]
+        native = NATIVE_HTML.read_text(encoding="utf-8")
+        web = WEB_HTML.read_text(encoding="utf-8")
+        script = BOOT_SCREEN.read_text(encoding="utf-8")
+        css = BOOT_CSS.read_text(encoding="utf-8")
+
+        self.assertEqual(cinematic["status"], "candidate-awaiting-binary-assets-and-physical-proof")
+        self.assertEqual(cinematic["video_path"], "system/surface/ui/boot/ordax-os-boot.mp4")
+        self.assertEqual(cinematic["poster_path"], "system/surface/ui/boot/ordax-os-boot-poster.png")
+        self.assertEqual(len(cinematic["video_sha256"]), 64)
+        self.assertEqual(len(cinematic["poster_sha256"]), 64)
+        self.assertFalse(cinematic["boot_blocking"])
+        self.assertFalse(cinematic["native_hardware_proven"])
+        self.assertFalse(cinematic["early_kernel_splash_proven"])
+        self.assertFalse(branding["early_boot"]["graphical_splash_implemented"])
+        self.assertIn('data-ordax-boot-video', native)
+        self.assertIn('data-src="../../surface/ui/boot/ordax-os-boot.mp4"', native)
+        self.assertIn('data-poster="../../surface/ui/boot/ordax-os-boot-poster.png"', native)
+        self.assertNotIn('data-ordax-boot-video', web)
+        self.assertIn('prefers-reduced-motion: reduce', script)
+        self.assertIn('element.dataset.animation = "fallback"', script)
+        self.assertIn('stopMedia();', script)
+        self.assertIn('.ordax-boot-screen[data-state="error"] .ordax-boot-video', css)
+
     def test_kernel_keeps_framebuffer_capability_for_future_early_graphics(self):
         config = KERNEL.read_text(encoding="utf-8")
         self.assertIn("CONFIG_FB=y", config)
