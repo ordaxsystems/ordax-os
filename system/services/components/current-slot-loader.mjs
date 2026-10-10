@@ -3,6 +3,7 @@ import { assertComponentSlotSource } from "../../contracts/component-slot-source
 import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
 import { validateComponentRuntime, validateMountedComponent } from "../../contracts/component-runtime.mjs";
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
+import { assertAppDataPort } from "../../contracts/app-data.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
   method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error",
@@ -113,6 +114,7 @@ export async function loadVerifiedCurrentComponentRuntime({
   componentId, source, fetchImpl, importModule,
   context = Object.freeze({}), timeout = 5_000, onError = null,
   expectedCurrent = null,
+  requireTrustedAppData = false,
 } = {}) {
   const id = validateComponentId(componentId);
   const slotSource = assertComponentSlotSource(source);
@@ -120,6 +122,9 @@ export async function loadVerifiedCurrentComponentRuntime({
   const expected = expectedCurrent === null ? null : validateComponentRuntimeMetadata(expectedCurrent, {
     componentId: id, state: "current",
   });
+  if (typeof requireTrustedAppData !== "boolean") {
+    throw new TypeError("Current component App Data requirement must be boolean");
+  }
   if (typeof fetchImpl !== "function" || typeof importModule !== "function") {
     throw new TypeError("Current component requires fetch and import ports");
   }
@@ -128,6 +133,17 @@ export async function loadVerifiedCurrentComponentRuntime({
   }
   let mounted = null;
   try {
+    // The privileged Native bootstrap is the only owner of App Data binding.
+    // External apps cannot be read/imported when its expected binding is absent.
+    const trustedBeforeImport = requireTrustedAppData
+      ? await bounded(() => composeTrustedComponentContext(id, context), limit, "trusted context")
+      : null;
+    if (trustedBeforeImport !== null) {
+      const appData = assertAppDataPort(trustedBeforeImport.appData);
+      if (appData.identity.appId !== id) {
+        throw new TypeError("Trusted App Data identity does not match the installed app");
+      }
+    }
     const current = await readCurrent(slotSource, id, fetchImpl, limit);
     if (current.source === "absent") return null;
     if (expected !== null && !identityMatches(expected, current)) {
@@ -144,7 +160,7 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed before mount");
     }
-    const effectiveContext = await bounded(
+    const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
     mounted = await mountBounded(runtime, effectiveContext, limit, id);
