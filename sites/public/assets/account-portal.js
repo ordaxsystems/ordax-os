@@ -45,7 +45,8 @@
     navigation.setAttribute("aria-modal", "true");
     navigation.setAttribute("aria-labelledby", "account-navigation-title");
     modalBackground.forEach(element => { if (element) element.inert = true; });
-    focusableNavigation()[0]?.focus();
+    const targets = focusableNavigation();
+    (targets.find(element => element.matches("a[data-account-section]")) || targets[0])?.focus();
   }
 
   function render({ focus = false } = {}) {

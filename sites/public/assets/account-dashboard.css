@@ -246,7 +246,7 @@
  .account-shell{grid-template-columns:215px minmax(0,1fr)}
  .account-portal .account-header{grid-template-columns:188px minmax(0,1fr) 192px;gap:17px;padding-inline:22px}
  .account-navigation{padding-inline:11px}
- .account-session{grid-template-columns:minmax(0,1fr)}
+ .account-session{grid-template-columns:minmax(0,1fr);padding:var(--ordax-space-4);gap:var(--ordax-space-2)}
  .account-profile-controls{flex-direction:row;flex-wrap:wrap}
  .account-navigation a{font-size:11px;gap:9px}
  .account-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
