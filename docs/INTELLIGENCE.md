@@ -59,7 +59,16 @@ callback mantêm o tratamento anterior de revalidação de saúde.
 
 Os deltas notificados por `onDelta` são **provisórios** e só se tornam
 uma resposta validada após a terminação correta da sessão SSE; não podem
-ser usados como receipts, ações ou Memory antes disso. O streaming do
+ser usados como receipts, ações ou Memory antes disso. A mesma opção `onDelta` já é encaminhada pela porta sistêmica
+`ordax.intelligence/1` e pelos wrappers existentes de Awareness de Apps,
+Memory autorizada por conta/Space e Profile Content verificado. Os deltas
+são conferidos antes/depois dos callbacks com contexto de identidade,
+Space e Profile atuais, evitando divulgar um novo fragmento após uma
+mudança de autoridade. Em falha do callback ou cancelamento, o resultado
+final não é promovido a resposta válida. Sem callback, o fluxo legado
+continua buffered e inalterado.
+
+O streaming do
 port de conversa/Assistant continua `false` e não foi ativado no
 OrdaX Web/Studio ou nos providers externos. Não foi feito E2E com
 llama.cpp real nem certificação de parada do motor.
