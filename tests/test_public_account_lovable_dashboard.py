@@ -97,8 +97,8 @@ class AccountLovableDashboardTests(unittest.TestCase):
         for label in ("Recolher navegação", "Expandir navegação", "Localização na conta",
                       "Informação da sessão autenticada"):
             self.assertIn('["' + label + '", ', self.i18n)
-        self.assertIn('/assets/account-dashboard.css?v=account-6', self.html)
-        self.assertIn('/assets/account-portal.js?v=account-3', self.html)
+        self.assertIn('/assets/account-dashboard.css?v=account-7', self.html)
+        self.assertIn('/assets/account-portal.js?v=account-4', self.html)
         self.assertIn('/assets/site.js?v=account-4', self.html)
 
 
