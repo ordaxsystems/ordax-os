@@ -243,6 +243,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "identity-session",
+        "path": "system/contracts/identity-session.mjs",
+        "constant": "IDENTITY_SESSION_SCHEMA",
+        "schema": "ordax.identity-session/1",
+        "major": 1,
+    },
+    {
         "name": "intelligence",
         "path": "system/contracts/intelligence.mjs",
         "constant": "INTELLIGENCE_PORT_SCHEMA",
@@ -285,6 +292,20 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "profile-activation-state",
+        "path": "system/contracts/profile-activation-state.mjs",
+        "constant": "PROFILE_ACTIVATION_STATE_SCHEMA",
+        "schema": "ordax.profile-activation-state/1",
+        "major": 1,
+    },
+    {
+        "name": "profile-activation-state-port",
+        "path": "system/contracts/profile-activation-state.mjs",
+        "constant": "PROFILE_ACTIVATION_STATE_PORT_SCHEMA",
+        "schema": "ordax.profile-activation-state-port/1",
+        "major": 1,
+    },
+    {
         "name": "project-catalog",
         "path": "system/contracts/project-catalog.mjs",
         "constant": "PROJECT_CATALOG_SCHEMA",
@@ -303,6 +324,55 @@ CONTRACTS = (
         "path": "system/contracts/project-cloud-links-reader.mjs",
         "constant": "PROJECT_CLOUD_LINKS_READER_SCHEMA",
         "schema": "ordax.project-cloud-links-reader/1",
+        "major": 1,
+    },
+    {
+        "name": "project-web-references",
+        "path": "system/contracts/project-web-references.mjs",
+        "constant": "PROJECT_WEB_REFERENCES_SCHEMA",
+        "schema": "ordax.project-web-references/1",
+        "major": 1,
+    },
+    {
+        "name": "space-selection",
+        "path": "system/contracts/space-selection.mjs",
+        "constant": "SPACE_SELECTION_SCHEMA",
+        "schema": "ordax.space-selection/1",
+        "major": 1,
+    },
+    {
+        "name": "space-selection-record",
+        "path": "system/contracts/space-selection.mjs",
+        "constant": "SPACE_SELECTION_RECORD_SCHEMA",
+        "schema": "ordax.space-selection-record/1",
+        "major": 1,
+    },
+    {
+        "name": "space-selection-store",
+        "path": "system/contracts/space-selection.mjs",
+        "constant": "SPACE_SELECTION_STORE_SCHEMA",
+        "schema": "ordax.space-selection-store/1",
+        "major": 1,
+    },
+    {
+        "name": "spaces",
+        "path": "system/contracts/spaces.mjs",
+        "constant": "SPACES_PORT_SCHEMA",
+        "schema": "ordax.spaces/1",
+        "major": 1,
+    },
+    {
+        "name": "spaces-profile-packs",
+        "path": "system/contracts/spaces.mjs",
+        "constant": "PROFILE_PACKS_PORT_SCHEMA",
+        "schema": "ordax.profile-packs/1",
+        "major": 1,
+    },
+    {
+        "name": "spaces-snapshot",
+        "path": "system/contracts/spaces.mjs",
+        "constant": "SPACES_SNAPSHOT_SCHEMA",
+        "schema": "ordax.spaces-snapshot/1",
         "major": 1,
     },
     {
@@ -342,7 +412,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.13.0"
+BUNDLE_VERSION = "1.14.0"
 
 
 def git_blob(path: Path) -> str:
