@@ -8,7 +8,7 @@ function requireConversation(value) {
   if (!value || typeof value !== "object" || value.schema !== ASSISTANT_CONVERSATION_SCHEMA) {
     throw new TypeError("Compatible Assistant conversation runtime is required");
   }
-  for (const method of ["getSnapshot", "subscribe", "send", "clear"]) {
+  for (const method of ["getSnapshot", "subscribe", "send", "discardPendingResponse", "clear"]) {
     if (typeof value[method] !== "function") {
       throw new TypeError(`Assistant conversation runtime must implement ${method}()`);
     }
@@ -92,6 +92,11 @@ export function mountAssistantConversationControls(
     status.dataset.state = snapshot.state;
     header.append(copy, status);
     slot.append(header);
+    const provider = snapshot.providerCapabilities;
+    const providerLabel = provider?.provider === "local"
+      ? `${t("assistant.provider.local")} · ${provider.engineId} / ${provider.modelId}`
+      : t("assistant.provider.unavailable");
+    slot.append(node(documentObject, "p", "ordax-assistant-provider", providerLabel));
 
     const transcript = node(documentObject, "div", "ordax-assistant-transcript");
     transcript.setAttribute("role", "log");
@@ -124,8 +129,10 @@ export function mountAssistantConversationControls(
     slot.append(transcript);
 
     if (snapshot.lastError) {
-      const error = node(documentObject, "p", "ordax-assistant-error", t("assistant.error.response"));
-      error.setAttribute("role", "alert");
+      const discarded = snapshot.lastError === "response-discarded";
+      const error = node(documentObject, "p", discarded ? "ordax-assistant-notice" : "ordax-assistant-error",
+        t(discarded ? "assistant.notice.discarded" : "assistant.error.response"));
+      error.setAttribute("role", discarded ? "status" : "alert");
       slot.append(error);
     }
 
@@ -156,6 +163,14 @@ export function mountAssistantConversationControls(
     send.dataset.assistantSend = "";
     send.disabled = !canSubmitAssistantDraft(snapshot, draft);
     actions.append(clear, send);
+    if (snapshot.inferencePending) {
+      const discard = node(documentObject, "button", "ordax-assistant-discard",
+        t(snapshot.discardRequested ? "assistant.action.discard.pending" : "assistant.action.discard"));
+      discard.type = "button";
+      discard.dataset.assistantDiscard = "";
+      discard.disabled = !snapshot.canDiscardPending;
+      actions.append(discard);
+    }
     form.append(actions);
     slot.append(form);
 
@@ -203,6 +218,10 @@ export function mountAssistantConversationControls(
     if (target.dataset.assistantClear !== undefined) {
       draft = "";
       conversation.clear();
+      return;
+    }
+    if (target.dataset.assistantDiscard !== undefined) {
+      conversation.discardPendingResponse();
     }
   };
 
