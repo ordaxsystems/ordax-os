@@ -1335,13 +1335,13 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       }
     }
     if (name === 'mobile') {
-      await evaluate('document.querySelector(".mobile-nav button").focus()');
-      await client.send('Input.dispatchKeyEvent', {
-        type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
-      });
-      await client.send('Input.dispatchKeyEvent', {
-        type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
-      });
+      // React's controlled native button uses click, unlike the Radix
+      // dropdown trigger which listens directly for keydown/pointerdown.
+      // Verify that it is a real button before activating its native handler.
+      if (!await evaluate('document.querySelector(".mobile-nav button")?.tagName === "BUTTON"')) {
+        throw new Error('Mobile More is not a native keyboard-accessible button');
+      }
+      await evaluate('document.querySelector(".mobile-nav button").focus(); document.querySelector(".mobile-nav button").click()');
       const moreDeadline = Date.now() + 5000;
       while (!await evaluate('!!document.querySelector("#account-mobile-more[role=dialog]")')) {
         if (Date.now() > moreDeadline) {
