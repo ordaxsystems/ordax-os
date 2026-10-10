@@ -1,13 +1,16 @@
 """The original Lovable React bundle is a reviewed optional public-site profile."""
 from pathlib import Path
-import json
-import re
+import importlib.util
+import sys
 import tempfile
 import unittest
 
-from tools.public_site import build as public_site
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools/public-site"))
+_spec = importlib.util.spec_from_file_location("_ordax_account_public_site", ROOT / "tools/public-site/build.py")
+assert _spec is not None and _spec.loader is not None
+public_site = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(public_site)
 DIST = ROOT / "sites/account-ui/prebuilt"
 EXPECTED_SHA = "a9dc36520f4ab31ed7a46e1fb964c38f213fdaa2"
 
