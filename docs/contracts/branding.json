@@ -2,6 +2,14 @@
   "$schema": "prototype-ordax.branding/1",
   "status": "prototype",
   "product_name": "OrdaX",
+  "product_family": {
+    "mode_display_and_version_owner": "system/contracts/product-family.mjs",
+    "mode_id_registry": "docs/contracts/foundation.json#product_modes.modes",
+    "capability_contract": "docs/contracts/product-capabilities.json",
+    "tablet_uses_mobile_mode": true,
+    "studio_is_an_application_not_a_mode": true,
+    "public_portal_is_not_web_mode": true
+  },
   "source_authority": "repository",
   "visual_identity": {
     "implemented": true,
