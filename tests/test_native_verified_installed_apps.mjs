@@ -92,6 +92,7 @@ test("verified Native component is rechecked before mount and cleaned on shutdow
   let mounted = 0, destroyed = 0;
   const mounts = await mountNativeVerifiedInstalledApps({
     installed, source, context: Object.freeze({ root: "root-marker" }),
+    onError(error) { throw error; },
     fetchImpl: async (url) => {
       fetched.push(url);
       return { ok: true, json: async () => metadata };
