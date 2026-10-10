@@ -36,6 +36,7 @@ on:
       - 'tests/test_localization_interpolation_foundation.mjs'
       - 'tests/test_power_localization_formatting_cutover.mjs'
       - 'tests/test_notification_interpolation_contract.mjs'
+      - 'tests/test_notification_localization_formatting_cutover.mjs'
       - 'tests/test_notifications.mjs'
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
@@ -80,6 +81,7 @@ on:
       - 'tests/test_localization_interpolation_foundation.mjs'
       - 'tests/test_power_localization_formatting_cutover.mjs'
       - 'tests/test_notification_interpolation_contract.mjs'
+      - 'tests/test_notification_localization_formatting_cutover.mjs'
       - 'tests/test_notifications.mjs'
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
@@ -131,6 +133,8 @@ jobs:
           node --test tests/test_power_localization_formatting_cutover.mjs
           node --check tests/test_notification_interpolation_contract.mjs
           node --test tests/test_notification_interpolation_contract.mjs
+          node --check tests/test_notification_localization_formatting_cutover.mjs
+          node --test tests/test_notification_localization_formatting_cutover.mjs
           node --test tests/test_notifications.mjs
           node --check tests/test_surface_localization.mjs
           node --test tests/test_surface_localization.mjs

@@ -41,9 +41,11 @@
     "relative_time_requires_explicit_unit": true,
     "regional_time_zone_preference": "regional.time-zone",
     "regional_time_zone_owner": "system/services/preferences/regional.mjs",
-    "adopted_presentations": ["battery-tray", "battery-quick-panel"],
+    "adopted_presentations": ["battery-tray", "battery-quick-panel", "notification-center"],
     "battery_legacy_datetime_formatter_present": false,
     "battery_numeric_percent_string_concatenation_present": false,
+    "notification_legacy_datetime_formatter_present": false,
+    "notification_invalid_timestamp_fails_before_iso_serialization": true,
     "formatting_never_changes_message_identity": true,
     "formatting_never_changes_authority": true
   },
