@@ -485,3 +485,97 @@ test("Assistant stays useful in isolated local-only mode when Account service is
   assert.deepEqual(intelligence.requests[2].context, []);
   conversation.dispose();
 });
+
+
+test("Assistant discards a late inference result without claiming backend cancellation or writing Memory", async () => {
+  const intelligence = intelligencePort();
+  let settle;
+  intelligence.respond = (request) => {
+    intelligence.requests.push(request);
+    return new Promise((resolve) => {
+      settle = () => resolve({
+        schema: INTELLIGENCE_RESPONSE_SCHEMA,
+        text: "resposta descartada",
+        engineId: "llama.cpp",
+        modelId: "qwen-test",
+        authority: "none",
+      });
+    });
+  };
+  let captures = 0;
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    memoryCapture: {
+      bindTurn() {
+        return { async capture() { captures += 1; return { status: "captured" }; } };
+      },
+    },
+  });
+
+  const pending = conversation.send("pedido que será descartado");
+  const before = conversation.getSnapshot();
+  assert.equal(before.inferencePending, true);
+  assert.equal(before.canDiscardPending, true);
+  assert.equal(before.providerCapabilities.provider, "local");
+  assert.equal(before.providerCapabilities.streamingSupported, false);
+  assert.equal(before.providerCapabilities.backendCancellationSupported, false);
+
+  assert.equal(conversation.discardPendingResponse(), true);
+  assert.equal(conversation.discardPendingResponse(), false);
+  assert.equal(conversation.getSnapshot().discardRequested, true);
+  assert.equal(conversation.getSnapshot().state, "busy");
+  await assert.rejects(() => conversation.send("não reenvie enquanto pendente"), /already processing/);
+  settle();
+  await assert.rejects(pending, /discarded/);
+  const after = conversation.getSnapshot();
+  assert.equal(after.state, "ready");
+  assert.equal(after.inferencePending, false);
+  assert.equal(after.canDiscardPending, false);
+  assert.equal(after.lastError, "response-discarded");
+  assert.deepEqual(after.messages, []);
+  assert.equal(captures, 0);
+
+  intelligence.respond = async (request) => {
+    intelligence.requests.push(request);
+    return {
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: "nova resposta",
+      engineId: "llama.cpp",
+      modelId: "qwen-test",
+      authority: "none",
+    };
+  };
+  await conversation.send("novo pedido");
+  assert.deepEqual(intelligence.requests.at(-1).context, []);
+  conversation.dispose();
+});
+
+test("Assistant does not offer discard after inference finishes and Memory capture begins", async () => {
+  const intelligence = intelligencePort({ responses: ["ok"] });
+  let finishCapture;
+  let startedCapture;
+  const captureStarted = new Promise((resolve) => { startedCapture = resolve; });
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    memoryCapture: {
+      bindTurn() {
+        return {
+          capture() {
+            startedCapture();
+            return new Promise((resolve) => {
+              finishCapture = () => resolve({ status: "complete" });
+            });
+          },
+        };
+      },
+    },
+  });
+  const pending = conversation.send("guardar preferência");
+  await captureStarted;
+  assert.equal(conversation.getSnapshot().inferencePending, false);
+  assert.equal(conversation.discardPendingResponse(), false);
+  finishCapture();
+  await pending;
+  assert.equal(conversation.getSnapshot().messages.at(-1).text, "ok");
+  conversation.dispose();
+});
