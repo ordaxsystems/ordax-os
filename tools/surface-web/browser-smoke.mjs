@@ -1228,6 +1228,21 @@ async function provePublicAccount(client, url, evidenceDir) {
   }
   async function escapeDialog() {
     await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  }
+  async function click(selector) {
+    const point = await evaluate(`(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) return null;
+      element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const box = element.getBoundingClientRect();
+      if (!box.width || !box.height) return null;
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    })()`);
+    if (!point) throw new Error(`account control is not visible: ${selector}`);
+    await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+    await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
+    await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
   }
   const reports = [];
   for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['short',320,568],['wide-phone',430,932],['landscape',844,390]]) {
@@ -1272,33 +1287,34 @@ async function provePublicAccount(client, url, evidenceDir) {
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
     if (width <= 760) {
-      await evaluate('document.querySelector("#more-toggle").click()');
+      await click('#more-toggle');
       if (!await evaluate('document.querySelector("#more-dialog").open && document.querySelector("#more-dialog").contains(document.activeElement)')) throw new Error('More focus failed');
       const moreShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
       await writeFile(join(evidenceDir, `account-${name}-more.png`), Buffer.from(moreShot.data, 'base64'));
       await escapeDialog();
       if (!await evaluate('!document.querySelector("#more-dialog").open && document.activeElement.id === "more-toggle"')) throw new Error('More Escape failed');
-      await evaluate(`document.querySelector('#more-toggle').click(); document.querySelector('#more-navigation a[href="#integracoes"]').click()`);
+      await click('#more-toggle');
+      await click('#more-navigation a[href="#integracoes"]');
       await sleep(50);
       if (!await evaluate('location.hash === "#integracoes" && document.activeElement.matches("#account-content h1") && !document.querySelector("#more-dialog").open')) throw new Error('More section routing/focus failed');
     }
-    await evaluate('document.querySelector("[data-open-dialog=notifications]").click()');
+    await click('[data-open-dialog=notifications]');
     if (!await evaluate('document.querySelector("#account-dialog").open && document.querySelector(".empty-state.compact")')) throw new Error('notification shortcut failed');
     await escapeDialog();
     if (!await evaluate('document.activeElement.matches("[data-open-dialog=notifications]")')) throw new Error('notification Escape focus failed');
-    await evaluate('document.querySelector("#profile-menu-trigger").click()');
+    await click('#profile-menu-trigger');
     if (!await evaluate(`!document.querySelector('#ordax-profile-menu').hidden && !document.querySelector('#ordax-profile-menu .ordax-profile-signout') && !!document.querySelector('#ordax-profile-menu a[href="/login/"]')`)) throw new Error('profile menu invented an authenticated session');
     await escapeDialog();
-    await evaluate('document.querySelector("[data-open-dialog=search]").click()');
+    await click('[data-open-dialog=search]');
     if (!await evaluate('document.activeElement.id === "dialog-search"')) throw new Error('account search focus failed');
     await evaluate('document.querySelector("#dialog-search").value = "dispositivos"; document.querySelector("#dialog-search").dispatchEvent(new Event("input", { bubbles: true }))');
     if (!await evaluate('document.querySelectorAll("#search-results a").length === 1')) throw new Error('account search filtering failed');
-    await evaluate('document.querySelector("#search-results a").click()');
+    await click('#search-results a');
     await sleep(50);
     if (!await evaluate('location.hash === "#dispositivos" && document.activeElement.matches("#account-content h1") && !document.querySelector("#account-dialog").open')) throw new Error('search section routing/focus failed');
     await evaluate('location.hash = "#consumo"');
     await sleep(50);
-    await evaluate('document.querySelector("#usage-tab-storage").click()');
+    await click('#usage-tab-storage');
     await evaluate('document.querySelector("#usage-tab-storage").focus()');
     await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'ArrowRight', code:'ArrowRight', windowsVirtualKeyCode:39 });
     if (!await evaluate('document.activeElement.id === "usage-tab-apis" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error('usage keyboard navigation failed');

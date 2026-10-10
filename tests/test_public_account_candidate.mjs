@@ -109,3 +109,14 @@ test("official preferences have no simulated notification settings or extra lang
   assert.ok(!content.includes("Restaurar prévia"));
   assert.ok(!source.includes("localStorage"));
 });
+
+
+test("subscription states its actual availability and keeps uncontracted purchases disabled", () => {
+  const f = fixture("#assinatura");
+  f.emit("authenticated", "person@example.test");
+  const html = f.get("account-content").innerHTML;
+  assert.ok(html.includes("Assinaturas pagas ainda não estão disponíveis."));
+  assert.ok(/<button[^>]+disabled>Alterar plano<\/button>/.test(html));
+  assert.ok(/<button[^>]+disabled>Cancelar assinatura<\/button>/.test(html));
+  assert.ok(!html.includes("<form"));
+});
