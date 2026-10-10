@@ -40,6 +40,24 @@ class EarlyBootSplashTests(unittest.TestCase):
         self.assertNotIn("ffplay", start + stop)
         self.assertNotIn("webkit", start.lower() + stop.lower())
 
+    def test_dev_base_and_surface_use_separate_boot_owners(self):
+        kernel = (ROOT / "bootstrap/kernel/config/ordax.fragment").read_text(encoding="utf-8")
+        base = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
+        init = (ROOT / "bootstrap/dev-base/ordax-dev-init").read_text(encoding="utf-8")
+        native = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
+        branding = json.loads((ROOT / "docs/contracts/branding.json").read_text(encoding="utf-8"))
+        for config in ("CONFIG_SND=y", "CONFIG_SND_PCM=y", "CONFIG_SND_HDA_INTEL=y"):
+            self.assertIn(config, kernel)
+        self.assertIn('"alsa-utils"', base)
+        self.assertIn('"alsa-ucm-conf"', base)
+        self.assertIn("install_developer_boot_splash(rootfs)", base)
+        self.assertIn('developer boot media absent', base)
+        self.assertIn("musl-gcc", base)
+        self.assertIn('/usr/local/bin/ordax-boot-splash >/run/ordax-boot-splash.log', init)
+        self.assertIn('/usr/local/bin/ordax-boot-splash-stop || true', init)
+        self.assertIn('/usr/local/bin/ordax-boot-splash-stop || true', native)
+        self.assertFalse(branding['early_boot']['graphical_splash_implemented'])
+
     @unittest.skipUnless(shutil.which("cc"), "C compiler unavailable")
     def test_compiled_renderer_checks_raw_stream_and_refuses_fake_fb(self):
         with tempfile.TemporaryDirectory() as tmp:
