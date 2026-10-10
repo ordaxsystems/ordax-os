@@ -114,7 +114,7 @@ test("explicit approval executes the verified Native file action and consumes au
   });
   assert.equal(verified.state, "working");
   assert.deepEqual(verified.actionEvidence.map(entry => entry.status), ["succeeded"]);
-  assert.equal(verified.actionEvidence[0].actionId, "native-file.ensure-directory");
+  assert.equal(verified.actionEvidence[0].actionId, NATIVE_FILE_ENSURE_DIRECTORY_ACTION);
   assert.equal(verified.actionEvidence[0].sourceSchema, "ordax.personal-action-attempt/1");
   assert.equal(verified.actionEvidence[0].finishedAt !== null, true);
   assert.equal(verified.pendingApproval, null);
