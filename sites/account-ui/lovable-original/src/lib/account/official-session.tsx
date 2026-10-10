@@ -44,8 +44,17 @@ export function OfficialAccountSessionProvider({ children }: { children: ReactNo
   useEffect(() => {
     refresh();
     const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    const onFocus = () => refresh();
+    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) refresh(); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => { pending.current?.abort(); document.removeEventListener("visibilitychange", onVisible); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      pending.current?.abort();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow);
+    };
   }, [refresh]);
 
   return <Context.Provider value={state}>{children}</Context.Provider>;
