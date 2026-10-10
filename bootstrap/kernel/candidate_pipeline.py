@@ -56,7 +56,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def select_candidate(root: Path = ROOT, selector: Path | None = None) -> tuple[Path, dict]:
+def select_candidate(root: Path = ROOT, selector: Path | None = None, *, require_newer: bool = True) -> tuple[Path, dict]:
     root = root.resolve()
     selection = read_json(selector if selector is not None else root / "bootstrap/kernel/candidates/proposal.json")
     if selection.get("$schema") != SELECTION_SCHEMA or set(selection) != {"$schema", "source_contract"}:
@@ -76,8 +76,8 @@ def select_candidate(root: Path = ROOT, selector: Path | None = None) -> tuple[P
         raise CandidateError("active source schema is invalid")
     if candidate["version"] != match.group(1):
         raise CandidateError("candidate filename and source release disagree")
-    if v[:2] != current[:2] or v <= current:
-        raise CandidateError("candidate must advance current LTS line without a major/minor jump")
+    if v[:2] != current[:2] or v < current or (require_newer and v == current):
+        raise CandidateError("candidate must not downgrade or cross the active LTS line")
     expected_url = f"https://cdn.kernel.org/pub/linux/kernel/v{v[0]}.x/linux-{candidate['version']}.tar.xz"
     if candidate.get("archive_url") != expected_url or candidate.get("signature_url") != expected_url.removesuffix(".xz").removesuffix(".tar") + ".tar.sign":
         raise CandidateError("candidate upstream URLs are not canonical kernel.org endpoints")
