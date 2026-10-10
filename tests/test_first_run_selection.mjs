@@ -5,7 +5,9 @@ import {
   FIRST_RUN_APP_SELECTION_SCHEMA,
   listFirstRunDefaultAppIds,
   planFirstRunAppSelection,
+  planFirstRunAppSelectionFromStore,
 } from "../system/services/apps/first-run-selection.mjs";
+import { APP_STORE_CATALOG_SCHEMA, validateAppStoreCatalogSnapshot } from "../system/contracts/app-store.mjs";
 import {
   getFirstPartyAppDeliveryPolicy,
   projectFirstPartyAppDelivery,
@@ -79,4 +81,74 @@ test("invalid or ambiguous authority observations fail closed", () => {
   assert.throws(() => planFirstRunAppSelection({ ...empty, installedAppIds: ["unknown"] }), /unknown/);
   assert.throws(() => planFirstRunAppSelection({ ...empty, installedAppIds: ["notes"], explicitlyRemovedAppIds: ["notes"] }), /overlap/);
   assert.throws(() => planFirstRunAppSelection({ ...empty, verifiedCandidateAppIds: null }), /array/);
+});
+
+function storeEntry(appId, overrides = {}) {
+  return {
+    appId, title: appId, state: "available", installedVersion: null,
+    availableVersion: "0.2.0", installable: true, updatable: false,
+    removable: false, blockedReason: null, artifactIdentityVerified: true,
+    provenanceVerified: true, ...overrides,
+  };
+}
+
+function storeSnapshot(entries, state = "ready") {
+  return validateAppStoreCatalogSnapshot({
+    schema: APP_STORE_CATALOG_SCHEMA, state, entries,
+    reason: state === "ready" ? null : "catalog-envelope-unavailable",
+    authority: "none",
+  });
+}
+
+test("Store-backed first-run selection uses only actual verified current-slot and installable candidates", () => {
+  const current = storeSnapshot([
+    storeEntry("notes", {
+      state: "installed", installedVersion: "0.4.3",
+      availableVersion: null, installable: false, removable: true,
+      artifactIdentityVerified: false, provenanceVerified: false,
+    }),
+    storeEntry("calculator"),
+    storeEntry("clock", {
+      state: "blocked", installable: false,
+      blockedReason: "runtime-module-read-unavailable",
+    }),
+    storeEntry("studio"),
+  ]);
+  const plan = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: ["clock"],
+    storeCatalogSnapshot: current,
+  });
+  assert.deepEqual(plan.alreadyInstalledAppIds, ["notes"]);
+  assert.deepEqual(plan.eligibleCandidateAppIds, ["calculator"]);
+  assert.deepEqual(plan.suppressedAppIds, ["clock"]);
+  assert.ok(plan.unavailableAppIds.includes("files"), "bundled OS app absent from this Store projection is unknown, not installed");
+  assert.equal(plan.defaultAppIds.includes("studio"), false);
+  assert.equal(plan.authority, "none");
+  assert.equal(plan.installedByThisPlan, false);
+});
+
+test("Store-backed selection cannot install when catalog is unavailable, candidate blocked, or provisioning ended", () => {
+  const unavailable = storeSnapshot([], "unavailable");
+  const noCatalog = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true, explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: unavailable,
+  });
+  assert.deepEqual(noCatalog.eligibleCandidateAppIds, []);
+  assert.deepEqual(noCatalog.unavailableAppIds, listFirstRunDefaultAppIds());
+  const ready = storeSnapshot([storeEntry("calculator")]);
+  const disabled = planFirstRunAppSelectionFromStore({
+    initialProvisioning: false, explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: ready,
+  });
+  assert.deepEqual(disabled.eligibleCandidateAppIds, []);
+  assert.deepEqual(disabled.suppressedAppIds, listFirstRunDefaultAppIds());
+  assert.throws(() => planFirstRunAppSelectionFromStore({
+    initialProvisioning: true, explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: { ...ready, authority: "platform" },
+  }), /authority:none/);
+  assert.throws(() => planFirstRunAppSelectionFromStore({
+    initialProvisioning: true, explicitlyRemovedAppIds: ["notes", "notes"],
+    storeCatalogSnapshot: ready,
+  }), /duplicate/);
 });

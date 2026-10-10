@@ -1,6 +1,9 @@
 import {
   getFirstPartyAppDeliveryPolicy,
 } from "./delivery-policy.mjs";
+import {
+  validateAppStoreCatalogSnapshot,
+} from "../../contracts/app-store.mjs";
 
 // Selection policy only. It never installs, signs, activates, or removes an app.
 // IDs are existing app identities, not a parallel source/package registry.
@@ -94,5 +97,35 @@ export function planFirstRunAppSelection({
     mayInstallWithoutVerifiedLifecycle: false,
     reinstallAfterUserRemoval: false,
     authority: "none",
+  });
+}
+
+
+// Read-only bridge to the ONE canonical Store catalog projection. A candidate
+// becomes selectable only when the signed catalog AND Native current-slot
+// verification already marked it installable. A missing/bundled/unavailable
+// entry is UNKNOWN here, never a verified absence or installed app.
+export function planFirstRunAppSelectionFromStore({
+  initialProvisioning,
+  explicitlyRemovedAppIds,
+  storeCatalogSnapshot,
+} = {}) {
+  const snapshot = validateAppStoreCatalogSnapshot(storeCatalogSnapshot);
+  const entries = snapshot.state === "ready"
+    ? snapshot.entries.filter((entry) => DEFAULT_ID_SET.has(entry.appId))
+    : [];
+  return planFirstRunAppSelection({
+    initialProvisioning,
+    explicitlyRemovedAppIds,
+    installedAppIds: entries
+      .filter((entry) => entry.installedVersion !== null)
+      .map((entry) => entry.appId),
+    verifiedCandidateAppIds: entries
+      .filter((entry) => entry.state === "available"
+        && entry.installable === true
+        && entry.installedVersion === null
+        && entry.artifactIdentityVerified === true
+        && entry.provenanceVerified === true)
+      .map((entry) => entry.appId),
   });
 }
