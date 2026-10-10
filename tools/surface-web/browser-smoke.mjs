@@ -1230,9 +1230,12 @@ async function provePublicAccount(client, url, evidenceDir) {
   for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['landscape',844,390]]) {
     await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
     await client.send('Page.navigate', { url });
-    const deadline = Date.now() + 10_000;
+    const deadline = Date.now() + 30_000;
     while (!await evaluate('document.readyState === "complete" && document.body.classList.contains("account-enhanced") && document.querySelector("[data-account-state]")?.dataset.status !== "checking"')) {
-      if (Date.now() > deadline) throw new Error('account preview did not become ready');
+      if (Date.now() > deadline) {
+        const readiness = await evaluate('({ path:location.pathname, document:document.readyState, enhanced:document.body?.classList.contains("account-enhanced"), session:document.querySelector("[data-account-state]")?.dataset.status })');
+        throw new Error(`${name} account preview readiness timed out: ${JSON.stringify(readiness)}`);
+      }
       await sleep(50);
     }
     await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
@@ -1252,11 +1255,13 @@ async function provePublicAccount(client, url, evidenceDir) {
         headerHeight:box(document.querySelector('.account-header')).height,
         mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || (width === 1440 && report.columns !== 3) || (width < 600 && !report.primaryTilesAligned)) {
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && !report.primaryTilesAligned)) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
+    await evaluate('document.querySelector(".account-header-actions [data-account-section]").click()');
+    if (!await evaluate('document.querySelector("[data-account-content]").dataset.view === "atividade" && document.activeElement.id === "atividade-title"')) throw new Error(`${name} notification shortcut failed`);
     await evaluate('document.querySelector("#seguranca > .card-heading").click()');
     const detail = await evaluate('document.querySelector("[data-account-content]").dataset.view === "seguranca" && getComputedStyle(document.querySelector("#seguranca .card-note")).display !== "none" && document.activeElement.id === "seguranca-title"');
     if (!detail) throw new Error(`${name} account detail/focus failed`);

@@ -71,6 +71,18 @@ driver and canonical loopback preview server to verify actual 1440x900,
 section coverage, desktop columns, primary mobile alignment, session disclosure,
 detail focus and mobile search/Escape, and retains rendered PNGs plus a report.
 This is layout/interaction evidence, not live account-provider homologation.
+The account header follows the concept's dedicated composition: a 76px desktop
+bar with the canonical 42px mark, a bounded violet search field and compact
+notification, Web-entry and profile actions. The notification shortcut uses
+the existing section navigation; Web remains the gated product-entry page.
+The profile action reuses the existing verified header-session owner and a
+neutral user symbol instead of a fabricated portrait or another brand mark.
+Phones keep the brand, search, notification and profile on one compact row
+with a 68px minimum height;
+the search field expands only when requested. The orb is decorative, not a
+voice/AI control. Browser proof rejects an unexpectedly stacked header and
+verifies the notification shortcut's destination and keyboard focus.
+
 The same entrypoint is reproducible locally after building the public artifact:
 
 ```bash

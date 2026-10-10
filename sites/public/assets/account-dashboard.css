@@ -17,16 +17,20 @@
 }
 .account-shell { max-width:1440px; margin:auto; min-height:100dvh; display:grid; grid-template-columns:210px minmax(0,1fr); grid-template-rows:auto 1fr; }
 .account-portal .account-header {
-  grid-column:1/-1; position:relative; z-index:2; display:flex; flex-direction:row; align-items:center; gap:32px; width:100%; max-width:none; margin:0;
-  padding:16px 26px; min-height:74px; border-bottom:1px solid var(--ordax-border-soft);
+  grid-column:1/-1; position:relative; z-index:2; display:grid; grid-template-columns:190px minmax(0,1fr) 230px; align-items:center; gap:24px; width:100%; max-width:none; margin:0;
+  padding:12px 26px; min-height:76px; border-bottom:1px solid var(--ordax-border-soft); background:linear-gradient(110deg,var(--ordax-bg),color-mix(in srgb,var(--ordax-bg) 94%,var(--ordax-brand-blue)));
 }
-.account-brand { display:flex; align-items:center; gap:10px; min-width:168px; font-size:23px; font-weight:600; letter-spacing:var(--ordax-tracking-tight); }
+.account-brand { display:flex; align-items:center; gap:10px; min-width:0; font-size:22px; font-weight:600; letter-spacing:var(--ordax-tracking-tight); white-space:nowrap; }
+.account-header .account-brand .ordax-symbol { width:42px; height:42px; }
 .brand-os { font-weight:350; }
 .account-search {
-  flex:1; display:flex; align-items:center; gap:12px; max-width:580px; margin:auto;
-  padding:10px 16px; background:var(--ordax-surface); border:1px solid var(--ordax-border-soft); border-radius:100px;
+  display:flex; align-items:center; gap:10px; width:100%; min-width:0; max-width:540px; margin:0; justify-self:center;
+  padding:5px 6px 5px 14px; background:linear-gradient(110deg,color-mix(in srgb,var(--ordax-surface) 86%,var(--ordax-brand-violet)),color-mix(in srgb,var(--ordax-bg) 86%,var(--ordax-brand-violet))); border:1px solid color-mix(in srgb,var(--ordax-border-soft) 70%,var(--ordax-brand-violet)); border-radius:100px;
 }
-.account-search input { width:100%; min-width:0; border:0; outline:none; background:transparent; color:var(--ordax-text); font-size:13px; min-height:24px; }
+.account-search .account-icon { width:17px; height:17px; color:var(--ordax-muted); }
+.account-search input { width:100%; min-width:0; border:0; outline:none; background:transparent; color:var(--ordax-text); font-size:11px; min-height:28px; }
+.account-search-orb { width:28px; height:28px; flex-shrink:0; display:grid; place-items:center; border:1px solid var(--ordax-brand-cyan); border-radius:50%; background:linear-gradient(145deg,var(--ordax-brand-blue),var(--ordax-brand-violet)); box-shadow:0 0 12px color-mix(in srgb,var(--ordax-brand-blue) 70%,transparent); }
+.account-search-orb::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--ordax-text); box-shadow:0 0 5px var(--ordax-brand-cyan); }
 .account-search input::placeholder { color:var(--ordax-muted); opacity:1; }
 .account-search:focus-within { outline:2px solid var(--ordax-focus); outline-offset:3px; }
 .account-search input:focus-visible { outline:none; }
@@ -34,6 +38,15 @@
 .account-portal .account-header .site-nav { width:auto; flex-shrink:0; }
 .account-portal .site-nav a { display:flex; align-items:center; gap:10px; border:0; white-space:nowrap; min-height:44px; }
 .header-account-symbol { width:27px; height:27px; }
+.account-portal .account-header .account-header-actions { justify-content:flex-end; gap:6px; padding:0; overflow:visible; }
+.account-header-actions .header-icon-link { justify-content:center; width:44px; min-width:44px; min-height:44px; border-radius:50%; }
+.account-header-actions .account-icon { width:19px; height:19px; color:var(--ordax-muted); }
+.account-header-actions a:hover { background:var(--ordax-hover-bg); }
+.account-portal .account-header-actions .header-profile-link { gap:8px; min-width:0; flex-shrink:1; padding:4px 8px; border-radius:100px; font-size:11px; }
+.header-profile-link [data-auth-nav-label] { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.header-profile-avatar { display:grid; place-items:center; width:32px; height:32px; flex-shrink:0; border:1px solid var(--ordax-border); border-radius:50%; background:var(--ordax-subtle-bg); }
+.header-profile-avatar .account-icon { color:var(--ordax-text); width:19px; height:19px; }
+.account-header-actions .header-profile-arrow { width:12px; height:12px; }
 .account-navigation { padding:24px 14px; border-right:1px solid var(--ordax-border-soft); background:var(--ordax-bg); }
 .account-portal .eyebrow { margin:0 0 16px; font-size:10px; font-weight:600; letter-spacing:.14em; color:var(--ordax-muted); }
 .account-navigation>.eyebrow,.navigation-support>.eyebrow { padding-left:14px; }
@@ -149,19 +162,26 @@
 @media(max-width:1199px) {
   .account-shell { grid-template-columns:205px minmax(0,1fr); }
   .account-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .account-portal .account-header { gap:20px; padding:18px 24px; }
+  .account-portal .account-header { grid-template-columns:170px minmax(0,1fr) 200px; gap:20px; padding:12px 24px; }
   .account-portal .site-nav { gap:16px; }
   .account-navigation { padding:24px 12px; }
   .account-navigation a { padding:10px; font-size:11px; }
 }
 @media(max-width:900px) {
   .account-shell { display:block; }
-  .account-portal .account-header { flex-wrap:wrap; padding:16px 20px; gap:16px; }
-  .account-brand { min-width:0; font-size:21px; flex:1; }
+  .account-portal .account-header { display:flex; flex-direction:row; flex-wrap:wrap; padding:10px 16px; gap:6px; min-height:68px; }
+  .account-brand { min-width:0; font-size:18px; flex:1; gap:8px; }
+  .account-header .account-brand .ordax-symbol { width:30px; height:30px; }
   .account-search { order:3; max-width:none; flex-basis:100%; margin:0; }
   .account-enhanced .account-search { display:none; }
   .account-enhanced.account-search-open .account-search { display:flex; }
-  .account-enhanced .account-search-toggle { display:grid; place-items:center; width:44px; height:44px; padding:10px; border:1px solid var(--ordax-border-soft); border-radius:var(--ordax-radius-md); background:var(--ordax-subtle-bg); color:var(--ordax-text); cursor:pointer; }
+  .account-enhanced .account-search-toggle { display:grid; place-items:center; width:44px; height:44px; padding:12px; border:0; border-radius:50%; background:transparent; color:var(--ordax-muted); cursor:pointer; }
+  .account-search-toggle .account-icon { width:19px; height:19px; color:inherit; }
+  .account-search-toggle:hover { background:var(--ordax-hover-bg); }
+  .account-portal .account-header .account-header-actions { gap:0; }
+  .account-portal .account-header-actions .header-profile-link { width:44px; padding:0; justify-content:center; }
+  .header-profile-link [data-auth-nav-label] { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .header-profile-arrow { display:none; }
   .account-portal .site-nav { font-size:11px; }
   .header-web-link { display:none!important; }
   .account-content { padding:26px 22px calc(100px + env(safe-area-inset-bottom)); }
@@ -217,4 +237,6 @@
 @media(prefers-reduced-motion:reduce) { .account-portal { scroll-behavior:auto; } }
 @media(forced-colors:active) {
   .account-profile,.navigation-art,.account-card { background:Canvas; box-shadow:none; }
+  .account-header,.account-search,.account-search-orb { background:Canvas!important; box-shadow:none; }
+  .account-search-orb::after { background:CanvasText; box-shadow:none; }
 }
