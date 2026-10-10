@@ -221,8 +221,11 @@
 }
 @media(max-width:900px){
  .account-shell{display:block}
- .account-portal .account-header{display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;min-height:68px;padding:10px 16px}
- .account-brand{flex:1;min-width:0;font-size:19px;gap:8px}
+ .account-portal .account-header{display:grid;grid-template-columns:minmax(0,1fr) 44px auto;align-items:center;gap:6px;min-height:68px;padding:10px 16px}
+ .account-brand{grid-column:1;grid-row:1;min-width:0;font-size:19px;gap:8px}
+ .account-portal .account-header .account-search-toggle{grid-column:2;grid-row:1}
+ .account-portal .account-header .account-header-actions{grid-column:3;grid-row:1}
+ .account-portal .account-header .account-search{grid-column:1/-1;grid-row:2}
  .account-header .account-brand .ordax-symbol{width:32px;height:32px}
  .account-search{order:3;max-width:none;flex-basis:100%;margin:0}
  .account-enhanced .account-search{display:none}
