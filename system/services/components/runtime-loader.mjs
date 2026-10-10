@@ -1,4 +1,7 @@
 import { assertComponentManager } from "../../contracts/component-manager.mjs";
+import { assertAppDataPort } from "../../contracts/app-data.mjs";
+import { hasNativeExternalFirstPartyModuleRead } from "../apps/external-first-party-policy.mjs";
+import { loadVerifiedCurrentComponentRuntime } from "./current-slot-loader.mjs";
 import {
   validateComponentRuntime,
   validateMountedComponent,
@@ -124,4 +127,44 @@ export async function loadOptionalComponentRuntime({
     if (onError) onError(error);
     return null;
   }
+}
+
+// This is the privileged Native composition boundary for independently
+// installed first-party apps. A manifest or catalog never supplies App Data.
+// The host-only bootstrap's existing trusted providers bind it by componentId.
+export async function loadTrustedCurrentExternalAppRuntime({
+  componentId,
+  source,
+  fetchImpl,
+  importModule,
+  context = Object.freeze({}),
+  timeout = 5_000,
+  onError = null,
+} = {}) {
+  if (!hasNativeExternalFirstPartyModuleRead(componentId)) {
+    throw new TypeError("External component is not allowed by the Native module-read policy");
+  }
+  if (!context || typeof context !== "object" || Array.isArray(context)
+      || Object.prototype.hasOwnProperty.call(context, "appData")) {
+    throw new TypeError("External component context cannot supply App Data");
+  }
+  if (onError !== null && typeof onError !== "function") {
+    throw new TypeError("External component error handler must be a function or null");
+  }
+  componentLoadStarted = true;
+  let effectiveContext;
+  try {
+    effectiveContext = await composeTrustedContext(componentId, Object.freeze({ ...context }));
+    const appData = assertAppDataPort(effectiveContext.appData);
+    if (appData.identity.appId !== componentId) {
+      throw new TypeError("External component App Data identity is not bound to this app");
+    }
+  } catch (error) {
+    onError?.(error);
+    return null;
+  }
+  return loadVerifiedCurrentComponentRuntime({
+    componentId, source, fetchImpl, importModule,
+    context: effectiveContext, timeout, onError,
+  });
 }
