@@ -624,7 +624,8 @@ class SurfaceUiContractTests(unittest.TestCase):
             'case "preference.set"',
         ):
             self.assertIn(action, text)
-        self.assertIn("isAppAvailable", text)
+        self.assertIn("appCatalog.isAvailable(app, state.capabilityIds)", text)
+        self.assertIn("assertAppRuntimeCatalog(appCatalog)", text)
         self.assertIn("recoverPreferenceSnapshot", text)
         self.assertIn("setPreferenceValue", text)
         self.assertNotIn("platform", text.lower())
