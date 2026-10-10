@@ -7,6 +7,7 @@ import { defineExternalFirstPartyApp } from "../../apps/external-app-definition.
 import {
   EXTERNAL_FIRST_PARTY_OWNER,
   isExternalFirstPartyComponentId,
+  hasNativeExternalFirstPartyModuleRead,
   listExternalFirstPartyComponentIds,
 } from "./external-first-party-policy.mjs";
 
@@ -64,6 +65,8 @@ export async function discoverVerifiedExternalApplications({
   }
   const entries = [];
   for (const appId of appIds) {
+    // A store candidate is not yet a native module-read permission.
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) continue;
     try {
       const metadataPayload = await readJson(
         await fetchImpl(packageSource.metadataUrl(appId, "current"), REQUEST_OPTIONS),
