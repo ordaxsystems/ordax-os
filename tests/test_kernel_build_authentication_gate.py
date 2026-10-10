@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -79,6 +80,25 @@ class KernelAuthenticationGateTests(unittest.TestCase):
         self.set_contract()
         with self.assertRaisesRegex(BUILDER.BuildError, "requires a signed upstream OpenPGP policy"):
             self.load()
+
+    def test_initramfs_style_absolute_import_outside_kernel_sys_path(self):
+        # Regression for PID1 initramfs owner loading bootstrap/kernel/build.py
+        # with importlib.util.spec_from_file_location, without adding its parent.
+        script = (
+            "import importlib.util, pathlib; "
+            f"p=pathlib.Path({str(KERNEL_OWNER / 'build.py')!r}); "
+            "s=importlib.util.spec_from_file_location('isolated_kernel_builder',p); "
+            "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+            "assert callable(m.load_contract)"
+        )
+        result = subprocess.run(
+            [sys.executable, "-I", "-c", script],
+            cwd=self.tmp.name,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_existing_exact_legacy_source_remains_supported(self):
         self.source.update(
