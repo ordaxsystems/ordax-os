@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { discoverVerifiedExternalApplications } from "../system/services/apps/verified-external-app-catalog.mjs";
+import { defineExternalFirstPartyApp } from "../system/apps/external-app-definition.mjs";
 
 const SHA = "7".repeat(40);
 const META = Object.freeze({
@@ -64,8 +65,9 @@ test("verified current-slot presentation and association preserve exact owner an
     onError(error) { throw error; },
   });
   assert.equal(entries.length, 1);
-  assert.equal(entries[0].app.id, "notes");
-  assert.equal(entries[0].app.panels[0].kind, "extension");
+  const app = defineExternalFirstPartyApp(entries[0].component, entries[0].presentation);
+  assert.equal(app.id, "notes");
+  assert.equal(app.panels[0].kind, "extension");
   assert.equal(entries[0].component.owner, "ordaxsystems/ordax-apps");
   assert.deepEqual(entries[0].association.extensions, ["md", "txt"]);
   assert.ok(Object.isFrozen(entries));
