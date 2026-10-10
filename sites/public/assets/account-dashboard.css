@@ -463,67 +463,6 @@
   .account-usage-visual *{animation:none;transition:none}
 }
 
-/* Lovable account dashboard — phase 2: visual composition, same public identity owner. */
-.account-overview-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:14px 0 19px}
-.account-overview-heading .eyebrow{font-size:10px;letter-spacing:.15em;font-weight:700;color:var(--ordax-accent);margin:0 0 8px}
-.account-overview-heading h2{font-family:var(--ordax-font-display);font-size:clamp(22px,2.5vw,30px);letter-spacing:var(--ordax-tracking-tight);line-height:1.15;font-weight:var(--ordax-title-weight);margin:0}
-.account-overview-heading>span{font-size:12px;color:var(--ordax-muted);padding-bottom:4px;text-align:right}
-.account-content:not([data-view="visao-geral"]) .account-overview-heading{display:none}
-.account-profile-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;grid-column:1/-1;border-top:1px solid var(--ordax-border-soft);padding-top:18px}
-.account-profile-fact{display:flex;align-items:center;gap:12px;min-width:0;min-height:62px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);padding:11px 14px;background:color-mix(in srgb,var(--ordax-app-bg) 70%,transparent)}
-.account-profile-fact>.account-icon{color:var(--ordax-accent);width:19px;height:19px;flex:0 0 19px}
-.account-profile-fact:nth-child(2)>.account-icon{color:var(--ordax-brand-violet)}
-.account-profile-fact:nth-child(3)>.account-icon{color:var(--ordax-brand-cyan)}
-.account-profile-fact span{min-width:0;display:grid;gap:3px}
-.account-profile-fact small{font-size:10px;color:var(--ordax-muted)}
-.account-profile-fact strong{font-size:12px;line-height:1.4;font-weight:600;color:var(--ordax-text);overflow-wrap:anywhere}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-cards{grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano{grid-column:span 6;order:1;min-height:242px;
- background:radial-gradient(circle at 89% 14%,color-mix(in srgb,var(--ordax-brand-violet) 17%,transparent),transparent 56%),var(--account-material)}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento{grid-column:span 6;order:2;min-height:242px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo{grid-column:span 8;order:3;min-height:335px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 4;order:4;min-height:335px;
- background:radial-gradient(circle at 82% 52%,color-mix(in srgb,var(--ordax-brand-blue) 11%,transparent),transparent 63%),var(--account-material)}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading{order:5;grid-column:1/-1}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#faturamento):not(#consumo):not(#seguranca){order:6;grid-column:span 4}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .plan-card-visual{right:18px;top:48%;opacity:.76;transform:translateY(-20%);width:135px;height:135px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .account-plan-kicker{margin-top:24px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-summary{max-width:210px;font-size:clamp(17px,2vw,23px);line-height:1.24;font-weight:600;color:var(--ordax-text)}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .account-billing-overview{font-size:clamp(21px,2.4vw,28px);line-height:1.2}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-visual{margin-top:12px;padding:16px;background:color-mix(in srgb,var(--ordax-app-bg) 68%,transparent)}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-visual-plot{min-height:158px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines>div{flex-direction:column;gap:4px;min-height:59px;padding:12px 10px;text-align:left;background:color-mix(in srgb,var(--ordax-app-bg) 60%,transparent);border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-sm)}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dt{font-size:11px;min-height:0}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dd{font-size:11px;text-align:left}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-content{margin-top:22px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-summary{max-width:250px}
-.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading h2{font-size:22px}
-@media(max-width:1100px){
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo,
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 6}
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#faturamento):not(#consumo):not(#seguranca){grid-column:span 6}
-}
-@media(max-width:700px){
- .account-profile-facts{grid-template-columns:1fr;gap:7px;padding-top:13px}
- .account-profile-fact{min-height:48px;padding:9px 12px}
- .account-overview-heading{align-items:flex-start;flex-direction:column;gap:5px;margin:9px 0 14px}
- .account-overview-heading>span{text-align:left}
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano,
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento,
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo,
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca,
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#faturamento):not(#consumo):not(#seguranca){grid-column:1/-1;min-height:0}
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .plan-card-visual{width:95px;height:95px;right:6px;opacity:.5}
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-visual-plot{min-height:120px}
-}
-@media(max-width:410px){
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines{gap:5px}
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines>div{padding:7px 5px}
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dt,
- .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dd{font-size:10px;overflow-wrap:anywhere}
-}
-
 /* Account navigation + verified profile — phase 3. Uses canonical public/Surface tokens. */
 .account-breadcrumb{
  display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap;margin:0 0 17px;
@@ -599,4 +538,378 @@
 }
 @media(prefers-reduced-motion:reduce){
  .account-sidebar-toggle .account-icon{transition:none}
+}
+
+/* Lovable fidelity — official account surface, one set of card/identity owners.
+   Reference: washingtonmsdj/account-hub-pro src/components/account/overview.tsx.
+   Local data/auth remain exclusively with canonical account/site services. */
+.account-portal[data-page="conta"]{
+ --account-stroke:color-mix(in srgb,var(--ordax-brand-blue) 17%,var(--ordax-border-soft));
+ --account-material:linear-gradient(155deg,color-mix(in srgb,var(--ordax-app-bg) 94%,var(--ordax-brand-blue)),var(--ordax-bg));
+ --account-inset:19px;
+}
+.account-portal[data-page="conta"]{background:var(--ordax-bg)}
+.account-shell{max-width:none;grid-template-columns:210px minmax(0,1fr)}
+.account-portal .account-header{
+ min-height:66px;grid-template-columns:194px minmax(140px,1fr) minmax(210px,400px) auto;
+ gap:18px;padding:10px 22px;background:color-mix(in srgb,var(--ordax-bg) 98%,transparent);
+ border-bottom:1px solid var(--ordax-border-soft);
+}
+.account-brand{font-size:22px;gap:9px}
+.account-header .account-brand .ordax-symbol{width:38px;height:38px}
+.account-workspace-label{display:flex;align-items:center;gap:15px;min-width:0;color:var(--ordax-muted);font-size:11px}
+.account-workspace-label strong{font-weight:600;letter-spacing:.17em;font-size:9px}
+.account-workspace-divider{height:22px;width:1px;background:var(--ordax-border-soft);flex:0 0 1px}
+.account-portal .account-header .account-search{
+ justify-self:end;max-width:280px;padding:5px 10px;min-height:37px;border-radius:6px;gap:8px;
+ background:color-mix(in srgb,var(--ordax-app-bg) 75%,var(--ordax-bg));
+ border:1px solid var(--ordax-border-soft);
+}
+.account-search input{font-size:11px}
+.account-search-shortcut{
+ flex:none;font-size:9px;line-height:1.3;padding:3px 5px;border:1px solid var(--ordax-border-soft);
+ border-radius:3px;color:var(--ordax-muted);font-family:inherit;white-space:nowrap;
+}
+.account-header-actions .header-profile-link{max-width:175px}
+.account-header-actions .header-icon-link{min-height:38px;min-width:38px;width:38px;height:38px}
+.account-header-actions .header-profile-link{min-height:38px;font-size:11px}
+.account-header-actions .header-profile-avatar{width:32px;height:32px;flex-basis:32px}
+.account-navigation{
+ height:calc(100dvh - 66px);min-height:0;position:sticky;top:66px;
+ display:flex;flex-direction:column;gap:0;overflow-y:auto;
+ padding:21px 12px 12px;background:var(--ordax-bg);
+ scrollbar-width:thin;
+}
+.navigation-heading{margin:0 0 10px}
+.navigation-heading>.eyebrow{font-size:9px;letter-spacing:.18em}
+.account-navigation nav{gap:2px}
+.account-navigation a{min-height:39px;border-radius:6px;font-size:11px;padding:8px 11px;gap:11px}
+.account-navigation a .account-icon{width:17px;height:17px}
+.account-navigation a[aria-current="location"]{background:var(--ordax-selected-bg);border-color:var(--ordax-border-soft)}
+.account-navigation a[aria-current="location"]::after{
+ content:"";width:5px;height:5px;border-radius:50%;margin-left:auto;flex:0 0 5px;
+ background:var(--ordax-brand-cyan);box-shadow:0 0 8px var(--ordax-brand-blue);
+}
+.navigation-support{margin-top:auto;padding-top:12px}
+.navigation-support>.eyebrow{margin-bottom:5px}
+.navigation-support a{min-height:34px;font-size:10px}
+.navigation-art{
+ margin-top:14px;flex:0 0 auto;height:174px;padding:14px;gap:8px;
+ background:linear-gradient(0deg,var(--ordax-bg),transparent 100%),
+ url("/assets/ordax-landscape.png") 75% center/cover no-repeat;
+ border-radius:6px;
+}
+.navigation-art::before{opacity:.1}
+.navigation-art>.ordax-symbol{width:28px;height:28px}
+.navigation-art strong{font-size:17px;line-height:1.35;max-width:150px;font-weight:500}
+.navigation-art small{position:relative;z-index:1;color:var(--ordax-muted);font-size:9px}
+.account-content{
+ padding:26px clamp(22px,2.45vw,42px) 35px;
+ background:var(--ordax-bg);min-width:0;
+}
+.account-breadcrumb{margin:0 0 17px;gap:8px;font-size:10px;min-height:20px}
+.account-content[data-view="visao-geral"] .account-heading{
+ position:relative;isolation:isolate;display:flex;align-items:flex-start;
+ min-height:190px;max-height:none;padding:24px 2px;margin:0 0 -14px;
+ overflow:hidden;border:0;border-radius:0;
+ background:linear-gradient(90deg,var(--ordax-bg) 2%,color-mix(in srgb,var(--ordax-bg) 91%,transparent) 31%,transparent 84%),
+ linear-gradient(0deg,var(--ordax-bg),transparent 55%),
+ url("/assets/ordax-landscape.png") center 56%/cover no-repeat;
+}
+.account-content[data-view="visao-geral"] .account-heading::before{content:none}
+.account-content[data-view="visao-geral"] .account-heading-copy{position:relative;z-index:1}
+.account-content[data-view="visao-geral"] .account-heading .eyebrow{
+ display:flex;align-items:center;gap:7px;margin:0 0 12px;color:var(--ordax-brand-cyan);
+ font-size:9px;font-weight:650;letter-spacing:.13em;
+}
+.account-content[data-view="visao-geral"] .account-heading .eyebrow::before{
+ content:"";width:4px;height:4px;background:var(--ordax-brand-cyan);border-radius:50%;
+}
+.account-content[data-view="visao-geral"] .account-heading h1{
+ font-size:clamp(31px,2.7vw,42px);font-weight:650;line-height:1.23;
+ margin:0 0 9px;letter-spacing:var(--ordax-tracking-tight);
+}
+.account-content[data-view="visao-geral"] .account-heading p:last-of-type{
+ font-size:11px;color:var(--ordax-muted);line-height:1.65;
+}
+.account-content[data-view="visao-geral"] .account-heading-mark{display:none}
+.account-content[data-view="visao-geral"] .account-heading-signature{
+ position:absolute;top:5px;right:19px;font-size:7px;letter-spacing:.15em;
+ margin:0;color:var(--ordax-muted);white-space:nowrap;
+}
+.account-session{
+ z-index:1;grid-template-columns:minmax(280px,1fr) auto;
+ grid-template-rows:auto auto;gap:1px 22px;align-items:center;
+ min-height:132px;padding:19px 22px;margin-bottom:20px;
+ background:linear-gradient(145deg,color-mix(in srgb,var(--ordax-bg) 65%,var(--ordax-app-bg)),var(--ordax-bg));
+ border-radius:8px;box-shadow:none;
+}
+.account-session::before{opacity:.15}
+.account-profile-intro{grid-column:1;grid-row:1;gap:17px}
+.account-profile-avatar{width:76px;height:76px;flex:0 0 76px;border-width:1px}
+.account-profile-avatar .account-icon{width:35px;height:35px;color:var(--ordax-brand-cyan)}
+.account-profile-overline{display:none}
+.account-profile-copy h2{font-size:17px;font-weight:550;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.account-profile-type{
+ border:1px solid var(--ordax-border-soft);padding:3px 6px;
+ color:var(--ordax-muted);border-radius:4px;font-size:9px;font-weight:400;
+}
+.account-profile-copy .account-profile-description{font-size:10px;line-height:1.5}
+.account-profile-controls{
+ grid-column:1;grid-row:2;margin-left:93px;align-items:center;
+ display:flex;flex-wrap:wrap;gap:8px;min-width:0;
+}
+.account-profile-action{min-height:32px;padding:6px 11px;border-radius:5px;font-size:10px;gap:7px}
+.account-session-disclosure summary{min-height:32px;font-size:10px}
+.account-profile-facts{
+ grid-column:2;grid-row:1/3;display:grid;grid-template-columns:repeat(3,minmax(100px,auto));
+ border:0;padding:0;gap:13px;align-items:center;
+}
+.account-profile-fact{
+ border:0;background:transparent;border-radius:0;min-height:55px;padding:4px 0;gap:9px;
+}
+.account-profile-fact>.account-icon{
+ flex:0 0 30px;width:30px;height:32px;padding:8px;
+ background:var(--ordax-subtle-bg);border:1px solid var(--ordax-border-soft);border-radius:6px;
+}
+.account-profile-fact small{font-size:9px}
+.account-profile-fact strong{font-size:10px;font-weight:550}
+.account-overview-heading{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ margin:22px 0 14px;
+}
+.account-overview-heading .eyebrow{display:none}
+.account-overview-heading h2{font-size:15px;font-weight:550;letter-spacing:0}
+.account-overview-heading>span{font-size:9px;color:var(--ordax-muted)}
+.account-content:not([data-view="visao-geral"]) .account-overview-heading{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-cards{
+ grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano{grid-column:span 4;order:1;min-height:237px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo{grid-column:span 4;order:2;min-height:237px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento{grid-column:span 4;order:3;min-height:237px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-dashboard-activity{grid-column:span 8;order:4}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 4;order:5;min-height:315px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading{order:6;grid-column:1/-1}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#consumo):not(#faturamento):not(#seguranca){order:7;grid-column:span 4}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card{
+ border-radius:8px;padding:19px;background:var(--account-material);border-color:var(--account-stroke);
+ box-shadow:none;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card[data-account-summary] .card-heading h2{
+ font-size:11px;font-weight:600;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .card-heading{min-height:30px;gap:9px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .card-heading>.account-icon{
+ width:29px;height:29px;flex:0 0 29px;padding:7px;border-radius:6px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .card-heading .card-arrow{font-size:14px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano{
+ background:linear-gradient(125deg,color-mix(in srgb,var(--ordax-brand-violet) 9%,var(--ordax-app-bg)),var(--ordax-bg));
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-heading h2{font-size:11px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .account-plan-kicker{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .account-plan-availability{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-summary{
+ font-size:clamp(15px,1.2vw,18px);line-height:1.42;font-weight:600;color:var(--ordax-text);
+ margin-top:25px;max-width:65%;
+}
+.account-summary-plan-description{
+ display:none;margin:8px 0 0;max-width:58%;
+ font-size:9px;line-height:1.55;color:var(--ordax-muted);position:relative;z-index:1;
+}
+.account-summary-button,.account-summary-billing-link,.account-summary-security-link{
+ display:none;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .account-summary-plan-description{display:block}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .account-summary-button{
+ display:flex;align-items:center;justify-content:space-between;position:absolute;z-index:2;
+ bottom:18px;left:19px;right:19px;min-height:33px;padding:8px 13px;
+ background:linear-gradient(100deg,var(--ordax-brand-violet),var(--ordax-brand-blue));
+ color:white;border:1px solid color-mix(in srgb,var(--ordax-brand-blue) 60%,var(--ordax-brand-violet));
+ border-radius:5px;font-size:10px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .plan-card-visual{
+ width:116px;height:116px;right:10px;top:42%;transform:translateY(-22%);opacity:.85;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-content{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .card-summary{
+ display:block;font-size:10px;line-height:1.5;margin:16px 0 12px;color:var(--ordax-muted);
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .card-content{display:block;margin-top:0;max-width:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .card-content>.card-note{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines{
+ display:grid;grid-template-columns:1fr;gap:8px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines>div{
+ display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;
+ min-height:32px;padding:8px 10px;background:var(--ordax-subtle-bg);
+ border:0;border-radius:5px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dt{font-size:9px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dd{font-size:9px;min-width:0}
+.account-summary-usage-note{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-summary-usage-note{
+ display:flex;align-items:center;gap:7px;margin:11px 0 0;
+ font-size:9px;color:var(--ordax-muted);
+}
+.account-summary-usage-note::before{
+ content:"";width:9px;height:9px;border:1px solid var(--ordax-muted);border-radius:50%;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .account-billing-kicker{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .account-billing-overview{
+ font-size:clamp(23px,2vw,30px);line-height:1.2;margin-top:35px;color:var(--ordax-text);
+}
+.account-billing-overview span{font-size:10px;color:var(--ordax-muted);font-weight:400}
+.account-billing-context{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .account-billing-context{
+ display:block;font-size:9px;color:var(--ordax-muted);margin:12px 0 0;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .card-summary{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .card-content{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .account-summary-billing-link{
+ display:flex;align-items:center;justify-content:space-between;position:absolute;z-index:2;
+ bottom:18px;left:19px;right:19px;min-height:33px;padding:8px 10px;
+ border:1px solid var(--ordax-border-soft);background:var(--ordax-subtle-bg);
+ border-radius:5px;font-size:10px;
+}
+.account-dashboard-activity{
+ display:flex;flex-direction:column;min-height:315px;min-width:0;
+ background:var(--account-material);border:1px solid var(--account-stroke);
+ border-radius:8px;padding:19px;
+}
+.account-dashboard-activity[hidden]{display:none}
+.account-dashboard-activity-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.account-dashboard-activity-header h2{font-size:12px;font-weight:600;margin:0 0 7px}
+.account-dashboard-activity-header p{font-size:10px;color:var(--ordax-muted);margin:0}
+.account-dashboard-activity-period{
+ font-size:10px;color:var(--ordax-muted);border:1px solid var(--ordax-border-soft);
+ background:var(--ordax-subtle-bg);padding:7px 9px;border-radius:5px;white-space:nowrap;
+}
+.account-dashboard-activity-legend{display:flex;gap:17px;flex-wrap:wrap;margin:18px 0 8px}
+.account-dashboard-activity-legend span{display:flex;align-items:center;gap:7px;font-size:9px;color:var(--ordax-muted)}
+.account-dashboard-activity-legend span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ordax-brand-violet)}
+.account-dashboard-activity-legend span:nth-child(2)::before{background:var(--ordax-brand-cyan)}
+.account-dashboard-activity-legend span:nth-child(3)::before{background:var(--ordax-brand-blue)}
+.account-dashboard-chart-slot{min-height:140px;flex:1}
+.account-dashboard-activity .account-usage-visual{
+ margin:0;padding:0;background:transparent;border:0;border-radius:0;
+}
+.account-dashboard-activity .account-usage-visual-heading{display:none}
+.account-dashboard-activity .account-usage-visual-plot{min-height:167px}
+.account-dashboard-activity .account-usage-visual-empty{background:transparent;border:0}
+.account-dashboard-activity-link{
+ align-self:flex-end;display:flex;align-items:center;gap:8px;
+ font-size:10px;color:var(--ordax-muted);
+}
+.account-dashboard-activity-link:hover{color:var(--ordax-text)}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-heading{flex-wrap:nowrap}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-heading h2{font-size:11px;flex-basis:auto}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-arrow{display:block}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-summary,
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-content{display:none}
+.account-security-summary{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-security-summary{
+ display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;
+}
+.account-security-emblem{
+ width:60px;height:60px;display:grid;place-items:center;
+ border:1px solid var(--ordax-border-soft);border-radius:50%;background:var(--ordax-subtle-bg);
+ color:var(--ordax-brand-cyan);margin:13px auto 0;
+}
+.account-security-emblem .account-icon{width:30px;height:30px;color:var(--ordax-brand-cyan)}
+.account-security-summary h3{margin:0;font-size:14px;font-weight:600}
+.account-security-summary p{margin:0;max-width:270px;font-size:10px;color:var(--ordax-muted);line-height:1.5}
+.account-security-checks{width:100%;display:grid;gap:4px;margin-top:4px}
+.account-security-checks>div{
+ display:flex;align-items:center;justify-content:space-between;gap:10px;
+ border-bottom:1px solid var(--ordax-border-soft);padding:4px 0;
+ font-size:9px;color:var(--ordax-muted);text-align:left;
+}
+.account-security-checks strong{font-weight:400}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-summary-security-link{
+ display:flex;justify-content:space-between;align-items:center;width:100%;
+ min-height:33px;margin-top:6px;padding:7px 10px;font-size:10px;
+ background:var(--ordax-subtle-bg);border:1px solid var(--ordax-border-soft);border-radius:5px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not([data-account-summary]):not(#seguranca){
+ min-height:90px;padding:14px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not([data-account-summary]):not(#seguranca) .card-content{display:none}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not([data-account-summary]):not(#seguranca) .card-heading h2{font-size:11px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not([data-account-summary]):not(#seguranca) .card-summary{
+ margin:7px 0 0;padding-left:39px;font-size:10px;
+}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading{padding-top:14px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading h2{font-size:15px}
+@media(min-width:901px){
+ .account-enhanced.account-sidebar-collapsed .account-header{
+  grid-template-columns:76px minmax(140px,1fr) minmax(210px,400px) auto;
+ }
+ .account-enhanced.account-sidebar-collapsed .account-brand>span:last-child{display:none}
+}
+@media(max-width:1250px) and (min-width:901px){
+ .account-workspace-label{gap:9px}
+ .account-portal .account-header{grid-template-columns:185px minmax(125px,1fr) minmax(195px,290px) auto;gap:10px}
+ .account-profile-facts{gap:8px;grid-template-columns:repeat(3,minmax(86px,auto))}
+ .account-profile-fact{gap:4px}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .plan-card-visual{width:90px;height:90px}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-summary{max-width:80%}
+}
+@media(max-width:1100px){
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano{grid-column:span 6}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo{grid-column:span 6}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento{grid-column:span 12;min-height:185px}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-dashboard-activity{grid-column:span 7}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 5}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#consumo):not(#faturamento):not(#seguranca){grid-column:span 6}
+ .account-session{grid-template-columns:1fr;gap:10px}
+ .account-profile-intro{grid-column:1;grid-row:auto}
+ .account-profile-controls{grid-column:1;grid-row:auto;margin-left:93px}
+ .account-profile-facts{grid-column:1;grid-row:auto;border-top:1px solid var(--ordax-border-soft);padding-top:12px;justify-content:space-between}
+}
+@media(max-width:900px){
+ .account-shell{display:block}
+ .account-portal .account-header{
+  grid-template-columns:minmax(0,1fr) 44px auto;gap:6px;padding:10px 16px;min-height:66px;
+ }
+ .account-workspace-label{display:none}
+ .account-portal .account-header .account-search{grid-column:1/-1;grid-row:2;max-width:none;justify-self:stretch}
+ .account-search-shortcut{display:none}
+ .account-navigation{height:auto;top:auto;position:static;display:none}
+ .account-enhanced.account-menu-open .account-navigation{display:block;height:auto}
+ .account-content{padding:20px var(--ordax-space-5) calc(105px + env(safe-area-inset-bottom))}
+ .account-content[data-view="visao-geral"] .account-heading{min-height:175px}
+ .account-profile-facts{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-dashboard-activity{grid-column:span 12}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 12;min-height:0}
+}
+@media(max-width:700px){
+ .account-profile-facts{grid-template-columns:1fr;gap:5px;padding-top:10px}
+ .account-profile-fact{min-height:43px;padding:5px 0}
+ .account-overview-heading{flex-direction:column;align-items:flex-start;gap:5px}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-dashboard-activity,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#consumo):not(#faturamento):not(#seguranca){grid-column:1/-1;min-height:0}
+ .account-content[data-view="visao-geral"] .account-heading{background-position:center,center,right center}
+ .account-content[data-view="visao-geral"] .account-heading-signature{display:none}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo{min-height:237px}
+ .account-session{padding:15px}
+ .account-profile-intro{gap:12px}
+ .account-profile-avatar{width:60px;height:60px;flex-basis:60px}
+ .account-profile-controls{margin-left:72px}
+}
+@media(max-width:410px){
+ .account-content[data-view="visao-geral"] .account-heading h1{font-size:31px}
+ .account-profile-controls{margin-left:0}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-summary{max-width:70%}
+ .account-dashboard-activity-legend{gap:10px}
+ .account-dashboard-activity-legend span{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .account-portal .account-card,.account-navigation a{transition:none}
 }
