@@ -1,18 +1,7 @@
 import { defineComponentManifest } from "../../../contracts/component-manifest.mjs";
+import { filesComponent } from "../../../apps/files/component.mjs";
 
-export const filesComponent = defineComponentManifest({
-  id: "files",
-  title: "Arquivos",
-  kind: "app",
-  version: "0.1.0",
-  releaseMode: "bundled",
-  criticality: "optional",
-  failureDomain: "app",
-  restartScope: "surface",
-  healthMode: "surface",
-  owner: "system/apps/files",
-  dependencies: ["surface-shell"],
-});
+export { filesComponent };
 
 export const settingsComponent = defineComponentManifest({
   id: "settings",

@@ -13,6 +13,7 @@ class FilesBootstrapContinuityTests(unittest.TestCase):
     def test_files_remains_preinstalled_and_mounted_during_cutover_preparation(self):
         for relative in (
             "system/apps/files/app.mjs",
+            "system/apps/files/component.mjs",
             "system/surface/ui/file-space-controls.mjs",
             "system/surface/ui/file-space-response-identity.mjs",
             "system/services/components/manifests/apps.mjs",
@@ -28,9 +29,16 @@ class FilesBootstrapContinuityTests(unittest.TestCase):
         self.assertIn('import { filesApp } from "./files/app.mjs";', app_catalog)
         self.assertIn('  filesApp,', app_catalog)
         self.assertIn('{ appId: "files", deliveryClass: "bootstrap"', delivery)
-        self.assertIn('export const filesComponent = defineComponentManifest({', components)
-        self.assertIn('  releaseMode: "bundled",', components)
-        self.assertIn('  owner: "system/apps/files",', components)
+        component = (ROOT / "system/apps/files/component.mjs").read_text(encoding="utf-8")
+        app = (ROOT / "system/apps/files/app.mjs").read_text(encoding="utf-8")
+        self.assertIn('import { filesComponent } from "../../../apps/files/component.mjs";', components)
+        self.assertIn("export { filesComponent };", components)
+        self.assertNotIn('export const filesComponent = defineComponentManifest({', components)
+        self.assertIn('export const filesComponent = defineComponentManifest({', component)
+        self.assertIn('  releaseMode: "bundled",', component)
+        self.assertIn('  owner: "system/apps/files",', component)
+        self.assertIn('import { filesComponent } from "./component.mjs";', app)
+        self.assertNotIn('services/components/manifests/apps.mjs', app)
         self.assertIn('import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";', native)
         self.assertIn('const fileSpaceControls = mountFileSpaceControls(', native)
 
