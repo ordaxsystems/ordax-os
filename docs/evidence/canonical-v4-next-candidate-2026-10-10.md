@@ -20,6 +20,26 @@ na `main` **não** estão automaticamente incluídas.
 | Surface / EROFS | `surface-runtime-lock-discovery.yml` | [38038183168](https://github.com/ordaxsystems/ordax-os/actions/runs/38038183168) | em execução |
 | IA Local / EROFS | `local-ai-runtime-candidate.yml` | [38038185133](https://github.com/ordaxsystems/ordax-os/actions/runs/38038185133) | em execução |
 
+## Provas de operator artifacts confirmadas posteriormente
+
+- **Sistema: SUCCESS** no run 38038180623; artifact canônico
+  `11663959008` (`canonical-v4-operator-system-69032495...`),
+  digest do ZIP no GitHub
+  `sha256:485b3d26772bc0aac239b3d0f370254a0225c26e6f7cd371ba456770b9ff904e`,
+  `expired=false`, expira em 24/10/2026 às 08:32 UTC.
+- **Surface: SUCCESS** no run 38038183168; artifact canônico
+  `11665055995` (`canonical-v4-operator-surface-69032495...`),
+  digest do ZIP no GitHub
+  `sha256:ed92a488f1bf9f1a2f05f1868ee1b56dd146aa1cbaa141a832385b80bb8dee2a`,
+  `expired=false`, expira em 24/10/2026 às 08:33 UTC.
+- **IA Local:** ainda `in_progress` na consulta dessa atualização.
+  Não há terceiro artifact válido confirmado neste registro.
+
+Esses digests são dos **ZIPs de artefatos do GitHub Actions**,
+não substituem o manifesto assinado nem o checksum dos EROFS
+materializados. A admissão canônica de release deve conferir
+os IDs de artefatos, workflow/runs, SHA congelado e recibos reais.
+
 A API GitHub confirmou `headSha` exatamente igual ao SHA congelado
 para os três runs. Esta prova de origem evita compor artefatos de
 diferentes versões da `main`. Não se considera nenhum deles apto
