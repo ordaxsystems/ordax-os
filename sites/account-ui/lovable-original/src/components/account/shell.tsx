@@ -4,12 +4,12 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import { Bell, Search, ChevronDown, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, ArrowUpRight, MoreHorizontal, X, ShieldCheck, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { sections } from '@/lib/account/model';
+import { accountSectionFromUrl, sections } from '@/lib/account/model';
 import { useOfficialAccountSession } from '@/lib/account/official-session';
 import mark from '@/assets/ordax-mark.png';
 import landscape from '@/assets/ordax-landscape.jpg';
 export function AccountShell({ children }: { children: ReactNode }) {
- const path = useRouterState({ select: s => s.location.pathname });
+ const path = useRouterState({ select: state => accountSectionFromUrl(state.location.pathname) });
  const [collapsed, setCollapsed] = useState(false);
  const [more, setMore] = useState(false);
  const [dialog, setDialog] = useState<'search'|'notifications'|null>(null);
@@ -43,7 +43,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
   <aside className="desktop-sidebar"><div className="sidebar-heading"><span>MINHA CONTA</span><Button size="icon" variant="ghost" title={collapsed?'Expandir menu':'Recolher menu'} aria-label={collapsed?'Expandir menu':'Recolher menu'} onClick={()=>setCollapsed(!collapsed)}>{collapsed?<PanelLeftOpen/>:<PanelLeftClose/>}</Button></div><nav aria-label="Menu da conta">{sections.slice(0,10).map((s,i)=><Link to={s.path} key={s.path} title={s.title} className={`sidebar-link ${path===s.path?'active':''} ${i===5?'nav-separator':''}`}><s.icon/><span>{s.title}</span>{path===s.path&&<span className="active-dot"/>}</Link>)}</nav>
    <div className="sidebar-bottom"><div className="sidebar-art"><img src={landscape} width="1920" height="640" alt="Montanhas sob um planeta azul" loading="lazy"/><div><img src={mark} width="30" height="30" alt=""/><p>Uma conta.<br/>Todos os seus mundos.</p><span>O seu universo começa aqui.</span></div></div><Link to="/suporte" className={`sidebar-link ${path==='/suporte'?'active':''}`}><ShieldCheck/><span>Precisa de ajuda?</span><ArrowUpRight/></Link><div className="sidebar-version"><span>OrdaX OS</span><span>ACCOUNT CENTER</span></div></div>
   </aside>
-  <main className="account-main"><div className="breadcrumb"><span>OrdaX OS</span><ChevronRight/><span>Minha Conta</span>{path!=='/'&&<><ChevronRight/><span>{active.title}</span></>}</div>{children}<footer className="page-footer"><span><img src={mark} width="18" height="18" alt=""/> OrdaX OS <span className="footer-dash">—</span> Uma conta. Todos os seus mundos.</span><div><Link to="/privacidade">Privacidade</Link><Link to="/suporte">Ajuda</Link><span className="footer-status"><span/>Serviços não conectados</span></div></footer></main>
+  <main className="account-main"><div className="breadcrumb"><span>OrdaX OS</span><ChevronRight/><span>Minha Conta</span>{path!=='/'&&<><ChevronRight/><span>{active.title}</span></>}</div>{children}<footer className="page-footer"><span><img src={mark} width="18" height="18" alt=""/> OrdaX OS <span className="footer-dash">—</span> Uma conta. Todos os seus mundos.</span><div><a href="/privacidade/">Política de privacidade</a><Link to="/suporte">Ajuda</Link><span className="footer-status"><span/>Métricas e faturamento pendentes</span></div></footer></main>
   <nav className="mobile-nav" aria-label="Navegação móvel">{[sections[0],sections[2],sections[3],sections[5]].map(s=><Link key={s.path} to={s.path} className={path===s.path?'active':''}><s.icon/><span>{s.path==='/'?'Resumo':s.path==='/assinatura'?'Assinatura':s.path==='/consumo'?'Consumo':'Segurança'}</span></Link>)}<Button variant="ghost" className={more?'active':''} onClick={()=>setMore(!more)} aria-label="Mais opções"><MoreHorizontal/><span>Mais</span></Button></nav>
   {more&&<div className="mobile-more"><div className="flex items-center justify-between mb-3"><h2>Minha Conta</h2><Button size="icon" variant="ghost" aria-label="Fechar menu" onClick={()=>setMore(false)}><X/></Button></div>{sections.slice(1).map(s=><Link key={s.path} to={s.path} onClick={()=>setMore(false)}><s.icon/>{s.title}<ChevronRight/></Link>)}</div>}
   <Dialog open={dialog!==null} onOpenChange={open=>{if(!open)setDialog(null)}}><DialogContent>
