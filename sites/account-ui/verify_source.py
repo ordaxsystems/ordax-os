@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Verify byte-exact original Lovable account source and binary assets."""
+"""Verify byte-exact Lovable assets and unmodified source dependencies.
+
+Account components are deliberately adapted after their baseline import; their
+original blob SHAs remain documented in lovable-source.json and Git history.
+"""
 from __future__ import annotations
 import hashlib
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent / "lovable-original"
 SOURCE_BLOBS = {
-    "src/components/account/overview.tsx": "3f2d988dd3f734a6e2b0f462cb2139e3ece7c6c5",
-    "src/components/account/shell.tsx": "e9b956c061de1cf3228516a3cf3d19ad2caccd0b",
-    "src/components/account/details.tsx": "d04487118e31d504b18d4b94a7b2ac6affcbc134",
     "src/components/account/integration-panel.tsx": "1786e4bf2e631b53ec3aaa2023d7c0456ed39c34",
     "src/lib/account/model.ts": "9b06816494a86604d172cb8c3ed36e124a2e6e0e",
     "src/styles.css": "772bb4ef2b595ef89d2cbdbf018e03330761b9a9",
@@ -39,6 +40,8 @@ def verify() -> None:
             raise ValueError(f"original source changed: {rel} {git_blob} != {expected}")
         if rel in IMAGE_SHA256 and hashlib.sha256(data).hexdigest() != IMAGE_SHA256[rel]:
             raise ValueError(f"original image bytes changed: {rel}")
+    if not (BASE / "src/lib/account/official-session.tsx").is_file():
+        raise ValueError("canonical session adapter missing")
     if not (BASE / "src/account-entry.tsx").is_file():
         raise ValueError("static frontend entry missing")
     if not (BASE / "vite.config.account.ts").is_file():
