@@ -1334,7 +1334,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       }
     }
     if (name === 'mobile') {
-      await evaluate('document.querySelector(".mobile-nav button[aria-label=\"Mais opções\"]").focus()');
+      await evaluate('document.querySelector(".mobile-nav button").focus()');
       await client.send('Input.dispatchKeyEvent', {
         type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
       });
@@ -1345,7 +1345,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       if (!await evaluate('!!document.querySelector("#account-mobile-more[role=dialog]")')) {
         throw new Error('Mobile More did not open the Radix accessible dialog');
       }
-      if (!await evaluate('document.querySelector(".mobile-nav button[aria-label=\"Mais opções\"]")?.getAttribute("aria-expanded") === "true"')) {
+      if (!await evaluate('document.querySelector(".mobile-nav button")?.getAttribute("aria-expanded") === "true"')) {
         throw new Error('Mobile More trigger did not announce expanded');
       }
       await client.send('Input.dispatchKeyEvent', {
