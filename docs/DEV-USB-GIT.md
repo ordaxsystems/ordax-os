@@ -4,6 +4,34 @@ Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
 This is an owner/development profile. It does not replace the canonical product path based on signed immutable releases under `/ordax/releases/<commit>`.
 
+## Windows Creator: developer installation and channel isolation (2026-10-10)
+
+The Owner/Development Creator is packaged separately from the public Stable/MVP
+Creator. Its GitHub prerelease is
+`https://github.com/ordaxsystems/ordax-os/releases/tag/creator-owner-prototype`.
+The exact asset is `OrdaX-Creator-Owner-Prototype.zip`. The complete
+folder (GUI, privileged RAW writer, seed, provenance and README) must be
+extracted before running `OrdaX-Creator.exe`.
+
+Before this bundle is published, `tools/creator/verify_owner_dev_bundle.py`
+checks its exact source commit, ZIP/hash manifest, member allowlist and seed
+digest. This is a **developer-only** test channel; it uses ephemeral prototype
+trust, not public release signing, and the Windows Creator is not
+Authenticode-signed. Never publish this asset as Stable or link it as the public
+`/download/` offer.
+
+Writing a target USB is destructive: use only a disposable, positively
+identified removable USB and the Creator's exact-device confirmation/UAC
+workflow. Neither a GitHub merge nor an artifact build grants permission to
+select or overwrite a connected device. The notebook's internal disk must
+remain untouched. First boot requires network for a new checkout; ordinary
+system/Surface changes thereafter track `main` through the Git owner.
+
+The development Base's kernel/rootfs A/B and bootloader upgrades have
+additional promotion/fallback gates. This bundle does **not** imply that every
+Base update has been physically proven, that a fresh notebook boot passed, or
+that a public signed Stable release is available.
+
 ## Goal
 
 The development USB exists only to cross the boundary that Git cannot cross by itself:
@@ -32,7 +60,7 @@ edit/commit on remote main
 `ordax-pull` tracks:
 
 ```text
-https://github.com/washingtonmsdj/prototipo-ordax-os.git
+https://github.com/ordaxsystems/ordax-os.git
 branch: main
 checkout: /workspace/ordax
 materialized runtime/control paths:
