@@ -32,7 +32,7 @@ test("component runtime metadata validates exact current slot identity", () => {
 });
 
 test("component runtime metadata accepts explicit current absence and bundled fallback only without slot identity", () => {
-  for (const source of ["absent", "bundled"]) {
+  for (const source of ["absent", "bundled", "removed"]) {
     const value = validateComponentRuntimeMetadata({
       componentId: "notes",
       state: "current",
