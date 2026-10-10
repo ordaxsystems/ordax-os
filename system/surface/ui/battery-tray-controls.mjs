@@ -2,21 +2,12 @@ import {
   assertPowerStatusPort,
   validatePowerStatusSnapshot,
 } from "../../contracts/power-status.mjs";
+import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { createLocaleFormatting } from "../../services/i18n/formatting.mjs";
+import { resolveRegionalTimeZone } from "../../services/preferences/regional.mjs";
 
 const POLL_INTERVAL_MS = 30000;
-const POWER_TIME_ZONE = "America/Bahia";
-
-export function formatPowerReceivedAt(value, locale = "pt-BR") {
-  if (!Number.isFinite(value)) return null;
-  return new Intl.DateTimeFormat(locale, {
-    timeZone: POWER_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
-}
 
 function batteryLevel(percent) {
   if (percent <= 10) return 0;
@@ -36,12 +27,12 @@ function externalTitleMessageId(externalPower) {
   return null;
 }
 
-function batteryTitle(battery, externalPower, translate) {
+function batteryTitle(battery, externalPower, translate, formattedPercent) {
   const state = translate(`power.stateTitle.${stateKey(battery.state)}`);
   const externalMessageId = externalTitleMessageId(externalPower);
   const external = externalMessageId ? translate(externalMessageId) : "";
   return translate("power.tray.title", {
-    percent: battery.percent,
+    percent: formattedPercent,
     state,
     external,
   });
@@ -50,15 +41,17 @@ function batteryTitle(battery, externalPower, translate) {
 export function mountBatteryTrayControls(
   root,
   powerStatus,
-  surfaceLifecycle,
+  surfaceRuntime,
   { pollIntervalMs = POLL_INTERVAL_MS } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Battery tray controls require a Surface root Element");
   }
   const port = assertPowerStatusPort(powerStatus);
-  const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const lifecycle = assertSurfaceRenderLifecycle(surfaceRuntime);
+  const preferences = assertPreferenceRuntimePort(surfaceRuntime.preferences);
   const localization = lifecycle.localization;
+  const formatting = createLocaleFormatting(localization);
   const t = localization.translate;
   const item = root.querySelector("[data-battery-tray]");
   const icon = root.querySelector("[data-battery-icon]");
@@ -72,10 +65,20 @@ export function mountBatteryTrayControls(
   let lastSnapshot = null;
   let lastSuccessAt = null;
   let lastObservation = "initial";
+  let observedTimeZone = resolveRegionalTimeZone(preferences.getSnapshot());
 
-  const receivedAt = () =>
-    formatPowerReceivedAt(lastSuccessAt, localization.getLocale())
-    ?? t("power.time.unknown");
+  const formatBatteryPercent = (value) =>
+    formatting.formatPercent(value / 100, { maximumFractionDigits: 0 });
+
+  const receivedAt = () => Number.isFinite(lastSuccessAt)
+    ? formatting.formatDate(lastSuccessAt, {
+        timeZone: observedTimeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      })
+    : t("power.time.unknown");
 
   const render = (snapshot, { stale = false } = {}) => {
     const value = validatePowerStatusSnapshot(snapshot);
@@ -103,11 +106,11 @@ export function mountBatteryTrayControls(
       ? "unknown"
       : String(batteryLevel(value.battery.percent));
     icon.dataset.charging = stale ? "false" : String(value.battery.state === "charging");
-    const labelValue = `${value.battery.percent}%`;
+    const labelValue = formatBatteryPercent(value.battery.percent);
     label.textContent = stale
       ? t("power.tray.stale.label", { label: labelValue })
       : labelValue;
-    const title = batteryTitle(value.battery, value.externalPower, t);
+    const title = batteryTitle(value.battery, value.externalPower, t, labelValue);
     item.title = stale
       ? t("power.tray.stale.title", { title, time: receivedAt() })
       : title;
@@ -123,6 +126,15 @@ export function mountBatteryTrayControls(
     icon.dataset.charging = "false";
     label.textContent = "--";
     item.title = t("power.tray.unavailable.title");
+  };
+
+  const rerenderPresentation = () => {
+    if (destroyed || lastObservation === "initial") return;
+    if (lastSnapshot) {
+      render(lastSnapshot, { stale: lastObservation === "stale" });
+    } else {
+      renderUnavailable();
+    }
   };
 
   const refresh = async () => {
@@ -147,12 +159,13 @@ export function mountBatteryTrayControls(
   };
 
   const unsubscribeLocalization = localization.subscribe(() => {
-    if (destroyed || lastObservation === "initial") return;
-    if (lastSnapshot) {
-      render(lastSnapshot, { stale: lastObservation === "stale" });
-    } else {
-      renderUnavailable();
-    }
+    rerenderPresentation();
+  });
+  const unsubscribePreferences = preferences.subscribe((snapshot) => {
+    const nextTimeZone = resolveRegionalTimeZone(snapshot);
+    if (nextTimeZone === observedTimeZone) return;
+    observedTimeZone = nextTimeZone;
+    rerenderPresentation();
   });
 
   void refresh();
@@ -164,6 +177,7 @@ export function mountBatteryTrayControls(
       destroyed = true;
       clearInterval(timer);
       unsubscribeLocalization();
+      unsubscribePreferences();
       lastSnapshot = null;
       lastSuccessAt = null;
       delete item.dataset.batteryObservation;

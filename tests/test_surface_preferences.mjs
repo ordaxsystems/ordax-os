@@ -6,6 +6,7 @@ import {
   listPreferenceDefinitions,
   recoverPreferenceSnapshot,
 } from "../system/services/preferences/catalog.mjs";
+import { resolveRegionalTimeZone } from "../system/services/preferences/regional.mjs";
 import { createWebPreferenceStore } from "../system/adapters/web/preferences.mjs";
 
 const REGIONAL_DEFAULTS = Object.freeze({
@@ -163,6 +164,22 @@ test("regional preferences share the first-run supported values", () => {
   );
 });
 
+
+test("regional time-zone resolution has one canonical default and validates explicit state", () => {
+  assert.equal(resolveRegionalTimeZone({}), "America/Bahia");
+  assert.equal(
+    resolveRegionalTimeZone({ "regional.time-zone": "America/Manaus" }),
+    "America/Manaus",
+  );
+  assert.throws(
+    () => resolveRegionalTimeZone({ "regional.time-zone": "Europe/London" }),
+    /Unsupported regional\.time-zone/,
+  );
+  assert.throws(
+    () => resolveRegionalTimeZone(null),
+    /snapshot must be an object/,
+  );
+});
 
 test("memory automatic capture preference persists through the shared store", () => {
   const snapshot = createPreferenceSnapshot({ "memory.auto-capture": "off" });

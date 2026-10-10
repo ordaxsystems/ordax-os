@@ -2,8 +2,10 @@ import {
   assertPowerStatusPort,
   validatePowerStatusSnapshot,
 } from "../../contracts/power-status.mjs";
+import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
-import { formatPowerReceivedAt } from "./battery-tray-controls.mjs";
+import { createLocaleFormatting } from "../../services/i18n/formatting.mjs";
+import { resolveRegionalTimeZone } from "../../services/preferences/regional.mjs";
 
 function stateMessageId(state) {
   const key = state === "not-charging" ? "notCharging" : state;
@@ -16,13 +18,15 @@ function externalPowerMessageId(externalPower) {
   return "power.external.unknown";
 }
 
-export function mountBatteryQuickPanel(root, powerStatus, surfaceLifecycle) {
+export function mountBatteryQuickPanel(root, powerStatus, surfaceRuntime) {
   if (!(root instanceof Element)) {
     throw new TypeError("Battery quick panel requires a Surface root Element");
   }
   const port = assertPowerStatusPort(powerStatus);
-  const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
+  const lifecycle = assertSurfaceRenderLifecycle(surfaceRuntime);
+  const preferences = assertPreferenceRuntimePort(surfaceRuntime.preferences);
   const localization = lifecycle.localization;
+  const formatting = createLocaleFormatting(localization);
   const t = localization.translate;
   const panel = root.querySelector('[data-quick-panel="battery"]');
   const percent = root.querySelector("[data-quick-battery-percent]");
@@ -37,10 +41,20 @@ export function mountBatteryQuickPanel(root, powerStatus, surfaceLifecycle) {
   let lastSnapshot = null;
   let lastSuccessAt = null;
   let lastObservation = "initial";
+  let observedTimeZone = resolveRegionalTimeZone(preferences.getSnapshot());
 
-  const receivedAt = () =>
-    formatPowerReceivedAt(lastSuccessAt, localization.getLocale())
-    ?? t("power.time.unknown");
+  const formatBatteryPercent = (value) =>
+    formatting.formatPercent(value / 100, { maximumFractionDigits: 0 });
+
+  const receivedAt = () => Number.isFinite(lastSuccessAt)
+    ? formatting.formatDate(lastSuccessAt, {
+        timeZone: observedTimeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      })
+    : t("power.time.unknown");
 
   const render = (snapshot, { stale = false } = {}) => {
     const value = validatePowerStatusSnapshot(snapshot);
@@ -56,7 +70,7 @@ export function mountBatteryQuickPanel(root, powerStatus, surfaceLifecycle) {
       return;
     }
 
-    percent.textContent = `${value.battery.percent}%`;
+    percent.textContent = formatBatteryPercent(value.battery.percent);
     const stateLabel = t(stateMessageId(value.battery.state));
     state.textContent = stale
       ? t("power.quick.stateStale", { state: stateLabel, time: receivedAt() })
@@ -75,6 +89,17 @@ export function mountBatteryQuickPanel(root, powerStatus, surfaceLifecycle) {
   const renderInitial = () => {
     state.textContent = t("shell.quick.batteryReading");
     power.textContent = t("shell.quick.checking");
+  };
+
+  const rerenderPresentation = () => {
+    if (destroyed) return;
+    if (lastSnapshot) {
+      render(lastSnapshot, { stale: lastObservation === "stale" });
+    } else if (lastObservation === "unavailable") {
+      renderUnavailable();
+    } else {
+      renderInitial();
+    }
   };
 
   const refresh = async () => {
@@ -105,14 +130,13 @@ export function mountBatteryQuickPanel(root, powerStatus, surfaceLifecycle) {
   panel.addEventListener("ordax:quick-panel-open", onOpen);
 
   const unsubscribeLocalization = localization.subscribe(() => {
-    if (destroyed) return;
-    if (lastSnapshot) {
-      render(lastSnapshot, { stale: lastObservation === "stale" });
-    } else if (lastObservation === "unavailable") {
-      renderUnavailable();
-    } else {
-      renderInitial();
-    }
+    rerenderPresentation();
+  });
+  const unsubscribePreferences = preferences.subscribe((snapshot) => {
+    const nextTimeZone = resolveRegionalTimeZone(snapshot);
+    if (nextTimeZone === observedTimeZone) return;
+    observedTimeZone = nextTimeZone;
+    rerenderPresentation();
   });
 
   return Object.freeze({
@@ -120,6 +144,7 @@ export function mountBatteryQuickPanel(root, powerStatus, surfaceLifecycle) {
     destroy() {
       destroyed = true;
       unsubscribeLocalization();
+      unsubscribePreferences();
       lastSnapshot = null;
       lastSuccessAt = null;
       delete panel.dataset.powerObservation;
