@@ -378,3 +378,52 @@
   color: var(--ordax-muted);
   font-size: 0.69rem;
 }
+
+
+/* Canonical Activity events are expandable evidence, not fake progress. */
+.ordax-assistant-work-details {
+  min-width: 0;
+  border-top: 1px solid var(--ordax-border-soft);
+  padding-top: 6px;
+}
+.ordax-assistant-work-details > summary {
+  cursor: pointer;
+  color: var(--ordax-text);
+  font-size: 0.73rem;
+  padding: 4px 0;
+}
+.ordax-assistant-work-details > summary:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+.ordax-assistant-work-event {
+  padding-block: 4px;
+}
+.ordax-assistant-work-event-summary {
+  margin: 0;
+  color: var(--ordax-text);
+}
+.ordax-assistant-work-event-time {
+  display: block;
+  color: var(--ordax-muted);
+  font-size: 0.67rem;
+}
+.ordax-assistant-work-truncated {
+  list-style: none;
+  font-style: italic;
+}
+.ordax-assistant-work-output {
+  min-width: 0;
+  border-top: 1px solid var(--ordax-border-soft);
+  padding-top: 10px;
+}
+.ordax-assistant-work-evidence,
+.ordax-assistant-work-overflow {
+  margin: 0;
+  color: var(--ordax-muted);
+  font-size: 0.69rem;
+  overflow-wrap: anywhere;
+}
+.ordax-assistant-work-overflow {
+  padding: 6px 2px;
+}
