@@ -54,8 +54,12 @@ O próprio `ordax.local-ai/1` agora aceita opcionalmente `onDelta` em
 Um leitor SSE único e limitado processa frames `data:` em UTF-8,
 valida a identidade de modelo reportada, o limite de bytes/eventos/texto,
 proíbe tool calls e exige `finish_reason` e `[DONE]` antes de
-retornar uma resposta final válida. Cancelamento, timeout e erros de
-callback mantêm o tratamento anterior de revalidação de saúde.
+retornar uma resposta final válida. O `finish_reason=length` indica
+resposta truncada e é recusado, ainda que o backend envie `[DONE]`.
+O cancelamento interrompe a espera por `reader.read()` e callbacks
+assíncronos mesmo quando um adaptador ignora `AbortSignal` ou não conclui
+`reader.cancel()`; a liberação do recurso é best-effort, sem bloquear a
+solicitação. Timeout e erros de callback mantêm a revalidação de saúde.
 
 Os deltas notificados por `onDelta` são **provisórios** e só se tornam
 uma resposta validada após a terminação correta da sessão SSE; não podem
