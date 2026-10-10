@@ -68,6 +68,23 @@ compilou o helper com `-O2 -Wall -Wextra -Werror` e executou **11/11 testes
 PASS**, incluindo as quatro novas regressões. O boot QEMU/UEFI completo
 continua dependendo do workflow canônico.
 
+## Validação executável do verificador PID1 v2/v3/v4
+
+A prova complementar `tests/test_portable_exact_runtime_handoff.py`
+executa as funções **reais** `is_sha`, `is_sha256` e
+`verify_selected_release` extraídas de
+`bootstrap/initramfs/portable_init.sh`, substituindo somente
+o executável externo de verificação criptográfica por um stub de fronteira.
+Isso não substitui os testes de criptografia do release-agent.
+
+A suíte Ubuntu executou **7/7 testes PASS** para as três versões:
+v2 (somente release assinada), v3 (Surface content-addressed) e
+v4 (Surface + IA local); recusa de referências e imagens ausentes,
+digests malformados, identidade incorreta e schema desconhecido.
+O workflow de QEMU executa essa prova antes de construir imagens.
+Os testes de seleção/rollback e a prova de verificação exata de
+componentes são conjuntos complementares, sem um segundo owner de boot.
+
 ## Limites da evidência
 
 Estes são testes unitários/contratuais e shell real, não prova física.

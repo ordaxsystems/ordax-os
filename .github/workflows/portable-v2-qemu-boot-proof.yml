@@ -16,6 +16,7 @@ on:
       - 'tests/test_bootstrap_current_verification.py'
       - 'tests/test_portable_verified_boot_selection.py'
       - 'tests/test_portable_activation_state_helper.py'
+      - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
       - 'bootstrap/release-acquisition/**'
       - 'bootstrap/recovery/entrypoint'
@@ -56,6 +57,7 @@ on:
       - 'tests/test_bootstrap_current_verification.py'
       - 'tests/test_portable_verified_boot_selection.py'
       - 'tests/test_portable_activation_state_helper.py'
+      - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
       - 'bootstrap/release-acquisition/**'
       - 'bootstrap/recovery/entrypoint'
@@ -132,6 +134,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
           python -m unittest discover -s tests -p 'test_portable_verified_boot_selection.py' -v
           python -m unittest discover -s tests -p 'test_portable_activation_state_helper.py' -v
+          python -m unittest discover -s tests -p 'test_portable_exact_runtime_handoff.py' -v
           sh -n bootstrap/entrypoint
           sh -n bootstrap/initramfs/portable_init.sh
 
