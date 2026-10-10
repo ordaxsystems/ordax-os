@@ -53,6 +53,7 @@ export const componentRuntime = Object.freeze({
     identitySessionPort,
     spaceSelectionPort,
     profileActivationStatePort = null,
+    appActivation = null,
   } = {}) {
     const releaseStyles = await mountAssistantStyles(root);
     let conversation = null;
@@ -74,6 +75,7 @@ export const componentRuntime = Object.freeze({
         personalOrdax,
         identitySessionPort,
         spaceSelectionPort,
+        appActivation,
       });
       let destroyed = false;
       return Object.freeze({
