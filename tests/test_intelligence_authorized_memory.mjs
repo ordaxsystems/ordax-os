@@ -750,3 +750,29 @@ test("existing Memory -> Intelligence -> model router -> Local AI pipeline rejec
     assert.equal(f.selection.listenerCount(), 0);
   } finally { intelligence.dispose(); }
 });
+
+test("Identity-bound authorized Memory preserves the caller cancellation signal without changing authorization", async () => {
+  const identity = identityPort({ state: "signed-out" });
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unavailable",
+  });
+  const intelligence = intelligencePort();
+  let deliveredSignal = null;
+  const originalRespond = intelligence.respond.bind(intelligence);
+  intelligence.respond = (request, options) => {
+    deliveredSignal = options?.signal;
+    return originalRespond(request);
+  };
+  const bridge = createIdentityBoundMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memoryPort([]),
+    identitySessionPort: identity,
+    spaceSelectionPort: selection,
+  });
+  const controller = new AbortController();
+  await bridge.respond({ prompt: "contexto local" }, { signal: controller.signal });
+  assert.equal(deliveredSignal, controller.signal);
+  assert.equal(intelligence.requests.length, 1);
+  assert.equal(intelligence.requests[0].context.length, 0);
+});
