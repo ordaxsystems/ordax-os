@@ -2,8 +2,6 @@ import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { createAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { defineExternalFirstPartyApp } from "../../apps/external-app-definition.mjs";
 import { loadVerifiedCurrentComponentRuntime } from "../../services/components/current-slot-loader.mjs";
-import { composeTrustedComponentContext } from "../../services/components/runtime-loader.mjs";
-import { assertAppDataPort } from "../../contracts/app-data.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../../services/apps/external-first-party-policy.mjs";
 
 /**
@@ -72,19 +70,13 @@ export async function mountNativeVerifiedInstalledApps({
       return null;
     }
     try {
-      // The privileged bootstrap holds the binding and verifies its owner.
-      // The app, its manifest and the caller context may not forge App Data.
-      const trusted = await composeTrustedComponentContext(appId, Object.freeze({ ...context }));
-      const appData = assertAppDataPort(trusted.appData);
-      if (appData.identity.appId !== appId) {
-        throw new TypeError("Trusted App Data identity does not match the installed app");
-      }
       const mounted = await loadVerifiedCurrentComponentRuntime({
         componentId: appId,
         source,
         fetchImpl,
         importModule,
-        context: trusted,
+        context,
+        requireTrustedAppData: true,
         expectedCurrent: entry.metadata,
         onError(error) { onError?.(error, appId); },
       });
