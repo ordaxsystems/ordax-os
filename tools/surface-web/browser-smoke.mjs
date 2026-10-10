@@ -1332,6 +1332,59 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     if (!deep) throw new Error(`${name} React deep link did not resolve security section`);
     reports.push({ name, ...report, menuAndEscape: true, clientRoute: true, deepLink: true });
   }
+  // Isolated browser-only session fixture. It never enters the bundle,
+  // server, artifacts, production auth, or real credential storage. This
+  // exercises authenticated presentation without claiming a live E2E login.
+  const fixtureEmail = 'proof-account@example.invalid';
+  const fixtureSession = {
+    $schema: 'prototype-ordax.public-identity-session/1',
+    provider: 'supabase', authenticated: true, status: 'authenticated',
+    subject: 'browser-proof-subject', email: fixtureEmail,
+  };
+  await client.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const address = typeof input === 'string' ? input : input?.url;
+        if (typeof address === 'string' && new URL(address, location.href).pathname === '/auth/session') {
+          return Promise.resolve(new Response(JSON.stringify(${JSON.stringify(fixtureSession)}), {
+            status: 200, headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+        return nativeFetch(input, init);
+      };
+    })();`,
+  });
+  await client.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
+  });
+  await client.send('Page.navigate', { url });
+  const verifiedDeadline = Date.now() + 10000;
+  while (!await evaluate('!!document.querySelector(".account-app .overview-hero")')) {
+    if (Date.now() > verifiedDeadline) throw new Error('authenticated fixture page boot timed out');
+    await sleep(40);
+  }
+  await evaluate('document.querySelector("button.account-menu").focus()');
+  await client.send('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+  });
+  await client.send('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+  });
+  const authDeadline = Date.now() + 5000;
+  let authenticatedMenu = null;
+  while (!(authenticatedMenu = await evaluate(`(() => {
+    const menu = document.querySelector('[role=menu].ordax-account-dropdown');
+    const email = menu?.querySelector('.ordax-account-dropdown-email')?.textContent;
+    const logout = menu?.querySelector('form[action="/auth/logout"]');
+    const profile = menu?.querySelector('a[href="/conta/dados-pessoais"]');
+    const security = menu?.querySelector('a[href="/conta/seguranca"]');
+    return menu && email === ${JSON.stringify(fixtureEmail)} && logout?.method.toLowerCase() === 'post' && !!profile && !!security;
+  })()`))) {
+    if (Date.now() > authDeadline) throw new Error('verified fixture account menu lacks profile/security/logout');
+    await sleep(40);
+  }
+  reports.push({ name: 'authenticated-fixture', menuAndLogout: authenticatedMenu, liveLoginClaimed: false });
   if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) {
     throw new Error('React account emitted a JavaScript exception');
   }
