@@ -111,6 +111,31 @@ remains in More in addition to services outside the viewport; that link reuses
 the existing overview section. The header profile remains owned by verified
 session navigation.
 
+### Atualização da Minha Conta — desktop e mobile (2026-10-10)
+
+Esta revisão substitui especificamente a composição antiga da visão geral e
+sua estratégia de ocultar serviços conforme a altura do celular. O portal
+`/conta/` agora é uma **central de identidade e serviços contratados**:
+cabeçalho e banner de perfil, três cartões prioritários (assinatura,
+consumo e faturamento) e atalhos para dados pessoais, segurança, dispositivos
+autorizados, privacidade, integrações autorizadas, preferências, atividade,
+armazenamento e suporte. Navegação lateral desktop é exclusiva da Conta.
+No celular a barra inferior tem **Resumo / Assinatura / Consumo / Mais**,
+sem replicar Apps, Projetos nem o menu principal do OrdaX Web. Todos os
+serviços podem ser alcançados rolando a página ou pelo menu Mais;
+não há corte baseado no viewport. O OrdaX Web conserva seu link global
+independente no cabeçalho e sua autenticação/autorização próprias.
+
+O estado de sessão, e-mail autenticado, saída, catálogo comercial e idioma
+continuam sob seus respectivos donos. Não se presume nome, foto, assinatura
+ativa, cobrança, crédito, quota, uso, dispositivo ou conexão autorizada
+sem dados oficiais. Elementos de consumo e faturamento exibem indisponibilidade
+explícita quando não há serviço confirmado. A experiência sem JavaScript
+permanece legível e os deep links mantêm hash, foco e histórico.
+A prova browser-smoke verifica 12 seções, grupos prioritários, navegação
+da conta, busca, detalhe e overflow horizontal nas cinco resoluções.
+A prova em navegador não substitui homologação de serviços pagos reais.
+
 The same entrypoint is reproducible locally after building the public artifact:
 
 ```bash

@@ -1246,35 +1246,44 @@ async function provePublicAccount(client, url, evidenceDir) {
     const report = await evaluate(`(() => {
       const cards = [...document.querySelectorAll('[data-account-card]')];
       const box = element => element.getBoundingClientRect();
-      const noOverflow = document.documentElement.scrollWidth <= innerWidth;
-      const profile = box(document.querySelector('[data-account-overview]'));
-      const columns = getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length;
-      const primary = cards.slice(0,3).map(box);
-      const services = cards.slice(3).filter(card => !card.hidden);
       const phone = innerWidth <= 600;
-      const boundary = box(document.querySelector('.account-mobile-nav')).top;
-      const overflow = cards.slice(3).filter(card => card.hidden);
-      return { noOverflow, width:innerWidth, height:innerHeight, columns, profileHeight:profile.height,
-        allSections:cards.length===11, overviewNotesHidden:getComputedStyle(cards[0].querySelector('.card-note')).display==='none',
+      const profile = document.querySelector('[data-account-overview]');
+      const primary = cards.slice(0, 3).map(box);
+      const cardIds = cards.map(card => card.id);
+      const nav = [...document.querySelectorAll('.account-mobile-nav > *')];
+      return {
+        width:innerWidth, height:innerHeight,
+        noOverflow:document.documentElement.scrollWidth <= innerWidth,
+        allSections:cards.length===12 && new Set(cardIds).size===12,
+        firstCards:cardIds.slice(0,3).join(',')==='plano,consumo,faturamento',
+        noHiddenServices:cards.every(card=>!card.hidden),
+        columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
+        profileHeight:box(profile).height,
+        accountBanner:!!profile.querySelector('.account-profile-intro'),
         primaryTilesAligned:Math.abs(primary[0].top-primary[2].top)<2,
         headerHeight:box(document.querySelector('.account-header')).height,
-        visibleServiceCount:services.length,
-        viewportServicesFit:!phone || services.every(card=>box(card).bottom<=boundary-19),
-        overflowHasMenu:!phone || overflow.every(card=>document.querySelector('#account-navigation a[href="'+('#'+card.id)+'"]:not([hidden])')),
-        webNavigationHonest:document.querySelector('.account-mobile-nav').children.length===4 && document.querySelector('.mobile-web-entry').getAttribute('href')==='/web/' && !document.querySelector('.mobile-web-entry').hasAttribute('aria-current'),
-        noRepeatedProfile:!document.querySelector('.account-profile, .profile-copy') && profile.height<=48,
-        activityNavigation:document.querySelector('.account-mobile-nav a[href="#atividade"]')?.hasAttribute('data-account-section'),
+        accountNavigation:nav.length===4 &&
+          nav[0].getAttribute('href')==='#visao-geral' &&
+          nav[1].getAttribute('href')==='#plano' &&
+          nav[2].getAttribute('href')==='#consumo' &&
+          nav[3].hasAttribute('data-account-menu'),
         accountInMore:!phone || !document.querySelector('#account-navigation a[href="#visao-geral"]').hidden,
-        mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
+        mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none'
+      };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || !report.viewportServicesFit || !report.overflowHasMenu || !report.webNavigationHonest || !report.accountInMore || !report.noRepeatedProfile || !report.activityNavigation || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
+    if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
+        !report.accountBanner || !report.accountNavigation || !report.accountInMore ||
+        !report.mobileSearchCollapsed || report.headerHeight > 80 ||
+        (width === 1440 && report.columns !== 3) ||
+        (width < 600 && report.columns !== 1) ||
+        (width > 1199 && !report.primaryTilesAligned)) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
     if (width <= 600) {
       await evaluate('document.querySelector("[data-account-menu]").click()');
-      if (!await evaluate('document.activeElement.matches("#account-navigation a:not([hidden])")')) throw new Error('More did not focus an available overflow section');
+      if (!await evaluate('document.activeElement.matches("#account-navigation a:not([hidden])")')) throw new Error('More did not focus an available account section');
       const moreShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
       await writeFile(join(evidenceDir, `account-${name}-more.png`), Buffer.from(moreShot.data, 'base64'));
       await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
@@ -1285,7 +1294,7 @@ async function provePublicAccount(client, url, evidenceDir) {
         link.click();
         return document.querySelector('[data-account-content]').dataset.view === id && !document.getElementById(id).hidden && document.activeElement.id === id+'-title';
       })()`);
-      if (!overflowDetail) throw new Error('More overflow section detail was inaccessible');
+      if (!overflowDetail) throw new Error('More account section detail was inaccessible');
     }
     await evaluate('document.querySelector(".account-header-actions [data-account-section]").click()');
     if (!await evaluate('document.querySelector("[data-account-content]").dataset.view === "atividade" && document.activeElement.id === "atividade-title"')) throw new Error(`${name} notification shortcut failed`);

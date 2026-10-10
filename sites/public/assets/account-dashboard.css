@@ -252,3 +252,162 @@
   .account-header,.account-search,.account-search-orb { background:Canvas!important; box-shadow:none; }
   .account-search-orb::after { background:CanvasText; box-shadow:none; }
 }
+
+
+/* Conta v2: presentation only, reusing the canonical OrdaX theme and source data. */
+.account-portal[data-page="conta"] {
+  background:radial-gradient(ellipse at 76% 12%,color-mix(in srgb,var(--ordax-brand-blue) 8%,transparent),transparent 42%),var(--ordax-bg);
+}
+.account-portal[data-page="conta"] .account-shell {
+  max-width:1480px;grid-template-columns:238px minmax(0,1fr);
+}
+.account-portal[data-page="conta"] .account-header {
+  grid-template-columns:216px minmax(0,1fr) 210px;
+  border-bottom:1px solid var(--ordax-border-soft);
+}
+.account-portal[data-page="conta"] .account-navigation {
+  padding:30px 15px; background:color-mix(in srgb,var(--ordax-bg) 90%,var(--ordax-app-bg));
+}
+.account-portal[data-page="conta"] .account-navigation a {
+  font-size:12px; min-height:43px; padding:10px 12px; border-radius:var(--ordax-radius-md);
+}
+.account-portal[data-page="conta"] .account-navigation a[aria-current="location"] {
+  border-color:color-mix(in srgb,var(--ordax-brand-blue) 35%,var(--ordax-border-soft));
+}
+.account-portal[data-page="conta"] .account-content {
+  padding:30px clamp(20px,2.7vw,40px) 22px;
+}
+.account-portal[data-page="conta"] .account-heading { margin-bottom:22px; }
+.account-portal[data-page="conta"] .account-heading h1 { font-size:clamp(30px,3vw,38px); }
+.account-portal[data-page="conta"] .account-heading p:last-child { font-size:13px; }
+.account-portal[data-page="conta"] .account-session {
+  isolation:isolate; position:relative; overflow:hidden; margin-bottom:18px;
+  border:1px solid color-mix(in srgb,var(--ordax-brand-blue) 32%,var(--ordax-border));
+  border-radius:var(--ordax-radius-xl); padding:22px 25px;
+  background:linear-gradient(95deg,color-mix(in srgb,var(--ordax-app-bg) 94%,transparent) 8%,color-mix(in srgb,var(--ordax-bg) 72%,transparent) 76%),url("/assets/ordax-landscape.png") 74% 47%/cover no-repeat;
+  box-shadow:var(--ordax-shadow-soft);
+}
+.account-portal[data-page="conta"] .account-profile-intro { display:flex;align-items:center;gap:19px;min-width:0; }
+.account-portal[data-page="conta"] .account-profile-avatar {
+  display:grid;place-items:center;flex:0 0 auto;width:72px;height:72px;border-radius:50%;
+  border:2px solid var(--ordax-brand-blue);background:radial-gradient(circle at 25% 20%,var(--ordax-brand-violet),var(--ordax-bg) 68%);
+  box-shadow:0 0 20px color-mix(in srgb,var(--ordax-brand-blue) 38%,transparent);
+}
+.account-portal[data-page="conta"] .account-profile-avatar .account-icon {width:31px;height:31px;color:var(--ordax-text);}
+.account-portal[data-page="conta"] .account-profile-copy {min-width:0;flex:1;}
+.account-portal[data-page="conta"] .account-profile-overline {font-size:10px;color:var(--ordax-accent);font-weight:700;letter-spacing:.13em;margin:0 0 3px;}
+.account-portal[data-page="conta"] .account-profile-copy h2 {font:var(--ordax-title-weight) clamp(18px,2.1vw,24px)/1.25 var(--ordax-font-display);letter-spacing:var(--ordax-tracking-tight);margin:0 0 6px;}
+.account-portal[data-page="conta"] .account-profile-copy p:last-child {font-size:12px;line-height:1.5;color:var(--ordax-muted);margin:0;max-width:460px;}
+.account-portal[data-page="conta"] .account-profile-action {
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;flex:0 0 auto;min-height:42px;
+  padding:9px 15px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-md);
+  background:var(--ordax-subtle-bg);font-size:12px;
+}
+.account-portal[data-page="conta"] .account-profile-action:hover {background:var(--ordax-selected-bg);}
+.account-portal[data-page="conta"] .account-session-disclosure {margin-top:16px;max-width:100%;}
+.account-portal[data-page="conta"] .account-session-disclosure summary {
+  justify-content:flex-start;gap:10px;min-height:36px;width:max-content;max-width:100%;
+  border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);padding:6px 11px;
+  background:color-mix(in srgb,var(--ordax-app-bg) 82%,transparent);color:var(--ordax-text);font-size:11px;
+}
+.account-portal[data-page="conta"] .account-session-disclosure[open] {
+  padding:12px; background:var(--ordax-app-bg);
+}
+.account-portal[data-page="conta"] .account-session-disclosure[open] summary {padding:6px 11px;margin:0 0 12px;border-bottom:1px solid var(--ordax-border-soft);}
+.account-portal[data-page="conta"] .account-cards {gap:13px;grid-template-columns:repeat(3,minmax(0,1fr));}
+.account-portal[data-page="conta"] .account-card {
+  border-radius:var(--ordax-radius-lg);padding:18px;box-shadow:var(--ordax-shadow-soft);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--ordax-app-bg) 94%,var(--ordax-brand-blue)),var(--ordax-bg));
+}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) {
+  min-height:214px; padding:20px; border-color:color-mix(in srgb,var(--ordax-brand-blue) 28%,var(--ordax-border));
+}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading h2 {
+  font-size:16px; font-weight:650;
+}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading .account-icon {width:25px;height:25px;}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-summary {
+  margin-top:12px; font-size:12px; line-height:1.5;
+}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-content {margin-top:14px;}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) {
+  min-height:94px;padding:16px 17px;align-content:center;
+}
+.account-portal.account-enhanced .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-content,
+.account-portal.account-enhanced .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-summary {display:none;}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading {gap:12px;align-items:center;}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading h2 {font-size:13px;}
+.account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading .account-icon {width:24px;height:24px;}
+.account-portal[data-page="conta"] .account-card .card-arrow {font-size:16px;opacity:.85;}
+.account-portal[data-page="conta"] #plano .card-content .plan-catalog {display:none;}
+.account-portal[data-page="conta"] #consumo .account-usage-lines>div {padding:6px 0;font-size:11px;}
+.account-portal[data-page="conta"] #consumo .account-usage-lines dd {color:var(--ordax-muted);font-weight:550;}
+.account-portal[data-page="conta"] #consumo .account-usage-lines>div:last-child {border:0;}
+.account-portal[data-page="conta"] .account-content:not([data-view="visao-geral"]) .account-card {
+  max-width:940px;padding:28px;min-height:0;
+}
+.account-portal[data-page="conta"] .account-content:not([data-view="visao-geral"]) #plano .plan-catalog {display:flex;}
+.account-portal[data-page="conta"] .account-content:not([data-view="visao-geral"]) .account-heading {margin-bottom:16px;}
+.account-portal[data-page="conta"] .account-content:not([data-view="visao-geral"]) .card-summary {font-size:13px;}
+.account-portal[data-page="conta"] .account-content:not([data-view="visao-geral"]) .card-content {margin-top:24px;}
+@media(max-width:1199px) {
+  .account-portal[data-page="conta"] .account-shell {grid-template-columns:218px minmax(0,1fr);}
+  .account-portal[data-page="conta"] .account-cards {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .account-portal[data-page="conta"] .account-card:nth-child(3) {grid-column:1/-1;}
+  .account-portal[data-page="conta"] .account-header {grid-template-columns:194px minmax(0,1fr) 190px;}
+}
+@media(max-width:900px) {
+  .account-portal[data-page="conta"] .account-shell {display:block;}
+  .account-portal[data-page="conta"] .account-header {display:flex;flex-wrap:wrap;}
+  .account-portal[data-page="conta"] .account-content {padding:24px 22px calc(96px + env(safe-area-inset-bottom));}
+  .account-portal[data-page="conta"] .account-card:nth-child(3) {grid-column:auto;}
+  .account-portal[data-page="conta"] .account-navigation {padding:22px;}
+  .account-portal[data-page="conta"] .account-mobile-nav {background:color-mix(in srgb,var(--ordax-bg) 95%,var(--ordax-brand-blue));}
+}
+@media(max-width:600px) {
+  .account-portal[data-page="conta"] .account-content {padding:18px 15px calc(100px + env(safe-area-inset-bottom));}
+  .account-portal[data-page="conta"] .account-heading {margin-bottom:15px;}
+  .account-portal[data-page="conta"] .account-heading h1 {font-size:25px;}
+  .account-portal[data-page="conta"] .account-session {padding:16px;border-radius:var(--ordax-radius-lg);}
+  .account-portal[data-page="conta"] .account-profile-intro {display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;}
+  .account-portal[data-page="conta"] .account-profile-avatar {width:58px;height:58px;}
+  .account-portal[data-page="conta"] .account-profile-copy h2 {font-size:18px;}
+  .account-portal[data-page="conta"] .account-profile-copy p:last-child {font-size:11px;}
+  .account-portal[data-page="conta"] .account-profile-action {grid-column:1/-1;justify-self:start;min-height:40px;}
+  .account-portal[data-page="conta"] .account-session-disclosure {margin-top:12px;}
+  .account-portal[data-page="conta"] .account-cards {display:grid;grid-template-columns:minmax(0,1fr);gap:10px;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) {
+    display:block;min-height:0;margin:0;padding:16px;border-radius:var(--ordax-radius-lg);grid-column:1/-1;
+  }
+  .account-portal.account-enhanced .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) {display:block;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading {
+    display:flex;flex-direction:row;align-items:center;text-align:left;gap:10px;
+  }
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading h2 {font-size:15px;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading .account-icon {width:22px;height:22px;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-summary {
+    display:block;font-size:11px;margin:7px 0 0;
+  }
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-arrow {display:inline;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-content {display:block;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) {
+    display:block;grid-column:1/-1;padding:10px 13px;min-height:58px;border:1px solid var(--ordax-border);
+    border-radius:var(--ordax-radius-md);margin:0;background:var(--ordax-app-bg);
+  }
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading {
+    min-height:38px;flex-direction:row;text-align:left;
+  }
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading .account-icon {width:21px;height:21px;}
+  .account-portal[data-page="conta"] .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading h2 {font-size:12px;font-weight:520;}
+  .account-portal[data-page="conta"] .account-mobile-nav a[aria-current="location"] {color:var(--ordax-brand-blue);}
+  .account-portal[data-page="conta"] .account-mobile-nav a[aria-current="location"] .account-icon {filter:drop-shadow(0 0 5px var(--ordax-brand-blue));}
+  .account-portal[data-page="conta"] .account-viewport-overview .account-content {padding-bottom:calc(100px + env(safe-area-inset-bottom));}
+}
+@media(max-width:380px) {
+  .account-portal[data-page="conta"] .account-profile-copy h2 {font-size:16px;}
+  .account-portal[data-page="conta"] .account-content {padding-inline:12px;}
+  .account-portal[data-page="conta"] .account-header-actions .header-icon-link {width:40px;min-width:40px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .account-portal[data-page="conta"] * {scroll-behavior:auto!important;}
+}
