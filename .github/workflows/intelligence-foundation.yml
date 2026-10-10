@@ -34,6 +34,7 @@ on:
       - 'system/apps/activity/view-model.mjs'
       - 'system/apps/activity/ui/workspace-controls.mjs'
       - 'tests/test_intelligence_work_canvas.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -214,6 +215,7 @@ on:
       - 'system/apps/activity/view-model.mjs'
       - 'system/apps/activity/ui/workspace-controls.mjs'
       - 'tests/test_intelligence_work_canvas.mjs'
+      - 'tests/test_personal_ordax_first_foreground_action.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -467,6 +469,7 @@ jobs:
           node --test tests/test_intelligence_runtime.mjs
           node --test tests/test_intelligence_conversation_capabilities.mjs
           node --test tests/test_intelligence_work_canvas.mjs
+          node --test tests/test_personal_ordax_first_foreground_action.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_result_canvas.mjs
           node --test tests/test_assistant_work_strip.mjs
