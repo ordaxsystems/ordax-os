@@ -50,6 +50,11 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Resolve canonical kernel ABI for build artifacts
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
+
       - name: Install kernel and Stable Base build dependencies
         run: |
           set -euo pipefail
@@ -78,7 +83,7 @@ jobs:
           python bootstrap/kernel/build.py check
           python bootstrap/kernel/build.py build --jobs 4
           python bootstrap/kernel/verify.py out/kernel
-          test -s out/kernel/kernel-modules-6.6.52.tar
+          test -s out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar
 
       - name: Build and verify Stable Base candidate
         env:
@@ -87,7 +92,7 @@ jobs:
           set -euo pipefail
           sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             python bootstrap/stable-base/build.py build \
-              --kernel-modules out/kernel/kernel-modules-6.6.52.tar \
+              --kernel-modules out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar \
               --out-dir out/stable-base \
               --cache-dir "$RUNNER_TEMP/stable-base-cache" \
               | tee "$RUNNER_TEMP/stable-base-build.log"

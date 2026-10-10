@@ -67,6 +67,11 @@ jobs:
           check-latest: false
           cache: false
 
+      - name: Resolve canonical kernel ABI for build artifacts
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
+
       - name: Install exact-artifact build dependencies
         run: |
           set -euo pipefail
@@ -119,7 +124,7 @@ jobs:
             --work-dir "$RUNNER_TEMP/portable-v2-pinned/kernel-work" \
             --out-dir "$RUNNER_TEMP/portable-v2-pinned/kernel"
           python bootstrap/kernel/verify.py "$RUNNER_TEMP/portable-v2-pinned/kernel"
-          test -s "$RUNNER_TEMP/portable-v2-pinned/kernel/kernel-modules-6.6.52.tar"
+          test -s "$RUNNER_TEMP/portable-v2-pinned/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
 
       - name: Build and verify exact Stable Base
         env:
@@ -129,7 +134,7 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-pinned"
           sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-6.6.52.tar" \
+              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
               --out-dir "$work/stable-base" \
               --cache-dir "$work/stable-base-cache" \
               > "$work/metadata/stable-base-build.json"
