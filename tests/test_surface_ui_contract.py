@@ -6,7 +6,7 @@ SURFACE = ROOT / "system" / "surface" / "ui"
 APPS = ROOT / "system" / "apps"
 PREFERENCES = ROOT / "system" / "services" / "preferences"
 APP_CATALOG = APPS / "catalog.mjs"
-APP_CONTRACT = APPS / "app-contract.mjs"
+APP_CONTRACT = ROOT / "system" / "contracts" / "first-party-app.mjs"
 APP_OWNERS = {
     "files": APPS / "files" / "app.mjs",
     "projects": APPS / "projects" / "app.mjs",
@@ -204,7 +204,8 @@ class SurfaceUiContractTests(unittest.TestCase):
 
     def test_first_party_apps_have_independent_owners_and_thin_catalog(self):
         catalog = APP_CATALOG.read_text(encoding="utf-8")
-        self.assertIn("./app-contract.mjs", catalog)
+        self.assertIn("../contracts/first-party-app.mjs", catalog)
+        self.assertFalse((APPS / "app-contract.mjs").exists(), "obsolete app contract must not return")
         for app_id, path in APP_OWNERS.items():
             owner = path.read_text(encoding="utf-8")
             self.assertIn(f'id: "{app_id}"', owner)

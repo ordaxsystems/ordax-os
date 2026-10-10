@@ -17,7 +17,7 @@ system/apps/account/app.mjs
 system/apps/system/app.mjs
 ```
 
-`app-contract.mjs` validates the stable first-party app shape. `catalog.mjs` is deliberately thin: it composes the current owners, rejects duplicate IDs and exposes lookup/list operations to the Surface.
+`system/contracts/first-party-app.mjs` validates the stable first-party app shape. `catalog.mjs` is deliberately thin: it composes the current owners, rejects duplicate IDs and exposes lookup/list operations to the Surface.
 
 The initial owners are:
 

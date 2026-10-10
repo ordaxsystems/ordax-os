@@ -20,7 +20,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             "system/surface/ui/surface.mjs",
             "system/surface/ui/surface-state.mjs",
             "system/apps/catalog.mjs",
-            "system/apps/app-contract.mjs",
+            "system/contracts/first-party-app.mjs",
             "system/apps/files/app.mjs",
             "system/apps/settings/app.mjs",
             "system/apps/account/app.mjs",

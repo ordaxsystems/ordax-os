@@ -9,9 +9,10 @@ import {
   assertRecentFilesPort,
 } from "../system/contracts/recent-files.mjs";
 
-test("App SDK 1.15 publishes canonical recent-files metadata without a private runtime", async () => {
+test("App SDK preserves the canonical recent-files public interface from version 1.15 onward", async () => {
   const sdk = JSON.parse(await readFile(new URL("../sdk/app-sdk-v1/bundle.json", import.meta.url), "utf8"));
-  assert.equal(sdk.bundle_version, "1.15.0");
+  const [major, minor] = sdk.bundle_version.split(".").map(Number);
+  assert.ok(major > 1 || (major === 1 && minor >= 15));
   assert.equal(sdk.authority, "none");
   const published = sdk.contracts.filter((entry) => entry.name === "recent-files");
   assert.equal(published.length, 1);

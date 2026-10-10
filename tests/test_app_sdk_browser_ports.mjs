@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { FIRST_PARTY_APP_SCHEMA, defineFirstPartyApp } from "../system/contracts/first-party-app.mjs";
 import {
   BROWSER_SESSION_SCHEMA,
   createUnavailableBrowserSession,
@@ -64,7 +65,7 @@ const EXPECTED = new Map([
 
 test("SDK 1.14 Browser interfaces use canonical sources without private host authority", async () => {
   const bundle = JSON.parse(await readFile(new URL("sdk/app-sdk-v1/bundle.json", base), "utf8"));
-  assert.equal(bundle.bundle_version, "1.15.0");
+  assert.equal(bundle.bundle_version, "1.16.0");
   assert.equal(bundle.authority, "none");
   assert.equal(bundle.compatibility_policy, "contract-major");
   const lookup = new Map(bundle.contracts.map(x => [x.name, x]));
@@ -80,6 +81,11 @@ test("SDK 1.14 Browser interfaces use canonical sources without private host aut
   for (const contract of bundle.contracts) {
     assert.doesNotMatch(contract.source_path, /adapters\/(?:native|web)|surface\/runtime|secrets/);
   }
+  const firstParty = lookup.get("first-party-app");
+  assert.equal(firstParty?.schema, FIRST_PARTY_APP_SCHEMA);
+  assert.equal(firstParty?.source_path, "system/contracts/first-party-app.mjs");
+  assert.match(firstParty?.source_git_blob, /^[0-9a-f]{40}$/);
+  assert.equal(typeof defineFirstPartyApp, "function");
   assert.equal(BROWSER_SESSION_SCHEMA, EXPECTED.get("browser-session"));
   assert.equal(BROWSER_NAVIGATION_POLICY_SCHEMA, EXPECTED.get("browser-navigation"));
   assert.equal(BROWSER_DOWNLOAD_PORT_SCHEMA, EXPECTED.get("browser-download"));

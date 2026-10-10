@@ -1,4 +1,4 @@
-import { defineFirstPartyApp } from "../app-contract.mjs";
+import { defineFirstPartyApp } from "../../contracts/first-party-app.mjs";
 import { activityComponent } from "./component.mjs";
 
 export const activityApp = defineFirstPartyApp({

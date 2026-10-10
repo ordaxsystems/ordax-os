@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { defineFirstPartyApp } from "../system/apps/app-contract.mjs";
+import { FIRST_PARTY_APP_SCHEMA, defineFirstPartyApp } from "../system/contracts/first-party-app.mjs";
 import { internetApp } from "../system/apps/internet/app.mjs";
 import { projectsApp } from "../system/apps/projects/app.mjs";
 import { COMPONENT_LOCALIZATION_SCHEMA } from "../system/contracts/localization-pack.mjs";
@@ -228,4 +228,8 @@ test("file-space contract accepts the logical root path", () => {
   const listing = validateFileListing({ path: "/", entries: [] });
   assert.equal(listing.path, "/");
   assert.deepEqual(listing.entries, []);
+});
+
+test("canonical first-party app schema has a single public owner", () => {
+  assert.equal(FIRST_PARTY_APP_SCHEMA, "ordax.first-party-app/1");
 });

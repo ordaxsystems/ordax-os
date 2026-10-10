@@ -1,5 +1,7 @@
-import { defineComponentManifest } from "../contracts/component-manifest.mjs";
-import { defineComponentLocalization } from "../contracts/localization-pack.mjs";
+export const FIRST_PARTY_APP_SCHEMA = "ordax.first-party-app/1";
+
+import { defineComponentManifest } from "./component-manifest.mjs";
+import { defineComponentLocalization } from "./localization-pack.mjs";
 
 const APP_ID_RE = /^[a-z][a-z0-9-]*$/;
 const PANEL_KINDS = new Set([
