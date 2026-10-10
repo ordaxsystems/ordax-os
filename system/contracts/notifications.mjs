@@ -1,4 +1,5 @@
 import { validateAppActivation } from "./app-activation.mjs";
+import { assertLocalizationMessageValue } from "./localization.mjs";
 
 export const NOTIFICATIONS_SCHEMA = "ordax.notifications/3";
 export const MAX_NOTIFICATIONS = 64;
@@ -84,23 +85,19 @@ export function validateNotificationPresentation(value) {
     if (!PRESENTATION_VALUE_KEY_RE.test(key)) {
       throw new TypeError("Notification presentation value key is invalid");
     }
-    if (typeof rawValue === "string") {
+    const semanticValue = assertLocalizationMessageValue(
+      rawValue,
+      `Notification presentation value ${key}`,
+    );
+    if (typeof semanticValue === "string") {
       values[key] = boundedText(
-        rawValue,
+        semanticValue,
         `Notification presentation value ${key}`,
         MAX_PRESENTATION_VALUE_TEXT,
       );
       continue;
     }
-    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
-      values[key] = rawValue;
-      continue;
-    }
-    if (typeof rawValue === "boolean") {
-      values[key] = rawValue;
-      continue;
-    }
-    throw new TypeError("Notification presentation values must be bounded strings, numbers or booleans");
+    values[key] = semanticValue;
   }
   return Object.freeze({
     id: value.id,

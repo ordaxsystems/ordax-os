@@ -98,14 +98,21 @@ test("semantic notification presentation is bounded and optional", () => {
   assert.deepEqual(
     validateNotificationPresentation({
       id: "system-updates.applied",
-      values: { deliveryNumber: 12, stable: true },
+      values: { deliveryNumber: 12, stableLabel: "stable" },
     }),
     {
       id: "system-updates.applied",
-      values: { deliveryNumber: 12, stable: true },
+      values: { deliveryNumber: 12, stableLabel: "stable" },
     },
   );
   assert.equal(validateNotificationPresentation(null), null);
+  assert.throws(
+    () => validateNotificationPresentation({
+      id: "system-updates.applied",
+      values: { stable: true },
+    }),
+    /text or a finite number/i,
+  );
   assert.throws(
     () => validateNotificationPresentation({ id: "../bad", values: {} }),
     /presentation id/i,

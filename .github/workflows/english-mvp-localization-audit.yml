@@ -18,6 +18,8 @@ on:
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/locale-profile.mjs'
       - 'system/contracts/localization.mjs'
+      - 'system/contracts/notifications.mjs'
+      - 'system/services/i18n/interpolation.mjs'
       - 'system/contracts/localization-pack.mjs'
       - 'system/contracts/surface-render-lifecycle.mjs'
       - 'tools/localization/**'
@@ -31,6 +33,9 @@ on:
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_formatting_foundation.mjs'
+      - 'tests/test_localization_interpolation_foundation.mjs'
+      - 'tests/test_notification_interpolation_contract.mjs'
+      - 'tests/test_notifications.mjs'
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_component_localization.mjs'
@@ -56,6 +61,8 @@ on:
       - 'system/contracts/first-run-state-store.mjs'
       - 'system/contracts/locale-profile.mjs'
       - 'system/contracts/localization.mjs'
+      - 'system/contracts/notifications.mjs'
+      - 'system/services/i18n/interpolation.mjs'
       - 'system/contracts/localization-pack.mjs'
       - 'system/contracts/surface-render-lifecycle.mjs'
       - 'tools/localization/**'
@@ -69,6 +76,9 @@ on:
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
       - 'tests/test_localization_formatting_foundation.mjs'
+      - 'tests/test_localization_interpolation_foundation.mjs'
+      - 'tests/test_notification_interpolation_contract.mjs'
+      - 'tests/test_notifications.mjs'
       - 'tests/test_localization_pack_contract.mjs'
       - 'tests/test_first_party_app_localization_contract.mjs'
       - 'tests/test_component_localization.mjs'
@@ -113,6 +123,11 @@ jobs:
           node --test tests/test_localization_pseudo_rtl_reconvergence.mjs
           node --check tests/test_localization_formatting_foundation.mjs
           node --test tests/test_localization_formatting_foundation.mjs
+          node --check tests/test_localization_interpolation_foundation.mjs
+          node --test tests/test_localization_interpolation_foundation.mjs
+          node --check tests/test_notification_interpolation_contract.mjs
+          node --test tests/test_notification_interpolation_contract.mjs
+          node --test tests/test_notifications.mjs
           node --check tests/test_surface_localization.mjs
           node --test tests/test_surface_localization.mjs
           node --check tests/test_english_mvp_localization_audit.mjs

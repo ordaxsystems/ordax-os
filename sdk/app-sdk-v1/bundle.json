@@ -274,7 +274,7 @@
       "major": 2,
       "name": "localization",
       "schema": "ordax.localization/2",
-      "source_git_blob": "cae60c0041064a036509d1ca6b205d9672326aba",
+      "source_git_blob": "df3fb7fc65f27d35cffc984c748b0e199b499bb4",
       "source_path": "system/contracts/localization.mjs"
     },
     {

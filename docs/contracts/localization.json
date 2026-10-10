@@ -42,6 +42,23 @@
     "formatting_never_changes_message_identity": true,
     "formatting_never_changes_authority": true
   },
+  "interpolation": {
+    "owner": "system/services/i18n/interpolation.mjs",
+    "semantic_value_contract_owner": "system/contracts/localization.mjs",
+    "boundary_available": true,
+    "surface_runtime_adopted": false,
+    "allowed_value_types": ["string", "finite-number"],
+    "notification_semantic_values_share_value_contract": true,
+    "boolean_tokens_in_localized_copy_rejected": true,
+    "max_text_length": 4096,
+    "max_text_length_unit": "utf16-code-unit",
+    "missing_null_or_undefined_preserves_placeholder": true,
+    "inherited_values_are_ignored": true,
+    "coercive_value_types_are_rejected": true,
+    "markup_trust_granted": false,
+    "interpolation_never_changes_message_identity": true,
+    "interpolation_never_changes_authority": true
+  },
   "pseudo_locales": {
     "publicly_selectable": false,
     "persistable_as_user_preference": false,

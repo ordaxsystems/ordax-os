@@ -8,6 +8,8 @@ docs/evidence/rename-ordax-os/canonical-v4-pre-rename-request.json text eol=lf
 
 # Physical promotion binds these exact source files by SHA-256 across Windows and Linux.
 docs/contracts/minimal-bootstrap.json text eol=lf
+sdk/app-sdk-v1/bundle.json text eol=lf
+sdk/app-sdk-v1/bundle.sha256 text eol=lf
 docs/contracts/portable-usb-v2.json text eol=lf
 docs/contracts/creator-portable-media-plan.json text eol=lf
 tools/creator/physical_promotion.py text eol=lf
