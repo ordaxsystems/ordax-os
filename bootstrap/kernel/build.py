@@ -617,6 +617,7 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
 
 
 def main() -> int:
+    global SOURCE_CONTRACT
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     check_parser = sub.add_parser("check", help="validate source/config contract only")
@@ -634,7 +635,6 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        global SOURCE_CONTRACT
         selected = args.source_contract
         if selected.is_symlink() or not selected.is_file():
             raise BuildError("kernel source contract is missing or unsafe")
