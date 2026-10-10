@@ -54,7 +54,14 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertEqual(contract["documents"]["terms"]["version"], "2026.10.09")
         binding = contract["registration_binding"]
         self.assertTrue(binding["policy_activation_source_ready"])
-        self.assertFalse(binding["policy_activation_applied"])
+        # Provider state is observed by the live, service-owned projection.
+        # A source contract must not freeze dynamic database state as false.
+        for stale_runtime_flag in (
+            "active_legal_policy_present",
+            "policy_projection_active_policy_present",
+            "policy_activation_applied",
+        ):
+            self.assertNotIn(stale_runtime_flag, binding)
         self.assertTrue(binding["policy_activation_service_role_only"])
         self.assertFalse(binding["policy_activation_currently_allowed"])
         self.assertTrue(binding["policy_activation_requires_final_documents"])
@@ -70,6 +77,27 @@ class PublicLegalReadinessTests(unittest.TestCase):
             binding["policy_activation_receipt_schema"],
             "prototype-ordax.account-legal-policy-activation-receipt/1",
         )
+
+    def test_development_is_independent_of_public_legal_release_gate(self):
+        legal = json.loads(LEGAL_CONTRACT.read_text(encoding="utf-8"))
+        identity = json.loads(
+            (ROOT / "docs/contracts/public-identity.json").read_text(encoding="utf-8")
+        )
+        gate = legal["build_gate"]
+        self.assertFalse(gate["development_requires_live_legal_policy_proof"])
+        self.assertFalse(gate["usb_and_local_apps_require_public_legal_activation"])
+        self.assertTrue(gate["auth_only_login_and_registration_may_precede_full_account_readiness"])
+        self.assertTrue(gate["public_registration_requires_server_authoritative_policy"])
+        self.assertTrue(gate["full_account_publication_requires_separate_live_legal_proof"])
+        self.assertFalse(gate["placeholder_legal_acceptance_allowed"])
+        self.assertTrue(identity["legal_readiness"]["auth_only_routes_may_precede_full_account_readiness"])
+        self.assertTrue(identity["legal_readiness"]["full_account_publication_requires_legal_readiness"])
+        self.assertFalse(legal["account_activation_ready"])
+        config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
+        self.assertTrue(config["legal"]["auth_only_source_enabled"])
+        # A build remains possible even when the external deployed policy
+        # is not attested; release validation remains a separate operation.
+        self.assertGreater(len(build.validate_source(SITE)), 0)
 
     def test_auth_hardening_gate_is_not_ready(self):
         contract = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))

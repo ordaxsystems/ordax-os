@@ -55,7 +55,7 @@ class PublicLegalHashProofTests(unittest.TestCase):
                 result = network.check_public_legal_consistency()
             return result, output.getvalue()
 
-    def test_ci_rechecks_real_policy_when_legal_source_or_owner_changes(self):
+    def test_source_ci_and_live_legal_release_proof_are_independent(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / ".github/workflows/public-legal-integrity.yml").read_text(encoding="utf-8")
         for watched in (
@@ -65,7 +65,14 @@ class PublicLegalHashProofTests(unittest.TestCase):
             "tools/public-site/public_legal_integrity.py",
         ):
             self.assertEqual(workflow.count("'" + watched + "'"), 2, watched)
-        self.assertIn("github.event_name == 'push'", workflow)
+        # Changes to legal sources always run deterministic tests, but remote
+        # legal policy drift must never veto unrelated OS/app development.
+        self.assertIn("python -m unittest discover -s tests -p 'test_public_legal_hash_consistency.py'", workflow)
+        self.assertIn(
+            "if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'",
+            workflow,
+        )
+        self.assertNotIn("github.event_name == 'push'", workflow)
         self.assertIn("python tools/public-site/probe_public_network.py --legal-consistency", workflow)
 
     def test_valid_server_owned_hashes_match_both_public_documents(self):

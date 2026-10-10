@@ -60,6 +60,10 @@ jobs:
           python -m unittest discover -s tests -p 'test_account_legal_policy_activation.py' -v
           python -m unittest discover -s tests -p 'test_brand_pipeline.py' -v
           python -m unittest discover -s tests -p 'test_public_site_contract.py' -v
+      # Production legal attestation is a release/operations check, not a
+      # dependency of source development. Keep it strict on the isolated
+      # schedule and manual run; do not fail unrelated main pushes because a
+      # deployed legal-policy version differs from the next UI candidate.
       - name: Audit actual public policy and immutable published HTML
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: python tools/public-site/probe_public_network.py --legal-consistency

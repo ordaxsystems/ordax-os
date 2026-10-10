@@ -30,8 +30,11 @@
     "registration_legal_binding": true
   },
   "build_gate": {
-    "identity_urls_must_remain_null_while_not_ready": true,
-    "readiness_page_may_exist_before_activation": true,
+    "development_requires_live_legal_policy_proof": false,
+    "usb_and_local_apps_require_public_legal_activation": false,
+    "auth_only_login_and_registration_may_precede_full_account_readiness": true,
+    "public_registration_requires_server_authoritative_policy": true,
+    "full_account_publication_requires_separate_live_legal_proof": true,
     "placeholder_legal_acceptance_allowed": false
   },
   "registration_binding": {
@@ -45,7 +48,6 @@
     "registration_activation_allowed": false,
     "database_migration": "20261002221427_account_registration_legal_receipt_v1",
     "database_migration_applied": true,
-    "active_legal_policy_present": false,
     "intent_rpc": "ordax_begin_account_registration_legal_intent_v1",
     "intent_rpc_browser_execute_allowed": false,
     "intent_rpc_authenticated_execute_allowed": false,
@@ -58,12 +60,10 @@
     "policy_projection_database_migration": "20261002225800_account_registration_policy_projection_v1",
     "policy_projection_applied": true,
     "policy_projection_service_role_only": true,
-    "policy_projection_active_policy_present": false,
     "web_registration_binding_source_ready": true,
     "native_registration_binding_source_ready": true,
     "policy_activation_rpc": "ordax_activate_account_legal_policy_v1",
     "policy_activation_source_ready": true,
-    "policy_activation_applied": false,
     "policy_activation_service_role_only": true,
     "policy_activation_manual_workflow": ".github/workflows/public-legal-policy-activation.yml",
     "policy_activation_receipt_schema": "prototype-ordax.account-legal-policy-activation-receipt/1",

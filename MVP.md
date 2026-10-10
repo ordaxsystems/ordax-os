@@ -20,6 +20,20 @@ Entram no inventário e no ciclo de integração: boot/Kernel/Base, USB e **inst
 
 O SSOT de escopo é este `MVP.md`; `docs/CURRENT-STATE.md` e os contratos machine-readable continuam descrevendo **o que está implementado e habilitado hoje**. Nenhuma decisão textual transforma um gate técnico não realizado em `PASS`.
 
+### Desenvolvimento não depende de homologação jurídica do site
+
+A revisão jurídica é uma condição de **publicação da funcionalidade online que
+exige aquele aceite**, não uma dependência dos builds, testes, integrações ou
+commits de boot USB, Creator, Native, Apps, Studio, Runtime, Inteligência ou
+Surface. Mesmo que o domínio público esteja com política legal inconsistente,
+o desenvolvimento deve continuar na `main`, com testes de fonte e integração
+independentes de endpoints de produção. Não criar uma segunda Conta para
+contornar esse limite. A verificação jurídica real é independente, agendada e
+obrigatória apenas quando se pretende homologar o respectivo canal público.
+Uma conta pode continuar opcional durante boot USB offline; sua implementação
+E2E permanece no escopo, sem bloquear trabalho local.
+Detalhes técnicos: `docs/PUBLIC-LEGAL-READINESS.md`.
+
 ## 2. Um produto, dois perfis de distribuição
 
 O OrdaX não deve virar dois sistemas nem dois códigos divergentes.

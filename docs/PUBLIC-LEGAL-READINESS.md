@@ -1,114 +1,100 @@
-# OrdaX Public Legal Readiness
+# OrdaX — legal e Conta: desenvolvimento separado da publicação
 
-Status: NOT READY FOR LIVE ACCOUNT ACTIVATION
+Estado observado em 2026-10-10. Este documento descreve a operação, sem
+substituir os owners em `docs/contracts/public-legal-readiness.json`,
+`docs/contracts/public-identity.json`, `MVP.md` e os controles do servidor.
 
-This document defines a technical gate around the public portal's future account activation. It does not replace legal review and it does not publish final terms or a final privacy notice.
+## Regra principal
 
-## Current baseline
+**A revisão jurídica não é um bloqueio do desenvolvimento do OrdaX OS.**
+O código do sistema, boot USB, instalador Native, Studio, apps, Inteligência,
+Web, testes e builds podem avançar na `main` sem qualquer comprovação jurídica
+externa. Um problema no site publicado não invalida uma compilação local.
 
-The public portal currently:
+Há três fronteiras distintas:
 
-- has a dedicated OrdaX account backend/gateway deployed, but public same-origin browser activation remains disabled and fail-closed;
-- does not expose a live public password form;
-- keeps login/register targets disabled;
-- has no first-party analytics or advertising runtime in `sites/public/`;
-- reads only same-origin public configuration and release catalog data;
-- does not expose direct browser authority over the product database; public account access remains behind the disabled server-side gateway boundary.
+1. **Desenvolvimento e integração:** testes determinísticos de fonte, schemas,
+   contratos e APIs simuladas, sem exigir disponibilidade do Supabase nem
+   igualdade entre os hashes jurídicos do site atual e uma política anterior.
+   O CI de candidato do site deve validar os arquivos que vai construir, mas
+   nunca exigir aprovação jurídica para compilar ou entregar um preview.
+2. **Autenticação experimental:** `auth-only` usa o mesmo gateway e modelo de
+   sessão do produto, com login/cadastro limitados. Para apresentar *aceite
+   público real*, o frontend exige política ativa do servidor, URLs seguras
+   e verificação dos documentos servidos. Se houver inconsistência, **apenas
+   novas inscrições públicas** permanecem desabilitadas, não login, boot,
+   testes, desenvolvimento ou demais aplicativos. Não criar provedor paralelo
+   ou aceitar versões jurídicas inventadas pelo cliente.
+3. **Homologação pública:** a verificação jurídica real, assinaturas/release e
+   requisitos de segurança são gates exclusivos da capacidade/canal anunciado.
+   Em caso de falha, o diagnóstico permanece visível, mas só aquela
+   publicação/funcionalidade deixa de ser aprovada.
 
-The pages under `/privacidade/` and `/termos/` are therefore readiness pages, not final legal documents.
+O USB pode iniciar e funcionar sem conta; **a falta de homologação da Conta
+online não bloqueia desenvolvimento nem testes locais de boot USB**. O escopo
+funcional de cadastro/login E2E continua em `MVP.md`, sem ser falsamente
+marcado como concluído.
 
-The backend receipt mechanism is already implemented without activating registration. It stores no plaintext email in the short-lived intent, trusts no client-supplied document version, and can only create a registration receipt from the server-owned active policy in the same database transaction that creates the product account. A service-role-only projection now supplies the active/effective policy metadata to the gateway; Web and Native source display that same metadata and send only affirmative acceptance. There is deliberately no active legal policy yet and the registration switches remain off, so this mechanism cannot be used to claim that consent has been collected.
+## Estado técnico atual
 
-## Why creating users directly in the Supabase Dashboard fails
+- `https://ordax.com.br` publica a UI com login e cadastro em modo
+  `auth-only`; `account_activation_ready=false` mantém recursos completos,
+  recuperação pública e sincronização fechados.
+- O destino Supabase canônico `ordax-platform` tinha uma política ativa
+  `2026.10.09` e **dois usuários e dois recibos agregados** no momento da
+  inspeção. A declaração de que não há usuários de produção comercial é
+  compatível com haver contas técnicas/de teste; não atribuir titularidade
+  sem evidência.
+- Os digests SHA-256 nessa política **não correspondem** ao HTML entregue
+  atualmente em `/privacidade/` e `/termos/`. A evidência objetiva consta de
+  `docs/evidence/public-legal-integrity-2026-10-10.md`.
+- Isso não bloqueia builds: `python tools/public-site/build.py check`
+  passa e `auth_activation_preflight.py check` indica
+  `AUTH_ONLY_SOURCE_CANDIDATE`. A avaliação de publicação jurídica
+  continua a falhar, corretamente.
+- A origem do descompasso arquitetural é associar digests imutáveis de
+  consentimento aos **bytes completos de páginas HTML passíveis de
+  redesenho**. Para publicações jurídicas futuras, preservar um snapshot
+  canônico da versão aprovada independentemente do layout em evolução; não
+  reescrever hashes de políticas já aceitas nem duplicar o owner de Conta.
 
-The canonical destination is recorded in
-`infra/supabase/product/account_destination_migration_plan.json`.
-The Auth trigger `private.handle_ordax_account_created()` requires
-`raw_user_meta_data.ordax_registration_intent_id` to point to an unexpired,
-affirmatively accepted intent for a current, active legal policy. The dashboard
-**Add user** form does not execute this OrdaX pre-registration flow and may
-surface `Database error creating new user`. The underlying Auth/Postgres logs
-identify the expected failure as `ordax-registration-legal-intent-required`
-(`23514`).
+## Fluxos e verificações oficiais
 
-This must not be fixed by disabling the trigger, inserting directly into
-`auth.users`, granting browser access to privileged RPCs or fabricating a
-legal acceptance. The correct order is:
+**Build/preview durante o desenvolvimento:**
+```bash
+python tools/public-site/build.py check
+python tools/public-site/auth_activation_preflight.py check
+```
 
-1. Obtain independently reviewed, final public privacy and terms documents.
-2. Mark the exact documents, versions and dates ready in the reviewed source;
-   activate their hashed policy only with the manually confirmed workflow.
-3. Verify the account gateway and Web/Native registration E2E, with explicit
-   user acceptance, service-only intent creation, and metadata binding in
-   the **same** Auth user transaction that produces the immutable receipt.
-4. Enable public or administrative onboarding only after readiness checks.
-   Administrative onboarding must capture real acceptance too, or use a
-   separately reviewed quarantine/invitation process with no account access
-   before acceptance.
+**Comprovação independente da produção, quando for homologar a Conta:**
+```bash
+python tools/public-site/probe_public_network.py --legal-consistency
+python tools/public-site/prove_deployment.py --origin https://ordax.com.br
+python tools/public-site/auth_activation_preflight.py require-ready
+```
 
-The manual legal activation workflow now resolves its Supabase destination
-from the migration plan, not from the legacy provider project. It is still
-**blocked** while the documents remain drafts and must never be run with
-an old-project service credential.
+- `.github/workflows/public-site-candidate.yml`: testa fonte e gera preview
+  determinístico; **não** depende de aprovação da política legal em produção.
+- `.github/workflows/public-legal-integrity.yml`: testa invariantes em
+  alterações do código; em execução agendada ou manual faz prova HTTP real,
+  estrita, sinalizando divergências. A falha remota não veta pushes na
+  `main` nem impede trabalho nos demais módulos.
+- `.github/workflows/public-legal-policy-activation.yml`: **único**
+  procedimento de ativação de uma versão efetivamente aprovada, quando houver
+  necessidade de publicar novas inscrições públicas. Não é um passo de
+  instalação de dependências nem requisito para rodar o OrdaX OS offline.
 
-## Production publication attestation
+## Correção definitiva antes de liberar novos aceites públicos
 
-Legal activation is a **manual, reviewed main-only** operation in the
-canonical `ordaxsystems/ordax-os` repository. It is not a shortcut for
-creating the first Supabase Auth user. After the final documents are approved
-and marked ready in source, the operator must also prove that the **exact
-published HTML bytes** at the canonical public origin agree with the reviewed
-source documents. The canonical public origin is read from
-`docs/contracts/public-auth-provider-policy.json`, not entered as an arbitrary
-destination or copied into another constant.
+Publicar uma nova versão jurídica imutável pelo owner e vincular sua política
+aos exatos documentos daquela versão, preservando o histórico. É inadequado
+corrigir divergências por atualizações diretas dos hashes em registros já
+referenciados por aceites. O frontend pode ser redesenhado enquanto isso sem
+paralisar o sistema. Antes de anunciar cadastro liberado, testar aceitação,
+confirmação por e-mail, sessão, logout, revogação e recuperação contra o
+servidor real.
 
-The activation tool compares SHA-256 values for both `/privacidade/` and
-`/termos/`, checks exact version/effective date, refuses redirects and non-HTML
-responses, limits document response size, and will not send the policy activation
-RPC if either document differs from the reviewed source. All public document
-verification requests are unauthenticated; the privileged Supabase activation
-request does not follow HTTP redirects either.
-
-A successful activation proves the documents were published consistently
-**at the time of the check**. It does not replace legal review, E2E account
-registration, or a content-deployment freeze/immutable release policy. A changed
-published document must receive a new reviewed version and activation.
-
-## Account activation gate
-
-A live account entry point must remain disabled until all of the following are true:
-
-1. a production identity provider/gateway is deployed behind the same origin;
-2. a final privacy notice has been reviewed and published;
-3. final terms applicable to account creation have been reviewed and published;
-4. both documents have stable version identifiers and effective dates;
-5. the source-ready Web and Native flows have been E2E-proven against the final active policy and server-authoritative receipt so the reviewed document versions actually presented/accepted are the canonical active versions;
-6. account deletion/export/support ownership is defined;
-7. production redirects, cookies, mail templates and data processors are reviewed.
-
-## Machine-readable state
-
-The gate is represented by:
-
-- `docs/contracts/public-legal-readiness.json`;
-- `sites/public/config/public-site.json`;
-- build validation in `tools/public-site/build.py`.
-
-If the legal gate is not ready, setting a live login/register URL causes the public-site build to fail.
-
-## What the readiness pages may say now
-
-They may explain the current technical state and what still needs to be finalized. They must not claim:
-
-- final legal terms are in force;
-- consent has been collected;
-- public browser account activation is live when it is not;
-- a retention period that has not been adopted;
-- a controller/entity identity that has not been finalized;
-- cross-border processing details that have not been reviewed.
-
-## Future activation
-
-When legal review is complete, replace the readiness copy with approved documents, update the stable versions/effective dates in the contract, then enable the identity routes through deployment configuration.
-
-The gate should be changed in the same reviewed change that publishes the final documents so account activation cannot drift ahead of them.
+**Não há razão técnica para apagar os dois usuários ou recibos existentes a
+fim de continuar programando o OS.** Qualquer limpeza intencional de ambiente
+de testes deve ser uma operação separada, precisamente escopada, e nunca uma
+consequência automática do build.
