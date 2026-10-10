@@ -18,7 +18,7 @@ def fixture(root: Path, *, sdk_paths: tuple[str, ...] = ()) -> Path:
     app = root / "system/apps/internet"
     app.mkdir(parents=True, exist_ok=True)
     (root / "system/contracts").mkdir(parents=True)
-    (root / "system/apps/app-contract.mjs").write_text("export const internal=true;\n", encoding="utf-8")
+    (root / "system/apps/private-bootstrap.mjs").write_text("export const internal=true;\n", encoding="utf-8")
     for path in ("browser-session.mjs", "component-runtime.mjs"):
         (root / "system/contracts" / path).write_text("export const port=true;\n", encoding="utf-8")
     (app / "runtime.mjs").write_text(
@@ -132,9 +132,9 @@ class InternetSdkReadinessTests(unittest.TestCase):
                 "system/contracts/component-runtime.mjs",
             ))
             with (app / "runtime.mjs").open("a", encoding="utf-8") as stream:
-                stream.write('import { internal } from "../app-contract.mjs";\n')
+                stream.write('import { internal } from "../private-bootstrap.mjs";\n')
             result = checker.audit(root)
-            self.assertEqual(result["privatePlatformImports"], ["system/apps/app-contract.mjs"])
+            self.assertEqual(result["privatePlatformImports"], ["system/apps/private-bootstrap.mjs"])
             self.assertIn("private-platform-imports", result["blockers"])
             self.assertFalse(result["sdkBoundaryClean"])
 

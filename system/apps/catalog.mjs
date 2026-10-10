@@ -1,4 +1,4 @@
-import { isAppAvailable } from "./app-contract.mjs";
+import { isAppAvailable } from "../contracts/first-party-app.mjs";
 import { accountApp } from "./account/app.mjs";
 import { activityApp } from "./activity/app.mjs";
 import { assistantApp } from "./assistant/app.mjs";

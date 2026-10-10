@@ -92,8 +92,8 @@ ou contratos não publicados, retorna falha em vez de autorizar o cutover.
 `false` neste relatório; apenas os owners de migração e release podem
 mudar essas condições após os testes completos. O SDK 1.14 publica também os contratos de identidade, espaços, ativação
 de perfis e referências de projetos, incluindo a dependência transitiva
-`spaces.mjs`. A auditoria continua bloqueando `app-contract.mjs`, um import
-interno. Publicar schemas não autoriza mutações; a plataforma deve entregar
+`spaces.mjs`. O contrato `first-party-app.mjs` passou a ter uma única fonte em
+`system/contracts` e precisa ser publicado no SDK antes do corte. Publicar schemas não autoriza mutações; a plataforma deve entregar
 ports autorizados e restritos ao usuário, Space e projeto. A migração não deve
 copiar serviços nativos nem criar uma segunda implementação. A migração não deve copiar esses módulos
 nem criar uma segunda implementação.
