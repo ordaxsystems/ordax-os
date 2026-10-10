@@ -161,6 +161,22 @@ test("only existing receipt-backed lifecycle events are shown: paused, failed, a
   assert.equal(uncertain.resultId, null);
 });
 
+test("revoked grants never promote a result or execution success", () => {
+  const baseline = fixture({ state: "paused", attemptStatus: "uncertain" });
+  const changed = {
+    ...baseline,
+    approvals: baseline.approvals.map((entry) => ({ ...entry, status: "revoked", grantRef: "grant-a" })),
+    decisions: baseline.decisions.map((entry) => ({
+      ...entry, authoritySource: "user-grant", grantRef: "grant-a",
+    })),
+    attempts: baseline.attempts.map((entry) => ({ ...entry, grantRef: "grant-a" })),
+  };
+  const projected = projectPersonalWorkCanvas(changed, scope);
+  assert.equal(projected.state, "requires-action");
+  assert.deepEqual(projected.blocks, []);
+  assert.equal(projected.completionPercent, null);
+});
+
 test("duplicates and out-of-order events fail closed using Personal OrdaX store invariants", () => {
   const base = fixture();
   const repeated = { ...base, activities: [...base.activities, base.activities[0]] };
