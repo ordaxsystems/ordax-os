@@ -34,7 +34,7 @@ type activationState struct {
 	PendingHealth string        `json:"pending_health"`
 	// Same SSOT as the current slot. A user-initiated uninstall must survive
 	// reboot and signed image refresh without a parallel Store preference DB.
-	UserRemoved   bool          `json:"user_removed,omitempty"`
+	UserRemoved bool `json:"user_removed,omitempty"`
 }
 
 func emptyActivationState(componentID string) activationState {
