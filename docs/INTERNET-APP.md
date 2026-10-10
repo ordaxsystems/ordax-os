@@ -72,7 +72,8 @@ Após o cutover, a separação precisa ser:
 ### Auditoria executável do App SDK (sem antecipar a migração)
 
 `python3 tools/verify/internet_sdk_readiness.py --check` lê todos os
-`system/apps/internet/**/*.mjs`, resolve imports e assets, lê o
+`system/apps/internet/**/*.mjs`, resolve imports e assets, percorre
+recursivamente as dependências dos contratos, lê o
 `sdk/app-sdk-v1/bundle.json` **publicado** e reporta os contratos
 necessários que ainda não aparecem no SDK. Imports de módulos internos
 do OS aparecem em `privatePlatformImports` e não podem virar dependências
@@ -89,10 +90,12 @@ ou contratos não publicados, retorna falha em vez de autorizar o cutover.
 **Importante:** `sdkBoundaryClean` não é autorização de instalação.
 `sourceCutoverAuthorized` e `distributionActivated` continuam
 `false` neste relatório; apenas os owners de migração e release podem
-mudar essas condições após os testes completos. O SDK 1.13 publica a família de contratos Browser do produto, mas
-`app-contract.mjs` ainda é um import interno e os contratos de identidade,
-espaços, ativação de perfis e referências de projetos não estão todos
-publicados. O acesso real aos ports continua sujeito à autorização do host. A migração não deve copiar esses módulos
+mudar essas condições após os testes completos. O SDK 1.14 publica também os contratos de identidade, espaços, ativação
+de perfis e referências de projetos, incluindo a dependência transitiva
+`spaces.mjs`. A auditoria continua bloqueando `app-contract.mjs`, um import
+interno. Publicar schemas não autoriza mutações; a plataforma deve entregar
+ports autorizados e restritos ao usuário, Space e projeto. A migração não deve
+copiar serviços nativos nem criar uma segunda implementação. A migração não deve copiar esses módulos
 nem criar uma segunda implementação.
 
 O `git-app` atual **não é um `component-slot` de distribuição
