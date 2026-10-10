@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -13,7 +13,9 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 KERNEL_OWNER = ROOT / "bootstrap/kernel"
 sys.path.insert(0, str(KERNEL_OWNER))
-BUILDER = importlib.import_module("build")
+SPEC = importlib.util.spec_from_file_location("ordax_kernel_builder", KERNEL_OWNER / "build.py")
+BUILDER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(BUILDER)
 
 VERSION = "6.6.158"
 PREFIX = "https://cdn.kernel.org/pub/linux/kernel/v6.x/"
