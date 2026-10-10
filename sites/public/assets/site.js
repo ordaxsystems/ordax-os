@@ -104,6 +104,61 @@
     );
   }
 
+  // The server owns immutable consent hashes. Never offer new consent to a
+  // document whose currently published bytes no longer match that policy.
+  async function verifyPublishedRegistrationDocuments(policy) {
+    if (!validRegistrationPolicy(policy) || !globalThis.crypto?.subtle) return false;
+    const maxBytes = 2 * 1024 * 1024;
+    for (const [documentInfo, route] of [
+      [policy.privacy, "/privacidade/"],
+      [policy.terms, "/termos/"],
+    ]) {
+      if (!canonicalLegalDocument(documentInfo.url, route)) return false;
+      const response = await fetch(documentInfo.url, {
+        method: "GET",
+        credentials: "omit",
+        cache: "no-store",
+        redirect: "error",
+        headers: { Accept: "text/html" },
+      });
+      if (!response.ok || response.status !== 200 || response.url !== documentInfo.url
+          || response.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase() !== "text/html"
+          || !response.body) return false;
+      const advertisedSize = response.headers.get("Content-Length");
+      if (advertisedSize !== null && (!/^\\d+$/.test(advertisedSize) || Number(advertisedSize) > maxBytes)) {
+        return false;
+      }
+      const reader = response.body.getReader();
+      const chunks = [];
+      let bytesRead = 0;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!(value instanceof Uint8Array)) return false;
+          bytesRead += value.byteLength;
+          if (bytesRead > maxBytes) {
+            await reader.cancel();
+            return false;
+          }
+          chunks.push(value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      const bytes = new Uint8Array(bytesRead);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+      const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+      if (hex !== documentInfo.sha256) return false;
+    }
+    return true;
+  }
+
   function renderRegistrationPolicy(form, policy) {
     const host = form.querySelector("[data-registration-legal]");
     if (!host) return false;
@@ -493,7 +548,9 @@
     if (available && kind === "register") {
       try {
         const policy = await loadJson("/auth/registration-policy");
-        available = renderRegistrationPolicy(form, policy);
+        available = (await verifyPublishedRegistrationDocuments(policy))
+          && renderRegistrationPolicy(form, policy);
+        if (!available) renderRegistrationPolicy(form, null);
       } catch {
         available = false;
         renderRegistrationPolicy(form, null);

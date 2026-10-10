@@ -415,6 +415,9 @@ gated or unconfigured gateway when login/signup is advertised. In `auth-only`
 mode it also requires an active same-origin registration policy whose
 server-owned SHA-256 values match the exact HTML bytes of both published legal
 pages, absent recovery routes and a denied unchallenged recovery POST.
+The browser registration surface independently verifies both same-origin HTML
+digests with Web Crypto (bounded 2 MiB each) **before** showing the consent
+controls and sending a signup; login remains separately available.
 The latter tests only the boundary, not that recovery works. A passing local build is not production
 or credentialed E2E evidence.
 

@@ -16,7 +16,11 @@ reconciliation. **Legal integrity remains a blocking production defect**:
 server-owned active document digests for both legal pages differ from the
 published HTML; the strengthened deployment proof now fails closed. See
 `docs/evidence/public-legal-integrity-2026-10-10.md` for sanitized hashes,
-record counts and the non-destructive remediation path. No credentialed E2E,
+record counts and the non-destructive remediation path. The browser registration
+form now also checks the exact published HTML of both policy documents using
+SHA-256 before exposing the consent/submit controls; login is not coupled to
+this check. This is defense in depth, **not** a replacement for server policy
+reconciliation. No credentialed E2E,
 USB physical proof, signed Creator publisher or public Stable release has
 been established by this site proof.
 
