@@ -63,6 +63,8 @@
  border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-lg);
  background:linear-gradient(0deg,color-mix(in srgb,var(--ordax-bg) 76%,transparent),transparent 70%),url("/assets/ordax-landscape.png") 60% center/cover no-repeat;
 }
+.navigation-art::before{content:"";position:absolute;inset:0;background:var(--ordax-wallpaper-scrim);opacity:.12;pointer-events:none}
+.navigation-art>.ordax-symbol,.navigation-art>strong{position:relative;z-index:1}
 .navigation-art .ordax-symbol{width:44px;height:44px}
 .navigation-art strong{font-size:25px;font-weight:650;letter-spacing:var(--ordax-tracking-tight)}
 .account-content{padding:31px clamp(24px,2.6vw,38px) 20px;min-width:0}
