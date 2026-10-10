@@ -120,6 +120,7 @@ on:
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
       - 'tests/test_surface_workspace.mjs'
+      - 'tests/test_surface_external_app_catalog.mjs'
       - 'tests/test_recent_files.mjs'
       - 'tests/test_recent_files_ui_contract.py'
       - 'tests/test_projects.mjs'
@@ -331,6 +332,7 @@ on:
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
       - 'tests/test_surface_workspace.mjs'
+      - 'tests/test_surface_external_app_catalog.mjs'
       - 'tests/test_recent_files.mjs'
       - 'tests/test_recent_files_ui_contract.py'
       - 'tests/test_projects.mjs'
@@ -484,6 +486,7 @@ jobs:
           node --test tests/test_surface_localization.mjs
           node --test tests/test_surface_app_localization.mjs
           node --test tests/test_surface_workspace.mjs
+          node --test tests/test_surface_external_app_catalog.mjs
           node --test tests/test_recent_files.mjs
           node --test tests/test_projects.mjs
           node --test tests/test_projects_app.mjs

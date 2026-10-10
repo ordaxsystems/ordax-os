@@ -152,7 +152,8 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn("contracts/identity-session.mjs", surface)
         self.assertNotIn("contracts/identity-actions.mjs", surface)
         self.assertIn("contracts/app-activation.mjs", surface)
-        self.assertIn("../../apps/catalog.mjs", surface)
+        self.assertIn("../../apps/runtime-catalog.mjs", surface)
+        self.assertIn("assertAppRuntimeCatalog(appCatalog)", surface)
         self.assertIn("../../services/preferences/appearance.mjs", surface)
         self.assertIn("../../services/preferences/accessibility.mjs", surface)
         self.assertIn("./desktop-shell.mjs", surface)
@@ -624,7 +625,8 @@ class SurfaceUiContractTests(unittest.TestCase):
             'case "preference.set"',
         ):
             self.assertIn(action, text)
-        self.assertIn("isAppAvailable", text)
+        self.assertIn("appCatalog.isAvailable(app, state.capabilityIds)", text)
+        self.assertIn("assertAppRuntimeCatalog(appCatalog)", text)
         self.assertIn("recoverPreferenceSnapshot", text)
         self.assertIn("setPreferenceValue", text)
         self.assertNotIn("platform", text.lower())
