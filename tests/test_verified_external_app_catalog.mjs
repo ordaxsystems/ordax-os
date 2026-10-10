@@ -46,7 +46,9 @@ function fixture({ metadata = META, component = COMPONENT,
   });
   const fetchImpl = async (url, options) => {
     calls.push({ url, options });
-    if (url.includes("component-runtime?")) return reply(metadata);
+    if (url.includes("component-runtime?")) return reply(
+      typeof metadata === "function" ? metadata() : metadata
+    );
     if (url.endsWith("/app.json")) return reply(component);
     if (url.endsWith("/presentation/manifest.json")) return reply(presentation, presentation === null ? 404 : 200);
     if (url.endsWith("/associations/manifest.json")) return reply(association, association === null ? 404 : 200);
@@ -71,7 +73,7 @@ test("verified current-slot presentation and association preserve exact owner an
   assert.equal(entries[0].component.owner, "ordaxsystems/ordax-apps");
   assert.deepEqual(entries[0].association.extensions, ["md", "txt"]);
   assert.ok(Object.isFrozen(entries));
-  assert.equal(t.calls.length, 4);
+  assert.equal(t.calls.length, 5);
   for (const call of t.calls) {
     assert.equal(call.options.method, "GET");
     assert.equal(call.options.cache, "no-store");
@@ -130,4 +132,34 @@ test("only canonical external IDs can be discovered and package-source is read-o
   }), []);
   assert.equal(t.calls.length, 0);
   assert.equal(t.calls.length, 0);
+});
+
+test("moving the current activation while manifest files load hides stale external apps", async () => {
+  let reads = 0;
+  const t = fixture({ metadata: () => {
+    reads += 1;
+    return reads === 1 ? META : { ...META, revision: 5 };
+  } });
+  const errors = [];
+  const apps = await discoverVerifiedExternalApplications({
+    source: t.source, fetchImpl: t.fetchImpl, appIds: ["notes"],
+    onError(error) { errors.push(error.message); },
+  });
+  assert.deepEqual(apps, []);
+  assert.equal(reads, 2);
+  assert.match(errors[0], /activation changed during discovery/);
+});
+
+test("a component that disappears during discovery cannot enter the Surface catalog", async () => {
+  let reads = 0;
+  const t = fixture({ metadata: () => {
+    reads += 1;
+    return reads === 1 ? META : {
+      ...META, source: "absent", version: null, sourceCommit: null, entrypoint: null,
+    };
+  } });
+  const entries = await discoverVerifiedExternalApplications({
+    source: t.source, fetchImpl: t.fetchImpl, appIds: ["notes"],
+  });
+  assert.deepEqual(entries, []);
 });

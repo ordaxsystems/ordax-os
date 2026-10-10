@@ -104,6 +104,21 @@ export async function discoverVerifiedExternalApplications({
         : validateFileAssociationManifest(associationPayload, {
           appId, appVersion: component.version,
         });
+      // The Native channel can promote/remove a current slot between reads.
+      // Do not publish a presentation built from a stale immutable identity.
+      const currentAfterFiles = validateComponentRuntimeMetadata(
+        await readJson(
+          await fetchImpl(packageSource.metadataUrl(appId, "current"), REQUEST_OPTIONS),
+          `Verified ${appId} current slot recheck`,
+        ),
+        { componentId: appId, state: "current" },
+      );
+      if (currentAfterFiles.source !== "slot"
+        || ["revision", "version", "sourceCommit", "entrypoint"].some(
+          (field) => currentAfterFiles[field] !== metadata[field]
+        )) {
+        throw new TypeError(`Verified external app activation changed during discovery: ${appId}`);
+      }
       entries.push(Object.freeze({
         component, metadata, presentation, association,
       }));
