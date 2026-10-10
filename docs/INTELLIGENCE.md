@@ -27,6 +27,25 @@ Atualmente mostra apenas o modelo **local** quando a inferência existente está
 `ready|busy`; sem backend pronto, expõe `unavailable`. Não presume ChatGPT
 Web, plugin MCP ou API remota conectados.
 
+#### Cancelamento do transporte local (source)
+
+O caminho de cancelamento agora passa um `AbortSignal` **fora do payload do
+modelo**, do Assistant pelo port `ordax.intelligence/1` e seus wrappers
+existentes (Application Context, Memory com fences Identity/Space, Profile
+verificado), até `ordax.local-ai/1`. O adaptador de HTTP local aborta **apenas**
+o POST de inferência em andamento; não toca em probes, outras requisições,
+tool grants ou hosts remotos. Há proteção contra sinal já abortado, corpo
+stream em leitura, resposta atrasada de adapter que ignora o sinal e limpeza
+de listener/timer; uma falha real mantém o recheck de saúde.
+
+Descartar, sair do contexto de conta/Space/perfil ou desmontar Assistant
+aborta o transporte e mantém os fences de contexto/Memory. O usuário
+não ganha autoridade sobre o processo de modelo, que pode continuar executando
+até que o host reconheça a desconexão. Não há garantia de abort do motor nem
+streaming/SSE de tokens. A projeção de capabilities diferencia
+`transportCancellationSupported=true` quando o modelo local está disponível
+de `backendCancellationSupported=false`, sem prometer fim da computação.
+
 A conversa Assistant continua sendo uma sessão limitada e vinculada aos owners
 de Identity/Space/Profile existentes, sem projeto inferido. O controle
 **Descartar resposta** só está disponível enquanto a inferência está pendente:
