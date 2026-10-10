@@ -455,3 +455,64 @@
 @media(prefers-reduced-motion:reduce){
   .account-usage-visual *{animation:none;transition:none}
 }
+
+/* Lovable account dashboard — phase 2: visual composition, same public identity owner. */
+.account-overview-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:14px 0 19px}
+.account-overview-heading .eyebrow{font-size:10px;letter-spacing:.15em;font-weight:700;color:var(--ordax-accent);margin:0 0 8px}
+.account-overview-heading h2{font-family:var(--ordax-font-display);font-size:clamp(22px,2.5vw,30px);letter-spacing:var(--ordax-tracking-tight);line-height:1.15;font-weight:var(--ordax-title-weight);margin:0}
+.account-overview-heading>span{font-size:12px;color:var(--ordax-muted);padding-bottom:4px;text-align:right}
+.account-content:not([data-view="visao-geral"]) .account-overview-heading{display:none}
+.account-profile-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;grid-column:1/-1;border-top:1px solid var(--ordax-border-soft);padding-top:18px}
+.account-profile-fact{display:flex;align-items:center;gap:12px;min-width:0;min-height:62px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);padding:11px 14px;background:color-mix(in srgb,var(--ordax-app-bg) 70%,transparent)}
+.account-profile-fact>.account-icon{color:var(--ordax-accent);width:19px;height:19px;flex:0 0 19px}
+.account-profile-fact:nth-child(2)>.account-icon{color:var(--ordax-brand-violet)}
+.account-profile-fact:nth-child(3)>.account-icon{color:var(--ordax-brand-cyan)}
+.account-profile-fact span{min-width:0;display:grid;gap:3px}
+.account-profile-fact small{font-size:10px;color:var(--ordax-muted)}
+.account-profile-fact strong{font-size:12px;line-height:1.4;font-weight:600;color:var(--ordax-text);overflow-wrap:anywhere}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-cards{grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano{grid-column:span 6;order:1;min-height:242px;
+ background:radial-gradient(circle at 89% 14%,color-mix(in srgb,var(--ordax-brand-violet) 17%,transparent),transparent 56%),var(--account-material)}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento{grid-column:span 6;order:2;min-height:242px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo{grid-column:span 8;order:3;min-height:335px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 4;order:4;min-height:335px;
+ background:radial-gradient(circle at 82% 52%,color-mix(in srgb,var(--ordax-brand-blue) 11%,transparent),transparent 63%),var(--account-material)}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading{order:5;grid-column:1/-1}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#faturamento):not(#consumo):not(#seguranca){order:6;grid-column:span 4}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .plan-card-visual{right:18px;top:48%;opacity:.76;transform:translateY(-20%);width:135px;height:135px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .account-plan-kicker{margin-top:24px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .card-summary{max-width:210px;font-size:clamp(17px,2vw,23px);line-height:1.24;font-weight:600;color:var(--ordax-text)}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento .account-billing-overview{font-size:clamp(21px,2.4vw,28px);line-height:1.2}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-visual{margin-top:12px;padding:16px;background:color-mix(in srgb,var(--ordax-app-bg) 68%,transparent)}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-visual-plot{min-height:158px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines>div{flex-direction:column;gap:4px;min-height:59px;padding:12px 10px;text-align:left;background:color-mix(in srgb,var(--ordax-app-bg) 60%,transparent);border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-sm)}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dt{font-size:11px;min-height:0}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dd{font-size:11px;text-align:left}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-content{margin-top:22px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca .card-summary{max-width:250px}
+.account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-services-heading h2{font-size:22px}
+@media(max-width:1100px){
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 6}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#faturamento):not(#consumo):not(#seguranca){grid-column:span 6}
+}
+@media(max-width:700px){
+ .account-profile-facts{grid-template-columns:1fr;gap:7px;padding-top:13px}
+ .account-profile-fact{min-height:48px;padding:9px 12px}
+ .account-overview-heading{align-items:flex-start;flex-direction:column;gap:5px;margin:9px 0 14px}
+ .account-overview-heading>span{text-align:left}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #faturamento,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-card:not(#plano):not(#faturamento):not(#consumo):not(#seguranca){grid-column:1/-1;min-height:0}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #plano .plan-card-visual{width:95px;height:95px;right:6px;opacity:.5}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-visual-plot{min-height:120px}
+}
+@media(max-width:410px){
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines{gap:5px}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines>div{padding:7px 5px}
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dt,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dd{font-size:10px;overflow-wrap:anywhere}
+}
