@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
@@ -24,6 +24,7 @@ const CSS_FILES = [
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
   'system/surface/ui/identity.css',
+  'system/surface/ui/brand/symbol.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
@@ -35,8 +36,12 @@ const COMPONENT_ASSET_FILES = Object.freeze({
 
 function parseArgs(argv) {
   let bundleDir = 'out/web-client';
+  let publicAccountUrl = null;
+  let evidenceDir = 'out/account-viewport-proof';
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
+    if (value === '--public-account-url') { publicAccountUrl = argv[++index]; continue; }
+    if (value === '--evidence-dir') { evidenceDir = argv[++index]; continue; }
     if (value === '--bundle-dir') {
       bundleDir = argv[index + 1];
       index += 1;
@@ -44,7 +49,14 @@ function parseArgs(argv) {
     }
     throw new Error(`unsupported argument: ${value}`);
   }
-  return { bundleDir: resolve(bundleDir) };
+  if (publicAccountUrl) {
+    const url = new URL(publicAccountUrl);
+    if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/conta/' || url.search || url.hash || url.username || url.password) {
+      throw new Error('public account proof requires the local canonical /conta/ preview');
+    }
+    assertInside(resolve('out'), resolve(evidenceDir));
+  }
+  return { bundleDir: resolve(bundleDir), publicAccountUrl, evidenceDir: resolve(evidenceDir) };
 }
 
 function assertInside(root, candidate) {
@@ -300,10 +312,16 @@ class CdpClient {
 // offline bundle bytes. CSS variable substitution need not carry megabytes of
 // base64 inside a declaration. The private proof page owns the Blob lifetime.
 function injectedStylesExpression(styles) {
-  return `(${JSON.stringify(styles)}).replace(/url\\("data:image\\/png;base64,([^\"]+)"\\)/g, (_, encoded) => {
-    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-    return 'url("' + URL.createObjectURL(new Blob([bytes], { type: 'image/png' })) + '")';
-  })`;
+  return `(() => {
+    const localPngUrls = new Map();
+    return (${JSON.stringify(styles)}).replace(/url\\("data:image\\/png;base64,([^\"]+)"\\)/g, (_, encoded) => {
+      if (!localPngUrls.has(encoded)) {
+        const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+        localPngUrls.set(encoded, URL.createObjectURL(new Blob([bytes], { type: 'image/png' })));
+      }
+      return 'url("' + localPngUrls.get(encoded) + '")';
+    });
+  })()`;
 }
 
 function buildProofExpression(moduleSources, styles, assetUrls) {
@@ -750,8 +768,18 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     };
     result.lightPreviewFollowsTokens = previewMatchesRoot('light');
     const brand = root.querySelector('.ordax-brand-symbol');
-    result.localBrandMaskLoaded = Boolean(brand &&
-      getComputedStyle(brand).maskImage.includes('data:image/svg+xml;base64,'));
+    const brandImageUrl = brand && getComputedStyle(brand).backgroundImage.match(/^url\\(["']?([^"')]+)["']?\\)$/)?.[1];
+    const brandImage = new Image();
+    if (brandImageUrl) brandImage.src = brandImageUrl;
+    if (brandImageUrl) await brandImage.decode();
+    result.localBrandImageLoaded = Boolean(brandImageUrl?.startsWith('blob:') &&
+      brandImage.naturalWidth === 1254 && brandImage.naturalHeight === 1254);
+    const previousContrast = root.dataset.ordaxContrast;
+    root.dataset.ordaxContrast = 'high';
+    result.brandHighContrastUsesSameImage = Boolean(brandImageUrl &&
+      getComputedStyle(brand).maskImage.includes(brandImageUrl));
+    if (previousContrast === undefined) delete root.dataset.ordaxContrast;
+    else root.dataset.ordaxContrast = previousContrast;
     await document.fonts.ready;
     result.localFontLoaded = [...document.fonts].some((font) => font.family === 'Inter' && font.status === 'loaded');
 
@@ -1105,7 +1133,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
 
     const required = [
       'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherSubjectMismatchFailsClosed', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
-      'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandMaskLoaded', 'localFontLoaded',
+      'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandImageLoaded', 'brandHighContrastUsesSameImage', 'localFontLoaded',
       'globalHeaderClearOfWindows',
       'studioNavigationOpensSharedApp', 'studioWebAvailabilityIsHonest',
       'studioUnavailableDoesNotDisplayZeroMetrics', 'studioChatUsesExternalPublicSite',
@@ -1191,16 +1219,70 @@ async function evaluateProof(client, expression, label) {
 
 let bundleDirGlobal = null;
 
+async function provePublicAccount(client, url, evidenceDir) {
+  await mkdir(evidenceDir, { recursive: true });
+  async function evaluate(expression) {
+    const reply = await client.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+    if (reply.exceptionDetails) throw new Error(reply.exceptionDetails.exception?.description ?? 'account proof evaluation failed');
+    return reply.result?.value;
+  }
+  const reports = [];
+  for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['landscape',844,390]]) {
+    await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
+    await client.send('Page.navigate', { url });
+    const deadline = Date.now() + 10_000;
+    while (!await evaluate('document.readyState === "complete" && document.body.classList.contains("account-enhanced") && document.querySelector("[data-account-state]")?.dataset.status !== "checking"')) {
+      if (Date.now() > deadline) throw new Error('account preview did not become ready');
+      await sleep(50);
+    }
+    await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
+    await evaluate('document.querySelector(".profile-session summary").click()');
+    if (!await evaluate('document.querySelector(".profile-session").open && document.querySelector("[data-account-state]").getBoundingClientRect().height > 0')) throw new Error('session disclosure failed');
+    await evaluate('document.querySelector(".profile-session summary").click()');
+    const report = await evaluate(`(() => {
+      const cards = [...document.querySelectorAll('[data-account-card]')];
+      const box = element => element.getBoundingClientRect();
+      const noOverflow = document.documentElement.scrollWidth <= innerWidth;
+      const profile = box(document.querySelector('[data-account-overview]'));
+      const columns = getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length;
+      const primary = cards.slice(0,3).map(box);
+      return { noOverflow, width:innerWidth, height:innerHeight, columns, profileHeight:profile.height,
+        allSections:cards.length===11, overviewNotesHidden:getComputedStyle(cards[0].querySelector('.card-note')).display==='none',
+        primaryTilesAligned:Math.abs(primary[0].top-primary[2].top)<2,
+        headerHeight:box(document.querySelector('.account-header')).height,
+        mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
+    })()`);
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || (width === 1440 && report.columns !== 3) || (width < 600 && !report.primaryTilesAligned)) {
+      throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
+    }
+    const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
+    await evaluate('document.querySelector("#seguranca > .card-heading").click()');
+    const detail = await evaluate('document.querySelector("[data-account-content]").dataset.view === "seguranca" && getComputedStyle(document.querySelector("#seguranca .card-note")).display !== "none" && document.activeElement.id === "seguranca-title"');
+    if (!detail) throw new Error(`${name} account detail/focus failed`);
+    if (width <= 900) {
+      await evaluate('document.querySelector("[data-account-search-toggle]").click()');
+      if (!await evaluate('document.activeElement.matches("[data-account-search]")')) throw new Error('mobile search did not focus');
+      await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      if (!await evaluate('document.activeElement.matches("[data-account-search-toggle]") && !document.body.classList.contains("account-search-open")')) throw new Error('mobile search Escape failed');
+    }
+    reports.push({ name, ...report, detailAndFocus: detail });
+  }
+  if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) throw new Error('public account emitted a JavaScript exception');
+  await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));
+  console.log(`PUBLIC_ACCOUNT_VIEWPORT_PROOF=PASS ${JSON.stringify(reports)}`);
+}
+
 async function main() {
-  const { bundleDir } = parseArgs(process.argv.slice(2));
+  const { bundleDir, publicAccountUrl, evidenceDir } = parseArgs(process.argv.slice(2));
   bundleDirGlobal = bundleDir;
   if (typeof WebSocket !== 'function') {
     throw new Error(`Node ${process.version} does not provide the global WebSocket required by the CDP smoke gate`);
   }
-  if (!existsSync(bundleDir)) throw new Error(`bundle directory does not exist: ${bundleDir}`);
-  const modules = await collectModules(bundleDir);
-  const assetUrls = await loadComponentAssetUrls(bundleDir);
-  const styles = await loadStyles(bundleDir);
+  if (!publicAccountUrl && !existsSync(bundleDir)) throw new Error(`bundle directory does not exist: ${bundleDir}`);
+  const modules = publicAccountUrl ? new Map() : await collectModules(bundleDir);
+  const assetUrls = publicAccountUrl ? {} : await loadComponentAssetUrls(bundleDir);
+  const styles = publicAccountUrl ? '' : await loadStyles(bundleDir);
   const browser = findBrowser();
   const cdpPort = await reserveLoopbackPort();
   const profile = await mkdtemp(join(tmpdir(), 'ordax-browser-smoke-'));
@@ -1253,6 +1335,11 @@ async function main() {
     await client.send('Runtime.enable');
     await client.send('Page.enable');
     await client.send('Log.enable');
+    if (publicAccountUrl) {
+      await provePublicAccount(client, publicAccountUrl, evidenceDir);
+      passed = true;
+      return;
+    }
     const shellResult = await evaluateProof(
       client,
       buildProofExpression(modules, styles, assetUrls),

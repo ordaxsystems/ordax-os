@@ -17,6 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TOKENS = ROOT / "system/surface/ui/tokens.css"
+SYMBOL_CSS = ROOT / "system/surface/ui/brand/symbol.css"
 TEMPLATES = ROOT / "infra/supabase/identity/email-templates"
 PUBLIC_ORIGIN = "https://ordax.com.br"
 SUPABASE_REF = "jhfphsjptrpmtnzkpwud"
@@ -36,6 +37,10 @@ SITE_SEMANTIC_TOKENS = (
     "selected-bg", "success", "success-bg", "warning", "warning-bg",
     "danger", "danger-bg", "radius-sm", "radius-md", "radius-lg",
     "radius-xl", "motion-fast", "motion-base",
+)
+SITE_COMPOSITION_TOKENS = (
+    "font", "font-display", "title-weight", "control-weight", "tracking-tight",
+    "shadow", "shadow-soft", "glow-soft", "brand-fill", "wallpaper-scrim",
 )
 SITE_SEMANTIC_VALUE = re.compile(
     r"^(?:#[0-9a-fA-F]{6}|"
@@ -109,6 +114,17 @@ def render_site_css(tokens_path: Path = TOKENS) -> str:
             raise BrandError("unsafe Surface light theme token value")
         names.append(name)
 
+    for key in SITE_COMPOSITION_TOKENS:
+        name = f"--ordax-{key}"
+        for mapping in (dark, light):
+            if name not in mapping:
+                if mapping is dark:
+                    raise BrandError("missing Surface composition token")
+                continue
+            if re.search(r"[{};<>@]|url\s*\(|/\*|\*/", mapping[name], re.I):
+                raise BrandError("unsafe Surface composition token")
+        names.append(name)
+
     result = ["/* Generated from system/surface/ui/tokens.css; do not edit. */", ":root {"]
     result.extend(f"  {name}: {dark[name]};" for name in names)
     result.append("}")
@@ -116,6 +132,28 @@ def render_site_css(tokens_path: Path = TOKENS) -> str:
     result.extend(f"  {name}: {light[name]};" for name in names if name in light)
     result.append("}")
     return "\n".join(result) + "\n"
+
+
+def render_site_identity_css(tokens_path: Path = TOKENS, symbol_path: Path = SYMBOL_CSS) -> str:
+    """Compose the existing token export with the single local symbol owner."""
+    symbol = symbol_path.read_text(encoding="utf-8")
+    urls = re.findall(r"url\(\s*([^)]+)\)", symbol, re.I)
+    if not urls or any(url.strip() != '"./ordax-symbol.png"' for url in urls):
+        raise BrandError("symbol presentation must reference only the canonical local PNG")
+    if re.search(r"@import\b|https?://|<", symbol, re.I):
+        raise BrandError("unsafe canonical symbol presentation")
+    return render_site_css(tokens_path) + "\n" + symbol
+
+
+def render_site_font_css(tokens_path: Path = TOKENS) -> str:
+    """Export the existing local font declaration, without another type owner."""
+    source = tokens_path.read_text(encoding="utf-8")
+    block = re.search(r"@font-face\s*\{[^{}]+\}", source)
+    if not block or re.findall(r"url\(([^)]+)\)", block.group()) != [
+        '"./fonts/inter-latin-wght-normal.woff2"'
+    ]:
+        raise BrandError("canonical local Surface font declaration required")
+    return "/* Generated from system/surface/ui/tokens.css; do not edit. */\n" + block.group() + "\n"
 
 
 def render_email(name: str, tokens_path: Path = TOKENS, templates_dir: Path = TEMPLATES) -> str:

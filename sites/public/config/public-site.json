@@ -10,6 +10,12 @@
   "downloads": {
     "catalog_url": "/releases/catalog.json"
   },
+  "product": {
+    "web": {
+      "enabled": false,
+      "entry_url": null
+    }
+  },
   "legal": {
     "privacy_url": "/privacidade/",
     "terms_url": "/termos/",

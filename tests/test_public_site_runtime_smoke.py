@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 import threading
@@ -31,6 +32,47 @@ preview = load_module("ordax_public_site_preview_smoke", PREVIEW_PATH)
 
 
 class PublicSiteRuntimeSmokeTests(unittest.TestCase):
+    def test_account_assets_and_plan_catalog_are_derived_from_existing_owners(self):
+        self.assertEqual((self.out / build.PUBLIC_SYMBOL_PATH).read_bytes(), build.CANONICAL_SYMBOL.read_bytes())
+        with self.fetch('/' + build.PUBLIC_SYMBOL_PATH) as response:
+            self.assertEqual(response.headers['Content-Type'], 'image/png')
+            self.assertEqual(response.read(), build.CANONICAL_SYMBOL.read_bytes())
+        self.assertEqual((self.out / "assets/ordax-landscape.png").read_bytes(), build.CANONICAL_WALLPAPER.read_bytes())
+        self.assertEqual((self.out / "assets/fonts" / build.CANONICAL_FONT.name).read_bytes(), build.CANONICAL_FONT.read_bytes())
+        self.assertEqual((self.out / "assets/fonts" / build.CANONICAL_FONT_LICENSE.name).read_bytes(), build.CANONICAL_FONT_LICENSE.read_bytes())
+        self.assertEqual((self.out / "assets/ordax-font.css").read_text(encoding="utf-8"), build.render_site_font_css())
+        account = (self.out / "conta/index.html").read_text(encoding="utf-8")
+        plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
+        for plan in plans:
+            self.assertIn("<li>" + plan["display_name"] + "</li>", account)
+        self.assertNotIn("<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->", account)
+        for asset in ("account-dashboard.css", "account-portal.js", "ordax-design-tokens.css", "ordax-font.css"):
+            fingerprint = build.sha256_bytes((self.out / "assets" / asset).read_bytes())[:16]
+            self.assertIn("/assets/" + asset + "?v=" + fingerprint, account)
+
+    def test_web_config_cannot_activate_an_unapproved_product(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "site"
+            shutil.copytree(ROOT / "sites/public", source)
+            config_path = source / "config/public-site.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["product"]["web"] = {"enabled": True, "entry_url": "/ordax/"}
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            with self.assertRaisesRegex(build.PublicSiteError, "authorized by its owner"):
+                build.validate_source(source)
+
+    def test_web_config_rejects_external_or_reserved_navigation_targets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "site"
+            shutil.copytree(ROOT / "sites/public", source)
+            config_path = source / "config/public-site.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            for path in ("//example.invalid/", "https://example.invalid/", "/web/", "/auth/logout/", "/ordax/%2f/", "/ordax//next/", "/ordax/../conta/"):
+                config["product"]["web"] = {"enabled": False, "entry_url": path}
+                config_path.write_text(json.dumps(config), encoding="utf-8")
+                with self.subTest(path=path), self.assertRaisesRegex(build.PublicSiteError, "same-origin product path"):
+                    build.validate_source(source)
+
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()

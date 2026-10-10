@@ -335,7 +335,19 @@
 
   // The account page displays only identity data returned by the same-origin
   // verified session owner. No locally inferred or simulated account state.
+  function clearAccountView() {
+    for (const selector of ["[data-account-authenticated]", "[data-account-anonymous]", "[data-account-unavailable]"]) {
+      const section = document.querySelector(selector);
+      if (section) section.hidden = true;
+    }
+    const email = document.querySelector("[data-account-email]");
+    const logout = document.querySelector('[data-account-logout] button[type="submit"]');
+    if (email) email.textContent = "";
+    if (logout) logout.disabled = true;
+  }
+
   async function renderAccount() {
+    const pageRevision = startRevision;
     const state = document.querySelector("[data-account-state]");
     const authenticated = document.querySelector("[data-account-authenticated]");
     const anonymous = document.querySelector("[data-account-anonymous]");
@@ -357,7 +369,7 @@
     try {
       const revision = sessionRevision;
       const session = await verifiedIdentitySession();
-      if (revision !== sessionRevision) return;
+      if (revision !== sessionRevision || pageRevision !== startRevision) return;
       if (session.authenticated === true) {
         // This text is never HTML: remote identity attributes are untrusted.
         email.textContent = typeof session.email === "string" && session.email.length <= 254
@@ -373,11 +385,67 @@
         setStatus("[data-account-state]", t("account.session.anonymous.title"), t("account.session.anonymous.detail"));
       }
     } catch {
+      if (pageRevision !== startRevision) return;
       unavailable.hidden = false;
       state.dataset.status = "unavailable";
       setStatus("[data-account-state]", t("account.session.unavailable.title"), t("account.session.unavailable.detail"));
     } finally {
-      state.removeAttribute("aria-busy");
+      if (pageRevision === startRevision) state.removeAttribute("aria-busy");
+    }
+  }
+
+  function productWebEntry(config) {
+    const product = config?.product?.web;
+    const path = product?.entry_url;
+    // Navigation only; the deployed product host must independently authorize every request.
+    if (product?.enabled !== true || typeof path !== "string"
+      || !/^\/[A-Za-z0-9/_-]+\/$/.test(path)
+      || /\/\//.test(path)
+      || /^\/(?:auth|account|sync|config|api|conta|login|cadastro|web)(?:\/|$)/.test(path)) return null;
+    return path;
+  }
+
+  let webRenderRevision = 0;
+  async function renderWebEntry(config) {
+    const state = document.querySelector("[data-web-state]");
+    const launch = document.querySelector("[data-web-launch]");
+    const login = document.querySelector("[data-web-login]");
+    const retry = document.querySelector("[data-web-retry]");
+    if (!state || !launch || !login || !retry) return;
+    const generation = ++webRenderRevision;
+    const revision = sessionRevision;
+    const pageRevision = startRevision;
+    launch.hidden = login.hidden = retry.hidden = true;
+    launch.removeAttribute("href");
+    state.dataset.status = "checking";
+    state.setAttribute("aria-busy", "true");
+    setStatus("[data-web-state]", t("web.entry.checking.title"), t("web.entry.checking.detail"));
+    try {
+      const session = await verifiedIdentitySession();
+      if (revision !== sessionRevision || generation !== webRenderRevision || pageRevision !== startRevision) return;
+      if (!session.authenticated) {
+        login.hidden = false;
+        state.dataset.status = "anonymous";
+        setStatus("[data-web-state]", t("web.entry.anonymous.title"), t("web.entry.anonymous.detail"));
+      } else {
+        const path = productWebEntry(config);
+        if (path) {
+          launch.href = path;
+          launch.hidden = false;
+          state.dataset.status = "ready";
+          setStatus("[data-web-state]", t("web.entry.ready.title"), t("web.entry.ready.detail"));
+        } else {
+          state.dataset.status = "unavailable";
+          setStatus("[data-web-state]", t("web.entry.pending.title"), t("web.entry.pending.detail"));
+        }
+      }
+    } catch {
+      if (revision !== sessionRevision || generation !== webRenderRevision || pageRevision !== startRevision) return;
+      retry.hidden = false;
+      state.dataset.status = "error";
+      setStatus("[data-web-state]", t("web.entry.error.title"), t("web.entry.error.detail"));
+    } finally {
+      if (revision === sessionRevision && generation === webRenderRevision && pageRevision === startRevision) state.removeAttribute("aria-busy");
     }
   }
 
@@ -717,7 +785,15 @@
     }
   }
 
+  let startRevision = 0;
   async function start() {
+    const generation = ++startRevision;
+    clearAccountView();
+    const webLaunch = document.querySelector("[data-web-launch]");
+    if (webLaunch) {
+      webLaunch.hidden = true;
+      webLaunch.removeAttribute("href");
+    }
     // Navigation does not block the page; the account portal shares its read.
     void renderAuthHeader();
     let config = null;
@@ -726,6 +802,7 @@
     } catch {
       config = null;
     }
+    if (generation !== startRevision) return;
 
     const page = document.body?.dataset?.page;
     if (page === "login" && window.location.hash) {
@@ -735,6 +812,8 @@
     }
     if (page === "conta") {
       await renderAccount();
+    } else if (page === "web") {
+      await renderWebEntry(config);
     } else if (page === "download") {
       await initDownload(config);
     } else if (page === "licencas") {

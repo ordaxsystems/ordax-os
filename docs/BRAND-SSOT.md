@@ -11,10 +11,12 @@ a implementação original da PR #1532, encerrada como substituída.
 - Paleta semântica/tema: `system/surface/ui/tokens.css`. Não copiar cores
   para CSS do site, aplicativos ou HTML de e-mails.
 - Composição e símbolo: `system/surface/ui/identity.css` e
-  `system/surface/ui/brand/ordax-symbol.svg`. O SVG é um **símbolo vetorial
-  funcional simplificado**, não uma conversão idêntica do raster 3D do conceito.
-  O bundle público entrega uma cópia verificável em
-  `/assets/ordax-symbol.svg` sem alterar a marca exibida no HTML Web atual.
+  `system/surface/ui/brand/ordax-symbol.png`. A imagem transparente aprovada
+  pelo usuário em 09/10/2026 é a única fonte do símbolo. O compilador público
+  deriva `/assets/ordax-symbol.png` por cópia verificada; o site não mantém
+  outra imagem no source. OS, inicialização, Minha conta e acesso Web
+  exibem as cores originais. Alto contraste usa a transparência do mesmo
+  arquivo para produzir a silhueta.
 - Estrutura e conteúdo de e-mails: `infra/supabase/identity/email-templates/src`.
   Os arquivos adjacentes `confirmation.html` e `recovery.html` são
   **resultados compilados e versionados**, não fontes a editar manualmente.
@@ -145,3 +147,14 @@ O logotipo antigo da navegação, `download-hero.png`, a landing e o controle
 de releases públicas permanecem sem mudanças. O logo novo fica para uma PR
 separada após aprovação do asset correto. Há cores decorativas secundárias
 ainda elegíveis a migrações posteriores, sem bloquear o MVP.
+
+## Substituição pelo símbolo aprovado — 2026-10-09
+
+A aprovação explícita do usuário substitui o vetor simplificado no OS, na
+inicialização e em todos os cabeçalhos do site público, incluindo Minha
+conta/Web. `system/surface/ui/brand/symbol.css` concentra a apresentação e as
+silhuetas acessíveis; o compilador distribui essas regras junto da exportação
+de tokens. Os desenhos antigos em CSS foram removidos. Os registros anteriores sobre
+preservação da marca pública descrevem aquela etapa. O arquivo tem SHA-256
+registrado no owner da Surface. A publicação continua sujeita aos gates de
+cada produto. Identidade, planos e autenticação mantêm os serviços canônicos.

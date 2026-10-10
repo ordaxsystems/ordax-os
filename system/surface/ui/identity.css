@@ -34,9 +34,6 @@ body { background: var(--ordax-bg); font-weight: 400; }
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  background: var(--ordax-brand-fill);
-  mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
-  -webkit-mask: url("./brand/ordax-symbol.svg") center / contain no-repeat;
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ordax-brand-blue) 35%, transparent));
 }
 .ordax-rail-nav { gap: 5px; padding: 18px 14px; }

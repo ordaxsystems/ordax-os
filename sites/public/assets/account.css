@@ -13,8 +13,6 @@
 .account-ui .brand{gap:10px}
 .account-ui .brand-name{font:500 26px var(--sans);letter-spacing:-1.3px;color:#f0f5ff}
 .account-ui .brand-mark{width:30px;height:30px;transform:none}
-.account-ui .brand-mark span{inset:2px;width:25px;height:25px;border:1px solid #c9dcf5;border-radius:50%;transform:none;background:none}
-.account-ui .brand-mark i{position:absolute;left:auto;right:0;top:0;width:1px;height:30px;background:#b9cdeb;transform:none}
 .account-ui .site-nav{display:flex;gap:28px;font-size:13px;margin-right:auto}
 .account-ui :is(.login-nav-actions,.signup-nav-actions){display:flex;gap:16px;align-items:center;font-size:13px}
 .account-ui .nav-cta{display:inline-flex;gap:13px;align-items:center;padding:11px 16px;border:1px solid var(--ordax-border);border-radius:10px;background:var(--ordax-selected-bg);color:var(--ordax-text);white-space:nowrap}

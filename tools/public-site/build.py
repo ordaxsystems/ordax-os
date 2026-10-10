@@ -5,13 +5,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
 import shutil
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from public_release_catalog import (
@@ -35,11 +35,16 @@ if _BRAND_SPEC is None or _BRAND_SPEC.loader is None:
 _BRAND_MODULE = importlib.util.module_from_spec(_BRAND_SPEC)
 _BRAND_SPEC.loader.exec_module(_BRAND_MODULE)
 render_site_css = _BRAND_MODULE.render_site_css
+render_site_identity_css = _BRAND_MODULE.render_site_identity_css
+render_site_font_css = _BRAND_MODULE.render_site_font_css
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "sites" / "public"
-CANONICAL_SYMBOL = ROOT / "system" / "surface" / "ui" / "brand" / "ordax-symbol.svg"
-PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.svg"
+CANONICAL_SYMBOL = ROOT / "system" / "surface" / "ui" / "brand" / "ordax-symbol.png"
+PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.png"
+CANONICAL_WALLPAPER = ROOT / "system/surface/ui/brand/midnight-landscape.png"
+CANONICAL_FONT = ROOT / "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
+CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
@@ -70,6 +75,9 @@ REQUIRED_FILES = (
     "recuperar/index.html",
     "recuperar/nova-senha/index.html",
     "conta/index.html",
+    "web/index.html",
+    "assets/account-dashboard.css",
+    "assets/account-portal.js",
     "licencas/index.html",
     "privacidade/index.html",
     "termos/index.html",
@@ -126,24 +134,25 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
     for path in files:
         suffix = path.suffix.lower()
         relative_path = path.relative_to(root).as_posix()
-        if suffix == ".svg":
-            # Only the generated copy of the canonical Surface symbol is
-            # served. Never import arbitrary icons into the public origin.
-            if relative_path != PUBLIC_SYMBOL_PATH or root.resolve() == SOURCE.resolve():
-                raise PublicSiteError("noncanonical public SVG asset")
-            if path.read_bytes() != CANONICAL_SYMBOL.read_bytes():
+        if suffix == ".txt":
+            if (root.resolve() == SOURCE.resolve()
+                    or relative_path != "assets/fonts/Inter-OFL-1.1.txt"
+                    or path.read_bytes() != CANONICAL_FONT_LICENSE.read_bytes()):
+                raise PublicSiteError("public font license must match its canonical owner")
+            continue
+        if suffix == ".woff2":
+            if (root.resolve() == SOURCE.resolve()
+                    or relative_path != "assets/fonts/" + CANONICAL_FONT.name
+                    or path.read_bytes() != CANONICAL_FONT.read_bytes()):
+                raise PublicSiteError("public font must be the generated canonical Surface asset")
+            continue
+        if relative_path == PUBLIC_SYMBOL_PATH:
+            # The public bundle derives the symbol from its single Surface owner.
+            if (root.resolve() == SOURCE.resolve()
+                    or path.read_bytes() != CANONICAL_SYMBOL.read_bytes()):
                 raise PublicSiteError("public symbol diverged from Surface owner")
-            try:
-                icon = ET.fromstring(path.read_text(encoding="utf-8"))
-            except ET.ParseError as exc:
-                raise PublicSiteError("invalid canonical SVG") from exc
-            if icon.tag != "{http://www.w3.org/2000/svg}svg":
-                raise PublicSiteError("invalid SVG root")
-            if any(node.tag != "{http://www.w3.org/2000/svg}path" for node in icon):
-                raise PublicSiteError("unexpected SVG child element")
-            if any(any(key.lower().startswith("on") or "href" in key.lower() for key in node.attrib)
-                   for node in icon.iter()):
-                raise PublicSiteError("unsafe SVG attribute")
+            if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+                raise PublicSiteError("invalid canonical PNG symbol")
             continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
@@ -185,6 +194,30 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
         raise PublicSiteError("identity.turnstile_sitekey must be a valid public Turnstile sitekey")
     if not same_origin_path(downloads.get("catalog_url")):
         raise PublicSiteError("downloads.catalog_url must be null or a same-origin path")
+
+    # Product entry is navigation, not an authentication or release authority.
+    # A real Web host still has to authorize requests independently of this portal.
+    product = config.get("product", {})
+    if not isinstance(product, dict):
+        raise PublicSiteError("product config must be an object")
+    web = product.get("web", {})
+    if not isinstance(web, dict) or not isinstance(web.get("enabled", False), bool):
+        raise PublicSiteError("product.web.enabled must be boolean")
+    entry = web.get("entry_url")
+    if entry is not None and (
+        not isinstance(entry, str)
+        or not re.fullmatch(r"/[A-Za-z0-9/_-]+/", entry)
+        or "//" in entry
+        or re.match(r"/(auth|account|sync|config|api|conta|login|cadastro|web)(/|$)", entry)
+    ):
+        raise PublicSiteError("product.web.entry_url must be a separate same-origin product path")
+    site_contract = json.loads((ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8"))
+    approved_entry = site_contract["account_area"].get("web_entry", {})
+    if web.get("enabled") is True and (
+        approved_entry.get("runtime_available") is not True
+        or not entry or entry != approved_entry.get("runtime_path")
+    ):
+        raise PublicSiteError("Web launch requires the deployed product entry authorized by its owner")
 
     for key in ("privacy_url", "terms_url"):
         if not same_origin_path(legal.get(key)):
@@ -270,14 +303,41 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         # Derived CSS bridge: no manual palette in sites/public and no risk of
         # overwriting in-progress public-site layouts or source files.
         token_asset = stage / "assets" / "ordax-design-tokens.css"
-        token_asset.write_text(render_site_css(), encoding="utf-8")
+        token_asset.write_text(render_site_identity_css(), encoding="utf-8")
         # Use the identical source asset consumed by Native and Surface Web.
         # Its mask/symbol is exposed for UI composition; existing public HTML
         # and its in-progress layout remain untouched.
         shutil.copyfile(CANONICAL_SYMBOL, stage / PUBLIC_SYMBOL_PATH)
+        shutil.copyfile(CANONICAL_WALLPAPER, stage / "assets/ordax-landscape.png")
+        font_dir = stage / "assets/fonts"
+        font_dir.mkdir(exist_ok=True)
+        shutil.copyfile(CANONICAL_FONT, font_dir / CANONICAL_FONT.name)
+        shutil.copyfile(CANONICAL_FONT_LICENSE, font_dir / CANONICAL_FONT_LICENSE.name)
+        (stage / "assets/ordax-font.css").write_text(render_site_font_css(), encoding="utf-8")
         for page in stage.rglob("*.html"):
             try:
                 markup = render_public_html(page.read_text(encoding="utf-8"))
+                if page.relative_to(stage).as_posix() in ("conta/index.html", "web/index.html"):
+                    # A new account layout must never reuse stale cached CSS or
+                    # presentation code. Stable bytes keep a stable URL; no clock.
+                    for asset in (
+                        "assets/account-dashboard.css", "assets/account-portal.js",
+                        "assets/ordax-design-tokens.css", "assets/ordax-font.css",
+                    ):
+                        version = sha256_bytes((stage / asset).read_bytes())[:16]
+                        pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
+                        markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
+                marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
+                if marker in markup:
+                    plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
+                    if page.relative_to(stage).as_posix() != "conta/index.html" or markup.count(marker) != 1:
+                        raise PublicSiteError("plan catalog has one public account presentation")
+                    labels = [plan["display_name"] for plan in plans]
+                    if not labels or any(not isinstance(label, str) or len(label) > 64 for label in labels):
+                        raise PublicSiteError("invalid canonical account plan names")
+                    markup = markup.replace(marker, '<ul class="plan-catalog">' + "".join(
+                        "<li>" + html.escape(label) + "</li>" for label in labels
+                    ) + "</ul>")
             except ValueError as exc:
                 raise PublicSiteError(str(exc)) from exc
             page.write_text(markup, encoding="utf-8")
@@ -377,6 +437,17 @@ def verify_bundle(out_dir: Path) -> dict:
         )
     if PUBLIC_SYMBOL_PATH not in actual or actual[PUBLIC_SYMBOL_PATH].read_bytes() != CANONICAL_SYMBOL.read_bytes():
         raise PublicSiteError("canonical OrdaX public symbol asset missing or stale")
+    for relative, canonical in (
+        ("assets/ordax-landscape.png", CANONICAL_WALLPAPER),
+        ("assets/fonts/" + CANONICAL_FONT.name, CANONICAL_FONT),
+        ("assets/fonts/" + CANONICAL_FONT_LICENSE.name, CANONICAL_FONT_LICENSE),
+    ):
+        if relative not in actual or actual[relative].read_bytes() != canonical.read_bytes():
+            raise PublicSiteError("canonical OrdaX public visual asset missing or stale")
+    if actual.get("assets/ordax-font.css") is None or actual["assets/ordax-font.css"].read_text(encoding="utf-8") != render_site_font_css():
+        raise PublicSiteError("canonical OrdaX public font declaration missing or stale")
+    if actual.get("assets/ordax-design-tokens.css") is None or actual["assets/ordax-design-tokens.css"].read_text(encoding="utf-8") != render_site_identity_css():
+        raise PublicSiteError("canonical OrdaX public design tokens missing or stale")
 
     for relative, path in actual.items():
         payload = path.read_bytes()

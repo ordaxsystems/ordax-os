@@ -186,7 +186,7 @@
 
   function installSelector() {
     if (document.querySelector("[data-public-locale-switcher]")) return;
-    const nav = document.querySelector(".site-nav");
+    const nav = document.querySelector("[data-public-locale-slot]") || document.querySelector(".site-nav");
     if (!nav) return;
 
     const host = document.createElement("label");

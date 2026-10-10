@@ -1,0 +1,30 @@
+/* Canonical symbol presentation. Public builds derive these rules unchanged. */
+.ordax-brand-symbol,
+.ordax-boot-mark,
+.ordax-symbol,
+.brand-mark {
+  background: url("./ordax-symbol.png") center / contain no-repeat;
+}
+
+/* Retain the public mark container and its accessible parent label. */
+.brand-mark > span,
+.brand-mark > i {
+  display: none;
+}
+
+[data-ordax-contrast="high"] :is(.ordax-brand-symbol, .ordax-boot-mark, .ordax-symbol, .brand-mark) {
+  background: var(--ordax-text);
+  mask: url("./ordax-symbol.png") center / contain no-repeat;
+  -webkit-mask: url("./ordax-symbol.png") center / contain no-repeat;
+  filter: none;
+}
+
+@media (forced-colors: active) {
+  :is(.ordax-brand-symbol, .ordax-boot-mark, .ordax-symbol, .brand-mark) {
+    background: CanvasText;
+    mask: url("./ordax-symbol.png") center / contain no-repeat;
+    -webkit-mask: url("./ordax-symbol.png") center / contain no-repeat;
+    filter: none;
+    forced-color-adjust: none;
+  }
+}

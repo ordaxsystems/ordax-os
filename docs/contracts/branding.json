@@ -7,7 +7,8 @@
     "implemented": true,
     "owner": "system/surface/ui/tokens.css",
     "composition_owner": "system/surface/ui/identity.css",
-    "symbol": "system/surface/ui/brand/ordax-symbol.svg",
+    "symbol": "system/surface/ui/brand/ordax-symbol.png",
+    "symbol_stylesheet": "system/surface/ui/brand/symbol.css",
     "themes": {
       "light": "Gelo",
       "dark": "Meia-noite"

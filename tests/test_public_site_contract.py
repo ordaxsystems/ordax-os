@@ -18,6 +18,7 @@ class PublicSiteContractTests(unittest.TestCase):
             "recuperar/index.html",
             "recuperar/nova-senha/index.html",
             "conta/index.html",
+            "web/index.html",
             "licencas/index.html",
             "privacidade/index.html",
             "termos/index.html",
@@ -133,7 +134,13 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('data-account-state', account)
         self.assertIn('action="/auth/logout" method="post"', account)
         self.assertIn('data-account-email', account)
-        self.assertIn('OrdaX Web, dispositivos, sincronização', account)
+        self.assertIn('href="/web/"', account)
+        config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
+        self.assertFalse(config["product"]["web"]["enabled"])
+        self.assertIsNone(config["product"]["web"]["entry_url"])
+        web = (SITE / "web/index.html").read_text(encoding="utf-8")
+        self.assertIn('data-web-launch hidden', web)
+        self.assertNotIn('127.0.0.1', web)
         self.assertIn("data-download-status", download)
         self.assertIn("Entrar é opcional", download)
         self.assertIn("A preparação apaga o conteúdo do USB escolhido", download)

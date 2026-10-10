@@ -137,6 +137,7 @@ const routes = [
   "sites/public/login/index.html",
   "sites/public/cadastro/index.html",
   "sites/public/conta/index.html",
+  "sites/public/web/index.html",
   "sites/public/recuperar/index.html",
   "sites/public/recuperar/nova-senha/index.html",
   "sites/public/licencas/index.html",

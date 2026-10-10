@@ -1,7 +1,6 @@
 from pathlib import Path
 import re
 import hashlib
-import xml.etree.ElementTree as ET
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -204,16 +203,26 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
                         self.assertGreaterEqual(contrast(colors[state], colors[background]), 4.5)
                 self.assertGreaterEqual(contrast(colors['button-text'], colors['button-bg']), 4.5)
 
-    def test_shared_symbol_is_local_vector_without_external_references(self):
-        symbol = SURFACE / 'brand' / 'ordax-symbol.svg'
-        svg = ET.parse(symbol).getroot()
-        self.assertEqual(svg.attrib['viewBox'], '0 0 64 64')
-        self.assertTrue(svg.findall('{http://www.w3.org/2000/svg}path'))
-        for element in svg.iter():
-            self.assertFalse(any('href' in key for key in element.attrib))
-            self.assertNotIn('script', element.tag)
+    def test_approved_symbol_is_pinned_and_shared_without_a_duplicate_asset(self):
+        symbol = SURFACE / 'brand' / 'ordax-symbol.png'
+        data = symbol.read_bytes()
+        self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
+        self.assertEqual(hashlib.sha256(data).hexdigest(),
+                         '4720934dbb15c8e615e585c8e96f7498f8558a90467b63e150d45af7a5005fb9')
+        self.assertEqual(int.from_bytes(data[16:20], 'big'), 1254)
+        self.assertEqual(int.from_bytes(data[20:24], 'big'), 1254)
+        self.assertEqual(data[25], 6)  # RGBA preserves the supplied transparent background.
+        self.assertFalse((SURFACE / 'brand' / 'ordax-symbol.svg').exists())
+        css = (SURFACE / 'brand/symbol.css').read_text(encoding='utf-8')
+        self.assertIn('background: url("./ordax-symbol.png")', css)
+        self.assertIn('@media (forced-colors: active)', css)
+        self.assertIn('[data-ordax-contrast="high"]', css)
+        for composition in (WEB_INDEX, NATIVE_INDEX):
+            self.assertIn('../../surface/ui/brand/symbol.css', composition.read_text(encoding='utf-8'))
         for stylesheet in ('identity.css', 'boot-screen.css'):
-            self.assertIn('./brand/ordax-symbol.svg', (SURFACE / stylesheet).read_text(encoding='utf-8'))
+            self.assertNotIn('ordax-symbol.png', (SURFACE / stylesheet).read_text(encoding='utf-8'))
+        provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
+        self.assertIn(hashlib.sha256(data).hexdigest(), provenance)
 
     def test_original_wallpaper_is_pinned_and_shared_without_copying_reference_board(self):
         wallpaper = (SURFACE / 'brand' / 'midnight-landscape.png').read_bytes()

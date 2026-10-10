@@ -65,8 +65,17 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         self.assertNotIn("Usar ou instalar", landing)
         self.assertNotIn("Usar ou instalar", download)
         self.assertIn("não altera o SSD/NVMe/HD interno", download)
-        self.assertIn("Em breve", account)
-        self.assertIn("Sem preços ou planos definidos", account)
+        # The account dashboard may describe the defined plan structure, but
+        # that does not activate billing, the Web runtime or native installation.
+        contract = json.loads(
+            (ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8")
+        )
+        self.assertIn("Assinaturas pagas ainda não estão disponíveis", account)
+        self.assertFalse(contract["commerce"]["billing_implemented"])
+        self.assertFalse(contract["commerce"]["pricing_published"])
+        self.assertFalse(contract["commerce"]["paid_plans_purchasable"])
+        self.assertFalse(contract["account_area"]["web_entry"]["runtime_available"])
+        self.assertFalse(contract["mvp_scope"]["native_installation_available"])
 
     def test_root_and_account_routes_remain_separate(self):
         contract = json.loads(

@@ -43,11 +43,98 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ## Route ownership
 
+### My account and Web entry — 2026-10-09 source candidate
+
+The user-approved account concept is implemented as a responsive product-facing
+dashboard: desktop lateral navigation and cards; mobile account shortcuts,
+compact service rows, section detail and a single shared navigation menu. Profile
+and session, plan, security, devices, storage/sync, integrations, preferences,
+activity/notifications, billing, privacy, Web entry and support are covered.
+Only existing session/logout and portal locale actions are operational;
+unsupported services have explicit availability, with no simulated profile,
+2FA toggle, device count, billing record, cloud usage or notification feed.
+Search filters service content; section navigation preserves browser history,
+direct links and keyboard focus. JavaScript-free navigation remains readable.
+
+The overview follows the approved viewport composition: a bounded 1440px shell,
+210px desktop rail, compact landscape profile banner and three service columns
+from 1200px. Narrow phones retain three primary shortcuts and a fixed bottom
+navigation; intermediate screens use two service columns. Session verification,
+sign-in and sign-out remain accessible through a native disclosure inside the
+profile banner. Extended service explanations remain in the section details;
+without JavaScript, all sections remain readable. Mobile search opens explicitly
+and Escape restores focus to its trigger; it does not crowd the profile header.
+
+The Public Site Candidate workflow uses the existing isolated Chromium/CDP
+driver and canonical loopback preview server to verify actual 1440x900,
+1024x768, 390x844, 320x740 and 844x390 viewports. It checks horizontal overflow,
+section coverage, desktop columns, primary mobile alignment, session disclosure,
+detail focus and mobile search/Escape, and retains rendered PNGs plus a report.
+This is layout/interaction evidence, not live account-provider homologation.
+The same entrypoint is reproducible locally after building the public artifact:
+
+```bash
+python tools/public-site/preview_server.py --site-root out/public-site --bind 127.0.0.1 --port 4178
+# In another terminal; ORDAX_CHROME_BIN may select an installed Chromium browser.
+node tools/surface-web/browser-smoke.mjs --public-account-url http://127.0.0.1:4178/conta/ --evidence-dir out/account-viewport-proof
+```
+
+The existing brand compiler exports typography, material and brand-fill tokens
+from `system/surface/ui/tokens.css`. Public build copies the exact original
+Surface symbol, landscape and Inter bytes and derives its local font declaration;
+no artwork or type palette is authored again in the portal. Marketing and
+credential pages retain their independent existing composition, while all
+public mark containers now use the same approved transparent symbol. Its
+presentation comes from `system/surface/ui/brand/symbol.css`, compiled together
+with the existing public token export; legacy CSS drawings have been removed.
+The legal HTML rendering transform stays unchanged. The plan list
+is derived at build from `docs/contracts/entitlements.json`, not an additional
+commercial catalog. Locale selection uses the existing public i18n owner;
+it changes this browser's portal language, never device preferences.
+Account/Web CSS and presentation URLs receive a deterministic content hash in
+the build, so cached assets cannot retain an older layout after source updates.
+
+This is the explicit account-page request in the current product cycle, not
+activation of backend capabilities. Risks include narrow layouts, focus/history,
+contrast over art and drift between visual assets. Acceptance covers desktop,
+tablet, narrow mobile, search/no-results, section/menu keyboard behavior, locale,
+identity revalidation and deterministic build with byte-exact canonical assets.
+
+`/conta/` now presents a responsive account overview, the existing verified
+session/email and native sign-out action, an entry to `/web/`, and honest
+availability for plans, storage and device management. Personal data is hidden
+and cleared before session revalidation, including back-forward navigation.
+No usage meter, device catalog, assigned plan or billing data is inferred from
+login or local browser state. Plan names remain the defined structure, with
+paid subscriptions unavailable.
+
+`/web/` is a product-entry page, not the Surface runtime or a marketing demo.
+It shares the existing single same-origin session lookup and exposes a launch
+link only for a verified authenticated session and a configured product path.
+Runtime configuration lives in `config/public-site.json` under `product.web`;
+the approved destination/availability lives in this topic's structured
+`account_area.web_entry` contract. Build rejects an unapproved activation and
+external, ambiguous or reserved destinations. Missing configuration/session
+shows an explicit pending/error/sign-in state, with no localhost/public link
+fabrication. The actual product host must independently authorize its own
+requests; portal navigation is never an authentication boundary.
+
+Owner: public portal in OS; Identity/session, entitlements, storage, device
+execution and Surface remain their existing owners. PT-BR/en-US use the
+existing public locale owner; dashboard styles consume compiled brand tokens.
+The portal does not import/copy the Surface, issue grants or store credentials.
+Acceptance covers launch admission, session failures, back navigation,
+localization, desktop/mobile rendering and deterministic public-site build.
+Public Web runtime remains unavailable in config/contract. Live identity
+activation, legal consistency, hosted Surface delivery and account E2E remain
+separate gates; this increment does not provision or deploy them.
+
 - `/`: public landing page. It must never become the authenticated OrdaX workspace.
 - `/download/`: public release discovery and verified download links.
 - `/login/`: sign-in entry point.
 - `/cadastro/`: account-creation entry point.
 - `/conta/`: authenticated user area. Until real identity/session integration is enabled, it remains fail-closed and must not simulate user data.
+- `/web/`: authenticated product-entry navigation when the approved Web host is available; otherwise sign-in/pending/error state.
 - `/licencas/`: release-specific license, SBOM and source-compliance entry point.
 - `/privacidade/`: privacy-readiness page; not a final policy while account activation is blocked.
 - `/termos/`: terms-readiness page; not final terms while account activation is blocked.
