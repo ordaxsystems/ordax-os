@@ -9,6 +9,8 @@ on:
       - 'system/contracts/app-presentation-manifest.mjs'
       - 'system/apps/external-app-definition.mjs'
       - 'system/apps/runtime-catalog.mjs'
+      - 'system/services/apps/verified-external-app-catalog.mjs'
+      - 'tests/test_verified_external_app_catalog.mjs'
       - 'tests/test_app_presentation_manifest.mjs'
       - 'tests/test_external_app_definition.mjs'
       - 'system/services/files/file-open-registry.mjs'
@@ -62,6 +64,8 @@ on:
       - 'system/contracts/app-presentation-manifest.mjs'
       - 'system/apps/external-app-definition.mjs'
       - 'system/apps/runtime-catalog.mjs'
+      - 'system/services/apps/verified-external-app-catalog.mjs'
+      - 'tests/test_verified_external_app_catalog.mjs'
       - 'tests/test_app_presentation_manifest.mjs'
       - 'tests/test_external_app_definition.mjs'
       - 'system/services/files/file-open-registry.mjs'
@@ -129,6 +133,8 @@ jobs:
           node --check system/contracts/app-presentation-manifest.mjs
           node --check system/apps/external-app-definition.mjs
           node --check system/apps/runtime-catalog.mjs
+          node --check system/services/apps/verified-external-app-catalog.mjs
+          node --check tests/test_verified_external_app_catalog.mjs
           node --check tests/test_app_presentation_manifest.mjs
           node --check tests/test_external_app_definition.mjs
           node --check system/services/files/file-open-registry.mjs
@@ -181,6 +187,7 @@ jobs:
           node --test tests/test_file_open_registry.mjs
           node --test tests/test_app_presentation_manifest.mjs
           node --test tests/test_external_app_definition.mjs
+          node --test tests/test_verified_external_app_catalog.mjs
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
