@@ -480,3 +480,75 @@ test("local AI accepts a completion reporting its configured model", async () =>
   await runtime.probe();
   assert.equal((await runtime.generate({ prompt: "teste" })).text, "valid result");
 });
+
+test("Local AI pre-aborted inference does not issue any completion request", async () => {
+  let completions = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      completions += 1;
+      throw new Error("completion should not be sent");
+    },
+  });
+  await runtime.probe();
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    () => runtime.generate({ prompt: "não enviar" }, { signal: controller.signal }),
+    /request cancelled/,
+  );
+  assert.equal(completions, 0);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
+
+test("Local AI caller cancellation aborts only inference transport and rechecks health", async () => {
+  let completionSignal = null;
+  let healthCalls = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url, options = {}) => {
+      if (url.endsWith("/health")) { healthCalls += 1; return { ok: true }; }
+      completionSignal = options.signal;
+      return abortablePendingRequest(options);
+    },
+  });
+  await runtime.probe();
+  const controller = new AbortController();
+  const pending = runtime.generate({ prompt: "interromper transporte" }, { signal: controller.signal });
+  await Promise.resolve();
+  assert.equal(runtime.getSnapshot().state, "busy");
+  assert.ok(completionSignal instanceof AbortSignal);
+  controller.abort();
+  await assert.rejects(pending, /request cancelled/);
+  assert.equal(completionSignal.aborted, true);
+  assert.equal(healthCalls, 2);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
+
+test("Local AI discards a late completion from a fetch adapter that ignores abort", async () => {
+  let finish;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      return new Promise((resolve) => {
+        finish = () => resolve({
+          ok: true,
+          async json() { return { choices: [{ message: { content: "late private answer" } }] }; },
+        });
+      });
+    },
+  });
+  await runtime.probe();
+  const controller = new AbortController();
+  const pending = runtime.generate({ prompt: "cancelar" }, { signal: controller.signal });
+  await Promise.resolve();
+  controller.abort();
+  finish();
+  await assert.rejects(pending, /request cancelled/);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
