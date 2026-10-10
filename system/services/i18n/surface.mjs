@@ -2,6 +2,7 @@ import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../contracts/loc
 import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { REGIONAL_LOCALE_PREFERENCE_ID } from "../preferences/regional.mjs";
+import { interpolateLocalizationMessage } from "./interpolation.mjs";
 import { FILES_SOURCE_MESSAGES, FILES_ENGLISH_MESSAGES } from "./catalog/files.mjs";
 import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/settings.mjs";
 import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
@@ -333,13 +334,6 @@ const TABLES = Object.freeze({
   [SURFACE_ENGLISH_TARGET_LOCALE]: ENGLISH,
 });
 
-function interpolate(text, values = {}) {
-  return text.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (match, key) => {
-    const value = values[key];
-    return value === undefined || value === null ? match : String(value);
-  });
-}
-
 export function translateSurfaceMessage(locale, messageId, values = {}) {
   if (typeof messageId !== "string" || !messageId) {
     throw new TypeError("Localization message id must be a non-empty string");
@@ -349,7 +343,7 @@ export function translateSurfaceMessage(locale, messageId, values = {}) {
     throw new TypeError(`Unknown Surface localization message: ${messageId}`);
   }
   const translated = TABLES[locale]?.[messageId] ?? source;
-  return interpolate(translated, values);
+  return interpolateLocalizationMessage(translated, values);
 }
 
 export function createSurfaceLocalization(preferenceRuntime) {
