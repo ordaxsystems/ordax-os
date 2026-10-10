@@ -15,6 +15,10 @@
     {
       "source": "/account/:path*",
       "destination": "/api/account-proxy?ordax_path=/account/:path*"
+    },
+    {
+      "source": "/conta/:section",
+      "destination": "/conta/index.html"
     }
   ],
   "headers": [
@@ -215,5 +219,5 @@
   "git": {
     "deploymentEnabled": true
   },
-  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
+  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --account-ui lovable --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
 }
