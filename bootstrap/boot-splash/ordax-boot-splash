@@ -25,8 +25,11 @@ trap 'exit 0' INT TERM HUP
 # Hardware audio is optional; missing firmware/device must not block boot.
 if [ -r "$AUDIO" ] && command -v aplay >/dev/null 2>&1 &&
    [ -d /dev/snd ] && ls /dev/snd/pcmC*D*p >/dev/null 2>&1; then
-  aplay -q -D default "$AUDIO" >/dev/null 2>&1 &
+  aplay -q -D default "$AUDIO" >"$CONTROL_ROOT/audio.log" 2>&1 &
   AUDIO_PID=$!
+  printf 'ORDAX_BOOT_AUDIO=started_or_device_pending\n'
+else
+  printf 'ORDAX_BOOT_AUDIO=unavailable_no_pcm_device_or_backend\n'
 fi
 # zstd and player intentionally run as a bounded single animation, no loop.
 # The native Surface calls 'ordax-boot-splash-stop' before taking DRM ownership.
