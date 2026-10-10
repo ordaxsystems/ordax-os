@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import sys
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -10,6 +11,7 @@ from unittest.mock import patch
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "tools/public-site/probe_public_network.py"
+sys.path.insert(0, str(SOURCE.parent))
 SPEC = importlib.util.spec_from_file_location("ordax_public_network_proof", SOURCE)
 assert SPEC is not None and SPEC.loader is not None
 network = importlib.util.module_from_spec(SPEC)
@@ -37,14 +39,14 @@ class Response:
         return self.data[:size]
 
 
-def fake_fetch(host, path, *, accept="text/html", ready=False, provider=None):
+def fake_fetch(host, path, *, accept="text/html", ready=False, provider=None, auth_only=True):
     if host == network.WWW_HOST:
         return Response(308)
     if path == "/config/public-site.json":
         assert accept == "application/json"
         return Response(payload={
             "$schema": "prototype-ordax.public-site-runtime/1",
-            "legal": {"account_activation_ready": ready},
+            "legal": {"account_activation_ready": ready, "auth_only_source_enabled": auth_only},
         })
     if path == "/auth/session":
         assert accept == "application/json"
@@ -146,7 +148,7 @@ class PublicNetworkProofTests(unittest.TestCase):
                     "$schema": "prototype-ordax.public-site-proxy-error/1",
                     "error": "account-gateway-unconfigured",
                 })
-            return fake_fetch(host, path, accept=accept)
+            return fake_fetch(host, path, accept=accept, auth_only=False)
 
         with (
             patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
@@ -158,6 +160,23 @@ class PublicNetworkProofTests(unittest.TestCase):
             self.assertIn("ORDAX_PUBLIC_SESSION_STATUS=503", stream.getvalue())
             self.assertIn("ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured", stream.getvalue())
             self.assertIn("ORDAX_PUBLIC_NETWORK_PROOF=PASS", stream.getvalue())
+
+    def test_auth_only_site_rejects_unconfigured_gateway(self):
+        # Once login/signup is advertised, a missing provider is an outage.
+        def missing(host, path, *, accept="text/html"):
+            if path == "/auth/session":
+                return Response(503, payload={
+                    "$schema": "prototype-ordax.public-site-proxy-error/1",
+                    "error": "account-gateway-unconfigured",
+                })
+            return fake_fetch(host, path, accept=accept, auth_only=True)
+
+        with (
+            patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),
+            patch.object(network, "fetch", side_effect=missing),
+        ):
+            with self.assertRaisesRegex(SystemExit, "active-account-session-unavailable"):
+                network.main()
 
     def test_activated_accounts_never_accept_unconfigured_gateway_as_healthy(self):
         def disabled(host, path, *, accept="text/html"):
@@ -183,7 +202,7 @@ class PublicNetworkProofTests(unittest.TestCase):
                     "error": "account-gateway-unavailable",
                 })
                 if path == "/auth/session"
-                else fake_fetch(host, path, accept=accept)
+                else fake_fetch(host, path, accept=accept, auth_only=False)
             )
 
         with (
@@ -204,7 +223,7 @@ class PublicNetworkProofTests(unittest.TestCase):
                     "$schema": "prototype-ordax.public-site-proxy-error/1",
                     "error": "token=" + "sensitive_" * 8,
                 })
-            return fake_fetch(host, path, accept=accept)
+            return fake_fetch(host, path, accept=accept, auth_only=False)
 
         with (
             patch.object(network, "resolve_v4", return_value={"216.198.79.1", "64.29.17.1"}),

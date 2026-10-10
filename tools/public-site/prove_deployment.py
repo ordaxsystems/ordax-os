@@ -11,6 +11,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
+from public_identity_state import PublicIdentityStateError, resolve_public_identity_mode
+
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'",
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -64,26 +66,11 @@ def read_json(response):
 
 
 def public_identity_mode(config_payload: dict, session_payload: dict) -> str:
-    """Classify the runtime gate, never treating auth-only as full Account."""
-    legal = config_payload.get("legal", {})
-    if not isinstance(legal, dict):
-        fail("invalid-legal-configuration")
-    full = legal.get("account_activation_ready") is True
-    auth_only = legal.get("auth_only_source_enabled") is True
-    provider = session_payload.get("provider")
-    if session_payload.get("authenticated") is not False:
-        fail("unexpected-authenticated-session")
-    if full:
-        if provider != "supabase" or session_payload.get("status") != "anonymous":
-            fail("full-account-session-unavailable")
-        return "full"
-    if auth_only and provider == "supabase":
-        if session_payload.get("status") != "anonymous":
-            fail("auth-only-session-invalid")
-        return "auth-only"
-    if provider != "gated":
-        fail("public-account-gate-not-enforced")
-    return "gated"
+    """Use the same fail-closed mode model as the independent network probe."""
+    try:
+        return resolve_public_identity_mode(config_payload, session_payload)
+    except PublicIdentityStateError as exc:
+        fail(str(exc))
 
 
 def main(argv=None) -> int:

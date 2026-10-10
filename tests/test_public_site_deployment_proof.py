@@ -3,10 +3,12 @@ import contextlib
 import importlib.util
 import io
 import json
+import sys
 from pathlib import Path
 from unittest import TestCase, mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "tools/public-site/prove_deployment.py"
+sys.path.insert(0, str(SCRIPT.parent))
 spec = importlib.util.spec_from_file_location("ordax_public_deployment_proof", SCRIPT)
 proof = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(proof)
@@ -78,6 +80,17 @@ class PublicDeploymentProofTests(TestCase):
         self.assertIn("PUBLIC_SITE_CLOUD_SYNC=GATED", output)
         self.assertIn(("/auth/registration-policy", "GET"), called)
         self.assertIn(("/auth/recover", "POST"), called)
+
+    def test_auth_only_never_accepts_gated_provider(self):
+        _, _, routes = fixtures(auth_only=True, provider="gated")
+        with self.assertRaisesRegex(SystemExit, "public-session-provider-invalid"):
+            self.run_proof(routes)
+
+    def test_auth_only_never_accepts_missing_provider(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase")
+        routes["/auth/session"].payload["provider"] = None
+        with self.assertRaisesRegex(SystemExit, "public-session-provider-invalid"):
+            self.run_proof(routes)
 
     def test_disabled_mode_remains_supported(self):
         _, _, routes = fixtures()

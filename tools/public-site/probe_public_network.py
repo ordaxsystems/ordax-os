@@ -18,6 +18,8 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
+from public_identity_state import PublicIdentityStateError, resolve_public_identity_mode
+
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs/contracts/public-site-deployment.json"
 CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 CANONICAL_HOST = CONTRACT["vercel_migration"]["target_canonical_domain"]
@@ -104,19 +106,11 @@ def check_anonymous_account_boundary() -> None:
         session = bounded_json(response, path=session_path)
         session_http_status = response.status
 
-    if session_http_status == 503:
-        # A disabled static public account frontend legitimately has no
-        # Supabase public gateway configured yet. Record it as a separate,
-        # deliberately blocked account state—not as a healthy login gateway.
-        # Any 503 once the site advertises live registration is an outage.
-        if legal["account_activation_ready"]:
-            fail("active-account-session-unavailable")
-        if (
-            session.get("$schema") != "prototype-ordax.public-site-proxy-error/1"
-            or session.get("error") != "account-gateway-unconfigured"
-        ):
-            # The diagnostic is a bounded, non-sensitive machine error code;
-            # never echo arbitrary provider response fields or user data.
+    try:
+        mode = resolve_public_identity_mode(config, session, session_http_status=session_http_status)
+    except PublicIdentityStateError as exc:
+        if str(exc) == "unexpected-account-gateway-failure":
+            # Expose only a bounded diagnostic code, never provider/user data.
             raw_code = session.get("error")
             diagnostic = (
                 raw_code if isinstance(raw_code, str)
@@ -124,26 +118,19 @@ def check_anonymous_account_boundary() -> None:
                 else "unclassified"
             )
             print("ORDAX_PUBLIC_ACCOUNT_ERROR_CODE=" + diagnostic, flush=True)
-            fail("unexpected-account-gateway-failure")
+        fail(str(exc))
+
+    if mode == "disabled-unconfigured":
         print("ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured", flush=True)
         return
-
-    if session.get("$schema") != "prototype-ordax.public-identity-session/1":
-        fail("session-schema")
-    if session.get("authenticated") is not False or session.get("status") != "anonymous":
-        fail("unexpected-public-session")
-    # A live anonymous Supabase session is compatible with auth-only login/signup.
-    # account_activation_ready controls broader account/cloud readiness, not the
-    # identity provider of an HTTP 200 session. Registration policy and consent
-    # remain server-authoritative and are NOT validated by this read-only probe.
-    if session.get("provider") != "supabase":
-        fail("public-session-provider-invalid")
-    print("ORDAX_PUBLIC_ACCOUNT_GATE=supabase", flush=True)
+    print("ORDAX_PUBLIC_ACCOUNT_GATE=" + ("supabase" if mode in ("full", "auth-only") else "gated"), flush=True)
+    print("ORDAX_PUBLIC_IDENTITY_MODE=" + mode, flush=True)
     print(
         "ORDAX_PUBLIC_LEGAL_ACTIVATION="
         + ("ready" if legal["account_activation_ready"] else "not-ready"),
         flush=True,
     )
+
 
 def check_public_legal_consistency() -> int:
     """Verify the server-owned active consent policy against real public HTML bytes.

@@ -10,7 +10,7 @@ legal ativa pelo servidor; `legal.account_activation_ready=false` preserva o
 bloqueio da Conta completa, sincronizacao e recuperacao publica.
 
 A prova sem credenciais (`python tools/public-site/prove_deployment.py --origin
-https://ordax.com.br`) agora diferencia `gated`, `auth-only` e `full` e verifica
+https://ordax.com.br`) agora diferencia `gated`, `disabled-unconfigured`, `auth-only` e `full` e verifica
 headers, paginas estaticas, sessao anonima, policy de registro no modo
 `auth-only`, sincronizacao anonima negada e POST de recuperacao negado pela
 borda. Resultado observado: `PASS`, `PUBLIC_SITE_IDENTITY_MODE=auth-only` e
@@ -208,7 +208,7 @@ public site
  -> OrdaX identity/session owner
 ```
 
-The real identity backend and gateway now exist, but public account activation remains gated. Login and registration forms are present only as disabled source UI: they stay hidden with disabled controls until the runtime config, legal-readiness contract and auth-hardening contract all authorize activation. When enabled, the browser performs a native POST to the same-origin OrdaX gateway; site JavaScript does not read credential values.
+The real identity backend and same-origin public gateway exist. The current canonical runtime config advertises a narrowly scoped **auth-only** rollout (`legal.auth_only_source_enabled=true`) while **full Account/Cloud activation remains disabled** (`legal.account_activation_ready=false`). Login becomes available only after a verified live anonymous Supabase session; signup additionally requires the server-owned active registration policy and Turnstile. Browser forms submit natively to the same-origin gateway; site JavaScript does not read credential values. Recovery, sync, export and account closure must be validated and activated separately, never inferred from auth-only availability.
 
 The identity service may use an external infrastructure provider behind an OrdaX-owned service/adapter, but the browser contract does not couple product UI directly to that provider. Do not ship a fake form or local-only account database.
 
@@ -216,7 +216,7 @@ The machine-readable entry boundary is `docs/contracts/public-identity.json`. It
 
 Public credential entry points also use a dedicated Cloudflare Turnstile widget bound to the canonical production hostname. The sitekey is public configuration; the secret key is never stored in this repository or exposed to browser JavaScript. Login, registration and recovery requests are accepted by the server boundary only after Siteverify returns success for the exact hostname and action. Missing configuration, invalid/expired/replayed tokens, hostname/action mismatch or verification outage fail closed; the Turnstile token is removed before the request reaches the inner identity gateway.
 
-The account service source remains owned by `services/public-identity/` and `infra/supabase/`. The destination Supabase project is `ordax-platform` (`jhfphsjptrpmtnzkpwud`), not the former `ordax-control-plane` destination. The internal `ordax-account-gateway` is deployed, but the new public Vercel-to-Supabase transport, named bridge credential, signed production OIDC, and end-to-end behavior remain unverified. Public login and registration stay disabled until same-origin deployment, legal-readiness and auth-hardening gates are proven. See `docs/contracts/public-auth-hardening.json` for the account owner's deployment observations.
+The account service source remains owned by `services/public-identity/` and `infra/supabase/`. The destination Supabase project is `ordax-platform` (`jhfphsjptrpmtnzkpwud`), not the former `ordax-control-plane` destination. The public Vercel-to-Supabase gateway is reachable in production for anonymous sessions and registration policy lookup; this proves neither credentialed end-to-end signup/login nor signed production OIDC/revocation/recovery. The full Account gate remains disabled until the owner completes the stronger preflight and real E2E evidence. See `docs/contracts/public-auth-hardening.json` for the account owner's deployment observations.
 
 ## Download boundary
 
@@ -360,7 +360,7 @@ The candidate workflow builds the site twice and compares outputs to protect det
 
 ## Runtime preview and deployment boundary
 
-### Canonical Vercel project and DNS cutover (2026-10-08)
+### Canonical Vercel project and DNS cutover — historical 2026-10-08 snapshot
 
 The Vercel team is `ordaxsystems` (`team_E3bdE137ZG3fhCGMmYuGKJ8o`), with the **single** public-site project `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`) linked to `ordaxsystems/ordax-os` on `main`. The project has a verified Vercel-assigned hostname (`ordax-os-public-tau.vercel.app`) and **only `ORDAX_PUBLIC_ORIGIN=https://ordax.com.br`** as the observed production environment variable; the public Account transport is not configured. Static public-site production deployment `dpl_66jvy7HYTzGyevgnNawtTJfH2Bgq` is `READY` at source SHA `ddbaa362e2d586f76fd1ed878eb81414a5dee78a`, with `PUBLIC_SITE_BUILD=PASS` and `PUBLIC_SITE_VERIFY=PASS`; its deterministic artifact is `out/public-site`, including the empty authorized-release catalog. External HTTPS smoke tests of the assigned hostname returned `200` for the landing, download, runtime config and release catalog. `/auth/session` and `/sync/snapshot` both returned `503` (intentionally fail-closed); no signed production OIDC or public-account end-to-end runtime proof exists. The production deployment is **not evidence of the canonical custom-domain cutover or Account activation**.
 
@@ -385,14 +385,14 @@ It refuses non-loopback binds and is **not** the production server.
 
 Production hosting remains provider-neutral. A production-shaped Nginx adapter now exists at `deploy/public-site/nginx.conf`: it serves the deterministic static artifact from loopback and forwards only `/auth/*` and `/sync/*` to the deployed OrdaX account gateway. A public HTTPS terminator must sit in front of that loopback listener, so browser requests remain same-origin and provider-specific CORS is not part of the product contract.
 
-The required route shape, cache policy and security headers are machine-readable in `docs/contracts/public-site-deployment.json`. The adapter preserves account status codes and `Set-Cookie`, applies the declared CSP, anti-framing, MIME-sniffing, referrer and permissions policies, and keeps account/sync responses `no-store`. Source readiness is not deployment evidence: public login remains disabled until this adapter (or an equivalent conforming host adapter) is actually deployed over HTTPS.
+The required route shape, cache policy and security headers are machine-readable in `docs/contracts/public-site-deployment.json`. The adapter preserves account status codes and `Set-Cookie`, applies the declared CSP, anti-framing, MIME-sniffing, referrer and permissions policies, and keeps account/sync responses `no-store`. Source readiness is not deployment evidence: production HTTPS now exposes the separate `auth-only` gate, but the broader Account features remain disabled pending stronger proofs.
 
 
 ## Legal readiness before live accounts
 
-The public account entry points are also gated by `docs/contracts/public-legal-readiness.json`. While that contract is not ready, `sites/public/config/public-site.json` must keep both login and registration targets null. The build fails if someone tries to enable them early.
+The public account entry points are also gated by `docs/contracts/public-legal-readiness.json`. This contract is **not** full-Account ready. The site builder permits the two exact same-origin login/signup routes under the narrower `auth_only_source_enabled=true` switch only with versioned published legal documents; it rejects recovery routes and independently rejects any premature full activation. The live gateway and registration-policy projection remain authoritative, not the static switch.
 
-The readiness pages under `/privacidade/` and `/termos/` intentionally describe only the current prototype state. Final legal documents, versions and effective dates must be reviewed and published before this gate can move to ready.
+The documents under `/privacidade/` and `/termos/` have stable published versions `2026.10.09`, and production's active legal policy reports those versions. A static contract with historical negative booleans is not proof that the current database is disabled; equally, a live active policy is not proof that full Account/recovery/session-revocation E2E has passed. Complete and reconcile the owner preflight before setting full readiness.
 
 
 ### Production deployment proof
@@ -406,8 +406,13 @@ python tools/public-site/prove_deployment.py --origin https://example.invalid
 
 The proof checks the public landing/cache/security headers, runtime config,
 anonymous `/auth/session`, fail-closed anonymous `/sync/snapshot`, and real
-404 behavior. A passing local build is not accepted as production deployment
-evidence.
+404 behavior. It uses `tools/public-site/public_identity_state.py`, the same
+canonical state machine used by the independent DNS/HTTPS probe, to reject a
+gated or unconfigured gateway when login/signup is advertised. In `auth-only`
+mode it also requires an active same-origin registration policy, absent recovery
+routes and a denied unchallenged recovery POST. The latter tests only the
+boundary, not that recovery works. A passing local build is not production
+or credentialed E2E evidence.
 
 
 ### Public account activation preflight

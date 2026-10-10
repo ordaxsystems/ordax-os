@@ -3,8 +3,8 @@
 ## Public deployment proof — 2026-10-10
 
 `ordax.com.br` serves the public portal deployed from `0e8ed671` with the
-verified account dashboard visual fixes. Anonymous HTTPS proof has three
-explicit states: `gated`, `auth-only`, and `full`. The observed production state
+verified account dashboard visual fixes. Anonymous HTTPS proof uses the shared SSOT state machine with four
+explicit states: `gated`, `disabled-unconfigured`, `auth-only`, and `full`. The observed production state
 is **`auth-only`**: a real anonymous Supabase-backed session and active
 registration policy are reachable through same-origin, while full public
 Account activation, cloud sync and password recovery remain **unavailable**.
