@@ -5,6 +5,7 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["A edição de nome, foto e outros dados exige o serviço oficial de perfil, ainda não disponível nesta página.", "Editing your name, photo, and other details requires the official profile service, which is not yet available on this page."],
     ["Recolher navegação", "Collapse navigation"],
     ["Expandir navegação", "Expand navigation"],
     ["Localização na conta", "Account location"],
