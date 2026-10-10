@@ -353,7 +353,120 @@
     return sessionPromise;
   }
 
+  // Only the verified same-origin session may expose profile commands.
+  // The menu is a shared presentation of existing account routes and logout;
+  // it never owns cookies, tokens, or another session state.
+  let disposeProfileMenu = () => {};
+  let authHeaderRevision = 0;
+  function attachProfileMenu(trigger) {
+    if (typeof document.createElement !== "function"
+      || typeof trigger?.addEventListener !== "function"
+      || !trigger.parentElement) return () => {};
+
+    const menu = document.createElement("div");
+    menu.id = "ordax-profile-menu";
+    menu.className = "ordax-profile-menu";
+    menu.setAttribute("role", "group");
+    menu.setAttribute("aria-label", i18n.fromSource("Opções da conta"));
+    menu.hidden = true;
+    const destinations = [
+      ["/conta/", "Visão geral"],
+      ["/conta/#seguranca", "Segurança"],
+      ["/conta/#dispositivos", "Dispositivos"],
+      ["/conta/#preferencias", "Preferências"],
+    ];
+    for (const [href, title] of destinations) {
+      const option = document.createElement("a");
+      option.href = href;
+      option.textContent = i18n.fromSource(title);
+      menu.appendChild(option);
+    }
+    const form = document.createElement("form");
+    form.action = "/auth/logout";
+    form.method = "post";
+    const signOut = document.createElement("button");
+    signOut.type = "submit";
+    signOut.className = "ordax-profile-signout";
+    signOut.textContent = i18n.fromSource("Sair da conta");
+    form.appendChild(signOut);
+    menu.appendChild(form);
+    trigger.parentElement.appendChild(menu);
+    trigger.setAttribute("role", "button");
+    trigger.setAttribute("aria-controls", menu.id);
+    trigger.setAttribute("aria-expanded", "false");
+    const close = () => {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    };
+    const open = () => {
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+    };
+    const onTriggerClick = event => {
+      if (event.defaultPrevented || event.button > 0
+        || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      if (menu.hidden) open();
+      else close();
+    };
+    const onTriggerKey = event => {
+      if (event.key === " " || event.key === "Spacebar") {
+        event.preventDefault();
+        if (menu.hidden) open();
+        else close();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        open();
+        menu.querySelector("a,button")?.focus();
+      }
+    };
+    const onOutsideClick = event => {
+      if (!menu.hidden && !menu.contains(event.target) && !trigger.contains(event.target)) close();
+    };
+    const onGlobalKey = event => {
+      if (event.key === "Escape" && !menu.hidden) {
+        close();
+        trigger.focus();
+      }
+    };
+    const onFocusOutside = event => {
+      if (!menu.hidden && !menu.contains(event.target) && !trigger.contains(event.target)) close();
+    };
+    const onOptionClick = event => {
+      for (let target = event.target; target && target !== menu; target = target.parentElement) {
+        if (target.tagName?.toLowerCase() === "a") {
+          close();
+          break;
+        }
+      }
+    };
+    menu.addEventListener("click", onOptionClick);
+    trigger.addEventListener("click", onTriggerClick);
+    trigger.addEventListener("keydown", onTriggerKey);
+    document.addEventListener("click", onOutsideClick);
+    document.addEventListener("keydown", onGlobalKey);
+    document.addEventListener("focusin", onFocusOutside);
+    return () => {
+      close();
+      trigger.removeEventListener("click", onTriggerClick);
+      trigger.removeEventListener("keydown", onTriggerKey);
+      document.removeEventListener("click", onOutsideClick);
+      document.removeEventListener("keydown", onGlobalKey);
+      document.removeEventListener("focusin", onFocusOutside);
+      menu.removeEventListener("click", onOptionClick);
+      trigger.removeAttribute("role");
+      trigger.removeAttribute("aria-controls");
+      trigger.removeAttribute("aria-expanded");
+      menu.remove();
+    };
+  }
+
   async function renderAuthHeader() {
+    // Concurrent locale/session checks cannot attach duplicate menus.
+    const headerRevision = ++authHeaderRevision;
+    // Revalidation or back-navigation destroys stale authenticated controls.
+    disposeProfileMenu();
+    disposeProfileMenu = () => {};
     const header = document.querySelector(".site-header");
     const login = header?.querySelector('[data-auth-nav="login"]');
     const register = header?.querySelector('[data-auth-nav="register"]');
@@ -376,13 +489,15 @@
     }
     try {
       const session = await verifiedIdentitySession();
-      if (revision !== sessionRevision || !session.authenticated) return;
+      if (headerRevision !== authHeaderRevision
+        || revision !== sessionRevision || !session.authenticated) return;
       const accountLink = login || register;
       accountLink.href = "/conta/";
       const caption = label(accountLink);
       if (caption) caption.textContent = t("account.navigation.account");
       if (document.body?.dataset?.page === "conta") accountLink.setAttribute("aria-current", "page");
       if (login && register) register.hidden = true;
+      disposeProfileMenu = attachProfileMenu(accountLink);
     } catch {
       // No connection or no valid session: only public links remain.
     }

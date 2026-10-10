@@ -55,6 +55,7 @@ on:
       - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
+      - 'tests/test_public_profile_menu.mjs'
       - 'tests/test_public_account_web_entry.mjs'
       - 'tests/test_public_signup_legal_integrity.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
@@ -135,6 +136,7 @@ on:
       - 'tests/test_vercel_identity_preflight.py'
       - 'tests/test_public_site_vercel_proxy.mjs'
       - 'tests/test_public_auth_header_nav.mjs'
+      - 'tests/test_public_profile_menu.mjs'
       - 'tests/test_public_account_web_entry.mjs'
       - 'tests/test_public_signup_legal_integrity.mjs'
       - 'tests/test_public_proxy_request_context.mjs'
@@ -194,6 +196,7 @@ jobs:
           node --test tests/test_public_site_localization_runtime.mjs
           node --test tests/test_public_site_vercel_proxy.mjs
           node --test tests/test_public_auth_header_nav.mjs
+          node --test tests/test_public_profile_menu.mjs
           node --test tests/test_public_account_web_entry.mjs
           node --test tests/test_public_signup_legal_integrity.mjs
           node --test tests/test_public_proxy_request_context.mjs

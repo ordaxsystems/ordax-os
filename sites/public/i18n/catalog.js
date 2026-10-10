@@ -68,6 +68,7 @@
     ["Sua sessão é validada no servidor. Senhas e tokens não são apresentados nesta página.", "Your session is verified on the server. Passwords and tokens are never displayed on this page."],
     ["Encerrar sessão", "Sign out"],
     ["Sair da conta", "Sign out of account"],
+    ["Opções da conta", "Account options"],
     ["Sua sessão não está ativa. Entre para acessar os dados da sua conta.", "Your session is not active. Sign in to access your account details."],
     ["Entrar na Conta OrdaX", "Sign in to your OrdaX Account"],
     ["Não foi possível verificar sua sessão. Nenhum dado pessoal será exibido até a conexão ser restabelecida.", "We could not verify your session. No personal data will be shown until the connection is restored."],

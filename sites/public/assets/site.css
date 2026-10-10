@@ -1057,3 +1057,47 @@ a {
 
 /* Session-aware header: hidden signup links stay hidden in all layouts. */
 .site-header [data-auth-nav][hidden]{display:none!important}
+
+/* One authenticated profile popover for all public-site headers.
+   The account session and sign-out action remain owned by /auth. */
+.site-header .site-nav,
+.site-header .site-actions,
+.site-header .login-nav-actions,
+.site-header .signup-nav-actions,
+.site-header .download-nav-actions,
+.site-header .account-header-actions{position:relative}
+.site-header .ordax-profile-menu[hidden]{display:none!important}
+.site-header .ordax-profile-menu{
+  position:absolute;top:calc(100% + 10px);right:0;z-index:120;
+  display:grid;gap:3px;width:min(268px,calc(100vw - 24px));padding:8px;
+  border:1px solid var(--ordax-border-soft,rgba(156,180,224,.3));
+  border-radius:14px;background:var(--ordax-app-bg,#162238);
+  color:var(--ordax-text,#e8f0ff);box-shadow:0 22px 56px rgba(0,0,0,.32);
+  text-align:left;white-space:normal;isolation:isolate;
+}
+.site-header .ordax-profile-menu a,
+.site-header .ordax-profile-menu button{
+  display:flex;align-items:center;min-height:44px;width:100%;
+  border:0;border-radius:9px;background:transparent;color:inherit;
+  padding:11px 12px;text-align:left;font:inherit;font-size:13px;
+  text-decoration:none;cursor:pointer;line-height:1.4;white-space:normal;
+}
+.site-header .ordax-profile-menu a:hover,
+.site-header .ordax-profile-menu button:hover{
+  background:var(--ordax-hover-bg,rgba(138,176,255,.13));
+}
+.site-header .ordax-profile-menu a:focus-visible,
+.site-header .ordax-profile-menu button:focus-visible{
+  outline:2px solid var(--ordax-brand-blue,#87b2ff);outline-offset:1px;
+}
+.site-header .ordax-profile-menu form{
+  margin:6px 0 0;padding:6px 0 0;
+  border-top:1px solid var(--ordax-border-soft,rgba(156,180,224,.24));
+}
+.site-header .ordax-profile-menu .ordax-profile-signout{
+  color:var(--ordax-danger-text,#ffd3d8);
+}
+.site-header:has(.ordax-profile-menu:not([hidden])){z-index:125}
+@media(max-width:600px){
+  .site-header .ordax-profile-menu{right:0;max-width:calc(100vw - 24px)}
+}
