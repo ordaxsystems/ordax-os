@@ -14,6 +14,7 @@ fail-closed until the independent bootstrap, trust and provisioning gates pass.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -27,10 +28,21 @@ import tarfile
 import tempfile
 import urllib.request
 
+import verify_upstream_signature as UPSTREAM_SIGNATURE
+
 ROOT = Path(__file__).resolve().parents[2]
 KERNEL_DIR = ROOT / "bootstrap" / "kernel"
 SOURCE_CONTRACT = KERNEL_DIR / "source.json"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+# Existing 6.6.52 source predates signed-source enforcement. No future pin
+# may silently opt out by removing the upstream_signature field.
+LEGACY_UNSIGNED_PIN = (
+    "6.6.52",
+    "1591ab348399d4aa53121158525056a69c8cf0fe0e90935b0095e9a58e37b4b8",
+    "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.52.tar.xz",
+    "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.52.tar.sign",
+)
+
 _SYMBOL_ASSIGNMENT = re.compile(r"^(CONFIG_[A-Za-z0-9_]+)=(.*)$")
 _SYMBOL_UNSET = re.compile(r"^# (CONFIG_[A-Za-z0-9_]+) is not set$")
 _SAFE_RELEASE = re.compile(r"^[A-Za-z0-9._+-]+$")
@@ -89,6 +101,15 @@ def load_contract() -> dict:
         raise BuildError("invalid kernel version")
     if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
         raise BuildError("invalid kernel archive SHA-256")
+    if value.get("upstream_signature") is None:
+        identity = (version, digest, value.get("archive_url"), value.get("signature_url"))
+        if identity != LEGACY_UNSIGNED_PIN:
+            raise BuildError("new kernel source pin requires a signed upstream OpenPGP policy")
+    else:
+        try:
+            UPSTREAM_SIGNATURE.validate_source_contract(value)
+        except UPSTREAM_SIGNATURE.VerificationError as exc:
+            raise BuildError(f"invalid signed kernel source policy: {exc}") from exc
     return value
 
 
@@ -242,6 +263,57 @@ def download_archive(contract: dict, cache_dir: Path) -> Path:
         raise BuildError(f"kernel source digest mismatch: expected={expected} actual={actual}")
     temp.replace(destination)
     return destination
+
+
+def download_authentication_input(url: str, destination: Path, *, max_bytes: int) -> bytes:
+    """Bound download; the actual authenticity comes from the pinned identity."""
+    try:
+        with urllib.request.urlopen(url, timeout=120) as response:
+            value = response.read(max_bytes + 1)
+    except Exception as exc:
+        raise BuildError(f"kernel upstream authentication input download failed: {exc}") from exc
+    if not value or len(value) > max_bytes:
+        raise BuildError("kernel upstream authentication input is missing or oversized")
+    destination.write_bytes(value)
+    return value
+
+
+def authenticate_upstream_archive(contract: dict, archive: Path, cache_dir: Path) -> dict:
+    """Mandatory before extraction for every source pin other than legacy 6.6.52."""
+    if contract.get("upstream_signature") is None:
+        identity = (
+            contract["version"],
+            contract["archive_sha256"],
+            contract.get("archive_url"),
+            contract.get("signature_url"),
+        )
+        if identity != LEGACY_UNSIGNED_PIN:
+            raise BuildError("unsigned source pin cannot be built")
+        return {"status": "legacy-unsigned-6.6.52-only", "verified": False}
+
+    version = contract["version"]
+    sig = cache_dir / f"linux-{version}.tar.sign"
+    key = cache_dir / "kernel-maintainer-public-key.asc"
+    download_authentication_input(contract["signature_url"], sig, max_bytes=128 * 1024)
+    encoded = download_authentication_input(
+        contract["upstream_signature"]["trusted_public_key_url"],
+        cache_dir / "kernel-maintainer-public-key.asc.base64",
+        max_bytes=2 * 1024 * 1024,
+    )
+    try:
+        armored = base64.b64decode(encoded, validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise BuildError("kernel public key mirror response is not valid base64") from exc
+    if not armored or len(armored) > 1024 * 1024:
+        raise BuildError("kernel signer public key is empty or oversized")
+    key.write_bytes(armored)
+    try:
+        receipt = UPSTREAM_SIGNATURE.verify(SOURCE_CONTRACT, archive, sig, key)
+    except UPSTREAM_SIGNATURE.VerificationError as exc:
+        raise BuildError(f"kernel upstream OpenPGP authentication failed: {exc}") from exc
+    if receipt.get("status") != "verified":
+        raise BuildError("kernel upstream source has no successful signature receipt")
+    return receipt
 
 
 def safe_member(member: tarfile.TarInfo, expected_top: str) -> None:
@@ -456,6 +528,7 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
 
     cache_dir = work_dir / "cache"
     archive = download_archive(contract, cache_dir)
+    signature_receipt = authenticate_upstream_archive(contract, archive, cache_dir)
     source = extract_archive(archive, work_dir / "source", contract["version"])
     build_dir = work_dir / "build"
     module_stage = work_dir / "module-stage"
@@ -508,6 +581,7 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
         "kernel_version": contract["version"],
         "upstream_archive_url": contract["archive_url"],
         "upstream_archive_sha256": sha256_file(archive),
+        "upstream_authentication": signature_receipt,
         "source_contract_sha256": sha256_file(SOURCE_CONTRACT),
         "fragment_sha256": sha256_file(fragment),
         "resolved_config_sha256": sha256_file(final_config),
