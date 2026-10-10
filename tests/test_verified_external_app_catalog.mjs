@@ -61,6 +61,7 @@ test("verified current-slot presentation and association preserve exact owner an
   const t = fixture();
   const entries = await discoverVerifiedExternalApplications({
     source: t.source, fetchImpl: t.fetchImpl, appIds: ["notes"],
+    onError(error) { throw error; },
   });
   assert.equal(entries.length, 1);
   assert.equal(entries[0].app.id, "notes");
@@ -85,6 +86,7 @@ test("missing optional presentation disables discoverability and absent file ass
   const noFiles = fixture({ association: null });
   const entries = await discoverVerifiedExternalApplications({
     source: noFiles.source, fetchImpl: noFiles.fetchImpl, appIds: ["notes"],
+    onError(error) { throw error; },
   });
   assert.equal(entries.length, 1);
   assert.equal(entries[0].association, null);
