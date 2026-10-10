@@ -14,16 +14,6 @@ export const sections = [
   { path: '/suporte', title: 'Central de ajuda', icon: CircleHelp, description: 'Encontre respostas e cuide da sua experiência OrdaX.' },
 ] as const;
 export type AccountPath = typeof sections[number]['path'];
-
-/** Absolute public URL -> single canonical account-section route.
- * TanStack Router's location.pathname includes the /conta basepath.
- */
-export function accountSectionFromUrl(pathname: string): AccountPath {
-  const canonical = pathname.replace(/\/$/, '');
-  const subpath = canonical === '/conta' ? '/' :
-    canonical.startsWith('/conta/') ? canonical.slice('/conta'.length) : canonical;
-  return (sections.find(section => section.path === subpath)?.path ?? '/') as AccountPath;
-}
 export function getAccountSummary() { return { plan: account.subscription, usage: account.usage, nextCharge: null, authenticated: account.profile !== null }; }
 export const unavailableMessage = 'Os serviços da conta ainda não estão conectados. Nenhuma informação de assinatura, pagamento ou consumo está disponível.';
 export type ServiceStatus = 'unavailable' | 'connected';
