@@ -6,6 +6,11 @@
   const cards = [...document.querySelectorAll("[data-account-card]")];
   const overview = document.querySelector("[data-account-overview]");
   const overviewHeading = document.querySelector("[data-account-overview-heading]");
+  const sidebarToggle = document.querySelector("[data-account-sidebar-toggle]");
+  const sidebarCollapseLabel = document.querySelector("[data-sidebar-collapse-label]");
+  const sidebarExpandLabel = document.querySelector("[data-sidebar-expand-label]");
+  const breadcrumbDetails = document.querySelector("[data-account-breadcrumb-details]");
+  const breadcrumbCurrent = document.querySelector("[data-account-breadcrumb-current]");
   const search = document.querySelector("[data-account-search]");
   const back = document.querySelector("[data-account-back]");
   const empty = document.querySelector("[data-account-no-results]");
@@ -21,6 +26,23 @@
   const mobile = window.matchMedia("(max-width:900px)");
   const focusableNavigation = () => [...navigation.querySelectorAll("a[href], button:not([disabled])")].filter(element => element.getClientRects().length);
   const normalize = value => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
+
+  // This is only a visual state of the account portal. Do not create a
+  // separate persistence or identity owner for a prototype preference.
+  function setSidebarCollapsed(collapsed) {
+    const active = !mobile.matches && collapsed;
+    document.body.classList.toggle("account-sidebar-collapsed", active);
+    if (sidebarToggle) sidebarToggle.setAttribute("aria-expanded", String(!active));
+    if (sidebarCollapseLabel) sidebarCollapseLabel.hidden = active;
+    if (sidebarExpandLabel) sidebarExpandLabel.hidden = !active;
+    for (const link of navigation.querySelectorAll("a")) {
+      if (active) link.title = link.textContent.trim().replace(/\s+/g, " ");
+      else link.removeAttribute("title");
+    }
+  }
+  sidebarToggle?.addEventListener("click", () => {
+    if (!mobile.matches) setSidebarCollapsed(!document.body.classList.contains("account-sidebar-collapsed"));
+  });
   const sectionFromHash = () => {
     const requested = window.location.hash.slice(1);
     return sections.has(requested) ? requested : "visao-geral";
@@ -60,6 +82,13 @@
     overview.hidden = searching || view !== "visao-geral";
     if (overviewHeading) overviewHeading.hidden = searching || view !== "visao-geral";
     back.hidden = view === "visao-geral" && !searching;
+    if (breadcrumbDetails && breadcrumbCurrent) {
+      const detailed = !searching && view !== "visao-geral";
+      breadcrumbDetails.hidden = !detailed;
+      const selected = [...navigation.querySelectorAll('a[data-account-section]')]
+        .find(link => link.hash === "#" + view);
+      breadcrumbCurrent.textContent = detailed ? (selected?.textContent.trim() || document.getElementById(view)?.querySelector("h2")?.textContent.trim() || "") : "";
+    }
     let visible = 0;
     for (const card of cards) {
       card.hidden = searching
@@ -139,8 +168,9 @@
   const onHistoryNavigation = () => { closeMenu(); if (search) search.value = ""; render({ focus: true }); };
   window.addEventListener("hashchange", onHistoryNavigation);
   window.addEventListener("popstate", onHistoryNavigation);
-  document.addEventListener("ordax:localechange", () => render());
+  document.addEventListener("ordax:localechange", () => { render(); if (document.body.classList.contains("account-sidebar-collapsed")) setSidebarCollapsed(true); });
   mobile.addEventListener("change", event => {
+    if (event.matches) setSidebarCollapsed(false);
     if (!event.matches) {
       const focusedInMenu = navigation.contains(document.activeElement);
       closeMenu();
