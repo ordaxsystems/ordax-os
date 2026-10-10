@@ -266,6 +266,14 @@ Everything needed to reproduce the bootstrap is represented in this repository t
 
 Private/runtime data is not committed to public Git. The USB is never source authority.
 
+The transitional bootstrap verifies its stored signed envelope, exact artifact
+bytes and materialized release tree before executing the offline `current`.
+It reuses the canonical `ordax-release-agent activate-exact` owner for the
+selected SHA and rechecks the current identity after verification. If the
+verifier is missing, the bytes do not verify or the identity changes, it
+enters recovery rather than executing an unverified local entrypoint.
+This transitional verification does not prove or authorize physical USB boot.
+
 ## Trust boundary
 
 The owner/development Creator may use explicitly marked ephemeral prototype trust for development provenance. This does not satisfy canonical release trust and must never be promoted as such.
@@ -311,12 +319,21 @@ The fixed initramfs now carries an isolated candidate orchestrator at `/sbin/ord
 The candidate path is intended only for disposable boot proof through `rdinit=/sbin/ordax-portable-init`. It mounts the ESP read-only, verifies the bootstrap capsule against the initramfs-owned hash, mounts `ORDAX-DATA`, verifies the pinned Stable Base, attaches the ext4 state image, and then evaluates boot slots in this order:
 
 ```text
+armed candidate (one attempt only)
+ -> exact signed offline verification
+ -> on failure, reject candidate durably and return to prior slot
 current
  -> exact signed offline verification
- -> if invalid: known-good
- -> exact signed offline verification
- -> candidate is never boot authority
+ -> if invalid, resolve known-good without retargeting slots
+known-good
+ -> separate exact signed offline verification
+ -> if none verifies, enter read-only recovery
 ```
+
+A structurally incomplete candidate is rejected by the activation-state
+owner without discarding a valid previous release. Malformed transaction or
+slot identities remain fail-closed. Selection alone cannot authorize boot;
+every selected copy must independently pass the canonical exact verifier.
 
 Only after a release passes exact signature/hash verification does the candidate compose the Stable Base overlay, bind the verified `system/` subtree read-only, move all required mounts under the new root and invoke `switch_root` into `ordax-stable-init`.
 

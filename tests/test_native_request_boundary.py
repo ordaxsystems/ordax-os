@@ -245,6 +245,26 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
         status, _body = self.request("/index.html", method="PUT")
         self.assertEqual(status, 501)
 
+    def test_duplicate_host_headers_cannot_bypass_canonical_parser(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
+        try:
+            connection.putrequest("HEAD", "/index.html", skip_host=True)
+            connection.putheader("Host", f"127.0.0.1:{self.port}")
+            connection.putheader("Host", f"127.0.0.1:{self.port}")
+            connection.endheaders()
+            response = connection.getresponse()
+            response.read()
+            self.assertEqual(response.status, 403)
+        finally:
+            connection.close()
+
+    def test_inherited_head_rejects_cross_site_provenance(self):
+        status, _ = self.request(
+            native_host.SESSION_PATH, method="HEAD",
+            headers={"Origin": "https://attacker.example", "Sec-Fetch-Site": "cross-site"},
+        )
+        self.assertEqual(status, 403)
+
     def test_native_api_rejects_foreign_browser_provenance(self):
         origin = f"http://127.0.0.1:{self.port}"
         status, body = self.request(

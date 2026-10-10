@@ -155,6 +155,13 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertIn("MVP_TARGET_BOOT_HANDOFF_IMPLEMENTED=YES_CANDIDATE", document)
         self.assertIn("MVP_TARGET_PHYSICAL_BOOT_PROVEN=NO", document)
         self.assertIn("MVP_TARGET_PUBLIC_PHYSICAL_APPLY=NO", document)
+        self.assertIn("armed candidate (one attempt only)", document)
+        self.assertIn("separate exact signed offline verification", document)
+        self.assertIn("activate-exact", document)
+        self.assertNotIn("candidate is never boot authority", document)
+        pid1_source = (ROOT / "bootstrap/initramfs/portable_init.sh").read_text(encoding="utf-8")
+        self.assertIn('if [ "$slot" = "candidate" ]; then', pid1_source)
+        self.assertIn('"$STATE_MOUNT" "$PORTABLE_ROOT" known-good', pid1_source)
 
         for stale in (
             "That still does **not** mean the v2 boot handoff is implemented.",

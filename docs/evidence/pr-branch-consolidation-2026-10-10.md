@@ -58,9 +58,22 @@ módulo, 29 de App Data (4 arquivos), e 11 de sessão local — **54 testes
 distintos aprovados**. Além disso, `py_compile`, validação JSON e
 `git diff --check` passaram.
 
-O restante da PR #1326 (boot, recuperação e auditoria de outros owners)
-**não é declarado incorporado** por essas duas correções. As PRs e suas
-branches continuam abertas enquanto tiverem trabalho exclusivo.
+Outros trechos de boot e recuperação da PR #1326 foram incorporados
+posteriormente pelos commits `66055f83` e `1f327c7b`: verificação exata
+de `current`, fallback independente e verificado de `known-good`, e
+rejeição durável de candidata incompleta sem perder o boot anterior.
+A prova e seus limites estão em
+`docs/evidence/boot-verification-consolidation-2026-10-10.md`.
+
+A suíte Native foi ampliada com testes de Host duplicado, `HEAD`
+cross-site, substituição de credencial entre `lstat` e `open`, e
+bloqueio HTTP de unlock/reconfigure após perda do arquivo: **27 testes
+HTTP/credenciais passaram no Ubuntu**, sem alterar o owner de segurança.
+O relatório da registry de apps agora é comparado ao catálogo executável
+do produto em `tests/test_canonical_document_freshness.py` (17/17).
+
+A PR #1326 permanece aberta enquanto seus testes funcionais de verificação
+de EROFS v2/v3/v4 e os demais deltas exclusivos não forem reconciliados.
 
 ## Auditoria integral de ancestralidade no GitHub
 

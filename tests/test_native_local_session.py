@@ -122,6 +122,25 @@ class NativeLocalSessionTests(unittest.TestCase):
                 else:
                     path.unlink()
 
+    @unittest.skipUnless(os.name == "posix", "Native credential descriptors require POSIX")
+    def test_replacement_between_lstat_and_open_fails_closed(self):
+        path = Path(host.LOCAL_SESSION_CREDENTIAL_FILE)
+        host.write_local_session_credential("local-passphrase-42")
+        target = path.with_name("replacement")
+        target.write_bytes(path.read_bytes())
+        target.chmod(0o600)
+        original_open = os.open
+
+        def replace_on_open(filename, flags, *args, **kwargs):
+            if filename == str(path):
+                path.unlink()
+                path.symlink_to(target)
+            return original_open(filename, flags, *args, **kwargs)
+
+        with patch.object(host.os, "open", side_effect=replace_on_open):
+            with self.assertRaises(ValueError):
+                host.verify_local_session_secret("local-passphrase-42")
+
     def test_unreadable_credential_cannot_establish_absence(self):
         with patch.object(host.os, "lstat", side_effect=PermissionError("denied")):
             self.assertTrue(host.local_session_credential_present())
@@ -162,6 +181,38 @@ class NativeLocalSessionTests(unittest.TestCase):
             self.assertTrue(server.local_session_locked)
         finally:
             connection.close()
+
+    @unittest.skipUnless(os.name == "posix", "Native HTTP session test requires POSIX")
+    def test_lost_credential_blocks_unlock_and_reconfiguration_over_http(self):
+        host.write_local_session_credential("local-passphrase-42")
+        server = host.NativeHostServer(
+            ("127.0.0.1", 0), host.NativeHostHandler,
+            user_root=self.tempdir.name,
+            power_request_path=str(Path(self.tempdir.name) / "power-request"),
+            network_session_dir=self.tempdir.name,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(timeout=2)))
+        self.assertTrue(server.local_session_locked)
+        Path(host.LOCAL_SESSION_CREDENTIAL_FILE).unlink()
+
+        for action in ("unlock", "configure-credential"):
+            with self.subTest(action=action):
+                connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+                try:
+                    payload = json.dumps({"action": action, "secret": "replacement-secret"})
+                    connection.request(
+                        "POST", host.LOCAL_SESSION_PATH,
+                        body=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    response = connection.getresponse()
+                    response.read()
+                    self.assertEqual(response.status, 409)
+                    self.assertTrue(server.local_session_locked)
+                finally:
+                    connection.close()
 
     def test_machine_readable_credential_safety_matches_host(self):
         policy = json.loads((ROOT / "docs/contracts/local-session.json").read_text(encoding="utf-8"))
