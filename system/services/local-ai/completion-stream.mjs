@@ -34,6 +34,23 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta, 
   };
   assertActive();
   const reader = body.getReader();
+  // A fetch adapter or readable body can ignore AbortSignal while reader.read()
+  // (or an async consumer callback) is pending. Race each wait with the
+  // transport cancellation instead of trusting that upstream will settle.
+  let rejectAborted;
+  const aborted = new Promise((_, reject) => { rejectAborted = reject; });
+  const abortReader = () => {
+    rejectAborted(new Error("Local AI streaming request cancelled"));
+    // Cancellation is best-effort; a buggy adapter may never settle cancel().
+    // Never await it while releasing the inference request.
+    try { void Promise.resolve(reader.cancel()).catch(() => {}); } catch {}
+  };
+  signal?.addEventListener("abort", abortReader, { once: true });
+  const awaitActive = async (work) => {
+    const value = await Promise.race([work, aborted]);
+    assertActive();
+    return value;
+  };
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let bytes = 0;
   let partial = "";
@@ -90,7 +107,10 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta, 
     if (finished) throw new Error("Local AI streaming received another chunk after finish");
     const reason = choice.finish_reason;
     if (reason !== undefined && reason !== null) {
-      if (!["stop", "length"].includes(reason)) {
+      if (reason === "length") {
+        throw new Error("Local AI streaming completion was truncated");
+      }
+      if (reason !== "stop") {
         throw new Error("Local AI streaming finish reason is invalid");
       }
       finished = true;
@@ -104,8 +124,10 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta, 
     result += delta;
     // Deliberately await the consumer to apply backpressure and preserve order.
     // Emissions are provisional until the final verified result is returned.
-    await onDelta(delta);
-    assertActive();
+    await awaitActive(Promise.resolve().then(() => {
+      assertActive();
+      return onDelta(delta);
+    }));
   };
 
   const processLine = async (line) => {
@@ -139,8 +161,7 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta, 
   try {
     while (true) {
       assertActive();
-      const { value, done } = await reader.read();
-      assertActive();
+      const { value, done } = await awaitActive(reader.read());
       if (done) break;
       if (!(value instanceof Uint8Array)) {
         throw new Error("Local AI streaming response contains invalid bytes");
@@ -164,8 +185,10 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta, 
     succeeded = true;
     return text;
   } finally {
+    signal?.removeEventListener("abort", abortReader);
     if (!succeeded) {
-      try { await reader.cancel(); } catch {}
+      // Do not let an uncooperative ReadableStream's cancel() hang cleanup.
+      try { void Promise.resolve(reader.cancel()).catch(() => {}); } catch {}
     }
     reader.releaseLock();
   }
