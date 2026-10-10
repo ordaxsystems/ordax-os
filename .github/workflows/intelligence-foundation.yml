@@ -30,6 +30,10 @@ on:
       - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
       - 'system/contracts/intelligence-conversation-capabilities.mjs'
+      - 'system/services/intelligence/work-canvas.mjs'
+      - 'system/apps/activity/view-model.mjs'
+      - 'system/apps/activity/ui/workspace-controls.mjs'
+      - 'tests/test_intelligence_work_canvas.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -201,6 +205,10 @@ on:
       - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
       - 'system/contracts/intelligence-conversation-capabilities.mjs'
+      - 'system/services/intelligence/work-canvas.mjs'
+      - 'system/apps/activity/view-model.mjs'
+      - 'system/apps/activity/ui/workspace-controls.mjs'
+      - 'tests/test_intelligence_work_canvas.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -448,6 +456,7 @@ jobs:
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
           node --test tests/test_intelligence_conversation_capabilities.mjs
+          node --test tests/test_intelligence_work_canvas.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
