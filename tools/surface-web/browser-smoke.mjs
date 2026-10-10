@@ -1277,6 +1277,8 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
         mobileNavigation: innerWidth >= 600 || visible(nav),
         sidebarDesktop: innerWidth < 1100 || visible(sidebar),
         accountButton: visible(document.querySelector('button.account-menu')),
+        publicPrivacyLink: !!document.querySelector('.page-footer a[href="/privacidade/"]'),
+        summaryActive: !!document.querySelector('.desktop-sidebar a.sidebar-link.active[href="/conta/"]'),
         contentWidth: main?.getBoundingClientRect().width || 0
       };
     })()`);
@@ -1285,7 +1287,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       'originalLogoLoaded', 'originalLandscapeLoaded', 'threeSummaryCards',
       'twoDashboardCards', 'noInventedConsumption',
       'noExposedUnverifiedIdentity', 'mobileNavigation', 'sidebarDesktop',
-      'accountButton',
+      'accountButton', 'publicPrivacyLink', 'summaryActive',
     ];
     if (report.path !== '/conta/' || required.some(key => !report[key])) {
       throw new Error(`${name} React account visual contract failed: ${JSON.stringify(report)}`);
@@ -1328,7 +1330,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       }
       await sleep(50);
     }
-    const deep = await evaluate('location.pathname === "/conta/seguranca" && document.querySelector(".detail-page-heading h1")?.textContent === "Segurança e acesso"');
+    const deep = await evaluate('location.pathname === "/conta/seguranca" && document.querySelector(".detail-page-heading h1")?.textContent === "Segurança e acesso" && !!document.querySelector(".desktop-sidebar a.sidebar-link.active[href=\"/conta/seguranca\"]") && document.querySelector(".breadcrumb")?.textContent?.includes("Segurança e acesso")');
     if (!deep) throw new Error(`${name} React deep link did not resolve security section`);
     reports.push({ name, ...report, menuAndEscape: true, clientRoute: true, deepLink: true });
   }
