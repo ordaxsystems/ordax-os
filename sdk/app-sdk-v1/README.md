@@ -2,6 +2,25 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.16.0
+
+This additive SDK release publishes the **single canonical first-party
+application definition** from `system/contracts/first-party-app.mjs` as
+`ordax.first-party-app/1`. All first-party OS apps now import the same
+module. The previous implementation at `system/apps/app-contract.mjs`
+was deleted in the same atomic source migration commit: there is no shim,
+re-export or second implementation.
+
+This source-level schema describes app identity, panels, localization
+and capability requirements. It **does not** grant any capability;
+component installation, host-provided ports, trust, app-data scoping
+and rollback still belong to OrdaX OS.
+
+The Internet SDK import audit can now resolve its full public contract
+source graph. **SDK readiness alone does not authorize** copying
+`system/apps/internet` or enabling signed app delivery; that requires
+the audited remove-first source cutover and install/offline/rollback proof.
+
 ## Bundle 1.15.0
 
 Version `1.15.0` adds the existing canonical `ordax.recent-files/1`
