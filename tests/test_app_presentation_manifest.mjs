@@ -22,6 +22,7 @@ test("external presentation validates identity, locale and immutable copy", () =
   assert.equal(result.translations["en-US"].title, "Notes");
   assert.ok(Object.isFrozen(result.translations));
   assert.ok(Object.isFrozen(result.translations["en-US"]));
+  assert.deepEqual(validateAppPresentationManifest(result, { appId: "notes", appVersion: "0.5.0" }), result);
 });
 
 test("external presentation cannot carry authority or drift from installed app", () => {
