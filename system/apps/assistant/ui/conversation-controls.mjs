@@ -67,7 +67,7 @@ export function mountAssistantConversationControls(
   let mountedSlot = null;
 
   const workCards = () => {
-    if (!personalOrdax || !identitySessionPort || !spaceSelectionPort) return [];
+    if (!personalOrdax || !identitySessionPort || !spaceSelectionPort) return { cards: [], remainingCount: 0 };
     try {
       // Read the current owners together on *every* render, including after
       // owner/Space change. Never retain a work snapshot across contexts.
@@ -75,9 +75,9 @@ export function mountAssistantConversationControls(
         personalOrdax.getSnapshot(),
         identitySessionPort.getSnapshot(),
         spaceSelectionPort.getSnapshot(),
-      ).cards;
+      );
     } catch {
-      return []; // Invalid/stale authorization and schemas fail closed.
+      return { cards: [], remainingCount: 0 }; // Authorization/schemas fail closed.
     }
   };
 
@@ -88,8 +88,11 @@ export function mountAssistantConversationControls(
     return t("assistant.state.unavailable");
   };
 
-  const render = (snapshot = conversation.getSnapshot()) => {
+  const render = () => {
     if (destroyed) return;
+    // Do not trust an old observer argument when Identity/Space changed between
+    // publication and rendering. Reconcile the canonical conversation scope.
+    const snapshot = conversation.getSnapshot();
     const slot = root.querySelector(EXTENSION_SELECTOR);
     if (!slot) {
       mountedSlot = null;
@@ -98,6 +101,11 @@ export function mountAssistantConversationControls(
     // This snapshot comes from the *existing* scoped conversation runtime.
     // No model-generated progress, HTML, actions or data sources are promoted.
     const view = projectAssistantResultCanvas(snapshot);
+    const priorInput = slot.querySelector("[data-assistant-input]");
+    const focusWasInDraft = documentObject.activeElement === priorInput;
+    const cursor = focusWasInDraft ? [priorInput.selectionStart, priorInput.selectionEnd] : null;
+    const expandedWork = new Set([...slot.querySelectorAll("details[data-assistant-work-details][open]")]
+      .map((element) => element.dataset.assistantWorkDetails));
     mountedSlot = slot;
     slot.replaceChildren();
     slot.classList.add("ordax-assistant-host");
@@ -150,36 +158,66 @@ export function mountAssistantConversationControls(
     if (canvas.childElementCount > 0) slot.append(canvas);
 
     const verifiedWork = workCards();
-    if (verifiedWork.length > 0) {
+    if (verifiedWork.cards.length > 0) {
       const missions = node(documentObject, "section", "ordax-assistant-work-strip");
       missions.setAttribute("aria-label", t("assistant.work.aria"));
       missions.append(node(documentObject, "h4", "ordax-assistant-work-title",
         t("assistant.work.title")));
-      for (const work of verifiedWork) {
+      for (const work of verifiedWork.cards) {
         const card = node(documentObject, "article", "ordax-assistant-work-card");
         card.dataset.assistantWorkId = work.workItemId;
         card.dataset.assistantWorkState = work.state;
+        const statusLabel = work.workState === "paused" && work.state === "working"
+          ? t("assistant.work.state.paused")
+          : t(`assistant.work.state.${work.state}`);
         card.append(
           node(documentObject, "strong", "ordax-assistant-work-goal", work.goal),
-          node(documentObject, "span", "ordax-assistant-work-state",
-            t(`assistant.work.state.${work.state}`)),
+          node(documentObject, "span", "ordax-assistant-work-state", statusLabel),
         );
+
+        // Even a "finished" Activity event is evidence of a recorded event,
+        // not permission for a UI action nor a synthetic success percentage.
         if (work.steps.length > 0) {
+          const details = node(documentObject, "details", "ordax-assistant-work-details");
+          details.dataset.assistantWorkDetails = work.workItemId;
+          details.open = work.state === "requires-action"
+            || expandedWork.has(work.workItemId);
+          details.append(node(documentObject, "summary", "",
+            `${t("assistant.work.events")} · ${work.steps.length}`));
           const list = node(documentObject, "ol", "ordax-assistant-work-events");
           for (const event of work.steps) {
-            const line = node(documentObject, "li", "", event.summary);
+            const line = node(documentObject, "li", "ordax-assistant-work-event");
             line.dataset.assistantWorkEvent = event.type;
             line.dataset.assistantWorkSequence = String(event.sequence);
+            const copy = node(documentObject, "p", "ordax-assistant-work-event-summary", event.summary);
+            const when = node(documentObject, "time", "ordax-assistant-work-event-time",
+              new Date(event.occurredAt).toLocaleString(lifecycle.localization.getLocale()));
+            when.dateTime = event.occurredAt;
+            line.append(copy, when);
             list.append(line);
           }
-          if (work.stepsTruncated) list.append(node(documentObject, "li", "", "…"));
-          card.append(list);
+          if (work.stepsTruncated) {
+            list.prepend(node(documentObject, "li", "ordax-assistant-work-truncated",
+              t("assistant.work.truncated")));
+          }
+          details.append(list);
+          card.append(details);
         }
-        if (work.state === "result" && work.result?.kind === "text") {
-          card.append(node(documentObject, "p", "ordax-assistant-work-result",
-            work.result.text));
+        if (work.state === "result" && work.result?.kind === "text" && work.provenance) {
+          const result = node(documentObject, "section", "ordax-assistant-work-output");
+          result.append(
+            node(documentObject, "span", "ordax-assistant-result-label", t("assistant.work.result")),
+            node(documentObject, "p", "ordax-assistant-work-result", work.result.text),
+            node(documentObject, "p", "ordax-assistant-work-evidence",
+              `${t("assistant.work.source")} · ${work.resultId} · ${work.provenance.engineId} / ${work.provenance.modelId}`),
+          );
+          card.append(result);
         }
         missions.append(card);
+      }
+      if (verifiedWork.remainingCount > 0) {
+        missions.append(node(documentObject, "p", "ordax-assistant-work-overflow",
+          `${verifiedWork.remainingCount} ${t("assistant.work.remaining")}`));
       }
       missions.append(node(documentObject, "p", "ordax-assistant-work-caption",
         t("assistant.work.readonly")));
@@ -255,6 +293,10 @@ export function mountAssistantConversationControls(
       slot.append(details);
     }
     slot.append(node(documentObject, "p", "ordax-assistant-footnote", t("assistant.footnote")));
+    if (focusWasInDraft && !textarea.disabled) {
+      textarea.focus({ preventScroll: true });
+      if (cursor?.every(Number.isInteger)) textarea.setSelectionRange(...cursor);
+    }
   };
 
   const submit = () => {
