@@ -49,6 +49,13 @@ class InternetSdkReadinessTests(unittest.TestCase):
         self.assertEqual(report["sourceOwner"], "ordaxsystems/ordax-os")
         self.assertEqual(report["sourceCutoverAuthorized"], False)
         self.assertEqual(report["distributionActivated"], False)
+        self.assertTrue(report["sdkBoundaryClean"], report["blockers"])
+        self.assertEqual(report["privatePlatformImports"], [])
+        self.assertEqual(report["unpublishedContracts"], [])
+        self.assertFalse(
+            (checker.ROOT / "system/apps/app-contract.mjs").exists(),
+            "single canonical contract owner required",
+        )
         self.assertGreater(report["appModuleCount"], 0)
         self.assertIn("system/contracts/browser-session.mjs", report["requiredContracts"])
         sdk = json.loads((checker.ROOT / checker.SDK_PATH).read_text(encoding="utf-8"))

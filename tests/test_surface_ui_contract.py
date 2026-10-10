@@ -205,6 +205,7 @@ class SurfaceUiContractTests(unittest.TestCase):
     def test_first_party_apps_have_independent_owners_and_thin_catalog(self):
         catalog = APP_CATALOG.read_text(encoding="utf-8")
         self.assertIn("../contracts/first-party-app.mjs", catalog)
+        self.assertFalse((APPS / "app-contract.mjs").exists(), "obsolete app contract must not return")
         for app_id, path in APP_OWNERS.items():
             owner = path.read_text(encoding="utf-8")
             self.assertIn(f'id: "{app_id}"', owner)
