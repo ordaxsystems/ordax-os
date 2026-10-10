@@ -93,7 +93,8 @@ obtém a versão de `proposal.json` e não depende desse literal.
 
 ## Operação, permissões e limites honestos
 
-GitHub Actions usa `contents:write` e `pull-requests:write` **apenas**
+GitHub Actions usa `contents:write`, `pull-requests:write`, `issues:write` e
+`actions:write` (necessário para `workflow_dispatch` da prova staged) **apenas**
 no workflow de proposta iniciado por cron/disparo confiável na `main`.
 Workflows de build são somente leitura. O job de proposta usa `GITHUB_TOKEN`
 do próprio repositório. Alguns repositórios bloqueiam criação de PRs por
