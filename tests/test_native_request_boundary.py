@@ -200,10 +200,10 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
         self.thread.join(timeout=2)
         self.temporary.cleanup()
 
-    def request(self, path, *, headers=None):
+    def request(self, path, *, headers=None, method="GET"):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
         try:
-            connection.request("GET", path, headers=headers or {})
+            connection.request(method, path, headers=headers or {})
             response = connection.getresponse()
             body = response.read()
             return response.status, body
@@ -219,6 +219,31 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
             headers={"Host": f"attacker.example:{self.port}"},
         )
         self.assertEqual(status, 403)
+
+    def test_inherited_head_rejects_foreign_host_before_static_dispatch(self):
+        status, body = self.request(
+            "/index.html", method="HEAD",
+            headers={"Host": f"attacker.example:{self.port}"},
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(body, b"")
+
+        status, body = self.request("/index.html", method="HEAD")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"")
+
+    def test_all_methods_share_one_ingress_policy(self):
+        bad_headers = {
+            "Host": f"attacker.example:{self.port}",
+            "Origin": f"https://attacker.example",
+        }
+        for method in ("GET", "HEAD", "POST", "OPTIONS", "PUT"):
+            with self.subTest(method=method):
+                status, _body = self.request("/index.html", method=method, headers=bad_headers)
+                self.assertEqual(status, 403)
+
+        status, _body = self.request("/index.html", method="PUT")
+        self.assertEqual(status, 501)
 
     def test_native_api_rejects_foreign_browser_provenance(self):
         origin = f"http://127.0.0.1:{self.port}"

@@ -3389,6 +3389,13 @@ class NativeHostServer(ThreadingHTTPServer):
 class NativeHostHandler(SimpleHTTPRequestHandler):
     server_version = "OrdaXNativeHost/1"
 
+    def parse_request(self) -> bool:
+        if not super().parse_request():
+            return False
+        # One ingress decision for every HTTP method, including inherited
+        # HEAD and any future capability-specific methods.
+        return self._request_is_trusted()
+
     def _request_is_trusted(self) -> bool:
         if request_is_trusted(self.headers, self.server.server_address, self.path):
             return True
@@ -3585,8 +3592,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         return None
 
     def do_OPTIONS(self) -> None:  # noqa: N802
-        if not self._request_is_trusted():
-            return
         if self.path.startswith("/__ordax/native/"):
             self._empty(403)
             return
@@ -3595,8 +3600,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         self._empty(405)
 
     def do_GET(self) -> None:  # noqa: N802
-        if not self._request_is_trusted():
-            return
         parsed_path = urlsplit(self.path).path
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("GET", parsed_path)
@@ -4280,8 +4283,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
-        if not self._request_is_trusted():
-            return
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return

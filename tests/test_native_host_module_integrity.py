@@ -52,14 +52,20 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
         self.assertIn("from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError", source)
         self.assertIn("from native_component_slots import (", source)
         self.assertIn("def _request_is_trusted(self)", source)
+        parser = next(
+            node for node in classes["NativeHostHandler"].body
+            if isinstance(node, ast.FunctionDef) and node.name == "parse_request"
+        )
+        parser_source = ast.get_source_segment(source, parser) or ""
+        self.assertIn("super().parse_request()", parser_source)
+        self.assertIn("return self._request_is_trusted()", parser_source)
         for method in ("do_GET", "do_POST", "do_OPTIONS"):
             method_node = next(
-                node
-                for node in classes["NativeHostHandler"].body
+                node for node in classes["NativeHostHandler"].body
                 if isinstance(node, ast.FunctionDef) and node.name == method
             )
             method_source = ast.get_source_segment(source, method_node) or ""
-            self.assertIn("self._request_is_trusted()", method_source)
+            self.assertNotIn("self._request_is_trusted()", method_source)
 
     def test_account_registration_remains_fail_closed_in_native_host(self):
         source = HOST.read_text(encoding="utf-8")
