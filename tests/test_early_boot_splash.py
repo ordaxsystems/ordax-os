@@ -18,7 +18,7 @@ class EarlyBootSplashTests(unittest.TestCase):
     def test_uploaded_media_integrity_and_original_audio_pcm(self):
         """Check Git objects are real binary media, not wrong files or LFS pointers."""
         lock = json.loads((SRC / "asset-lock.json").read_text(encoding="utf-8"))
-        expected = {"video": ("frames.rgb565.zst", b"\\x28\\xb5\\x2f\\xfd"),
+        expected = {"video": ("frames.rgb565.zst", bytes.fromhex("28b52ffd")),
                     "audio": ("boot-audio.wav", b"RIFF")}
         for kind, (name, magic) in expected.items():
             asset = SRC / "media" / name
