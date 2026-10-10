@@ -62,6 +62,31 @@ O restante da PR #1326 (boot, recuperação e auditoria de outros owners)
 **não é declarado incorporado** por essas duas correções. As PRs e suas
 branches continuam abertas enquanto tiverem trabalho exclusivo.
 
+## Auditoria integral de ancestralidade no GitHub
+
+Uma segunda leitura verificou via API do GitHub o SHA imutável de
+**todas as 110 branches**, comparadas a
+`main=50cd026f3c8254d38954d7cb09a79d4ee08fb00c`.
+A prova completa, incluindo SHA de cada branch, status do compare,
+quantidade de commits exclusivos e existência de PR aberta, está em
+`docs/evidence/branch-ancestry-2026-10-10.json`.
+
+- **108 branches possuem commits exclusivos** em relação à `main`.
+- **1 branch é a própria `main`**.
+- **1 branch totalmente alcançável da main**:
+  `release-candidate/eaac763a607bb697d8c7a0f76d44f37a399674c7`.
+  Essa referência é histórica no pipeline canônico de releases e foi
+  preservada para não quebrar rastreabilidade e auditoria de assinatura.
+- **8 PRs abertas** na nova leitura, uma a mais que na inspeção inicial.
+- **0 erros na consulta**, **0 branches apagadas**.
+
+Resultado: não existem branches que possam ser eliminadas **apenas por
+ancestralidade**, depois de preservar o ref de release auditável. As
+108 divergentes exigem revisão de patch-equivalência ou descarte
+fundamentado antes de remoção. Não confundir "diferente na história"
+com "funcionalidade ainda faltante": commits cherry-picked e alterações
+substituídas também geram divergência.
+
 ## Critério para fechamento/limpeza
 
 1. Consultar a API do GitHub para PR e branch no **SHA imutável** atual;

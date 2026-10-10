@@ -1,0 +1,883 @@
+{
+  "repo": "ordaxsystems/ordax-os",
+  "main_sha": "50cd026f3c8254d38954d7cb09a79d4ee08fb00c",
+  "branches": [
+    {
+      "name": "account-mvp-production-proof-20261006",
+      "sha": "70c7b78fb84d5da73be232458e72f3c501bf7fcc",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 752,
+      "open_pr_head": false
+    },
+    {
+      "name": "account-sync-paginated-snapshot-v2",
+      "sha": "8c43b3741e865ef25050d1687572d4cb587db61e",
+      "status": "diverged",
+      "branch_only": 5,
+      "main_only": 1551,
+      "open_pr_head": false
+    },
+    {
+      "name": "apps-notes-load-failure-fail-closed",
+      "sha": "fa994bcad5754ac08490c811502275f07220d549",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 1551,
+      "open_pr_head": false
+    },
+    {
+      "name": "codex/audit-foundation",
+      "sha": "fc2ca2a0862400160da05d256d931dcc911af936",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 717,
+      "open_pr_head": true
+    },
+    {
+      "name": "cutover/finalize-legacy-retirement-gate",
+      "sha": "efe43445363680e10d0247f2eb27800d03f32c9f",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1018,
+      "open_pr_head": false
+    },
+    {
+      "name": "cutover/notes-remove-platform",
+      "sha": "d46a847245b24f86ca539a71a97482e585dcbec0",
+      "status": "diverged",
+      "branch_only": 8,
+      "main_only": 1032,
+      "open_pr_head": false
+    },
+    {
+      "name": "cutover/ordax-os-integrated-v1",
+      "sha": "947f01d06eff595afffcfe9e0efa5d2c02431107",
+      "status": "diverged",
+      "branch_only": 17,
+      "main_only": 515,
+      "open_pr_head": false
+    },
+    {
+      "name": "cutover/ordaxsystems-platform-identity-v1",
+      "sha": "519fbe277257ab3d21fcc2a82dfe10edd0b33d67",
+      "status": "diverged",
+      "branch_only": 1,
+      "main_only": 677,
+      "open_pr_head": false
+    },
+    {
+      "name": "diag/physical-observability-cleanup",
+      "sha": "ee15cc5157db3fd6f6a87c8ecb8639628f96ed98",
+      "status": "diverged",
+      "branch_only": 9,
+      "main_only": 2170,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/app-data-bootstrap-runtime-wiring",
+      "sha": "9764d032686343cdc5b1e169803201dc0409a1a1",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1276,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/app-data-native-owner-sdk12",
+      "sha": "6d62a30fd9af243f5bd81911ee2e79e4c7a44bc7",
+      "status": "diverged",
+      "branch_only": 5,
+      "main_only": 1296,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/app-data-notes-receipt-bootstrap-core-stack",
+      "sha": "4284372859fc969bfe4abec3b8f45dfc2ec91ed1",
+      "status": "diverged",
+      "branch_only": 3,
+      "main_only": 1288,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/app-data-system-release-receipt-producer",
+      "sha": "4976e47cdb80d1be8ce1966832271da661299ffb",
+      "status": "diverged",
+      "branch_only": 10,
+      "main_only": 1291,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/app-sdk-1-3-studio-runtime-v2",
+      "sha": "6350d8bea1081f40dae04e0c139e4635765097a5",
+      "status": "diverged",
+      "branch_only": 5,
+      "main_only": 1284,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/canonical-v4-unified-operator-inputs",
+      "sha": "8f826104fd663b908366c47b27b59b35b626d296",
+      "status": "diverged",
+      "branch_only": 4,
+      "main_only": 1903,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/component-update-compatibility",
+      "sha": "81c48ed68ab184da5e6f1b1d2c71caff9ed38afa",
+      "status": "diverged",
+      "branch_only": 10,
+      "main_only": 1324,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/localization-direction-pseudo-audit",
+      "sha": "a27ced74836c50f2c584bd6ecafbdc6c505d1e61",
+      "status": "diverged",
+      "branch_only": 4,
+      "main_only": 1322,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/localization-interpolation-boundary-v1",
+      "sha": "67ea5e562dd30593ffd516742675ad8e652b880c",
+      "status": "diverged",
+      "branch_only": 32,
+      "main_only": 734,
+      "open_pr_head": true
+    },
+    {
+      "name": "feat/localization-interpolation-surface-cutover-v1",
+      "sha": "030bb47856b4346892b6f9eb6c88e34f13927328",
+      "status": "diverged",
+      "branch_only": 33,
+      "main_only": 734,
+      "open_pr_head": true
+    },
+    {
+      "name": "feat/localization-notification-formatting-cutover-v1",
+      "sha": "8c6f31122380936f1bd3932307ba87e958447e56",
+      "status": "diverged",
+      "branch_only": 35,
+      "main_only": 734,
+      "open_pr_head": true
+    },
+    {
+      "name": "feat/localization-power-formatting-cutover-v1",
+      "sha": "b16c9fe07ac8fe89966d8de9bf796e3d85b128ec",
+      "status": "diverged",
+      "branch_only": 34,
+      "main_only": 734,
+      "open_pr_head": true
+    },
+    {
+      "name": "feat/native-store-catalog-read-port-v1",
+      "sha": "5422d2c077779a540ffe0833a6e2d4fcdb87d2ef",
+      "status": "diverged",
+      "branch_only": 49,
+      "main_only": 736,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/network-gateway-v2-source",
+      "sha": "02c14aa9775aa83534e4f6fb4b39f2f557a1125c",
+      "status": "diverged",
+      "branch_only": 19,
+      "main_only": 1484,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/profile-content-public-trust-promoter",
+      "sha": "964ce70f66f8a30ebaacab702a6a9b7ed6bebd1a",
+      "status": "diverged",
+      "branch_only": 70,
+      "main_only": 1952,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/profile-content-public-trust-promoter-v2",
+      "sha": "47b6de982416f04aa1dac576ac114558d1df0775",
+      "status": "diverged",
+      "branch_only": 20,
+      "main_only": 1929,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/profile-manifest-runtime-restore",
+      "sha": "be3829f28db1fd35fee491290d10330e94859d42",
+      "status": "diverged",
+      "branch_only": 35,
+      "main_only": 2008,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/profile-manifest-single-source-distribution",
+      "sha": "5d72e86c0536a0111e8ea86154a358584a79ec9e",
+      "status": "diverged",
+      "branch_only": 51,
+      "main_only": 1952,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/store-activation-inventory-v1",
+      "sha": "918171e0b563904887a5fcfc007babc634c9a421",
+      "status": "diverged",
+      "branch_only": 44,
+      "main_only": 754,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/store-native-lifecycle-delegate-v2-clean",
+      "sha": "0944113439cd16d7a91a15610dd7cdbef1e3538b",
+      "status": "diverged",
+      "branch_only": 28,
+      "main_only": 715,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/store-readonly-foundation-v2",
+      "sha": "cdeeae17f85ad1e58065ecb0e4cd6620234eef8b",
+      "status": "diverged",
+      "branch_only": 7,
+      "main_only": 998,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/store-readonly-foundation-v6",
+      "sha": "69bd845936b79f46c3c815fddec93465cb7e9a40",
+      "status": "diverged",
+      "branch_only": 33,
+      "main_only": 916,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/store-structural-foundation",
+      "sha": "7d857ff84f98a272fec4e81636435a6ebee4a802",
+      "status": "diverged",
+      "branch_only": 5,
+      "main_only": 963,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/windows-compat-runtime-build",
+      "sha": "d2f80976685dbb55e7d555a374e2a8dfd4e40186",
+      "status": "diverged",
+      "branch_only": 14,
+      "main_only": 1964,
+      "open_pr_head": false
+    },
+    {
+      "name": "feat/windows-compat-wine-configure-proof",
+      "sha": "30c6925df81c0d26b8f9c7257f7e3dacb9b9c1bb",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 1948,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/application-action-provider-binding-composition-v3",
+      "sha": "1dc7f4935c79d10d6f8bdaad574b710df2032bcb",
+      "status": "diverged",
+      "branch_only": 36,
+      "main_only": 837,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/application-action-provider-resolution",
+      "sha": "1ac1b3f65219ad4347d65a23dfe5909169a1db84",
+      "status": "diverged",
+      "branch_only": 13,
+      "main_only": 880,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/intelligence-local-sse-transport-20261010",
+      "sha": "1de1786ba4ce0ff465735e94ffa6b3013237162a",
+      "status": "diverged",
+      "branch_only": 7,
+      "main_only": 1,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/intelligence-p0-verified-work-canvas-20261010",
+      "sha": "4cfe1b48ea32419d4634c1e7e3880fd34e14bdb9",
+      "status": "diverged",
+      "branch_only": 13,
+      "main_only": 3,
+      "open_pr_head": true
+    },
+    {
+      "name": "feature/native-app-intelligence-manifest-loader",
+      "sha": "b497a68e5696b6798a195b447353606fe6a5aa01",
+      "status": "diverged",
+      "branch_only": 7,
+      "main_only": 976,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/native-work-coordination-state",
+      "sha": "e862ede1fc9d70a3f591fcd34f65ac1fbf2eca9e",
+      "status": "diverged",
+      "branch_only": 16,
+      "main_only": 957,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/personal-ordax-hardening-consolidation",
+      "sha": "8e44e9cfb8446ca396680ac4eefc2ca76813c9ff",
+      "status": "diverged",
+      "branch_only": 340,
+      "main_only": 1517,
+      "open_pr_head": false
+    },
+    {
+      "name": "feature/verified-app-semantics-source",
+      "sha": "625cfd2d320da84457b8243c2fe2a8def5b3acfb",
+      "status": "diverged",
+      "branch_only": 20,
+      "main_only": 984,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/action-structured-key-boundary",
+      "sha": "b53777087eda8197c97a27db007e35c3f6d47d7b",
+      "status": "diverged",
+      "branch_only": 5,
+      "main_only": 1042,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/canonical-physical-state-reconciliation",
+      "sha": "94316730f0e2e3b102df7a1946a3796977dd6e73",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1917,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/creator-en-us-localization-v2",
+      "sha": "3907518f7f078db9728cc4bb1f693a51194c0667",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 1398,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/current-reactive-identity-capabilities",
+      "sha": "8a8f434fc1895a752bdaa157b80e7a8018bd3c9b",
+      "status": "diverged",
+      "branch_only": 3,
+      "main_only": 2170,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/en-us-launch-localization-audit",
+      "sha": "74745ba72d385d388ddae10152aa1084af2ca231",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1419,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/english-studio-intelligence",
+      "sha": "1c8612f849a10c9cadc7020a84ab1f5dd608de68",
+      "status": "diverged",
+      "branch_only": 4,
+      "main_only": 1410,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/memory-local-first-identity-contract",
+      "sha": "ffbd3b78414cfd0fae0721acf4166adeaf6470a6",
+      "status": "diverged",
+      "branch_only": 8,
+      "main_only": 1624,
+      "open_pr_head": false
+    },
+    {
+      "name": "fix/native-account-connectivity-refresh",
+      "sha": "4eba39b07cb3a78be410013ca0afc1cef7e61140",
+      "status": "diverged",
+      "branch_only": 1,
+      "main_only": 2218,
+      "open_pr_head": false
+    },
+    {
+      "name": "intelligence-account-memory-sync-foundation",
+      "sha": "0b81f3ddd77cfe0ffd8367bd9f57fae025822495",
+      "status": "diverged",
+      "branch_only": 1,
+      "main_only": 1684,
+      "open_pr_head": false
+    },
+    {
+      "name": "intelligence-memory-protected-mutation-boundary",
+      "sha": "0b29eac67880c4ea508739d4676fd78dfb055aab",
+      "status": "diverged",
+      "branch_only": 24,
+      "main_only": 1615,
+      "open_pr_head": false
+    },
+    {
+      "name": "intelligence-native-fresh-install-restore-main4",
+      "sha": "92a19e26effecd952bf295e8b3fbdd3e69daece4",
+      "status": "diverged",
+      "branch_only": 7,
+      "main_only": 1522,
+      "open_pr_head": false
+    },
+    {
+      "name": "intelligence-native-fresh-install-restore-main5",
+      "sha": "7ba09e6b6784397ca3322a7386169da0c66579b7",
+      "status": "diverged",
+      "branch_only": 3,
+      "main_only": 1521,
+      "open_pr_head": false
+    },
+    {
+      "name": "intelligence-unreconciled-memory-fail-closed-main4",
+      "sha": "c420e4a7e708cd58f0b6803256fdcd88a15becc2",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1522,
+      "open_pr_head": false
+    },
+    {
+      "name": "intelligence-unreconciled-memory-fail-closed-main5",
+      "sha": "ad5ff69a2cc921cfa66bf8d54cd8a6ddd3d828c3",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 1521,
+      "open_pr_head": false
+    },
+    {
+      "name": "main",
+      "sha": "50cd026f3c8254d38954d7cb09a79d4ee08fb00c",
+      "status": "main"
+    },
+    {
+      "name": "memory-capture-protected-writer",
+      "sha": "c1deecf3a1026143ff5260db78dd00cadbe49782",
+      "status": "diverged",
+      "branch_only": 31,
+      "main_only": 1614,
+      "open_pr_head": false
+    },
+    {
+      "name": "mvp/bind-portable-payload-root",
+      "sha": "f40f985d29c4a0a8558504932dae86eca01e1837",
+      "status": "diverged",
+      "branch_only": 3,
+      "main_only": 2299,
+      "open_pr_head": false
+    },
+    {
+      "name": "ordax-rescue",
+      "sha": "5d88c52d46fc476ecd545d1dca4f511402b687a0",
+      "status": "diverged",
+      "branch_only": 20,
+      "main_only": 3963,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/application-action-provider-binding-v1-clean",
+      "sha": "c5b3b9cb7057f141bc6e4c147cdcab21a6496c6b",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 886,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/automatic-memory-capture-v2",
+      "sha": "bcc97179d232a6cbce9b14a04c8d7414c595723a",
+      "status": "diverged",
+      "branch_only": 22,
+      "main_only": 1925,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/cloud-memory-sync-boundary-v2-20260929",
+      "sha": "0d50d9384267b05e6ca14c048a55291eb3d62fda",
+      "status": "diverged",
+      "branch_only": 23,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/cloud-memory-sync-boundary-v3-20260929",
+      "sha": "03ec717981829d415222f3fc5b5acdc7d0f161ed",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1918,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/identity-bound-personal-memory-context-v2",
+      "sha": "f89191c64ac5e9b7973623a2651f6633b752a0a8",
+      "status": "diverged",
+      "branch_only": 14,
+      "main_only": 1925,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/identity-bound-personal-memory-v2",
+      "sha": "7d5bcd2a1a8cda2e57859780c6ef55e97ca845ee",
+      "status": "diverged",
+      "branch_only": 7,
+      "main_only": 1923,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/manual-memory-entry-v2",
+      "sha": "9b5cb21875359efb86892464f5ebc7d350ec216e",
+      "status": "diverged",
+      "branch_only": 58,
+      "main_only": 1926,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/manual-memory-entry-v3",
+      "sha": "7be6764c2509cc8f1d4d0673799e4d12fecca437",
+      "status": "diverged",
+      "branch_only": 50,
+      "main_only": 1925,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/manual-memory-entry-v4-20260929",
+      "sha": "e6d1e6cd32e88b0992ea27bd272ccfe22c84c616",
+      "status": "diverged",
+      "branch_only": 29,
+      "main_only": 1923,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/manual-memory-entry-v5-20260929",
+      "sha": "bf57e44b84c13afe3debb0070266d148d71be5b0",
+      "status": "diverged",
+      "branch_only": 22,
+      "main_only": 1922,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/manual-memory-entry-v6-20260929",
+      "sha": "03b6fbafdcb7dfa88d0204acae5d38f2246d50b2",
+      "status": "diverged",
+      "branch_only": 14,
+      "main_only": 1921,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/memory-auto-capture-preference-v2",
+      "sha": "2de46dc46f80b6eb3dea618b547f7fde70990d5f",
+      "status": "diverged",
+      "branch_only": 58,
+      "main_only": 1925,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/memory-auto-capture-v3-20260929",
+      "sha": "79810744281782d179b1e1a79bff7c2356b58c55",
+      "status": "diverged",
+      "branch_only": 46,
+      "main_only": 1923,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/memory-auto-capture-v4-20260929",
+      "sha": "3e78ca5817079a6eedb212d1bede14fa1c83a0c2",
+      "status": "diverged",
+      "branch_only": 39,
+      "main_only": 1922,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/memory-auto-capture-v5-20260929",
+      "sha": "66c3315f4c17a018db365da0d5ea581856c03425",
+      "status": "diverged",
+      "branch_only": 31,
+      "main_only": 1921,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/memory-auto-capture-v6-20260929",
+      "sha": "4ab7fb2d0c53f79d441a46453cbcad08d760da0e",
+      "status": "diverged",
+      "branch_only": 17,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/memory-exact-dedup-v2-20260929",
+      "sha": "e7f9bd103287d93add336e9c3f4778265f8a462d",
+      "status": "diverged",
+      "branch_only": 43,
+      "main_only": 1922,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/native-project-authority-cutover-v2",
+      "sha": "029e1f61a340e51cd71972f85c777ca393e1bf5f",
+      "status": "diverged",
+      "branch_only": 27,
+      "main_only": 790,
+      "open_pr_head": true
+    },
+    {
+      "name": "rebuild/notes-component-probation-v2",
+      "sha": "de07175df4eedbbbbaa70fcd036ba9ca9557e643",
+      "status": "diverged",
+      "branch_only": 14,
+      "main_only": 786,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/policy-bound-memory-capture-v2",
+      "sha": "6ad325985090b1e2ced5013ffa038d5dc57b49eb",
+      "status": "diverged",
+      "branch_only": 15,
+      "main_only": 1923,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/policy-bound-memory-capture-v3-20260929",
+      "sha": "20acb401a7692920b2d46ea4dd1fca5c0e124928",
+      "status": "diverged",
+      "branch_only": 8,
+      "main_only": 1922,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/profile-canonical-component-binding-647",
+      "sha": "c5f5a7559e211731738efe8266edb4e92b408024",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1952,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/selected-space-memory-context",
+      "sha": "5108dc19d212cfab285d714f551070b8e0288f03",
+      "status": "diverged",
+      "branch_only": 21,
+      "main_only": 1926,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/selected-space-memory-context-v2",
+      "sha": "d0ab47c2c1787d97c5d3911a211dcb936b06e962",
+      "status": "diverged",
+      "branch_only": 7,
+      "main_only": 1925,
+      "open_pr_head": false
+    },
+    {
+      "name": "rebuild/selected-space-profile-context",
+      "sha": "213d8cd79b6c67f7e3f6ac4893e04cf3b821ac4d",
+      "status": "diverged",
+      "branch_only": 14,
+      "main_only": 1926,
+      "open_pr_head": false
+    },
+    {
+      "name": "reconcile/intelligence-app-manifest-1151",
+      "sha": "9be1ac656b9bc3567b106ebdd98232592f62fc64",
+      "status": "diverged",
+      "branch_only": 11,
+      "main_only": 984,
+      "open_pr_head": false
+    },
+    {
+      "name": "reconcile/windows-compat-704-base-20261001",
+      "sha": "d666dcb94a4ec94a7829b52344716bf1eb5a1b1e",
+      "status": "diverged",
+      "branch_only": 1,
+      "main_only": 1487,
+      "open_pr_head": false
+    },
+    {
+      "name": "reconverge/account-quota-mainline",
+      "sha": "40aec5ec9b2fb921ae8f67c2dd1f83d285537d17",
+      "status": "diverged",
+      "branch_only": 8,
+      "main_only": 1067,
+      "open_pr_head": false
+    },
+    {
+      "name": "reconverge/user-cloud-storage-mainline",
+      "sha": "86423212bd573c6fa93634016b9e352f89aebbef",
+      "status": "diverged",
+      "branch_only": 18,
+      "main_only": 1054,
+      "open_pr_head": false
+    },
+    {
+      "name": "release-candidate/eaac763a607bb697d8c7a0f76d44f37a399674c7",
+      "sha": "eaac763a607bb697d8c7a0f76d44f37a399674c7",
+      "status": "ahead",
+      "branch_only": 0,
+      "main_only": 334,
+      "open_pr_head": false
+    },
+    {
+      "name": "security/account-recovery-session-isolation-v2",
+      "sha": "2632ef92a540fc47a8d6b1419baf3bfe1f625ed4",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 749,
+      "open_pr_head": false
+    },
+    {
+      "name": "surface/external-app-catalog",
+      "sha": "fccb3aade89534f53825704cfcabe552e14fbc28",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 713,
+      "open_pr_head": false
+    },
+    {
+      "name": "surface/external-app-catalog-v2",
+      "sha": "76b81ee90403042ae6c74f122162543d196b5a77",
+      "status": "diverged",
+      "branch_only": 3,
+      "main_only": 713,
+      "open_pr_head": false
+    },
+    {
+      "name": "surface/external-app-catalog-v3",
+      "sha": "54d1020dc5f22ee65ab963e81056cd048c373095",
+      "status": "diverged",
+      "branch_only": 4,
+      "main_only": 713,
+      "open_pr_head": false
+    },
+    {
+      "name": "surface/external-app-catalog-v4",
+      "sha": "96d01b7c4e0cb727687f06a891dd93965c4077f3",
+      "status": "diverged",
+      "branch_only": 5,
+      "main_only": 713,
+      "open_pr_head": false
+    },
+    {
+      "name": "surface/external-app-catalog-v5",
+      "sha": "77f18e94c265932ad54cfa257998998732722e90",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 711,
+      "open_pr_head": true
+    },
+    {
+      "name": "tmp-never",
+      "sha": "32b08f206cdea75ef0d04ed38285d06dd76f5a50",
+      "status": "diverged",
+      "branch_only": 94,
+      "main_only": 2237,
+      "open_pr_head": false
+    },
+    {
+      "name": "tmp-unused",
+      "sha": "7a64cf9591f225febeeb77236c614d8e241f731d",
+      "status": "diverged",
+      "branch_only": 14,
+      "main_only": 2237,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-closure-alias-context-fix",
+      "sha": "df6eb3a34aa5a156ea9dd82baf6f0ec0efc8ec57",
+      "status": "diverged",
+      "branch_only": 53,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-closure-edge-alias-binding-fix",
+      "sha": "20708aefeced294ace8c84b1eea093ea159bfc61",
+      "status": "diverged",
+      "branch_only": 54,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-proof-scope-separation",
+      "sha": "1d1c1dcc1b617f4d0b58dadc415aaf0632790f38",
+      "status": "diverged",
+      "branch_only": 37,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-dependency-discovery-main-reconcile",
+      "sha": "9501ed60429c2921635507e042fc919ca130135f",
+      "status": "diverged",
+      "branch_only": 1,
+      "main_only": 1543,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-generated-source-inventory",
+      "sha": "c45ac820b801ba1bb7174c206573d9bf6d96f7d5",
+      "status": "diverged",
+      "branch_only": 33,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-static-loader-linux-reachability-test",
+      "sha": "fa213b939276d955b5aa63ca9d8f132536a9cb83",
+      "status": "diverged",
+      "branch_only": 29,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-transitive-closure",
+      "sha": "da394069c69cfb1a4276ba2d27d6781b4fe2c09b",
+      "status": "diverged",
+      "branch_only": 12,
+      "main_only": 1927,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-transitive-closure-ci",
+      "sha": "70e3691c67e0b36f5cd7beaef6fade1e31c516fe",
+      "status": "diverged",
+      "branch_only": 13,
+      "main_only": 1927,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-transitive-closure-main-reconcile",
+      "sha": "7da7ef039d869773056e907c0c5f63e0afc749f3",
+      "status": "diverged",
+      "branch_only": 3,
+      "main_only": 1543,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-transitive-closure-main-reconcile-v2",
+      "sha": "325aa105a60de39a14604f915b0c981b86e6c459",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 1534,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-runtime-transitive-closure-v2",
+      "sha": "38dab81d926d51de30b1c119eb7a4a9308b29919",
+      "status": "diverged",
+      "branch_only": 6,
+      "main_only": 1919,
+      "open_pr_head": false
+    },
+    {
+      "name": "windows-compat-wine-configure-proof-v2",
+      "sha": "08fb9681f1f39e67bcec9979ef7585f51e7f74ef",
+      "status": "diverged",
+      "branch_only": 2,
+      "main_only": 1948,
+      "open_pr_head": false
+    }
+  ]
+}
