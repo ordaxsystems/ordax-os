@@ -1,0 +1,97 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
+import { COMPONENT_SLOT_SOURCE_SCHEMA } from "../system/contracts/component-slot-source.mjs";
+import { loadVerifiedCurrentComponentRuntime as load } from "../system/services/components/current-slot-loader.mjs";
+
+const revision = Object.freeze({
+  componentId: "internet", state: "current", source: "slot", revision: 4,
+  version: "0.3.0", sourceCommit: "a".repeat(40), entrypoint: "src/runtime.mjs", pendingHealth: null,
+});
+const source = Object.freeze({
+  schema: COMPONENT_SLOT_SOURCE_SCHEMA,
+  metadataUrl(id, state) { return `https://localhost/__ordax/native/component-runtime?component=${id}&state=${state}`; },
+  runtimeUrl(rec) { return `https://localhost/__ordax/native/component-module/${rec.componentId}/${rec.state}/${rec.version}/${rec.sourceCommit}/${rec.entrypoint}`; },
+});
+function fixture(states = [revision]) {
+  let reads = 0, imports = 0, mounts = 0, destroys = 0, reported = null;
+  const fetchImpl = async (_, options) => {
+    assert.equal(options.credentials, "same-origin");
+    assert.equal(options.redirect, "error");
+    return { ok: true, json: async () => states[Math.min(reads++, states.length - 1)] };
+  };
+  const importModule = async () => {
+    imports++;
+    return { componentRuntime: {
+      schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
+      mount: async () => { mounts++; return { destroy() { destroys++; } }; },
+    } };
+  };
+  return {
+    run: (override = {}) => load({
+      componentId: "internet", source, fetchImpl, importModule,
+      onError(error) { reported = error; }, ...override,
+    }),
+    state: () => ({ reads, imports, mounts, destroys, reported }),
+  };
+}
+test("current verified slot mounts without a local app import", async () => {
+  const f = fixture();
+  const mounted = await f.run();
+  assert.ok(mounted);
+  assert.deepEqual({ ...f.state(), reported: null }, { reads: 3, imports: 1, mounts: 1, destroys: 0, reported: null });
+  mounted.destroy();
+  assert.equal(f.state().destroys, 1);
+});
+test("absence never imports or falls back", async () => {
+  const f = fixture([{ ...revision, source: "absent", version: null, sourceCommit: null, entrypoint: null }]);
+  assert.equal(await f.run(), null);
+  assert.equal(f.state().imports, 0);
+  assert.equal(f.state().reported, null);
+});
+test("bundled metadata is not an external slot", async () => {
+  const f = fixture([{ ...revision, source: "bundled", version: null, sourceCommit: null, entrypoint: null }]);
+  assert.equal(await f.run(), null);
+  assert.match(f.state().reported.message, /Bundled source/);
+  assert.equal(f.state().imports, 0);
+});
+test("wrong identity blocks import", async () => {
+  const f = fixture([{ ...revision, componentId: "notes" }]);
+  assert.equal(await f.run(), null);
+  assert.equal(f.state().imports, 0);
+  assert.match(f.state().reported.message, /identity mismatch/);
+});
+test("changed slot before mount blocks execution", async () => {
+  const f = fixture([revision, { ...revision, revision: 5 }]);
+  assert.equal(await f.run(), null);
+  assert.equal(f.state().mounts, 0);
+  assert.match(f.state().reported.message, /changed before mount/);
+});
+test("changed slot after mount destroys runtime", async () => {
+  const f = fixture([revision, revision, { ...revision, revision: 5 }]);
+  assert.equal(await f.run(), null);
+  assert.equal(f.state().destroys, 1);
+  assert.match(f.state().reported.message, /changed during mount/);
+});
+test("external module origin cannot be injected", async () => {
+  const f = fixture();
+  assert.equal(await f.run({ source: { ...source, runtimeUrl() { return "https://evil.example/runtime.mjs"; } } }), null);
+  assert.equal(f.state().imports, 0);
+  assert.match(f.state().reported.message, /escaped immutable Native namespace/);
+});
+test("malformed metadata and failed fetch block import", async () => {
+  const f = fixture([{ ...revision, sourceCommit: "broken" }]);
+  assert.equal(await f.run(), null);
+  assert.equal(f.state().imports, 0);
+  const g = fixture();
+  assert.equal(await g.run({ fetchImpl: async () => ({ ok: false }) }), null);
+  assert.equal(g.state().imports, 0);
+});
+test("runtime identity mismatch prevents mount", async () => {
+  const f = fixture();
+  assert.equal(await f.run({ importModule: async () => ({ componentRuntime: {
+    schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.1",
+    mount() { throw new Error("must not mount"); },
+  } }) }), null);
+  assert.equal(f.state().mounts, 0);
+});

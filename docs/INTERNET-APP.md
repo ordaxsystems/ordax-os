@@ -453,3 +453,9 @@ On the notebook, validate in this order:
 13. Download attempts do not write files until the download contract exists.
 14. Existing Files, Ajustes, Conta, Sistema, network, power and update paths remain healthy.
 15. Update/health rollback still recovers if the new graphical host cannot remain healthy.
+
+## Carregamento de componente instalado (preparação do Gate A)
+
+O serviço genérico `system/services/components/current-slot-loader.mjs` agora consome o slot `current` verificado pelo host Native. Obtém metadata pela origem local, confirma ID, versão, commit, estado e revisão, exige módulo sob namespace imutável, revalida antes/depois do mount e destrói uma montagem que perdeu a ativação. Ausência retorna `null`; fontes bundled, metadata inconsistente e URLs externas falham fechados. O serviço não assina, instala, altera grants, publica nem promove componentes.
+
+A composição do Internet **ainda não usa este carregador**: preserva o runtime embutido até o Gate A remove-first. Esta preparação isolada não autoriza fonte duplicada no repositório de apps nem instalação de produção.
