@@ -1,4 +1,6 @@
 import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
+import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
+import { activityApp } from "../../activity/app.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
 import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../../../contracts/personal-ordax.mjs";
@@ -93,22 +95,46 @@ export function beginAssistantRecordedWork(personal, identityPort, selectionPort
   return Object.freeze({ accepted: true, workItemId: item.id, pending });
 }
 
+// Navigation is the only effect here. Revalidate the SAME Personal owner
+// and Space fence at click time; never embed grants or an unimplemented
+// work deep link, and never resolve/approve/execute an Activity action.
+export function openAssistantWorkInActivity(
+  personal, identityPort, selectionPort, activation, workItemId,
+) {
+  if (activation === null || !personal || !identityPort || !selectionPort
+    || typeof workItemId !== "string" || !workItemId) return false;
+  try {
+    const channel = assertAppActivationPort(activation);
+    const view = projectAssistantWorkStrip(
+      personal.getSnapshot(), identityPort.getSnapshot(), selectionPort.getSnapshot(),
+    );
+    if (!view.cards.some((item) =>
+      item.workItemId === workItemId && item.state === "requires-action")) return false;
+    channel.publish({ appId: activityApp.id });
+    return true;
+  } catch {
+    return false; // Context or navigation changed: no cross-owner action.
+  }
+}
+
 export function mountAssistantConversationControls(
   root,
   conversationValue,
   surfaceLifecycle,
-  { personalOrdax = null, identitySessionPort = null, spaceSelectionPort = null } = {},
+  { personalOrdax = null, identitySessionPort = null, spaceSelectionPort = null, appActivation = null } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Assistant controls require a Surface root Element");
   }
   const conversation = requireConversation(conversationValue);
+  const activityNavigation = appActivation === null ? null : assertAppActivationPort(appActivation);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const t = lifecycle.localization.translate;
   const documentObject = root.ownerDocument;
   let destroyed = false;
   let draft = "";
   let recordedWorkError = false;
+  let activityNavigationError = false;
   let mountedSlot = null;
 
   const workCards = () => {
@@ -301,6 +327,13 @@ export function mountAssistantConversationControls(
           );
           card.append(pending);
         }
+        if (activityNavigation !== null && work.state === "requires-action") {
+          const review = node(documentObject, "button", "ordax-assistant-activity-review",
+            t("assistant.work.activityReview"));
+          review.type = "button";
+          review.dataset.assistantReviewWork = work.workItemId;
+          card.append(review);
+        }
         // The typed Action Attempt rows come only from verified Personal
         // Work/Activity/Result and are never constructed from model text.
         if (work.actionEvidence.length > 0) {
@@ -364,6 +397,12 @@ export function mountAssistantConversationControls(
       if (verifiedWork.remainingCount > 0) {
         missions.append(node(documentObject, "p", "ordax-assistant-work-overflow",
           `${verifiedWork.remainingCount} ${t("assistant.work.remaining")}`));
+      }
+      if (activityNavigationError) {
+        const error = node(documentObject, "p", "ordax-assistant-work-error",
+          t("assistant.work.activityReviewUnavailable"));
+        error.setAttribute("role", "alert");
+        missions.append(error);
       }
       missions.append(node(documentObject, "p", "ordax-assistant-work-caption",
         t("assistant.work.readonly")));
@@ -549,6 +588,14 @@ export function mountAssistantConversationControls(
       submitRecordedWork();
       return;
     }
+    if (target.dataset.assistantReviewWork !== undefined) {
+      activityNavigationError = !openAssistantWorkInActivity(
+        personalOrdax, identitySessionPort, spaceSelectionPort, activityNavigation,
+        target.dataset.assistantReviewWork,
+      );
+      if (activityNavigationError) render();
+      return;
+    }
     if (target.dataset.assistantClear !== undefined) {
       draft = "";
       conversation.clear();
@@ -566,10 +613,12 @@ export function mountAssistantConversationControls(
   const unsubscribeWork = personalOrdax?.subscribe?.(() => render()) ?? null;
   const unsubscribeOwner = identitySessionPort?.subscribe?.(() => {
     recordedWorkError = false;
+    activityNavigationError = false;
     render();
   }) ?? null;
   const unsubscribeSpace = spaceSelectionPort?.subscribe?.(() => {
     recordedWorkError = false;
+    activityNavigationError = false;
     render();
   }) ?? null;
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
