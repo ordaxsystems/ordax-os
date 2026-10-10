@@ -239,7 +239,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["runtime_proof_required_before_public_auth"])
         self.assertFalse(migration["automatic_git_deployments_frozen"])
         self.assertFalse(migration["reenable_git_deployments_only_after_new_team_runtime_proof"])
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], True)
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {
+            "main": True,
+            "*": False,
+        })
         self.assertEqual(
             migration["target_team_slug"],
             self.contract["vercel_adapter"]["team"],
