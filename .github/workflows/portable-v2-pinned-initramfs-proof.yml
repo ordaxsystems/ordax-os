@@ -20,6 +20,7 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_pinned_initramfs_proof_contract.py'
+      - 'tests/test_initramfs_upstream_authentication.py'
       - '.github/workflows/portable-v2-pinned-initramfs-proof.yml'
   pull_request:
     paths:
@@ -39,6 +40,7 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_pinned_initramfs_proof_contract.py'
+      - 'tests/test_initramfs_upstream_authentication.py'
       - '.github/workflows/portable-v2-pinned-initramfs-proof.yml'
   workflow_dispatch:
 
@@ -95,6 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_portable_v2_pinned_initramfs_proof_contract -v
+          python -m unittest tests.test_initramfs_upstream_authentication -v
           python bootstrap/initramfs/build.py check
           python bootstrap/stable-base/build.py check
 

@@ -42,6 +42,7 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_initramfs_upstream_authentication.py'
       - 'tests/test_portable_qemu_kernel_source_ssot.py'
       - 'tests/test_kernel_ci_env.py'
       - 'tests/test_portable_v2_uefi_boot_proof_contract.py'
@@ -89,6 +90,7 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_initramfs_upstream_authentication.py'
       - 'tests/test_portable_qemu_kernel_source_ssot.py'
       - 'tests/test_kernel_ci_env.py'
       - 'tests/test_portable_v2_uefi_boot_proof_contract.py'
@@ -146,6 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_portable_v2_qemu_boot_proof_contract -v
+          python -m unittest tests.test_initramfs_upstream_authentication -v
           python -m unittest tests.test_portable_qemu_kernel_source_ssot -v
           python -m unittest tests.test_kernel_ci_env -v
           python -m unittest tests.test_portable_v4_ai_handoff_contract -v
