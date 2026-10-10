@@ -1255,7 +1255,7 @@ async function provePublicAccount(client, url, evidenceDir) {
         headerHeight:box(document.querySelector('.account-header')).height,
         mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && !report.primaryTilesAligned)) {
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });

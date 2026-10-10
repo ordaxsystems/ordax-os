@@ -83,6 +83,17 @@ the search field expands only when requested. The orb is decorative, not a
 voice/AI control. Browser proof rejects an unexpectedly stacked header and
 verifies the notification shortcut's destination and keyboard focus.
 
+The phone overview follows the concept's compact profile rather than shrinking
+the desktop landscape hero: a neutral circular avatar, account label and the
+same native session disclosure in a 90px closed card. It then presents three
+primary shortcuts with compact labels, a continuous service list and a circular
+active Account control in the bottom navigation. All eleven sections, session
+states and detailed explanations use the existing DOM and owners. No portrait,
+name, plan badge, notification count or device metric is fabricated. Desktop
+keeps its landscape/card composition; the phone viewport proof also rejects a
+closed profile taller than 110px. Without JavaScript, service content remains
+readable rather than being forced into the enhanced shortcut tile layout.
+
 The same entrypoint is reproducible locally after building the public artifact:
 
 ```bash
