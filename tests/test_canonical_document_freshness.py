@@ -54,19 +54,25 @@ def bundled_apps():
 
 
 def app_owned_manifest(app_id):
-    version_text = (ROOT / "system" / "apps" / app_id / "version.mjs").read_text(encoding="utf-8")
-    version_match = re.search(r'=\s*"([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"', version_text)
-    if not version_match:
-        raise AssertionError(f"missing version for {app_id}")
     component_text = (ROOT / "system" / "apps" / app_id / "component.mjs").read_text(encoding="utf-8")
+    literal_version = re.search(r'version:\s*"([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"', component_text)
+    if literal_version:
+        version = literal_version.group(1)
+    else:
+        version_text = (ROOT / "system" / "apps" / app_id / "version.mjs").read_text(encoding="utf-8")
+        version_match = re.search(r'=\s*"([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"', version_text)
+        if not version_match:
+            raise AssertionError(f"missing version for {app_id}")
+        version = version_match.group(1)
     return {
-        "version": version_match.group(1),
+        "version": version,
         "release_mode": field(component_text, "releaseMode"),
     }
 
 
 def expected_apps():
     result = bundled_apps()
+    result["files"] = app_owned_manifest("files")
     result["internet"] = app_owned_manifest("internet")
     result["projects"] = app_owned_manifest("projects")
     return result
