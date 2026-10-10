@@ -1,5 +1,30 @@
 # OrdaX Public Site
 
+## Evidencia de producao anonima — 2026-10-10
+
+O dominio canonico `https://ordax.com.br` foi observado apos a publicacao do
+commit `0e8ed671` na Vercel. O portal utiliza dois gates independentes:
+`legal.auth_only_source_enabled=true` admite os formularios de login/cadastro
+somente apos a confirmacao da sessao pelo gateway e, no cadastro, da politica
+legal ativa pelo servidor; `legal.account_activation_ready=false` preserva o
+bloqueio da Conta completa, sincronizacao e recuperacao publica.
+
+A prova sem credenciais (`python tools/public-site/prove_deployment.py --origin
+https://ordax.com.br`) agora diferencia `gated`, `auth-only` e `full` e verifica
+headers, paginas estaticas, sessao anonima, policy de registro no modo
+`auth-only`, sincronizacao anonima negada e POST de recuperacao negado pela
+borda. Resultado observado: `PASS`, `PUBLIC_SITE_IDENTITY_MODE=auth-only` e
+`PUBLIC_SITE_CLOUD_SYNC=GATED`. Um `403 bot-verification-required` na borda
+comprova apenas o bloqueio de POST nao verificado; nao comprova que a
+recuperacao funcione. O browser continua sem `recovery_url` configurada.
+
+No Supabase de producao foi observada uma politica legal ativa com documentos
+`2026.10.09`, mas ha indicadores historicos de registro ainda desativado nos
+contratos de readiness. Conciliar os owners e executar E2E credenciado antes de
+promover a Conta completa, recovery, sync, exportacao e fechamento. Nenhuma
+mudanca de gate e implicita nesta prova. As seções historicas abaixo descrevem
+etapas anteriores e nao substituem esta evidencia de runtime.
+
 Status: STATIC PRODUCTION LIVE AT ORDAX.COM.BR / PUBLIC ACCOUNT RUNTIME PENDING (2026-10-08)
 
 The public OrdaX site is a separate delivery surface from the OrdaX Web product mode.

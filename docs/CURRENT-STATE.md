@@ -1,5 +1,21 @@
 # Current State
 
+## Public deployment proof — 2026-10-10
+
+`ordax.com.br` serves the public portal deployed from `0e8ed671` with the
+verified account dashboard visual fixes. Anonymous HTTPS proof has three
+explicit states: `gated`, `auth-only`, and `full`. The observed production state
+is **`auth-only`**: a real anonymous Supabase-backed session and active
+registration policy are reachable through same-origin, while full public
+Account activation, cloud sync and password recovery remain **unavailable**.
+The public config explicitly keeps `account_activation_ready=false` and
+`auth_only_source_enabled=true`. A denied, unchallenged recovery POST is not an
+end-to-end recovery proof. Current legal policy in canonical Supabase is active
+(version `2026.10.09`); older policy readiness booleans require owner-level
+reconciliation. No credentialed E2E, USB physical proof, signed Creator
+publisher or public Stable release has been established by this site proof.
+
+
 ## Public account and Web entry — 2026-10-09 source candidate
 
 The public portal now has a responsive My account overview at `/conta/` and a

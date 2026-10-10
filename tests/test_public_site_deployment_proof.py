@@ -1,0 +1,120 @@
+"""Regression tests for the public deploy verifier's separately gated account modes."""
+import contextlib
+import importlib.util
+import io
+import json
+from pathlib import Path
+from unittest import TestCase, mock
+
+SCRIPT = Path(__file__).resolve().parents[1] / "tools/public-site/prove_deployment.py"
+spec = importlib.util.spec_from_file_location("ordax_public_deployment_proof", SCRIPT)
+proof = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(proof)
+
+
+class Response:
+    def __init__(self, status=200, payload=None, cache=None):
+        self.status = status
+        self.headers = dict(proof.SECURITY_HEADERS)
+        self.headers["Cache-Control"] = cache or "no-store, max-age=0"
+        self.payload = payload
+
+    def read(self, size=-1):
+        return json.dumps(self.payload or {}).encode("utf-8")[:size]
+
+
+def fixtures(*, full=False, auth_only=False, provider="gated",
+             policy_active=True, recovery_status=403):
+    config = {
+        "$schema": "prototype-ordax.public-site-runtime/1",
+        "legal": {"account_activation_ready": full,
+                  "auth_only_source_enabled": auth_only},
+        "identity": {"recovery_url": None, "recovery_complete_url": None},
+    }
+    session = {
+        "$schema": "prototype-ordax.public-identity-session/1",
+        "authenticated": False, "provider": provider,
+        "status": "anonymous" if provider == "supabase" else "unavailable",
+    }
+    policy = {
+        "$schema": "prototype-ordax.registration-legal-policy/1",
+        "active": policy_active, "registrationEnabled": policy_active,
+    }
+    sync_enabled = full
+    sync = {"error": "authentication-required" if sync_enabled
+            else "public-account-access-disabled"}
+    recovery = {"error": "bot-verification-required" if recovery_status == 403
+                else "public-account-access-disabled"}
+    routes = {
+        "/": Response(cache="no-cache, must-revalidate"),
+        "/config/public-site.json": Response(payload=config),
+        "/recuperar/": Response(),
+        "/recuperar/nova-senha/": Response(),
+        "/auth/session": Response(payload=session),
+        "/auth/registration-policy": Response(payload=policy),
+        "/sync/snapshot?limit=1": Response(status=401 if full else 503, payload=sync),
+        "/auth/recover": Response(status=recovery_status, payload=recovery),
+        "/__ordax-deployment-proof-missing": Response(status=404),
+    }
+    return config, session, routes
+
+
+class PublicDeploymentProofTests(TestCase):
+    def run_proof(self, routes):
+        called = []
+        def fake_request(_base, path, _method="GET", **kwargs):
+            called.append((path, _method))
+            return routes[path]
+        with mock.patch.object(proof, "request", side_effect=fake_request):
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                result = proof.main(["--origin", "https://ordax.com.br"])
+        self.assertEqual(result, 0)
+        return out.getvalue(), called
+
+    def test_auth_only_keeps_cloud_gated_and_turnstile_enforced(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase")
+        output, called = self.run_proof(routes)
+        self.assertIn("PUBLIC_SITE_IDENTITY_MODE=auth-only", output)
+        self.assertIn("PUBLIC_SITE_CLOUD_SYNC=GATED", output)
+        self.assertIn(("/auth/registration-policy", "GET"), called)
+        self.assertIn(("/auth/recover", "POST"), called)
+
+    def test_disabled_mode_remains_supported(self):
+        _, _, routes = fixtures()
+        output, called = self.run_proof(routes)
+        self.assertIn("PUBLIC_SITE_IDENTITY_MODE=gated", output)
+        self.assertNotIn(("/auth/registration-policy", "GET"), called)
+
+    def test_full_mode_requires_real_anonymous_provider(self):
+        _, _, routes = fixtures(full=True, provider="supabase")
+        output, called = self.run_proof(routes)
+        self.assertIn("PUBLIC_SITE_IDENTITY_MODE=full", output)
+        self.assertIn("PUBLIC_SITE_CLOUD_SYNC=AVAILABLE", output)
+        self.assertNotIn(("/auth/recover", "POST"), called)
+
+    def test_auth_only_registration_policy_must_be_active(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase", policy_active=False)
+        with self.assertRaisesRegex(SystemExit, "auth-only-registration-policy-unavailable"):
+            self.run_proof(routes)
+
+    def test_unexpected_provider_never_bypasses_closed_account_gate(self):
+        config, session, _ = fixtures(provider="supabase")
+        with self.assertRaisesRegex(SystemExit, "public-account-gate-not-enforced"):
+            proof.public_identity_mode(config, session)
+
+    def test_false_authenticated_session_is_required(self):
+        config, session, _ = fixtures(auth_only=True, provider="supabase")
+        session["authenticated"] = True
+        with self.assertRaisesRegex(SystemExit, "unexpected-authenticated-session"):
+            proof.public_identity_mode(config, session)
+
+    def test_auth_only_recovery_is_not_published(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase")
+        routes["/config/public-site.json"].payload["identity"]["recovery_url"] = "/auth/recover"
+        with self.assertRaisesRegex(SystemExit, "recovery-exposed-before-account-activation"):
+            self.run_proof(routes)
+
+    def test_unverified_recovery_posts_must_be_denied(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase", recovery_status=200)
+        with self.assertRaisesRegex(SystemExit, "public-recovery-boundary-invalid"):
+            self.run_proof(routes)

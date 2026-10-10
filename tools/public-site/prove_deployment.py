@@ -31,9 +31,13 @@ def request(
     *,
     body: bytes | None = None,
     content_type: str | None = None,
+    browser_context: bool = False,
 ):
     target = urljoin(base.rstrip("/") + "/", path.lstrip("/"))
     headers = {"User-Agent": "OrdaX-Public-Deployment-Proof/1"}
+    if browser_context:
+        headers["Origin"] = base.rstrip("/")
+        headers["Sec-Fetch-Site"] = "same-origin"
     if content_type:
         headers["Content-Type"] = content_type
     req = Request(target, data=body, method=method, headers=headers)
@@ -57,6 +61,29 @@ def read_json(response):
         return json.loads(response.read(1024 * 1024).decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError):
         fail("invalid-json")
+
+
+def public_identity_mode(config_payload: dict, session_payload: dict) -> str:
+    """Classify the runtime gate, never treating auth-only as full Account."""
+    legal = config_payload.get("legal", {})
+    if not isinstance(legal, dict):
+        fail("invalid-legal-configuration")
+    full = legal.get("account_activation_ready") is True
+    auth_only = legal.get("auth_only_source_enabled") is True
+    provider = session_payload.get("provider")
+    if session_payload.get("authenticated") is not False:
+        fail("unexpected-authenticated-session")
+    if full:
+        if provider != "supabase" or session_payload.get("status") != "anonymous":
+            fail("full-account-session-unavailable")
+        return "full"
+    if auth_only and provider == "supabase":
+        if session_payload.get("status") != "anonymous":
+            fail("auth-only-session-invalid")
+        return "auth-only"
+    if provider != "gated":
+        fail("public-account-gate-not-enforced")
+    return "gated"
 
 
 def main(argv=None) -> int:
@@ -84,6 +111,9 @@ def main(argv=None) -> int:
         fail("config-schema")
 
     activation_ready = config_payload.get("legal", {}).get("account_activation_ready") is True
+    if not activation_ready and (config_payload.get("identity", {}).get("recovery_url") is not None
+                                 or config_payload.get("identity", {}).get("recovery_complete_url") is not None):
+        fail("recovery-exposed-before-account-activation")
 
     for static_path in ("/recuperar/", "/recuperar/nova-senha/"):
         static_response = request(origin, static_path)
@@ -100,10 +130,18 @@ def main(argv=None) -> int:
     session_payload = read_json(session)
     if session_payload.get("$schema") != "prototype-ordax.public-identity-session/1":
         fail("auth-session-schema")
-    if session_payload.get("authenticated") is not False:
-        fail("unexpected-authenticated-session")
-    if not activation_ready and session_payload.get("provider") != "gated":
-        fail("public-account-gate-not-enforced")
+    mode = public_identity_mode(config_payload, session_payload)
+    if mode == "auth-only":
+        # The browser admits login/registration through server-verified session
+        # and policy, but cloud sync and recovery remain separate gates.
+        policy_response = request(origin, "/auth/registration-policy")
+        if policy_response.status != 200:
+            fail(f"auth-only-policy-status:{policy_response.status}")
+        policy = read_json(policy_response)
+        if (policy.get("$schema") != "prototype-ordax.registration-legal-policy/1"
+                or policy.get("active") is not True
+                or policy.get("registrationEnabled") is not True):
+            fail("auth-only-registration-policy-unavailable")
 
     sync = request(origin, "/sync/snapshot?limit=1")
     expected_sync_status = 401 if activation_ready else 503
@@ -121,18 +159,26 @@ def main(argv=None) -> int:
             "POST",
             body=b"email=deployment-proof%40invalid.example",
             content_type="application/x-www-form-urlencoded",
+            browser_context=True,
         )
-        if recovery.status != 503:
-            fail(f"public-recovery-gate-status:{recovery.status}")
         recovery_payload = read_json(recovery)
-        if recovery_payload.get("error") != "public-account-access-disabled":
-            fail("public-recovery-gate-not-enforced")
+        # Turnstile can reject an unchallenged request at the public edge
+        # before the disabled recovery handler is reached. Do not interpret
+        # that as evidence of an operational password-recovery flow.
+        allowed_denials = {
+            403: "bot-verification-required",
+            503: "public-account-access-disabled",
+        }
+        if recovery_payload.get("error") != allowed_denials.get(recovery.status):
+            fail(f"public-recovery-boundary-invalid:{recovery.status}")
 
     missing = request(origin, "/__ordax-deployment-proof-missing")
     if missing.status != 404:
         fail(f"unknown-route-status:{missing.status}")
 
     print("PUBLIC_SITE_DEPLOYMENT_PROOF=PASS")
+    print(f"PUBLIC_SITE_IDENTITY_MODE={mode}")
+    print(f"PUBLIC_SITE_CLOUD_SYNC={'AVAILABLE' if activation_ready else 'GATED'}")
     return 0
 
 
