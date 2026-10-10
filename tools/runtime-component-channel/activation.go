@@ -986,6 +986,8 @@ func resolveCurrentCommand(args []string) error {
 		source := "ABSENT"
 		if bundled {
 			source = "BUNDLED"
+		} else if state.UserRemoved {
+			source = "REMOVED"
 		}
 		fmt.Printf(
 			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
