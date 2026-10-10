@@ -27,6 +27,7 @@ jobs:
       - name: Checkout approved feature branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: feat/account-original-lovable-source-20261010
           persist-credentials: false
       - name: Setup approved pinned Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -58,8 +59,35 @@ jobs:
             echo 'ACCOUNT_PREBUILT_ALREADY_CURRENT=PASS'
             exit 0
           fi
+          base_sha="$(git rev-parse HEAD)"
           git commit -m 'build(conta): bundle estático verificável do React Lovable com assets originais'
           authorization="$(printf 'x-access-token:%s' "$ORDAX_PUSH_TOKEN" | base64 -w0)"
+          branch='feat/account-original-lovable-source-20261010'
+          repo="https://github.com/$GITHUB_REPOSITORY.git"
+          # The checkout is the latest branch revision when the runner starts.
+          # Recheck just before pushing to prevent stale artifacts from winning
+          # a race with source changes or independent PR edits.
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $authorization" \
-            push "https://github.com/$GITHUB_REPOSITORY.git" HEAD:refs/heads/feat/account-original-lovable-source-20261010
+            fetch "$repo" "refs/heads/$branch"
+          latest_sha="$(git rev-parse FETCH_HEAD)"
+          if [ "$latest_sha" != "$base_sha" ]; then
+            if ! git merge-base --is-ancestor "$base_sha" "$latest_sha"; then
+              echo 'ACCOUNT_STAGE_REMOTE_HISTORY_DIVERGED=FAIL'
+              exit 1
+            fi
+            if ! git diff --quiet "$base_sha" "$latest_sha" -- \
+              sites/account-ui/lovable-original/src \
+              sites/account-ui/lovable-original/index.html \
+              sites/account-ui/lovable-original/vite.config.account.ts \
+              sites/account-ui/lovable-original/package.json \
+              sites/account-ui/lovable-original/bun.lock; then
+              echo 'ACCOUNT_STAGE_SUPERSEDED_BY_NEWER_SOURCE=PASS'
+              exit 0
+            fi
+            # Only unrelated commits arrived; transplant the generated bundle
+            # onto the current branch without rewriting remote history.
+            git rebase "$latest_sha"
+          fi
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $authorization" \
+            push "$repo" HEAD:"refs/heads/$branch"
           echo 'ACCOUNT_PREBUILT_STAGE=PASS'
