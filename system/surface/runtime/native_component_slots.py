@@ -254,7 +254,7 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
             slot=None,
         )
 
-    if state == "current" and source == "ABSENT":
+    if state == "current" and source in {"ABSENT", "REMOVED"}:
         allowed = {
             marker,
             "COMPONENT_ID",
@@ -263,11 +263,11 @@ def _parse_resolution_output(payload: bytes, component_id: str, state: str) -> C
             "RUNTIME_SERVED_FROM_SLOT",
         }
         if set(values) != allowed:
-            raise ComponentSlotVerificationError("absent resolution contains unexpected fields")
+            raise ComponentSlotVerificationError("absent or removed resolution contains unexpected fields")
         return ComponentSlotResolution(
             component_id=component_id,
             state=state,
-            source="absent",
+            source="removed" if source == "REMOVED" else "absent",
             revision=revision,
             version=None,
             source_commit=None,
