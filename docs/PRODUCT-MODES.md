@@ -8,13 +8,17 @@ OrdaX is one product with one identity, one Surface, one application model and s
 
 ```text
 OrdaX Web
-   -> OrdaX Mobile (Android / iPhone)
+   -> OrdaX Mobile (Android / iPhone; Tablet por layout responsivo)
    -> OrdaX Desktop
-   -> OrdaX USB
-   -> OrdaX Native
+   -> OrdaX OS — USB
+   -> OrdaX OS — Nativo
 ```
 
-These are capability targets, not separate products or forks.
+These are capability targets, not separate products or forks. The stable internal IDs remain `web`, `mobile`, `desktop`, `usb` and `native-disk`. The public names and version ownership are defined once in `system/contracts/product-family.mjs` (registered by `docs/contracts/branding.json`); the machine-readable capability policy stays in `docs/contracts/product-capabilities.json`.
+
+**OrdaX OS** is the bootable operating system, with **USB** and **Nativo** as installation/execution variants of the *same OS*, not independent version series. **OrdaX Mobile** is an Android/iOS client app, not a mobile operating system. **OrdaX Tablet** may be a responsive presentation of the same Mobile mode; it does not create a sixth mode or another app source. **OrdaX Studio** is an application distributed through the Apps owner, not an execution mode. The public portal is not OrdaX Web.
+
+Version numbering is not inferred from platform names. The OS modes share the real prototype version from `system/contracts/product-version.mjs`. Web, Mobile and Desktop may advance their own package/deployment versions independently **when their actual verified artifacts exist**; this contract assigns no hypothetical APK, desktop installer or Web release version. Availability and public download authorization remain with the respective release owners, not branding.
 
 ## MVP integration scope versus enabled public modes
 
