@@ -1,0 +1,100 @@
+name: Kernel Next LTS 6.6.158 Candidate
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/kernel/build.py'
+      - 'bootstrap/kernel/verify_upstream_signature.py'
+      - 'bootstrap/kernel/candidates/6.6.158.json'
+      - 'bootstrap/kernel/config/ordax.fragment'
+      - 'tests/test_kernel_build_authentication_gate.py'
+      - 'tests/test_kernel_module_release_abi.py'
+      - '.github/workflows/kernel-next-6-6-158-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proposed-kernel-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - name: Checkout exact candidate source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install exact proposed-kernel build and signature dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
+            dwarves kmod xz-utils pkg-config gnupg
+
+      - name: Validate legacy build compatibility and signed-source policy
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/build.py check
+          python3 bootstrap/kernel/build.py check \
+            --source-contract bootstrap/kernel/candidates/6.6.158.json
+          python3 -m unittest discover -s tests -p 'test_kernel_build_authentication_gate.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_upstream_signature.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_module_release_abi.py' -v
+
+      - name: Build authenticated 6.6.158 kernel and modules in isolated candidate lane
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/build.py build \
+            --source-contract bootstrap/kernel/candidates/6.6.158.json \
+            --jobs 4 \
+            --work-dir out/kernel-next-work \
+            --out-dir out/kernel-next
+          python3 bootstrap/kernel/verify.py out/kernel-next
+
+      - name: Require exact staged identity and upstream signature in provenance
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path('out/kernel-next')
+          p=json.loads((out/'kernel-provenance.json').read_text(encoding='utf-8'))
+          assert p['source_commit'] == os.environ['ORDAX_SOURCE_COMMIT']
+          assert p['kernel_version'] == '6.6.158'
+          assert p['upstream_archive_sha256'] == '9eb33173b0e04e898d431587c78c47ee6e19e3fdf2ea007323de82af14bb2a4f'
+          proof=p['upstream_authentication']
+          assert proof['status'] == 'verified'
+          assert proof['trusted_primary_fingerprint'] == '647F28654894E3BD457199BE38DBBDC86092693E'
+          assert proof['physical_write_authorized'] is False
+          assert p['physical_artifact_authorized'] is False
+          assert p['promotable_to_physical'] is False
+          assert set(p['artifacts']) == {
+              'kernel-6.6.158.config',
+              'kernel-modules-6.6.158.tar',
+              'vmlinuz-6.6.158',
+          }
+          print('KERNEL_6_6_158_CANDIDATE_SOURCE_SIGNED=YES')
+          print('KERNEL_6_6_158_MODULES_BUILT_AND_VERIFIED=YES')
+          print('KERNEL_6_6_158_STABLE_MVP_PROMOTED=NO')
+          print('KERNEL_6_6_158_PHYSICAL_WRITE_AUTHORIZED=NO')
+          PY
+
+      - name: Upload only isolated kernel candidate proof
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-kernel-6.6.158-staged-${{ github.event.pull_request.head.sha || github.sha }}
+          path: out/kernel-next/
+          if-no-files-found: error
+          retention-days: 14
