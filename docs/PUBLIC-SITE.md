@@ -111,6 +111,24 @@ remains in More in addition to services outside the viewport; that link reuses
 the existing overview section. The header profile remains owned by verified
 session navigation.
 
+### Correção de fidelidade visual — account dashboard
+
+O concept de referência prioriza uma hierarquia editorial, não apenas quantidade
+de cartões. A apresentação usa o símbolo e a paisagem canônicos da Surface,
+banner de perfil com tipografia maior, cartão de planos destacado com arte,
+consumo com linhas visuais sem inventar quotas e estado honesto de faturamento.
+Os cartões secundários exibem ícone em superfície, título e descrição.
+Desktop mantém grade de três colunas; mobile empilha e utiliza barra própria
+com Resumo, Assinatura, Consumo e Mais, sem replicar o menu do OrdaX Web.
+Não há paleta alternativa, novo logotipo nem imagem de usuário fictícia.
+
+O e-mail no banner vem somente da sessão verificada já consumida em
+`sites/public/assets/site.js`, com limpezas de dados antes de cada
+revalidação e ao perder sessão. Ausência do provedor não vira nome presumido.
+Asserções visuais de navegador cobrem altura mínima de banner/cartões,
+arte canônica, textos secundários, ausência de vazamento de identidade
+e os cinco viewports existentes.
+
 ### Atualização da Minha Conta — desktop e mobile (2026-10-10)
 
 Esta revisão substitui especificamente a composição antiga da visão geral e

@@ -341,8 +341,10 @@
       if (section) section.hidden = true;
     }
     const email = document.querySelector("[data-account-email]");
+    const hero = document.querySelector("[data-account-hero-email]");
     const logout = document.querySelector('[data-account-logout] button[type="submit"]');
     if (email) email.textContent = "";
+    if (hero) { hero.textContent = ""; hero.hidden = true; }
     if (logout) logout.disabled = true;
   }
 
@@ -353,6 +355,7 @@
     const anonymous = document.querySelector("[data-account-anonymous]");
     const unavailable = document.querySelector("[data-account-unavailable]");
     const email = document.querySelector("[data-account-email]");
+    const hero = document.querySelector("[data-account-hero-email]");
     const logout = document.querySelector('[data-account-logout] button[type="submit"]');
     if (!state || !authenticated || !anonymous || !unavailable || !email || !logout) return;
 
@@ -361,6 +364,7 @@
     anonymous.hidden = true;
     unavailable.hidden = true;
     email.textContent = "";
+    if (hero) { hero.textContent = ""; hero.hidden = true; }
     logout.disabled = true;
     state.dataset.status = "checking";
     state.setAttribute("aria-busy", "true");
@@ -375,6 +379,11 @@
         email.textContent = typeof session.email === "string" && session.email.length <= 254
           ? session.email
           : t("account.session.emailUnavailable");
+        if (hero) {
+          // Mirror the same verified identity value; clear it during every revalidation.
+          hero.textContent = email.textContent;
+          hero.hidden = false;
+        }
         authenticated.hidden = false;
         logout.disabled = false;
         state.dataset.status = "ready";

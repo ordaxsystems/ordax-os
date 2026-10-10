@@ -1260,6 +1260,12 @@ async function provePublicAccount(client, url, evidenceDir) {
         columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
         profileHeight:box(profile).height,
         accountBanner:!!profile.querySelector('.account-profile-intro'),
+        heroMinHeight:box(profile).height>=145,
+        decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
+        accountCardMinHeight:box(cards[0]).height>=(phone?150:230),
+        managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
+        verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
+          document.querySelector('[data-account-hero-email]').textContent.trim()==='',
         primaryTilesAligned:Math.abs(primary[0].top-primary[2].top)<2,
         headerHeight:box(document.querySelector('.account-header')).height,
         accountNavigation:nav.length===4 &&
@@ -1272,7 +1278,7 @@ async function provePublicAccount(client, url, evidenceDir) {
       };
     })()`);
     if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
-        !report.accountBanner || !report.accountNavigation || !report.accountInMore ||
+        !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
         !report.mobileSearchCollapsed || report.headerHeight > 80 ||
         (width === 1440 && report.columns !== 3) ||
         (width < 600 && report.columns !== 1) ||
