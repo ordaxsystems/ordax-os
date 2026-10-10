@@ -125,3 +125,38 @@
     opacity: 0.75;
   }
 }
+
+/* Native Surface cinematic handoff. Early UEFI/kernel splash is a separate Base owner. */
+.ordax-boot-video {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  visibility: hidden;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  background: #01020a;
+  pointer-events: none;
+}
+.ordax-boot-screen:has(.ordax-boot-video) {
+  background: #01020a;
+}
+.ordax-boot-screen[data-animation="playing"][data-state="loading"] .ordax-boot-video {
+  visibility: visible;
+  opacity: 1;
+}
+.ordax-boot-screen[data-animation="playing"][data-state="loading"] .ordax-boot-screen-card {
+  visibility: hidden;
+}
+.ordax-boot-screen[data-state="error"] .ordax-boot-video {
+  visibility: hidden;
+  opacity: 0;
+}
+@media(prefers-reduced-motion:reduce) {
+  .ordax-boot-video { display: none; }
+  .ordax-boot-screen[data-animation="playing"] .ordax-boot-screen-card {
+    visibility: visible;
+  }
+}
