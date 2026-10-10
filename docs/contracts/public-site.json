@@ -23,12 +23,13 @@
     "remote_javascript": true,
     "remote_css": false,
     "remote_fonts": false,
-    "framework": false,
+    "framework": true,
     "remote_javascript_allowlist": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
     ],
     "remote_javascript_scope": "public-account-abuse-protection-only",
-    "remote_javascript_lazy": true
+    "remote_javascript_lazy": true,
+    "framework_scope": "static-react-account-center-only"
   },
   "identity": {
     "provider_implemented_here": false,
@@ -125,7 +126,14 @@
       "session_verification_required": true,
       "destination_must_enforce_own_authorization": true,
       "surface_imported_by_portal": false
-    }
+    },
+    "presentation_source": "sites/account-ui/lovable-original",
+    "prebuilt_source": "sites/account-ui/prebuilt",
+    "public_site_build_profile": "lovable",
+    "session_route": "/auth/session",
+    "logout_route": "/auth/logout",
+    "framework_bundle_verified_by": "Account Lovable Source Candidate",
+    "service_data_simulation_allowed": false
   },
   "mvp_scope": {
     "execution_mode": "usb-only",
