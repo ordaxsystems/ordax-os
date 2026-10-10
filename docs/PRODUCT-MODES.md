@@ -53,7 +53,7 @@ It provides capabilities a browser cannot safely or reliably provide, including 
 
 OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Privileged operations require a narrow, explicit capability boundary and separate user authorization.
 
-### 4. OrdaX USB
+### 4. OrdaX OS — USB
 
 Boots the real OrdaX operating system from removable media. It owns the machine while booted and therefore has substantially broader capabilities than Web, Mobile or Desktop.
 
@@ -78,7 +78,7 @@ The bootstrap exports that value as `ORDAX_PRODUCT_MODE`; guardian, supervisor a
 
 The future installer writes `native-disk` into the target bootstrap as part of installation materialization. This remains configuration of one product mode, not a code or release fork.
 
-### 5. OrdaX Native — integrated MVP target, not yet available
+### 5. OrdaX OS — Nativo — integrated MVP target, not yet available
 
 Installs the OrdaX operating system to SSD/NVMe/HDD using the shared signed release and a whole-disk, informed-destructive-consent flow. This work is **in scope for the integrated MVP**, while physical APPLY, boot without USB and recovery are not yet homologated; therefore the mode is **not yet an available user-facing capability**.
 
