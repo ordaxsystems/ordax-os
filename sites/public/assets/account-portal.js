@@ -6,6 +6,10 @@
   const cards = [...document.querySelectorAll("[data-account-card]")];
   const overview = document.querySelector("[data-account-overview]");
   const overviewHeading = document.querySelector("[data-account-overview-heading]");
+  const activity = document.querySelector("[data-account-dashboard-activity]");
+  const chartSlot = document.querySelector("[data-account-dashboard-chart-slot]");
+  const usageChart = document.querySelector(".account-usage-visual");
+  const usageChartDetailHost = usageChart?.parentElement;
   const sidebarToggle = document.querySelector("[data-account-sidebar-toggle]");
   const sidebarCollapseLabel = document.querySelector("[data-sidebar-collapse-label]");
   const sidebarExpandLabel = document.querySelector("[data-sidebar-expand-label]");
@@ -81,6 +85,14 @@
     if (servicesHeading) servicesHeading.hidden = searching || view !== "visao-geral";
     overview.hidden = searching || view !== "visao-geral";
     if (overviewHeading) overviewHeading.hidden = searching || view !== "visao-geral";
+    const onOverview = !searching && view === "visao-geral";
+    if (activity) activity.hidden = !onOverview;
+    // Exactly one chart: move its single DOM instance between summary and
+    // Consumption details. No duplicate consumer or fabricated measurement.
+    if (usageChart) {
+      const chartHost = onOverview ? chartSlot : usageChartDetailHost;
+      if (chartHost && usageChart.parentElement !== chartHost) chartHost.append(usageChart);
+    }
     back.hidden = view === "visao-geral" && !searching;
     if (breadcrumbDetails && breadcrumbCurrent) {
       const detailed = !searching && view !== "visao-geral";
@@ -136,6 +148,18 @@
       searchToggle?.setAttribute("aria-expanded", "false");
       if (window.matchMedia("(max-width:900px)").matches) searchToggle?.focus();
       render();
+    }
+  });
+  // Same existing search input, reachable from the keyboard on desktop.
+  document.addEventListener("keydown", event => {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      if (mobile.matches) {
+        document.body.classList.add("account-search-open");
+        searchToggle?.setAttribute("aria-expanded", "true");
+        closeMenu();
+      }
+      search?.focus();
     }
   });
   searchToggle?.addEventListener("click", () => {
