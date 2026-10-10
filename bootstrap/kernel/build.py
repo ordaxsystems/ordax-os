@@ -315,7 +315,7 @@ def authenticate_upstream_archive(contract: dict, archive: Path, cache_dir: Path
         max_bytes=2 * 1024 * 1024,
     )
     try:
-        armored = base64.b64decode(encoded, validate=True)
+        armored = base64.b64decode(encoded.strip(), validate=True)
     except (ValueError, base64.binascii.Error) as exc:
         raise BuildError("kernel public key mirror response is not valid base64") from exc
     if not armored or len(armored) > 1024 * 1024:
