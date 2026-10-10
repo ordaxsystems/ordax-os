@@ -63,7 +63,7 @@
     }
     for (const link of navigation.querySelectorAll("a")) {
       const target = link.getAttribute("href") === "/web/" ? "acesso-web" : link.hash.slice(1);
-      link.hidden = compact && (!overflow.has(target));
+      link.hidden = compact && target !== "visao-geral" && !overflow.has(target);
     }
     for (const group of navigation.querySelectorAll("nav, .navigation-support")) {
       group.hidden = compact && ![...group.querySelectorAll("a")].some(link => !link.hidden);

@@ -1260,10 +1260,12 @@ async function provePublicAccount(client, url, evidenceDir) {
         headerHeight:box(document.querySelector('.account-header')).height,
         visibleServiceCount:services.length,
         viewportServicesFit:!phone || services.every(card=>box(card).bottom<=boundary-19),
-        overflowHasMenu:!phone || overflow.every(card=>document.querySelector('#account-navigation a[href="'+(card.id==='acesso-web'?'/web/':'#'+card.id)+'"]:not([hidden])')),
+        overflowHasMenu:!phone || overflow.every(card=>document.querySelector('#account-navigation a[href="'+('#'+card.id)+'"]:not([hidden])')),
+        webNavigationHonest:document.querySelector('.account-mobile-nav').children.length===3 && document.querySelector('.mobile-web-entry').getAttribute('href')==='/web/' && !document.querySelector('.mobile-web-entry').hasAttribute('aria-current'),
+        accountInMore:!phone || !document.querySelector('#account-navigation a[href="#visao-geral"]').hidden,
         mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || !report.viewportServicesFit || !report.overflowHasMenu || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || !report.viewportServicesFit || !report.overflowHasMenu || !report.webNavigationHonest || !report.accountInMore || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
@@ -1276,7 +1278,7 @@ async function provePublicAccount(client, url, evidenceDir) {
       await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
       if (!await evaluate('document.activeElement.matches("[data-account-menu]") && !document.body.classList.contains("account-menu-open")')) throw new Error('More Escape failed');
       const overflowDetail = await evaluate(`(() => {
-        const link = document.querySelector('#account-navigation a[data-account-section]:not([hidden])');
+        const link = document.querySelector('#account-navigation a[data-account-section]:not([hidden]):not([href="#visao-geral"])');
         const id = link.hash.slice(1);
         link.click();
         return document.querySelector('[data-account-content]').dataset.view === id && !document.getElementById(id).hidden && document.activeElement.id === id+'-title';
