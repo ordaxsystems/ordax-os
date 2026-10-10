@@ -95,17 +95,29 @@ jobs:
           # GitHub CLI provides ephemeral git credentials from GH_TOKEN only here.
           gh auth setup-git
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-            echo "Update branch already exists; refusing to overwrite reviewed history."
-            exit 0
+            # Recover from a previous successful branch push followed by a failed PR request.
+            # Fail closed if that branch no longer contains the authenticated proposal.
+            git fetch --no-tags --depth=1 origin "$branch"
+            git show "FETCH_HEAD:bootstrap/kernel/candidates/$CANDIDATE_VERSION.json" |
+              cmp - "bootstrap/kernel/candidates/$CANDIDATE_VERSION.json"
+            git show "FETCH_HEAD:bootstrap/kernel/candidates/proposal.json" |
+              cmp - bootstrap/kernel/candidates/proposal.json
+            state="$(gh pr list --state all --head "$branch" --json state --jq '.[0].state // empty')"
+            if test -n "$state"; then
+              echo "Authenticated patch already submitted ($state); retaining prior review."
+              exit 0
+            fi
+            echo "Recovering authenticated branch without a previous PR."
+          else
+            git switch -c "$branch"
+            git add -- bootstrap/kernel/candidates/
+            if git diff --cached --quiet; then
+              echo "No source contract change; nothing to publish."
+              exit 0
+            fi
+            git commit -m "chore(kernel): propose authenticated LTS $CANDIDATE_VERSION"
+            git push origin "$branch"
           fi
-          git switch -c "$branch"
-          git add -- bootstrap/kernel/candidates/
-          if git diff --cached --quiet; then
-            echo "No source contract change; nothing to publish."
-            exit 0
-          fi
-          git commit -m "chore(kernel): propose authenticated LTS $CANDIDATE_VERSION"
-          git push origin "$branch"
           gh pr create \
             --base main \
             --head "$branch" \
