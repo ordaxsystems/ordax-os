@@ -590,6 +590,7 @@
     ["SUA CONTA","YOUR ACCOUNT"],
     ["SEU ESPAÇO ORDAX","YOUR ORDAX SPACE"],
     ["Buscar na conta","Search your account"],
+    ["Plano","Plan"],
     ["Buscar configurações, dispositivos, integrações...","Search settings, devices, integrations..."],
     ["Plano e assinatura","Plan and subscription"],
     ["Segurança","Security"],

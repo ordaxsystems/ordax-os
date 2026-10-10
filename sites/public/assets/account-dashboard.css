@@ -74,6 +74,7 @@
 .profile-copy p:last-child { color:var(--ordax-muted); font-size:13px; margin:0; }
 .profile-copy .eyebrow { margin:0 0 8px; }
 .profile-symbol { width:80px; height:80px; filter:drop-shadow(0 0 12px var(--ordax-brand-blue)); }
+.profile-mobile-avatar,.profile-mobile-title,.mobile-card-label { display:none; }
 .profile-session { margin:0; padding:12px 14px; min-width:0; max-width:630px; border:1px solid var(--ordax-border-soft); border-radius:var(--ordax-radius-md); background:var(--ordax-app-bg); }
 .profile-session summary { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:28px; font-size:12px; cursor:pointer; list-style:none; }
 .profile-session summary::-webkit-details-marker { display:none; }
@@ -203,23 +204,44 @@
   .account-heading h1 { font-size:27px; }
   .account-heading p:last-child { font-size:12px; }
   .account-heading>[data-account-back] { font-size:11px; white-space:nowrap; }
-  .account-profile { padding:18px; margin-bottom:18px; min-height:0; }
-  .profile-copy { gap:14px; }
-  .profile-symbol { width:58px; height:58px; }
+  .account-profile { grid-template-columns:minmax(0,1fr) 44px; padding:14px; margin-bottom:16px; min-height:90px; gap:10px; background:linear-gradient(135deg,var(--ordax-panel),var(--ordax-bg)); border-radius:var(--ordax-radius-md); }
+  .profile-copy { gap:12px; }
+  .profile-symbol,.profile-desktop-title { display:none; }
+  .profile-mobile-avatar { display:grid; width:48px; height:48px; border-color:var(--ordax-brand-blue); background:var(--ordax-subtle-bg); box-shadow:0 0 10px color-mix(in srgb,var(--ordax-brand-blue) 35%,transparent); }
+  .profile-mobile-avatar .account-icon { width:25px; height:25px; }
+  .profile-mobile-title { display:inline; }
   .profile-copy .eyebrow { display:none; }
-  .profile-copy h2 { font-size:17px; }
+  .profile-copy h2 { font-size:14px; }
   .profile-copy p:last-child { font-size:11px; }
-  .profile-session { padding:12px; }
+  .profile-session { padding:0; border:0; background:transparent; }
+  .profile-session summary { min-width:44px; min-height:44px; justify-content:center; }
+  .profile-session:not([open]) .session-summary-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .profile-session:not([open]) .session-summary-arrow { transform:rotate(-90deg); }
+  .profile-session[open] { grid-column:1/-1; }
+  .profile-session[open] summary { justify-content:space-between; }
   .session-actions { align-items:stretch; flex-direction:column; gap:14px; }
   .session-actions .button { width:100%; }
-  .account-cards { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .account-cards { grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 10px; }
   .account-content[data-view="visao-geral"] .account-card { padding:14px; }
-  .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) { grid-column:1/-1; }
+  .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) { margin-bottom:16px; min-height:100px; border-radius:var(--ordax-radius-md); }
+  .account-enhanced .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) { display:flex; align-items:center; justify-content:center; }
+  .account-content[data-view="visao-geral"] .account-card:nth-child(n+4),.account-content[data-view="visao-geral"] #acesso-web.account-card { grid-column:1/-1; border-radius:0; border-top:0; padding:8px 14px; background:var(--ordax-app-bg); }
+  .account-content[data-view="visao-geral"] .account-card:nth-child(4) { border-top:1px solid var(--ordax-border-soft); border-radius:var(--ordax-radius-md) var(--ordax-radius-md) 0 0; }
+  .account-content[data-view="visao-geral"] .account-card:last-child { border-radius:0 0 var(--ordax-radius-md) var(--ordax-radius-md); }
   .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading { flex-direction:column; text-align:center; gap:10px; }
   .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading h2 { font-size:11px; }
+  .account-content[data-view="visao-geral"] .desktop-card-label { display:none; }
+  .account-content[data-view="visao-geral"] .mobile-card-label { display:inline; }
+  .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .account-icon { width:26px; height:26px; }
+  .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading { min-height:44px; }
+  .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-arrow { transform:rotate(45deg); color:var(--ordax-muted); }
   .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-summary,
   .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-arrow { display:none; }
   .account-enhanced .account-content[data-view="visao-geral"] .card-content { display:none; }
+  .account-enhanced .account-content[data-view="visao-geral"] .card-summary { display:none; }
+  .account-mobile-nav a[aria-current="location"] { background:transparent; position:relative; color:var(--ordax-brand-blue); }
+  .account-mobile-nav a[aria-current="location"] .account-icon { width:32px; height:32px; padding:6px; border:1px solid var(--ordax-brand-blue); border-radius:50%; background:linear-gradient(145deg,var(--ordax-brand-blue),var(--ordax-brand-violet)); color:var(--ordax-text); box-shadow:0 0 12px color-mix(in srgb,var(--ordax-brand-blue) 50%,transparent); }
+  .account-mobile-nav a[aria-current="location"]::after { content:""; position:absolute; bottom:0; width:22px; height:2px; border-radius:2px; background:var(--ordax-brand-blue); }
   .card-heading h2 { font-size:13px; }
   .card-summary { margin:4px 0 0 31px; font-size:11px; }
   .account-content:not([data-view="visao-geral"]) .account-card { padding:20px; }
