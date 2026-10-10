@@ -141,6 +141,9 @@
     "validates_reported_model_identity": true,
     "callback_deltas_are_provisional": true,
     "conversation_streaming_exposed": false,
-    "engine_streaming_hardware_proven": false
+    "engine_streaming_hardware_proven": false,
+    "token_limit_finish_reason_rejected": true,
+    "cancellation_unblocks_stalled_reader_and_callback": true,
+    "reader_cancel_is_best_effort_nonblocking": true
   }
 }
