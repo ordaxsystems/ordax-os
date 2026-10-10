@@ -185,6 +185,7 @@ MAX_KEYBOARD_LAYOUT_BODY = 128
 MAX_FIRST_RUN_BODY = 2048
 MAX_DEVICE_PROFILE_BODY = 1024
 MAX_LOCAL_SESSION_BODY = 1024
+MAX_LOCAL_SESSION_CREDENTIAL_BYTES = 1024
 LOCAL_SESSION_SECRET_MIN_CHARS = 6
 LOCAL_SESSION_SECRET_MAX_CHARS = 128
 LOCAL_SESSION_SCRYPT_N = 1 << 15
@@ -877,13 +878,51 @@ def valid_local_session_credential(value: object) -> bool:
     )
 
 
+def local_session_credential_present() -> bool:
+    """Only a missing directory entry permits an unconfigured session."""
+    try:
+        os.lstat(LOCAL_SESSION_CREDENTIAL_FILE)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
 def read_local_session_credential() -> dict | None:
     try:
-        with open(LOCAL_SESSION_CREDENTIAL_FILE, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
+        initial = os.lstat(LOCAL_SESSION_CREDENTIAL_FILE)
     except FileNotFoundError:
         return None
-    except (OSError, json.JSONDecodeError) as exc:
+    except OSError as exc:
+        raise ValueError("local session credential is unreadable") from exc
+
+    def validate_file(metadata):
+        if (not stat.S_ISREG(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+            or metadata.st_uid != os.geteuid()
+            or metadata.st_nlink != 1
+            or not 0 < metadata.st_size <= MAX_LOCAL_SESSION_CREDENTIAL_BYTES):
+            raise ValueError("local session credential file is unsafe")
+
+    validate_file(initial)
+    try:
+        descriptor = os.open(
+            LOCAL_SESSION_CREDENTIAL_FILE,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+        )
+        with os.fdopen(descriptor, "rb") as handle:
+            opened = os.fstat(handle.fileno())
+            validate_file(opened)
+            if (initial.st_dev, initial.st_ino) != (opened.st_dev, opened.st_ino):
+                raise ValueError("local session credential changed while opening")
+            raw = handle.read(MAX_LOCAL_SESSION_CREDENTIAL_BYTES + 1)
+        if len(raw) > MAX_LOCAL_SESSION_CREDENTIAL_BYTES:
+            raise ValueError("local session credential exceeds byte limit")
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError("local session credential is unreadable") from exc
     if not valid_local_session_credential(payload):
         raise ValueError("local session credential is invalid")
@@ -968,8 +1007,9 @@ def remove_local_session_credential() -> None:
 
 
 def local_session_snapshot(server) -> dict:
-    credential_configured = os.path.isfile(LOCAL_SESSION_CREDENTIAL_FILE)
-    locked = bool(server.local_session_locked and credential_configured)
+    # Missing or corrupt file bytes must not revoke an already active lock.
+    locked = bool(server.local_session_locked)
+    credential_configured = locked or local_session_credential_present()
     return {
         "schema": "ordax.local-session/1",
         "state": "locked" if locked else "unlocked",
@@ -3271,7 +3311,7 @@ class NativeHostServer(ThreadingHTTPServer):
         self.native_install_lock = threading.Lock()
         self.file_trash_lock = threading.Lock()
         self.local_session_lock = threading.Lock()
-        self.local_session_locked = os.path.isfile(LOCAL_SESSION_CREDENTIAL_FILE)
+        self.local_session_locked = local_session_credential_present()
         self.local_session_failures = 0
         self.local_session_retry_after = 0.0
         self.user_root = user_root
@@ -4178,8 +4218,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
         if parsed_path == LOCAL_SESSION_PATH:
             with self.server.local_session_lock:
-                if not os.path.isfile(LOCAL_SESSION_CREDENTIAL_FILE):
-                    self.server.local_session_locked = False
                 snapshot = local_session_snapshot(self.server)
             self._write_json(200, snapshot)
             return

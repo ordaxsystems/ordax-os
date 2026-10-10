@@ -44,8 +44,23 @@ retiradas. Há cobertura de GET, HEAD, POST, OPTIONS, PUT e Origin/Host
 inválidos no suite de integração Native; os testes Linux devem ser o gate
 de incorporação, pois o servidor depende de POSIX/`fcntl`.
 
-O restante da PR #1326 **não é declarado incorporado** por essa alteração.
-As PRs e suas branches continuam abertas enquanto tiverem trabalho exclusivo.
+Outra falha da #1326 foi tratada diretamente no mesmo owner: o arquivo da
+credencial offline agora só é lido com `lstat`, permissões `0600`, UID do
+processo, regularidade, único hard link, limite de 1024 bytes e descriptor
+`O_NOFOLLOW` conferido após abertura. Symlink, FIFO, diretório, hard link,
+arquivo público ou corrompido causam falha segura. A ausência/corrupção
+posterior dos bytes **não pode desfazer um lock já ativo**; o GET de estado
+não apaga mais `local_session_locked`. O contrato JSON declara os mesmos
+limites e testes POSIX provam esse comportamento.
+
+Testes locais Ubuntu executados: 12 de ingresso HTTP, 2 de integridade do
+módulo, 29 de App Data (4 arquivos), e 11 de sessão local — **54 testes
+distintos aprovados**. Além disso, `py_compile`, validação JSON e
+`git diff --check` passaram.
+
+O restante da PR #1326 (boot, recuperação e auditoria de outros owners)
+**não é declarado incorporado** por essas duas correções. As PRs e suas
+branches continuam abertas enquanto tiverem trabalho exclusivo.
 
 ## Critério para fechamento/limpeza
 

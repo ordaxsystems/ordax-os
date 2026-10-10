@@ -32,6 +32,11 @@
     "minimum_characters": 6,
     "maximum_characters": 128,
     "file_mode": "0600",
+    "maximum_file_bytes": 1024,
+    "symbolic_links_allowed": false,
+    "hard_links_allowed": false,
+    "non_regular_entries_allowed": false,
+    "missing_or_corrupt_credential_may_unlock_active_session": false,
     "atomic_replace": true,
     "constant_time_verifier_compare": true,
     "bad_or_unreadable_credential": "fail-closed"
