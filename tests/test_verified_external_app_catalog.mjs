@@ -119,5 +119,11 @@ test("only canonical external IDs can be discovered and package-source is read-o
   await assert.rejects(() => discoverVerifiedExternalApplications({
     source: { ...t.source, install() {} }, fetchImpl: t.fetchImpl, appIds: ["notes"],
   }), /must not expose install/);
+  // Calendar is a known Store id but cannot be imported by the Native
+  // component-module broker until the canonical module-read policy allows it.
+  assert.deepEqual(await discoverVerifiedExternalApplications({
+    source: t.source, fetchImpl: t.fetchImpl, appIds: ["calendar"],
+  }), []);
+  assert.equal(t.calls.length, 0);
   assert.equal(t.calls.length, 0);
 });
