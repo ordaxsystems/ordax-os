@@ -1239,9 +1239,9 @@ async function provePublicAccount(client, url, evidenceDir) {
       await sleep(50);
     }
     await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
-    await evaluate('document.querySelector(".profile-session summary").click()');
-    if (!await evaluate('document.querySelector(".profile-session").open && document.querySelector("[data-account-state]").getBoundingClientRect().height > 0')) throw new Error('session disclosure failed');
-    await evaluate('document.querySelector(".profile-session summary").click()');
+    await evaluate('document.querySelector(".account-session-disclosure summary").click()');
+    if (!await evaluate('document.querySelector(".account-session-disclosure").open && document.querySelector("[data-account-state]").getBoundingClientRect().height > 0')) throw new Error('session disclosure failed');
+    await evaluate('document.querySelector(".account-session-disclosure summary").click()');
     await sleep(100);
     const report = await evaluate(`(() => {
       const cards = [...document.querySelectorAll('[data-account-card]')];
@@ -1261,11 +1261,13 @@ async function provePublicAccount(client, url, evidenceDir) {
         visibleServiceCount:services.length,
         viewportServicesFit:!phone || services.every(card=>box(card).bottom<=boundary-19),
         overflowHasMenu:!phone || overflow.every(card=>document.querySelector('#account-navigation a[href="'+('#'+card.id)+'"]:not([hidden])')),
-        webNavigationHonest:document.querySelector('.account-mobile-nav').children.length===3 && document.querySelector('.mobile-web-entry').getAttribute('href')==='/web/' && !document.querySelector('.mobile-web-entry').hasAttribute('aria-current'),
+        webNavigationHonest:document.querySelector('.account-mobile-nav').children.length===4 && document.querySelector('.mobile-web-entry').getAttribute('href')==='/web/' && !document.querySelector('.mobile-web-entry').hasAttribute('aria-current'),
+        noRepeatedProfile:!document.querySelector('.account-profile, .profile-copy') && profile.height<=48,
+        activityNavigation:document.querySelector('.account-mobile-nav a[href="#atividade"]')?.hasAttribute('data-account-section'),
         accountInMore:!phone || !document.querySelector('#account-navigation a[href="#visao-geral"]').hidden,
         mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || !report.viewportServicesFit || !report.overflowHasMenu || !report.webNavigationHonest || !report.accountInMore || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || !report.viewportServicesFit || !report.overflowHasMenu || !report.webNavigationHonest || !report.accountInMore || !report.noRepeatedProfile || !report.activityNavigation || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
