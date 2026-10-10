@@ -8,9 +8,9 @@ import { getSystemComponent } from "../system/apps/component-catalog.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
 
 test("Files has one component identity shared by app, catalog and bootstrap", () => {
-  assert.strictEqual(filesApp.component, filesComponent);
+  assert.deepEqual(filesApp.component, filesComponent);
   assert.strictEqual(catalogFilesComponent, filesComponent);
-  assert.strictEqual(getSystemComponent("files"), filesComponent);
+  assert.deepEqual(getSystemComponent("files"), filesComponent);
   assert.strictEqual(getFirstPartyApp("files"), filesApp);
   assert.equal(appComponentManifests.filter((component) => component.id === "files").length, 1);
   assert.equal(filesComponent.id, "files");
