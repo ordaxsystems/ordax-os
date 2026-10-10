@@ -40,9 +40,17 @@ A lista executável de **intenção de seleção** fica exclusivamente em `listF
 | **Cores, Mapa de Caracteres, Ferramentas** | Utilitários pequenos | Podem ser agrupados visualmente, sem apagar IDs estáveis ou dados. |
 | **Texto, Imagens, PDF, Mídia** | Leitores especializados | Reutilizar host/file grants; unificação de UI não justifica trocar IDs. |
 
+## Integração verificada do catálogo na Loja
+
+- A Loja agora tem a seção **Essenciais**, que usa `listFirstRunDefaultAppIds()` como origem única da seleção e filtra **somente entradas efetivamente projetadas pelo catálogo verificado**. Ela não adiciona itens de catálogo, inventário ou direitos de instalação.
+- `planFirstRunAppSelectionFromStore()` deriva candidatos elegíveis da projeção `ordax.app-store-catalog/2`. Para ser elegível, cada aplicativo precisa estar ausente e marcado como instalável, com artefato e procedência verificados. Apps instalados usam a versão `current` efetivamente observada. Apps bundled não representados pelo port independente permanecem **desconhecidos** nesta projeção, jamais contados como instalados ou ausentes.
+- O plano continua `authority:none`. Não cria solicitações, não grava intenção de remoção e não comprova pré-instalação física.
+- O catálogo indisponível continua indisponível na Loja. Apps não publicados/verificados não aparecem artificialmente como disponíveis.
+- A próxima etapa de produção exige um port nativo de inventário **combinado** (bundled e component-slot) e um registro durável de primeiro provisionamento/remoção no owner de instalação, antes de delegar ações.
+
 ## Fases de integração (não equivale a release pronta)
 
-1. **Feito neste corte:** inventário de owners, decisões de nome e seleção declarativa dos básicos com negação de reinstalação.
+1. **Feito:** inventário de owners, decisões de nome, seleção declarativa e seção Essenciais filtrada pelo catálogo verificado, com testes de status real e negação de reinstalação.
 2. **A executar:** reconciliar IDs/manifests do Apps, completar os 6 cutovers com provas remove-first, nunca publicar duas fontes.
 3. **A executar:** produzir/verificar artefatos assinados e entrega offline inicial; montar pré-instalação na autoridade de instalação da plataforma.
 4. **A executar:** fazer Loja mostrar apps bundled e externos com inventário verificado e permissões de desinstalação reais, preservando App Data.
