@@ -53,6 +53,7 @@ on:
       - 'system/adapters/web/space-selection.mjs'
       - 'system/composition/web/main.mjs'
       - 'tests/test_assistant_result_canvas.mjs'
+      - 'tests/test_assistant_work_strip.mjs'
       - 'tests/test_web_intelligence_canvas.mjs'
       - 'system/services/local-ai/**'
       - 'system/surface/runtime/native_local_ai_bridge.py'
@@ -231,6 +232,7 @@ on:
       - 'system/adapters/web/space-selection.mjs'
       - 'system/composition/web/main.mjs'
       - 'tests/test_assistant_result_canvas.mjs'
+      - 'tests/test_assistant_work_strip.mjs'
       - 'tests/test_web_intelligence_canvas.mjs'
       - 'system/services/local-ai/**'
       - 'system/surface/runtime/native_local_ai_bridge.py'
@@ -467,6 +469,7 @@ jobs:
           node --test tests/test_intelligence_work_canvas.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_result_canvas.mjs
+          node --test tests/test_assistant_work_strip.mjs
           node --test tests/test_web_intelligence_canvas.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs
