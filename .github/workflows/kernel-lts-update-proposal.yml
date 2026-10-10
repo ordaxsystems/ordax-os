@@ -1,0 +1,95 @@
+name: Kernel LTS Update Proposal
+
+on:
+  schedule:
+    - cron: '29 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ordax-kernel-lts-update-proposal
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout protected canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Check the current LTS line from kernel.org
+        id: detect
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/update_engine.py discover > "$RUNNER_TEMP/kernel-discovery.json"
+          cat "$RUNNER_TEMP/kernel-discovery.json" >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          from pathlib import Path
+          value = json.loads((Path(os.environ['RUNNER_TEMP']) / 'kernel-discovery.json').read_text())
+          assert value['status'] in ('up-to-date', 'update-available')
+          print('update=' + str(value['status'] == 'update-available').lower())
+          print('version=' + value['latest'])
+          PY
+
+      - name: Install upstream signature verification dependencies
+        if: steps.detect.outputs.update == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnupg xz-utils
+
+      - name: Authenticate and propose the next patch source contract
+        if: steps.detect.outputs.update == 'true'
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/update_engine.py prepare \
+            --version "${{ steps.detect.outputs.version }}" \
+            | tee "$RUNNER_TEMP/kernel-proposal.json"
+          python3 bootstrap/kernel/candidate_pipeline.py select
+          python3 -m unittest discover -s tests -p 'test_kernel_candidate_pipeline.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_update_engine.py' -v
+
+      - name: Publish a reviewable candidate PR, never promote or write physical media
+        if: steps.detect.outputs.update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_VERSION: ${{ steps.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="automation/kernel-lts-$CANDIDATE_VERSION"
+          git config user.name "ordax-kernel-updater[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Update branch already exists; refusing to overwrite reviewed history."
+            exit 0
+          fi
+          git switch -c "$branch"
+          git add -- bootstrap/kernel/candidates/
+          if git diff --cached --quiet; then
+            echo "No source contract change; nothing to publish."
+            exit 0
+          fi
+          git commit -m "chore(kernel): propose authenticated LTS $CANDIDATE_VERSION"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(kernel): authenticated LTS $CANDIDATE_VERSION candidate" \
+            --body "Machine-generated, signature-verified candidate for the current Linux LTS line. Requires the reusable Kernel LTS Candidate workflow and code review. Does not change the active kernel, authorize physical writes, rotate trust keys, or promote a release."
+          # PRs created with GITHUB_TOKEN do not cause a pull_request CI run.
+          # workflow_dispatch is explicitly permitted and creates checks on this head.
+          gh workflow run kernel-lts-candidate.yml --ref "$branch"
