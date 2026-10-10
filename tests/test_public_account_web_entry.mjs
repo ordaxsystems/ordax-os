@@ -21,7 +21,7 @@ function element() {
 function fixture({ page = "web", authenticated = true, entry = "/ordax/", enabled = true, invalidSession = false, failure = false } = {}) {
   const selectors = page === "web"
     ? ["[data-web-state]", "[data-web-launch]", "[data-web-login]", "[data-web-retry]"]
-    : ["[data-account-state]", "[data-account-authenticated]", "[data-account-anonymous]", "[data-account-unavailable]", "[data-account-email]", "[data-account-hero-email]", "[data-account-logout]", '[data-account-logout] button[type="submit"]'];
+    : ["[data-account-state]", "[data-account-authenticated]", "[data-account-anonymous]", "[data-account-unavailable]", "[data-account-email]", "[data-account-hero-email]", "[data-account-profile-email]", "[data-account-profile-identity]", "[data-account-logout]", '[data-account-logout] button[type="submit"]'];
   const nodes = new Map(selectors.map(selector => [selector, element()]));
   const events = {};
   const requests = [];
@@ -111,6 +111,11 @@ test("account data is text only and cleared immediately on back navigation after
   assert.equal(hero.textContent, email.textContent);
   assert.equal(hero.hidden, false);
   assert.equal(hero.innerHTML, undefined);
+  const profileEmail = f.nodes.get("[data-account-profile-email]");
+  const profileIdentity = f.nodes.get("[data-account-profile-identity]");
+  assert.equal(profileEmail.textContent, email.textContent);
+  assert.equal(profileIdentity.hidden, false);
+  assert.equal(profileEmail.innerHTML, undefined);
   assert.equal(f.nodes.get("[data-account-authenticated]").hidden, false);
   assert.equal(f.nodes.get("[data-account-logout]").hidden, false);
   assert.equal(f.nodes.get('[data-account-logout] button[type="submit"]').disabled, false);
@@ -118,9 +123,21 @@ test("account data is text only and cleared immediately on back navigation after
   assert.equal(email.textContent, "");
   assert.equal(hero.textContent, "");
   assert.equal(hero.hidden, true);
+  assert.equal(profileEmail.textContent, "");
+  assert.equal(profileIdentity.hidden, true);
   assert.equal(f.nodes.get("[data-account-authenticated]").hidden, true);
   assert.equal(f.nodes.get("[data-account-logout]").hidden, true);
   assert.equal(f.nodes.get('[data-account-logout] button[type="submit"]').disabled, true);
   await flush(); f.releaseConfig(); await flush();
   assert.equal(f.nodes.get("[data-account-anonymous]").hidden, false);
+});
+
+test("personal profile never exposes unverified identity for anonymous or unavailable account sessions", async () => {
+  for (const options of [{ authenticated: false }, { failure: true }, { invalidSession: true }]) {
+    const f = fixture({ page: "conta", ...options }); await flush();
+    const profile = f.nodes.get("[data-account-profile-identity]");
+    assert.equal(profile.hidden, true, JSON.stringify(options));
+    assert.equal(f.nodes.get("[data-account-profile-email]").textContent, "");
+    assert.notEqual(f.nodes.get("[data-account-state]").dataset.status, "ready");
+  }
 });
