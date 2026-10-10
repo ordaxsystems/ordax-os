@@ -184,6 +184,10 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             if relative_path.startswith("assets/account/") and suffix == ".js":
                 for nonfetching_uri in ACCOUNT_UI_STATIC_URIS:
                     sanitized = sanitized.replace(nonfetching_uri, "")
+            if relative_path.startswith("assets/account/") and suffix == ".css":
+                # Tailwind's SPDX/MIT header contains the documentation URL
+                # below; this is a static comment, never a CSS network import.
+                sanitized = sanitized.replace("https://tailwindcss.com", "")
             if "http://" in sanitized or "https://" in sanitized:
                 raise PublicSiteError(
                     f"undeclared remote runtime reference is not allowed: {relative_path}"
