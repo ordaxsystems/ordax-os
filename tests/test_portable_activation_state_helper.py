@@ -113,6 +113,54 @@ class PortableActivationStateHelperTests(unittest.TestCase):
         self.assertFalse((activation / "activation-transaction.json").exists())
         self.assertEqual((activation / "rejected").read_text().strip(), NEW)
 
+    def test_missing_candidate_before_first_boot_preserves_previous(self):
+        state, portable, activation = self.fixture()
+        self.run_helper("prepare", state, portable, NEW)
+        (portable / "releases" / NEW / "system.erofs").unlink()
+
+        selected = self.run_helper("select-boot", state, portable)
+        self.assertEqual(selected.stdout.strip(), f"current {OLD}")
+        self.assertEqual((activation / "current").read_text().strip(), OLD)
+        self.assertEqual((activation / "known-good").read_text().strip(), OLDER)
+        self.assertEqual((activation / "rejected").read_text().strip(), NEW)
+        self.assertFalse((activation / "candidate").exists())
+        self.assertFalse((activation / "activation-transaction.json").exists())
+
+    def test_corrupted_candidate_after_one_shot_falls_back_durably(self):
+        state, portable, activation = self.fixture()
+        self.run_helper("prepare", state, portable, NEW)
+        self.assertEqual(
+            self.run_helper("select-boot", state, portable).stdout.strip(),
+            f"candidate {NEW}",
+        )
+        # A power failure left an unusable candidate but not a damaged current.
+        (portable / "releases" / NEW / "system.erofs").write_bytes(b"bad")
+        selected = self.run_helper("select-boot", state, portable)
+        self.assertEqual(selected.stdout.strip(), f"current {OLD}")
+        self.assertEqual((activation / "rejected").read_text().strip(), NEW)
+        self.assertFalse((activation / "activation-transaction.json").exists())
+
+    def test_candidate_identity_mismatch_never_triggers_rollback(self):
+        state, portable, activation = self.fixture()
+        self.run_helper("prepare", state, portable, NEW)
+        (activation / "candidate").write_text(NEXT + "\n", encoding="ascii")
+        result = self.run_helper("select-boot", state, portable, check=False)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("unsafe release state", result.stderr)
+        self.assertEqual((activation / "current").read_text().strip(), OLD)
+        self.assertFalse((activation / "rejected").exists())
+        self.assertTrue((activation / "activation-transaction.json").exists())
+
+    def test_damaged_known_good_never_grants_fallback_authority(self):
+        state, portable, activation = self.fixture()
+        self.run_helper("prepare", state, portable, NEW)
+        (portable / "releases" / OLDER / "system.erofs").unlink()
+        (portable / "releases" / NEW / "system.erofs").unlink()
+        result = self.run_helper("select-boot", state, portable, check=False)
+        self.assertEqual(result.returncode, 4)
+        self.assertIn("unsafe release state", result.stderr)
+        self.assertTrue((activation / "activation-transaction.json").exists())
+
     def test_rejected_candidate_is_not_rearmed_until_channel_advances(self):
         state, portable, activation = self.fixture()
 

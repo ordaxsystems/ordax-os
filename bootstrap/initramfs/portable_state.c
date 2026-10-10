@@ -712,8 +712,7 @@ static int select_boot_command(
         read_commit(release_state, "candidate", candidate) != 0 ||
         strcmp(candidate, transaction.candidate) != 0 ||
         !release_materialized_safely(releases, current) ||
-        !release_materialized_safely(releases, known_good) ||
-        !release_materialized_safely(releases, candidate)) {
+        !release_materialized_safely(releases, known_good)) {
         close(releases);
         close(release_state);
         fputs("ordax-portable-state: activation transaction references unsafe release state\n", stderr);
@@ -742,7 +741,9 @@ static int select_boot_command(
         return EXIT_INVALID;
     }
 
-    if (transaction.attempt == 0) {
+    /* An interrupted or corrupted candidate must not strand a verified
+     * previous release. Transaction and slot identities above still match. */
+    if (transaction.attempt == 0 && release_materialized_safely(releases, candidate)) {
         transaction.attempt = 1;
         if (write_transaction_at(release_state, &transaction) != 0) {
             close(releases);

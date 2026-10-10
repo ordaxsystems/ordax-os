@@ -45,6 +45,29 @@ sem serviço paralelo e sem mudar permissões de gravação física.
 - `python bootstrap/initramfs/build.py check` concluiu com sucesso;
   `git diff --check` sem falhas.
 
+## Transação interrompida com candidata ausente
+
+A PR #1326 também identificou que `bootstrap/initramfs/portable_state.c`
+recusava toda a transação se o EROFS da `candidate` fosse perdido após
+`prepare`. Isso impedia o fallback mesmo quando a release `current` e
+a `known-good` estavam íntegros. O helper agora exige que a **identidade
+da transação**, o SHA da candidata e a materialização de `current` e
+`known-good` continuem válidos; só autoriza a primeira tentativa da
+candidata se seu EROFS existir. Caso contrário, registra `rejected` e
+realiza o rollback previsto, sem executar a candidata.
+
+Quatro testes dinâmicos foram acrescentados ao owner
+`tests/test_portable_activation_state_helper.py`: ausência antes do
+primeiro boot, corrupção após a tentativa única, transação com identidade
+adulterada e known-good danificada. O workflow QEMU canônico agora
+executa esse conjunto com o compilador C do runner antes da montagem.
+
+O primeiro Ubuntu WSL não possuía compilador e ignorou a suíte; esse skip
+não contou como aprovação. Outra distribuição Ubuntu com `/usr/bin/cc`
+compilou o helper com `-O2 -Wall -Wextra -Werror` e executou **11/11 testes
+PASS**, incluindo as quatro novas regressões. O boot QEMU/UEFI completo
+continua dependendo do workflow canônico.
+
 ## Limites da evidência
 
 Estes são testes unitários/contratuais e shell real, não prova física.
