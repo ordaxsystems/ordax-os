@@ -513,3 +513,39 @@
     border: 0;
   }
 }
+
+
+/* Explicit foreground Work is a second intentional action, not the Enter default. */
+.ordax-assistant-work-submit {
+  font: inherit;
+  font-size: 0.76rem;
+  padding: 8px 12px;
+  color: var(--ordax-text);
+  background: transparent;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  cursor: pointer;
+}
+.ordax-assistant-work-submit:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+.ordax-assistant-work-submit:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.ordax-assistant-work-explainer {
+  margin: 0;
+  font-size: 0.69rem;
+  color: var(--ordax-muted);
+  line-height: 1.5;
+}
+.ordax-assistant-work-error {
+  margin: 0;
+  color: var(--ordax-danger);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .ordax-assistant-work-submit { flex: 1 1 100%; }
+}
