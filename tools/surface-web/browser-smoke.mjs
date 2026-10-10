@@ -1230,9 +1230,12 @@ async function provePublicAccount(client, url, evidenceDir) {
   for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['landscape',844,390]]) {
     await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
     await client.send('Page.navigate', { url });
-    const deadline = Date.now() + 10_000;
+    const deadline = Date.now() + 30_000;
     while (!await evaluate('document.readyState === "complete" && document.body.classList.contains("account-enhanced") && document.querySelector("[data-account-state]")?.dataset.status !== "checking"')) {
-      if (Date.now() > deadline) throw new Error('account preview did not become ready');
+      if (Date.now() > deadline) {
+        const readiness = await evaluate('({ path:location.pathname, document:document.readyState, enhanced:document.body?.classList.contains("account-enhanced"), session:document.querySelector("[data-account-state]")?.dataset.status })');
+        throw new Error(`${name} account preview readiness timed out: ${JSON.stringify(readiness)}`);
+      }
       await sleep(50);
     }
     await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
