@@ -502,7 +502,8 @@ def install_developer_boot_splash(rootfs: Path) -> None:
         source = media_dir / name
         if not source.is_file() or source.is_symlink():
             raise BuildError(f"developer boot media absent: {name}")
-        if source.stat().st_size > 12 * 1024 * 1024 or sha256_file(source) != expected:
+        media_size_ceiling = 32 * 1024 * 1024 if key == "video" else 4 * 1024 * 1024
+        if source.stat().st_size > media_size_ceiling or sha256_file(source) != expected:
             raise BuildError(f"developer boot media integrity mismatch: {name}")
         target = destination / name
         shutil.copyfile(source, target)
