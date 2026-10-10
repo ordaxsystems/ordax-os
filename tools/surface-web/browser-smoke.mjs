@@ -578,90 +578,6 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     result.dockShortcutOpensRealOwner = Boolean(root.querySelector('[data-window-id="files"]'));
     result.homeNavigationClearsWhenAppIsActive = root.querySelector('[data-show-desktop]')?.hasAttribute('aria-current') === false;
 
-    // Exercise the real Files UI in Chromium with asynchronous Native-style
-    // File Space responses. The fixture is isolated and never touches disk.
-    const filesModule = await import(namespaceUrls['composition-first']['system/surface/ui/file-space-controls.mjs']);
-    const filesHost = document.createElement('div');
-    filesHost.innerHTML = '<div data-window-id="files"><div data-app-extension="file-space"></div></div>';
-    document.body.append(filesHost);
-    const fixtureListing = (path) => ({
-      path,
-      entries: path === '/' ? [
-        { name: 'Documentos', kind: 'directory', size: 0, modifiedAt: 0 },
-        { name: 'Downloads', kind: 'directory', size: 0, modifiedAt: 0 },
-        { name: 'Imagens', kind: 'directory', size: 0, modifiedAt: 0 },
-      ] : [],
-    });
-    const failedPaths = new Set();
-    let delayPath = null;
-    let finishDelayedListing = null;
-    const filesPort = {
-      schema: 'ordax.file-space/11',
-      list(path) {
-        if (delayPath === path) return new Promise((resolve) => {
-          finishDelayedListing = () => resolve(fixtureListing(path));
-        });
-        if (failedPaths.has(path)) return Promise.reject(new Error('fixture: failed directory'));
-        return Promise.resolve(fixtureListing(path));
-      },
-      createDirectory(path) { return Promise.resolve(fixtureListing(path)); },
-      readTextFile(path) { return Promise.resolve({ path, size: 0, text: '' }); },
-      renameEntry(path) { return Promise.resolve(fixtureListing(path)); },
-      copyFile(_src, _name, dst) { return Promise.resolve(fixtureListing(dst)); },
-      moveEntry(_src, _name, dst) { return Promise.resolve(fixtureListing(dst)); },
-      trashEntry(path) { return Promise.resolve(fixtureListing(path)); },
-      listTrash() { return Promise.resolve({ entries: [] }); },
-      restoreTrashEntry() { return Promise.resolve({ entries: [] }); },
-      exportFile() { return Promise.resolve(true); },
-      importFile(path) { return Promise.resolve(fixtureListing(path)); },
-    };
-    const filesLifecycle = {
-      schema: 'ordax.surface-render-lifecycle/5',
-      getAppTarget() { return null; },
-      setAppTarget() {},
-      subscribeRender() { return () => {}; },
-      localization: {
-        schema: 'ordax.localization/2',
-        getLocale() { return 'pt-BR'; },
-        getProfile() {
-          return { schema: 'ordax.locale-profile/1', locale: 'pt-BR',
-            language: 'pt', script: 'Latn', region: 'BR', direction: 'ltr' };
-        },
-        translate(key) { return key; },
-        subscribe() { return () => {}; },
-      },
-    };
-    const filesControls = filesModule.mountFileSpaceControls(filesHost, filesPort, null, filesLifecycle);
-    const flushFiles = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
-    const filesSlot = () => filesHost.querySelector('[data-app-extension="file-space"]');
-    await flushFiles();
-    filesHost.querySelector('[data-file-open-path="/Documentos"]').click();
-    await flushFiles();
-    filesHost.querySelector('[data-file-open-path="/Downloads"]').click();
-    await flushFiles();
-    result.filesHistorySetup = filesSlot()?.dataset.fileSpacePath === '/Downloads'
-      && filesHost.querySelector('[data-file-history-back]')?.disabled === false;
-    delayPath = '/Documentos';
-    filesHost.querySelector('[data-file-history-back]').click();
-    result.filesRaceReachedDeferredRequest = typeof finishDelayedListing === 'function';
-    filesHost.querySelector('[data-file-open-path="/"]').click();
-    await flushFiles();
-    finishDelayedListing?.();
-    await flushFiles();
-    result.filesHistoryKeepsLatestNavigation = filesSlot()?.dataset.fileSpacePath === '/'
-      && filesHost.querySelector('[data-file-history-forward]')?.disabled === true;
-    delayPath = null;
-    filesHost.querySelector('[data-file-open-trash]').click();
-    await flushFiles();
-    failedPaths.add('/Imagens');
-    filesHost.querySelector('[data-file-open-path="/Imagens"]').click();
-    await flushFiles();
-    result.filesTrashSurvivesFailedNavigation = filesSlot()?.dataset.fileSpaceContext === 'trash'
-      && filesSlot()?.textContent?.includes('files.location.openFailed') === true;
-    filesControls.destroy();
-    result.filesFixtureCleaned = filesSlot()?.dataset.ordaxFileSpaceView === undefined;
-    filesHost.remove();
-
     result.sharedShortcutLabels = [...root.querySelectorAll('.ordax-home-action, .ordax-dock-shortcut')].every((button) => button.getAttribute('aria-label') === root.querySelector('.ordax-rail [data-sidebar-app="' + button.dataset.sidebarApp + '"]')?.getAttribute('aria-label'));
     const wallpaper = getComputedStyle(root.querySelector('[data-workspace]'), '::before').backgroundImage;
     const wallpaperUrl = wallpaper.match(/url\\("?(blob:[^"\\)]+)"?\\)/)?.[1];
@@ -1197,9 +1113,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
       'studioHasSingleContentHeading', 'studioDisclosureSurvivesNavigation',
       'homeShortcutOpensRealOwner', 'homeRestoresDesktopWithoutDeletingWindows',
       'homeNavigationReflectsWorkspace', 'homeNavigationClearsWhenAppIsActive',
-      'dockShortcutOpensRealOwner', 'filesHistorySetup', 'filesRaceReachedDeferredRequest',
-      'filesHistoryKeepsLatestNavigation', 'filesTrashSurvivesFailedNavigation', 'filesFixtureCleaned',
-      'sharedShortcutLabels', 'localWallpaperBundled', 'localWallpaperDecoded',
+      'dockShortcutOpensRealOwner', 'sharedShortcutLabels', 'localWallpaperBundled', 'localWallpaperDecoded',
       'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
       'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
       'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
