@@ -288,6 +288,15 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         )
         self.assertIn("'writer_source_commit': os.environ['GITHUB_SHA']", workflow)
 
+    def test_current_repo_authorization_owner_correct_but_still_fail_closed(self):
+        # Repository transfer does not transfer an old destructive grant.
+        auth = json.loads((ROOT / "docs/contracts/physical-write-authorization.json").read_text(encoding="utf-8"))
+        self.assertEqual(auth["source_repository"], promotion.REPOSITORY)
+        self.assertFalse(auth["physical_write_allowed"])
+        self.assertFalse(auth["explicit_owner_authorization"])
+        self.assertIsNone(auth["authorization_context_sha256"])
+        self.assertFalse(auth["requirements"]["canonical_v4_release_proof_bound"])
+
     def test_pending_owner_authorization_fixture_remains_fail_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

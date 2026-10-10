@@ -15,6 +15,19 @@ end-to-end recovery proof. Current legal policy in canonical Supabase is active
 reconciliation. No credentialed E2E, USB physical proof, signed Creator
 publisher or public Stable release has been established by this site proof.
 
+## USB source ownership reconciliation — 2026-10-10
+
+`docs/contracts/physical-write-authorization.json` now names the canonical
+`ordaxsystems/ordax-os` repository rather than the historical pre-transfer
+owner. The previous canonical-v4 release envelope URL remains unchanged as
+historical signed provenance. This is **metadata reconciliation only**:
+`physical_write_allowed=false`, `explicit_owner_authorization=false`,
+`authorization_context_sha256=null`, and
+`canonical_v4_release_proof_bound=false` still apply. The read-only operator
+checker remains `blocked`, with unresolved release bindings and physical
+consent; public Creator Authenticode identity/custody is still unconfigured.
+No USB media was attached to the tested Windows host; no disk write occurred.
+
 
 ## Public account and Web entry — 2026-10-09 source candidate
 
