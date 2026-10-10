@@ -330,7 +330,6 @@ async function start() {
     "OrdaX installed app presentation catalog rejected",
     () => createNativeVerifiedInstalledAppCatalog(installedAppEntries),
   );
-  const appCatalog = installedAppCatalog?.catalog;
   const componentManager = createComponentManager({
     manifests: listSystemComponents(),
     store: componentStateStore,
@@ -720,7 +719,6 @@ async function start() {
     preferenceStore,
     workspaceStore,
     appActivation,
-    appCatalog ?? undefined,
   );
   const assistantMemoryCapture = memory === null
     ? null
@@ -1035,6 +1033,15 @@ async function start() {
     },
   });
 
+  // External app code receives only its own App Data binding and the
+  // documented Surface lifecycle, never a generic host file or AI port.
+  const externalAppSurfaceLifecycle = Object.freeze({
+    schema: surface.schema,
+    localization: surface.localization,
+    subscribeRender: surface.subscribeRender,
+    getAppTarget: surface.getAppTarget,
+    setAppTarget: surface.setAppTarget,
+  });
   const externalAppMounts = await optionalNativeProbe(
     "OrdaX installed component runtime mounting unavailable",
     () => mountNativeVerifiedInstalledApps({
@@ -1043,14 +1050,18 @@ async function start() {
       fetchImpl: verifiedComponentFetch,
       importModule: (url) => import(url),
       context: {
-        root, surfaceLifecycle: surface, appActivation,
-        fileSpace, intelligence: selectedSpaceIntelligence,
+        root, surfaceLifecycle: externalAppSurfaceLifecycle,
       },
       onError(error, appId) {
         reportClientDiagnostic(`installed-app-runtime:${appId}`, error);
       },
     }),
   );
+  const mountedExternalIds = new Set(externalAppMounts?.mountedIds ?? []);
+  const activeExternalCatalog = createNativeVerifiedInstalledAppCatalog(
+    installedAppEntries.filter((entry) => mountedExternalIds.has(entry.component.id)),
+  );
+  surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
   bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   let firstRun = null;

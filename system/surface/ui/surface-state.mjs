@@ -204,6 +204,14 @@ export function reduceSurfaceState(state, action, appCatalog = defaultAppRuntime
         areas: [...state.areas, area],
       });
     }
+    case "app.catalog.sync": {
+      // Catalog removal is authoritative for persisted windows: a missing or
+      // failed external app cannot leave a launchable/restorable window behind.
+      return freezeState({
+        ...state,
+        areas: state.areas.map((area) => recoverArea(area, state.capabilityIds, appCatalog)),
+      });
+    }
     case "app.launch": {
       const app = appCatalog.get(action.appId);
       if (!appCatalog.isAvailable(app, state.capabilityIds)) return state;

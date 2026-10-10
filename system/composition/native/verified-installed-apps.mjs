@@ -56,26 +56,44 @@ export async function mountNativeVerifiedInstalledApps({
   context, onError = null,
 } = {}) {
   if (!Array.isArray(installed)) throw new TypeError("Installed app mounts require an array");
+  if (!context || typeof context !== "object" || Array.isArray(context)
+    || Object.prototype.hasOwnProperty.call(context, "appData")) {
+    throw new TypeError("Installed app caller context cannot supply App Data");
+  }
   if (onError !== null && typeof onError !== "function") {
     throw new TypeError("Installed app mount error handler must be a function or null");
   }
-  const mounts = await Promise.all(installed.map(async (entry) => {
-    const mounted = await loadVerifiedCurrentComponentRuntime({
-      componentId: entry.component.id,
-      source,
-      fetchImpl,
-      importModule,
-      context,
-      onError(error) { onError?.(error, entry.component.id); },
-    });
-    return mounted;
+  const results = await Promise.all(installed.map(async (entry) => {
+    const appId = entry.component.id;
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) {
+      onError?.(new TypeError("App is outside the Native module-read policy"), appId);
+      return null;
+    }
+    try {
+      const mounted = await loadVerifiedCurrentComponentRuntime({
+        componentId: appId,
+        source,
+        fetchImpl,
+        importModule,
+        context,
+        requireTrustedAppData: true,
+        expectedCurrent: entry.metadata,
+        onError(error) { onError?.(error, appId); },
+      });
+      return mounted === null ? null : Object.freeze({ appId, mounted });
+    } catch (error) {
+      onError?.(error, appId);
+      return null;
+    }
   }));
+  const mountedIds = Object.freeze(results.filter(Boolean).map((value) => value.appId));
   return Object.freeze({
     destroy() {
-      for (const mounted of mounts) {
-        try { mounted?.destroy(); } catch { /* component teardown is isolated */ }
+      for (const result of results) {
+        try { result?.mounted.destroy(); } catch { /* component teardown is isolated */ }
       }
     },
-    mountedCount: mounts.filter(Boolean).length,
+    mountedIds,
+    mountedCount: mountedIds.length,
   });
 }

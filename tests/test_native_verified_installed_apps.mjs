@@ -6,7 +6,21 @@ import {
 } from "../system/composition/native/verified-installed-apps.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
+import { APP_DATA_SCHEMA } from "../system/contracts/app-data.mjs";
+import { installTrustedComponentContextProvider } from "../system/services/components/runtime-loader.mjs";
 import { createAppRuntimeCatalog } from "../system/apps/runtime-catalog.mjs";
+
+function appDataPort(appId = "notes") {
+  return Object.freeze({
+    schema: APP_DATA_SCHEMA,
+    identity: Object.freeze({ appId, publisherId: "ordaxsystems", ownerScope: "device" }),
+    get() {}, list() {}, put() {}, delete() {},
+  });
+}
+let trustedAppData = appDataPort();
+installTrustedComponentContextProvider(async () => (
+  trustedAppData === null ? null : { appData: trustedAppData }
+));
 
 const sourceCommit = "7".repeat(40);
 const component = Object.freeze({
@@ -78,6 +92,7 @@ test("verified Native component is rechecked before mount and cleaned on shutdow
   let mounted = 0, destroyed = 0;
   const mounts = await mountNativeVerifiedInstalledApps({
     installed, source, context: Object.freeze({ root: "root-marker" }),
+    onError(error) { throw error; },
     fetchImpl: async (url) => {
       fetched.push(url);
       return { ok: true, json: async () => metadata };
@@ -96,6 +111,7 @@ test("verified Native component is rechecked before mount and cleaned on shutdow
   });
   assert.equal(mounted, 1);
   assert.equal(mounts.mountedCount, 1);
+  assert.deepEqual(mounts.mountedIds, ["notes"]);
   assert.equal(fetched.length, 3);
   mounts.destroy();
   assert.equal(destroyed, 1);
@@ -116,6 +132,7 @@ test("missing verified slot never mounts and does not abort Native startup", asy
   });
   assert.equal(executed, false);
   assert.equal(mounts.mountedCount, 0);
+  assert.deepEqual(mounts.mountedIds, []);
   assert.deepEqual(errors, []);
 });
 
@@ -127,4 +144,53 @@ test("injection cannot claim an arbitrary app outside the Native module-read pol
   };
   assert.throws(() => createNativeVerifiedInstalledAppCatalog([candidate]),
     /canonical verified Native slot/);
+});
+
+test("missing trusted App Data prevents any external fetch or import", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  trustedAppData = null;
+  try {
+    let fetched = 0, imported = 0;
+    const errors = [];
+    const runtime = await mountNativeVerifiedInstalledApps({
+      installed, source, context: { root: "root-marker" },
+      fetchImpl: async () => { fetched++; throw new Error("unexpected network"); },
+      importModule: async () => { imported++; throw new Error("unexpected module"); },
+      onError(error) { errors.push(error); },
+    });
+    assert.equal(fetched, 0);
+    assert.equal(imported, 0);
+    assert.deepEqual(runtime.mountedIds, []);
+    assert.equal(errors.length, 1);
+  } finally {
+    trustedAppData = appDataPort();
+  }
+});
+
+test("mismatched trusted App Data identity is rejected before module load", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  trustedAppData = appDataPort("studio");
+  try {
+    const errors = [];
+    const runtime = await mountNativeVerifiedInstalledApps({
+      installed, source, context: { root: "root-marker" },
+      fetchImpl: async () => { throw new Error("must not fetch"); },
+      importModule: async () => { throw new Error("must not import"); },
+      onError(error) { errors.push(error); },
+    });
+    assert.deepEqual(runtime.mountedIds, []);
+    assert.match(errors[0]?.message, /identity does not match/);
+  } finally {
+    trustedAppData = appDataPort();
+  }
+});
+
+test("a caller cannot inject or override the host App Data port", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  await assert.rejects(
+    () => mountNativeVerifiedInstalledApps({
+      installed, source, context: { root: {}, appData: appDataPort() },
+    }),
+    /caller context cannot supply App Data/,
+  );
 });
