@@ -85,6 +85,7 @@ export async function mountNativeVerifiedInstalledApps({
         fetchImpl,
         importModule,
         context: trusted,
+        expectedCurrent: entry.metadata,
         onError(error) { onError?.(error, appId); },
       });
       return mounted === null ? null : Object.freeze({ appId, mounted });
