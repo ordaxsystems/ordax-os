@@ -439,3 +439,25 @@ test("action capabilities are omitted when the trusted application catalog does 
     false,
   );
 });
+
+test("Application Intelligence context preserves caller cancellation through the same verified semantic router", async () => {
+  let deliveredSignal = null;
+  const underlying = intelligenceStub();
+  const port = Object.freeze({
+    ...underlying,
+    respond(value, options) {
+      deliveredSignal = options?.signal;
+      return underlying.respond(value);
+    },
+  });
+  const awareness = createApplicationIntelligenceAwareness({
+    firstPartyApplications: [firstPartyApp()],
+  });
+  const wrapped = createApplicationContextIntelligence({
+    intelligencePort: port,
+    awarenessPort: awareness,
+  });
+  const controller = new AbortController();
+  await wrapped.respond({ prompt: "Quais apps existem?" }, { signal: controller.signal });
+  assert.equal(deliveredSignal, controller.signal);
+});
