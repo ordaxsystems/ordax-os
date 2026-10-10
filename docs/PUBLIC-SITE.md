@@ -1,5 +1,41 @@
 # OrdaX Public Site
 
+## Migração da Conta Lovable — distribuição e gates (2026-10-10)
+
+A UI de `/conta/` passa a ter código React estático e assets originais em
+`sites/account-ui/lovable-original/`, com bundle compilado verificável em
+`sites/account-ui/prebuilt/`. O builder canônico
+`tools/public-site/build.py` seleciona `--account-ui lovable` no
+`vercel.json`; somente esse perfil substitui o HTML da Conta no artefato
+de produção, enquanto as rotas de login, cadastro, políticas e landing
+continuam pertencendo a `sites/public/`. O TanStack Router usa
+`/conta/` e subseções por URL; a autenticação segue exclusivamente
+`GET /auth/session` e `POST /auth/logout` no mesmo domínio.
+
+Os recursos não verificados (assinatura, faturamento, consumo e dispositivos)
+permanecem explicitamente indisponíveis. Não foram implantados um novo
+provedor, novas contas, tokens persistidos em JS ou uma segunda origem.
+A prova Chromium do candidato abrange sete viewports, navegação,
+menu de perfil, um cenário de sessão autenticada **simulado apenas em
+teste** e expiração da identidade. Essa fixture não substitui um E2E
+com sessão verdadeira no domínio publicado.
+
+O `ignoreCommand` agora acompanha `sites/account-ui` e o
+`git.deploymentEnabled` limita deploy automático à branch `main`.
+Previews das branches de trabalho continuam homologados localmente pelo
+CI, sem consumir quota de deploy para cada commit. A evidência de
+`build-rate-limit` da Vercel é um bloqueio de quota externa e **não**
+é licença para publicar em outro projeto ou usar outra origem como paliativo.
+Quando a quota permitir, deve ser observado um deployment de produção
+READY no único projeto `ordax-os-public` apontando para o commit
+atualizado da `main`, seguido de revalidação HTTP e sessão real.
+
+A UI copiada apresenta atualmente textos de pt-BR; a tradução de todos os
+componentes React para en-US ainda precisa consumir o catálogo existente
+do site, sem criar um dicionário paralelo. Não apresentar paridade de
+idiomas do React como pronta antes dessa prova. O restante do portal mantém
+seu dono canônico `sites/public/i18n`.
+
 ## Evidencia de producao anonima — 2026-10-10
 
 O dominio canonico `https://ordax.com.br` foi observado apos a publicacao do
