@@ -1338,6 +1338,12 @@ wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control s
 printf '\033[2J\033[H'
 printf 'OrdaX: iniciando Surface grafica...\n'
 
+# Base owns the early splash; this single bounded handoff prevents
+# framebuffer/DRM races when Cage takes over. The Surface never replays media.
+if [ -x /usr/local/bin/ordax-boot-splash-stop ]; then
+    /usr/local/bin/ordax-boot-splash-stop || true
+fi
+
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \
     /usr/bin/seatd-launch -- /usr/bin/cage -s -- \
