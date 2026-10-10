@@ -58,6 +58,19 @@ REMOTE_RUNTIME_ALLOWLIST = {
     "assets/site.js": (TURNSTILE_RUNTIME_URL,),
 }
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
+# Non-fetching URI constants embedded by the audited React/TanStack runtime.
+# These represent DOM namespaces, vendor documentation and the Router SSR
+# fallback (window.origin is always authoritative in browsers). The browser CSP
+# still permits connect-src 'self' only. Never allow arbitrary external URLs.
+ACCOUNT_UI_STATIC_URIS = (
+    "http://www.w3.org/2000/svg",
+    "http://www.w3.org/1998/Math/MathML",
+    "http://www.w3.org/1999/xlink",
+    "http://www.w3.org/XML/1998/namespace",
+    "https://react.dev/errors/",
+    "http://localhost",
+)
+
 REMOTE_HTML_REF_RE = re.compile(r"\\b(?:src|href)\\s*=\\s*['\"]//", re.IGNORECASE)
 PROTOCOL_RELATIVE_CSS_TOKENS = (
     "url(//",
@@ -154,6 +167,10 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
                 raise PublicSiteError("invalid canonical PNG symbol")
             continue
+        if suffix == ".jpg":
+            if not relative_path.startswith("assets/account/") or path.read_bytes()[:3] != bytes((255, 216, 255)):
+                raise PublicSiteError("unverified account JPEG asset")
+            continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
                 f"unexpected public site source type: {path.relative_to(root).as_posix()}"
@@ -164,6 +181,9 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             sanitized = text
             for allowed_url in REMOTE_RUNTIME_ALLOWLIST.get(relative_path, ()):
                 sanitized = sanitized.replace(allowed_url, "")
+            if relative_path.startswith("assets/account/") and suffix == ".js":
+                for nonfetching_uri in ACCOUNT_UI_STATIC_URIS:
+                    sanitized = sanitized.replace(nonfetching_uri, "")
             if "http://" in sanitized or "https://" in sanitized:
                 raise PublicSiteError(
                     f"undeclared remote runtime reference is not allowed: {relative_path}"
