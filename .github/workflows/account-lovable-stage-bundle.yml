@@ -3,7 +3,11 @@ name: Stage Original Account UI Bundle
 on:
   push:
     branches: [feat/account-original-lovable-source-20261010]
-    paths: ['.github/workflows/account-lovable-stage-bundle.yml']
+    paths:
+      - '.github/workflows/account-lovable-stage-bundle.yml'
+      - 'sites/account-ui/lovable-original/src/**'
+      - 'sites/account-ui/lovable-original/index.html'
+      - 'sites/account-ui/lovable-original/vite.config.account.ts'
 
 permissions:
   contents: write
