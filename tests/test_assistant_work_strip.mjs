@@ -170,6 +170,11 @@ test("real pending approval outranks newer completed responses without changing 
     assert.equal(view.cards[0].state, "requires-action");
     assert.equal(view.cards[0].result, null);
     assert.equal(view.cards[0].resultId, null);
+    assert.deepEqual(view.cards[0].actionEvidence, []);
+    assert.equal(view.cards[0].pendingApproval.sourceSchema, "ordax.personal-approval/1");
+    assert.equal(view.cards[0].pendingApproval.reason, "Ação requer aprovação explícita");
+    assert.equal("grantRef" in view.cards[0].pendingApproval, false);
+    assert.equal("resourceRef" in view.cards[0].pendingApproval, false);
     assert.deepEqual(view.cards[0].steps.map(event => event.type),
       ["queued", "approval-requested"]);
     assert.equal(view.remainingCount, 1);
@@ -219,4 +224,20 @@ test("Canvas displays event timestamp, scoped provenance and prioritizes real Wo
   assert.match(ui, /verifiedWork\.remainingCount > 0/);
   assert.match(ui, /textarea\.focus\(\{ preventScroll: true \}\)/);
   assert.doesNotMatch(ui, /innerHTML|insertAdjacentHTML|personalOrdax\.run\(|personalOrdax\.approve\(/);
+});
+
+
+test("Action evidence table binds only trusted Personal Attempt status and never grants or arbitrary HTML", async () => {
+  const source = await readFile(
+    new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8",
+  );
+  assert.match(source, /work\.actionEvidence\.length > 0/);
+  assert.match(source, /dataset\.assistantActionAttempt = entry\.attemptId/);
+  assert.match(source, /entry\.finishedAt \?\? entry\.startedAt/);
+  assert.match(source, /entry\.summary \?\? t\("assistant\.work\.actions\.noSummary"\)/);
+  assert.match(source, /work\.pendingApproval\.reason/);
+  assert.match(source, /pending\.dataset\.assistantPendingApproval = work\.pendingApproval\.approvalId/);
+  assert.match(source, /th\.scope = "col"/);
+  assert.doesNotMatch(source, /grantRef|resourceRef|toolArtifactSha256|innerHTML|insertAdjacentHTML/);
+  assert.doesNotMatch(source, /personalOrdax\.executeApprovedAction\(|personalOrdax\.resolveApproval\(/);
 });
