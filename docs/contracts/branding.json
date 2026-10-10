@@ -26,7 +26,27 @@
     "owner": "system/surface/ui/boot-screen.*",
     "delivery": "runtime-git-checkout",
     "usb_rewrite_required": false,
-    "default_status": "Preparando OrdaX…"
+    "default_status": "Preparando OrdaX…",
+    "native_cinematic": {
+      "status": "candidate-awaiting-binary-assets-and-physical-proof",
+      "render_owner": "system/surface/ui/boot-screen.mjs",
+      "composition_owner": "system/composition/native/index.html",
+      "video_path": "system/surface/ui/boot/ordax-os-boot.mp4",
+      "video_sha256": "8216fd455d49106edc070a5cba3496a7918123237874e4788745829e59a561f6",
+      "poster_path": "system/surface/ui/boot/ordax-os-boot-poster.png",
+      "poster_sha256": "af821207a952cb739ef41d9026b52cbb9e6c7058bb11a5e078fcf7afaa3f03dd",
+      "original_asset_sha256": "bcab385c001833529cd40b9bb8685e5eb33b7fec12b308d4a3a047965f500769",
+      "resolution": "1280x720",
+      "fps": 24,
+      "duration_seconds": 8.833333,
+      "audio_removed": true,
+      "boot_blocking": false,
+      "startup_delayed_until_video_ends": false,
+      "reduced_motion_fallback": true,
+      "codec_support_may_vary": true,
+      "native_hardware_proven": false,
+      "early_kernel_splash_proven": false
+    }
   },
   "first_run": {
     "implemented": true,
