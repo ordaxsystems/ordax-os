@@ -461,3 +461,29 @@ test("Application Intelligence context preserves caller cancellation through the
   await wrapped.respond({ prompt: "Quais apps existem?" }, { signal: controller.signal });
   assert.equal(deliveredSignal, controller.signal);
 });
+
+test("Application Intelligence streams only through the existing awareness context port", async () => {
+  const underlying = intelligenceStub();
+  let verifiedContext;
+  const intelligence = Object.freeze({
+    ...underlying,
+    async respond(request, options = {}) {
+      verifiedContext = request.context;
+      await options.onDelta("catálogo verificado");
+      return underlying.respond(request);
+    },
+  });
+  const wrapped = createApplicationContextIntelligence({
+    intelligencePort: intelligence,
+    awarenessPort: createApplicationIntelligenceAwareness({
+      firstPartyApplications: [firstPartyApp()],
+    }),
+  });
+  const deltas = [];
+  const final = await wrapped.respond({ prompt: "meus apps" }, {
+    onDelta(delta) { deltas.push(delta); },
+  });
+  assert.equal(verifiedContext.some(item => item.id === "ordax-application-catalog"), true);
+  assert.deepEqual(deltas, ["catálogo verificado"]);
+  assert.equal(final.authority, "none");
+});
