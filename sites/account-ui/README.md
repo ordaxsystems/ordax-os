@@ -79,6 +79,31 @@ nem substituir a produção sem essas provas.**
    existentes; somente então substituir `/conta/` em um único deploy,
    remover o antigo código de apresentação que deixar de ser necessário.
 
+### Continuação: menu oficial e pacote reprodutível
+
+O cabeçalho React oferece menu suspenso de identidade por
+`@radix-ui/react-dropdown-menu` (dependência já presente no lockfile
+original). Ações de perfil e segurança, bem como o botão **Sair da conta**,
+ficam visíveis somente após a sessão verificada pelo contrato
+`/auth/session`; login/cadastro aparecem na sessão anônima.
+Não há identidade presumida nem segundo estado de autenticação.
+
+O adaptador TSX é o único dono da leitura de sessão no React. O arquivo
+antigo `official-session.ts` foi removido para impedir shadowing do
+provador real. A camada `account-live.css` contém somente adaptações
+necessárias de comportamento, sem reescrever `styles.css` Lovable.
+
+O workflow Stage Original Account UI Bundle gera arquivos
+`sites/account-ui/prebuilt` a partir da fonte e remove hashes antigos
+antes de substituir o conjunto. Account Lovable Source Candidate
+recompila e exige igualdade byte a byte entre fonte e prebuilt.
+Public Site Candidate monta o pacote final e executa viewport/teclado/
+menu/deep links nos sete tamanhos de tela, além de manter a prova do
+layout HTML anterior até a ativação canônica.
+
+A criação do bundle compilado **não constitui publicação ou aprovação
+de produção**. As provas requeridas abaixo continuam independentes.
+
 ### Gates antes do merge
 
 - Comparação de composição/asset em desktop, tablet, celular, teclado,
