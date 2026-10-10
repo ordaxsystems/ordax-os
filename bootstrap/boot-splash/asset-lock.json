@@ -9,11 +9,11 @@
   },
   "video": {
     "name": "frames.rgb565.zst",
-    "sha256": "82103c596add28d2945b172c418e4e9d03c1e4b6e3600a4f1b1a76be931bdb38",
-    "width": 640,
-    "height": 360,
-    "fps": 12,
-    "frames": 106,
+    "sha256": "691247dc90a44ffcbeb6c3ae953f756b74f2fff5f0cd3e84f98de36c5747f2ab",
+    "width": 1280,
+    "height": 720,
+    "fps": 24,
+    "frames": 212,
     "pixel_format": "rgb565le",
     "compressed": "zstd"
   },
