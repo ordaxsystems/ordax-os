@@ -327,7 +327,7 @@ for (const value of collectUserFacingJsLiterals(playground)) {
 }
 const accountPortal = read("sites/public/assets/account-portal.js");
 // These are DOM/route identifiers, not labels. Visible labels remain covered.
-const accountImplementationTokens = new Set(["conta", "plano", "armazenamento", "integracoes", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/", "/conta-2/"]);
+const accountImplementationTokens = new Set(["conta", "integracoes", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/"]);
 for (const value of collectUserFacingJsLiterals(accountPortal, accountImplementationTokens)) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `account portal copy missing from localization owner: ${value}`);

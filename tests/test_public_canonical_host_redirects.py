@@ -39,14 +39,7 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(migration["canonical_public_alias_redirect_http_status"], 307)
         self.assertEqual(set(migration["canonical_public_alias_redirects"]), EXPECTED_HOSTS)
         self.assertNotIn(CANONICAL, EXPECTED_HOSTS)
-        # Internal page migrations do not own host canonicalization. No source
-        # rule may recreate a host condition or an external domain destination.
-        for rule in self.config.get("redirects", []):
-            self.assertEqual(set(rule), {"source", "destination", "permanent"})
-            self.assertTrue(rule["destination"].startswith("/"))
-            self.assertFalse(rule["destination"].startswith("//"))
-            self.assertNotIn("has", rule)
-            self.assertNotIn("missing", rule)
+        self.assertNotIn("redirects", self.config)
 
     def test_single_origin_auth_proxy_and_auto_git_deployment(self):
         self.assertEqual(

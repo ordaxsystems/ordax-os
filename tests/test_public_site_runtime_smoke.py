@@ -32,16 +32,15 @@ preview = load_module("ordax_public_site_preview_smoke", PREVIEW_PATH)
 
 
 class PublicSiteRuntimeSmokeTests(unittest.TestCase):
-    def test_route_inventory_matches_built_pages_and_rejects_a_removed_page(self):
+    def test_route_inventory_matches_built_pages_and_rejects_a_missing_page(self):
         manifest_path = self.out / build.MANIFEST_NAME
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.assertIn("/conta/", manifest["routes"])
         self.assertIn("/web/", manifest["routes"])
-        self.assertNotIn("/conta-2/", manifest["routes"])
         with tempfile.TemporaryDirectory() as temporary:
             candidate = Path(temporary) / "site"
             shutil.copytree(self.out, candidate)
-            manifest["routes"].append("/conta-2/")
+            manifest["routes"].append("/missing-page/")
             (candidate / build.MANIFEST_NAME).write_text(json.dumps(manifest), encoding="utf-8")
             with self.assertRaisesRegex(build.PublicSiteError, "route inventory"):
                 build.verify_bundle(candidate)
@@ -129,15 +128,6 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
                     self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
                     self.assertEqual(response.headers["X-Frame-Options"], "DENY")
                     self.assertIn("default-src 'self'", response.headers["Content-Security-Policy"])
-
-    def test_former_preview_routes_redirect_to_the_only_account_and_keep_query(self):
-        for source in ("/conta-2", "/conta-2/", "/conta-2/index.html"):
-            with self.subTest(source=source), self.fetch(source + "?source=bookmark") as response:
-                self.assertEqual(response.status, 200)
-                self.assertTrue(response.geturl().endswith("/conta/?source=bookmark"))
-                markup = response.read().decode("utf-8")
-                self.assertIn('data-page="conta"', markup)
-                self.assertNotIn("Prévia 2", markup)
 
     def test_generated_release_catalog_is_served_and_empty(self):
         with self.fetch("/releases/catalog.json") as response:

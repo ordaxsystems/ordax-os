@@ -1296,9 +1296,9 @@ async function provePublicAccount(client, url, evidenceDir) {
     await evaluate('document.querySelector("#search-results a").click()');
     await sleep(50);
     if (!await evaluate('location.hash === "#dispositivos" && document.activeElement.matches("#account-content h1") && !document.querySelector("#account-dialog").open')) throw new Error('search section routing/focus failed');
-    await evaluate('location.hash = "#armazenamento"');
+    await evaluate('location.hash = "#consumo"');
     await sleep(50);
-    if (!await evaluate('location.hash === "#consumo" && document.querySelector("#usage-tab-storage").getAttribute("aria-selected") === "true"')) throw new Error('legacy storage route failed');
+    await evaluate('document.querySelector("#usage-tab-storage").click()');
     await evaluate('document.querySelector("#usage-tab-storage").focus()');
     await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'ArrowRight', code:'ArrowRight', windowsVirtualKeyCode:39 });
     if (!await evaluate('document.activeElement.id === "usage-tab-apis" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error('usage keyboard navigation failed');
@@ -1311,7 +1311,7 @@ async function provePublicAccount(client, url, evidenceDir) {
     const englishShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
     await writeFile(join(evidenceDir, `account-${name}-en.png`), Buffer.from(englishShot.data, 'base64'));
     await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
-    reports.push({ name, ...report, dialogsAndFocus: true, legacyRouting: true, keyboardTabs: true, englishFits: true });
+    reports.push({ name, ...report, dialogsAndFocus: true, sectionRouting: true, keyboardTabs: true, englishFits: true });
   }
   if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) throw new Error('public account emitted a JavaScript exception');
   await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));

@@ -73,13 +73,10 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ### Minha Conta — apresentação única aprovada (2026-10-10)
 
-Por solicitação explícita do usuário, o layout avaliado em `/conta-2/` foi
-promovido para `/conta/`. O HTML, CSS e controlador antigos foram substituídos;
-não há segunda página nem segundo cliente de Identity. Os owners atuais são
-`sites/public/conta/index.html`, `assets/account-dashboard.css` e
-`assets/account-portal.js`. O cliente versionado `OrdaXPublicAccount` continua
-em `assets/site.js`; somente ele consulta e valida `GET /auth/session`.
-O renderer DOM da apresentação antiga foi removido desse cliente.
+A rota `/conta/` tem uma única apresentação, com HTML em
+`sites/public/conta/index.html`, estilos em `assets/account-dashboard.css` e
+controlador em `assets/account-portal.js`. O cliente versionado
+`OrdaXPublicAccount`, em `assets/site.js`, consulta e valida `GET /auth/session`.
 
 Owner: public portal no `ordaxsystems/ordax-os`. Dependências: contratos públicos
 de Identity, localização do portal, catálogo canônico de entitlements e pipeline
@@ -92,15 +89,14 @@ substitui o wallpaper do sistema.
 A referência `washingtonmsdj/account-hub-pro` está fixada no commit
 `0f955ece6e570801976d8ed77d2cada101b7a3fa`. O README declara ownership do autor;
 não há LICENSE explícita. Reprodução e promoção foram autorizadas pelo usuário,
-com evidência em `docs/evidence/account-2-reference-2026-10-10.json`. Não foram
+com evidência em `docs/evidence/public-account-layout-reference-2026-10-10.json`. Não foram
 importadas dependências React/TanStack, provedores, IA Lovable, credenciais ou
 serviços da referência.
 
 A UI apresenta resumo, dados pessoais, assinatura, consumo, faturamento,
 segurança, dispositivos, privacidade, integrações, preferências, atividade e
 suporte. Navegação lateral, busca e Mais usam um único catálogo de seções.
-Atalhos antigos `#plano` e `#armazenamento` são normalizados para assinatura e
-consumo (aba Armazenamento). O idioma usa o runtime oficial e sua preferência
+O idioma usa o runtime oficial e sua preferência
 local existente; controles de demonstração de idioma/notificações foram removidos.
 Nomes de planos são gerados do contrato de entitlements: não indicam contratação,
 preço, limite ou elegibilidade do usuário.
@@ -112,22 +108,15 @@ não contratados. Retry, reativação da aba e retorno pelo histórico revalidam
 sessão; dados pessoais são limpos na invalidação, no logout e no `pagehide`.
 Respostas de gerações antigas não restauram dados revogados.
 
-`vercel.json` é o owner dos redirecionamentos internos permanentes de `/conta-2` para a
-rota principal. Preview lê a mesma configuração; o build gera
-`public-redirects.nginx.conf` para o adapter Nginx. Não há cópia da página antiga
-como fallback. Query e fragmento continuam nos acessos compatíveis; a navegação
-é interna e não concede autenticação. Assets do cliente e das entradas de login
-recebem versões pelo hash do conteúdo.
-Os redirects de domínio permanecem exclusivamente nas regras de aliases do
-projeto Vercel; a política interna não aceita condições de host nem destinos externos.
+Assets do cliente e das entradas de login recebem versões pelo hash do conteúdo.
+As rotas do manifesto são derivadas das páginas existentes no build.
 
-Critérios de aceite: uma única implementação; redirecionamentos e atalhos
-compatíveis; menu, sessão e ausência de dados inventados verificados; PT-BR/en-US
+Critérios de aceite: uma única implementação e catálogo de rotas; menu, sessão e ausência de dados inventados verificados; PT-BR/en-US
 com paridade; viewport mobile sem overflow; build reproduzível com origem e
 integridade verificadas. Risco: a sessão é compartilhada com login e Web, por
 isso readiness, consentimento e regressões desses fluxos devem passar.
 
-A promoção da apresentação não ativa recursos sem contratos ou gates. Edição de
+A apresentação não ativa recursos sem contratos ou gates. Edição de
 perfil/foto, senha/2FA, dispositivos e revogação remota, pagamentos, medição,
 notificações e auditoria continuam pendentes de serviços públicos. Exportação,
 exclusão e Cloud seguem gates legais/operacionais existentes. O Web só abre um

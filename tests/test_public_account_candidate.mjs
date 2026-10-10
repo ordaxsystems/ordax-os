@@ -95,12 +95,7 @@ test("anonymous and unavailable states retain real sign-in navigation and action
 });
 
 
-test("legacy plan and storage links resolve within the sole canonical section catalog", () => {
-  const plan = fixture("#plano");
-  assert.ok(plan.get("account-content").innerHTML.includes("Plano e assinatura"));
-  const storage = fixture("#armazenamento");
-  assert.ok(storage.get("account-content").innerHTML.includes('id="usage-tab-storage"'));
-  assert.ok(storage.get("account-content").innerHTML.includes('aria-selected="true"'));
+test("integrations retain an honest unavailable state", () => {
   const connections = fixture("#integracoes");
   assert.ok(connections.get("account-content").innerHTML.includes("Integrações não disponíveis"));
 });

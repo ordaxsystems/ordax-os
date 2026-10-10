@@ -158,19 +158,6 @@
       ]
     },
     {
-      "source": "/conta-2/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        },
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
       "source": "/licencas/:path*",
       "headers": [
         {
@@ -228,22 +215,5 @@
   "git": {
     "deploymentEnabled": true
   },
-  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify",
-  "redirects": [
-    {
-      "source": "/conta-2",
-      "destination": "/conta/",
-      "permanent": true
-    },
-    {
-      "source": "/conta-2/",
-      "destination": "/conta/",
-      "permanent": true
-    },
-    {
-      "source": "/conta-2/index.html",
-      "destination": "/conta/",
-      "permanent": true
-    }
-  ]
+  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
 }

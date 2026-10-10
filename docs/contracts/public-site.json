@@ -166,13 +166,12 @@
       "may_activate_account_services": false,
       "may_simulate_user_data": false,
       "search_engine_indexing_allowed": false,
-      "provenance": "docs/evidence/account-2-reference-2026-10-10.json",
+      "provenance": "docs/evidence/public-account-layout-reference-2026-10-10.json",
       "source": "sites/public/conta/index.html",
       "controller": "sites/public/assets/account-portal.js",
       "styles": "sites/public/assets/account-dashboard.css",
       "visual_policy": "system/surface/ui/tokens.css"
-    },
-    "legacy_redirect_owner": "vercel.json"
+    }
   },
   "mvp_scope": {
     "execution_mode": "usb-only",

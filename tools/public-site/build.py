@@ -22,7 +22,6 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 from public_html_render import render_public_html
-from public_redirects import nginx_redirects
 
 # Load the brand compiler by an isolated module identity. Importing a generic
 # "build" module or prepending to sys.path shadows the component-package
@@ -46,7 +45,7 @@ PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.png"
 CANONICAL_WALLPAPER = ROOT / "system/surface/ui/brand/midnight-landscape.png"
 CANONICAL_FONT = ROOT / "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
 CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
-ACCOUNT_LAYOUT_PROVENANCE = ROOT / "docs/evidence/account-2-reference-2026-10-10.json"
+ACCOUNT_LAYOUT_PROVENANCE = ROOT / "docs/evidence/public-account-layout-reference-2026-10-10.json"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
@@ -173,10 +172,6 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             if (len(payload) != illustration["size"]
                     or sha256_bytes(payload) != illustration["sha256"]):
                 raise PublicSiteError("account layout illustration differs from recorded provenance")
-            continue
-        if relative_path == "public-redirects.nginx.conf":
-            if root.resolve() == SOURCE.resolve() or path.read_text(encoding="utf-8") != nginx_redirects():
-                raise PublicSiteError("public redirects differ from canonical routing")
             continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
@@ -328,7 +323,6 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         # overwriting in-progress public-site layouts or source files.
         token_asset = stage / "assets" / "ordax-design-tokens.css"
         token_asset.write_text(render_site_identity_css(), encoding="utf-8")
-        (stage / "public-redirects.nginx.conf").write_text(nginx_redirects(), encoding="utf-8")
         # Use the identical source asset consumed by Native and Surface Web.
         # Its mask/symbol is exposed for UI composition; existing public HTML
         # and its in-progress layout remain untouched.
@@ -475,9 +469,6 @@ def verify_bundle(out_dir: Path) -> dict:
         raise PublicSiteError("canonical OrdaX public font declaration missing or stale")
     if actual.get("assets/ordax-design-tokens.css") is None or actual["assets/ordax-design-tokens.css"].read_text(encoding="utf-8") != render_site_identity_css():
         raise PublicSiteError("canonical OrdaX public design tokens missing or stale")
-
-    if actual.get("public-redirects.nginx.conf") is None or actual["public-redirects.nginx.conf"].read_text(encoding="utf-8") != nginx_redirects():
-        raise PublicSiteError("canonical public redirects missing or stale")
 
     for relative, path in actual.items():
         payload = path.read_bytes()

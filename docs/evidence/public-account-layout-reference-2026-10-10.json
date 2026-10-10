@@ -1,5 +1,5 @@
 {
-  "status": "layout-promoted-to-canonical-account-by-explicit-user-request",
+  "status": "canonical-account-layout-user-approved",
   "owner": "ordaxsystems/ordax-os",
   "reference": {
     "repository": "washingtonmsdj/account-hub-pro",
@@ -12,10 +12,10 @@
       "src/lib/account/model.ts",
       "src/styles.css"
     ],
-    "authorization": "user-requested-layout-reproduction-for-comparison",
+    "authorization": "user-requested-layout-reproduction",
     "license_file_present": false,
     "readme_code_ownership_statement_present": true,
-    "promotion_authorization": "user-requested-account-2-as-the-only-main-account-and-removal-of-old-presentation"
+    "promotion_authorization": "user-requested-single-canonical-account-presentation"
   },
   "illustration": {
     "reference_path": "src/assets/ordax-landscape.jpg",
@@ -36,6 +36,5 @@
     "remote_runtime_added": false,
     "framework_dependencies_imported": false
   },
-  "original_comparison_route": "/conta-2/",
   "route": "/conta/"
 }

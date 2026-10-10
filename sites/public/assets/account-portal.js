@@ -22,8 +22,8 @@
   const sections = Object.freeze([
     { id: "visao-geral", title: "Visão geral", icon: "dashboard", description: "Sua identidade, assinatura e recursos em um só lugar." },
     { id: "dados-pessoais", title: "Dados pessoais", icon: "user", description: "Seu perfil e suas informações cadastrais.", owner: "Identidade OrdaX", capabilities: ["E-mail da conta", "Edição de dados cadastrais", "Foto de perfil"] },
-    { id: "assinatura", aliases: ["plano"], title: "Plano e assinatura", icon: "crown", description: "Seu plano, benefícios e opções de assinatura.", owner: "Direitos e assinaturas OrdaX", capabilities: ["Plano contratado", "Catálogo oficial de planos", "Alteração e cancelamento"] },
-    { id: "consumo", aliases: ["armazenamento"], title: "Consumo e limites", icon: "chart", description: "Acompanhe seus recursos em todo o ecossistema OrdaX.", owner: "Medição de uso OrdaX", capabilities: ["Créditos de IA", "Armazenamento", "Chamadas de API", "Histórico por período"] },
+    { id: "assinatura", title: "Plano e assinatura", icon: "crown", description: "Seu plano, benefícios e opções de assinatura.", owner: "Direitos e assinaturas OrdaX", capabilities: ["Plano contratado", "Catálogo oficial de planos", "Alteração e cancelamento"] },
+    { id: "consumo", title: "Consumo e limites", icon: "chart", description: "Acompanhe seus recursos em todo o ecossistema OrdaX.", owner: "Medição de uso OrdaX", capabilities: ["Créditos de IA", "Armazenamento", "Chamadas de API", "Histórico por período"] },
     { id: "faturamento", title: "Pagamentos e faturas", icon: "card", description: "Métodos de pagamento, cobranças e documentos fiscais.", owner: "Faturamento OrdaX", capabilities: ["Métodos de pagamento", "Faturas e recibos", "Dados fiscais"] },
     { id: "seguranca", title: "Segurança e acesso", icon: "shield", description: "Proteja sua identidade e controle o acesso à sua conta.", owner: "Identidade OrdaX", capabilities: ["Sessão neste navegador", "Senha", "Verificação em duas etapas", "Recuperação", "Eventos de acesso"] },
     { id: "dispositivos", title: "Meus dispositivos", icon: "devices", description: "Dispositivos e sessões vinculados à sua conta.", owner: "Sessões e dispositivos OrdaX", capabilities: ["Sessões ativas", "Dispositivos OrdaX OS", "Encerramento remoto"] },
@@ -228,12 +228,6 @@
     let requested = location.hash.slice(1);
     try { requested = decodeURIComponent(requested); } catch { requested = ""; }
     if (requested === "conteudo") { document.getElementById("conteudo").focus(); return; }
-    const alias = sections.find(section => section.aliases?.includes(requested));
-    if (alias) {
-      if (requested === "armazenamento") state.tab = "storage";
-      requested = alias.id;
-      window.history?.replaceState(null, "", "#" + requested);
-    }
     if (!byId.has(requested)) requested = "visao-geral";
     const changed = requested !== state.section;
     state.section = requested;
