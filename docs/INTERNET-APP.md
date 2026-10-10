@@ -89,9 +89,10 @@ ou contratos não publicados, retorna falha em vez de autorizar o cutover.
 **Importante:** `sdkBoundaryClean` não é autorização de instalação.
 `sourceCutoverAuthorized` e `distributionActivated` continuam
 `false` neste relatório; apenas os owners de migração e release podem
-mudar essas condições após os testes completos. O SDK 1.12 não publica
-ainda toda a família de browser ports, e `app-contract.mjs` ainda é
-um import interno do produto. A migração não deve copiar esses módulos
+mudar essas condições após os testes completos. O SDK 1.13 publica a família de contratos Browser do produto, mas
+`app-contract.mjs` ainda é um import interno e os contratos de identidade,
+espaços, ativação de perfis e referências de projetos não estão todos
+publicados. O acesso real aos ports continua sujeito à autorização do host. A migração não deve copiar esses módulos
 nem criar uma segunda implementação.
 
 O `git-app` atual **não é um `component-slot` de distribuição
