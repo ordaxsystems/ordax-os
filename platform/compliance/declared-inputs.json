@@ -16,8 +16,14 @@
       "version": "6.6.52",
       "archive_url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.52.tar.xz",
       "archive_sha256": "1591ab348399d4aa53121158525056a69c8cf0fe0e90935b0095e9a58e37b4b8",
-      "delivery_scope": ["usb", "native"],
-      "license": {"status": "unresolved-in-this-inventory", "spdx": null}
+      "delivery_scope": [
+        "usb",
+        "native"
+      ],
+      "license": {
+        "status": "unresolved-in-this-inventory",
+        "spdx": null
+      }
     },
     {
       "id": "alpine-development-base",
@@ -26,10 +32,31 @@
       "version": "3.22.5",
       "branch": "v3.22",
       "arch": "x86_64",
-      "packages": ["git", "ca-certificates", "kmod", "iproute2", "iw", "wpa_supplicant", "zstd", "linux-firmware-other", "linux-firmware-rtlwifi", "linux-firmware-mediatek", "linux-firmware-ath9k_htc"],
-      "build_only_packages": ["zstd"],
-      "delivery_scope": ["owner-development-usb-base"],
-      "license": {"status": "unresolved-in-this-inventory", "spdx": null}
+      "packages": [
+        "git",
+        "ca-certificates",
+        "kmod",
+        "iproute2",
+        "iw",
+        "wpa_supplicant",
+        "zstd",
+        "alsa-utils",
+        "alsa-ucm-conf",
+        "linux-firmware-other",
+        "linux-firmware-rtlwifi",
+        "linux-firmware-mediatek",
+        "linux-firmware-ath9k_htc"
+      ],
+      "build_only_packages": [
+        "zstd"
+      ],
+      "delivery_scope": [
+        "owner-development-usb-base"
+      ],
+      "license": {
+        "status": "unresolved-in-this-inventory",
+        "spdx": null
+      }
     },
     {
       "id": "alpine-stable-mvp-base",
@@ -38,20 +65,60 @@
       "version": "3.22.5",
       "branch": "v3.22",
       "arch": "x86_64",
-      "packages": ["ca-certificates", "kmod", "iproute2", "iw", "wpa_supplicant", "zstd", "linux-firmware-other", "linux-firmware-rtlwifi", "linux-firmware-mediatek", "linux-firmware-ath9k_htc"],
-      "build_only_packages": ["zstd"],
-      "delivery_scope": ["stable-mvp-usb-base-candidate"],
+      "packages": [
+        "ca-certificates",
+        "kmod",
+        "iproute2",
+        "iw",
+        "wpa_supplicant",
+        "zstd",
+        "linux-firmware-other",
+        "linux-firmware-rtlwifi",
+        "linux-firmware-mediatek",
+        "linux-firmware-ath9k_htc"
+      ],
+      "build_only_packages": [
+        "zstd"
+      ],
+      "delivery_scope": [
+        "stable-mvp-usb-base-candidate"
+      ],
       "promotion_status": "blocked-until-source-and-package-locks",
-      "license": {"status": "unresolved-in-this-inventory", "spdx": null}
+      "license": {
+        "status": "unresolved-in-this-inventory",
+        "spdx": null
+      }
     },
     {
       "id": "alpine-native-surface-runtime",
       "kind": "runtime-package-set",
       "source_authority": "system/surface/bin/ordax-surface",
       "branch": "v3.22",
-      "packages": ["alpine-baselayout", "busybox", "ca-certificates", "cage", "xwayland", "python3", "py3-gobject3", "gtk+3.0", "webkit2gtk-4.1", "seatd-launch", "mesa-dri-gallium", "mesa-egl", "mesa-gbm", "font-dejavu", "eudev", "libinput-udev"],
-      "delivery_scope": ["native-surface-runtime"],
-      "license": {"status": "unresolved-in-this-inventory", "spdx": null}
+      "packages": [
+        "alpine-baselayout",
+        "busybox",
+        "ca-certificates",
+        "cage",
+        "xwayland",
+        "python3",
+        "py3-gobject3",
+        "gtk+3.0",
+        "webkit2gtk-4.1",
+        "seatd-launch",
+        "mesa-dri-gallium",
+        "mesa-egl",
+        "mesa-gbm",
+        "font-dejavu",
+        "eudev",
+        "libinput-udev"
+      ],
+      "delivery_scope": [
+        "native-surface-runtime"
+      ],
+      "license": {
+        "status": "unresolved-in-this-inventory",
+        "spdx": null
+      }
     },
     {
       "id": "wine-windows-compat-runtime-source-candidate",
@@ -61,9 +128,14 @@
       "archive_url": "https://dl.winehq.org/wine/source/11.0/wine-11.0.tar.xz",
       "archive_size_bytes": 33172240,
       "archive_sha256": "c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701",
-      "delivery_scope": ["owner-development-source-proof-only"],
+      "delivery_scope": [
+        "owner-development-source-proof-only"
+      ],
       "promotion_status": "not-built-not-activatable",
-      "license": {"status": "unresolved-in-this-inventory", "spdx": null}
+      "license": {
+        "status": "unresolved-in-this-inventory",
+        "spdx": null
+      }
     }
   ]
 }
