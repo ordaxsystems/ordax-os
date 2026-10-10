@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.14.0",
+  "bundle_version": "1.15.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -227,6 +227,13 @@
       "schema": "ordax.file-space/11",
       "source_git_blob": "e775c22080e40dc3fb8ab8d2e2f00ccf312825d0",
       "source_path": "system/contracts/file-space.mjs"
+    },
+    {
+      "major": 1,
+      "name": "recent-files",
+      "schema": "ordax.recent-files/1",
+      "source_git_blob": "06372c634f7fbb5e8d84bdea9e1c5a92761d37c0",
+      "source_path": "system/contracts/recent-files.mjs"
     },
     {
       "major": 1,

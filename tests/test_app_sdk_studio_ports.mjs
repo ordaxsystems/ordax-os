@@ -139,7 +139,7 @@ test("public action envelopes remain data, not grants or credential carriers", (
 
 test("App SDK 1.14 preserves Studio v3 result retrieval without raw authority", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.14.0");
+  assert.equal(bundle.bundle_version, "1.15.0");
   assert.equal(bundle.authority, "none");
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));

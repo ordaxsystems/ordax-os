@@ -236,6 +236,13 @@ CONTRACTS = (
         "major": 11,
     },
     {
+        "name": "recent-files",
+        "path": "system/contracts/recent-files.mjs",
+        "constant": "RECENT_FILES_SCHEMA",
+        "schema": "ordax.recent-files/1",
+        "major": 1,
+    },
+    {
         "name": "first-party-app-delivery",
         "path": "system/contracts/first-party-app-delivery.mjs",
         "constant": "FIRST_PARTY_APP_DELIVERY_POLICY_SCHEMA",
@@ -412,7 +419,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.14.0"
+BUNDLE_VERSION = "1.15.0"
 
 
 def git_blob(path: Path) -> str:

@@ -64,7 +64,7 @@ const EXPECTED = new Map([
 
 test("SDK 1.14 Browser interfaces use canonical sources without private host authority", async () => {
   const bundle = JSON.parse(await readFile(new URL("sdk/app-sdk-v1/bundle.json", base), "utf8"));
-  assert.equal(bundle.bundle_version, "1.14.0");
+  assert.equal(bundle.bundle_version, "1.15.0");
   assert.equal(bundle.authority, "none");
   assert.equal(bundle.compatibility_policy, "contract-major");
   const lookup = new Map(bundle.contracts.map(x => [x.name, x]));

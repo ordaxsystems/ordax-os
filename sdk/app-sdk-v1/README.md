@@ -2,6 +2,22 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.15.0
+
+Version `1.15.0` adds the existing canonical `ordax.recent-files/1`
+contract for the Files application and future compatible components. The
+contract validates bounded recent-file snapshots and defines a host-injected
+port. Its transitive dependency `ordax.file-space/11` was already published
+and remains unchanged. This is an **additive public contract**, not a second
+implementation of Recent Files or authority to inspect host paths.
+
+The OrdaX OS owns recent-file storage, permissions, account or device scope,
+and every mutation; consumers receive only host-authorized, scoped ports.
+Publishing the typed port does **not** expose the private
+`system/services/files/recent-files.mjs` runtime, store adapter, raw paths or
+filesystem permissions. OrdaX Files remains built into the OS until the
+independent lifecycle and remove-first migration gates are proven.
+
 ## Bundle 1.14.0
 
 Version `1.14.0` additively publishes the existing, canonical identity-session,

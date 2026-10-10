@@ -12,6 +12,7 @@ on:
       - "tests/test_application_action_provider.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - "tests/test_app_sdk_browser_ports.mjs"
+      - "tests/test_app_sdk_files_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
   push:
     branches: [main]
@@ -25,6 +26,7 @@ on:
       - "tests/test_application_action_provider.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - "tests/test_app_sdk_browser_ports.mjs"
+      - "tests/test_app_sdk_files_ports.mjs"
       - ".github/workflows/app-sdk-contract.yml"
 
 permissions:
@@ -69,3 +71,6 @@ jobs:
 
       - name: Prove Browser public ports do not grant privileged engine authority
         run: node --test tests/test_app_sdk_browser_ports.mjs
+
+      - name: Prove Files recent port is public metadata without host authority
+        run: node --test tests/test_app_sdk_files_ports.mjs
