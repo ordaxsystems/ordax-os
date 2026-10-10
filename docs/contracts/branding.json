@@ -43,7 +43,27 @@
     "future_graphical_owner": "bootstrap/initramfs-or-development-base",
     "kernel_framebuffer_support": true,
     "branding_change_requires_usb_rewrite": false,
-    "future_delivery": "development-base-candidate"
+    "future_delivery": "development-base-candidate",
+    "developer_cinematic_candidate": {
+      "status": "source-implemented-media-upload-and-physical-validation-pending",
+      "owner": "bootstrap/boot-splash/",
+      "source_video_sha256": "bcab385c001833529cd40b9bb8685e5eb33b7fec12b308d4a3a047965f500769",
+      "video_frames_sha256": "691247dc90a44ffcbeb6c3ae953f756b74f2fff5f0cd3e84f98de36c5747f2ab",
+      "original_audio_pcm_sha256": "78c35e843facdf25033d207acd82f6ba4354cdd75763bca48494a86c36e9b1f0",
+      "native_player": "bootstrap/boot-splash/fb_splash.c",
+      "audio_handoff": "ALSA aplay only after kernel sound device availability",
+      "launch_owner": "bootstrap/dev-base/ordax-dev-init",
+      "stop_owner": "system/surface/bin/ordax-surface",
+      "media_format": "zstd-RGB565 1280x720 24 fps + PCM WAV 48k stereo",
+      "audio_required_in_intended_experience": true,
+      "audio_supported_on_all_hardware": false,
+      "only_dev_profile_initially": true,
+      "kernel_boot_graphics_proven": false,
+      "audio_on_notebook_proven": false,
+      "does_not_block_boot": true,
+      "does_not_wait_for_animation": true,
+      "does_not_repeat_in_surface": true
+    }
   },
   "failure_policy": {
     "surface_loading_error_stays_visible": true,

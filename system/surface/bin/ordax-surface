@@ -1335,8 +1335,13 @@ export ORDAX_SURFACE_MODE=native-graphical
 HTTP_PID=$!
 wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
 
-printf '\033[2J\033[H'
-printf 'OrdaX: iniciando Surface grafica...\n'
+# Preserve the final splash frame until DRM/Cage takes over. Do not clear
+# or write to the framebuffer console during the short handoff.
+echo "ordax-surface: iniciando Surface grafica" >>"$HOST_LOG"
+# Base owns the early splash and audio; the Surface never plays them again.
+if [ -x /usr/local/bin/ordax-boot-splash-stop ]; then
+    /usr/local/bin/ordax-boot-splash-stop || true
+fi
 
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \

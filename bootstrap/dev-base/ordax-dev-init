@@ -118,6 +118,10 @@ recover_previous_checkout() {
 }
 
 maintenance_shell() {
+    # Reveal the console/recovery before entering interactive maintenance.
+    if [ -x /usr/local/bin/ordax-boot-splash-stop ]; then
+        /usr/local/bin/ordax-boot-splash-stop || true
+    fi
     printf '\nBase de desenvolvimento pronta para manutencao.\n'
     printf 'Repositorio: %s\n' "$WORKTREE"
     printf 'Atualizar:    ordax-pull\n'
@@ -296,6 +300,12 @@ select_development_rootfs
 printf '\033[2J\033[H'
 printf 'OrdaX Development Base\n'
 printf 'Kernel + drivers + network + Git\n\n'
+# Only the Development Base may start this optional pre-Surface renderer.
+# Missing/unsupported video or audio must never delay boot or diagnostics.
+if [ -x /usr/local/bin/ordax-boot-splash ]; then
+    /usr/local/bin/ordax-boot-splash >/run/ordax-boot-splash.log 2>&1 &
+fi
+
 
 # Rollback pins start immediately. The running supervisor owns the remote retry:
 # if this was an automatic boot rejection, it releases the pin only after main

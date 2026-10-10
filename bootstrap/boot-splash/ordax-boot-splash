@@ -1,0 +1,37 @@
+#!/bin/sh
+# Developer Base pre-Surface splash. Never a prerequisite for boot success.
+set -eu
+MEDIA=${ORDAX_BOOT_MEDIA_ROOT:-/usr/share/ordax/boot-splash}
+PLAYER=${ORDAX_BOOT_RENDERER:-/usr/local/bin/ordax-fb-splash}
+CONTROL_ROOT=${ORDAX_BOOT_CONTROL_ROOT:-/run/ordax-boot-splash}
+FRAMES=$MEDIA/frames.rgb565.zst
+AUDIO=$MEDIA/boot-audio.wav
+[ -x "$PLAYER" ] && [ -r "$FRAMES" ] && [ -c /dev/fb0 ] && command -v zstd >/dev/null 2>&1 || exit 0
+umask 077
+mkdir -p "$CONTROL_ROOT" || exit 0
+[ ! -L "$CONTROL_ROOT/stop" ] || exit 0
+[ ! -e "$CONTROL_ROOT/stop" ] || rm -f "$CONTROL_ROOT/stop"
+mkfifo -m 600 "$CONTROL_ROOT/stop" || exit 0
+AUDIO_PID=''
+cleanup() {
+  if [ -n "$AUDIO_PID" ]; then
+    kill "$AUDIO_PID" 2>/dev/null || true
+    wait "$AUDIO_PID" 2>/dev/null || true
+  fi
+  rm -f "$CONTROL_ROOT/stop"
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM HUP
+# Hardware audio is optional; missing firmware/device must not block boot.
+if [ -r "$AUDIO" ] && command -v aplay >/dev/null 2>&1 &&
+   [ -d /dev/snd ] && ls /dev/snd/pcmC*D*p >/dev/null 2>&1; then
+  aplay -q -D default "$AUDIO" >"$CONTROL_ROOT/audio.log" 2>&1 &
+  AUDIO_PID=$!
+  printf 'ORDAX_BOOT_AUDIO=started_or_device_pending\n'
+else
+  printf 'ORDAX_BOOT_AUDIO=unavailable_no_pcm_device_or_backend\n'
+fi
+# zstd and player intentionally run as a bounded single animation, no loop.
+# The native Surface calls 'ordax-boot-splash-stop' before taking DRM ownership.
+zstd -d -q -c "$FRAMES" | "$PLAYER" --control-fifo "$CONTROL_ROOT/stop" || true
+exit 0
