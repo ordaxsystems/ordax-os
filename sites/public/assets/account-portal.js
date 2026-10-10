@@ -14,6 +14,11 @@
   const links = [...document.querySelectorAll("[data-account-section]")];
   const sections = new Set(["visao-geral", ...cards.map(card => card.id)]);
   const navigation = document.querySelector("#account-navigation");
+  const menuClose = document.querySelector("[data-account-menu-close]");
+  const servicesHeading = document.querySelector("[data-account-services-heading]");
+  const modalBackground = [content, document.querySelector(".account-header"), document.querySelector(".account-mobile-nav")];
+  const mobile = window.matchMedia("(max-width:900px)");
+  const focusableNavigation = () => [...navigation.querySelectorAll("a[href], button:not([disabled])")].filter(element => element.getClientRects().length);
   const normalize = value => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
   const sectionFromHash = () => {
     const requested = window.location.hash.slice(1);
@@ -23,7 +28,24 @@
   function closeMenu(restoreFocus = false) {
     document.body.classList.remove("account-menu-open");
     menu?.setAttribute("aria-expanded", "false");
+    navigation.removeAttribute("role");
+    navigation.removeAttribute("aria-modal");
+    navigation.removeAttribute("aria-labelledby");
+    modalBackground.forEach(element => { if (element) element.inert = false; });
     if (restoreFocus) menu?.focus();
+  }
+
+  function openMenu() {
+    if (!mobile.matches) return;
+    document.body.classList.remove("account-search-open");
+    searchToggle?.setAttribute("aria-expanded", "false");
+    document.body.classList.add("account-menu-open");
+    menu?.setAttribute("aria-expanded", "true");
+    navigation.setAttribute("role", "dialog");
+    navigation.setAttribute("aria-modal", "true");
+    navigation.setAttribute("aria-labelledby", "account-navigation-title");
+    modalBackground.forEach(element => { if (element) element.inert = true; });
+    focusableNavigation()[0]?.focus();
   }
 
   function render({ focus = false } = {}) {
@@ -31,6 +53,8 @@
     const query = normalize(search?.value || "");
     const searching = query.length > 0;
     content.dataset.view = searching ? "visao-geral" : view;
+    content.dataset.searching = String(searching);
+    if (servicesHeading) servicesHeading.hidden = searching || view !== "visao-geral";
     overview.hidden = searching || view !== "visao-geral";
     back.hidden = view === "visao-geral" && !searching;
     let visible = 0;
@@ -48,12 +72,6 @@
       if (!searching && link.hash === "#" + view) link.setAttribute("aria-current", "location");
       else link.removeAttribute("aria-current");
     }
-    // The account overview scrolls naturally; every service remains discoverable.
-    // No viewport-sized clipping or cloned navigation state.
-    document.body.classList.remove("account-viewport-overview");
-    for (const link of navigation.querySelectorAll("a")) link.hidden = false;
-    for (const group of navigation.querySelectorAll("nav, .navigation-support")) group.hidden = false;
-    cards.forEach(card => card.classList.remove("viewport-list-last"));
     if (focus) {
       const heading = view === "visao-geral" ? content.querySelector("h1") : document.getElementById(view)?.querySelector("h2");
       if (heading) { heading.tabIndex = -1; heading.focus(); }
@@ -67,9 +85,15 @@
       if (!sections.has(section)) return;
       event.preventDefault();
       if (search) search.value = "";
-      window.history.pushState(null, "", "#" + section);
+      if (window.location.hash !== "#" + section) window.history.pushState(null, "", "#" + section);
       closeMenu();
+      document.body.classList.remove("account-search-open");
+      searchToggle?.setAttribute("aria-expanded", "false");
       render({ focus: true });
+      if (link.hasAttribute("data-account-open-session")) {
+        const disclosure = overview.querySelector("details");
+        if (disclosure) { disclosure.open = true; disclosure.querySelector("summary")?.focus(); }
+      }
     });
   }
   search?.addEventListener("input", () => render());
@@ -88,20 +112,38 @@
     if (open) { closeMenu(); search?.focus(); }
   });
   menu?.addEventListener("click", () => {
-    const open = document.body.classList.toggle("account-menu-open");
-    menu.setAttribute("aria-expanded", String(open));
-    if (open) document.querySelector("#account-navigation a:not([hidden])")?.focus();
+    if (document.body.classList.contains("account-menu-open")) closeMenu(true);
+    else openMenu();
   });
+  menuClose?.addEventListener("click", () => closeMenu(true));
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && document.body.classList.contains("account-menu-open")) closeMenu(true);
+    if (!document.body.classList.contains("account-menu-open")) return;
+    if (event.key === "Escape") { event.preventDefault(); closeMenu(true); }
+    if (event.key === "Tab") {
+      const targets = focusableNavigation();
+      const first = targets[0], last = targets[targets.length - 1];
+      if (!first) return;
+      if (event.shiftKey && (document.activeElement === first || !navigation.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !navigation.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
+    }
   });
   document.addEventListener("click", event => {
-    if (!event.target.closest("#account-navigation, [data-account-menu]")) closeMenu();
+    if (document.body.classList.contains("account-menu-open") && !event.target.closest("#account-navigation, [data-account-menu]")) closeMenu(true);
   });
-  window.addEventListener("hashchange", () => render());
-  window.addEventListener("popstate", () => render());
+  const onHistoryNavigation = () => { closeMenu(); if (search) search.value = ""; render({ focus: true }); };
+  window.addEventListener("hashchange", onHistoryNavigation);
+  window.addEventListener("popstate", onHistoryNavigation);
   document.addEventListener("ordax:localechange", () => render());
-  window.matchMedia("(min-width:901px)").addEventListener("change", event => { if (event.matches) closeMenu(); });
+  mobile.addEventListener("change", event => {
+    if (!event.matches) {
+      const focusedInMenu = navigation.contains(document.activeElement);
+      closeMenu();
+      if (focusedInMenu) navigation.querySelector("a[aria-current], a")?.focus();
+    }
+  });
   document.body.classList.add("account-enhanced");
   render();
 })();

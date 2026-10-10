@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Minha Conta OrdaX: dados pessoais, assinatura, consumo, pagamentos, segurança e privacidade.">
   <title>Minha conta — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
@@ -27,7 +27,7 @@
       </nav>
     </header>
     <aside class="account-navigation" id="account-navigation">
-      <p class="eyebrow">GERENCIAR CONTA</p>
+      <div class="navigation-heading"><p class="eyebrow" id="account-navigation-title">GERENCIAR CONTA</p><button type="button" class="navigation-close" data-account-menu-close aria-label="Fechar menu"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <nav aria-label="Seções da conta">
         <a href="#visao-geral" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/></svg><span>Resumo</span></a>
         <a href="#dados-pessoais" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3-7 7.5-7s7.5 3 7.5 7"/></svg><span>Dados pessoais</span></a>
@@ -60,9 +60,6 @@
             <p class="account-hero-email" data-account-hero-email hidden></p>
             <p class="account-profile-description">Uma identidade para acessar e gerenciar seus serviços OrdaX.</p>
           </div>
-          <div class="account-profile-actions">
-            <span class="account-hero-mark" aria-hidden="true"><span class="ordax-symbol"></span></span>
-          </div>
         </div>
         <div class="account-profile-controls">
           <a class="account-profile-action" href="#dados-pessoais" data-account-section>Dados pessoais <span aria-hidden="true">↗</span></a>
@@ -76,7 +73,7 @@
       </section>
       <p class="sr-only" data-account-search-status aria-live="polite"></p>
       <div class="account-cards" id="account-cards">
-        <section class="account-card" id="plano" data-account-card aria-labelledby="plano-title">
+        <section class="account-card" id="plano" data-account-card data-account-summary aria-labelledby="plano-title">
           <a href="#plano" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-2 13H5Z"/></svg><h2 id="plano-title"><span class="desktop-card-label">Plano e assinatura</span><span class="mobile-card-label">Plano</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <div class="plan-card-visual" aria-hidden="true"><span class="ordax-symbol"></span></div>
           <p class="account-plan-kicker">ASSINATURA ORDAX</p>
@@ -84,27 +81,28 @@
           <p class="account-plan-availability">Assinaturas pagas em preparação</p>
           <div class="card-content"><p>Assinaturas pagas ainda não estão disponíveis.</p><!-- ORDAX_ACCOUNT_PLAN_CATALOG --><p class="card-note">Seu plano e seus limites precisam ser confirmados pelo serviço da conta. Nenhum plano é atribuído por esta página.</p></div>
         </section>
-        <section class="account-card" id="consumo" data-account-card aria-labelledby="consumo-title">
+        <section class="account-card" id="consumo" data-account-card data-account-summary aria-labelledby="consumo-title">
           <a href="#consumo" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V12m5 8V7m5 13V4m5 16v-9"/></svg><h2 id="consumo-title">Consumo e limites</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">IA, armazenamento e serviços em um só lugar.</p>
           <div class="card-content"><dl class="service-rows account-usage-lines"><div><dt>Uso de IA</dt><dd>Não disponível</dd></div><div><dt>Armazenamento</dt><dd>Não verificado</dd></div><div><dt>APIs e serviços</dt><dd>Não disponível</dd></div></dl><p class="card-note">Os consumos, quotas, créditos e limites são mostrados somente quando confirmados pelos serviços responsáveis. Este portal não estima nem simula métricas.</p></div>
         </section>
-        <section class="account-card" id="faturamento" data-account-card aria-labelledby="faturamento-title">
+        <section class="account-card" id="faturamento" data-account-card data-account-summary aria-labelledby="faturamento-title">
           <a href="#faturamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h2 id="faturamento-title"><span class="desktop-card-label">Pagamento e faturamento</span><span class="mobile-card-label">Pagamentos</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="account-billing-kicker">FATURAMENTO DA CONTA</p>
           <p class="account-billing-overview">Sem cobrança confirmada</p>
           <p class="card-summary">Pagamentos e faturas aparecerão quando o serviço estiver disponível.</p>
           <div class="card-content"><dl class="service-rows"><div><dt>Assinaturas pagas</dt><dd>Indisponíveis</dd></div><div><dt>Preços e limites comerciais</dt><dd>Em definição</dd></div></dl><p class="card-note">Não há cobrança, cartão cadastrado ou renovação confirmada para mostrar. Métodos de pagamento, recibos e notas fiscais dependerão do serviço de faturamento.</p></div>
         </section>
+        <div class="account-services-heading" data-account-services-heading><h2>Gerencie sua conta</h2><p>Seu perfil, suas conexões e suas preferências.</p></div>
         <section class="account-card" id="seguranca" data-account-card aria-labelledby="seguranca-title">
           <a href="#seguranca" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg><h2 id="seguranca-title"><span class="desktop-card-label">Segurança</span><span class="mobile-card-label">Segurança</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">Proteção, senha e sessões autorizadas</p>
-          <div class="card-content"><dl class="service-rows"><div><dt>Sessão neste navegador</dt><dd><a href="#visao-geral" data-account-section>Verificar sessão</a></dd></div><div><dt>Autenticação em duas etapas</dt><dd>Sem informação confirmada</dd></div><div><dt>Passkeys e métodos de entrada</dt><dd>Indisponíveis no portal</dd></div></dl><p class="card-note">Recuperação de acesso segue o serviço oficial de identidade. A página de recuperação informa sua disponibilidade.</p><a class="text-link" href="/recuperar/">Recuperar acesso <span aria-hidden="true">→</span></a></div>
+          <div class="card-content"><dl class="service-rows"><div><dt>Sessão neste navegador</dt><dd><a href="#visao-geral" data-account-section data-account-open-session>Verificar sessão</a></dd></div><div><dt>Autenticação em duas etapas</dt><dd>Sem informação confirmada</dd></div><div><dt>Passkeys e métodos de entrada</dt><dd>Indisponíveis no portal</dd></div></dl><p class="card-note">Recuperação de acesso segue o serviço oficial de identidade. A página de recuperação informa sua disponibilidade.</p><a class="text-link" href="/recuperar/">Recuperar acesso <span aria-hidden="true">→</span></a></div>
         </section>
         <section class="account-card" id="dados-pessoais" data-account-card aria-labelledby="dados-pessoais-title">
           <a href="#dados-pessoais" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3-7 7.5-7s7.5 3 7.5 7"/></svg><h2 id="dados-pessoais-title">Dados pessoais</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">Dados pessoais e informações da conta</p>
-          <div class="card-content"><p>Seu e-mail pode ser consultado na sessão autenticada. A edição de nome, foto e outros dados exige o serviço oficial de perfil, ainda não disponível nesta página.</p><a class="text-link" href="#visao-geral" data-account-section>Consultar sessão verificada <span aria-hidden="true">→</span></a></div>
+          <div class="card-content"><p>Seu e-mail pode ser consultado na sessão autenticada. A edição de nome, foto e outros dados exige o serviço oficial de perfil, ainda não disponível nesta página.</p><a class="text-link" href="#visao-geral" data-account-section data-account-open-session>Consultar sessão verificada <span aria-hidden="true">→</span></a></div>
         </section>
         <section class="account-card" id="dispositivos" data-account-card aria-labelledby="dispositivos-title">
           <a href="#dispositivos" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/></svg><h2 id="dispositivos-title"><span class="desktop-card-label">Dispositivos e sessões</span><span class="mobile-card-label">Dispositivos</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>

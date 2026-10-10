@@ -1,20 +1,28 @@
 /* Minha Conta — design owner. Reuses the OS brand tokens and canonical assets. */
-/* Account data and entitlements remain owned by identity / service providers. */
+/* Account data and entitlements remain owned by identity / service providers.
+   Composition aliases consume canonical Surface tokens; no independent palette. */
+.account-portal[data-page="conta"] {
+ --account-gap: var(--ordax-space-4);
+ --account-inset: var(--ordax-space-5);
+ --account-stroke: color-mix(in srgb,var(--ordax-brand-blue) 28%,var(--ordax-border-soft));
+ --account-material: linear-gradient(145deg,color-mix(in srgb,var(--ordax-app-bg) 92%,var(--ordax-brand-blue)),color-mix(in srgb,var(--ordax-bg) 96%,var(--ordax-brand-cyan)));
+}
 .account-portal{color-scheme:dark;color:var(--ordax-text);background:var(--ordax-bg);font-family:var(--ordax-font);line-height:1.5}
 .account-portal [hidden]{display:none!important}
 .account-portal .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 .account-portal a{color:inherit;text-decoration:none}
 .account-portal button,.account-portal input,.account-portal select{font:inherit}
 .account-portal :focus-visible{outline:3px solid var(--ordax-focus);outline-offset:4px}
+.account-content h1,.card-heading h2,#account-session-title{scroll-margin-block:100px}
 .account-icon{width:21px;height:21px;flex-shrink:0;color:var(--ordax-accent)}
 .ordax-symbol{display:inline-block;width:34px;height:34px;flex-shrink:0}
 .account-portal[data-page="conta"]{background:radial-gradient(ellipse at 75% 13%,color-mix(in srgb,var(--ordax-brand-blue) 13%,transparent),transparent 42%),var(--ordax-bg)}
-.account-shell{max-width:1440px;margin:auto;min-height:100dvh;display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:auto 1fr}
+.account-shell{max-width:1440px;margin:auto;min-height:100dvh;display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:auto 1fr}
 .account-portal .account-header{
  grid-column:1/-1;display:grid;grid-template-columns:197px minmax(0,1fr) 220px;align-items:center;gap:24px;
- max-width:none;width:100%;min-height:76px;padding:12px 26px;margin:0;position:relative;z-index:2;
+ max-width:none;width:100%;min-height:76px;padding:12px 26px;margin:0;position:sticky;top:0;z-index:3;
  border-bottom:1px solid var(--ordax-border-soft);
- background:linear-gradient(115deg,var(--ordax-bg),color-mix(in srgb,var(--ordax-bg) 90%,var(--ordax-brand-blue)));
+ background:color-mix(in srgb,var(--ordax-bg) 94%,transparent);backdrop-filter:blur(18px);
 }
 .account-brand{display:flex;gap:11px;align-items:center;min-width:0;font-size:23px;font-weight:650;letter-spacing:var(--ordax-tracking-tight);white-space:nowrap}
 .account-header .account-brand .ordax-symbol{width:44px;height:44px}
@@ -46,12 +54,15 @@
  min-width:0;padding:26px 12px;border-right:1px solid var(--ordax-border-soft);
  background:linear-gradient(180deg,var(--ordax-bg),color-mix(in srgb,var(--ordax-bg) 92%,var(--ordax-brand-blue)));
 }
-.account-navigation>.eyebrow,.navigation-support>.eyebrow{margin:0 0 12px;padding-left:12px}
+.navigation-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--ordax-space-3);margin-bottom:var(--ordax-space-3)}
+.navigation-heading>.eyebrow,.navigation-support>.eyebrow{margin:0;padding-left:12px}
+.navigation-support>.eyebrow{margin-bottom:var(--ordax-space-3)}
+.navigation-close{display:none}
 .account-portal .eyebrow{font-size:10px;letter-spacing:.16em;font-weight:700;color:var(--ordax-muted)}
 .account-navigation nav{display:grid;gap:4px}
 .account-navigation a{
  display:flex;align-items:center;gap:12px;min-height:44px;padding:9px 10px;border:1px solid transparent;
- border-radius:var(--ordax-radius-md);font-size:12px;line-height:1.35;transition:background var(--ordax-motion-fast);
+ border-radius:var(--ordax-radius-md);font-size:13px;line-height:1.35;transition:background var(--ordax-motion-fast);
 }
 .account-navigation a .account-icon{color:var(--ordax-accent);width:19px;height:19px}
 .account-navigation a:hover{background:var(--ordax-hover-bg)}
@@ -59,7 +70,7 @@
 .account-navigation a[aria-current="location"] .account-icon{filter:drop-shadow(0 0 7px var(--ordax-brand-blue))}
 .navigation-support{margin-top:22px;padding-top:22px;border-top:1px solid var(--ordax-border-soft)}
 .navigation-art{
- margin-top:24px;height:202px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:12px;padding:18px;
+ margin-top:var(--ordax-space-6);height:240px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:12px;padding:18px;
  border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-lg);
  background:linear-gradient(0deg,color-mix(in srgb,var(--ordax-bg) 76%,transparent),transparent 70%),url("/assets/ordax-landscape.png") 60% center/cover no-repeat;
 }
@@ -67,22 +78,27 @@
 .navigation-art>.ordax-symbol,.navigation-art>strong{position:relative;z-index:1}
 .navigation-art .ordax-symbol{width:44px;height:44px}
 .navigation-art strong{font-size:25px;font-weight:650;letter-spacing:var(--ordax-tracking-tight)}
-.account-content{padding:26px clamp(24px,2.4vw,34px) 20px;min-width:0}
-.account-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:19px}
+.account-content{
+ padding:var(--ordax-space-6) clamp(24px,2.4vw,36px) var(--ordax-space-5);min-width:0;
+ background:linear-gradient(180deg,transparent,var(--ordax-bg) 320px),linear-gradient(90deg,var(--ordax-bg) 8%,color-mix(in srgb,var(--ordax-bg) 45%,transparent)),url("/assets/ordax-landscape.png") right top / auto 330px no-repeat;
+}
+.account-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:var(--ordax-space-5)}
 .account-heading .eyebrow{display:none}
-.account-heading h1{font-family:var(--ordax-font-display);font-size:clamp(32px,3vw,38px);font-weight:var(--ordax-title-weight);letter-spacing:var(--ordax-tracking-tight);line-height:1.2;margin:0 0 6px}
+.account-heading h1{font-family:var(--ordax-font-display);font-size:clamp(30px,3vw,40px);font-weight:var(--ordax-title-weight);letter-spacing:var(--ordax-tracking-tight);line-height:1.2;margin:0 0 6px}
 .account-heading p:last-child{font-size:14px;color:var(--ordax-muted);margin:0}
 .profile-mobile-title,.mobile-card-label{display:none}
 .account-session{
- isolation:isolate;position:relative;overflow:hidden;margin-bottom:16px;min-height:0;
- border:1px solid color-mix(in srgb,var(--ordax-brand-blue) 38%,var(--ordax-border));border-radius:var(--ordax-radius-xl);
- padding:18px 22px;box-shadow:var(--ordax-shadow-soft);
- background:linear-gradient(92deg,color-mix(in srgb,var(--ordax-bg) 96%,transparent) 0%,color-mix(in srgb,var(--ordax-bg) 88%,transparent) 34%,color-mix(in srgb,var(--ordax-bg) 29%,transparent) 75%,color-mix(in srgb,var(--ordax-bg) 7%,transparent) 100%),url("/assets/ordax-landscape.png") center 57%/cover no-repeat;
+ isolation:isolate;position:relative;overflow:hidden;margin-bottom:var(--account-inset);
+ border:1px solid var(--account-stroke);border-radius:var(--ordax-radius-xl);
+ padding:var(--account-inset);box-shadow:var(--ordax-shadow-soft);
+ background:linear-gradient(110deg,color-mix(in srgb,var(--ordax-bg) 94%,transparent),color-mix(in srgb,var(--ordax-app-bg) 78%,transparent));
+ backdrop-filter:blur(12px);
+ display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--account-gap);
 }
-.account-session::before{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:radial-gradient(ellipse at 75% 20%,color-mix(in srgb,var(--ordax-brand-blue) 12%,transparent),transparent 55%)}
+.account-session::before{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:radial-gradient(ellipse at 70% 0%,color-mix(in srgb,var(--ordax-brand-blue) 13%,transparent),transparent 70%)}
 .account-profile-intro{display:flex;align-items:center;gap:19px;min-width:0}
 .account-profile-avatar{
- display:grid;place-items:center;flex:0 0 72px;width:72px;height:72px;border-radius:50%;
+ display:grid;place-items:center;flex:0 0 88px;width:88px;height:88px;border-radius:50%;
  border:2px solid var(--ordax-brand-blue);background:radial-gradient(circle at 30% 25%,var(--ordax-brand-violet),var(--ordax-bg) 73%);
  box-shadow:0 0 0 4px color-mix(in srgb,var(--ordax-brand-blue) 13%,transparent),0 0 28px color-mix(in srgb,var(--ordax-brand-blue) 55%,transparent);
 }
@@ -92,14 +108,15 @@
 .account-profile-copy h2{margin:0 0 6px;font-family:var(--ordax-font-display);font-size:clamp(20px,2vw,24px);font-weight:var(--ordax-title-weight);letter-spacing:var(--ordax-tracking-tight);line-height:1.22}
 .account-profile-copy .account-profile-description{margin:0;max-width:420px;font-size:13px;line-height:1.5;color:var(--ordax-muted)}
 .account-profile-copy .account-hero-email{font-size:13px;color:var(--ordax-text);overflow-wrap:anywhere;margin:0 0 4px}
-.account-profile-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}
-.account-hero-mark .ordax-symbol{height:55px;width:55px;filter:drop-shadow(0 0 11px color-mix(in srgb,var(--ordax-brand-blue) 52%,transparent))}
 .account-profile-action{display:inline-flex;align-items:center;justify-content:center;gap:15px;min-height:44px;padding:10px 14px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-md);background:color-mix(in srgb,var(--ordax-app-bg) 83%,transparent);font-size:12px}
 .account-profile-action:hover{background:var(--ordax-selected-bg)}
-.account-profile-controls{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-top:12px}
+.account-profile-controls{display:flex;align-items:stretch;flex-direction:column;gap:var(--ordax-space-2);min-width:0}
+.account-session:has(.account-session-disclosure[open]){grid-template-columns:minmax(0,1fr)}
 .account-session-disclosure{margin:0}
-.account-session-disclosure summary{display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;min-height:44px;padding:5px 12px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);background:color-mix(in srgb,var(--ordax-app-bg) 84%,transparent);font-size:11px;cursor:pointer;list-style:none}
+.account-session-disclosure summary{display:flex;align-items:center;gap:12px;width:100%;max-width:100%;min-height:44px;padding:5px 12px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);background:color-mix(in srgb,var(--ordax-app-bg) 84%,transparent);font-size:11px;cursor:pointer;list-style:none}
 .account-session-disclosure summary::-webkit-details-marker{display:none}
+.session-summary-arrow{margin-left:auto;transition:transform var(--ordax-motion-fast)}
+.account-session-disclosure[open] .session-summary-arrow{transform:rotate(180deg)}
 .account-session-disclosure[open]{flex:1 0 100%;min-width:0;padding:12px 14px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);background:var(--ordax-app-bg)}
 .account-session-disclosure[open] summary{margin-bottom:12px}
 .account-session-body>section{margin-top:10px}
@@ -120,8 +137,8 @@
 .account-portal .button:disabled{opacity:.5;cursor:not-allowed}
 .portal-actions{display:flex;gap:12px;flex-wrap:wrap}
 .text-link{color:var(--ordax-accent)!important;min-height:44px;display:inline-flex;align-items:center;gap:10px;font-size:12px}
-.account-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:14px}
-.account-card{position:relative;isolation:isolate;overflow:hidden;min-width:0;padding:19px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-lg);background:linear-gradient(155deg,color-mix(in srgb,var(--ordax-app-bg) 92%,var(--ordax-brand-blue)),var(--ordax-bg));box-shadow:var(--ordax-shadow-soft);scroll-margin-top:24px;transition:border-color var(--ordax-motion-fast),background var(--ordax-motion-fast)}
+.account-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:var(--account-gap)}
+.account-card{position:relative;isolation:isolate;overflow:hidden;min-width:0;padding:var(--account-inset);border:1px solid var(--account-stroke);border-radius:var(--ordax-radius-lg);background:var(--account-material);box-shadow:var(--ordax-shadow-soft);scroll-margin-top:100px;transition:border-color var(--ordax-motion-fast),background var(--ordax-motion-fast)}
 .account-card:focus-within,.account-card:hover{border-color:color-mix(in srgb,var(--ordax-brand-blue) 50%,var(--ordax-border))}
 .card-heading{display:flex;align-items:center;gap:12px;min-height:44px;position:relative;z-index:1}
 .card-heading>.account-icon{
@@ -133,8 +150,13 @@
 #plano>.card-heading>.account-icon,#atividade>.card-heading>.account-icon{color:var(--ordax-brand-violet)}
 #consumo>.card-heading>.account-icon,#integracoes>.card-heading>.account-icon{color:var(--ordax-brand-cyan)}
 .card-heading h2{flex:1;min-width:0;font-size:14px;line-height:1.35;font-weight:650;letter-spacing:var(--ordax-tracking-tight);margin:0}
-.card-arrow{color:var(--ordax-muted);font-size:18px}
-.card-summary{margin:8px 0 0;color:var(--ordax-muted);font-size:12px;line-height:1.5;position:relative;z-index:1}
+.card-arrow{color:var(--ordax-muted);font-size:18px;flex-shrink:0;transition:transform var(--ordax-motion-fast)}
+.card-heading:hover .card-arrow{transform:translateX(3px)}
+.account-services-heading{grid-column:1/-1;padding:var(--ordax-space-4) 0 0}
+.account-services-heading h2{font-size:18px;font-weight:var(--ordax-title-weight);letter-spacing:var(--ordax-tracking-tight);margin:0}
+.account-services-heading p{font-size:12px;color:var(--ordax-muted);margin:var(--ordax-space-1) 0 0}
+.account-content:not([data-view="visao-geral"]) .account-services-heading{display:none}
+.card-summary{margin:8px 0 0;color:var(--ordax-muted);font-size:13px;line-height:1.5;position:relative;z-index:1}
 .card-content{margin-top:14px;font-size:12px;position:relative;z-index:1}
 .card-content>p{margin:0 0 9px;color:var(--ordax-muted);line-height:1.55}
 .card-note{border-top:1px solid var(--ordax-border-soft);padding-top:15px;margin-top:18px!important}
@@ -153,44 +175,51 @@
 .account-portal .public-locale-select{min-height:44px;max-width:100%;padding:10px;background:var(--ordax-surface);color:var(--ordax-text);border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-md);font-size:12px}
 .account-portal .public-locale-switcher{margin:0}
 .account-plan-kicker,.account-billing-kicker{margin:17px 0 5px;color:var(--ordax-accent);font-size:10px;font-weight:700;letter-spacing:.1em}
-.account-plan-availability{display:inline-flex;margin:10px 0 0;padding:6px 10px;border-radius:99px;border:1px solid color-mix(in srgb,var(--ordax-brand-cyan) 45%,var(--ordax-border));background:color-mix(in srgb,var(--ordax-brand-cyan) 10%,var(--ordax-bg));font-size:11px;color:var(--ordax-text)}
+.account-plan-availability{display:inline-flex;margin:10px 0 0;padding:6px 10px;border-radius:99px;border:1px solid var(--ordax-border-soft);background:var(--ordax-subtle-bg);font-size:11px;color:var(--ordax-text)}
 .account-billing-overview{font-size:19px;font-weight:650;line-height:1.2;margin:9px 0;color:var(--ordax-text);letter-spacing:var(--ordax-tracking-tight)}
-.plan-card-visual{position:absolute;z-index:0;width:140px;height:140px;right:-12px;bottom:12px;display:grid;place-items:center;pointer-events:none;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--ordax-brand-violet) 24%,transparent),transparent 65%)}
-.plan-card-visual .ordax-symbol{width:124px;height:124px;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--ordax-brand-blue) 50%,transparent))}
-.account-usage-lines>div{align-items:center;padding:7px 0}
-.account-usage-lines>div::before{content:"";flex:0 0 6px;width:6px;height:22px;border-radius:99px;background:linear-gradient(var(--ordax-brand-violet),var(--ordax-brand-blue));box-shadow:0 0 9px color-mix(in srgb,var(--ordax-brand-blue) 45%,transparent)}
-.account-usage-lines>div:nth-child(2)::before{background:linear-gradient(var(--ordax-brand-blue),var(--ordax-brand-cyan))}
-.account-usage-lines>div:nth-child(3)::before{background:linear-gradient(var(--ordax-brand-cyan),var(--ordax-brand-violet))}
-.account-usage-lines>div:last-child{border-bottom:0}
-.account-content[data-view="visao-geral"] .account-card:nth-child(-n+3){min-height:224px;padding:18px;border-color:color-mix(in srgb,var(--ordax-brand-blue) 30%,var(--ordax-border))}
-.account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading h2{font-size:15px}
+.plan-card-visual{position:absolute;z-index:0;width:126px;height:126px;right:8px;bottom:22px;display:grid;place-items:center;pointer-events:none;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--ordax-brand-violet) 24%,transparent),transparent 65%)}
+.plan-card-visual .ordax-symbol{width:108px;height:108px;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--ordax-brand-blue) 50%,transparent))}
+.account-usage-lines{gap:var(--ordax-space-2)}
+.account-usage-lines>div{align-items:center;padding:var(--ordax-space-3);border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);background:var(--ordax-subtle-bg)}
+/* These are category accents, not invented progress bars or usage percentages. */
+.account-usage-lines>div::before{content:"";flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:var(--ordax-brand-violet)}
+.account-usage-lines>div:nth-child(2)::before{background:var(--ordax-brand-blue)}
+.account-usage-lines>div:nth-child(3)::before{background:var(--ordax-brand-cyan)}
+.account-content[data-view="visao-geral"] .account-card[data-account-summary]{min-height:260px;padding:var(--account-inset);border-color:color-mix(in srgb,var(--ordax-brand-blue) 30%,var(--ordax-border))}
+.account-content[data-view="visao-geral"] .account-card[data-account-summary] .card-heading h2{font-size:15px}
 .account-content[data-view="visao-geral"] #plano{background:linear-gradient(112deg,color-mix(in srgb,var(--ordax-app-bg) 97%,var(--ordax-brand-violet)) 20%,color-mix(in srgb,var(--ordax-bg) 81%,var(--ordax-brand-blue)) 100%)}
 .account-content[data-view="visao-geral"] #plano .card-summary,.account-content[data-view="visao-geral"] #plano .account-plan-kicker,.account-content[data-view="visao-geral"] #plano .account-plan-availability{max-width:65%}
 .account-content[data-view="visao-geral"] #plano .card-content{max-width:66%}
+.account-content[data-view="visao-geral"] #plano .card-summary{font-size:19px;line-height:1.35;color:var(--ordax-text);font-weight:600}
 .account-content[data-view="visao-geral"] #consumo{background:linear-gradient(145deg,color-mix(in srgb,var(--ordax-app-bg) 89%,var(--ordax-brand-blue)),var(--ordax-bg))}
 .account-content[data-view="visao-geral"] #faturamento{background:linear-gradient(145deg,color-mix(in srgb,var(--ordax-app-bg) 94%,var(--ordax-brand-violet)),var(--ordax-bg))}
-.account-enhanced .account-content[data-view="visao-geral"] .card-note{display:none}
-.account-enhanced .account-content[data-view="visao-geral"] #plano .plan-catalog,
-.account-enhanced .account-content[data-view="visao-geral"] #faturamento .card-content{display:none}
-.account-enhanced .account-content[data-view="visao-geral"] #plano .card-content>p:first-child{display:none}
-.account-content[data-view="visao-geral"] .account-card:nth-child(n+4){min-height:118px;padding:18px}
-.account-enhanced .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-content{display:none}
-.account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading{align-items:center}
-.account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-summary{padding-left:54px;margin-top:2px}
-.account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading h2{margin-top:0;font-size:13px}
+.account-enhanced .account-content[data-view="visao-geral"][data-searching="false"] .card-note{display:none}
+.account-enhanced .account-content[data-view="visao-geral"][data-searching="false"] #plano .plan-catalog,
+.account-enhanced .account-content[data-view="visao-geral"][data-searching="false"] #faturamento .card-content{display:none}
+.account-enhanced .account-content[data-view="visao-geral"][data-searching="false"] #plano .card-content>p:first-child{display:none}
+.account-content[data-view="visao-geral"] .account-card:not([data-account-summary]){min-height:116px;padding:var(--ordax-space-4)}
+.account-enhanced .account-content[data-view="visao-geral"][data-searching="false"] .account-card:not([data-account-summary]) .card-content{display:none}
+.account-content[data-view="visao-geral"] .account-card:not([data-account-summary]) .card-heading{align-items:center}
+.account-content[data-view="visao-geral"] .account-card:not([data-account-summary]) .card-summary{padding-left:54px;margin-top:2px}
+.account-content[data-view="visao-geral"] .account-card:not([data-account-summary]) .card-heading h2{margin-top:0;font-size:13px}
 .account-content:not([data-view="visao-geral"]) .account-cards{grid-template-columns:minmax(0,1fr)}
-.account-content:not([data-view="visao-geral"]) .account-card{max-width:970px;min-height:0;padding:28px}
+.account-content:not([data-view="visao-geral"]) .account-card{width:100%;max-width:970px;min-height:0;padding:var(--ordax-space-6)}
 .account-content:not([data-view="visao-geral"]) .card-heading h2{font-size:22px}
 .account-content:not([data-view="visao-geral"]) .card-summary{font-size:13px}
 .account-content:not([data-view="visao-geral"]) .card-content{max-width:760px;margin-top:22px;font-size:14px}
 .account-content:not([data-view="visao-geral"]) .plan-card-visual{opacity:.3}
 .account-content:not([data-view="visao-geral"]) #plano .card-content{max-width:710px}
-.account-no-results{padding:30px 0}
+/* Search reveals the matching content instead of matching an invisible detail. */
+.account-content[data-searching="true"] .account-cards{grid-template-columns:minmax(0,1fr)}
+.account-content[data-searching="true"] .account-card{grid-column:1/-1;min-height:0}
+.account-content[data-searching="true"] .card-content{max-width:none}
+.account-no-results{padding:var(--ordax-space-6);border:1px solid var(--account-stroke);border-radius:var(--ordax-radius-lg);background:var(--account-material)}
 .account-no-results h2{font-size:20px}
 .account-no-results p{font-size:13px;color:var(--ordax-muted)}
 .account-footer{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:28px;padding:20px 0;border-top:1px solid var(--ordax-border-soft);font-size:12px;color:var(--ordax-muted)}
 .account-footer p{margin:0}
 .account-footer nav{display:flex;gap:20px;flex-wrap:wrap}
+.account-footer a{display:inline-flex;align-items:center;min-height:44px}
 .account-mobile-nav{display:none}
 
 /* Web entry uses the same local assets, typography and presentation primitives. */
@@ -217,9 +246,11 @@
  .account-shell{grid-template-columns:215px minmax(0,1fr)}
  .account-portal .account-header{grid-template-columns:188px minmax(0,1fr) 192px;gap:17px;padding-inline:22px}
  .account-navigation{padding-inline:11px}
+ .account-session{grid-template-columns:minmax(0,1fr)}
+ .account-profile-controls{flex-direction:row;flex-wrap:wrap}
  .account-navigation a{font-size:11px;gap:9px}
  .account-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
- .account-content[data-view="visao-geral"] .account-card:nth-child(3){grid-column:1/-1;min-height:190px}
+ .account-content[data-view="visao-geral"] #faturamento{grid-column:1/-1;min-height:170px}
 }
 @media(max-width:900px){
  .account-shell{display:block}
@@ -239,11 +270,14 @@
  .header-profile-link [data-auth-nav-label]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
  .header-profile-arrow{display:none}
  .header-web-link{display:none!important}
- .account-content{padding:24px 22px calc(105px + env(safe-area-inset-bottom))}
+ .account-content{padding:var(--ordax-space-5) var(--ordax-space-5) calc(105px + env(safe-area-inset-bottom))}
+ .account-menu-open{overflow:hidden}
+ .account-menu-open::before{content:"";position:fixed;inset:0;z-index:4;background:color-mix(in srgb,var(--ordax-bg) 72%,transparent);backdrop-filter:blur(4px)}
+ .account-menu-open .navigation-close{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);background:var(--ordax-subtle-bg);color:var(--ordax-text);cursor:pointer}
  .account-enhanced .account-navigation{display:none}
  .account-enhanced.account-menu-open .account-navigation{
   display:block;position:fixed;z-index:5;left:12px;right:12px;bottom:calc(75px + env(safe-area-inset-bottom));
-  max-height:calc(100dvh - 100px);overflow:auto;border:1px solid var(--ordax-border);
+  max-height:calc(100dvh - 100px - env(safe-area-inset-bottom) - env(safe-area-inset-top));overflow:auto;overscroll-behavior:contain;border:1px solid var(--ordax-border);
   border-radius:var(--ordax-radius-xl);padding:20px;background:var(--ordax-panel);box-shadow:var(--ordax-shadow);
  }
  .account-navigation nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -263,7 +297,7 @@
  .web-entry-layout{gap:32px;padding:40px 24px}
 }
 @media(max-width:600px){
- .account-content{padding:19px 16px calc(100px + env(safe-area-inset-bottom))}
+ .account-content{padding:var(--ordax-space-5) var(--ordax-space-4) calc(100px + env(safe-area-inset-bottom));background-size:auto,auto,auto 240px}
  .account-heading{margin-bottom:14px;align-items:flex-start}
  .account-heading h1{font-size:28px}
  .account-heading p:last-child{font-size:12px}
@@ -272,29 +306,29 @@
  .profile-mobile-title{display:inline}
  .account-content[data-view="visao-geral"] .desktop-card-label{display:none}
  .account-content[data-view="visao-geral"] .mobile-card-label{display:inline}
- .account-session{min-height:0;padding:14px 16px;background-position:64% center}
- .account-profile-intro{display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px;align-items:center}
- .account-profile-avatar{width:48px;height:48px;flex-basis:48px}
+ .account-session{min-height:0;padding:var(--ordax-space-4);gap:var(--ordax-space-4);margin-bottom:var(--ordax-space-4)}
+ .account-profile-intro{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center}
+ .account-profile-avatar{width:64px;height:64px;flex-basis:64px}
  .account-profile-avatar .account-icon{width:26px;height:26px}
  .account-profile-copy h2{font-size:17px}
  .account-profile-overline,.account-profile-copy .account-profile-description{display:none}
- .account-profile-actions{display:none}
- .account-hero-mark{display:none}
  .account-profile-action{min-height:44px;padding:6px 10px;font-size:11px}
- .account-profile-controls{gap:8px;margin-top:12px}
+ .account-profile-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ordax-space-2)}
+ .account-profile-controls:has(.account-session-disclosure[open]){grid-template-columns:minmax(0,1fr)}
  .session-actions{align-items:stretch;flex-direction:column;gap:14px}
  .session-actions .button{width:100%}
- .account-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
- .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3){grid-column:1/-1;min-height:0;padding:16px}
- .account-content[data-view="visao-geral"] #plano{min-height:164px;order:1}
+ .account-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ordax-space-3)}
+ .account-content[data-view="visao-geral"] .account-card[data-account-summary]{grid-column:1/-1;min-height:0;padding:16px}
+ .account-content[data-view="visao-geral"] #plano{min-height:204px;order:1}
  .account-content[data-view="visao-geral"] #consumo{min-height:0;order:2}
  .account-content[data-view="visao-geral"] #faturamento{grid-column:auto;min-height:0;order:3}
- .account-content[data-view="visao-geral"] .account-card:nth-child(-n+3) .card-heading h2{font-size:15px}
- .account-content[data-view="visao-geral"] .account-card:nth-child(n+4){grid-column:1/-1;min-height:64px;padding:10px 14px;order:5}
- .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading>.account-icon{width:37px;height:37px;flex-basis:37px;padding:8px}
- .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-heading h2{margin-top:0;font-size:13px}
- .account-content[data-view="visao-geral"] .account-card:nth-child(n+4) .card-summary{padding-left:49px;margin-top:2px;font-size:11px}
- .plan-card-visual{width:102px;height:102px;right:4px;bottom:16px}
+ .account-content[data-view="visao-geral"] .account-card[data-account-summary] .card-heading h2{font-size:15px}
+ .account-content[data-view="visao-geral"] .account-card:not([data-account-summary]){grid-column:1/-1;min-height:76px;padding:var(--ordax-space-3) var(--ordax-space-4);order:6}
+ .account-content[data-view="visao-geral"] .account-card:not([data-account-summary]) .card-heading>.account-icon{width:37px;height:37px;flex-basis:37px;padding:8px}
+ .account-content[data-view="visao-geral"] .account-card:not([data-account-summary]) .card-heading h2{margin-top:0;font-size:13px}
+ .account-content[data-view="visao-geral"] .account-card:not([data-account-summary]) .card-summary{padding-left:49px;margin-top:2px;font-size:11px}
+ .account-services-heading{display:none}
+ .plan-card-visual{width:112px;height:112px;right:8px;bottom:24px}
  .plan-card-visual .ordax-symbol{width:88px;height:88px}
  .account-content[data-view="visao-geral"] #plano .card-summary,
  .account-content[data-view="visao-geral"] #plano .account-plan-availability{max-width:70%}
@@ -303,16 +337,23 @@
  .account-content[data-view="visao-geral"] #faturamento .card-heading>.account-icon{width:34px;height:34px;padding:8px;flex-basis:34px}
  .account-content[data-view="visao-geral"] #faturamento .account-billing-kicker{display:none}
  .account-content[data-view="visao-geral"] #faturamento .account-billing-overview{font-size:14px;line-height:1.4}
- .account-enhanced .account-content[data-view="visao-geral"] #faturamento .card-summary{display:none}
- .account-content[data-view="visao-geral"] #seguranca .card-heading{gap:8px}
+ .account-enhanced .account-content[data-view="visao-geral"][data-searching="false"] #faturamento .card-summary{display:none}
+ .account-content[data-view="visao-geral"] #seguranca .card-heading,
+ .account-content[data-view="visao-geral"] #faturamento .card-heading{flex-wrap:wrap;gap:var(--ordax-space-2)}
+ .account-content[data-view="visao-geral"] #seguranca .card-heading h2,
+ .account-content[data-view="visao-geral"] #faturamento .card-heading h2{flex-basis:calc(100% - 60px);overflow-wrap:anywhere}
+ .account-content[data-view="visao-geral"] #seguranca .card-arrow,
+ .account-content[data-view="visao-geral"] #faturamento .card-arrow{display:none}
  .account-content[data-view="visao-geral"] #seguranca .card-summary{padding-left:0;margin-top:8px}
  .account-content[data-view="visao-geral"] #consumo .card-summary{display:none}
  .account-content[data-view="visao-geral"] .account-usage-lines{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
- .account-content[data-view="visao-geral"] .account-usage-lines>div{flex-direction:column;gap:4px;padding:4px 0;border:0;text-align:center;min-width:0}
+ .account-content[data-view="visao-geral"] .account-usage-lines>div{flex-direction:column;gap:var(--ordax-space-2);padding:var(--ordax-space-3) var(--ordax-space-1);text-align:center;min-width:0}
  .account-content[data-view="visao-geral"] .account-usage-lines>div::before{width:6px;height:6px;flex-basis:6px}
  .account-content[data-view="visao-geral"] .account-usage-lines dt{font-size:11px;min-height:32px;display:grid;align-content:center}
  .account-content[data-view="visao-geral"] .account-usage-lines dd{font-size:11px;text-align:center}
- .account-content:not([data-view="visao-geral"]) .account-card{padding:19px}
+ .account-content:not([data-view="visao-geral"]) .account-card{padding:var(--ordax-space-4)}
+ .account-content:not([data-view="visao-geral"]) .service-rows>div{flex-direction:column;gap:var(--ordax-space-1)}
+ .account-content:not([data-view="visao-geral"]) .service-rows dd{text-align:left}
  .account-content:not([data-view="visao-geral"]) .card-heading h2{font-size:19px}
  .account-content:not([data-view="visao-geral"]) .card-content{font-size:13px}
  .account-footer{flex-direction:column;align-items:flex-start;gap:10px}
@@ -331,6 +372,8 @@
 }
 @media(prefers-reduced-motion:reduce){.account-portal *{transition:none!important;scroll-behavior:auto!important}}
 @media(forced-colors:active){
- .account-card,.account-session,.navigation-art,.account-search,.account-navigation{background:Canvas;box-shadow:none}
+ .account-card,.account-session,.navigation-art,.account-search,.account-navigation,.account-content{background:Canvas;box-shadow:none}
+ .account-plan-availability,.account-usage-lines>div{border-color:CanvasText}
+ .account-menu-open::before{background:Canvas;opacity:.8}
  .account-profile-avatar,.card-heading>.account-icon{background:Canvas;box-shadow:none}
 }

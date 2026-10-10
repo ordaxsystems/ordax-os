@@ -37,6 +37,7 @@ SITE_SEMANTIC_TOKENS = (
     "selected-bg", "success", "success-bg", "warning", "warning-bg",
     "danger", "danger-bg", "radius-sm", "radius-md", "radius-lg",
     "radius-xl", "motion-fast", "motion-base",
+    "space-1", "space-2", "space-3", "space-4", "space-5", "space-6", "space-7",
 )
 SITE_COMPOSITION_TOKENS = (
     "font", "font-display", "title-weight", "control-weight", "tracking-tight",

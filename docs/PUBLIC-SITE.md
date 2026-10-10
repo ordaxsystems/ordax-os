@@ -48,8 +48,10 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 `sites/public/conta/index.html` define uma central de identidade e serviços;
 `assets/account-dashboard.css` é o owner da composição e
 `assets/account-portal.js` controla apenas apresentação, busca, hash e foco.
-O layout continua sobre a revisão da `main` publicada no preview Vercel
-`496805eef9baae45cf50698514e4e30fa9b6a9d6`, sem copiar um segundo frontend.
+A reformulação consome a `main` e mantém um único frontend. O cabeçalho
+fixo, a paisagem na abertura, a identidade translúcida e a separação entre
+resumo e gerenciamento reutilizam os assets oficiais. Espaçamentos são
+exportados dos mesmos tokens da Surface pelo bridge de branding existente.
 
 A grade desktop tem três cartões prioritários alinhados (assinatura, consumo,
 faturamento), banner compacto e cartões de gerenciamento. O mobile apresenta
@@ -63,7 +65,10 @@ perfil. A barra mobile pertence à Conta: Resumo / Assinatura / Consumo / Mais.
 Mais reutiliza a navegação lateral e inclui acesso ao site e à entrada `/web/`,
 que mantém autenticação e disponibilidade próprias. Escape fecha Mais/busca
 e restaura foco. A sessão nativa e os controles de dados pessoais ficam
-juntos abaixo da identidade; abrir a sessão expande os dados sem sobreposição.
+juntos ao lado da identidade no desktop e abaixo no mobile; abrir a sessão
+expande os dados sem sobreposição. Mais funciona como diálogo modal no mobile,
+com fechamento explícito, foco contido e fundo inerte. A busca revela os
+detalhes que corresponderam ao termo, em vez de localizar conteúdo oculto.
 Todos os alvos de ação mantêm área de toque de pelo menos 44px.
 
 Símbolo, paisagem, fonte e cores vêm do pipeline canônico de branding da
@@ -75,12 +80,15 @@ percentuais de consumo. Indisponibilidade aparece explicitamente quando o
 respectivo serviço não está confirmado. Sem JavaScript, o conteúdo continua
 legível. Dados de sessão são apagados antes de revalidação/bfcache.
 
-A prova existente de Chromium/CDP verifica desktop, tablet, quatro tamanhos de
+A suíte existente de Chromium/CDP contempla desktop, tablet, quatro tamanhos de
 celular (incluindo 320x568) e orientação horizontal, com PNGs e relatório.
 Verifica alinhamento, ausência de overflow horizontal, cobertura de seções,
 banner, menu, sessão, busca, deep links, detalhes e foco. Os testes de sessão
 validam os gates e a limpeza de dados. Essas evidências não homologam serviços
-pagos nem ativam o produto Web em produção.
+pagos nem ativam o produto Web em produção. Nesta reformulação, por instrução
+expressa, não foram executados builds nem testes automatizados: as evidências
+anteriores não validam a nova composição. Publicação e conferência visual do
+artefato atualizado permanecem pendentes.
 
 The same entrypoint is reproducible locally after building the public artifact:
 
