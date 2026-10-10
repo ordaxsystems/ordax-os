@@ -547,5 +547,6 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
+  .ordax-assistant-actions { flex-wrap: wrap; }
   .ordax-assistant-work-submit { flex: 1 1 100%; }
 }
