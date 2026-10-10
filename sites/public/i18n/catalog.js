@@ -5,6 +5,15 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["SEU UNIVERSO, CONECTADO", "YOUR UNIVERSE, CONNECTED"],
+    ["Sua identidade, assinatura e recursos. Tudo em um só lugar.", "Your identity, subscription and resources. All in one place."],
+    ["Sua identidade e seus recursos.", "Your identity and resources."],
+    ["UMA CONTA. TODOS OS SEUS MUNDOS.", "ONE ACCOUNT. ALL YOUR WORLDS."],
+    ["Atividade de consumo: dados não disponíveis", "Usage activity: data unavailable"],
+    ["Atividade de consumo", "Usage activity"],
+    ["Este mês", "This month"],
+    ["Seu consumo aparecerá aqui", "Your usage will appear here"],
+    ["Nenhuma medição confirmada", "No confirmed measurements"],
     ["Gerencie sua conta", "Manage your account"],
     ["Seu perfil, suas conexões e suas preferências.", "Your profile, connections, and preferences."],
     ["Fechar menu", "Close menu"],
