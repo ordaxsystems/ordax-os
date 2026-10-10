@@ -40,7 +40,7 @@ class ReactAccountBundleTests(unittest.TestCase):
             self.assertEqual(verified["source_commit"], EXPECTED_SHA)
             html = (out / "conta/index.html").read_text(encoding="utf-8")
             self.assertIn('<div id="root"></div>', html)
-            self.assertRegex(html, r'/assets/account/index-[A-Za-z0-9_-]+\\.js')
+            self.assertRegex(html, r'/assets/account/index-[A-Za-z0-9_-]+\.js')
             self.assertIn('href="/assets/account/', html)
             self.assertNotIn('src="https://', html)
             copied = sorted((out / "assets/account").glob("*"))
