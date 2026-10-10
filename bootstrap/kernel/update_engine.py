@@ -142,7 +142,7 @@ def write_exact(path: Path, content: bytes) -> bool:
 
 def prepare_new_candidate(entry: dict, root: Path = ROOT) -> dict:
     root = root.resolve()
-    previous_path, previous = PIPELINE.select_candidate(root)
+    previous_path, previous = PIPELINE.select_candidate(root, require_newer=False)
     active = PIPELINE.read_json(root / "bootstrap/kernel/source.json")
     new_version = PIPELINE.version_tuple(entry["version"])
     old_version = PIPELINE.version_tuple(previous["version"])
@@ -195,7 +195,7 @@ def prepare_new_candidate(entry: dict, root: Path = ROOT) -> dict:
             os.replace(tmp, selected)
         finally:
             Path(tmp).unlink(missing_ok=True)
-    PIPELINE.select_candidate(root)
+    PIPELINE.select_candidate(root, require_newer=False)
     return {
         "status": "authenticated-candidate-proposed",
         "version": entry["version"],
@@ -214,7 +214,7 @@ def main() -> int:
     parser.add_argument("--version", help="optional exact patch from kernel.org feed, never another LTS line")
     args = parser.parse_args()
     try:
-        _, selected = PIPELINE.select_candidate()
+        _, selected = PIPELINE.select_candidate(require_newer=False)
         feed = signed_feed_entry(load_feed(), selected["version"])
         if args.version and args.version != feed["version"]:
             raise UpdateError("requested patch does not match latest signed longterm feed")
