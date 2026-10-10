@@ -40,7 +40,7 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
   );
   // Priority affects only presentation, never Work state or permissions.
   // A real outstanding approval / uncertain execution must not be hidden
-  // behind newer completed responses in a three-card window.
+  // behind newer completed responses under the three-card display limit.
   const actionRequired = new Set([
     ...personal.attempts.filter((attempt) => attempt.status === "uncertain")
       .map((attempt) => attempt.workItemId),
