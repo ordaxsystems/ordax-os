@@ -1,6 +1,7 @@
 import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
 import { activityApp } from "../../activity/app.mjs";
+import { createPersonalActivityWorkTarget } from "../../activity/work-navigation.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
 import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../../../contracts/personal-ordax.mjs";
@@ -110,7 +111,11 @@ export function openAssistantWorkInActivity(
     );
     if (!view.cards.some((item) =>
       item.workItemId === workItemId && item.state === "requires-action")) return false;
-    channel.publish({ appId: activityApp.id });
+    const target = createPersonalActivityWorkTarget(personal.getSnapshot(), workItemId);
+    if (target === null) return false;
+    // Native Surface is the sole source of window target identity. The
+    // Activity receiver will revalidate owner/Space before highlighting.
+    channel.publish({ appId: activityApp.id, target });
     return true;
   } catch {
     return false; // Context or navigation changed: no cross-owner action.
