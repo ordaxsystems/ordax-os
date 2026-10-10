@@ -473,7 +473,7 @@ jobs:
             ${{ runner.temp }}/local-ai-runtime/build-a/operator-receipt.json
             system/services/local-ai/source-lock.json
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 14
 
       - name: Remove unpromoted runtime bytes
         if: always() && github.event_name != 'workflow_dispatch'

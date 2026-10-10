@@ -12,6 +12,10 @@ on:
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-consumer-flow.json'
       - 'tests/test_first_mvp_operator_readiness.py'
+      - 'tests/test_canonical_v4_operator_retention.py'
+      - '.github/workflows/portable-release-image.yml'
+      - '.github/workflows/surface-runtime-lock-discovery.yml'
+      - '.github/workflows/local-ai-runtime-candidate.yml'
       - 'docs/contracts/physical-write-authorization.json'
       - 'docs/contracts/mvp-app-delivery.json'
       - 'docs/MVP-PRONTIDAO-CONTINUA.md'
@@ -52,6 +56,7 @@ jobs:
             tests.test_first_mvp_operator_readiness \
             tests.test_physical_promotion_boundary \
             tests.test_stable_mvp_readiness_snapshot_workflow -v
+          python -m unittest discover -s tests -p 'test_canonical_v4_operator_retention.py' -v
 
       - name: Snapshot canonical USB and Creator public-readiness boundaries
         shell: bash

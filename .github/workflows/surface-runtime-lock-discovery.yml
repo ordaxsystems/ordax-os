@@ -168,7 +168,7 @@ jobs:
             ${{ runner.temp }}/surface-runtime/build-a/native-surface-runtime.erofs
             ${{ runner.temp }}/surface-runtime/build-a/operator-receipt.json
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 14
 
       - name: Remove unpromoted runtime image bytes
         if: github.event_name != 'workflow_dispatch'
