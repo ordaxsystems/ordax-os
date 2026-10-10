@@ -5,7 +5,7 @@
 ## Fonte e mídia travadas por hash
 
 - Original do proprietário: `ordax-os-boot.mp4` (1280×720, 24 fps, 8,833 s, H.264 + áudio AAC original), SHA-256 `bcab385c001833529cd40b9bb8685e5eb33b7fec12b308d4a3a047965f500769`.
-- Quadros já pré-decodificados: `media/frames.rgb565.zst` (RGB565 little endian, 640×360, 12 fps, 106 quadros, ~4,6 MiB), SHA-256 `82103c596add28d2945b172c418e4e9d03c1e4b6e3600a4f1b1a76be931bdb38`.
+- Quadros já pré-decodificados: `media/frames.rgb565.zst` (RGB565 little endian, 1280×720, 24 fps, 212 quadros, ~20 MiB), SHA-256 `691247dc90a44ffcbeb6c3ae953f756b74f2fff5f0cd3e84f98de36c5747f2ab`.
 - Áudio original extraído e preservado em PCM estéreo 48 kHz: `media/boot-audio.wav` (~1,7 MiB), SHA-256 `78c35e843facdf25033d207acd82f6ba4354cdd75763bca48494a86c36e9b1f0`.
 - Fonte canônica dos hashes: `asset-lock.json`, verificada pelo builder; cópias com bytes divergentes **fazem falhar o build**.
 
