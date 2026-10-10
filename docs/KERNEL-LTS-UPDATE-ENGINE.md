@@ -32,6 +32,28 @@ sem nova autoridade de release, sem memória paralela.
   NÃO altera source ativo, não substitui Stable Base, não gira chaves, não cria
   token de implantação e não autoriza escrita física.
 
+## Escopo inteligente de CI e horizonte de manutenção
+
+Uma proposta que altere **somente** `bootstrap/kernel/candidates/**` e os
+scripts de geração/prova de candidatos **não** precisa recompilar o kernel
+atualmente ativo em onze workflows. Os workflows de Stable, Portable, Creator,
+Native, QEMU e reprodução continuam a observar `bootstrap/kernel/**`, mas
+excluem esses três caminhos exclusivos de propostas. Ao modificar o source
+canônico, o builder, uma configuração ou um consumidor real, as provas integrais
+permanecem obrigatórias. O teste `test_kernel_candidate_ci_scope.py` protege
+esses filtros.
+
+Após promover um candidato, ele pode coincidir com o source canônico. Isso
+significa `up-to-date`, não erro nem pedido de compilação de candidato antigo.
+O atualizador continua detectando novos patches a partir da última seleção.
+
+Se a família atual deixar de aparecer como longterm mantida no feed oficial,
+`discover` retorna `lts-line-upgrade-required`. A rotina semanal tenta abrir
+**uma** issue para planejar uma nova família LTS; não aceita automaticamente
+um salto de ABI nem modifica a versão ativa. Uma transição 6.6→outra linha
+tem seu próprio ciclo técnico e provas, mas não deve depender da troca manual
+de strings em todos os workflows.
+
 ## Máquina de estados mínima
 
 `descoberto` -> `identidade-assinada` -> `candidato-em-PR` ->
