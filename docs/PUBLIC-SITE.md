@@ -71,7 +71,7 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ## Route ownership
 
-### Conta 2 — comparação visual isolada (2026-10-10)
+### Conta 2 — candidata com sessão integrada (2026-10-10)
 
 Por solicitação explícita do usuário, `/conta-2/` reproduz o layout do
 `washingtonmsdj/account-hub-pro` no commit
@@ -82,7 +82,7 @@ troca da home, catálogo comercial, backend ou fonte de Identity adicional.
 
 `sites/public/conta-2/index.html`, `assets/account-2.css` e
 `assets/account-2.js` são uma composição experimental; navegação, busca,
-filtros, menus e ajuda são apresentação. Serviços não conectados continuam
+filtros e ajuda são apresentação. Serviços não conectados continuam
 sem dados, cobrança, concessão de acesso ou alterações de conta. Preferências
 de exemplo são limitadas à sessão da prévia. A localização continua no
 catálogo e runtime existentes do portal. O símbolo e a fonte Inter continuam
@@ -100,7 +100,46 @@ chaves, rotas de servidor ou código de integrações. A proveniência de fonte
 e ilustração é registrada em
 `docs/evidence/account-2-reference-2026-10-10.json`. Uma migração oficial
 depende da avaliação do usuário e de integrar capacidades reais pelos owners
-atuais, nunca de promover a prévia visual a produto autenticado.
+atuais, nunca de considerar a conexão de sessão prova de prontidão de todos
+os serviços da conta.
+
+#### Integração atual e critérios de migração
+
+O cliente existente `assets/site.js` expõe o port de apresentação versionado
+`prototype-ordax.public-account-client/1` (`window.OrdaXPublicAccount`),
+declarado em `docs/contracts/public-site.json`. A conta oficial e a candidata
+compartilham a mesma consulta `GET /auth/session`, validação de schema,
+provider e estado, cache em memória e implementação de menu. A projeção
+pública contém apenas `status` e `email`; não inclui tokens, cookies, IDs
+de sujeito, nome/avatar não contratados ou uma fonte adicional de Identity.
+
+A Conta 2 mostra o e-mail da sessão verificada no resumo e no perfil, consulta a sessão
+atual em Segurança e acesso e oferece nova tentativa quando o gateway falha.
+O menu do cabeçalho inclui perfil, segurança, dispositivos, preferências e,
+somente após autenticação verificada, **Sair da conta**. A saída usa o mesmo
+formulário nativo `POST /auth/logout` da conta oficial; revogação e proteção
+CSRF continuam no gateway. A UI não simula sucesso nem interpreta cookies.
+Dados pessoais são limpos antes de revalidar a sessão e no `pagehide`, e
+respostas de gerações antigas são ignoradas. Retorno pelo histórico e
+reativação da aba consultam novamente o serviço. Navegação e mudança de
+idioma compartilham a leitura já verificada.
+
+Aceite deste incremento: regressões do portal oficial passam; leitura de
+sessão, invalidação, retry e menu possuem testes comportamentais; mobile não
+apresenta overflow; rota candidata continua isolada, sem dados inventados e
+sem alterar a ativação pública de serviços. Risco: o cliente é compartilhado
+com login e conta oficial, portanto os testes de readiness, consentimento,
+sessão e navegação permanecem obrigatórios.
+
+Antes de substituir `/conta/`, faltam a avaliação do usuário, prova do fluxo
+autenticado com o gateway implantado e os contratos públicos dos owners para
+edição de perfil/foto, senha/2FA, lista e revogação de dispositivos,
+assinatura/faturamento, medição de consumo, notificações e atividade.
+Exportação/exclusão e Cloud continuam subordinadas aos gates operacionais e
+legais já existentes. A candidata não ativa esses serviços, não adiciona
+endpoints presumidos e não substitui provas de implantação por testes com
+fixtures. O host local sem provider configurado mostra indisponibilidade
+real; ele não deve inventar login para produzir uma demonstração.
 
 A rota recebe `noindex`; os assets de apresentação têm versões derivadas de
 hash no build existente do site. Não requer novo pipeline, framework ou

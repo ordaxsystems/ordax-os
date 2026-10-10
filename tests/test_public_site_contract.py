@@ -32,7 +32,15 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertEqual(preview["route"], contract["routes"]["account_layout_preview"])
         self.assertNotEqual(preview["route"], contract["account_area"]["route"])
         self.assertFalse(preview["replaces_official_account"])
-        self.assertFalse(preview["may_access_account_services"])
+        self.assertTrue(preview["may_access_account_services"])
+        self.assertFalse(preview["may_activate_account_services"])
+        self.assertEqual(preview["supported_service_routes"], ["GET /auth/session", "POST /auth/logout"])
+        port = contract["account_area"]["session_presentation_port"]
+        self.assertEqual(preview["session_client"], port["schema"])
+        self.assertEqual(port["snapshot_fields"], ["status", "email"])
+        self.assertEqual(port["authority"], "none")
+        self.assertFalse(port["identity_persistence_allowed"])
+        self.assertFalse(port["credential_exposure_allowed"])
         self.assertFalse(preview["may_simulate_user_data"])
         self.assertFalse(preview["search_engine_indexing_allowed"])
         provenance = json.loads((ROOT / preview["provenance"]).read_text(encoding="utf-8"))
@@ -41,6 +49,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('data-public-locale-slot', markup)
         self.assertIn('content="noindex, nofollow"', markup)
         self.assertIn('href="/conta/"', markup)
+        self.assertLess(markup.index('/assets/site.js'), markup.index('/assets/account-2.js'))
 
     def test_public_site_is_distinct_from_product_web_mode(self):
         contract = json.loads(PUBLIC_CONTRACT.read_text(encoding="utf-8"))
@@ -243,7 +252,7 @@ class PublicSiteContractTests(unittest.TestCase):
             self.assertIn('aria-live="polite"', html)
             self.assertIn('method="post"', html)
 
-        self.assertIn('loadJson("/auth/session")', script)
+        self.assertIn('loadJson("/auth/session", signal)', script)
         self.assertIn('value.provider === "supabase"', script)
         self.assertIn('value.$schema === "prototype-ordax.public-identity-session/1"', script)
         self.assertIn("validSessionReadiness", script)

@@ -328,7 +328,7 @@ for (const value of collectUserFacingJsLiterals(playground)) {
 }
 const accountExperiment = read("sites/public/assets/account-2.js");
 // These are DOM/route identifiers, not labels. Visible labels remain covered.
-const accountImplementationTokens = new Set(["conta-2", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/"]);
+const accountImplementationTokens = new Set(["conta-2", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/", "/conta-2/"]);
 for (const value of collectUserFacingJsLiterals(accountExperiment, accountImplementationTokens)) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `account experiment copy missing from localization owner: ${value}`);

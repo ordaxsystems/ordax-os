@@ -339,7 +339,7 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
                     for asset in (
                         "assets/account-dashboard.css", "assets/account-portal.js",
                         "assets/ordax-design-tokens.css", "assets/ordax-font.css",
-                        "assets/account-2.css", "assets/account-2.js",
+                        "assets/account-2.css", "assets/account-2.js", "assets/site.js",
                     ):
                         version = sha256_bytes((stage / asset).read_bytes())[:16]
                         pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'

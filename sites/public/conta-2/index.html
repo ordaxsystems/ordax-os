@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/assets/account-2.css">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
+  <script src="/assets/site.js" defer></script>
   <script src="/assets/account-2.js" defer></script>
 </head>
 <body data-page="conta-2" class="account-2">
@@ -23,7 +24,7 @@
         <button type="button" class="button outline search-launch" data-open-dialog="search" aria-controls="account-dialog"><span data-icon="search"></span><span>Buscar na minha conta</span><kbd aria-hidden="true">Ctrl K</kbd></button>
         <button type="button" class="button ghost icon-button" data-open-dialog="notifications" aria-label="Notificações" title="Notificações" aria-controls="account-dialog"><span data-icon="bell"></span></button>
         <span class="header-divider" aria-hidden="true"></span>
-        <button type="button" class="button ghost account-menu" data-open-dialog="account" aria-label="Sua conta" aria-controls="account-dialog"><span class="mini-avatar"><span data-icon="user"></span></span><span>Sua conta</span><span data-icon="chevron-down"></span></button>
+        <button type="button" class="button ghost account-menu" id="profile-menu-trigger" aria-label="Sua conta"><span class="mini-avatar"><span data-icon="user"></span></span><span id="profile-menu-label">Sua conta</span><span data-icon="chevron-down"></span></button>
       </div>
     </header>
     <aside class="desktop-sidebar" aria-label="Navegação da conta">
@@ -37,8 +38,9 @@
     </aside>
     <main class="account-main" id="conteudo" tabindex="-1">
       <nav class="breadcrumb" aria-label="Localização"><a href="/">OrdaX OS</a><span data-icon="chevron-right"></span><a href="#visao-geral">Minha Conta</a><span id="section-crumb" hidden></span><a class="preview-link" href="/conta/">Prévia 2 · Conta oficial <span aria-hidden="true">↗</span></a></nav>
+      <section id="account-session" class="session-panel" aria-label="Informação da sessão autenticada"></section>
       <div id="account-content"></div>
-      <footer class="page-footer"><span><img src="/assets/ordax-symbol.png" width="18" height="18" alt=""> OrdaX OS <span class="footer-dash">—</span> Uma conta. Todos os seus mundos.</span><div><a href="#privacidade">Privacidade</a><a href="#suporte">Ajuda</a><span class="footer-status"><span></span>Serviços não conectados</span><span data-public-locale-slot></span></div></footer>
+      <footer class="page-footer"><span><img src="/assets/ordax-symbol.png" width="18" height="18" alt=""> OrdaX OS <span class="footer-dash">—</span> Uma conta. Todos os seus mundos.</span><div><a href="#privacidade">Privacidade</a><a href="#suporte">Ajuda</a><span class="footer-status" id="session-footer-status"></span><span data-public-locale-slot></span></div></footer>
     </main>
     <nav class="mobile-nav" id="mobile-navigation" aria-label="Navegação móvel"></nav>
   </div>

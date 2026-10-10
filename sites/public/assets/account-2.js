@@ -1,4 +1,4 @@
-/* Account 2 is a presentation preview. Account services remain owned by the official portal. */
+/* Account 2 consumes the official portal presentation port; Identity retains authority. */
 (() => {
   "use strict";
 
@@ -9,6 +9,10 @@
     throw new Error("public-site-localization-runtime-missing");
   }
   const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+  const account = window.OrdaXPublicAccount;
+  if (!account || account.schema !== "prototype-ordax.public-account-client/1") {
+    throw new Error("public-account-client-missing");
+  }
   const tx = source => esc(i18n.fromSource(source));
   const message = (id, variables) => esc(i18n.t(id, variables));
   const MARK = "/assets/ordax-symbol.png";
@@ -17,11 +21,11 @@
   // One catalog owns routes, navigation, descriptions and unavailable service presentation.
   const sections = Object.freeze([
     { id: "visao-geral", title: "Visão geral", icon: "dashboard", description: "Sua identidade, assinatura e recursos em um só lugar." },
-    { id: "dados-pessoais", title: "Dados pessoais", icon: "user", description: "Seu perfil e suas informações cadastrais.", owner: "Identidade OrdaX", capabilities: ["Leitura do perfil", "Edição de dados cadastrais", "Foto de perfil"] },
+    { id: "dados-pessoais", title: "Dados pessoais", icon: "user", description: "Seu perfil e suas informações cadastrais.", owner: "Identidade OrdaX", capabilities: ["E-mail da conta", "Edição de dados cadastrais", "Foto de perfil"] },
     { id: "assinatura", title: "Plano e assinatura", icon: "crown", description: "Seu plano, benefícios e opções de assinatura.", owner: "Direitos e assinaturas OrdaX", capabilities: ["Plano contratado", "Catálogo oficial de planos", "Alteração e cancelamento"] },
     { id: "consumo", title: "Consumo e limites", icon: "chart", description: "Acompanhe seus recursos em todo o ecossistema OrdaX.", owner: "Medição de uso OrdaX", capabilities: ["Créditos de IA", "Armazenamento", "Chamadas de API", "Histórico por período"] },
     { id: "faturamento", title: "Pagamentos e faturas", icon: "card", description: "Métodos de pagamento, cobranças e documentos fiscais.", owner: "Faturamento OrdaX", capabilities: ["Métodos de pagamento", "Faturas e recibos", "Dados fiscais"] },
-    { id: "seguranca", title: "Segurança e acesso", icon: "shield", description: "Proteja sua identidade e controle o acesso à sua conta.", owner: "Identidade OrdaX", capabilities: ["Senha", "Verificação em duas etapas", "Recuperação", "Eventos de acesso"] },
+    { id: "seguranca", title: "Segurança e acesso", icon: "shield", description: "Proteja sua identidade e controle o acesso à sua conta.", owner: "Identidade OrdaX", capabilities: ["Sessão neste navegador", "Senha", "Verificação em duas etapas", "Recuperação", "Eventos de acesso"] },
     { id: "dispositivos", title: "Meus dispositivos", icon: "devices", description: "Dispositivos e sessões vinculados à sua conta.", owner: "Sessões e dispositivos OrdaX", capabilities: ["Sessões ativas", "Dispositivos OrdaX OS", "Encerramento remoto"] },
     { id: "privacidade", title: "Dados e privacidade", icon: "fingerprint", description: "Seus dados, suas escolhas. Você está no controle.", owner: "Privacidade OrdaX", capabilities: ["Exportação de dados", "Consentimentos", "Exclusão da conta"] },
     { id: "preferencias", title: "Preferências", icon: "sliders", description: "Personalize a experiência da sua conta." },
@@ -37,13 +41,38 @@
     { id: "apis", name: "APIs e serviços", label: "APIs e serviços", icon: "zap", tone: "mint" }
   ]);
   const faqs = Object.freeze([
-    { q: "Onde encontro meu plano e minha assinatura?", a: "A seção Plano e assinatura reúne o plano contratado, os benefícios e as opções de alteração. Essas informações dependem da conexão com o serviço de assinatura OrdaX." },
-    { q: "Como acompanho meu consumo de IA?", a: "Na seção Consumo e limites, você pode filtrar o período e consultar inteligência artificial, armazenamento e APIs. Sem uma conexão com os serviços, nenhum valor é estimado ou inventado." },
+    { q: "Onde encontro meu plano e minha assinatura?", a: "A seção Plano e assinatura reunirá seu plano e seus benefícios quando o serviço oficial estiver disponível." },
+    { q: "Como acompanho meu consumo de IA?", a: "Os filtros da seção Consumo e limites já estão disponíveis para avaliação. Os valores dependem do serviço oficial de medição de uso." },
     { q: "Como acesso minhas faturas?", a: "Pagamentos e faturas reúne documentos fiscais e cobranças. Faturas e recibos poderão ser baixados quando o serviço de faturamento estiver integrado." },
-    { q: "Como protejo minha conta?", a: "Em Segurança e acesso você encontra os controles de senha e verificação em duas etapas. Meus dispositivos permite consultar sessões autorizadas quando os serviços de identidade estiverem disponíveis." },
+    { q: "Como protejo minha conta?", a: "Segurança e acesso confirma a sessão deste navegador. Senha, verificação em duas etapas e lista de dispositivos aguardam serviços públicos específicos." },
     { q: "Posso exportar ou excluir meus dados?", a: "Os controles ficam em Dados e privacidade. Para sua proteção, a exportação e a exclusão exigem uma conta autenticada e o serviço de privacidade conectado." }
   ]);
   const state = { section: "visao-geral", period: "month", activityPeriod: "month", tab: "overview", faq: 0, helpQuery: "", searchQuery: "", dialog: null, previewLocale: "pt-BR", preferences: { security: true, usage: true, news: false } };
+  let session = account.getSnapshot();
+  let disposeMenu = () => {};
+  const signedIn = () => session.status === "authenticated";
+  const sessionKey = () => session.status === "authenticated" ? "active" : session.status;
+  const sessionTitle = () => message(`account.session.${sessionKey()}.title`);
+
+  function renderSession() {
+    const trigger = document.getElementById("profile-menu-trigger");
+    const focusWasInMenu = document.getElementById("ordax-profile-menu")?.contains(document.activeElement);
+    if (session.status !== "leaving") {
+      disposeMenu();
+      disposeMenu = account.bindProfileMenu(trigger, { accountRoute: "/conta-2/" });
+    }
+    trigger.disabled = session.status === "leaving";
+    document.getElementById("profile-menu-label").textContent = i18n.fromSource(signedIn() ? "Meu perfil" : "Sua conta");
+    trigger.setAttribute("aria-label", i18n.fromSource(signedIn() ? "Opções da conta" : "Sua conta"));
+    document.getElementById("account-session").dataset.status = session.status;
+    document.getElementById("account-session").innerHTML = `<div class="session-information">${icon(signedIn() ? "shield" : "user")}<div><strong role="status" id="session-status-title" tabindex="-1">${sessionTitle()}</strong><p>${message(`account.session.${sessionKey()}.detail`)}</p>${signedIn() && session.email ? `<p class="session-email" translate="no">${esc(session.email)}</p>` : ""}</div></div><div class="session-actions">${["checking", "leaving"].includes(session.status) ? "" : action(signedIn() ? "Verificar sessão" : "Tentar novamente", "refresh", { disabled: false, small: true, data: 'data-refresh-session id="session-retry"' })}${!signedIn() && session.status !== "leaving" ? `<a href="/login/" class="button outline h-8">${tx("Entrar")}${icon("arrow-right")}</a>` : ""}</div>`;
+    document.getElementById("session-footer-status").innerHTML = `<span></span>${sessionTitle()}`;
+    if (focusWasInMenu && !trigger.disabled) trigger.focus({ preventScroll: true });
+  }
+
+  function sessionSection() {
+    return `<section class="settings-section"><div class="setting-row">${icon("shield", "mint")}<div><h2>${tx("Sessão neste navegador")}</h2><p>${sessionTitle()}</p>${signedIn() && session.email ? `<p class="verified-email" translate="no">${esc(session.email)}</p>` : ""}<small>${tx("Esta consulta confirma apenas a sessão atual. Não lista outros dispositivos.")}</small></div>${action("Verificar sessão", "refresh", { disabled: !["authenticated", "anonymous", "unavailable"].includes(session.status), data: 'data-refresh-session id="security-session-retry"' })}</div>${signedIn() ? `<p class="session-help">${tx("Para encerrar esta sessão, abra seu perfil no cabeçalho e escolha Sair da conta.")}</p>` : ""}</section>`;
+  }
 
   const paths = {
     dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
@@ -101,6 +130,9 @@
     return `<div class="empty-state"><span class="empty-icon">${icon(iconName)}</span><h3>${tx(title)}</h3><p>${tx(description)}</p><span class="unavailable-chip"><span></span>${tx("Serviços não conectados")}</span></div>`;
   }
   function field(label, placeholder, type = "text") {
+    if (label === "E-mail" && signedIn()) {
+      return `<label class="form-field"><span>${tx(label)}</span><input type="email" value="${esc(session.email)}" readonly autocomplete="off"><small>${message(session.email ? "account.session.active.title" : "account.session.emailUnavailable")}</small></label>`;
+    }
     return `<label class="form-field"><span>${tx(label)}</span><input type="${esc(type)}" placeholder="${tx(placeholder)}" disabled><small>${tx("Disponível após conectar a conta")}</small></label>`;
   }
   function selectPeriod(id, value, all = true) {
@@ -112,12 +144,14 @@
   }
   function integration(section) {
     if (!section.owner) return "";
-    return `<section class="integration-panel" aria-label="${tx("Prontidão da integração")}"><div class="integration-head"><span class="integration-icon">${icon("plug")}</span><div class="min-w-0"><small>${tx("FONTE OFICIAL DESTA SEÇÃO")}</small><h2>${tx(section.owner)}</h2></div><span class="integration-status"><span></span>${tx("Não conectado")}</span></div><ul class="integration-caps">${section.capabilities.map(capability => `<li>${icon("dashed")}<span>${tx(capability)}</span><em>${tx("Aguardando serviço")}</em></li>`).join("")}</ul></section>`;
+    const available = capability => signedIn() && (capability === "Sessão neste navegador" || (capability === "E-mail da conta" && Boolean(session.email)));
+    const partial = section.capabilities.some(available);
+    return `<section class="integration-panel" aria-label="${tx("Prontidão da integração")}"><div class="integration-head"><span class="integration-icon">${icon("plug")}</span><div class="min-w-0"><small>${tx("FONTE OFICIAL DESTA SEÇÃO")}</small><h2>${tx(section.owner)}</h2></div><span class="integration-status${partial ? " ok" : ""}"><span></span>${tx(partial ? "Conexão parcial" : "Recursos pendentes")}</span></div><ul class="integration-caps">${section.capabilities.map(capability => `<li>${icon(available(capability) ? "shield" : "dashed")}<span>${tx(capability)}</span><em>${tx(available(capability) ? "Verificado" : "Aguardando serviço")}</em></li>`).join("")}</ul></section>`;
   }
 
   function overview() {
     return `<section class="overview-hero"><img class="hero-landscape" src="${LANDSCAPE}" width="1920" height="640" alt="${tx("Paisagem OrdaX com montanhas e um planeta luminoso")}"><div class="hero-shade"></div><div class="hero-content"><div class="eyebrow"><span></span>${tx("SEU UNIVERSO, CONECTADO")}</div><h1 tabindex="-1">${tx("Minha Conta")}<span>.</span></h1><p>${tx("Sua identidade, assinatura e recursos. Tudo em um só lugar.")}</p></div><span class="hero-caption">${tx("UMA CONTA. TODOS OS SEUS MUNDOS.")}</span></section>
-      <section class="profile-banner"><div class="profile-identity"><div class="profile-avatar">${icon("user")}<span>${icon("dashed")}</span></div><div><div class="flex items-center gap-2"><h2>${tx("Sua conta OrdaX")}</h2><span class="profile-label">${tx("Pessoal")}</span></div><p>${tx("Uma identidade para todo o seu universo.")}</p>${link("dados-pessoais", "", "button outline h-8", `${icon("pencil")}${tx("Ver perfil")}${icon("chevron-right")}`)}</div></div><div class="profile-facts">${[{ icon: "calendar", tone: "", name: "Membro desde", value: "Não disponível" }, { icon: "crown", tone: "violet", name: "Plano atual", value: "Aguardando conexão" }, { icon: "shield", tone: "mint", name: "Status da conta", value: "Não conectada" }].map(fact => `<div><span class="fact-icon ${fact.tone}">${icon(fact.icon)}</span><div><small>${tx(fact.name)}</small><strong${fact.tone === "mint" ? ' class="text-muted-foreground"' : ""}>${tx(fact.value)}</strong></div></div>`).join("")}</div></section>
+      <section class="profile-banner"><div class="profile-identity"><div class="profile-avatar">${icon("user")}<span>${icon("dashed")}</span></div><div><div class="flex items-center gap-2"><h2>${tx(signedIn() ? "Conta autenticada" : "Sua conta OrdaX")}</h2><span class="profile-label">${tx("Pessoal")}</span></div><p class="verified-email" translate="no">${signedIn() && session.email ? esc(session.email) : tx("Uma identidade para todo o seu universo.")}</p>${link("dados-pessoais", "", "button outline h-8", `${icon("pencil")}${tx("Ver perfil")}${icon("chevron-right")}`)}</div></div><div class="profile-facts">${[{ icon: "calendar", tone: "", name: "Membro desde", value: "Não disponível" }, { icon: "crown", tone: "violet", name: "Plano atual", value: "Aguardando conexão" }, { icon: "shield", tone: "mint", name: "Status da conta", value: signedIn() ? "Sessão verificada" : "Não conectada" }].map(fact => `<div><span class="fact-icon ${fact.tone}">${icon(fact.icon)}</span><div><small>${tx(fact.name)}</small><strong${fact.tone === "mint" ? ' class="text-muted-foreground"' : ""}>${tx(fact.value)}</strong></div></div>`).join("")}</div></section>
       <div class="section-heading"><h2>${tx("Seu universo em resumo")}</h2><span>${tx("Visão geral da conta")}</span></div>
       <div class="summary-grid"><article class="account-card plan-card"><div class="card-title"><span class="icon-tile violet">${icon("crown")}</span><span>${tx("Seu plano")}</span><span class="tiny-label">${tx("ASSINATURA")}</span></div><div class="plan-body"><div><h3>${tx("Mais possibilidades.")}<br>${tx("Um só lugar.")}</h3><p>${tx("Seu plano e seus benefícios ficam disponíveis aqui.")}</p></div><img src="${MARK}" width="126" height="126" alt="${tx("Símbolo OrdaX")}"></div>${link("assinatura", "", "button plan-button", `${tx("Ver assinatura")}${icon("arrow-right")}`)}</article>
       <article class="account-card resource-card"><div class="card-title"><span class="icon-tile cyan">${icon("chart")}</span><span>${tx("Consumo de recursos")}</span><a href="#consumo" aria-label="${tx("Ver consumo")}">${icon("arrow-up-right")}</a></div><p class="card-subtitle">${tx("Seus recursos, na medida do seu universo.")}</p><div class="resource-rows">${resources.map(resource => `<div class="resource-row">${icon(resource.icon, resource.tone)}<span>${tx(resource.label)}</span><div class="resource-track"></div><span class="resource-value">—</span></div>`).join("")}</div><span class="data-note">${icon("dashed")}${tx("Aguardando dados de consumo")}</span></article>
@@ -125,7 +159,7 @@
       <div class="dashboard-grid"><section class="account-card chart-card"><div class="chart-heading"><div><h2>${icon("chart", "cyan")}${tx("Atividade de consumo")}</h2><p>${tx("Uma visão dos seus recursos ao longo do tempo.")}</p></div><span class="period-label">${icon("calendar")}${tx("Este mês")}</span></div><div class="chart-legend">${resources.map(resource => `<span><i class="legend-${resource.tone}"></i>${tx(resource.label)}</span>`).join("")}</div>${chart()}${link("consumo", "", "chart-detail", `${tx("Explorar consumo")}${icon("arrow-right")}`)}</section>
       <section class="account-card security-summary"><div class="card-title"><span class="icon-tile mint">${icon("shield")}</span><span>${tx("Sua segurança")}</span><a href="#seguranca" aria-label="${tx("Ver segurança")}">${icon("arrow-up-right")}</a></div><div class="security-emblem">${icon("shield")}</div><h3>${tx("Seu acesso. Seu controle.")}</h3><p>${tx("Mantenha sua identidade protegida em todos os seus dispositivos.")}</p><div class="security-row">${icon("lock")}<span>${tx("Verificação em duas etapas")}</span><span>—</span></div><div class="security-row">${icon("fingerprint")}<span>${tx("Sessões e dispositivos")}</span><span>—</span></div>${link("seguranca", "", "button outline", `${tx("Gerenciar segurança")}${icon("arrow-right")}`)}</section></div>
       <div class="section-heading management-heading"><h2>${tx("Gerencie sua conta")}</h2><span>${tx("Todo o controle, em um lugar.")}</span></div><section class="management-grid">${sections.filter(section => !["visao-geral", "assinatura", "suporte"].includes(section.id)).map(section => `<a href="#${section.id}" class="management-card"><span class="management-icon">${icon(section.icon)}</span><div><h3>${tx(section.title)}</h3><p>${tx(section.description)}</p></div>${icon("chevron-right")}</a>`).join("")}</section>
-      <section class="connection-notice">${icon("info")}<div><strong>${tx("Seu próximo passo é conectar sua conta.")}</strong><p>${tx("Perfil, assinatura e consumo serão exibidos quando os serviços OrdaX estiverem integrados.")}</p></div><span>${icon("sparkles")}${tx("O seu universo está pronto")}</span></section>`;
+      <section class="connection-notice">${icon("info")}<div><strong>${tx("Sua identidade e seus serviços.")}</strong><p>${tx("A sessão usa o serviço oficial de identidade. Perfil completo, assinatura e consumo aguardam suas integrações.")}</p></div><span>${icon("sparkles")}${tx("O seu universo está pronto")}</span></section>`;
   }
 
   function personal() {
@@ -141,10 +175,10 @@
     return `<div class="billing-overview"><section class="account-card"><h2>${tx("Próxima cobrança")}</h2><h3 class="billing-large">—</h3><p class="text-muted-foreground text-sm">${tx("Valor e data não disponíveis")}</p></section><section class="account-card"><div class="flex items-center justify-between"><h2>${tx("Método de pagamento")}</h2>${icon("card", "cyan")}</div><p class="my-5 text-muted-foreground text-sm">${tx("Nenhum método disponível para consulta.")}</p>${action("Adicionar método")}</section></div><section class="settings-section"><div class="settings-title"><h2>${tx("Histórico de faturamento")}</h2>${action("Baixar faturas", "download", { small: true })}</div><div class="table-header">${["Documento", "Data", "Valor", "Status"].map(label => `<span>${tx(label)}</span>`).join("")}</div>${empty("Nenhuma fatura disponível", "Faturas, recibos e histórico de cobranças aparecerão após a conexão com o faturamento.")}</section><section class="settings-section"><h2>${tx("Dados fiscais")}</h2><div class="form-grid mt-6">${["Nome ou razão social", "CPF ou CNPJ", "Endereço de faturamento", "E-mail de faturamento"].map(label => field(label, "Não disponível", label === "E-mail de faturamento" ? "email" : "text")).join("")}</div><div class="mt-5">${action("Salvar dados fiscais", null, { variant: "" })}</div></section>`;
   }
   function security() {
-    return `<section class="settings-section">${[{ icon: "lock", title: "Senha de acesso", description: "Altere a senha que protege sua conta.", action: "Alterar senha" }, { icon: "shield", title: "Verificação em duas etapas", description: "Uma camada extra de proteção para sua identidade.", action: "Configurar", status: true }, { icon: "mail", title: "Recuperação da conta", description: "Gerencie o e-mail de recuperação da sua conta.", action: "Gerenciar" }].map(row => `<div class="setting-row"><span class="management-icon">${icon(row.icon)}</span><div><h2>${tx(row.title)}</h2><p>${tx(row.description)}</p>${row.status ? `<small>${tx("Status não disponível")}</small>` : ""}</div>${action(row.action)}</div>`).join("")}</section><section class="settings-section"><h2>${tx("Histórico de acesso")}</h2>${empty("Histórico de segurança não disponível", "Os eventos de acesso serão consultados pelo serviço de identidade OrdaX.", "history")}</section>`;
+    return `${sessionSection()}<section class="settings-section">${[{ icon: "lock", title: "Senha de acesso", description: "Altere a senha que protege sua conta.", action: "Alterar senha" }, { icon: "shield", title: "Verificação em duas etapas", description: "Uma camada extra de proteção para sua identidade.", action: "Configurar", status: true }, { icon: "mail", title: "Recuperação da conta", description: "Gerencie o e-mail de recuperação da sua conta.", action: "Gerenciar" }].map(row => `<div class="setting-row"><span class="management-icon">${icon(row.icon)}</span><div><h2>${tx(row.title)}</h2><p>${tx(row.description)}</p>${row.status ? `<small>${tx("Status não disponível")}</small>` : ""}</div>${action(row.action)}</div>`).join("")}</section><section class="settings-section"><h2>${tx("Histórico de acesso")}</h2>${empty("Histórico de segurança não disponível", "Os eventos de acesso serão consultados pelo serviço de identidade OrdaX.", "history")}</section>`;
   }
   function devices() {
-    return `<section class="settings-section"><div class="settings-title"><div><h2>${tx("Dispositivos autorizados")}</h2><p>${tx("OrdaX OS, Web e dispositivos móveis.")}</p></div>${action("Encerrar outras sessões")}</div>${empty("Nenhuma sessão disponível para consulta", "Não é possível identificar dispositivos conectados antes da integração com os serviços de autenticação.", "devices")}</section>`;
+    return `<section class="settings-section"><div class="settings-title"><div><h2>${tx("Dispositivos autorizados")}</h2><p>${tx("OrdaX OS, Web e dispositivos móveis.")}</p></div>${action("Encerrar outras sessões")}</div>${empty("Nenhuma sessão disponível para consulta", "A sessão atual não identifica todos os dispositivos. A lista depende do serviço público de dispositivos OrdaX.", "devices")}</section>`;
   }
   function privacy() {
     return `<section class="settings-section"><h2>${tx("Privacidade e consentimentos")}</h2>${[{ title: "Dados essenciais", description: "Dados necessários para o funcionamento e a segurança da conta." }, { title: "Análise de uso", description: "Consentimento para informações que ajudam a melhorar o OrdaX." }, { title: "Comunicações personalizadas", description: "Preferências de comunicação vinculadas à sua identidade." }].map(row => `<div class="setting-row">${icon("fingerprint")}<div><h3>${tx(row.title)}</h3><p>${tx(row.description)}</p></div><span class="text-muted-foreground text-xs">${tx("Não disponível")}</span></div>`).join("")}</section><section class="settings-section"><div class="setting-row">${icon("download", "cyan")}<div><h2>${tx("Exportar meus dados")}</h2><p>${tx("Uma cópia das suas informações pessoais e do histórico da conta.")}</p></div>${action("Solicitar exportação")}</div></section><section class="settings-section danger-section"><div class="setting-row">${icon("trash")}<div><h2>${tx("Excluir conta")}</h2><p>${tx("A exclusão permanente requer autenticação e confirmação da sua identidade.")}</p></div>${action("Excluir minha conta", null, { variant: "destructive" })}</div></section>`;
@@ -180,7 +214,7 @@
   function renderContent({ focus = false } = {}) {
     const section = byId.get(state.section);
     const header = state.section === "visao-geral" ? "" : `<header class="detail-page-heading"><span class="detail-heading-icon">${icon(section.icon)}</span><div><div class="eyebrow">${tx("CENTRAL DA CONTA")}</div><h1 tabindex="-1">${tx(section.title)}</h1><p>${tx(section.description)}</p></div></header>`;
-    const notice = !["visao-geral", "suporte", "preferencias"].includes(state.section) ? `<div class="inline-notice">${icon("info")}<span>${tx("Os serviços da conta ainda não estão conectados. Nenhuma informação de assinatura, pagamento ou consumo está disponível.")}</span></div>` : "";
+    const notice = !["visao-geral", "suporte", "preferencias"].includes(state.section) ? `<div class="inline-notice">${icon("info")}<span>${tx("Alguns recursos desta seção ainda dependem de serviços públicos OrdaX. Assinatura, pagamentos e consumo não são presumidos.")}</span></div>` : "";
     document.getElementById("account-content").innerHTML = header + notice + integration(section) + views[state.section]();
     const crumb = document.getElementById("section-crumb");
     crumb.hidden = state.section === "visao-geral";
@@ -211,11 +245,11 @@
   }
   function renderDialog() {
     const kind = state.dialog;
-    const title = kind === "search" ? "Buscar na minha conta" : kind === "notifications" ? "Notificações" : kind === "support" ? "Atendimento não conectado" : "Sua identidade OrdaX";
-    const description = kind === "search" ? "Encontre uma área da sua conta." : kind === "support" ? "O canal oficial de suporte ainda não foi configurado. Nenhuma solicitação foi enviada." : "Os serviços de identidade ainda não estão conectados.";
+    const title = kind === "search" ? "Buscar na minha conta" : kind === "support" ? "Atendimento não conectado" : "Notificações";
+    const description = kind === "search" ? "Encontre uma área da sua conta." : kind === "support" ? "O canal oficial de suporte ainda não foi configurado. Nenhuma solicitação foi enviada." : "O serviço de notificações ainda não está conectado.";
     document.getElementById("dialog-title").textContent = i18n?.fromSource(title) ?? title;
     document.getElementById("dialog-description").textContent = i18n?.fromSource(description) ?? description;
-    document.getElementById("dialog-content").innerHTML = kind === "search" ? `<label class="search-field">${icon("search")}<span class="sr-only">${tx("Buscar na minha conta")}</span><input id="dialog-search" type="search" value="${esc(state.searchQuery)}" placeholder="${tx("O que você está procurando?")}" autocomplete="off" autofocus></label><div class="search-results" id="search-results">${searchResults()}</div>` : kind === "support" ? action("Entendi", null, { disabled: false, data: "data-close-dialog" }) : `<div class="empty-state compact">${icon(kind === "notifications" ? "bell" : "user")}<h3>${tx(kind === "notifications" ? "Nenhuma notificação disponível" : "Conta não conectada")}</h3><p>${tx(kind === "notifications" ? "Suas notificações aparecerão quando a conta estiver conectada." : "Seu perfil e sua sessão aparecerão aqui após a integração com os serviços OrdaX.")}</p></div><a class="button outline" href="/conta/">${tx("Abrir Conta oficial")}${icon("arrow-up-right")}</a>`;
+    document.getElementById("dialog-content").innerHTML = kind === "search" ? `<label class="search-field">${icon("search")}<span class="sr-only">${tx("Buscar na minha conta")}</span><input id="dialog-search" type="search" value="${esc(state.searchQuery)}" placeholder="${tx("O que você está procurando?")}" autocomplete="off" autofocus></label><div class="search-results" id="search-results">${searchResults()}</div>` : kind === "support" ? action("Entendi", null, { disabled: false, data: "data-close-dialog" }) : `<div class="empty-state compact">${icon("bell")}<h3>${tx("Nenhuma notificação disponível")}</h3><p>${tx("As notificações serão exibidas quando o serviço oficial estiver disponível.")}</p></div><a class="button outline" href="/conta/">${tx("Abrir Conta oficial")}${icon("arrow-up-right")}</a>`;
   }
   function openDialog(kind) {
     closeMore();
@@ -233,9 +267,11 @@
   dialog.addEventListener("click", event => { if (event.target === dialog) { const box = dialog.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) dialog.close(); } });
 
   document.addEventListener("click", event => {
+    if (event.defaultPrevented) return;
     const control = event.target.closest("button, a");
     if (!control) return;
-    if (control.matches("[data-open-dialog]")) openDialog(control.dataset.openDialog);
+    if (control.matches("[data-refresh-session]")) { void account.refreshSession(); }
+    else if (control.matches("[data-open-dialog]")) openDialog(control.dataset.openDialog);
     else if (control.matches("[data-close-dialog]")) dialog.close();
     else if (control.matches("[data-open-more]")) { if (moreDialog.open) closeMore(); else { moreDialog.showModal(); control.setAttribute("aria-expanded", "true"); } }
     else if (control.matches("[data-close-more]")) closeMore();
@@ -283,9 +319,17 @@
   window.matchMedia("(min-width: 761px)").addEventListener("change", event => { if (event.matches) closeMore(); });
   document.addEventListener("ordax:localechange", () => {
     const focused = document.activeElement?.id;
-    renderNavigation(); renderContent(); if (dialog.open) renderDialog();
+    renderNavigation(); renderContent(); renderSession(); if (dialog.open) renderDialog();
     if (focused) document.getElementById(focused)?.focus({ preventScroll: true });
   });
   hydrateIcons();
   route({ initial: true });
+  account.subscribe(value => {
+    const focused = document.activeElement?.id;
+    session = value;
+    renderSession();
+    renderContent();
+    if (focused && !document.activeElement?.id) (document.getElementById(focused) || document.getElementById("session-status-title"))?.focus({ preventScroll: true });
+  });
+  void account.readSession();
 })();

@@ -505,6 +505,22 @@ body.account-2 .integration-status{grid-column:1/-1;justify-self:start}
 body.account-2 .integration-caps{grid-template-columns:1fr}}
 
 body.account-2 .skip-link{position:fixed;top:-100px;left:20px;z-index:100;padding:12px 18px;background:var(--card);border:1px solid var(--border);border-radius:6px}body.account-2 .skip-link:focus{top:10px}
+body.account-2 .topbar-actions{position:relative}
+body.account-2 .ordax-profile-menu[hidden]{display:none}
+body.account-2 .ordax-profile-menu{position:absolute;right:0;top:calc(100% + 12px);z-index:65;width:min(280px,calc(100vw - 32px));max-height:calc(100dvh - 100px);overflow:auto;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--card);box-shadow:0 18px 48px var(--overlay)}
+body.account-2 .ordax-profile-menu a,body.account-2 .ordax-profile-menu button{display:block;width:100%;padding:12px;border:0;border-radius:5px;text-align:left;color:var(--foreground);background:transparent;font:inherit;font-size:12px;cursor:pointer;min-height:44px}
+body.account-2 .ordax-profile-menu a:hover,body.account-2 .ordax-profile-menu button:hover{background:var(--secondary)}
+body.account-2 .ordax-profile-menu .ordax-profile-signout{color:var(--destructive);border-top:1px solid var(--border);border-radius:0;margin-top:5px}
+body.account-2 .ordax-profile-identity{font-size:11px;line-height:1.6;color:var(--muted-foreground);padding:10px 12px;border-bottom:1px solid var(--border);margin-bottom:5px;overflow-wrap:anywhere}
+body.account-2 .session-panel{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card-gradient)}
+body.account-2 .session-information{display:flex;align-items:flex-start;gap:12px;min-width:0}
+body.account-2 .session-information>svg{flex-shrink:0;width:19px;color:var(--cyan);margin-top:2px}
+body.account-2 .session-information strong{font-size:12px;font-weight:500}
+body.account-2 .session-information p,body.account-2 .session-help{font-size:11px;line-height:1.7;color:var(--muted-foreground);margin-top:3px;overflow-wrap:anywhere}
+body.account-2 .session-panel[data-status=authenticated] .session-information>svg{color:var(--mint)}
+body.account-2 .session-actions{display:flex;gap:8px;flex-shrink:0}
+body.account-2 .verified-email{overflow-wrap:anywhere}
+@media(max-width:640px){body.account-2 .session-panel{flex-wrap:wrap;padding:13px;gap:10px}body.account-2 .session-actions{margin-left:31px;flex-wrap:wrap}body.account-2 .session-actions .button{min-height:44px}body.account-2 .ordax-profile-menu{right:0}}
 body.account-2 .account2-dialog{position:fixed;inset:0;margin:auto;padding:24px;width:min(512px,calc(100% - 32px));max-height:calc(100dvh - 48px);overflow:auto;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:8px;box-shadow:0 20px 65px oklch(.07 .025 264 / .55)}body.account-2 dialog::backdrop{background:var(--overlay);backdrop-filter:blur(4px)}body.account-2 .dialog-close{position:absolute;right:12px;top:12px;color:var(--muted-foreground)}body.account-2 .account2-dialog h2{font-size:19px;font-weight:600;line-height:1.5;padding-right:34px}body.account-2 #dialog-description{font-size:12px;line-height:1.8;color:var(--muted-foreground);margin:8px 0 20px}
 body.account-2 .breadcrumb .preview-link{margin-left:auto;font-size:9px;color:var(--cyan);white-space:nowrap}body.account-2 .breadcrumb #section-crumb{display:inline-flex;align-items:center;gap:9px;min-width:0}
 body.account-2 .mobile-more:not([open]){display:none}body.account-2 .mobile-more{border:0;color:var(--foreground);margin:0;max-height:none;max-width:none;width:100%}body.account-2 .mobile-more nav>a{display:flex;align-items:center;gap:15px;border-bottom:1px solid var(--border);padding:17px 5px;font-size:12px}body.account-2 .mobile-more nav>a>svg{width:18px;height:18px;color:var(--cyan)}body.account-2 .mobile-more nav>a>svg:last-child{margin-left:auto;width:14px;color:var(--subtle)}body.account-2 .more-official{color:var(--cyan);margin-top:20px}

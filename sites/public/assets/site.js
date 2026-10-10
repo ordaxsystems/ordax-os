@@ -24,12 +24,13 @@
     );
   }
 
-  async function loadJson(path) {
+  async function loadJson(path, signal) {
     const response = await fetch(path, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
       headers: { Accept: "application/json" },
+      ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
       throw new Error("resource-unavailable");
@@ -342,12 +343,46 @@
   // One verified session request per page. No parallel client-side auth state.
   let sessionPromise = null;
   let sessionRevision = 0;
+  const sessionObservers = new Set();
+  let sessionView = Object.freeze({ status: "checking", email: "" });
+
+  function publishSessionView(status, email = "") {
+    sessionView = Object.freeze({ status, email });
+    for (const observer of sessionObservers) {
+      // A presentation failure must not change the canonical identity result.
+      try { observer(sessionView); } catch { console.error("public-account-view-failed"); }
+    }
+  }
+
+  function sessionEmail(session) {
+    if (typeof session.email !== "string" || session.email.length > 254
+      || /[\u0000-\u001f\u007f]/.test(session.email)) return "";
+    return session.email.trim();
+  }
+
+  function invalidateIdentitySession(status = "checking") {
+    sessionRevision++;
+    startRevision++;
+    sessionPromise = null;
+    clearAccountView();
+    publishSessionView(status);
+  }
 
   function verifiedIdentitySession() {
     if (!sessionPromise) {
-      sessionPromise = loadJson("/auth/session").then(session => {
+      const revision = sessionRevision;
+      const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(10000) : undefined;
+      sessionPromise = loadJson("/auth/session", signal).then(session => {
         if (!validSessionReadiness(session)) throw new Error("invalid-identity-session");
+        if (revision === sessionRevision) {
+          publishSessionView(session.authenticated ? "authenticated" : "anonymous",
+            session.authenticated ? sessionEmail(session) : "");
+        }
         return session;
+      }).catch(error => {
+        if (revision === sessionRevision) publishSessionView("unavailable");
+        throw error;
       });
     }
     return sessionPromise;
@@ -358,7 +393,7 @@
   // it never owns cookies, tokens, or another session state.
   let disposeProfileMenu = () => {};
   let authHeaderRevision = 0;
-  function attachProfileMenu(trigger) {
+  function attachProfileMenu(trigger, { accountRoute = "/conta/", publicView = null } = {}) {
     if (typeof document.createElement !== "function"
       || typeof trigger?.addEventListener !== "function"
       || !trigger.parentElement) return () => {};
@@ -369,12 +404,23 @@
     menu.setAttribute("role", "group");
     menu.setAttribute("aria-label", i18n.fromSource("Opções da conta"));
     menu.hidden = true;
-    const destinations = [
-      ["/conta/", "Visão geral"],
-      ["/conta/#seguranca", "Segurança"],
-      ["/conta/#dispositivos", "Dispositivos"],
-      ["/conta/#preferencias", "Preferências"],
-    ];
+    // Only registered portal routes are accepted; consumers cannot inject URLs.
+    const route = accountRoute === "/conta-2/" ? accountRoute : "/conta/";
+    const authenticated = !publicView || publicView.status === "authenticated";
+    let identity = null;
+    if (publicView) {
+      identity = document.createElement("p");
+      identity.className = "ordax-profile-identity";
+      identity.textContent = publicView.email || t(`account.session.${publicView.status === "authenticated" ? "active" : publicView.status === "anonymous" ? "anonymous" : publicView.status === "unavailable" ? "unavailable" : "checking"}.title`);
+      menu.appendChild(identity);
+    }
+    const destinations = authenticated ? [
+      [route, "Visão geral"],
+      ...(publicView ? [[route + "#dados-pessoais", "Dados pessoais"]] : []),
+      [route + "#seguranca", "Segurança"],
+      [route + "#dispositivos", "Dispositivos"],
+      [route + "#preferencias", "Preferências"],
+    ] : [["/login/", "Entrar"], ["/cadastro/", "Criar conta"]];
     for (const [href, title] of destinations) {
       const option = document.createElement("a");
       option.href = href;
@@ -389,7 +435,16 @@
     signOut.className = "ordax-profile-signout";
     signOut.textContent = i18n.fromSource("Sair da conta");
     form.appendChild(signOut);
-    menu.appendChild(form);
+    if (authenticated) menu.appendChild(form);
+    let retry = null;
+    const onRetry = () => { void refreshPublicSession(); };
+    if (publicView?.status === "unavailable") {
+      retry = document.createElement("button");
+      retry.type = "button";
+      retry.textContent = i18n.fromSource("Tentar novamente");
+      retry.addEventListener("click", onRetry);
+      menu.appendChild(retry);
+    }
     trigger.parentElement.appendChild(menu);
     trigger.setAttribute("role", "button");
     trigger.setAttribute("aria-controls", menu.id);
@@ -398,6 +453,14 @@
       menu.hidden = true;
       trigger.setAttribute("aria-expanded", "false");
     };
+    const onSubmit = () => {
+      // Keep the native form connected until the browser submits its POST.
+      // The server alone clears/revokes cookies and confirms the outcome.
+      close();
+      if (identity) identity.textContent = "";
+      invalidateIdentitySession("leaving");
+    };
+    form.addEventListener("submit", onSubmit);
     const open = () => {
       menu.hidden = false;
       trigger.setAttribute("aria-expanded", "true");
@@ -454,12 +517,45 @@
       document.removeEventListener("keydown", onGlobalKey);
       document.removeEventListener("focusin", onFocusOutside);
       menu.removeEventListener("click", onOptionClick);
+      form.removeEventListener("submit", onSubmit);
+      retry?.removeEventListener("click", onRetry);
       trigger.removeAttribute("role");
       trigger.removeAttribute("aria-controls");
       trigger.removeAttribute("aria-expanded");
       menu.remove();
     };
   }
+
+  async function readPublicSession() {
+    if (sessionView.status === "leaving") return sessionView;
+    try { await verifiedIdentitySession(); } catch { /* Unavailable is a presentation state. */ }
+    return sessionView;
+  }
+
+  function refreshPublicSession() {
+    if (sessionView.status === "leaving") return Promise.resolve(sessionView);
+    invalidateIdentitySession();
+    void start();
+    return readPublicSession();
+  }
+
+  // Versioned presentation port of the existing portal client. No tokens,
+  // subject IDs, additional cache or provider SDK reach consumers.
+  window.OrdaXPublicAccount = Object.freeze({
+    schema: "prototype-ordax.public-account-client/1",
+    getSnapshot: () => sessionView,
+    readSession: readPublicSession,
+    refreshSession: refreshPublicSession,
+    subscribe(observer) {
+      if (typeof observer !== "function") throw new TypeError("account-observer-required");
+      sessionObservers.add(observer);
+      try { observer(sessionView); } catch { console.error("public-account-view-failed"); }
+      return () => sessionObservers.delete(observer);
+    },
+    bindProfileMenu(trigger, options) {
+      return attachProfileMenu(trigger, { accountRoute: options?.accountRoute, publicView: sessionView });
+    },
+  });
 
   async function renderAuthHeader() {
     // Concurrent locale/session checks cannot attach duplicate menus.
@@ -1035,9 +1131,22 @@
   // Back navigation after logout must never show a cached authenticated view.
   window.addEventListener("pageshow", event => {
     if (!event.persisted) return;
-    sessionRevision++;
-    sessionPromise = null;
+    invalidateIdentitySession();
     void start();
+    if (document.body?.dataset?.page === "conta-2") void readPublicSession();
+  });
+
+  window.addEventListener("pagehide", () => {
+    invalidateIdentitySession();
+    disposeProfileMenu();
+    disposeProfileMenu = () => {};
+  });
+
+  // A logout in another tab must be discovered when the account becomes visible.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible"
+      || !["conta", "conta-2", "web"].includes(document.body?.dataset?.page)) return;
+    void refreshPublicSession();
   });
 
   void start();
