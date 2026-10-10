@@ -711,3 +711,32 @@ func TestExplicitRemovalCannotCoexistWithCurrentSlot(t *testing.T) {
 		t.Fatalf("contradictory installed and removed state was accepted: %v", err)
 	}
 }
+
+func TestCurrentResolutionSourcePreservesExplicitRemoval(t *testing.T) {
+	absent := emptyActivationState("internet")
+	removed := emptyActivationState("internet")
+	removed.UserRemoved = true
+	installed := emptyActivationState("internet")
+	installed.Current = &slotIdentity{
+		Version:      "1.0.0",
+		SourceCommit: "1111111111111111111111111111111111111111",
+	}
+	for _, tc := range []struct {
+		name    string
+		state   activationState
+		bundled bool
+		want    string
+	}{
+		{"never-installed-bundled", absent, true, "BUNDLED"},
+		{"never-installed-external", absent, false, "ABSENT"},
+		{"removed-platform-component", removed, false, "REMOVED"},
+		{"removed-bundled-fallback", removed, true, "REMOVED"},
+		{"installed-current", installed, false, "SLOT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := currentResolutionSource(tc.state, tc.bundled); got != tc.want {
+				t.Fatalf("source = %q, expected %q", got, tc.want)
+			}
+		})
+	}
+}
