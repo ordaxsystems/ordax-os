@@ -10,8 +10,8 @@ const revision = Object.freeze({
 });
 const source = Object.freeze({
   schema: COMPONENT_SLOT_SOURCE_SCHEMA,
-  metadataUrl(id, state) { return `https://localhost/__ordax/native/component-runtime?component=${id}&state=${state}`; },
-  runtimeUrl(rec) { return `https://localhost/__ordax/native/component-module/${rec.componentId}/${rec.state}/${rec.version}/${rec.sourceCommit}/${rec.entrypoint}`; },
+  metadataUrl(id, state) { return `http://127.0.0.1:43121/__ordax/native/component-runtime?component=${id}&state=${state}`; },
+  runtimeUrl(rec) { return `http://127.0.0.1:43121/__ordax/native/component-module/${rec.componentId}/${rec.state}/${rec.version}/${rec.sourceCommit}/${rec.entrypoint}`; },
 });
 function fixture(states = [revision]) {
   let reads = 0, imports = 0, mounts = 0, destroys = 0, reported = null;
@@ -94,4 +94,22 @@ test("runtime identity mismatch prevents mount", async () => {
     mount() { throw new Error("must not mount"); },
   } }) }), null);
   assert.equal(f.state().mounts, 0);
+});
+
+test("metadata endpoint cannot be redirected to a non-loopback host", async () => {
+  const f = fixture();
+  assert.equal(await f.run({ source: { ...source, metadataUrl() { return "https://evil.example/__ordax/native/component-runtime?component=internet&state=current"; } } }), null);
+  assert.equal(f.state().reads, 0);
+  assert.match(f.state().reported.message, /canonical Native loopback endpoint/);
+});
+
+test("module URL with additional unverified path segments is rejected", async () => {
+  const f = fixture();
+  const unsafe = {
+    ...source,
+    runtimeUrl(rec) { return source.runtimeUrl(rec).replace("/src/runtime.mjs", "/injected/src/runtime.mjs"); },
+  };
+  assert.equal(await f.run({ source: unsafe }), null);
+  assert.equal(f.state().imports, 0);
+  assert.match(f.state().reported.message, /escaped immutable Native namespace/);
 });

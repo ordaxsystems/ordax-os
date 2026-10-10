@@ -28,9 +28,24 @@ async function bounded(operation, milliseconds, label) {
   }
 }
 
+function canonicalMetadataUrl(source, componentId) {
+  const url = new URL(source.metadataUrl(componentId, "current"));
+  const keys = [...url.searchParams.keys()].sort();
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port
+    || url.username || url.password || url.hash
+    || url.pathname !== "/__ordax/native/component-runtime"
+    || keys.join(",") !== "component,state"
+    || url.searchParams.get("component") !== componentId
+    || url.searchParams.get("state") !== "current") {
+    throw new TypeError("Current component metadata must use canonical Native loopback endpoint");
+  }
+  return url;
+}
+
 async function readCurrent(source, componentId, fetchImpl, timeout) {
+  const url = canonicalMetadataUrl(source, componentId);
   const response = await bounded(
-    () => fetchImpl(source.metadataUrl(componentId, "current"), REQUEST_OPTIONS),
+    () => fetchImpl(url.href, REQUEST_OPTIONS),
     timeout,
     "metadata fetch",
   );
@@ -49,13 +64,13 @@ function identityMatches(previous, next) {
 }
 
 function verifiedModuleUrl(source, current) {
-  const metadata = new URL(source.metadataUrl(current.componentId, "current"));
+  const metadata = canonicalMetadataUrl(source, current.componentId);
   const url = new URL(source.runtimeUrl(current));
   const prefix = `/__ordax/native/component-module/${current.componentId}/current/${current.version}/`
     + `${current.sourceCommit}/`;
   if (url.origin !== metadata.origin || !["http:", "https:"].includes(url.protocol)
     || url.username || url.password || url.search || url.hash
-    || !url.pathname.startsWith(prefix) || !url.pathname.endsWith("/" + current.entrypoint)) {
+    || url.pathname !== prefix + current.entrypoint) {
     throw new TypeError("Current module URL escaped immutable Native namespace");
   }
   return url.href;
