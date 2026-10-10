@@ -591,6 +591,7 @@
     ["SEU ESPAÇO ORDAX","YOUR ORDAX SPACE"],
     ["Buscar na conta","Search your account"],
     ["Plano","Plan"],
+    ["Sua experiência. Em todos os lugares.","Your experience. Everywhere."],
     ["Buscar configurações, dispositivos, integrações...","Search settings, devices, integrations..."],
     ["Plano e assinatura","Plan and subscription"],
     ["Segurança","Security"],

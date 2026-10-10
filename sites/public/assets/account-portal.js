@@ -13,6 +13,10 @@
   const searchToggle = document.querySelector("[data-account-search-toggle]");
   const links = [...document.querySelectorAll("[data-account-section]")];
   const sections = new Set(["visao-geral", ...cards.map(card => card.id)]);
+  const navigation = document.querySelector("#account-navigation");
+  const mobileNavigation = document.querySelector(".account-mobile-nav");
+  const phone = window.matchMedia("(max-width:600px)");
+  let viewportFrame = 0;
   const normalize = value => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
   const sectionFromHash = () => {
     const requested = window.location.hash.slice(1);
@@ -47,6 +51,26 @@
       if (!searching && link.hash === "#" + view) link.setAttribute("aria-current", "location");
       else link.removeAttribute("aria-current");
     }
+    const compact = phone.matches && !searching && view === "visao-geral";
+    document.body.classList.toggle("account-viewport-overview", compact);
+    const overflow = new Set();
+    if (compact) {
+      const boundary = mobileNavigation.getBoundingClientRect().top - 20;
+      for (const card of cards.slice(3)) {
+        if (card.getBoundingClientRect().bottom > boundary) overflow.add(card.id);
+      }
+      for (const card of cards) if (overflow.has(card.id)) card.hidden = true;
+    }
+    for (const link of navigation.querySelectorAll("a")) {
+      const target = link.getAttribute("href") === "/web/" ? "acesso-web" : link.hash.slice(1);
+      link.hidden = compact && (!overflow.has(target));
+    }
+    for (const group of navigation.querySelectorAll("nav, .navigation-support")) {
+      group.hidden = compact && ![...group.querySelectorAll("a")].some(link => !link.hidden);
+    }
+    cards.forEach(card => card.classList.remove("viewport-list-last"));
+    const visibleServices = cards.slice(3).filter(card => !card.hidden);
+    if (compact) visibleServices.at(-1)?.classList.add("viewport-list-last");
     if (focus) {
       const heading = view === "visao-geral" ? content.querySelector("h1") : document.getElementById(view)?.querySelector("h2");
       if (heading) { heading.tabIndex = -1; heading.focus(); }
@@ -79,11 +103,12 @@
     const open = document.body.classList.toggle("account-search-open");
     searchToggle.setAttribute("aria-expanded", String(open));
     if (open) { closeMenu(); search?.focus(); }
+    refreshViewport();
   });
   menu?.addEventListener("click", () => {
     const open = document.body.classList.toggle("account-menu-open");
     menu.setAttribute("aria-expanded", String(open));
-    if (open) document.querySelector("#account-navigation a")?.focus();
+    if (open) document.querySelector("#account-navigation a:not([hidden])")?.focus();
   });
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && document.body.classList.contains("account-menu-open")) closeMenu(true);
@@ -95,6 +120,14 @@
   window.addEventListener("popstate", () => render());
   document.addEventListener("ordax:localechange", () => render());
   window.matchMedia("(min-width:901px)").addEventListener("change", event => { if (event.matches) closeMenu(); });
+  const refreshViewport = () => {
+    cancelAnimationFrame(viewportFrame);
+    viewportFrame = requestAnimationFrame(() => render());
+  };
+  window.addEventListener("resize", refreshViewport);
+  window.visualViewport?.addEventListener("resize", refreshViewport);
+  overview.querySelector("details")?.addEventListener("toggle", refreshViewport);
+  document.fonts.ready.then(refreshViewport);
   document.body.classList.add("account-enhanced");
   render();
 })();
