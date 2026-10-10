@@ -145,13 +145,13 @@ def verify(
                 timeout=180,
             )
             decoder.stdout.close()
-            decoder_stderr = decoder.communicate(timeout=30)[1]
+            decoder_status = decoder.wait(timeout=30)
         except (OSError, subprocess.TimeoutExpired) as exc:
             if "decoder" in locals() and decoder.poll() is None:
                 decoder.kill()
                 decoder.communicate()
             raise VerificationError(f"kernel signature verification failed to execute: {exc}") from exc
-        if decoder.returncode != 0:
+        if decoder_status != 0:
             raise VerificationError("kernel .tar.xz decompression failed during signature verification")
         if gpg_result.returncode != 0:
             raise VerificationError("kernel detached OpenPGP signature is invalid")
@@ -189,6 +189,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     try:
+        # A stale receipt cannot be mistaken for evidence of a failed recheck.
+        args.out.unlink(missing_ok=True)
         receipt = verify(args.source_contract, args.archive, args.signature, args.public_key)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n", encoding="utf-8")
