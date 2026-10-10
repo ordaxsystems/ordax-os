@@ -1314,6 +1314,48 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     if (await evaluate("!!document.querySelector('[role=menu].ordax-account-dropdown')")) {
       throw new Error(`${name} account menu Escape did not close`);
     }
+    if (name === 'desktop') {
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'k', code: 'KeyK', windowsVirtualKeyCode: 75, modifiers: 2,
+      });
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: 'k', code: 'KeyK', windowsVirtualKeyCode: 75, modifiers: 2,
+      });
+      await sleep(90);
+      if (!await evaluate('!!document.querySelector("[role=dialog] .search-field input")')) {
+        throw new Error('Ctrl+K did not open canonical account search dialog');
+      }
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+      });
+      await sleep(90);
+      if (await evaluate('!!document.querySelector("[role=dialog] .search-field input")')) {
+        throw new Error('Escape did not close account search dialog');
+      }
+    }
+    if (name === 'mobile') {
+      await evaluate('document.querySelector(".mobile-nav button[aria-label=\"Mais opções\"]").focus()');
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+      });
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+      });
+      await sleep(90);
+      if (!await evaluate('!!document.querySelector("#account-mobile-more[role=dialog]")')) {
+        throw new Error('Mobile More did not open the Radix accessible dialog');
+      }
+      if (!await evaluate('document.querySelector(".mobile-nav button[aria-label=\"Mais opções\"]")?.getAttribute("aria-expanded") === "true"')) {
+        throw new Error('Mobile More trigger did not announce expanded');
+      }
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+      });
+      await sleep(90);
+      if (!await evaluate('!document.querySelector("#account-mobile-more[role=dialog]") && document.activeElement?.getAttribute("aria-label") === "Mais opções"')) {
+        throw new Error('Mobile More Escape failed to close and return keyboard focus');
+      }
+    }
     await evaluate('document.querySelector(".plan-button a, a.plan-button")?.click()');
     const sectionDeadline = Date.now() + 5000;
     while (!await evaluate('location.pathname === "/conta/assinatura" && !!document.querySelector(".detail-page-heading")')) {
