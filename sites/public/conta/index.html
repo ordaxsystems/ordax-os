@@ -7,18 +7,19 @@
   <title>Minha conta — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
   <link rel="stylesheet" href="/assets/ordax-font.css">
-  <link rel="stylesheet" href="/assets/account-dashboard.css?v=account-6">
+  <link rel="stylesheet" href="/assets/account-dashboard.css?v=account-7">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
   <script src="/assets/site.js?v=account-4" defer></script>
-  <script src="/assets/account-portal.js?v=account-3" defer></script>
+  <script src="/assets/account-portal.js?v=account-4" defer></script>
 </head>
 <body data-page="conta" class="account-portal">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <div class="account-shell">
     <header class="site-header account-header">
       <a class="account-brand" href="/" aria-label="OrdaX — início"><span class="ordax-symbol" aria-hidden="true"></span><span>OrdaX <span class="brand-os">OS</span></span></a>
-      <label class="account-search" id="account-search-field"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span class="sr-only">Buscar na conta</span><input type="search" placeholder="Buscar dados, assinatura, consumo..." autocomplete="off" data-account-search aria-controls="account-cards"><span class="account-search-orb" aria-hidden="true"></span></label>
+      <div class="account-workspace-label" aria-label="Espaço pessoal OrdaX"><strong>ESPAÇO PESSOAL</strong><span class="account-workspace-divider" aria-hidden="true"></span><span>Minha Conta</span></div>
+      <label class="account-search" id="account-search-field"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span class="sr-only">Buscar na conta</span><input type="search" placeholder="Buscar na minha conta" autocomplete="off" data-account-search aria-controls="account-cards"><kbd class="account-search-shortcut" aria-hidden="true">Ctrl K</kbd></label>
       <button class="account-search-toggle" type="button" data-account-search-toggle aria-label="Buscar na conta" aria-expanded="false" aria-controls="account-search-field"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg></button>
       <nav class="site-nav account-header-actions" aria-label="Navegação principal">
         <a class="header-icon-link" href="#atividade" data-account-section aria-label="Atividade e notificações" title="Atividade e notificações"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></a>
@@ -47,7 +48,7 @@
         <a href="/web/">Acessar OrdaX Web <span aria-hidden="true">↗</span></a>
         <a href="/">Início <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="navigation-art" aria-hidden="true"><span class="ordax-symbol"></span><strong>OrdaX OS</strong></div>
+      <div class="navigation-art" aria-hidden="true"><span class="ordax-symbol"></span><strong>Uma conta.<br>Todos os seus mundos.</strong><small>O seu universo começa aqui.</small></div>
     </aside>
     <main id="conteudo" class="account-content" data-account-content data-view="visao-geral">
       <nav class="account-breadcrumb" aria-label="Localização na conta"><a href="/">OrdaX OS</a><span aria-hidden="true">/</span><a href="#visao-geral" data-account-section>Minha Conta</a><span class="account-breadcrumb-details" data-account-breadcrumb-details hidden><span aria-hidden="true">/</span><span aria-current="page" data-account-breadcrumb-current></span></span></nav>
@@ -57,7 +58,7 @@
           <span class="account-profile-avatar" aria-hidden="true"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3-7 7.5-7s7.5 3 7.5 7"/></svg></span>
           <div class="account-profile-copy">
             <p class="account-profile-overline">IDENTIDADE ORDAX</p>
-            <h2>Sua conta. Seu espaço.</h2>
+            <h2>Sua conta OrdaX <span class="account-profile-type">Pessoal</span></h2>
             <p class="account-hero-email" data-account-hero-email hidden></p>
             <p class="account-profile-description">Uma identidade para acessar e gerenciar seus serviços OrdaX.</p>
           </div>
@@ -85,13 +86,13 @@
           <a href="#plano" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-2 13H5Z"/></svg><h2 id="plano-title"><span class="desktop-card-label">Plano e assinatura</span><span class="mobile-card-label">Plano</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <div class="plan-card-visual" aria-hidden="true"><span class="ordax-symbol"></span></div>
           <p class="account-plan-kicker">ASSINATURA ORDAX</p>
-          <p class="card-summary">Uma experiência que evolui com você.</p>
+          <p class="card-summary">Mais possibilidades.<br>Um só lugar.</p><p class="account-summary-plan-description">Seu plano e seus benefícios ficam disponíveis aqui.</p><a class="account-summary-button" href="#plano" data-account-section>Ver assinatura <span aria-hidden="true">→</span></a>
           <p class="account-plan-availability">Assinaturas pagas em preparação</p>
           <div class="card-content"><p>Assinaturas pagas ainda não estão disponíveis.</p><!-- ORDAX_ACCOUNT_PLAN_CATALOG --><p class="card-note">Seu plano e seus limites precisam ser confirmados pelo serviço da conta. Nenhum plano é atribuído por esta página.</p></div>
         </section>
         <section class="account-card" id="consumo" data-account-card data-account-summary aria-labelledby="consumo-title">
           <a href="#consumo" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V12m5 8V7m5 13V4m5 16v-9"/></svg><h2 id="consumo-title">Consumo e limites</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
-          <p class="card-summary">IA, armazenamento e serviços em um só lugar.</p>
+          <p class="card-summary">Seus recursos, na medida do seu universo.</p><p class="account-summary-usage-note">Aguardando dados de consumo</p>
           <div class="card-content"><dl class="service-rows account-usage-lines"><div><dt>Uso de IA</dt><dd>Não disponível</dd></div><div><dt>Armazenamento</dt><dd>Não verificado</dd></div><div><dt>APIs e serviços</dt><dd>Não disponível</dd></div></dl>
             <div class="account-usage-visual" role="group" aria-label="Atividade de consumo: dados não disponíveis">
               <div class="account-usage-visual-heading"><span>Atividade de consumo</span><span class="account-usage-visual-period">Este mês</span></div>
@@ -102,14 +103,27 @@
         <section class="account-card" id="faturamento" data-account-card data-account-summary aria-labelledby="faturamento-title">
           <a href="#faturamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h2 id="faturamento-title"><span class="desktop-card-label">Pagamento e faturamento</span><span class="mobile-card-label">Pagamentos</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="account-billing-kicker">FATURAMENTO DA CONTA</p>
-          <p class="account-billing-overview">Sem cobrança confirmada</p>
+          <p class="account-billing-overview">— <span>/ não disponível</span></p><p class="account-billing-context">Nenhuma informação de cobrança conectada.</p><a class="account-summary-billing-link" href="#faturamento" data-account-section>Pagamentos e faturas <span aria-hidden="true">›</span></a>
           <p class="card-summary">Pagamentos e faturas aparecerão quando o serviço estiver disponível.</p>
           <div class="card-content"><dl class="service-rows"><div><dt>Assinaturas pagas</dt><dd>Indisponíveis</dd></div><div><dt>Preços e limites comerciais</dt><dd>Em definição</dd></div></dl><p class="card-note">Não há cobrança, cartão cadastrado ou renovação confirmada para mostrar. Métodos de pagamento, recibos e notas fiscais dependerão do serviço de faturamento.</p></div>
+        </section>
+        <section class="account-dashboard-activity" data-account-dashboard-activity aria-labelledby="account-dashboard-activity-title" hidden>
+          <div class="account-dashboard-activity-header"><div><h2 id="account-dashboard-activity-title">Atividade de consumo</h2><p>Uma visão dos seus recursos ao longo do tempo.</p></div><span class="account-dashboard-activity-period">Este mês</span></div>
+          <div class="account-dashboard-activity-legend" aria-hidden="true"><span>Inteligência artificial</span><span>Armazenamento</span><span>APIs e serviços</span></div>
+          <div class="account-dashboard-chart-slot" data-account-dashboard-chart-slot></div>
+          <a class="account-dashboard-activity-link" href="#consumo" data-account-section>Explorar consumo <span aria-hidden="true">→</span></a>
         </section>
         <div class="account-services-heading" data-account-services-heading><h2>Gerencie sua conta</h2><p>Seu perfil, suas conexões e suas preferências.</p></div>
         <section class="account-card" id="seguranca" data-account-card aria-labelledby="seguranca-title">
           <a href="#seguranca" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg><h2 id="seguranca-title"><span class="desktop-card-label">Segurança</span><span class="mobile-card-label">Segurança</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">Proteção, senha e sessões autorizadas</p>
+          <div class="account-security-summary">
+            <div class="account-security-emblem" aria-hidden="true"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg></div>
+            <h3>Seu acesso. Seu controle.</h3>
+            <p>Mantenha sua identidade protegida em todos os seus dispositivos.</p>
+            <div class="account-security-checks"><div><span>Verificação em duas etapas</span><strong>—</strong></div><div><span>Sessões e dispositivos</span><strong>—</strong></div></div>
+            <a href="#seguranca" data-account-section class="account-summary-security-link">Gerenciar segurança <span aria-hidden="true">→</span></a>
+          </div>
           <div class="card-content"><dl class="service-rows"><div><dt>Sessão neste navegador</dt><dd><a href="#visao-geral" data-account-section data-account-open-session>Verificar sessão</a></dd></div><div><dt>Autenticação em duas etapas</dt><dd>Sem informação confirmada</dd></div><div><dt>Passkeys e métodos de entrada</dt><dd>Indisponíveis no portal</dd></div></dl><p class="card-note">Recuperação de acesso segue o serviço oficial de identidade. A página de recuperação informa sua disponibilidade.</p><a class="text-link" href="/recuperar/">Recuperar acesso <span aria-hidden="true">→</span></a></div>
         </section>
         <section class="account-card" id="dados-pessoais" data-account-card aria-labelledby="dados-pessoais-title">

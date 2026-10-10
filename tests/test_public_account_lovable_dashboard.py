@@ -97,9 +97,42 @@ class AccountLovableDashboardTests(unittest.TestCase):
         for label in ("Recolher navegação", "Expandir navegação", "Localização na conta",
                       "Informação da sessão autenticada"):
             self.assertIn('["' + label + '", ', self.i18n)
-        self.assertIn('/assets/account-dashboard.css?v=account-6', self.html)
-        self.assertIn('/assets/account-portal.js?v=account-3', self.html)
+        self.assertIn('/assets/account-dashboard.css?v=account-7', self.html)
+        self.assertIn('/assets/account-portal.js?v=account-4', self.html)
         self.assertIn('/assets/site.js?v=account-4', self.html)
+
+
+    def test_lovable_layout_keeps_single_canonical_card_and_chart(self):
+        self.assertEqual(self.html.count('data-account-dashboard-activity '), 1)
+        self.assertEqual(self.html.count('data-account-dashboard-chart-slot'), 1)
+        self.assertEqual(self.html.count('class="account-usage-visual"'), 1)
+        self.assertIn('account-dashboard-activity" data-account-dashboard-activity aria-labelledby="account-dashboard-activity-title" hidden', self.html)
+        self.assertIn('const usageChart = document.querySelector(".account-usage-visual")', self.js)
+        self.assertIn('const usageChartDetailHost = usageChart?.parentElement', self.js)
+        self.assertIn('chartHost.append(usageChart)', self.js)
+        self.assertIn('activity.hidden = !onOverview', self.js)
+        for selector in ('#plano{grid-column:span 4;order:1', '#consumo{grid-column:span 4;order:2',
+                         '#faturamento{grid-column:span 4;order:3', '#seguranca{grid-column:span 4;order:5'):
+            self.assertIn(selector, self.css)
+        self.assertIn('.account-dashboard-activity{grid-column:span 8;order:4', self.css)
+        self.assertIn('url("/assets/ordax-landscape.png") center 56%/cover no-repeat', self.css)
+        self.assertIn('href="#plano" data-account-section>Ver assinatura', self.html)
+        self.assertIn('href="#faturamento" data-account-section>Pagamentos e faturas', self.html)
+        self.assertIn('href="#seguranca" data-account-section class="account-summary-security-link"', self.html)
+
+    def test_lovable_responsive_and_accessible_navigation_are_not_regressed(self):
+        self.assertIn('class="account-workspace-label"', self.html)
+        self.assertIn('class="account-search-shortcut"', self.html)
+        self.assertIn('account-sidebar-collapsed', self.css)
+        self.assertIn('@media(max-width:1100px)', self.css)
+        self.assertIn('@media(max-width:900px)', self.css)
+        self.assertIn('@media(max-width:700px)', self.css)
+        self.assertIn('@media(max-width:410px)', self.css)
+        self.assertIn('event.key.toLowerCase() === "k"', self.js)
+        self.assertIn('data-account-search', self.html)
+        self.assertIn('data-account-breadcrumb-current', self.html)
+        self.assertEqual(self.html.count('data-account-authenticated'), 1)
+        self.assertEqual(self.html.count('data-account-logout'), 1)
 
     def test_locale_owner_contains_new_user_copy(self):
         for source in ("Informações disponíveis da conta", "Identidade", "Conta OrdaX", "Plano atual",

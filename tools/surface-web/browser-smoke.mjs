@@ -1252,6 +1252,9 @@ async function provePublicAccount(client, url, evidenceDir) {
       const billing = box(document.getElementById('faturamento'));
       const usage = box(document.getElementById('consumo'));
       const security = box(document.getElementById('seguranca'));
+      const hero = box(document.querySelector('.account-heading'));
+      const chart = document.querySelector('.account-usage-visual');
+      const dashboardChart = document.querySelector('[data-account-dashboard-activity]');
       const cardIds = cards.map(card => card.id);
       const nav = [...document.querySelectorAll('.account-mobile-nav > *')];
       return {
@@ -1263,18 +1266,22 @@ async function provePublicAccount(client, url, evidenceDir) {
         columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
         profileHeight:box(profile).height,
         accountBanner:!!profile.querySelector('.account-profile-intro'),
-        heroMinHeight:box(profile).height>=190 && box(profile).height<=540,
+        singleUsageChart:document.querySelectorAll('.account-usage-visual').length === 1 &&
+          chart.parentElement.matches('[data-account-dashboard-chart-slot]') &&
+          !dashboardChart.hidden && box(dashboardChart).top >= plan.bottom,
+        liveSections:cards.length===12 && !!document.querySelector('[data-account-profile-identity]'),
+        heroMinHeight:hero.height>=150 && box(profile).height>=110 && box(profile).height<=540,
         decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
         accountCardMinHeight:box(cards[0]).height>=(phone?150:210),
         touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].filter(element=>element.getClientRects().length>0).every(element=>box(element).height>=44),
-        mobileBillingPair:!phone || (plan.top < billing.top && billing.top < usage.top && usage.top < security.top),
+        mobileBillingPair:!phone || (plan.top < usage.top && usage.top < billing.top && billing.top < security.top),
         desktopCardAlignment:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
         mobileWebReachable:!!document.querySelector('#account-navigation a[href="/web/"]'),
         managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
         logoutHonest:document.querySelector('[data-account-logout]').hidden === true,
         verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
           document.querySelector('[data-account-hero-email]').textContent.trim()==='',
-        primaryTilesAligned:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
+        primaryTilesAligned:innerWidth<1200 || (Math.abs(plan.top-usage.top)<2 && Math.abs(plan.top-billing.top)<2),
         headerHeight:box(document.querySelector('.account-header')).height,
         accountNavigation:nav.length===4 &&
           nav[0].getAttribute('href')==='#visao-geral' &&
@@ -1286,7 +1293,7 @@ async function provePublicAccount(client, url, evidenceDir) {
       };
     })()`);
     if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
-        !report.touchTargets || !report.logoutHonest || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
+        !report.touchTargets || !report.logoutHonest || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.singleUsageChart || !report.liveSections || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
         !report.mobileSearchCollapsed || report.headerHeight > 80 ||
         (width === 1440 && report.columns !== 12) ||
         (width < 600 && report.columns !== 12) ||
