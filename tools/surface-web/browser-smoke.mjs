@@ -1345,11 +1345,14 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
   };
   await client.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
+      window.__ordaxAccountProofAuthenticated = true;
       const nativeFetch = window.fetch.bind(window);
       window.fetch = (input, init) => {
         const address = typeof input === 'string' ? input : input?.url;
         if (typeof address === 'string' && new URL(address, location.href).pathname === '/auth/session') {
-          return Promise.resolve(new Response(JSON.stringify(${JSON.stringify(fixtureSession)}), {
+          const authenticated = window.__ordaxAccountProofAuthenticated;
+          const session = authenticated ? ${JSON.stringify(fixtureSession)} : { $schema: 'prototype-ordax.public-identity-session/1', provider: 'supabase', authenticated: false, status: 'anonymous' };
+          return Promise.resolve(new Response(JSON.stringify(session), {
             status: 200, headers: { 'Content-Type': 'application/json' },
           }));
         }
@@ -1386,7 +1389,23 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     if (Date.now() > authDeadline) throw new Error('verified fixture account menu lacks profile/security/logout');
     await sleep(40);
   }
-  reports.push({ name: 'authenticated-fixture', menuAndLogout: authenticatedMenu, liveLoginClaimed: false });
+  const verifiedProfile = await evaluate(`document.querySelector(".profile-banner .profile-identity p")?.textContent === ${JSON.stringify(fixtureEmail)}`);
+  if (!verifiedProfile) throw new Error('verified session email not reflected in original Lovable profile');
+  await evaluate('window.__ordaxAccountProofAuthenticated = false; window.dispatchEvent(new Event("focus"))');
+  const expiredDeadline = Date.now() + 5000;
+  let expiredState = false;
+  while (!(expiredState = await evaluate(`(() => {
+    const menu = document.querySelector('[role=menu].ordax-account-dropdown');
+    return !!menu?.querySelector('a[href="/login/"]')
+      && !menu.querySelector('.ordax-account-dropdown-email')
+      && !menu.querySelector('form[action="/auth/logout"]')
+      && !document.querySelector('.profile-banner .profile-identity p')?.textContent?.includes(${JSON.stringify(fixtureEmail)});
+  })()`))) {
+    if (Date.now() > expiredDeadline) throw new Error('expired session did not erase verified identity');
+    await sleep(40);
+  }
+  reports.push({ name: 'authenticated-fixture', menuAndLogout: authenticatedMenu,
+    verifiedProfile, expiryClearsIdentity: expiredState, liveLoginClaimed: false });
   if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) {
     throw new Error('React account emitted a JavaScript exception');
   }
