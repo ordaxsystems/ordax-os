@@ -7,7 +7,7 @@ export type OfficialAccountState =
 
 const Context = createContext<OfficialAccountState>({ status: "checking" });
 
-function fromCanonicalSession(value: unknown): OfficialAccountState {
+export function fromCanonicalSession(value: unknown): OfficialAccountState {
   if (!value || typeof value !== "object") throw new Error("invalid-session");
   const s = value as Record<string, unknown>;
   if (s.$schema !== "prototype-ordax.public-identity-session/1"
