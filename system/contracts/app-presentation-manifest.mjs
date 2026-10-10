@@ -1,9 +1,9 @@
 import { validateComponentId, validateComponentVersion } from "./component-manifest.mjs";
+import { validateLocale } from "./localization-pack.mjs";
 
 export const APP_PRESENTATION_MANIFEST_SCHEMA = "ordax.app-presentation-manifest/1";
 
 const MONOGRAM_RE = /^[A-Z0-9]{1,8}$/;
-const LOCALE_RE = /^[a-z]{2,3}(?:-[A-Z]{2})?$/;
 const MANIFEST_FIELDS = ["schema", "appId", "appVersion", "authority", "sourceLocale", "description", "monogram", "singleton", "translations"];
 const TRANSLATION_FIELDS = ["title", "description"];
 
@@ -41,9 +41,7 @@ export function validateAppPresentationManifest(value, expected = {}) {
   if (value.authority !== "none") {
     throw new TypeError("App presentation cannot grant authority");
   }
-  if (typeof value.sourceLocale !== "string" || !LOCALE_RE.test(value.sourceLocale)) {
-    throw new TypeError("App presentation source locale is invalid");
-  }
+  const sourceLocale = validateLocale(value.sourceLocale);
   const description = text(value.description, "App presentation description", 320);
   if (typeof value.monogram !== "string" || !MONOGRAM_RE.test(value.monogram)) {
     throw new TypeError("App presentation monogram is invalid");
@@ -57,7 +55,8 @@ export function validateAppPresentationManifest(value, expected = {}) {
   }
   const translations = Object.create(null);
   for (const [locale, copy] of Object.entries(value.translations)) {
-    if (!LOCALE_RE.test(locale) || locale === value.sourceLocale) {
+    validateLocale(locale);
+    if (locale === sourceLocale) {
       throw new TypeError("App presentation translation locale is invalid");
     }
     assertExactFields(copy, TRANSLATION_FIELDS, "App presentation translation");
@@ -71,7 +70,7 @@ export function validateAppPresentationManifest(value, expected = {}) {
     appId,
     appVersion,
     authority: "none",
-    sourceLocale: value.sourceLocale,
+    sourceLocale,
     description,
     monogram: value.monogram,
     singleton: value.singleton,
