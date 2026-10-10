@@ -2,7 +2,7 @@
 
 `system/services/apps` owns application-level system services. It does not turn apps into authority owners and it does not replace the Component Manager.
 
-A [política de portfólio e pré-instalação](../../../docs/APP-PORTFOLIO-AND-PREINSTALL.md) distingue intenção de primeiro provisionamento de instalação verificada. A seleção declarativa vive em `first-run-selection.mjs`; não adiciona instalador, não duplica source e não reinstala apps removidos.
+A [política de portfólio e pré-instalação](../../../docs/APP-PORTFOLIO-AND-PREINSTALL.md) distingue intenção de primeiro provisionamento de instalação verificada. A seleção declarativa vive em `first-run-selection.mjs`. O owner nativo de ativação persiste a remoção explícita no próprio estado canônico (`user_removed`), sem banco paralelo; o plano da primeira instalação ainda não lê esse marcador automaticamente e não executa instalações.
 
 ## External first-party product SSOT
 

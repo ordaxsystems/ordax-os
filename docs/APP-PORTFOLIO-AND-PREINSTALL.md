@@ -18,7 +18,7 @@ A lista executável de **intenção de seleção** fica exclusivamente em `listF
 
 - Os dois bootstrap anteriores (Arquivos/Internet) permanecem na Stable/USB corrente. Os demais seguem `on-demand` até existir uma release/provisionamento verificado que os entregue.
 - Novo dispositivo/perfil pode **selecionar** os defaults, mas só instala após o pipeline assinado do owner da plataforma provar pacote, compatibilidade, saúde, promoção e receipt.
-- Desinstalar um default é uma decisão persistente do usuário: jamais reinstalar silenciosamente após reinício, login, atualização ou reconexão. O dono da instalação deverá armazenar intenção de remoção durável e marcador de first provisioning; a função de seleção apenas consome snapshots autoritativos.
+- Desinstalar um default é uma decisão persistente do usuário: jamais reinstalar silenciosamente após reinício, login, atualização ou reconexão. O gerenciador canônico `tools/runtime-component-channel/activation.go` grava o marcador `user_removed:true` junto à mudança de ativação de pacotes independentes; resolve-current respeita o marcador. O marcador *de primeira instalação* e a leitura Native autenticada deste sinal pela seleção inicial ainda precisam ser montados. O planejador JS continua sem autoridade e apenas consome snapshots autoritativos.
 - Falta de catálogo assinado, pacote offline ou port Native produz `unavailable` e não sucesso fictício; apps opcionais não bloqueiam o primeiro boot.
 - Remover aplicativo não remove dados; exclusão de dados exige operação distinta.
 - O primeiro perfil deve ter acesso offline aos pacotes incluídos na imagem quando essa distribuição for ativada; não prometer rede disponível.

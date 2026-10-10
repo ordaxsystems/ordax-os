@@ -22,7 +22,7 @@ The package payload remains `prototype-ordax.runtime-component-package/1`.
 - Slots are materialized as read-only immutable directories.
 - Staging does not change the active component, Component Manager state, or the Surface.
 - Promotion remains blocked until the Native runtime can load a pending slot, observe runtime health, and atomically promote `current/previous`.
-- Uninstall is an explicit activation-state transition. It requires the exact current identity and revision, rejects a pending candidate, re-verifies the signed current slot, then removes all installed activation references.
+- Uninstall is an explicit activation-state transition. It requires the exact current identity and revision, rejects a pending candidate, re-verifies the signed current slot, then removes all installed activation references. The same atomic `activation-state.json` now records `user_removed:true`; a later source lookup must not reactivate a bundled fallback. The marker survives reboot/refresh and stays set through a pending reinstall, clearing only after verified health and promotion. This is an owner state, **not** a Store preference or an independent inventory.
 - Uninstall never deletes App Data, documents, Memory, Projects or other user state. User-data deletion is a separate product action owned by the relevant data owner.
 - An immutable verified slot may remain as a local package cache after uninstall. Cache garbage collection is separate from installation state and must never make an app appear installed.
 - When an externally sourced component such as `notes` or `studio` has no current activation, resolution reports it as absent. Only platform-owned components may resolve `current=nil` as a real bundled fallback.

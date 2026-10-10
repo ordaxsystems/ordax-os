@@ -417,7 +417,8 @@ func TestReleaseV2UninstallMakesComponentAbsentAndKeepsVerifiedSlotCache(t *test
 		state.Previous != nil ||
 		state.Pending != nil ||
 		state.Rejected != nil ||
-		state.PendingHealth != "unknown" {
+		state.PendingHealth != "unknown" ||
+		!state.UserRemoved {
 		t.Fatalf("unexpected uninstall state: %+v", state)
 	}
 
@@ -429,7 +430,7 @@ func TestReleaseV2UninstallMakesComponentAbsentAndKeepsVerifiedSlotCache(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bundled || slot != "" || resolved.Current != nil {
+	if bundled || slot != "" || resolved.Current != nil || !resolved.UserRemoved {
 		t.Fatalf("uninstalled component remained active: bundled=%t slot=%q state=%+v", bundled, slot, resolved)
 	}
 
@@ -542,16 +543,27 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatalf("idempotent uninstall retry failed: %v", err)
 	}
-	if retry.Revision != state.Revision {
-		t.Fatalf("idempotent uninstall changed revision: %d -> %d", state.Revision, retry.Revision)
+	if retry.Revision != state.Revision || !retry.UserRemoved {
+		t.Fatalf("idempotent uninstall changed removal intent or revision: %+v", retry)
+	}
+	persisted, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !persisted.UserRemoved || persisted.Current != nil || persisted.Revision != retry.Revision {
+		t.Fatalf("removed app intent lost across state reload: %+v", persisted)
+	}
+	_, _, bundled, err := resolveCurrentState(fixture.root, "internet", fixture.trustPath)
+	if err != nil || bundled {
+		t.Fatalf("removed app must not silently restore bundled fallback: bundled=%t err=%v", bundled, err)
 	}
 
 	state, err = armPendingState(candidate.slot, fixture.trustPath, fixture.root)
 	if err != nil {
 		t.Fatalf("verified cached release could not be rearmed offline: %v", err)
 	}
-	if state.Pending == nil || !sameSlotIdentity(state.Pending, &installed) {
-		t.Fatalf("offline reinstall armed wrong identity: %+v", state)
+	if state.Pending == nil || !sameSlotIdentity(state.Pending, &installed) || !state.UserRemoved {
+		t.Fatalf("offline reinstall armed wrong identity or erased intent before promotion: %+v", state)
 	}
 	probationRevision := state.Revision
 	state, err = recordPendingHealthAtRevision(
@@ -574,8 +586,8 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) {
-		t.Fatalf("offline reinstall did not restore current identity: %+v", state)
+	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) || state.UserRemoved {
+		t.Fatalf("offline reinstall did not restore current identity or clear intent: %+v", state)
 	}
 }
 
@@ -684,5 +696,18 @@ func TestSchemaAwareActivationVerifierKeepsReleaseV1Working(t *testing.T) {
 	}
 	if release.Schema != releaseSchema || release.Component.ID != "internet" {
 		t.Fatalf("release/1 activation compatibility regressed: %+v", release)
+	}
+}
+
+func TestExplicitRemovalCannotCoexistWithCurrentSlot(t *testing.T) {
+	state := emptyActivationState("internet")
+	state.UserRemoved = true
+	state.Current = &slotIdentity{
+		Version:      "1.0.0",
+		SourceCommit: "1111111111111111111111111111111111111111",
+	}
+	if err := validateActivationState(state, "internet"); err == nil ||
+		!strings.Contains(err.Error(), "explicitly removed cannot have a current slot") {
+		t.Fatalf("contradictory installed and removed state was accepted: %v", err)
 	}
 }
