@@ -178,16 +178,16 @@ test("anonymous visitors never receive the authenticated profile menu", async ()
   assert.equal(f.login.getAttribute("aria-haspopup"), null);
 });
 
-test("candidate profile menu uses registered candidate routes and native logout stays connected during submit", async () => {
+test("canonical account profile menu uses registered canonical account routes and native logout stays connected during submit", async () => {
   const f = fixture();
   await flush();
   const trigger = element("button");
   f.parent.appendChild(trigger);
-  const dispose = f.account.bindProfileMenu(trigger, { accountRoute: "/conta-2/" });
+  const dispose = f.account.bindProfileMenu(trigger, { accountRoute: "/conta/" });
   const menu = f.menus()[1];
   assert.deepEqual(menu.children.filter(child => child.tagName === "a").map(link => link.href), [
-    "/conta-2/", "/conta-2/#dados-pessoais", "/conta-2/#seguranca",
-    "/conta-2/#dispositivos", "/conta-2/#preferencias",
+    "/conta/", "/conta/#dados-pessoais", "/conta/#seguranca",
+    "/conta/#dispositivos", "/conta/#preferencias",
   ]);
   const form = menu.children.find(child => child.tagName === "form");
   form.dispatch("submit");
@@ -202,7 +202,7 @@ test("candidate profile menu uses registered candidate routes and native logout 
   assert.equal(menu.removed, true);
 });
 
-test("candidate menu cannot receive off-origin destinations or logout for an anonymous session", async () => {
+test("canonical account menu cannot receive off-origin destinations or logout for an anonymous session", async () => {
   const f = fixture({ signedIn: false });
   await f.account.readSession();
   const trigger = element("button");

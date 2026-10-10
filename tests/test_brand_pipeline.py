@@ -131,15 +131,18 @@ class BrandPipelineTests(unittest.TestCase):
 
     def test_account_concept_uses_canonical_visual_assets_and_no_second_palette(self):
         import re
-        css = (ROOT / "sites/public/assets/account-dashboard.css").read_text(encoding="utf-8")
-        self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b")
-        self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
-        for name in ("font", "wallpaper-scrim", "shadow", "border-soft", "focus"):
-            self.assertIn(f"var(--ordax-{name})", css)
-            self.assertIn(f"--ordax-{name}:", brand.render_site_css())
+        token_css = brand.render_site_identity_css()
+        definitions = set(re.findall(r"(--ordax-[a-z-]+):", token_css))
+        for asset in ("account-dashboard.css", "web-entry.css"):
+            css = (ROOT / "sites/public/assets" / asset).read_text(encoding="utf-8")
+            self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|hsla?\(")
+            self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
+            references = set(re.findall(r"var\((--ordax-[a-z-]+)", css))
+            self.assertFalse(references - definitions, (asset, references - definitions))
+            self.assertIn("var(--ordax-font)", css)
         for route in ("conta", "web"):
             markup = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
-            self.assertIn('class="ordax-symbol"', markup)
+            self.assertTrue('src="/assets/ordax-symbol.png"' in markup or 'class="ordax-symbol"' in markup)
             self.assertIn('/assets/ordax-font.css', markup)
         font = brand.render_site_font_css()
         canonical = re.search(r"@font-face\s*\{[^{}]+\}", brand.TOKENS.read_text(encoding="utf-8")).group()

@@ -14,7 +14,6 @@
     "privacy": "/privacidade/",
     "terms": "/termos/",
     "account": "/conta/",
-    "account_layout_preview": "/conta-2/",
     "recovery": "/recuperar/",
     "recovery_complete": "/recuperar/nova-senha/",
     "recovery_new_password": "/recuperar/nova-senha/",
@@ -112,27 +111,30 @@
   },
   "account_area": {
     "route": "/conta/",
-    "experimental_layout": {
-      "route": "/conta-2/",
-      "status": "session-connected-candidate-not-promoted",
-      "replaces_official_account": false,
-      "may_access_account_services": true,
-      "supported_service_routes": ["GET /auth/session", "POST /auth/logout"],
-      "session_client": "prototype-ordax.public-account-client/1",
-      "may_activate_account_services": false,
-      "may_simulate_user_data": false,
-      "search_engine_indexing_allowed": false,
-      "provenance": "docs/evidence/account-2-reference-2026-10-10.json"
-    },
     "session_presentation_port": {
       "schema": "prototype-ordax.public-account-client/1",
       "source": "sites/public/assets/site.js",
       "global": "OrdaXPublicAccount",
       "owner": "public-site",
       "authority": "none",
-      "methods": ["getSnapshot", "readSession", "refreshSession", "subscribe", "bindProfileMenu"],
-      "snapshot_fields": ["status", "email"],
-      "statuses": ["checking", "authenticated", "anonymous", "unavailable", "leaving"],
+      "methods": [
+        "getSnapshot",
+        "readSession",
+        "refreshSession",
+        "subscribe",
+        "bindProfileMenu"
+      ],
+      "snapshot_fields": [
+        "status",
+        "email"
+      ],
+      "statuses": [
+        "checking",
+        "authenticated",
+        "anonymous",
+        "unavailable",
+        "leaving"
+      ],
       "credential_exposure_allowed": false,
       "identity_persistence_allowed": false,
       "logout_transport": "native-same-origin-post-form",
@@ -152,7 +154,25 @@
       "session_verification_required": true,
       "destination_must_enforce_own_authorization": true,
       "surface_imported_by_portal": false
-    }
+    },
+    "presentation": {
+      "status": "canonical-account-layout-user-approved-source",
+      "may_access_account_services": true,
+      "supported_service_routes": [
+        "GET /auth/session",
+        "POST /auth/logout"
+      ],
+      "session_client": "prototype-ordax.public-account-client/1",
+      "may_activate_account_services": false,
+      "may_simulate_user_data": false,
+      "search_engine_indexing_allowed": false,
+      "provenance": "docs/evidence/account-2-reference-2026-10-10.json",
+      "source": "sites/public/conta/index.html",
+      "controller": "sites/public/assets/account-portal.js",
+      "styles": "sites/public/assets/account-dashboard.css",
+      "visual_policy": "system/surface/ui/tokens.css"
+    },
+    "legacy_redirect_owner": "vercel.json"
   },
   "mvp_scope": {
     "execution_mode": "usb-only",

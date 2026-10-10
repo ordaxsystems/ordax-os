@@ -71,207 +71,68 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ## Route ownership
 
-### Conta 2 — candidata com sessão integrada (2026-10-10)
+### Minha Conta — apresentação única aprovada (2026-10-10)
 
-Por solicitação explícita do usuário, `/conta-2/` reproduz o layout do
-`washingtonmsdj/account-hub-pro` no commit
-`0f955ece6e570801976d8ed77d2cada101b7a3fa` para avaliação antes de qualquer
-migração. A conta oficial `/conta/`, suas permissões e sua integração de
-sessão permanecem com os mesmos owners. Não há redirecionamento automático,
-troca da home, catálogo comercial, backend ou fonte de Identity adicional.
+Por solicitação explícita do usuário, o layout avaliado em `/conta-2/` foi
+promovido para `/conta/`. O HTML, CSS e controlador antigos foram substituídos;
+não há segunda página nem segundo cliente de Identity. Os owners atuais são
+`sites/public/conta/index.html`, `assets/account-dashboard.css` e
+`assets/account-portal.js`. O cliente versionado `OrdaXPublicAccount` continua
+em `assets/site.js`; somente ele consulta e valida `GET /auth/session`.
+O renderer DOM da apresentação antiga foi removido desse cliente.
 
-`sites/public/conta-2/index.html`, `assets/account-2.css` e
-`assets/account-2.js` são uma composição experimental; navegação, busca,
-filtros e ajuda são apresentação. Serviços não conectados continuam
-sem dados, cobrança, concessão de acesso ou alterações de conta. Preferências
-de exemplo são limitadas à sessão da prévia. A localização continua no
-catálogo e runtime existentes do portal. O símbolo e a fonte Inter continuam
-sendo derivados do pipeline canônico. A ilustração original da referência
-tem um único arquivo local `assets/account-2-landscape.jpg`, restrito a esta
-composição; ela não substitui o wallpaper do OS. A paleta experimental é
-escopada à página, sem alterar tokens globais.
+Owner: public portal no `ordaxsystems/ordax-os`. Dependências: contratos públicos
+de Identity, localização do portal, catálogo canônico de entitlements e pipeline
+visual em `system/surface/ui/tokens.css`. A paleta de comparação foi substituída
+por aliases desses tokens, preservando a composição escolhida. Símbolo e Inter
+continuam derivados do pipeline existente. A ilustração tem um único asset
+`assets/account-landscape.jpg` e hash de proveniência verificado no build; não
+substitui o wallpaper do sistema.
 
-A referência é um projeto OrdaX fornecido pelo usuário, cujo README declara
-ownership do código ao autor do projeto; não contém LICENSE explícita.
-O port foi autorizado pelo pedido de reprodução para avaliação. Isso não
-atribui uma licença geral à referência nem aprova incorporação de suas
-dependências. Não foram transportados React/TanStack, Supabase, IA Lovable,
-chaves, rotas de servidor ou código de integrações. A proveniência de fonte
-e ilustração é registrada em
-`docs/evidence/account-2-reference-2026-10-10.json`. Uma migração oficial
-depende da avaliação do usuário e de integrar capacidades reais pelos owners
-atuais, nunca de considerar a conexão de sessão prova de prontidão de todos
-os serviços da conta.
+A referência `washingtonmsdj/account-hub-pro` está fixada no commit
+`0f955ece6e570801976d8ed77d2cada101b7a3fa`. O README declara ownership do autor;
+não há LICENSE explícita. Reprodução e promoção foram autorizadas pelo usuário,
+com evidência em `docs/evidence/account-2-reference-2026-10-10.json`. Não foram
+importadas dependências React/TanStack, provedores, IA Lovable, credenciais ou
+serviços da referência.
 
-#### Integração atual e critérios de migração
+A UI apresenta resumo, dados pessoais, assinatura, consumo, faturamento,
+segurança, dispositivos, privacidade, integrações, preferências, atividade e
+suporte. Navegação lateral, busca e Mais usam um único catálogo de seções.
+Atalhos antigos `#plano` e `#armazenamento` são normalizados para assinatura e
+consumo (aba Armazenamento). O idioma usa o runtime oficial e sua preferência
+local existente; controles de demonstração de idioma/notificações foram removidos.
+Nomes de planos são gerados do contrato de entitlements: não indicam contratação,
+preço, limite ou elegibilidade do usuário.
 
-O cliente existente `assets/site.js` expõe o port de apresentação versionado
-`prototype-ordax.public-account-client/1` (`window.OrdaXPublicAccount`),
-declarado em `docs/contracts/public-site.json`. A conta oficial e a candidata
-compartilham a mesma consulta `GET /auth/session`, validação de schema,
-provider e estado, cache em memória e implementação de menu. A projeção
-pública contém apenas `status` e `email`; não inclui tokens, cookies, IDs
-de sujeito, nome/avatar não contratados ou uma fonte adicional de Identity.
+O menu de perfil inclui saída apenas com sessão verificada. `POST /auth/logout`
+é um formulário nativo; revogação e CSRF continuam no gateway. A projeção do
+cliente expõe somente `status` e `email`, sem tokens, cookies, IDs ou atributos
+não contratados. Retry, reativação da aba e retorno pelo histórico revalidam a
+sessão; dados pessoais são limpos na invalidação, no logout e no `pagehide`.
+Respostas de gerações antigas não restauram dados revogados.
 
-A Conta 2 mostra o e-mail da sessão verificada no resumo e no perfil, consulta a sessão
-atual em Segurança e acesso e oferece nova tentativa quando o gateway falha.
-O menu do cabeçalho inclui perfil, segurança, dispositivos, preferências e,
-somente após autenticação verificada, **Sair da conta**. A saída usa o mesmo
-formulário nativo `POST /auth/logout` da conta oficial; revogação e proteção
-CSRF continuam no gateway. A UI não simula sucesso nem interpreta cookies.
-Dados pessoais são limpos antes de revalidar a sessão e no `pagehide`, e
-respostas de gerações antigas são ignoradas. Retorno pelo histórico e
-reativação da aba consultam novamente o serviço. Navegação e mudança de
-idioma compartilham a leitura já verificada.
+`vercel.json` é o owner dos redirecionamentos permanentes de `/conta-2` para a
+rota principal. Preview lê a mesma configuração; o build gera
+`public-redirects.nginx.conf` para o adapter Nginx. Não há cópia da página antiga
+como fallback. Query e fragmento continuam nos acessos compatíveis; a navegação
+é interna e não concede autenticação. Assets do cliente e das entradas de login
+recebem versões pelo hash do conteúdo.
 
-Aceite deste incremento: regressões do portal oficial passam; leitura de
-sessão, invalidação, retry e menu possuem testes comportamentais; mobile não
-apresenta overflow; rota candidata continua isolada, sem dados inventados e
-sem alterar a ativação pública de serviços. Risco: o cliente é compartilhado
-com login e conta oficial, portanto os testes de readiness, consentimento,
-sessão e navegação permanecem obrigatórios.
+Critérios de aceite: uma única implementação; redirecionamentos e atalhos
+compatíveis; menu, sessão e ausência de dados inventados verificados; PT-BR/en-US
+com paridade; viewport mobile sem overflow; build reproduzível com origem e
+integridade verificadas. Risco: a sessão é compartilhada com login e Web, por
+isso readiness, consentimento e regressões desses fluxos devem passar.
 
-Antes de substituir `/conta/`, faltam a avaliação do usuário, prova do fluxo
-autenticado com o gateway implantado e os contratos públicos dos owners para
-edição de perfil/foto, senha/2FA, lista e revogação de dispositivos,
-assinatura/faturamento, medição de consumo, notificações e atividade.
-Exportação/exclusão e Cloud continuam subordinadas aos gates operacionais e
-legais já existentes. A candidata não ativa esses serviços, não adiciona
-endpoints presumidos e não substitui provas de implantação por testes com
-fixtures. O host local sem provider configurado mostra indisponibilidade
-real; ele não deve inventar login para produzir uma demonstração.
-
-A rota recebe `noindex`; os assets de apresentação têm versões derivadas de
-hash no build existente do site. Não requer novo pipeline, framework ou
-build do kernel/Surface.
-
-### Minha Conta — composição e owners atuais (2026-10-10)
-
-`sites/public/conta/index.html` define uma central de identidade e serviços;
-`assets/account-dashboard.css` é o owner da composição e
-`assets/account-portal.js` controla apenas apresentação, busca, hash e foco.
-A reformulação consome a `main` e mantém um único frontend. O cabeçalho
-fixo, a paisagem na abertura, a identidade translúcida e a separação entre
-resumo e gerenciamento reutilizam os assets oficiais. Espaçamentos são
-exportados dos mesmos tokens da Surface pelo bridge de branding existente.
-
-A grade desktop tem três cartões prioritários alinhados (assinatura, consumo,
-faturamento), banner compacto e cartões de gerenciamento. O mobile apresenta
-perfil compacto, assinatura e consumo em largura total, pagamentos/segurança
-lado a lado e serviços em linhas. Os mesmos elementos e IDs atendem resumo,
-busca e detalhes. Os 12 serviços permanecem alcançáveis pela rolagem natural;
-não há recorte por altura nem catálogo paralelo para Mais.
-
-O cabeçalho mantém uma linha nos celulares, busca sob demanda, atividade e
-perfil. A barra mobile pertence à Conta: Resumo / Assinatura / Consumo / Mais.
-Mais reutiliza a navegação lateral e inclui acesso ao site e à entrada `/web/`,
-que mantém autenticação e disponibilidade próprias. Escape fecha Mais/busca
-e restaura foco. A sessão nativa e os controles de dados pessoais ficam
-juntos ao lado da identidade no desktop e abaixo no mobile; abrir a sessão
-expande os dados sem sobreposição. Mais funciona como diálogo modal no mobile,
-com fechamento explícito, foco contido e fundo inerte. A busca revela os
-detalhes que corresponderam ao termo, em vez de localizar conteúdo oculto.
-Todos os alvos de ação mantêm área de toque de pelo menos 44px.
-
-Símbolo, paisagem, fonte e cores vêm do pipeline canônico de branding da
-Surface. Não existe paleta ou imagem de usuário paralela. A sessão, e-mail,
-saída e catálogo comercial pertencem aos owners existentes; nome/foto,
-assinatura ativa, preços, créditos, quotas, uso, cobrança, dispositivos e
-permissões não são presumidos. Indicadores decorativos não representam
-percentuais de consumo. Indisponibilidade aparece explicitamente quando o
-respectivo serviço não está confirmado. Sem JavaScript, o conteúdo continua
-legível. Dados de sessão são apagados antes de revalidação/bfcache.
-
-A suíte existente de Chromium/CDP contempla desktop, tablet, quatro tamanhos de
-celular (incluindo 320x568) e orientação horizontal, com PNGs e relatório.
-Verifica alinhamento, ausência de overflow horizontal, cobertura de seções,
-banner, menu, sessão, busca, deep links, detalhes e foco. Os testes de sessão
-validam os gates e a limpeza de dados. Essas evidências não homologam serviços
-pagos nem ativam o produto Web em produção. Nesta reformulação, por instrução
-expressa, não foram executados builds nem testes automatizados: as evidências
-anteriores não validam a nova composição. Publicação e conferência visual do
-artefato atualizado permanecem pendentes.
-
-The same entrypoint is reproducible locally after building the public artifact:
-
-```bash
-python tools/public-site/preview_server.py --site-root out/public-site --bind 127.0.0.1 --port 4178
-# In another terminal; ORDAX_CHROME_BIN may select an installed Chromium browser.
-node tools/surface-web/browser-smoke.mjs --public-account-url http://127.0.0.1:4178/conta/ --evidence-dir out/account-viewport-proof
-```
-
-The existing brand compiler exports typography, material and brand-fill tokens
-from `system/surface/ui/tokens.css`. Public build copies the exact original
-Surface symbol, landscape and Inter bytes and derives its local font declaration;
-no artwork or type palette is authored again in the portal. Marketing and
-credential pages retain their independent existing composition, while all
-public mark containers now use the same approved transparent symbol. Its
-presentation comes from `system/surface/ui/brand/symbol.css`, compiled together
-with the existing public token export; legacy CSS drawings have been removed.
-The legal HTML rendering transform stays unchanged. The plan list
-is derived at build from `docs/contracts/entitlements.json`, not an additional
-commercial catalog. Locale selection uses the existing public i18n owner;
-it changes this browser's portal language, never device preferences.
-Account/Web CSS and presentation URLs receive a deterministic content hash in
-the build, so cached assets cannot retain an older layout after source updates.
-
-This is the explicit account-page request in the current product cycle, not
-activation of backend capabilities. Risks include narrow layouts, focus/history,
-contrast over art and drift between visual assets. Acceptance covers desktop,
-tablet, narrow mobile, search/no-results, section/menu keyboard behavior, locale,
-identity revalidation and deterministic build with byte-exact canonical assets.
-
-`/conta/` now presents a responsive account overview, the existing verified
-session/email and native sign-out action, an entry to `/web/`, and honest
-availability for plans, storage and device management. Personal data is hidden
-and cleared before session revalidation, including back-forward navigation.
-No usage meter, device catalog, assigned plan or billing data is inferred from
-login or local browser state. Plan names remain the defined structure, with
-paid subscriptions unavailable.
-
-`/web/` is a product-entry page, not the Surface runtime or a marketing demo.
-It shares the existing single same-origin session lookup and exposes a launch
-link only for a verified authenticated session and a configured product path.
-Runtime configuration lives in `config/public-site.json` under `product.web`;
-the approved destination/availability lives in this topic's structured
-`account_area.web_entry` contract. Build rejects an unapproved activation and
-external, ambiguous or reserved destinations. Missing configuration/session
-shows an explicit pending/error/sign-in state, with no localhost/public link
-fabrication. The actual product host must independently authorize its own
-requests; portal navigation is never an authentication boundary.
-
-Owner: public portal in OS; Identity/session, entitlements, storage, device
-execution and Surface remain their existing owners. PT-BR/en-US use the
-existing public locale owner; dashboard styles consume compiled brand tokens.
-The portal does not import/copy the Surface, issue grants or store credentials.
-Acceptance covers launch admission, session failures, back navigation,
-localization, desktop/mobile rendering and deterministic public-site build.
-Public Web runtime remains unavailable in config/contract. Live identity
-activation, legal consistency, hosted Surface delivery and account E2E remain
-separate gates; this increment does not provision or deploy them.
-
-- `/`: public landing page. It must never become the authenticated OrdaX workspace.
-- `/download/`: public release discovery and verified download links.
-- `/login/`: sign-in entry point.
-- `/cadastro/`: account-creation entry point.
-- `/conta/`: authenticated user area. Until real identity/session integration is enabled, it remains fail-closed and must not simulate user data.
-- `/web/`: authenticated product-entry navigation when the approved Web host is available; otherwise sign-in/pending/error state.
-- `/licencas/`: release-specific license, SBOM and source-compliance entry point.
-- `/privacidade/`: privacy-readiness page; not a final policy while account activation is blocked.
-- `/termos/`: terms-readiness page; not final terms while account activation is blocked.
-
-The public landing and the authenticated product experience are deliberately separate:
-
-```text
-/               -> public product landing
-/login/         -> authentication entry
-/conta/         -> authenticated account area
-OrdaX Web       -> product runtime reached from an appropriate authenticated/product entry point
-```
-
-The OrdaX Web Surface must not be mounted over `/`. The account area may expose profile, devices, session, synchronized preferences and product-entry actions only when their backing services are real. OrdaX Web remains a separate product mode from the marketing portal even when the account links to it.
-
-Future routes such as support, docs and additional legal surfaces may be added here only when they have a real owner and service contract.
+A promoção da apresentação não ativa recursos sem contratos ou gates. Edição de
+perfil/foto, senha/2FA, dispositivos e revogação remota, pagamentos, medição,
+notificações e auditoria continuam pendentes de serviços públicos. Exportação,
+exclusão e Cloud seguem gates legais/operacionais existentes. O Web só abre um
+runtime quando a configuração e o contrato do owner autorizam o destino.
+`/` continua sendo o site; `/web/` permanece a entrada do produto. Provas reais
+de autenticação e deploy não são substituídas por fixtures locais. A conta recebe
+`noindex`, e o host local sem provider configurado mostra indisponibilidade real.
 
 ## Identity boundary
 

@@ -16,6 +16,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from public_redirects import public_redirects
+
 ROOT = Path(__file__).resolve().parents[2]
 GATEWAY_ROOT = ROOT / "services" / "public-identity"
 GATEWAY_PATH = GATEWAY_ROOT / "gateway.py"
@@ -66,6 +68,7 @@ class PublicPortalPreviewServer(ThreadingHTTPServer):
 
     def __init__(self, server_address, handler_class, site_root: Path):
         self.site_root = site_root
+        self.redirects = public_redirects()
         self.identity_gateway = GATEWAY.PublicIdentityGateway()
         super().__init__(server_address, handler_class)
 
@@ -105,6 +108,15 @@ class PublicPortalPreviewHandler(BaseHTTPRequestHandler):
 
     def _send_static(self, method: str) -> None:
         split = urlsplit(self.path)
+        destination = self.portal_server.redirects.get(split.path)
+        if destination:
+            self.send_response(308)
+            self.send_header("Location", destination + ("?" + split.query if split.query else ""))
+            self.send_header("Content-Length", "0")
+            self.send_header("Cache-Control", "no-cache")
+            self._security_headers()
+            self.end_headers()
+            return
         path = _safe_static_path(self.portal_server.site_root, split.path)
         if path is None or not path.is_file():
             body = b"Not Found\n"

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 
-const source = fs.readFileSync("sites/public/assets/account-2.js", "utf8");
+const source = fs.readFileSync("sites/public/assets/account-portal.js", "utf8");
 
 // The fixture supplies only the contracted presentation port. Identity and
 // native menu behavior are exercised separately with the real portal client.
@@ -20,7 +20,7 @@ function fixture(hash = "#dados-pessoais") {
     });
     return nodes.get(id);
   };
-  const document = { body: { dataset: { page: "conta-2" } }, activeElement: { id: "" },
+  const document = { body: { dataset: { page: "conta" } }, activeElement: { id: "" },
     getElementById: get, querySelector: () => null, querySelectorAll: () => [], addEventListener() {} };
   get("account-app").querySelector = () => get("support-link");
   let snapshot = Object.freeze({ status: "anonymous", email: "" });
@@ -37,7 +37,7 @@ function fixture(hash = "#dados-pessoais") {
       getSnapshot: () => snapshot, readSession() { reads++; return Promise.resolve(snapshot); },
       bindProfileMenu(trigger, options) {
         assert.equal(trigger, get("profile-menu-trigger"));
-        assert.equal(options.accountRoute, "/conta-2/");
+        assert.equal(options.accountRoute, "/conta/");
         binds++;
         return () => { disposals++; };
       },
@@ -49,7 +49,7 @@ function fixture(hash = "#dados-pessoais") {
     get reads() { return reads; }, get binds() { return binds; }, get disposals() { return disposals; } };
 }
 
-test("candidate renders only the verified session email, safely escaped, and never enables unsupported profile writes", () => {
+test("canonical account renders only the verified session email, safely escaped, and never enables unsupported profile writes", () => {
   const f = fixture();
   assert.equal(f.reads, 1);
   const email = '\"><img src=x onerror=alert(1)>@example.test';
@@ -92,4 +92,25 @@ test("anonymous and unavailable states retain real sign-in navigation and action
   assert.ok(f.get("account-content").innerHTML.includes("person@example.test"));
   f.emit("anonymous");
   assert.ok(!f.get("account-content").innerHTML.includes("person@example.test"));
+});
+
+
+test("legacy plan and storage links resolve within the sole canonical section catalog", () => {
+  const plan = fixture("#plano");
+  assert.ok(plan.get("account-content").innerHTML.includes("Plano e assinatura"));
+  const storage = fixture("#armazenamento");
+  assert.ok(storage.get("account-content").innerHTML.includes('id="usage-tab-storage"'));
+  assert.ok(storage.get("account-content").innerHTML.includes('aria-selected="true"'));
+  const connections = fixture("#integracoes");
+  assert.ok(connections.get("account-content").innerHTML.includes("Integrações não disponíveis"));
+});
+
+test("official preferences have no simulated notification settings or extra language persistence", () => {
+  const f = fixture("#preferencias");
+  const content = f.get("account-content").innerHTML;
+  assert.ok(content.includes('id="account-locale"'));
+  assert.ok(content.includes("Não disponível"));
+  assert.ok(!content.includes('role="switch"'));
+  assert.ok(!content.includes("Restaurar prévia"));
+  assert.ok(!source.includes("localStorage"));
 });

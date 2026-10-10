@@ -196,7 +196,6 @@ const routes = [
   "sites/public/login/index.html",
   "sites/public/cadastro/index.html",
   "sites/public/conta/index.html",
-  "sites/public/conta-2/index.html",
   "sites/public/web/index.html",
   "sites/public/recuperar/index.html",
   "sites/public/recuperar/nova-senha/index.html",
@@ -326,12 +325,12 @@ for (const value of collectUserFacingJsLiterals(playground)) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `playground source copy missing from localization owner: ${value}`);
 }
-const accountExperiment = read("sites/public/assets/account-2.js");
+const accountPortal = read("sites/public/assets/account-portal.js");
 // These are DOM/route identifiers, not labels. Visible labels remain covered.
-const accountImplementationTokens = new Set(["conta-2", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/", "/conta-2/"]);
-for (const value of collectUserFacingJsLiterals(accountExperiment, accountImplementationTokens)) {
+const accountImplementationTokens = new Set(["conta", "plano", "armazenamento", "integracoes", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/", "/conta-2/"]);
+for (const value of collectUserFacingJsLiterals(accountPortal, accountImplementationTokens)) {
   if (!looksPortuguese(value)) continue;
-  assert(sourceMessages.has(normalize(value)), `account experiment copy missing from localization owner: ${value}`);
+  assert(sourceMessages.has(normalize(value)), `account portal copy missing from localization owner: ${value}`);
 }
 // Direct translation calls and visible metadata cannot rely on Portuguese-word
 // heuristics: labels such as "Armazenamento" previously escaped those markers.
@@ -339,19 +338,19 @@ for (const expression of [
   /\btx\(\s*"((?:\\.|[^"\\])*)"\s*\)/g,
   /\b(?:title|description|label|name|owner|q|a):\s*"((?:\\.|[^"\\])*)"/g,
 ]) {
-  for (const match of accountExperiment.matchAll(expression)) {
+  for (const match of accountPortal.matchAll(expression)) {
     const value = normalize(match[1].replace(/\\(["'\\])/g, "$1"));
-    assert(sourceMessages.has(value), `account experiment translated label missing from localization owner: ${value}`);
+    assert(sourceMessages.has(value), `account portal translated label missing from localization owner: ${value}`);
   }
 }
-assert(/\bi18n(?:\.|\?\.)fromSource\(/.test(accountExperiment), "account experiment labels must use the existing public-site locale owner");
+assert(/\bi18n(?:\.|\?\.)fromSource\(/.test(accountPortal), "account portal labels must use the existing public-site locale owner");
 assert(
-  accountExperiment.includes('document.addEventListener("ordax:localechange"'),
-  "account experiment must rerender dynamic copy when the public-site locale changes"
+  accountPortal.includes('document.addEventListener("ordax:localechange"'),
+  "account portal must rerender dynamic copy when the public-site locale changes"
 );
-for (const id of ["account2.usage.unavailablePeriod", "account2.activity.period"]) {
-  assert(accountExperiment.includes(id), `account experiment interpolation must use the existing locale owner: ${id}`);
-  assert(typeof pt[id] === "string" && typeof en[id] === "string", `account experiment interpolation missing translation: ${id}`);
+for (const id of ["account.usage.unavailablePeriod", "account.activity.period"]) {
+  assert(accountPortal.includes(id), `account portal interpolation must use the existing locale owner: ${id}`);
+  assert(typeof pt[id] === "string" && typeof en[id] === "string", `account portal interpolation missing translation: ${id}`);
 }
 for (const id of [
   "playground.note.initialTitle",

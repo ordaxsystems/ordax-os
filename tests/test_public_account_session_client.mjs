@@ -19,11 +19,11 @@ function fixture() {
   const window = {
     OrdaXPublicI18n: { schema: "prototype-ordax.public-site-localization-runtime/1",
       t: id => id, fromSource: value => value },
-    location: { hash: "", pathname: "/conta-2/", search: "" },
+    location: { hash: "", pathname: "/conta/", search: "" },
     addEventListener(type, callback) { events.set(type, callback); },
   };
   const documentEvents = new Map();
-  const document = { body: { dataset: { page: "conta-2" } }, visibilityState: "visible",
+  const document = { body: { dataset: { page: "conta" } }, visibilityState: "visible",
     querySelector() { return null; }, addEventListener(type, callback) { documentEvents.set(type, callback); } };
   const timeoutSignal = { name: "bounded-session-request" };
   vm.runInNewContext(source, { window, document, URL, URLSearchParams,

@@ -364,7 +364,6 @@
     sessionRevision++;
     startRevision++;
     sessionPromise = null;
-    clearAccountView();
     publishSessionView(status);
   }
 
@@ -405,7 +404,7 @@
     menu.setAttribute("aria-label", i18n.fromSource("Opções da conta"));
     menu.hidden = true;
     // Only registered portal routes are accepted; consumers cannot inject URLs.
-    const route = accountRoute === "/conta-2/" ? accountRoute : "/conta/";
+    const route = "/conta/";
     const authenticated = !publicView || publicView.status === "authenticated";
     let identity = null;
     if (publicView) {
@@ -596,95 +595,6 @@
       disposeProfileMenu = attachProfileMenu(accountLink);
     } catch {
       // No connection or no valid session: only public links remain.
-    }
-  }
-
-  // The account page displays only identity data returned by the same-origin
-  // verified session owner. No locally inferred or simulated account state.
-  function clearAccountView() {
-    for (const selector of ["[data-account-authenticated]", "[data-account-anonymous]", "[data-account-unavailable]"]) {
-      const section = document.querySelector(selector);
-      if (section) section.hidden = true;
-    }
-    const email = document.querySelector("[data-account-email]");
-    const hero = document.querySelector("[data-account-hero-email]");
-    const profileEmail = document.querySelector("[data-account-profile-email]");
-    const profileIdentity = document.querySelector("[data-account-profile-identity]");
-    const logout = document.querySelector('[data-account-logout] button[type="submit"]');
-    const logoutForm = document.querySelector("[data-account-logout]");
-    if (logoutForm) logoutForm.hidden = true;
-    if (email) email.textContent = "";
-    if (hero) { hero.textContent = ""; hero.hidden = true; }
-    if (profileEmail) profileEmail.textContent = "";
-    if (profileIdentity) profileIdentity.hidden = true;
-    if (logout) logout.disabled = true;
-  }
-
-  async function renderAccount() {
-    const pageRevision = startRevision;
-    const state = document.querySelector("[data-account-state]");
-    const authenticated = document.querySelector("[data-account-authenticated]");
-    const anonymous = document.querySelector("[data-account-anonymous]");
-    const unavailable = document.querySelector("[data-account-unavailable]");
-    const email = document.querySelector("[data-account-email]");
-    const hero = document.querySelector("[data-account-hero-email]");
-    const profileEmail = document.querySelector("[data-account-profile-email]");
-    const profileIdentity = document.querySelector("[data-account-profile-identity]");
-    const logout = document.querySelector('[data-account-logout] button[type="submit"]');
-    const logoutForm = document.querySelector("[data-account-logout]");
-    if (!state || !authenticated || !anonymous || !unavailable || !email || !logout || !logoutForm) return;
-
-    // Always hide stale personal information during refresh and locale changes.
-    authenticated.hidden = true;
-    anonymous.hidden = true;
-    unavailable.hidden = true;
-    email.textContent = "";
-    if (hero) { hero.textContent = ""; hero.hidden = true; }
-    if (profileEmail) profileEmail.textContent = "";
-    if (profileIdentity) profileIdentity.hidden = true;
-    logout.disabled = true;
-    logoutForm.hidden = true;
-    state.dataset.status = "checking";
-    state.setAttribute("aria-busy", "true");
-    setStatus("[data-account-state]", t("account.session.checking.title"), t("account.session.checking.detail"));
-
-    try {
-      const revision = sessionRevision;
-      const session = await verifiedIdentitySession();
-      if (revision !== sessionRevision || pageRevision !== startRevision) return;
-      if (session.authenticated === true) {
-        // This text is never HTML: remote identity attributes are untrusted.
-        email.textContent = typeof session.email === "string" && session.email.length <= 254
-          ? session.email
-          : t("account.session.emailUnavailable");
-        if (hero) {
-          // Mirror the same verified identity value; clear it during every revalidation.
-          hero.textContent = email.textContent;
-          hero.hidden = false;
-        }
-        if (profileEmail && profileIdentity) {
-          // Display the same verified session value in Dados pessoais.
-          // No extra request, caching or separate identity state is created.
-          profileEmail.textContent = email.textContent;
-          profileIdentity.hidden = false;
-        }
-        authenticated.hidden = false;
-        logout.disabled = false;
-        logoutForm.hidden = false;
-        state.dataset.status = "ready";
-        setStatus("[data-account-state]", t("account.session.active.title"), t("account.session.active.detail"));
-      } else {
-        anonymous.hidden = false;
-        state.dataset.status = "anonymous";
-        setStatus("[data-account-state]", t("account.session.anonymous.title"), t("account.session.anonymous.detail"));
-      }
-    } catch {
-      if (pageRevision !== startRevision) return;
-      unavailable.hidden = false;
-      state.dataset.status = "unavailable";
-      setStatus("[data-account-state]", t("account.session.unavailable.title"), t("account.session.unavailable.detail"));
-    } finally {
-      if (pageRevision === startRevision) state.removeAttribute("aria-busy");
     }
   }
 
@@ -1084,7 +994,6 @@
   let startRevision = 0;
   async function start() {
     const generation = ++startRevision;
-    clearAccountView();
     const webLaunch = document.querySelector("[data-web-launch]");
     if (webLaunch) {
       webLaunch.hidden = true;
@@ -1107,7 +1016,7 @@
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
     if (page === "conta") {
-      await renderAccount();
+      await readPublicSession();
     } else if (page === "web") {
       await renderWebEntry(config);
     } else if (page === "download") {
@@ -1133,7 +1042,7 @@
     if (!event.persisted) return;
     invalidateIdentitySession();
     void start();
-    if (document.body?.dataset?.page === "conta-2") void readPublicSession();
+    if (document.body?.dataset?.page === "conta") void readPublicSession();
   });
 
   window.addEventListener("pagehide", () => {
@@ -1145,7 +1054,7 @@
   // A logout in another tab must be discovered when the account becomes visible.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible"
-      || !["conta", "conta-2", "web"].includes(document.body?.dataset?.page)) return;
+      || !["conta", "web"].includes(document.body?.dataset?.page)) return;
     void refreshPublicSession();
   });
 
