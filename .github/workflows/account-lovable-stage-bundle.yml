@@ -9,6 +9,12 @@ on:
       - 'sites/account-ui/lovable-original/index.html'
       - 'sites/account-ui/lovable-original/vite.config.account.ts'
 
+# Source edits can arrive while CI is compiling. Only the latest branch
+# revision may stage artifacts; Git push remains non-force and fast-forward.
+concurrency:
+  group: account-lovable-stage-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
