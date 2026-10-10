@@ -1266,11 +1266,12 @@ async function provePublicAccount(client, url, evidenceDir) {
         heroMinHeight:box(profile).height>=190 && box(profile).height<=540,
         decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
         accountCardMinHeight:box(cards[0]).height>=(phone?150:210),
-        touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].every(element=>box(element).height>=44),
+        touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].filter(element=>element.getClientRects().length>0).every(element=>box(element).height>=44),
         mobileBillingPair:!phone || (plan.top < billing.top && billing.top < usage.top && usage.top < security.top),
         desktopCardAlignment:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
         mobileWebReachable:!!document.querySelector('#account-navigation a[href="/web/"]'),
         managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
+        logoutHonest:document.querySelector('[data-account-logout]').hidden === true,
         verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
           document.querySelector('[data-account-hero-email]').textContent.trim()==='',
         primaryTilesAligned:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
@@ -1285,7 +1286,7 @@ async function provePublicAccount(client, url, evidenceDir) {
       };
     })()`);
     if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
-        !report.touchTargets || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
+        !report.touchTargets || !report.logoutHonest || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
         !report.mobileSearchCollapsed || report.headerHeight > 80 ||
         (width === 1440 && report.columns !== 12) ||
         (width < 600 && report.columns !== 12) ||
