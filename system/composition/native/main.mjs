@@ -985,6 +985,7 @@ async function start() {
       identitySessionPort: identitySession,
       spaceSelectionPort: spaceSelection,
       profileActivationStatePort: profileActivationState,
+      appActivation,
     },
     onError(error) {
       reportClientDiagnostic("assistant-runtime", error);
