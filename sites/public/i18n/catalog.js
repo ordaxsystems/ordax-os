@@ -5,6 +5,10 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Recolher navegação", "Collapse navigation"],
+    ["Expandir navegação", "Expand navigation"],
+    ["Localização na conta", "Account location"],
+    ["Informação da sessão autenticada", "Verified session information"],
     ["Informações disponíveis da conta", "Available account information"],
     ["Identidade", "Identity"],
     ["Conta OrdaX", "OrdaX Account"],
