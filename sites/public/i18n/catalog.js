@@ -600,6 +600,7 @@
     ["Aplicativos e integrações","Apps and integrations"],
     ["Preferências","Preferences"],
     ["Atividade e notificações","Activity and notifications"],
+    ["Atividade","Activity"],
     ["Pagamento e faturamento","Payment and billing"],
     ["Dados e privacidade","Data and privacy"],
     ["SUPORTE","SUPPORT"],
