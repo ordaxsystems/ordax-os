@@ -38,7 +38,7 @@
 .account-portal .account-header .site-nav { width:auto; flex-shrink:0; }
 .account-portal .site-nav a { display:flex; align-items:center; gap:10px; border:0; white-space:nowrap; min-height:44px; }
 .header-account-symbol { width:27px; height:27px; }
-.account-portal .account-header .account-header-actions { justify-content:flex-end; gap:6px; }
+.account-portal .account-header .account-header-actions { justify-content:flex-end; gap:6px; padding:0; overflow:visible; }
 .account-header-actions .header-icon-link { justify-content:center; width:44px; min-width:44px; min-height:44px; border-radius:50%; }
 .account-header-actions .account-icon { width:19px; height:19px; color:var(--ordax-muted); }
 .account-header-actions a:hover { background:var(--ordax-hover-bg); }
