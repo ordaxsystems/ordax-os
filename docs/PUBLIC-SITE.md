@@ -13,8 +13,11 @@ A prova sem credenciais (`python tools/public-site/prove_deployment.py --origin
 https://ordax.com.br`) agora diferencia `gated`, `disabled-unconfigured`, `auth-only` e `full` e verifica
 headers, paginas estaticas, sessao anonima, policy de registro no modo
 `auth-only`, sincronizacao anonima negada e POST de recuperacao negado pela
-borda. Resultado observado: `PASS`, `PUBLIC_SITE_IDENTITY_MODE=auth-only` e
-`PUBLIC_SITE_CLOUD_SYNC=GATED`. Um `403 bot-verification-required` na borda
+borda. A classificacao da sessao permanece `auth-only` com sync bloqueada.
+**Atualizacao critica:** a prova completa agora inclui hashes legais imutaveis
+e retorna `FAIL reason=public-legal-integrity:published-legal-document-hash-mismatch:privacy`
+em producao (2026-10-10). A antiga prova HTTP `PASS` nao abrangia
+integridade dos dois documentos. Um `403 bot-verification-required` na borda
 comprova apenas o bloqueio de POST nao verificado; nao comprova que a
 recuperacao funcione. O browser continua sem `recovery_url` configurada.
 
@@ -25,7 +28,7 @@ promover a Conta completa, recovery, sync, exportacao e fechamento. Nenhuma
 mudanca de gate e implicita nesta prova. As seções historicas abaixo descrevem
 etapas anteriores e nao substituem esta evidencia de runtime.
 
-Status: STATIC PRODUCTION LIVE AT ORDAX.COM.BR / PUBLIC ACCOUNT RUNTIME PENDING (2026-10-08)
+Status atual: PORTAL PUBLICADO / AUTH-ONLY / HASH LEGAL DIVERGENTE / MVP PUBLICO BLOQUEADO (2026-10-10). Evidencia: `docs/evidence/public-legal-integrity-2026-10-10.md`.
 
 The public OrdaX site is a separate delivery surface from the OrdaX Web product mode.
 
@@ -409,9 +412,10 @@ anonymous `/auth/session`, fail-closed anonymous `/sync/snapshot`, and real
 404 behavior. It uses `tools/public-site/public_identity_state.py`, the same
 canonical state machine used by the independent DNS/HTTPS probe, to reject a
 gated or unconfigured gateway when login/signup is advertised. In `auth-only`
-mode it also requires an active same-origin registration policy, absent recovery
-routes and a denied unchallenged recovery POST. The latter tests only the
-boundary, not that recovery works. A passing local build is not production
+mode it also requires an active same-origin registration policy whose
+server-owned SHA-256 values match the exact HTML bytes of both published legal
+pages, absent recovery routes and a denied unchallenged recovery POST.
+The latter tests only the boundary, not that recovery works. A passing local build is not production
 or credentialed E2E evidence.
 
 

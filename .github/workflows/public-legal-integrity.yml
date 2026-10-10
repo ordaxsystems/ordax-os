@@ -6,6 +6,10 @@ on:
       - '.github/workflows/public-legal-integrity.yml'
       - 'tools/public-site/probe_public_network.py'
       - 'tools/public-site/public_identity_state.py'
+      - 'tools/public-site/public_legal_integrity.py'
+      - 'sites/public/privacidade/index.html'
+      - 'sites/public/termos/index.html'
+      - 'docs/contracts/public-legal-readiness.json'
       - 'tools/public-site/public_html_render.py'
       - 'tools/public-site/build.py'
       - 'tools/public-site/activate_account_legal_policy.py'
@@ -18,6 +22,10 @@ on:
       - '.github/workflows/public-legal-integrity.yml'
       - 'tools/public-site/probe_public_network.py'
       - 'tools/public-site/public_identity_state.py'
+      - 'tools/public-site/public_legal_integrity.py'
+      - 'sites/public/privacidade/index.html'
+      - 'sites/public/termos/index.html'
+      - 'docs/contracts/public-legal-readiness.json'
       - 'tools/public-site/public_html_render.py'
       - 'tools/public-site/build.py'
       - 'tools/public-site/activate_account_legal_policy.py'
@@ -46,7 +54,12 @@ jobs:
           python-version: '3.12'
           check-latest: false
       - name: Prove policy and legal digest invariants locally
-        run: python -m unittest tests.test_public_site_network_proof tests.test_public_legal_hash_consistency tests.test_account_legal_policy_activation tests.test_brand_pipeline tests.test_public_site_contract -v
+        run: |
+          python -m unittest discover -s tests -p 'test_public_site_network_proof.py' -v
+          python -m unittest discover -s tests -p 'test_public_legal_hash_consistency.py' -v
+          python -m unittest discover -s tests -p 'test_account_legal_policy_activation.py' -v
+          python -m unittest discover -s tests -p 'test_brand_pipeline.py' -v
+          python -m unittest discover -s tests -p 'test_public_site_contract.py' -v
       - name: Audit actual public policy and immutable published HTML
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push'
         run: python tools/public-site/probe_public_network.py --legal-consistency

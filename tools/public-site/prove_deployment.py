@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from public_identity_state import PublicIdentityStateError, resolve_public_identity_mode
+from public_legal_integrity import PublicLegalIntegrityError, verify_public_legal_integrity
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'",
@@ -33,10 +34,14 @@ def request(
     *,
     body: bytes | None = None,
     content_type: str | None = None,
+    accept: str | None = None,
     browser_context: bool = False,
 ):
     target = urljoin(base.rstrip("/") + "/", path.lstrip("/"))
     headers = {"User-Agent": "OrdaX-Public-Deployment-Proof/1"}
+    if accept:
+        headers["Accept"] = accept
+        headers["Accept-Encoding"] = "identity"
     if browser_context:
         headers["Origin"] = base.rstrip("/")
         headers["Sec-Fetch-Site"] = "same-origin"
@@ -118,17 +123,16 @@ def main(argv=None) -> int:
     if session_payload.get("$schema") != "prototype-ordax.public-identity-session/1":
         fail("auth-session-schema")
     mode = public_identity_mode(config_payload, session_payload)
-    if mode == "auth-only":
-        # The browser admits login/registration through server-verified session
-        # and policy, but cloud sync and recovery remain separate gates.
-        policy_response = request(origin, "/auth/registration-policy")
-        if policy_response.status != 200:
-            fail(f"auth-only-policy-status:{policy_response.status}")
-        policy = read_json(policy_response)
-        if (policy.get("$schema") != "prototype-ordax.registration-legal-policy/1"
-                or policy.get("active") is not True
-                or policy.get("registrationEnabled") is not True):
-            fail("auth-only-registration-policy-unavailable")
+    if mode in ("auth-only", "full"):
+        # Server-owned policy MUST bind both public legal HTML documents.
+        # Matching versions alone are not proof: this protects receipts
+        # against drift when the public-site template changes.
+        def fetch_legal(path: str, *, accept: str):
+            return request(origin, path, accept=accept)
+        try:
+            verify_public_legal_integrity(origin, fetch_legal, require_active=True)
+        except PublicLegalIntegrityError as exc:
+            fail("public-legal-integrity:" + str(exc))
 
     sync = request(origin, "/sync/snapshot?limit=1")
     expected_sync_status = 401 if activation_ready else 503

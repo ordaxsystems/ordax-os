@@ -1,5 +1,6 @@
 """Regression tests for the public deploy verifier's separately gated account modes."""
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -15,14 +16,23 @@ spec.loader.exec_module(proof)
 
 
 class Response:
-    def __init__(self, status=200, payload=None, cache=None):
+    def __init__(self, status=200, payload=None, cache=None, body=None):
         self.status = status
         self.headers = dict(proof.SECURITY_HEADERS)
         self.headers["Cache-Control"] = cache or "no-store, max-age=0"
+        self.headers["Content-Type"] = "application/json" if payload is not None else "text/html"
         self.payload = payload
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
 
     def read(self, size=-1):
-        return json.dumps(self.payload or {}).encode("utf-8")[:size]
+        raw = self.body if self.body is not None else json.dumps(self.payload or {}).encode("utf-8")
+        return raw[:size]
 
 
 def fixtures(*, full=False, auth_only=False, provider="gated",
@@ -38,10 +48,21 @@ def fixtures(*, full=False, auth_only=False, provider="gated",
         "authenticated": False, "provider": provider,
         "status": "anonymous" if provider == "supabase" else "unavailable",
     }
+    legal_documents = {
+        "privacy": b"<html>Privacy 2026.10.09</html>\n",
+        "terms": b"<html>Terms 2026.10.09</html>\n",
+    }
     policy = {
         "$schema": "prototype-ordax.registration-legal-policy/1",
         "active": policy_active, "registrationEnabled": policy_active,
     }
+    for name, route in (("privacy", "/privacidade/"), ("terms", "/termos/")):
+        policy[name] = {
+            "version": "2026.10.09",
+            "effectiveDate": "2026-10-09",
+            "url": "https://ordax.com.br" + route,
+            "sha256": hashlib.sha256(legal_documents[name]).hexdigest(),
+        }
     sync_enabled = full
     sync = {"error": "authentication-required" if sync_enabled
             else "public-account-access-disabled"}
@@ -54,6 +75,8 @@ def fixtures(*, full=False, auth_only=False, provider="gated",
         "/recuperar/nova-senha/": Response(),
         "/auth/session": Response(payload=session),
         "/auth/registration-policy": Response(payload=policy),
+        "/privacidade/": Response(body=legal_documents["privacy"]),
+        "/termos/": Response(body=legal_documents["terms"]),
         "/sync/snapshot?limit=1": Response(status=401 if full else 503, payload=sync),
         "/auth/recover": Response(status=recovery_status, payload=recovery),
         "/__ordax-deployment-proof-missing": Response(status=404),
@@ -79,6 +102,8 @@ class PublicDeploymentProofTests(TestCase):
         self.assertIn("PUBLIC_SITE_IDENTITY_MODE=auth-only", output)
         self.assertIn("PUBLIC_SITE_CLOUD_SYNC=GATED", output)
         self.assertIn(("/auth/registration-policy", "GET"), called)
+        self.assertIn(("/privacidade/", "GET"), called)
+        self.assertIn(("/termos/", "GET"), called)
         self.assertIn(("/auth/recover", "POST"), called)
 
     def test_auth_only_never_accepts_gated_provider(self):
@@ -107,7 +132,19 @@ class PublicDeploymentProofTests(TestCase):
 
     def test_auth_only_registration_policy_must_be_active(self):
         _, _, routes = fixtures(auth_only=True, provider="supabase", policy_active=False)
-        with self.assertRaisesRegex(SystemExit, "auth-only-registration-policy-unavailable"):
+        with self.assertRaisesRegex(SystemExit, "public-legal-integrity:registration-policy-inactive"):
+            self.run_proof(routes)
+
+    def test_accepted_privacy_digest_rejects_html_drift(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase")
+        routes["/privacidade/"].body += b"<!-- changed layout -->"
+        with self.assertRaisesRegex(SystemExit, "public-legal-integrity:published-legal-document-hash-mismatch:privacy"):
+            self.run_proof(routes)
+
+    def test_accepted_terms_digest_rejects_html_drift(self):
+        _, _, routes = fixtures(auth_only=True, provider="supabase")
+        routes["/termos/"].body += b"<!-- changed layout -->"
+        with self.assertRaisesRegex(SystemExit, "public-legal-integrity:published-legal-document-hash-mismatch:terms"):
             self.run_proof(routes)
 
     def test_unexpected_provider_never_bypasses_closed_account_gate(self):

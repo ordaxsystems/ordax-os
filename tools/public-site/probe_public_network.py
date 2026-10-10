@@ -8,7 +8,6 @@ is active. It never sends credentials or performs state-changing requests.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import socket
@@ -19,6 +18,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from public_identity_state import PublicIdentityStateError, resolve_public_identity_mode
+from public_legal_integrity import PublicLegalIntegrityError, verify_public_legal_integrity
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs/contracts/public-site-deployment.json"
 CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
@@ -133,60 +133,19 @@ def check_anonymous_account_boundary() -> None:
 
 
 def check_public_legal_consistency() -> int:
-    """Verify the server-owned active consent policy against real public HTML bytes.
+    """One canonical digest proof for the server-owned active legal policy."""
+    def retrieve(path: str, *, accept: str):
+        return fetch(CANONICAL_HOST, path, accept=accept)
 
-    This is an independent release-integrity proof, not an account login
-    test. Reads same-origin public endpoints only; no secrets or mutations.
-    The public legal-policy projection, never a local activation flag, owns
-    the versioned digests to be checked.
-    """
-    def legal_fail(reason: str) -> None:
-        raise SystemExit("ORDAX_PUBLIC_LEGAL_INTEGRITY=FAIL reason=" + reason)
-
-    path = "/auth/registration-policy"
-    with fetch(CANONICAL_HOST, path, accept="application/json") as response:
-        if response.status != 200:
-            legal_fail("registration-policy-unavailable")
-        policy = bounded_json(response, path=path)
-    if policy.get("$schema") != "prototype-ordax.registration-legal-policy/1":
-        legal_fail("registration-policy-schema")
-    if type(policy.get("active")) is not bool or type(policy.get("registrationEnabled")) is not bool:
-        legal_fail("registration-policy-state-invalid")
-    if not policy["active"]:
-        if policy["registrationEnabled"]:
-            legal_fail("registration-enabled-without-active-policy")
-        print("ORDAX_PUBLIC_LEGAL_INTEGRITY=INACTIVE", flush=True)
-        return 0
-
-    for label, route in (("privacy", "/privacidade/"), ("terms", "/termos/")):
-        item = policy.get(label)
-        if not isinstance(item, dict):
-            legal_fail("registration-policy-document-invalid:" + label)
-        digest = item.get("sha256")
-        if (
-            item.get("url") != "https://" + CANONICAL_HOST + route
-            or not isinstance(item.get("version"), str)
-            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", item["version"])
-            or not isinstance(item.get("effectiveDate"), str)
-            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", item["effectiveDate"])
-            or not isinstance(digest, str)
-            or not re.fullmatch(r"[0-9a-f]{64}", digest)
-        ):
-            legal_fail("registration-policy-document-fields:" + label)
-        with fetch(CANONICAL_HOST, route) as response:
-            if response.status != 200:
-                legal_fail("published-legal-document-unavailable:" + label)
-            if response.headers.get("Content-Type", "").split(";", 1)[0].lower() != "text/html":
-                legal_fail("published-legal-document-content-type:" + label)
-            if response.headers.get("Content-Encoding", "identity").lower() != "identity":
-                legal_fail("published-legal-document-encoding:" + label)
-            html = response.read(2 * 1024 * 1024 + 1)
-        if len(html) > 2 * 1024 * 1024:
-            legal_fail("published-legal-document-too-large:" + label)
-        if hashlib.sha256(html).hexdigest() != digest:
-            legal_fail("published-legal-document-hash-mismatch:" + label)
-        print("ORDAX_PUBLIC_LEGAL_DOCUMENT=" + label + " SHA256_MATCH", flush=True)
-    print("ORDAX_PUBLIC_LEGAL_INTEGRITY=PASS", flush=True)
+    try:
+        state = verify_public_legal_integrity(
+            "https://" + CANONICAL_HOST,
+            retrieve,
+            report=lambda message: print(message, flush=True),
+        )
+    except PublicLegalIntegrityError as exc:
+        raise SystemExit("ORDAX_PUBLIC_LEGAL_INTEGRITY=FAIL reason=" + str(exc)) from exc
+    print("ORDAX_PUBLIC_LEGAL_INTEGRITY=" + ("PASS" if state == "ACTIVE" else "INACTIVE"), flush=True)
     return 0
 
 

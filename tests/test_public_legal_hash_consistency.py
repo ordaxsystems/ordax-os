@@ -2,11 +2,14 @@
 
 import hashlib
 import io
+import sys
+from pathlib import Path
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from tests.test_public_site_network_proof import Response, network
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_public_site_network_proof import Response, network
 
 
 class PublicLegalHashProofTests(unittest.TestCase):
@@ -51,6 +54,19 @@ class PublicLegalHashProofTests(unittest.TestCase):
             with redirect_stdout(output):
                 result = network.check_public_legal_consistency()
             return result, output.getvalue()
+
+    def test_ci_rechecks_real_policy_when_legal_source_or_owner_changes(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/public-legal-integrity.yml").read_text(encoding="utf-8")
+        for watched in (
+            "sites/public/privacidade/index.html",
+            "sites/public/termos/index.html",
+            "docs/contracts/public-legal-readiness.json",
+            "tools/public-site/public_legal_integrity.py",
+        ):
+            self.assertEqual(workflow.count("'" + watched + "'"), 2, watched)
+        self.assertIn("github.event_name == 'push'", workflow)
+        self.assertIn("python tools/public-site/probe_public_network.py --legal-consistency", workflow)
 
     def test_valid_server_owned_hashes_match_both_public_documents(self):
         result, output = self.run_proof()

@@ -12,8 +12,13 @@ The public config explicitly keeps `account_activation_ready=false` and
 `auth_only_source_enabled=true`. A denied, unchallenged recovery POST is not an
 end-to-end recovery proof. Current legal policy in canonical Supabase is active
 (version `2026.10.09`); older policy readiness booleans require owner-level
-reconciliation. No credentialed E2E, USB physical proof, signed Creator
-publisher or public Stable release has been established by this site proof.
+reconciliation. **Legal integrity remains a blocking production defect**:
+server-owned active document digests for both legal pages differ from the
+published HTML; the strengthened deployment proof now fails closed. See
+`docs/evidence/public-legal-integrity-2026-10-10.md` for sanitized hashes,
+record counts and the non-destructive remediation path. No credentialed E2E,
+USB physical proof, signed Creator publisher or public Stable release has
+been established by this site proof.
 
 ## USB source ownership reconciliation — 2026-10-10
 
