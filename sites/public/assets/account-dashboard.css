@@ -884,6 +884,12 @@
  .account-content[data-view="visao-geral"]:not([data-searching="true"]) .account-dashboard-activity{grid-column:span 12}
  .account-content[data-view="visao-geral"]:not([data-searching="true"]) #seguranca{grid-column:span 12;min-height:0}
 }
+@media(max-width:900px){
+ .account-profile-action,.account-session-disclosure summary,
+ .account-content[data-view="visao-geral"]:not([data-searching="true"]) .card-heading{
+   min-height:44px;
+ }
+}
 @media(max-width:700px){
  .account-profile-facts{grid-template-columns:1fr;gap:5px;padding-top:10px}
  .account-profile-fact{min-height:43px;padding:5px 0}
