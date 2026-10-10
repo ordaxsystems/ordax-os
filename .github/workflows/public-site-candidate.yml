@@ -281,6 +281,37 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Build and inspect migrated Lovable account in official public site
+        run: |
+          set -euo pipefail
+          python tools/public-site/build.py build --account-ui lovable \
+            --source-commit "$GITHUB_SHA" --out-dir out/public-account-lovable
+          python tools/public-site/build.py verify --out-dir out/public-account-lovable
+          python tools/public-site/preview_server.py \
+            --site-root out/public-account-lovable --bind 127.0.0.1 --port 4179 \
+            > "$RUNNER_TEMP/account-react-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:4179/conta/ > /dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+          curl --fail --silent http://127.0.0.1:4179/conta/seguranca | grep -F '<div id="root"></div>'
+          node tools/surface-web/browser-smoke.mjs \
+            --public-account-url http://127.0.0.1:4179/conta/ \
+            --evidence-dir out/account-react-viewport-proof
+          echo 'PUBLIC_ACCOUNT_REACT_E2E=PASS'
+
+      - name: Upload Lovable account viewport evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-react-account-viewports-${{ github.sha }}
+          path: out/account-react-viewport-proof/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload public site candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
