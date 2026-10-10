@@ -9,7 +9,7 @@ const MAX_STREAM_EVENTS = 16384;
 
 // OpenAI-compatible, data-only SSE. Tokens are tentative until [DONE] and
 // finish_reason are checked; callers must not persist or execute partial text.
-export async function readLocalAiCompletionStream(response, { modelId, onDelta } = {}) {
+export async function readLocalAiCompletionStream(response, { modelId, onDelta, signal = null } = {}) {
   if (typeof onDelta !== "function") {
     throw new TypeError("Local AI streaming requires onDelta()");
   }
@@ -29,6 +29,10 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta }
     throw new Error("Local AI streaming requires a bounded response stream");
   }
 
+  const assertActive = () => {
+    if (signal?.aborted) throw new Error("Local AI streaming request cancelled");
+  };
+  assertActive();
   const reader = body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let bytes = 0;
@@ -41,6 +45,7 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta }
   let succeeded = false;
 
   const processEvent = async () => {
+    assertActive();
     if (data.length === 0) return;
     const frame = data.join("\n");
     data = [];
@@ -100,6 +105,7 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta }
     // Deliberately await the consumer to apply backpressure and preserve order.
     // Emissions are provisional until the final verified result is returned.
     await onDelta(delta);
+    assertActive();
   };
 
   const processLine = async (line) => {
@@ -132,7 +138,9 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta }
 
   try {
     while (true) {
+      assertActive();
       const { value, done } = await reader.read();
+      assertActive();
       if (done) break;
       if (!(value instanceof Uint8Array)) {
         throw new Error("Local AI streaming response contains invalid bytes");
@@ -152,6 +160,7 @@ export async function readLocalAiCompletionStream(response, { modelId, onDelta }
       throw new Error("Local AI streaming ended without a verified [DONE]");
     }
     const text = validateLocalAiResponseText(result);
+    assertActive();
     succeeded = true;
     return text;
   } finally {
