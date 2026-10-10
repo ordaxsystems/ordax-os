@@ -54,6 +54,7 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", scheduled)
         self.assertIn("schedule:", scheduled)
         self.assertIn("persist-credentials: false", scheduled)
+        self.assertIn("actions: write", scheduled)  # required for workflow_dispatch
         self.assertIn("gh workflow run kernel-lts-candidate.yml", scheduled)
         self.assertNotIn("gh pr merge", scheduled)
         self.assertIn('git show "FETCH_HEAD:bootstrap/kernel/candidates/$CANDIDATE_VERSION.json"', scheduled)
