@@ -1,0 +1,45 @@
+{
+  "$schema": "ordax.account-ui-lovable-source/1",
+  "source_repository": "washingtonmsdj/account-hub-pro",
+  "source_visibility": "private",
+  "source_commit": "0f955ece6e570801976d8ed77d2cada101b7a3fa",
+  "snapshot_kind": "exact-files-preintegration",
+  "production_enabled": false,
+  "visual_owner": "source React/TSX and original CSS, until design tokens are consolidated",
+  "operational_owner": "ordaxsystems/ordax-os public identity and account services",
+  "destination": "sites/account-ui/lovable-original",
+  "assets_state": "binary-assets-from-private-repository-not-copied",
+  "source_fidelity": [
+    {
+      "path": "src/components/account/overview.tsx",
+      "git_blob_sha": "3f2d988dd3f734a6e2b0f462cb2139e3ece7c6c5"
+    },
+    {
+      "path": "src/components/account/shell.tsx",
+      "git_blob_sha": "e9b956c061de1cf3228516a3cf3d19ad2caccd0b"
+    },
+    {
+      "path": "src/components/account/details.tsx",
+      "git_blob_sha": "d04487118e31d504b18d4b94a7b2ac6affcbc134"
+    },
+    {
+      "path": "src/components/account/integration-panel.tsx",
+      "git_blob_sha": "1786e4bf2e631b53ec3aaa2023d7c0456ed39c34"
+    },
+    {
+      "path": "src/lib/account/model.ts",
+      "git_blob_sha": "9b06816494a86604d172cb8c3ed36e124a2e6e0e"
+    },
+    {
+      "path": "src/styles.css",
+      "git_blob_sha": "772bb4ef2b595ef89d2cbdbf018e03330761b9a9"
+    },
+    {
+      "path": "package.json",
+      "git_blob_sha": "90838fc188dd038065a67529da35c5588d19dbe1"
+    }
+  ],
+  "integration_gate": "source assets + component dependencies + existing identity adapter + test + deterministic build + review",
+  "release_target": "ordax-os-public /conta/",
+  "separate_vercel_projects": false
+}
