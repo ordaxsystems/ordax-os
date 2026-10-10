@@ -7,6 +7,7 @@ import { AccountDetails } from "@/components/account/details";
 import { sections, type AccountPath } from "@/lib/account/model";
 import { OfficialAccountSessionProvider } from "@/lib/account/official-session";
 import "./styles.css";
+import "./account-live.css";
 
 // Build only the copied Lovable Account Center as a static React application.
 // Original components remain unmodified; real account integration is a separate
