@@ -153,6 +153,7 @@ export function mountAssistantConversationControls(
       .map((element) => element.dataset.assistantWorkDetails));
     const expandedActions = new Set([...slot.querySelectorAll("details[data-assistant-action-details][open]")]
       .map((element) => element.dataset.assistantActionDetails));
+    const expandedOverview = slot.querySelector("[data-assistant-work-overview][open]") !== null;
     mountedSlot = slot;
     slot.replaceChildren();
     slot.classList.add("ordax-assistant-host");
@@ -210,6 +211,43 @@ export function mountAssistantConversationControls(
       missions.setAttribute("aria-label", t("assistant.work.aria"));
       missions.append(node(documentObject, "h4", "ordax-assistant-work-title",
         t("assistant.work.title")));
+      // Show an adaptive chart only for multiple verified owner-scoped Work
+      // records. The bars represent counts, never progress-to-completion.
+      const overview = verifiedWork.overview;
+      if (overview?.total >= 2) {
+        const details = node(documentObject, "details", "ordax-assistant-work-overview");
+        details.dataset.assistantWorkOverview = "";
+        details.open = expandedOverview;
+        details.append(node(documentObject, "summary", "",
+          `${t("assistant.work.overview.title")} · ${overview.total}`));
+        const figure = node(documentObject, "figure", "ordax-assistant-work-chart");
+        figure.dataset.assistantWorkSource = overview.sourceSchema;
+        figure.append(node(documentObject, "figcaption", "",
+          t("assistant.work.overview.caption")));
+        const bars = node(documentObject, "div", "ordax-assistant-work-chart-bars");
+        for (const group of overview.groups) {
+          if (group.count === 0) continue;
+          const row = node(documentObject, "div", "ordax-assistant-work-chart-row");
+          row.dataset.assistantWorkChartKind = group.kind;
+          const label = node(documentObject, "span", "ordax-assistant-work-chart-label",
+            t(`assistant.work.overview.${group.kind}`));
+          const track = node(documentObject, "div", "ordax-assistant-work-chart-track");
+          track.setAttribute("aria-hidden", "true");
+          const fill = node(documentObject, "div", "ordax-assistant-work-chart-fill");
+          fill.dataset.assistantWorkChartFill = group.kind;
+          fill.style.width = `${(group.count / overview.total) * 100}%`;
+          track.append(fill);
+          const count = node(documentObject, "strong", "ordax-assistant-work-chart-count",
+            String(group.count));
+          row.append(label, track, count);
+          bars.append(row);
+        }
+        figure.append(bars);
+        figure.append(node(documentObject, "p", "ordax-assistant-work-caption",
+          t("assistant.work.overview.disclaimer")));
+        details.append(figure);
+        missions.append(details);
+      }
       for (const work of verifiedWork.cards) {
         const card = node(documentObject, "article", "ordax-assistant-work-card");
         card.dataset.assistantWorkId = work.workItemId;
