@@ -65,6 +65,11 @@ async function composeTrustedContext(componentId, callerContext) {
   return context;
 }
 
+export async function composeTrustedComponentContext(componentId, context) {
+  componentLoadStarted = true;
+  return composeTrustedContext(componentId, context);
+}
+
 export function installTrustedComponentContextProvider(provider) {
   if (typeof provider !== "function") {
     throw new TypeError("Trusted component context provider must be a function");
@@ -103,7 +108,7 @@ export async function loadOptionalComponentRuntime({
   componentLoadStarted = true;
 
   try {
-    const effectiveContext = await composeTrustedContext(componentId, context);
+    const effectiveContext = await composeTrustedComponentContext(componentId, context);
     const module = await importer();
     const runtime = validateComponentRuntime(module?.componentRuntime, {
       componentId,

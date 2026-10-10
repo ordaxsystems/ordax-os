@@ -2,6 +2,7 @@ import { validateComponentId } from "../../contracts/component-manifest.mjs";
 import { assertComponentSlotSource } from "../../contracts/component-slot-source.mjs";
 import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
 import { validateComponentRuntime, validateMountedComponent } from "../../contracts/component-runtime.mjs";
+import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
   method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error",
@@ -136,7 +137,10 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed before mount");
     }
-    mounted = await mountBounded(runtime, context, limit, id);
+    const effectiveContext = await bounded(
+      () => composeTrustedComponentContext(id, context), limit, "trusted context",
+    );
+    mounted = await mountBounded(runtime, effectiveContext, limit, id);
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed during mount");
     }

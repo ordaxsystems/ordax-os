@@ -3,6 +3,10 @@ import test from "node:test";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { loadVerifiedCurrentComponentRuntime as load } from "../system/services/components/current-slot-loader.mjs";
+import { installTrustedComponentContextProvider } from "../system/services/components/runtime-loader.mjs";
+
+installTrustedComponentContextProvider(async (componentId) => componentId === "internet"
+  ? Object.freeze({ nativeAppDataMarker: "bound-by-host" }) : null);
 
 const revision = Object.freeze({
   componentId: "internet", state: "current", source: "slot", revision: 4,
@@ -22,7 +26,11 @@ function fixture(states = [revision]) {
     imports++;
     return { componentRuntime: {
       schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
-      mount: async () => { mounts++; return { destroy() { destroys++; } }; },
+      mount: async (context) => {
+        assert.equal(context.nativeAppDataMarker, "bound-by-host");
+        mounts++;
+        return { destroy() { destroys++; } };
+      },
     } };
   };
   return {
@@ -128,4 +136,11 @@ test("a runtime resolving after mount timeout is destroyed, not leaked", async (
   finishMount({ destroy() { destroyed++; } });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(destroyed, 1);
+});
+
+test("caller cannot shadow trusted bound Native context", async () => {
+  const f = fixture();
+  assert.equal(await f.run({ context: { nativeAppDataMarker: "untrusted" } }), null);
+  assert.equal(f.state().mounts, 0);
+  assert.match(f.state().reported.message, /cannot add field/);
 });
