@@ -1330,7 +1330,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       }
       await sleep(50);
     }
-    const deep = await evaluate('location.pathname === "/conta/seguranca" && document.querySelector(".detail-page-heading h1")?.textContent === "Segurança e acesso" && !!document.querySelector(".desktop-sidebar a.sidebar-link.active[href=\"/conta/seguranca\"]") && document.querySelector(".breadcrumb")?.textContent?.includes("Segurança e acesso")');
+    const deep = await evaluate('location.pathname === "/conta/seguranca" && document.querySelector(".detail-page-heading h1")?.textContent === "Segurança e acesso" && document.querySelector(".desktop-sidebar a.sidebar-link.active")?.getAttribute("href") === "/conta/seguranca" && document.querySelector(".breadcrumb")?.textContent?.includes("Segurança e acesso")');
     if (!deep) throw new Error(`${name} React deep link did not resolve security section`);
     reports.push({ name, ...report, menuAndEscape: true, clientRoute: true, deepLink: true });
   }
