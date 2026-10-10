@@ -112,9 +112,9 @@ test("real Assistant conversation port produces a canvas and loses it on owner/S
   const identity = observable("ordax.identity-session/1", {
     state: "signed-out", subjectId: null, displayName: null,
   });
-  const spaces = observable("ordax.space-selection/1", {
+  const spaces = Object.assign(observable("ordax.space-selection/1", {
     schema: "ordax.space-selection/1", state: "unavailable",
-  });
+  }), { select() {}, clear() {} });
   const intelligence = {
     schema: "ordax.intelligence/1",
     getSnapshot() {
