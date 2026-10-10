@@ -106,6 +106,8 @@ export function mountAssistantConversationControls(
     const cursor = focusWasInDraft ? [priorInput.selectionStart, priorInput.selectionEnd] : null;
     const expandedWork = new Set([...slot.querySelectorAll("details[data-assistant-work-details][open]")]
       .map((element) => element.dataset.assistantWorkDetails));
+    const expandedActions = new Set([...slot.querySelectorAll("details[data-assistant-action-details][open]")]
+      .map((element) => element.dataset.assistantActionDetails));
     mountedSlot = slot;
     slot.replaceChildren();
     slot.classList.add("ordax-assistant-host");
@@ -201,6 +203,67 @@ export function mountAssistantConversationControls(
               t("assistant.work.truncated")));
           }
           details.append(list);
+          card.append(details);
+        }
+        if (work.pendingApproval !== null) {
+          const pending = node(documentObject, "aside", "ordax-assistant-pending-approval");
+          pending.dataset.assistantPendingApproval = work.pendingApproval.approvalId;
+          pending.append(
+            node(documentObject, "strong", "", t("assistant.work.approval.required")),
+            node(documentObject, "p", "", work.pendingApproval.reason),
+            node(documentObject, "p", "ordax-assistant-work-evidence",
+              `${t("assistant.work.approval.effect")}: ${t(`assistant.work.effect.${work.pendingApproval.effect}`)}`),
+            node(documentObject, "p", "ordax-assistant-work-evidence",
+              t("assistant.work.approval.readonly")),
+          );
+          card.append(pending);
+        }
+        // The typed Action Attempt rows come only from verified Personal
+        // Work/Activity/Result and are never constructed from model text.
+        if (work.actionEvidence.length > 0) {
+          const details = node(documentObject, "details", "ordax-assistant-action-details");
+          details.dataset.assistantActionDetails = work.workItemId;
+          details.open = work.actionEvidence.some((entry) => entry.status === "uncertain")
+            || expandedActions.has(work.workItemId);
+          details.append(node(documentObject, "summary", "",
+            `${t("assistant.work.actions.title")} · ${work.actionEvidence.length}`));
+          const table = node(documentObject, "table", "ordax-assistant-actions-table");
+          const caption = node(documentObject, "caption", "", t("assistant.work.actions.caption"));
+          const head = node(documentObject, "thead");
+          const headings = node(documentObject, "tr");
+          for (const key of ["status", "action", "time", "summary"]) {
+            const th = node(documentObject, "th", "", t(`assistant.work.actions.${key}`));
+            th.scope = "col";
+            headings.append(th);
+          }
+          head.append(headings);
+          const tbody = node(documentObject, "tbody");
+          for (const entry of work.actionEvidence) {
+            const tr = node(documentObject, "tr");
+            tr.dataset.assistantActionAttempt = entry.attemptId;
+            tr.dataset.assistantActionState = entry.status;
+            const state = node(documentObject, "td", "",
+              t(`assistant.work.attempt.${entry.status}`));
+            const action = node(documentObject, "td", "", entry.actionId);
+            const at = node(documentObject, "td");
+            const when = entry.finishedAt ?? entry.startedAt;
+            const time = node(documentObject, "time", "",
+              new Date(when).toLocaleString(lifecycle.localization.getLocale()));
+            time.dateTime = when;
+            at.append(time);
+            const summary = node(documentObject, "td", "",
+              entry.summary ?? t("assistant.work.actions.noSummary"));
+            tr.append(state, action, at, summary);
+            tbody.append(tr);
+          }
+          table.append(caption, head, tbody);
+          details.append(table);
+          if (work.actionsTruncated) {
+            details.append(node(documentObject, "p", "ordax-assistant-work-overflow",
+              t("assistant.work.actions.truncated")));
+          }
+          details.append(node(documentObject, "p", "ordax-assistant-work-evidence",
+            t("assistant.work.actions.readonly")));
           card.append(details);
         }
         if (work.state === "result" && work.result?.kind === "text" && work.provenance) {
