@@ -412,3 +412,132 @@ test("owner switch during recorded reasoning cannot commit an old owner result i
     runtime.dispose();
   }
 });
+
+
+test("adaptive overview counts every scoped canonical Work, including items hidden by three-card limit", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, intelligencePort: model(),
+    now: (() => { let n = 210000; return () => n++; })(),
+  });
+  try {
+    const urgent = runtime.create("Esperando autorização");
+    runtime.requestApproval(urgent.id, {
+      actionId: "files.read", toolId: "file-reader",
+      toolArtifactSha256: "c".repeat(64), effect: "read",
+      reason: "Confirmação específica necessária",
+    });
+    const paused = runtime.create("Missão pausada");
+    runtime.pause(paused.id);
+    const cancelled = runtime.create("Missão cancelada");
+    runtime.cancel(cancelled.id);
+    for (let n = 0; n < 4; n++) {
+      const work = runtime.create(`Resultado ${n}`);
+      await runtime.run(work.id);
+    }
+    const pending = runtime.create("Ainda na fila");
+    const view = projectAssistantWorkStrip(runtime.getSnapshot(), id.getSnapshot(), unavailableSpace());
+    assert.equal(view.cards.length, 3);
+    assert.equal(view.remainingCount, 5);
+    assert.deepEqual(view.overview, {
+      sourceSchema: "ordax.personal-runtime/1",
+      total: 8,
+      groups: [
+        { kind: "requires-action", count: 1 },
+        { kind: "working", count: 2 },
+        { kind: "result", count: 4 },
+        { kind: "failed", count: 1 },
+        { kind: "unavailable", count: 0 },
+      ],
+      completionPercent: null,
+      authority: "none",
+    });
+    assert.equal(view.overview.groups.reduce((sum, group) => sum + group.count, 0), 8);
+    assert.equal(view.cards[0].workItemId, urgent.id);
+    assert.equal(view.cards[0].state, "requires-action");
+    assert.ok(view.overview.groups.every(g => Number.isInteger(g.count) && g.count >= 0));
+    assert.equal(Object.isFrozen(view.overview), true);
+    assert.equal(Object.isFrozen(view.overview.groups), true);
+    assert.ok(Object.isFrozen(view.overview.groups[0]));
+    assert.equal(pending.projectId, null);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("owner and Space changes remove all overview data instead of retaining previous counts", async () => {
+  const id = port("ordax.identity-session/1", identity("signed-in", "owner-a"));
+  const selection = port("ordax.space-selection/1", selectedSpace(), {
+    select() {}, clear() {},
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, spaceSelectionPort: selection,
+    intelligencePort: model(), now: (() => { let n = 220000; return () => n++; })(),
+  });
+  try {
+    runtime.create("Work em Space A", { spaceId: "space-a" });
+    const one = projectAssistantWorkStrip(runtime.getSnapshot(), id.getSnapshot(), selection.getSnapshot());
+    assert.equal(one.overview.total, 1);
+    assert.equal(one.overview.groups[1].count, 1);
+    const otherSpace = projectAssistantWorkStrip(runtime.getSnapshot(), id.getSnapshot(),
+      selectedSpace("space-b"));
+    assert.equal(otherSpace.overview.total, 0);
+    assert.deepEqual(otherSpace.overview.groups.map(g => g.count), [0, 0, 0, 0, 0]);
+    const otherOwner = projectAssistantWorkStrip(runtime.getSnapshot(),
+      identity("signed-in", "owner-b"), selection.getSnapshot());
+    assert.deepEqual(otherOwner.cards, []);
+    assert.equal(otherOwner.overview, undefined);
+    const wrongContext = projectAssistantWorkStrip(runtime.getSnapshot(),
+      id.getSnapshot(), unavailableSpace());
+    assert.equal(wrongContext.overview, undefined);
+    const malformed = {
+      ...runtime.getSnapshot(),
+      workItems: runtime.getSnapshot().workItems.map(w => ({ ...w, state: "fabricated" })),
+    };
+    assert.throws(() => projectAssistantWorkStrip(malformed,
+      id.getSnapshot(), selection.getSnapshot()), /state/);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("missing Work Result cannot count as completed; unknown state fails closed", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, intelligencePort: model(),
+    now: (() => { let n = 230000; return () => n++; })(),
+  });
+  try {
+    const completed = runtime.create("Resposta registrada");
+    await runtime.run(completed.id);
+    const actual = runtime.getSnapshot();
+    const withMissingResult = {
+      ...actual,
+      results: [],
+      activities: actual.activities.map(activity =>
+        activity.type === "completed" ? { ...activity, artifactRefs: [] } : activity),
+    };
+    const overview = projectAssistantWorkStrip(withMissingResult,
+      id.getSnapshot(), unavailableSpace()).overview;
+    assert.equal(overview.total, 1);
+    assert.equal(overview.groups.find(g => g.kind === "result").count, 0);
+    assert.equal(overview.groups.find(g => g.kind === "unavailable").count, 1);
+    assert.equal(overview.completionPercent, null);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("adaptive chart uses canonical overview counts, semantic figure and source without interpreting prompt text", async () => {
+  const source = await readFile(
+    new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8",
+  );
+  assert.match(source, /overview\?\.total >= 2/);
+  assert.match(source, /documentObject, "figure", "ordax-assistant-work-chart"/);
+  assert.match(source, /documentObject, "figcaption"/);
+  assert.match(source, /group\.count \/ overview\.total/);
+  assert.match(source, /String\(group\.count\)/);
+  assert.match(source, /track\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(source, /figure\.dataset\.assistantWorkSource = overview\.sourceSchema/);
+  assert.doesNotMatch(source, /dataset\.assistantWorkPercentage/);
+});
