@@ -59,7 +59,6 @@
     "main_partition_label_unchanged": "ORDAX",
     "physical_boot_promotion_allowed": false,
     "kernel_uapi_source_contract": "bootstrap/kernel/source.json",
-    "kernel_uapi_version": "6.6.52",
     "kernel_uapi_headers_install": true,
     "host_linux_headers_required": false,
     "busybox_extra_cflags_policy": "pinned-kernel-uapi-include-only",
