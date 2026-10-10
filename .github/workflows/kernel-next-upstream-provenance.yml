@@ -47,6 +47,7 @@ jobs:
               'upstream_signature': {
                   'algorithm': 'openpgp-detached-tar',
                   'trusted_primary_fingerprint': '647F28654894E3BD457199BE38DBBDC86092693E',
+                  'trusted_public_key_url': 'https://kernel.googlesource.com/pub/scm/docs/kernel/pgpkeys/+/9518bddaef900dd832e3e16be1d88923c620b749/keys/38DBBDC86092693E.asc?format=TEXT',
               },
           })
           current.pop('legacy_evidence_only', None)
