@@ -235,3 +235,76 @@ test("real Personal OrdaX runtime lifecycle feeds canvas without a second work s
     runtime.dispose();
   }
 });
+
+
+test("verified Action Attempt projects safe structured evidence, not raw grants, resources or artifacts", () => {
+  const current = fixture({ state: "paused", attemptStatus: "uncertain" });
+  const canvas = projectPersonalWorkCanvas(current, scope);
+  assert.equal(canvas.state, "requires-action");
+  assert.equal(canvas.actionEvidence.length, 1);
+  assert.deepEqual(canvas.actionEvidence[0], {
+    sourceSchema: "ordax.personal-action-attempt/1",
+    attemptId: "attempt-a",
+    actionId: "action-a",
+    toolId: "tool-a",
+    status: "uncertain",
+    summary: "Execução não confirmada",
+    startedAt: at(4),
+    finishedAt: at(5),
+  });
+  assert.equal("grantRef" in canvas.actionEvidence[0], false);
+  assert.equal("resourceRef" in canvas.actionEvidence[0], false);
+  assert.equal("artifactRefs" in canvas.actionEvidence[0], false);
+  assert.equal("toolArtifactSha256" in canvas.actionEvidence[0], false);
+  assert.equal(canvas.actionsTruncated, false);
+  assert.equal(canvas.pendingApproval, null);
+  assert.equal(canvas.resultId, null);
+  assert.equal(Object.isFrozen(canvas.actionEvidence), true);
+  assert.equal(Object.isFrozen(canvas.actionEvidence[0]), true);
+  for (const altered of [
+    { ...scope, ownerId: "other-owner" },
+    { ...scope, spaceId: "other-space" },
+    { ...scope, projectId: "other-project" },
+  ]) {
+    const hidden = projectPersonalWorkCanvas(current, altered);
+    assert.deepEqual(hidden.actionEvidence, []);
+    assert.equal(hidden.pendingApproval, null);
+  }
+});
+
+test("pending approval is informational only, with no grant or executable authority", () => {
+  const pending = projectPersonalWorkCanvas(fixture({ state: "waiting-approval" }), scope);
+  assert.equal(pending.state, "requires-action");
+  assert.deepEqual(pending.pendingApproval, {
+    sourceSchema: "ordax.personal-approval/1",
+    approvalId: "approval-a",
+    actionId: "action-a",
+    effect: "write",
+    reason: "Precisa de aprovação",
+    requestedAt: at(2),
+  });
+  assert.deepEqual(pending.actionEvidence, []);
+  assert.equal("resourceRef" in pending.pendingApproval, false);
+  assert.equal("grantRef" in pending.pendingApproval, false);
+  assert.equal(pending.authority, "none");
+  assert.equal(pending.toolExecution, false);
+  const baseline = fixture({ state: "waiting-approval" });
+  const invalid = {
+    ...baseline,
+    approvals: baseline.approvals.map(item => ({ ...item, status: "executed" })),
+  };
+  assert.throws(() => projectPersonalWorkCanvas(invalid, scope));
+});
+
+test("invalid, orphaned or unverifiable attempts fail closed through Personal store invariants", () => {
+  const baseline = fixture({ state: "paused", attemptStatus: "uncertain" });
+  for (const attempt of [
+    { ...baseline.attempts[0], status: "fabricated" },
+    { ...baseline.attempts[0], actionId: "different-action" },
+    { ...baseline.attempts[0], workItemId: "other-work" },
+    { ...baseline.attempts[0], finishedAt: null },
+  ]) {
+    assert.throws(() => projectPersonalWorkCanvas(
+      { ...baseline, attempts: [attempt] }, scope));
+  }
+});

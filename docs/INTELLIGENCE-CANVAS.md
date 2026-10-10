@@ -114,3 +114,40 @@ Testes do runtime real incluem aprovação pendente mais antiga versus três
 resultados recentes, identidade/Space, provas por evento, proveniência,
 limite e overflow; a CI Intelligence Foundation executa esses cenários.
 Este progresso de código/CI não equivale a E2E de ferramenta física.
+
+
+## Tabela adaptativa de evidências das ações (P1)
+
+Quando o Work corrente possui registros de `ordax.personal-action-attempt/1`,
+a projeção canônica `projectPersonalWorkCanvas` fornece uma tabela de até oito
+tentativas, com status **registrado** (started, succeeded, failed, uncertain),
+ação, ferramenta, resumo e timestamps efetivos. A UI do Assistant renderiza
+uma `<table>` semântica e recolhível apenas nesses casos; sem Action Attempts
+não cria uma tabela, número, barra ou etapa fictícios. Indicadores de sucesso
+refletem o receipt aceito e validado pelo estado Personal/Activity, não
+confirmação externa independente. Um status `uncertain` nunca vira sucesso.
+
+Se o owner registra `waiting-approval`, a projeção exibe uma solicitação
+informativa com ação, razão e tipo de efeito; aprovação e execução continuam
+**somente** na Activity, sujeitas a grants, ferramenta resolvida e confirmação
+explícita do usuário. A UI mantém a distinção entre `resultId` de uma resposta
+Intelligence e `attemptId` de ação.
+
+Privacidade: não são expostos `resourceRef`, `grantRef`,
+`toolArtifactSha256` nem `artifactRefs`. Um `resultId` não concede acesso
+a arquivo ou URL. Todas as ligações de tentativas a owner/Work/approval,
+Activity de início/fim e autoridade aprovada são verificadas pelo
+`validatePersonalOrdaxRuntimeSnapshot` existente **antes** da projeção;
+schema desconhecido, tentativa órfã, duplicidade e estados impossíveis falham
+fechado. Os tipos de visualização seguros nesta fatia são texto consultativo,
+timeline de Activity e tabela de Action Attempts; PDF, foto, galeria, receita
+estruturada ou gráfico de vendas seguem sem fonte/grant tipado e não são
+fabricados a partir do texto do modelo.
+
+A prova de código inclui `tests/test_intelligence_work_canvas.mjs`,
+`tests/test_assistant_work_strip.mjs` e
+`tests/test_personal_ordax_first_foreground_action.mjs`, que exercita a
+execução autorizada de ferramenta Native fake **apenas nos testes** e a
+falha incerta depois da entrada no adapter. O workflow
+`Intelligence Foundation` executa essas suítes. Nenhum destes testes implica
+E2E em dispositivo/serviço real, leitura de PDF em produção ou release USB.

@@ -1,6 +1,8 @@
 import { validatePersonalOrdaxRuntimeSnapshot } from "../../contracts/personal-ordax-store.mjs";
 import {
   PERSONAL_ORDAX_ACTIVITY_SCHEMA,
+  PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA,
+  PERSONAL_ORDAX_APPROVAL_SCHEMA,
   PERSONAL_ORDAX_WORK_RESULT_SCHEMA,
 } from "../../contracts/personal-ordax.mjs";
 
@@ -9,6 +11,7 @@ import {
 // as a receipt. Caller must obtain the snapshot from an authorized runtime.
 export const INTELLIGENCE_WORK_CANVAS_SCHEMA = "ordax.intelligence-work-canvas/1";
 const MAX_VISIBLE_STEPS = 32;
+const MAX_VISIBLE_ACTIONS = 8;
 const STATES = Object.freeze({
   queued: "working",
   running: "working",
@@ -67,6 +70,9 @@ function empty(scope, state = "unavailable") {
     blocks: Object.freeze([]),
     steps: Object.freeze([]),
     stepsTruncated: false,
+    actionEvidence: Object.freeze([]),
+    actionsTruncated: false,
+    pendingApproval: null,
     completionPercent: null,
     authority: "none",
     toolExecution: false,
@@ -109,6 +115,37 @@ export function projectPersonalWorkCanvas(snapshotValue, contextValue) {
     actionId: event.actionId,
     // Artifact refs are intentionally withheld pending resource-grant resolution.
   })));
+  // This is a typed table projection of the Personal Action Attempt owner.
+  // Its store validator already correlates attempts to exact approved actions,
+  // grants and one matching start/finish Activity. Withhold grant, resource,
+  // tool SHA and artifact references: rendering them needs a separate grant.
+  const attempts = snapshot.attempts.filter((attempt) => attempt.workItemId === work.id);
+  const actionEvidence = Object.freeze(attempts.slice(-MAX_VISIBLE_ACTIONS).reverse()
+    .map((attempt) => Object.freeze({
+      sourceSchema: PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA,
+      attemptId: attempt.id,
+      actionId: attempt.actionId,
+      toolId: attempt.toolId,
+      status: attempt.status,
+      summary: attempt.summary,
+      startedAt: attempt.startedAt,
+      finishedAt: attempt.finishedAt,
+    })));
+  const pending = work.pendingApprovalId === null
+    ? null
+    : snapshot.approvals.find((approval) =>
+      approval.workItemId === work.id
+      && approval.id === work.pendingApprovalId
+      && approval.status === "pending") ?? null;
+  const pendingApproval = pending === null ? null : Object.freeze({
+    sourceSchema: PERSONAL_ORDAX_APPROVAL_SCHEMA,
+    approvalId: pending.id,
+    actionId: pending.actionId,
+    effect: pending.effect,
+    reason: pending.reason,
+    requestedAt: pending.requestedAt,
+    // This is a read-only notification, never a grant to approve or execute.
+  });
   const showResult = state === "result" && result !== null;
   const blocks = Object.freeze(showResult ? [Object.freeze({
     kind: "text",
@@ -137,6 +174,9 @@ export function projectPersonalWorkCanvas(snapshotValue, contextValue) {
     blocks,
     steps,
     stepsTruncated: events.length > MAX_VISIBLE_STEPS,
+    actionEvidence,
+    actionsTruncated: attempts.length > MAX_VISIBLE_ACTIONS,
+    pendingApproval,
     completionPercent: null, // No canonical percentage exists.
     authority: "none",
     toolExecution: false,

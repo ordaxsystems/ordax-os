@@ -427,3 +427,89 @@
 .ordax-assistant-work-overflow {
   padding: 6px 2px;
 }
+
+
+/* Safe, owner-scoped Action Attempt evidence: semantics first, no fake progress. */
+.ordax-assistant-pending-approval {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+}
+.ordax-assistant-pending-approval strong,
+.ordax-assistant-pending-approval p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ordax-assistant-pending-approval strong { font-size: 0.76rem; }
+.ordax-assistant-pending-approval p { font-size: 0.73rem; }
+.ordax-assistant-action-details {
+  min-width: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--ordax-border-soft);
+  padding-block: 6px;
+}
+.ordax-assistant-action-details > summary {
+  cursor: pointer;
+  padding: 4px 0;
+  color: var(--ordax-text);
+  font-size: 0.75rem;
+}
+.ordax-assistant-action-details > summary:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+.ordax-assistant-actions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  text-align: left;
+  table-layout: fixed;
+}
+.ordax-assistant-actions-table caption {
+  text-align: left;
+  margin-block: 6px;
+  color: var(--ordax-muted);
+  font-size: 0.7rem;
+}
+.ordax-assistant-actions-table th,
+.ordax-assistant-actions-table td {
+  padding: 8px 5px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--ordax-border-soft);
+  overflow-wrap: anywhere;
+}
+.ordax-assistant-actions-table th {
+  font-weight: 600;
+  color: var(--ordax-muted);
+}
+.ordax-assistant-actions-table time {
+  color: var(--ordax-muted);
+}
+.ordax-assistant-actions-table tr[data-assistant-action-state="uncertain"] td:first-child {
+  color: var(--ordax-danger);
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .ordax-assistant-actions-table thead {
+    position: absolute;
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .ordax-assistant-actions-table tr {
+    display: grid;
+    gap: 3px;
+    padding-block: 6px;
+    border-bottom: 1px solid var(--ordax-border-soft);
+  }
+  .ordax-assistant-actions-table td {
+    display: block;
+    width: 100%;
+    padding: 2px 4px;
+    border: 0;
+  }
+}
