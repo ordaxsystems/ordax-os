@@ -113,6 +113,27 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Resolve pinned kernel artifacts from canonical source
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import re
+          source = json.loads(Path('bootstrap/kernel/source.json').read_text(encoding='utf-8'))
+          version = source.get('version')
+          if (
+              source.get('$schema') != 'prototype-ordax.kernel-source/1'
+              or not isinstance(version, str)
+              or re.fullmatch(r'[0-9]+[.][0-9]+[.][0-9]+', version) is None
+          ):
+              raise SystemExit('invalid canonical kernel version for QEMU proof')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as handle:
+              handle.write(f'ORDAX_KERNEL_VERSION={version}\n')
+          print(f'QEMU_KERNEL_SOURCE_VERSION={version}')
+          PY
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -185,11 +206,11 @@ jobs:
             --work-dir "$work/kernel-work" \
             --out-dir "$work/kernel"
           python bootstrap/kernel/verify.py "$work/kernel"
-          test -s "$work/kernel/vmlinuz-6.6.52"
-          test -s "$work/kernel/kernel-modules-6.6.52.tar"
-          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-6.6.52.config"
-          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-6.6.52.config"
-          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-6.6.52.config"
+          test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
+          test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
 
       - name: Build and verify exact Stable Base
         env:
@@ -199,7 +220,7 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-6.6.52.tar" \
+              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
               --out-dir "$work/stable-base" \
               --cache-dir "$work/stable-base-cache" \
               > "$work/metadata/stable-base-build.json"
@@ -480,7 +501,7 @@ jobs:
           rm -rf "$work/qemu-proof"
           mkdir -p "$work/qemu-proof"
           sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -527,7 +548,7 @@ jobs:
           mkdir -p "$work/qemu-one-shot-proof"
 
           sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -597,7 +618,7 @@ jobs:
           rm -rf "$work/uefi-proof"
           mkdir -p "$work/uefi-proof"
           sudo -E python3 bootstrap/portable-v2/uefi_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
