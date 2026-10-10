@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.13.0",
+  "bundle_version": "1.14.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -237,6 +237,13 @@
     },
     {
       "major": 1,
+      "name": "identity-session",
+      "schema": "ordax.identity-session/1",
+      "source_git_blob": "42de971e341fa746e2e2383120b3132b6f8e913b",
+      "source_path": "system/contracts/identity-session.mjs"
+    },
+    {
+      "major": 1,
       "name": "intelligence",
       "schema": "ordax.intelligence/1",
       "source_git_blob": "3ffeac788caed4867880baaefa0f3769eac7c277",
@@ -279,6 +286,20 @@
     },
     {
       "major": 1,
+      "name": "profile-activation-state",
+      "schema": "ordax.profile-activation-state/1",
+      "source_git_blob": "3c45856a70c1e3e3b6ddaee4ad58d0cc66306ff1",
+      "source_path": "system/contracts/profile-activation-state.mjs"
+    },
+    {
+      "major": 1,
+      "name": "profile-activation-state-port",
+      "schema": "ordax.profile-activation-state-port/1",
+      "source_git_blob": "3c45856a70c1e3e3b6ddaee4ad58d0cc66306ff1",
+      "source_path": "system/contracts/profile-activation-state.mjs"
+    },
+    {
+      "major": 1,
       "name": "project-catalog",
       "schema": "ordax.project-catalog/1",
       "source_git_blob": "a598f300ae53b30283e90ea0834e70799b56c609",
@@ -297,6 +318,55 @@
       "schema": "ordax.project-cloud-links-reader/1",
       "source_git_blob": "f62016f3e2b09cbad6b4ed0f1dceafc453f19948",
       "source_path": "system/contracts/project-cloud-links-reader.mjs"
+    },
+    {
+      "major": 1,
+      "name": "project-web-references",
+      "schema": "ordax.project-web-references/1",
+      "source_git_blob": "496f47fc06b1ffc44a3964927425922bbf36bfc1",
+      "source_path": "system/contracts/project-web-references.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-selection",
+      "schema": "ordax.space-selection/1",
+      "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
+      "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-selection-record",
+      "schema": "ordax.space-selection-record/1",
+      "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
+      "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-selection-store",
+      "schema": "ordax.space-selection-store/1",
+      "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
+      "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "spaces",
+      "schema": "ordax.spaces/1",
+      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_path": "system/contracts/spaces.mjs"
+    },
+    {
+      "major": 1,
+      "name": "spaces-profile-packs",
+      "schema": "ordax.profile-packs/1",
+      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_path": "system/contracts/spaces.mjs"
+    },
+    {
+      "major": 1,
+      "name": "spaces-snapshot",
+      "schema": "ordax.spaces-snapshot/1",
+      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_path": "system/contracts/spaces.mjs"
     },
     {
       "major": 1,
