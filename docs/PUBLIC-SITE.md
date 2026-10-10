@@ -94,6 +94,19 @@ keeps its landscape/card composition; the phone viewport proof also rejects a
 closed profile taller than 110px. Without JavaScript, service content remains
 readable rather than being forced into the enhanced shortcut tile layout.
 
+The phone overview now distributes services by measured viewport space, rather
+than a fixed duplicated menu catalog. After rendering the shared cards, the
+presentation owner keeps complete rows above the existing bottom navigation
+and maps overflow sections to their existing sidebar links under More. Resizing,
+font readiness, locale changes, search expansion and session disclosure recompute
+the allocation. Search and deep-linked detail views retain all content and normal
+scrolling; JavaScript-free content is not clipped. More focuses its first visible
+link and Escape returns focus to its trigger. Desktop remains unrestricted.
+Phone typography, spacing, dark token-based backgrounds, compact profile, service
+chevrons and rounded last visible row follow the approved concept. The browser
+gate checks both row fit and an available More destination for every overflow
+section, including the separate Web-entry link.
+
 The same entrypoint is reproducible locally after building the public artifact:
 
 ```bash

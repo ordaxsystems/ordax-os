@@ -1242,6 +1242,7 @@ async function provePublicAccount(client, url, evidenceDir) {
     await evaluate('document.querySelector(".profile-session summary").click()');
     if (!await evaluate('document.querySelector(".profile-session").open && document.querySelector("[data-account-state]").getBoundingClientRect().height > 0')) throw new Error('session disclosure failed');
     await evaluate('document.querySelector(".profile-session summary").click()');
+    await sleep(100);
     const report = await evaluate(`(() => {
       const cards = [...document.querySelectorAll('[data-account-card]')];
       const box = element => element.getBoundingClientRect();
@@ -1249,17 +1250,39 @@ async function provePublicAccount(client, url, evidenceDir) {
       const profile = box(document.querySelector('[data-account-overview]'));
       const columns = getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length;
       const primary = cards.slice(0,3).map(box);
+      const services = cards.slice(3).filter(card => !card.hidden);
+      const phone = innerWidth <= 600;
+      const boundary = box(document.querySelector('.account-mobile-nav')).top;
+      const overflow = cards.slice(3).filter(card => card.hidden);
       return { noOverflow, width:innerWidth, height:innerHeight, columns, profileHeight:profile.height,
         allSections:cards.length===11, overviewNotesHidden:getComputedStyle(cards[0].querySelector('.card-note')).display==='none',
         primaryTilesAligned:Math.abs(primary[0].top-primary[2].top)<2,
         headerHeight:box(document.querySelector('.account-header')).height,
+        visibleServiceCount:services.length,
+        viewportServicesFit:!phone || services.every(card=>box(card).bottom<=boundary-19),
+        overflowHasMenu:!phone || overflow.every(card=>document.querySelector('#account-navigation a[href="'+(card.id==='acesso-web'?'/web/':'#'+card.id)+'"]:not([hidden])')),
         mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || !report.viewportServicesFit || !report.overflowHasMenu || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && (!report.primaryTilesAligned || report.profileHeight > 110))) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
+    if (width <= 600) {
+      await evaluate('document.querySelector("[data-account-menu]").click()');
+      if (!await evaluate('document.activeElement.matches("#account-navigation a:not([hidden])")')) throw new Error('More did not focus an available overflow section');
+      const moreShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+      await writeFile(join(evidenceDir, `account-${name}-more.png`), Buffer.from(moreShot.data, 'base64'));
+      await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
+      if (!await evaluate('document.activeElement.matches("[data-account-menu]") && !document.body.classList.contains("account-menu-open")')) throw new Error('More Escape failed');
+      const overflowDetail = await evaluate(`(() => {
+        const link = document.querySelector('#account-navigation a[data-account-section]:not([hidden])');
+        const id = link.hash.slice(1);
+        link.click();
+        return document.querySelector('[data-account-content]').dataset.view === id && !document.getElementById(id).hidden && document.activeElement.id === id+'-title';
+      })()`);
+      if (!overflowDetail) throw new Error('More overflow section detail was inaccessible');
+    }
     await evaluate('document.querySelector(".account-header-actions [data-account-section]").click()');
     if (!await evaluate('document.querySelector("[data-account-content]").dataset.view === "atividade" && document.activeElement.id === "atividade-title"')) throw new Error(`${name} notification shortcut failed`);
     await evaluate('document.querySelector("#seguranca > .card-heading").click()');
