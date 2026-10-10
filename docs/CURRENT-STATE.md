@@ -1,5 +1,24 @@
 # Current State
 
+## Canonical v4 — assinatura offline verificada, ainda não publicada (2026-10-10)
+
+O candidato v4 com origem congelada em `6128e2c` passou nos três builds de
+operador (sistema, Surface e IA local), com artefatos de 14 dias e validação
+real dos IDs/recibos pela API do GitHub. A montagem **não assinada**
+(run `38031520848`) foi aprovada. O runbook local de assinatura Ed25519
+produziu um envelope que passou em **dois verificadores canônicos** e cujo
+payload corresponde byte a byte ao manifesto v4. A chave privada permaneceu
+fora do repositório e do pacote. Evidência objetiva:
+`docs/evidence/canonical-v4-offline-signing-2026-10-10.md`.
+
+**Não confundir com release pronta:** o envelope ainda não foi publicado,
+os três EROFS não foram materializados/verificados juntos no destino e não
+houve nova prova v4 de release publicada nem boot atual de USB. O Windows
+possui somente disco interno com ~5,2 GiB livres em C:, insuficiente como
+área de trabalho confortável para cópias grandes; nenhuma gravação física
+foi autorizada ou executada. O gate jurídico é independente deste caminho.
+
+
 ## Development vs. public legal attestation — 2026-10-10
 
 The canonical `MVP.md` and
