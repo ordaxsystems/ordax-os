@@ -105,6 +105,56 @@ def audit(root: Path = ROOT) -> dict:
                 external.add(name)
             else:
                 unsupported.add(name)
+    # A module listed in the published SDK is not independently usable if
+    # it imports another unpublished/private platform module. Walk the
+    # canonical source graph transitively rather than trusting only the
+    # Internet app's immediate imports. Imports remain read-only: this never
+    # copies source into the external app repository.
+    direct_contracts = set(external)
+    inspected: set[str] = set()
+    queue = sorted(external)
+    while queue:
+        contract_name = queue.pop()
+        if contract_name in inspected:
+            continue
+        inspected.add(contract_name)
+        contract_file = root / contract_name
+        if not contract_file.is_file() or contract_file.is_symlink():
+            raise InternetSdkAuditError(
+                f"canonical contract source missing or symlinked: {contract_name}"
+            )
+        try:
+            contract_source = contract_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise InternetSdkAuditError("canonical contract source unreadable") from exc
+        if DYNAMIC_IMPORT.search(contract_source):
+            raise InternetSdkAuditError(
+                f"{contract_name} has a non-literal dynamic import"
+            )
+        deps = [
+            next(value for value in match.groups() if value is not None)
+            for match in STATIC_IMPORT.finditer(contract_source)
+        ]
+        deps.extend(match.group(1) for match in LOCAL_ASSET.finditer(contract_source))
+        for relative in deps:
+            if not relative.startswith("."):
+                raise InternetSdkAuditError(
+                    f"{contract_name} uses a non-relative dependency: {relative}"
+                )
+            dependency = (contract_file.parent / relative).resolve()
+            dependency_name = relative_path(root, dependency)
+            if not dependency.is_file() or dependency.is_symlink():
+                raise InternetSdkAuditError(
+                    f"{contract_name} imports missing or symlinked dependency: "
+                    f"{dependency_name}"
+                )
+            if dependency.is_relative_to(root / "system" / "contracts"):
+                if dependency_name not in external:
+                    external.add(dependency_name)
+                    queue.append(dependency_name)
+            else:
+                unsupported.add(dependency_name)
+    transitive_contracts = external - direct_contracts
     unpublished = external - published
     # A clean source-level dependency boundary is not evidence of signed
     # packages, installation, rollback or hardware behavior.
@@ -120,6 +170,8 @@ def audit(root: Path = ROOT) -> dict:
         "sourcePath": APP_PATH.as_posix(),
         "sdkBundleVersion": sdk.get("bundle_version"),
         "appModuleCount": len(local_files),
+        "directContracts": sorted(direct_contracts),
+        "transitiveContracts": sorted(transitive_contracts),
         "requiredContracts": sorted(external),
         "publishedContracts": sorted(external & published),
         "unpublishedContracts": sorted(unpublished),
