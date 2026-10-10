@@ -6,6 +6,11 @@ on:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/file-association-manifest.mjs'
+      - 'system/contracts/app-presentation-manifest.mjs'
+      - 'system/apps/external-app-definition.mjs'
+      - 'system/apps/runtime-catalog.mjs'
+      - 'tests/test_app_presentation_manifest.mjs'
+      - 'tests/test_external_app_definition.mjs'
       - 'system/services/files/file-open-registry.mjs'
       - 'tests/test_file_association_manifest.mjs'
       - 'tests/test_file_open_registry.mjs'
@@ -54,6 +59,11 @@ on:
     paths:
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/file-association-manifest.mjs'
+      - 'system/contracts/app-presentation-manifest.mjs'
+      - 'system/apps/external-app-definition.mjs'
+      - 'system/apps/runtime-catalog.mjs'
+      - 'tests/test_app_presentation_manifest.mjs'
+      - 'tests/test_external_app_definition.mjs'
       - 'system/services/files/file-open-registry.mjs'
       - 'tests/test_file_association_manifest.mjs'
       - 'tests/test_file_open_registry.mjs'
@@ -116,6 +126,11 @@ jobs:
           set -euo pipefail
           node --check system/contracts/first-party-app-delivery.mjs
           node --check system/contracts/file-association-manifest.mjs
+          node --check system/contracts/app-presentation-manifest.mjs
+          node --check system/apps/external-app-definition.mjs
+          node --check system/apps/runtime-catalog.mjs
+          node --check tests/test_app_presentation_manifest.mjs
+          node --check tests/test_external_app_definition.mjs
           node --check system/services/files/file-open-registry.mjs
           node --check system/contracts/app-lifecycle-request.mjs
           node --check system/contracts/app-lifecycle-plan.mjs
@@ -164,6 +179,8 @@ jobs:
           node --test tests/test_first_party_app_delivery.mjs
           node --test tests/test_file_association_manifest.mjs
           node --test tests/test_file_open_registry.mjs
+          node --test tests/test_app_presentation_manifest.mjs
+          node --test tests/test_external_app_definition.mjs
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
