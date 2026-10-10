@@ -323,3 +323,58 @@
   .ordax-assistant-emblem,
   .ordax-assistant-pending { animation: none; transition: none; }
 }
+
+
+/* Verified Personal OrdaX items; never an animated or estimated progress bar. */
+.ordax-assistant-work-strip {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ordax-border-soft);
+}
+.ordax-assistant-work-title {
+  margin: 0;
+  color: var(--ordax-text);
+  font-size: 0.82rem;
+}
+.ordax-assistant-work-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-subtle-bg);
+}
+.ordax-assistant-work-goal {
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.ordax-assistant-work-state {
+  color: var(--ordax-muted);
+  font-size: 0.7rem;
+}
+.ordax-assistant-work-events {
+  display: grid;
+  gap: 5px;
+  padding-left: 20px;
+  margin: 2px 0;
+  font-size: 0.75rem;
+  color: var(--ordax-muted);
+  overflow-wrap: anywhere;
+}
+.ordax-assistant-work-card[data-assistant-work-state="requires-action"] {
+  border-color: var(--ordax-border);
+}
+.ordax-assistant-work-result {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  font-size: 0.8rem;
+}
+.ordax-assistant-work-caption {
+  margin: 0;
+  color: var(--ordax-muted);
+  font-size: 0.69rem;
+}
