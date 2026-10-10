@@ -82,6 +82,90 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "browser-download",
+        "path": "system/contracts/browser-download.mjs",
+        "constant": "BROWSER_DOWNLOAD_PORT_SCHEMA",
+        "schema": "ordax.browser-download-port/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-favorites",
+        "path": "system/contracts/browser-favorites.mjs",
+        "constant": "BROWSER_FAVORITES_SCHEMA",
+        "schema": "ordax.browser-favorites/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-favorites-store",
+        "path": "system/contracts/browser-favorites-store.mjs",
+        "constant": "BROWSER_FAVORITES_STORE_SCHEMA",
+        "schema": "ordax.browser-favorites-store/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-history",
+        "path": "system/contracts/browser-history.mjs",
+        "constant": "BROWSER_HISTORY_SCHEMA",
+        "schema": "ordax.browser-history/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-history-store",
+        "path": "system/contracts/browser-history-store.mjs",
+        "constant": "BROWSER_HISTORY_STORE_SCHEMA",
+        "schema": "ordax.browser-history-store/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-navigation",
+        "path": "system/contracts/browser-navigation.mjs",
+        "constant": "BROWSER_NAVIGATION_POLICY_SCHEMA",
+        "schema": "ordax.browser-navigation-policy/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-page-find",
+        "path": "system/contracts/browser-page-find.mjs",
+        "constant": "BROWSER_PAGE_FIND_PORT_SCHEMA",
+        "schema": "ordax.browser-page-find-port/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-page-selection",
+        "path": "system/contracts/browser-page-selection.mjs",
+        "constant": "BROWSER_PAGE_SELECTION_PORT_SCHEMA",
+        "schema": "ordax.browser-page-selection-port/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-page-selection-data",
+        "path": "system/contracts/browser-page-selection.mjs",
+        "constant": "BROWSER_PAGE_SELECTION_SCHEMA",
+        "schema": "ordax.browser-page-selection/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-search-preferences",
+        "path": "system/contracts/browser-search-preferences.mjs",
+        "constant": "BROWSER_SEARCH_PREFERENCES_SCHEMA",
+        "schema": "ordax.browser-search-preferences/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-search-preferences-store",
+        "path": "system/contracts/browser-search-preferences.mjs",
+        "constant": "BROWSER_SEARCH_PREFERENCES_STORE_SCHEMA",
+        "schema": "ordax.browser-search-preferences-store/1",
+        "major": 1,
+    },
+    {
+        "name": "browser-session",
+        "path": "system/contracts/browser-session.mjs",
+        "constant": "BROWSER_SESSION_SCHEMA",
+        "schema": "ordax.browser-session/1",
+        "major": 1,
+    },
+    {
         "name": "component-localization",
         "path": "system/contracts/localization-pack.mjs",
         "constant": "COMPONENT_LOCALIZATION_SCHEMA",
@@ -258,7 +342,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.12.0"
+BUNDLE_VERSION = "1.13.0"
 
 
 def git_blob(path: Path) -> str:
