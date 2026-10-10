@@ -499,6 +499,7 @@ jobs:
           node --test tests/test_browser_download.mjs
           node --test tests/test_native_browser_page_selection.mjs
           node --test tests/test_project_file_space_continuity.mjs
+          node --test tests/test_native_file_space_response_identity.mjs
           node --test tests/test_files_async_activation.mjs
           node --test tests/test_files_response_identity.mjs
           node --test tests/test_home_continuation.mjs
