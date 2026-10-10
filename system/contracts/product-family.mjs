@@ -63,6 +63,5 @@ export function productFamilyDisplay(modeId) {
     ...mode,
     version,
     versionLabel: version === null ? null : `v${version}`,
-    published: false,
   });
 }
