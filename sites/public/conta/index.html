@@ -44,6 +44,8 @@
       </nav>
       <div class="navigation-support"><p class="eyebrow">AJUDA</p>
         <a href="#suporte" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 8a3 3 0 0 1 6 0c0 3-3 2-3 5m0 3v1"/></svg><span>Ajuda e suporte</span></a>
+        <a href="/web/">Acessar OrdaX Web <span aria-hidden="true">↗</span></a>
+        <a href="/">Início <span aria-hidden="true">↗</span></a>
       </div>
       <div class="navigation-art" aria-hidden="true"><span class="ordax-symbol"></span><strong>OrdaX OS</strong></div>
     </aside>
@@ -60,15 +62,17 @@
           </div>
           <div class="account-profile-actions">
             <span class="account-hero-mark" aria-hidden="true"><span class="ordax-symbol"></span></span>
-            <a class="account-profile-action" href="#dados-pessoais" data-account-section>Ver dados pessoais <span aria-hidden="true">↗</span></a>
           </div>
         </div>
-        <details class="account-session-disclosure"><summary id="account-session-title"><span class="session-summary-label">Sessão neste navegador</span><span class="session-summary-arrow" aria-hidden="true">⌄</span></summary><div class="account-session-body">
+        <div class="account-profile-controls">
+          <a class="account-profile-action" href="#dados-pessoais" data-account-section>Dados pessoais <span aria-hidden="true">↗</span></a>
+        <details class="account-session-disclosure"><summary id="account-session-title" aria-label="Sessão neste navegador"><span class="session-summary-label"><span class="profile-desktop-title">Sessão neste navegador</span><span class="profile-mobile-title">Sessão</span></span><span class="session-summary-arrow" aria-hidden="true">⌄</span></summary><div class="account-session-body">
           <div class="identity-state" data-account-state data-status="checking" aria-live="polite" aria-busy="true"><strong>Verificando sua sessão</strong><p>Consultando o serviço oficial de identidade.</p></div>
           <section data-account-authenticated hidden aria-label="Sessão autenticada"><dl class="account-details"><div><dt>E-mail da conta</dt><dd data-account-email></dd></div></dl><div class="session-actions"><p>Seu perfil é apresentado a partir da sessão confirmada. Edição de nome e foto ainda não está disponível no portal.</p><form action="/auth/logout" method="post" data-account-logout><button type="submit" class="button button-secondary" disabled>Encerrar sessão</button></form></div></section>
           <section data-account-anonymous hidden><p>Entre para acessar os dados confirmados da sua conta.</p><div class="portal-actions"><a class="button button-primary" href="/login/">Entrar na Conta OrdaX</a><a class="button button-secondary" href="/cadastro/">Criar conta</a></div></section>
           <section data-account-unavailable hidden><a class="button button-secondary" href="/conta/">Tentar novamente</a></section>
         </div></details>
+        </div>
       </section>
       <p class="sr-only" data-account-search-status aria-live="polite"></p>
       <div class="account-cards" id="account-cards">
@@ -86,21 +90,21 @@
           <div class="card-content"><dl class="service-rows account-usage-lines"><div><dt>Uso de IA</dt><dd>Não disponível</dd></div><div><dt>Armazenamento</dt><dd>Não verificado</dd></div><div><dt>APIs e serviços</dt><dd>Não disponível</dd></div></dl><p class="card-note">Os consumos, quotas, créditos e limites são mostrados somente quando confirmados pelos serviços responsáveis. Este portal não estima nem simula métricas.</p></div>
         </section>
         <section class="account-card" id="faturamento" data-account-card aria-labelledby="faturamento-title">
-          <a href="#faturamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h2 id="faturamento-title">Pagamento e faturamento</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
+          <a href="#faturamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h2 id="faturamento-title"><span class="desktop-card-label">Pagamento e faturamento</span><span class="mobile-card-label">Pagamentos</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="account-billing-kicker">FATURAMENTO DA CONTA</p>
           <p class="account-billing-overview">Sem cobrança confirmada</p>
           <p class="card-summary">Pagamentos e faturas aparecerão quando o serviço estiver disponível.</p>
           <div class="card-content"><dl class="service-rows"><div><dt>Assinaturas pagas</dt><dd>Indisponíveis</dd></div><div><dt>Preços e limites comerciais</dt><dd>Em definição</dd></div></dl><p class="card-note">Não há cobrança, cartão cadastrado ou renovação confirmada para mostrar. Métodos de pagamento, recibos e notas fiscais dependerão do serviço de faturamento.</p></div>
         </section>
-        <section class="account-card" id="dados-pessoais" data-account-card aria-labelledby="dados-pessoais-title">
-          <a href="#dados-pessoais" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3-7 7.5-7s7.5 3 7.5 7"/></svg><h2 id="dados-pessoais-title">Dados pessoais</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
-          <p class="card-summary">Dados pessoais e informações da conta</p>
-          <div class="card-content"><p>Seu e-mail pode ser consultado na sessão autenticada. A edição de nome, foto e outros dados exige o serviço oficial de perfil, ainda não disponível nesta página.</p><a class="text-link" href="#visao-geral" data-account-section>Consultar sessão verificada <span aria-hidden="true">→</span></a></div>
-        </section>
         <section class="account-card" id="seguranca" data-account-card aria-labelledby="seguranca-title">
           <a href="#seguranca" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg><h2 id="seguranca-title"><span class="desktop-card-label">Segurança</span><span class="mobile-card-label">Segurança</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">Proteção, senha e sessões autorizadas</p>
           <div class="card-content"><dl class="service-rows"><div><dt>Sessão neste navegador</dt><dd><a href="#visao-geral" data-account-section>Verificar sessão</a></dd></div><div><dt>Autenticação em duas etapas</dt><dd>Sem informação confirmada</dd></div><div><dt>Passkeys e métodos de entrada</dt><dd>Indisponíveis no portal</dd></div></dl><p class="card-note">Recuperação de acesso segue o serviço oficial de identidade. A página de recuperação informa sua disponibilidade.</p><a class="text-link" href="/recuperar/">Recuperar acesso <span aria-hidden="true">→</span></a></div>
+        </section>
+        <section class="account-card" id="dados-pessoais" data-account-card aria-labelledby="dados-pessoais-title">
+          <a href="#dados-pessoais" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3-7 7.5-7s7.5 3 7.5 7"/></svg><h2 id="dados-pessoais-title">Dados pessoais</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
+          <p class="card-summary">Dados pessoais e informações da conta</p>
+          <div class="card-content"><p>Seu e-mail pode ser consultado na sessão autenticada. A edição de nome, foto e outros dados exige o serviço oficial de perfil, ainda não disponível nesta página.</p><a class="text-link" href="#visao-geral" data-account-section>Consultar sessão verificada <span aria-hidden="true">→</span></a></div>
         </section>
         <section class="account-card" id="dispositivos" data-account-card aria-labelledby="dispositivos-title">
           <a href="#dispositivos" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/></svg><h2 id="dispositivos-title"><span class="desktop-card-label">Dispositivos e sessões</span><span class="mobile-card-label">Dispositivos</span></h2><span class="card-arrow" aria-hidden="true">↗</span></a>
