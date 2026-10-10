@@ -5,6 +5,7 @@ import { AccountShell } from "@/components/account/shell";
 import { Overview } from "@/components/account/overview";
 import { AccountDetails } from "@/components/account/details";
 import { sections, type AccountPath } from "@/lib/account/model";
+import { OfficialAccountSessionProvider } from "@/lib/account/official-session";
 import "./styles.css";
 
 // Build only the copied Lovable Account Center as a static React application.
@@ -26,5 +27,5 @@ const details = sections.filter(s => s.path !== "/").map(s =>
 const routeTree = root.addChildren([summary, ...details]);
 const router = createRouter({ routeTree, basepath: "/conta", scrollRestoration: true });
 createRoot(document.getElementById("root")!).render(
-  <React.StrictMode><RouterProvider router={router} /></React.StrictMode>
+  <React.StrictMode><OfficialAccountSessionProvider><RouterProvider router={router} /></OfficialAccountSessionProvider></React.StrictMode>
 );
