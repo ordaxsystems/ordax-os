@@ -81,3 +81,26 @@
     to { opacity: 1; transform: translateY(0); }
   }
 }
+
+/* Mobile account navigation is a real modal: Radix handles keyboard focus,
+ * Escape, scroll lock, and returning focus to the More trigger. */
+.ordax-account-mobile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 38;
+  background: var(--overlay, rgb(0 0 0 / 0.7));
+}
+.ordax-account-mobile-description {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.mobile-more:focus-visible,
+.mobile-more a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+@media (min-width: 601px) {
+  .ordax-account-mobile-overlay { display: none; }
+}
