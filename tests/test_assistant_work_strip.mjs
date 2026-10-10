@@ -6,6 +6,8 @@ import {
   ASSISTANT_WORK_STRIP_SCHEMA,
 } from "../system/apps/assistant/ui/work-strip.mjs";
 import { createPersonalOrdaxRuntime } from "../system/services/personal-ordax/runtime.mjs";
+import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../system/contracts/personal-ordax.mjs";
+import { canRecordAssistantWork, beginAssistantRecordedWork } from "../system/apps/assistant/ui/conversation-controls.mjs";
 
 const identity = (state = "signed-out", subjectId = null) => ({
   state, subjectId, displayName: state === "signed-in" ? "Conta" : null,
@@ -240,4 +242,137 @@ test("Action evidence table binds only trusted Personal Attempt status and never
   assert.match(source, /th\.scope = "col"/);
   assert.doesNotMatch(source, /grantRef|resourceRef|toolArtifactSha256|innerHTML|insertAdjacentHTML/);
   assert.doesNotMatch(source, /personalOrdax\.executeApprovedAction\(|personalOrdax\.resolveApproval\(/);
+});
+
+
+test("explicit Native Assistant analysis creates one real foreground Work with durable Activity/Result", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const space = port("ordax.space-selection/1", unavailableSpace());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, intelligencePort: model(),
+    now: (() => { let t = 80000; return () => t++; })(),
+  });
+  try {
+    const conversation = { state: "ready" };
+    assert.equal(canRecordAssistantWork(runtime, id, space, conversation, "  Planejar o dia  "), true);
+    const action = beginAssistantRecordedWork(runtime, id, space, conversation, "  Planejar o dia  ");
+    assert.equal(action.accepted, true);
+    assert.equal(runtime.getSnapshot().workItems.length, 1);
+    const queued = runtime.getSnapshot().workItems[0];
+    assert.equal(queued.goal, "Planejar o dia");
+    assert.equal(queued.ownerKind, "device");
+    assert.equal(queued.spaceId, null);
+    assert.equal(queued.projectId, null);
+    assert.equal(queued.backgroundExecution, false);
+    const response = await action.pending;
+    assert.equal(response.text, "Plano registrado");
+    const snapshot = runtime.getSnapshot();
+    const work = snapshot.workItems[0];
+    assert.equal(work.id, action.workItemId);
+    assert.equal(work.state, "completed");
+    assert.equal(snapshot.results[0].workItemId, work.id);
+    assert.deepEqual(snapshot.activities.map(item => item.type), ["queued", "started", "completed"]);
+    const canvas = projectAssistantWorkStrip(snapshot, id.getSnapshot(), space.getSnapshot());
+    assert.equal(canvas.cards[0].result.text, "Plano registrado");
+    assert.equal(canvas.cards[0].provenance.engineId, "llama.cpp");
+    assert.equal(canvas.cards[0].completionPercent, null);
+    assert.equal(canvas.cards[0].authority, "none");
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("recorded Work follows active authenticated Space and never invents a project", async () => {
+  const id = port("ordax.identity-session/1", identity("signed-in", "owner-a"));
+  const space = port("ordax.space-selection/1", selectedSpace(), {
+    select() {}, clear() {},
+  });
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, spaceSelectionPort: space, intelligencePort: model(),
+    now: (() => { let t = 90000; return () => t++; })(),
+  });
+  try {
+    const response = beginAssistantRecordedWork(runtime, id, space, { state: "ready" }, "Analisar dados do Space");
+    assert.equal(response.accepted, true);
+    const item = runtime.getSnapshot().workItems[0];
+    assert.equal(item.ownerKind, "account");
+    assert.equal(item.ownerId, "owner-a");
+    assert.equal(item.spaceId, "space-a");
+    assert.equal(item.projectId, null);
+    await response.pending;
+    assert.equal(projectAssistantWorkStrip(runtime.getSnapshot(), id.getSnapshot(),
+      selectedSpace("space-b")).cards.length, 0);
+    space.setSnapshot(selectedSpace("space-b"));
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "ready" }, "Novo Space"), true);
+    const next = beginAssistantRecordedWork(runtime, id, space, { state: "ready" }, "Novo Space");
+    assert.equal(next.accepted, true);
+    assert.equal(runtime.getSnapshot().workItems.at(-1).spaceId, "space-b");
+    await next.pending;
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Work cannot be created from invalid owner, unavailable Space, busy model or oversized goal", () => {
+  const id = port("ordax.identity-session/1", identity());
+  const space = port("ordax.space-selection/1", unavailableSpace());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id,
+    now: (() => { let t = 100000; return () => t++; })(),
+  });
+  try {
+    assert.equal(canRecordAssistantWork(null, id, space, { state: "ready" }, "A"), false);
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "busy" }, "A"), false);
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "ready" }, "  "), false);
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "ready" },
+      "a".repeat(PERSONAL_ORDAX_MAX_GOAL_CHARS + 1)), false);
+    assert.deepEqual(beginAssistantRecordedWork(runtime, id, space, { state: "busy" }, "A"), {
+      accepted: false, workItemId: null, pending: null,
+    });
+    id.setSnapshot(identity("signed-in", "owner-a"));
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "ready" }, "A"), false);
+    space.setSnapshot({ schema: "ordax.space-selection/1", state: "unselected",
+      subjectId: "owner-a", selectedSpace: null });
+    assert.equal(canRecordAssistantWork(runtime, id, space, { state: "ready" }, "A"), true);
+    const foreign = { ...runtime, getSnapshot: () => ({
+      ...runtime.getSnapshot(), ownerKind: "device", ownerId: null,
+    }) };
+    assert.equal(canRecordAssistantWork(foreign, id, space, { state: "ready" }, "A"), false);
+    assert.deepEqual(runtime.getSnapshot().workItems, []);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("recorded Work with unavailable inference remains a queued canonical item, never a fake result", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  const space = port("ordax.space-selection/1", unavailableSpace());
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id,
+    now: (() => { let t = 110000; return () => t++; })(),
+  });
+  try {
+    const action = beginAssistantRecordedWork(runtime, id, space, { state: "ready" }, "Analisar sem motor");
+    assert.equal(action.accepted, true);
+    await assert.rejects(action.pending, /Intelligence is unavailable/);
+    const snapshot = runtime.getSnapshot();
+    assert.equal(snapshot.workItems[0].state, "queued");
+    assert.deepEqual(snapshot.results, []);
+    assert.deepEqual(snapshot.activities.map(x => x.type), ["queued"]);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Native Assistant UI requires explicit Work CTA, retains chat Enter behavior and avoids tool invocation", async () => {
+  const source = await readFile(
+    new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8",
+  );
+  assert.match(source, /dataset\.assistantRecordWork = ""/);
+  assert.match(source, /if \(target\.dataset\.assistantRecordWork !== undefined\)/);
+  assert.match(source, /beginAssistantRecordedWork\(/);
+  assert.match(source, /personal\.create\(draft\.trim\(\), \{ spaceId: scope\.spaceId, projectId: null \}\)/);
+  assert.match(source, /personal\.run\(item\.id\)/);
+  assert.match(source, /if \(event\.key === "Enter" && !event\.shiftKey\)/);
+  assert.doesNotMatch(source, /executeApprovedAction\(|requestApproval\(|grantRef|resourceRef/);
 });
