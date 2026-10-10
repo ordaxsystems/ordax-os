@@ -31,6 +31,10 @@ jobs:
       - name: Install source dependencies from original lockfile
         working-directory: sites/account-ui/lovable-original
         run: bun install --frozen-lockfile --ignore-scripts
+      - name: Verify canonical OrdaX session contract in React bridge
+        working-directory: sites/account-ui/lovable-original
+        run: bun test src/test/official-session.test.ts
+
       - name: Compile copied Lovable components
         working-directory: sites/account-ui/lovable-original
         run: bunx --no-install vite build --config vite.config.account.ts
