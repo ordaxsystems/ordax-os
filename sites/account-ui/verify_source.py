@@ -34,7 +34,7 @@ def verify() -> None:
         if not path.is_file() or path.is_symlink():
             raise ValueError(f"missing/non-regular source: {rel}")
         data = path.read_bytes()
-        git_blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\\0" + data).hexdigest()
+        git_blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + bytes((0,)) + data).hexdigest()
         if git_blob != expected:
             raise ValueError(f"original source changed: {rel} {git_blob} != {expected}")
         if rel in IMAGE_SHA256 and hashlib.sha256(data).hexdigest() != IMAGE_SHA256[rel]:
