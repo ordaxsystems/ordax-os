@@ -5,6 +5,8 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Espaço pessoal OrdaX", "OrdaX personal space"],
+    ["/ não disponível", "/ unavailable"],
     ["ESPAÇO PESSOAL", "PERSONAL SPACE"],
     ["Buscar na minha conta", "Search my account"],
     ["Todos os seus mundos.", "All your worlds."],
