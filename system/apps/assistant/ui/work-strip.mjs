@@ -9,7 +9,9 @@ export const ASSISTANT_WORK_STRIP_SCHEMA = "ordax.assistant-work-strip/1";
 const MAX_CARDS = 3;
 
 export function projectAssistantWorkStrip(personalSnapshot, identityValue, selectionValue) {
-  const unavailable = Object.freeze({ schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: Object.freeze([]) });
+  const unavailable = Object.freeze({
+    schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: Object.freeze([]), remainingCount: 0,
+  });
   if (personalSnapshot === null || identityValue === null || selectionValue === null) {
     return unavailable;
   }
@@ -36,8 +38,25 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
     item.projectId === null && (item.spaceId === null || item.spaceId === visibleSpace)
     && (identity.state === "signed-in" || item.spaceId === null)
   );
+  // Priority affects only presentation, never Work state or permissions.
+  // A real outstanding approval / uncertain execution must not be hidden
+  // behind newer completed responses in a three-card window.
+  const actionRequired = new Set([
+    ...personal.attempts.filter((attempt) => attempt.status === "uncertain")
+      .map((attempt) => attempt.workItemId),
+    ...personal.approvals.filter((approval) => approval.status === "revoked")
+      .map((approval) => approval.workItemId),
+  ]);
+  const priority = (work) => {
+    if (work.state === "waiting-approval" || actionRequired.has(work.id)) return 0;
+    if (work.state === "queued" || work.state === "running" || work.state === "paused") return 1;
+    if (work.state === "failed" || work.state === "cancelled") return 2;
+    return 3; // Completed work is still available, but cannot hide pending action.
+  };
   const ranked = scoped.slice().sort((a, b) =>
-    Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || a.id.localeCompare(b.id));
+    priority(a) - priority(b)
+      || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+      || a.id.localeCompare(b.id));
   const cards = ranked.slice(0, MAX_CARDS).map((item) => {
     const canvas = projectPersonalWorkCanvas(personal, {
       ownerKind: personal.ownerKind,
@@ -56,9 +75,14 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
       stepsTruncated: canvas.stepsTruncated || canvas.steps.length > 5,
       result: canvas.blocks.length === 1 ? canvas.blocks[0] : null,
       resultId: canvas.resultId,
+      provenance: canvas.provenance,
       completionPercent: null,
       authority: "none",
     });
   });
-  return Object.freeze({ schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: Object.freeze(cards) });
+  return Object.freeze({
+    schema: ASSISTANT_WORK_STRIP_SCHEMA,
+    cards: Object.freeze(cards),
+    remainingCount: Math.max(0, ranked.length - cards.length),
+  });
 }
