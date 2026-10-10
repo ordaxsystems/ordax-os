@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import { INTELLIGENCE_PORT_SCHEMA, INTELLIGENCE_RESPONSE_SCHEMA } from "../system/contracts/intelligence.mjs";
+import { projectPersonalActivitySnapshot } from "../system/apps/activity/view-model.mjs";
 import { createPersonalOrdaxRuntime } from "../system/services/personal-ordax/runtime.mjs";
 import {
   INTELLIGENCE_WORK_CANVAS_SCHEMA,
@@ -108,6 +109,9 @@ test("canonical Work → Activity/Result becomes bounded plain-text canvas with 
   assert.equal(projected.completionPercent, null);
   assert.equal(projected.authority, "none");
   assert.equal(projected.toolExecution, false);
+  const activity = projectPersonalActivitySnapshot(fixture());
+  assert.equal(activity.work[0].canvas.resultId, "result-a");
+  assert.equal(activity.work[0].canvas.blocks[0].text, "Resposta real do modelo");
   assert.equal(Object.isFrozen(projected), true);
   assert.equal(Object.isFrozen(projected.blocks[0]), true);
   assert.equal("artifactRefs" in projected.blocks[0], false);
