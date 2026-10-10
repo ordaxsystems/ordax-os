@@ -3,6 +3,11 @@
 Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa que trabalhe neste repositorio.
 
 ## 1. Identidade do repositorio
+## Handoff transversal obrigatório — Intelligence / ChatGPT / Apps
+
+Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md). É um guia de retomada que aponta aos contratos e donos existentes, **não substitui os contratos canônicos**. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
+
+
 
 `ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
 
