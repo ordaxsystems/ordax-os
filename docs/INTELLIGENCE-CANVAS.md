@@ -87,3 +87,30 @@ e adapter de inferência de teste, estados queued/completed, isolamento de
 owner/Space, indisponibilidade e auditoria do binding Native. O gate é
 `Intelligence Foundation`. CI e testes de source não provam E2E físico
 com plugin, provedor remoto, revogação dinâmica ou seleção de projeto.
+
+
+## Prioridade e evidências adaptativas (P1 adicional)
+
+A projeção `ui/work-strip.mjs` continua limitado a três cartões e usa somente
+o snapshot validado de Personal OrdaX. A **ordem de exibição**, sem alterar o
+status real, privilegia: aprovação pendente/tentativa incerta/revogação,
+depois Work ativo/pausado, falha/cancelamento, e por último resultados
+concluídos. Empates usam `updatedAt` canônico; dados excedentes são
+informados como quantidade remanescente na Activity, não descartados nem
+recriados em outro histórico.
+
+Cada cartão pode revelar sua **timeline de eventos reais** com sequência,
+texto e `occurredAt` validado; exibe, quando houver resultado realmente
+registrado, `resultId` e proveniência engine/modelo de
+`ordax.personal-work-result/1`. A aparência de etapas finalizadas não prova
+ações que não tenham receipts; a UI só exibe os eventos do owner Personal.
+Sem URL, acesso direto a arquivos, galeria, PDF ou números extraídos de
+texto arbitrário da IA. O Canvas revalida o snapshot atual da conversa antes
+de montar a tela, para evitar reutilizar uma notificação anterior após troca
+de identidade/Space, e preserva o foco do campo quando a Activity publica
+atualizações.
+
+Testes do runtime real incluem aprovação pendente mais antiga versus três
+resultados recentes, identidade/Space, provas por evento, proveniência,
+limite e overflow; a CI Intelligence Foundation executa esses cenários.
+Este progresso de código/CI não equivale a E2E de ferramenta física.
