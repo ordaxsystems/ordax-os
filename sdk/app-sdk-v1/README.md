@@ -2,6 +2,26 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.14.0
+
+Version `1.14.0` additively publishes the existing, canonical identity-session,
+profile activation state, project web references, and Space selection contracts.
+The Space selection source also imports the canonical `spaces.mjs` contract,
+so all three Spaces schemas are included. Ten new exported schema entries
+come from five source modules; none includes an implementation of credentials,
+authentication, filesystem writes or OS-native browser authority.
+
+These interfaces describe data and the shape of ports only. The verified
+OrdaX OS host must decide whether to supply any port for the user's current
+account, Space, project and app. Publication does not grant profile activation,
+cross-account visibility, Space changes, saved-reference deletion or browser
+navigation. In particular, mutation methods in typed ports are not capability
+grants and must remain subject to host scope and policy checks.
+
+Internet's source cutover remains blocked by an internal first-party app
+definition import and by unproven remove-first delivery/rollback. Published SDK
+bytes never substitute for those gates; old pins remain valid.
+
 ## Bundle 1.13.0
 
 Version `1.13.0` extends the authority-free public App SDK with 12 contract
