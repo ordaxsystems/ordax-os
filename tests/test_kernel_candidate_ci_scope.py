@@ -47,6 +47,7 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
         self.assertNotIn("6.6.158", generic)
         self.assertNotIn("6.6.52", generic)
         self.assertFalse((ROOT / ".github/workflows/kernel-next-6-6-158-candidate.yml").exists())
+        self.assertFalse((ROOT / ".github/workflows/kernel-next-upstream-provenance.yml").exists())
 
     def test_automatic_proposal_never_auto_merges(self):
         scheduled = (ROOT / ".github/workflows/kernel-lts-update-proposal.yml").read_text(encoding="utf-8")
@@ -55,6 +56,9 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
         self.assertIn("persist-credentials: false", scheduled)
         self.assertIn("gh workflow run kernel-lts-candidate.yml", scheduled)
         self.assertNotIn("gh pr merge", scheduled)
+        self.assertIn('git show "FETCH_HEAD:bootstrap/kernel/candidates/$CANDIDATE_VERSION.json"', scheduled)
+        self.assertIn('gh pr list --state all --head "$branch"', scheduled)
+        self.assertIn('gh pr create', scheduled)
         self.assertNotIn("physical_write_allowed: true", scheduled)
 
 
