@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -63,11 +64,30 @@ class KernelUapiAuthenticationTest(unittest.TestCase):
                 INITRAMFS.prepare_kernel_uapi(self.work, {})
         self.assertEqual(sequence, ["verify", "extract"])
 
-    def test_initramfs_check_rejects_kernel_uapi_version_drift(self):
-        source = {"version": "6.6.158"}
-        with mock.patch.object(INITRAMFS.KERNEL_BUILD, "load_contract", return_value=source):
-            with self.assertRaisesRegex(INITRAMFS.BuildError, "UAPI release drift"):
-                INITRAMFS.check_contract()
+    def test_authored_kernel_uapi_pin_is_rejected(self):
+        raw = json.loads((ROOT / "bootstrap/initramfs/source.json").read_text(encoding="utf-8"))
+        raw["portable_v2_prerequisites"]["kernel_uapi_version"] = "6.6.52"
+        selected = self.work / "initramfs-source.json"
+        selected.write_text(json.dumps(raw), encoding="utf-8")
+        with mock.patch.object(INITRAMFS, "CONTRACT", selected):
+            with self.assertRaisesRegex(INITRAMFS.BuildError, "duplicate release pin"):
+                INITRAMFS.load_contract()
+
+    def test_noncanonical_uapi_pointer_is_rejected(self):
+        raw = json.loads((ROOT / "bootstrap/initramfs/source.json").read_text(encoding="utf-8"))
+        raw["portable_v2_prerequisites"]["kernel_uapi_source_contract"] = "bootstrap/other/source.json"
+        selected = self.work / "initramfs-source.json"
+        selected.write_text(json.dumps(raw), encoding="utf-8")
+        with mock.patch.object(INITRAMFS, "CONTRACT", selected):
+            with self.assertRaisesRegex(INITRAMFS.BuildError, "canonical kernel source"):
+                INITRAMFS.load_contract()
+
+    def test_kernel_release_is_derived_without_editing_initramfs_manifest(self):
+        raw = (ROOT / "bootstrap/initramfs/source.json").read_text(encoding="utf-8")
+        self.assertNotIn('"kernel_uapi_version"', raw)
+        with mock.patch.object(INITRAMFS.KERNEL_BUILD, "load_contract", return_value={"version": "6.6.159"}):
+            derived = INITRAMFS.load_contract()
+        self.assertEqual(derived["portable_v2_prerequisites"]["kernel_uapi_version"], "6.6.159")
 
     def test_initramfs_and_kernel_share_active_release(self):
         init = INITRAMFS.load_contract()
