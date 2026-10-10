@@ -17,6 +17,29 @@ O usuário deve enxergar um painel Intelligence coerente e o estado de conexão/
 
 
 
+### Conversa: disponibilidade verificável e descarte de resultado (corte de source)
+
+O contrato de projeção de UX `ordax.intelligence-conversation-capabilities/1`
+(`system/contracts/intelligence-conversation-capabilities.mjs`,
+`docs/contracts/intelligence-conversation-capabilities.json`) **lê** o snapshot
+de `ordax.intelligence/1`; não é outro router, provedor, histórico ou gateway.
+Atualmente mostra apenas o modelo **local** quando a inferência existente está
+`ready|busy`; sem backend pronto, expõe `unavailable`. Não presume ChatGPT
+Web, plugin MCP ou API remota conectados.
+
+A conversa Assistant continua sendo uma sessão limitada e vinculada aos owners
+de Identity/Space/Profile existentes, sem projeto inferido. O controle
+**Descartar resposta** só está disponível enquanto a inferência está pendente:
+bloqueia novos envios até a operação terminar, descarta o resultado tardio e
+não executa Memory capture para o turno descartado. **Não interrompe a geração
+no provedor**: streaming e backend cancellation continuam declarados
+`false`. Quando Memory capture já começou depois de uma resposta,
+descartar fica indisponível, pois isso não seria um rollback de persistência.
+
+Esse corte não adiciona storage, grants, actions, egress, conversa remota
+ou distribuição; Web sem backend permanece indisponível. Regressões de
+contrato, estado, resposta tardia e Memory vivem nos testes da Intelligence.
+
 Ordax Intelligence is a system capability, not an application.
 
 The first-party Assistant may later provide a conversational Surface, but it is
