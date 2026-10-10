@@ -22,6 +22,36 @@ The same generator derives `EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS` from th
 
 A signed-catalog candidate cannot invent executable-read capability. The verified Store projection must enforce the same restriction before offering user-visible install/update; that dependent UI change is tracked separately in #1398.
 
+## Native installed Surface runtime: verified before display
+
+The execution source is the Native broker's **verified `current` slot**, not the
+Store candidate, a manifest alone or a local package directory.
+
+The implementation has two distinct checks:
+
+- `verified-external-app-catalog.mjs` discovers bounded, immutable package
+  metadata, owner, version, presentation and optional file associations through
+  the verified package source. Its result is **descriptive**, not executable.
+- `system/composition/native/verified-installed-apps.mjs` delegates execution
+  to the existing `current-slot-loader.mjs`. Native's trusted component
+  bootstrap supplies a bound `ordax.app-data/1` port for exactly that app;
+  `expectedCurrent` must match the discovery revision before code import and
+  is checked again before/after mount. The app may not provide its own App Data.
+
+The Surface starts with bundled apps and updates its single runtime catalog
+**only with mounted IDs**. A failed, absent, removed or unbound app must not
+appear as launchable. Catalog reconciliation removes obsolete external windows
+from persisted workspace state. The external app receives a restricted
+`SurfaceRenderLifecycle` projection; it cannot update the host catalog or
+receive unrestricted File Space, Intelligence or other device grants through
+presentation metadata.
+
+Apps retain their own packaged source and UI slot. The Notes source in
+`ordax-apps` uses `data-app-extension="notes"`, derived from its component
+ID. Installing, signing, probation, updating and promoting slots still belong
+to the existing runtime-component authority; this source implementation does
+**not** declare production distribution or physical launch ready.
+
 ## Boundaries
 
 Four concepts must stay separate:
