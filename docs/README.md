@@ -20,6 +20,11 @@ When two files disagree, use this order:
 A prose document never silently overrides a machine-readable contract. A snapshot never silently overrides current source.
 
 ## Active canonical map
+## Guia de retomada transversal
+
+[INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) é a entrada curta para continuar a integração Intelligence + ChatGPT/MCP + apps entre repositórios. **Não é outro owner de inteligência nem status**: `docs/INTELLIGENCE.md`, contratos, código e `docs/CURRENT-STATE.md` mantêm suas prioridades. Antes de implementar, verificar PRs experimentais e o owner correto.
+
+
 
 | Responsibility | Canonical owner |
 | --- | --- |
