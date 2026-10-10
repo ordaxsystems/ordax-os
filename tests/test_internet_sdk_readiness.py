@@ -83,6 +83,47 @@ class InternetSdkReadinessTests(unittest.TestCase):
             self.assertEqual(clean["blockers"], [])
             self.assertIs(clean["sourceCutoverAuthorized"], False)
 
+    def test_transitive_contract_import_must_also_be_in_public_bundle(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fixture(root, sdk_paths=(
+                "system/contracts/browser-session.mjs",
+                "system/contracts/component-runtime.mjs",
+            ))
+            contracts = root / "system/contracts"
+            (contracts / "spaces.mjs").write_text(
+                "export const shared=true;\\n", encoding="utf-8"
+            )
+            (contracts / "browser-session.mjs").write_text(
+                'import { shared } from "./spaces.mjs";\\n'
+                "export const port=true;\\n", encoding="utf-8"
+            )
+            blocked = checker.audit(root)
+            self.assertEqual(blocked["directContracts"], [
+                "system/contracts/browser-session.mjs",
+                "system/contracts/component-runtime.mjs",
+            ])
+            self.assertEqual(blocked["transitiveContracts"], [
+                "system/contracts/spaces.mjs",
+            ])
+            self.assertEqual(blocked["unpublishedContracts"], [
+                "system/contracts/spaces.mjs",
+            ])
+            self.assertFalse(blocked["sdkBoundaryClean"])
+
+            bundle_path = root / "sdk/app-sdk-v1/bundle.json"
+            bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+            bundle["contracts"].append({
+                "source_path": "system/contracts/spaces.mjs",
+                "schema": "ordax.spaces/1",
+                "major": 1,
+            })
+            bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+            ready = checker.audit(root)
+            self.assertEqual(ready["transitiveContracts"], ["system/contracts/spaces.mjs"])
+            self.assertTrue(ready["sdkBoundaryClean"])
+            self.assertIs(ready["sourceCutoverAuthorized"], False)
+
     def test_private_platform_import_cannot_be_mistaken_for_sdk(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
