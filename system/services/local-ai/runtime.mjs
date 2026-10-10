@@ -1,3 +1,4 @@
+import { readLocalAiCompletionStream } from "./completion-stream.mjs";
 import {
   LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES,
   LOCAL_AI_MAX_MODEL_DISCOVERY_BYTES,
@@ -458,10 +459,13 @@ export function createLocalAiRuntime({
       }
       return snapshot;
     },
-    async generate(requestValue, { signal = null } = {}) {
+    async generate(requestValue, { signal = null, onDelta = null } = {}) {
       assertAlive();
       const input = validateLocalAiRequest(requestValue);
       assertInferenceSignal(signal);
+      if (onDelta !== null && typeof onDelta !== "function") {
+        throw new TypeError("Local AI onDelta must be a function");
+      }
       if (snapshot.state !== "ready") {
         throw new Error("Local AI is not ready");
       }
@@ -474,37 +478,52 @@ export function createLocalAiRuntime({
               { role: "system", content: input.systemPrompt },
               { role: "user", content: input.prompt },
             ];
-        const { response, payload } = await requestJson(
-          base + "/v1/chat/completions",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-            credentials: "omit",
-            body: JSON.stringify({
-              model: activeModelId,
-              messages,
-              max_tokens: input.maxTokens,
-              stream: false,
-            }),
-          },
-          inferenceTimeout,
-          "Local AI inference",
-          LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES,
-          signal,
-        );
-        if (!response.ok) throw new Error(`Local AI inference failed: HTTP ${response.status}`);
-        // Some OpenAI-compatible backends report the model that actually served
-        // a completion. Do not assert the requested model as a verified result
-        // when the server explicitly reports a different identity.
-        if (
-          payload?.model !== undefined
-          && payload?.model !== null
-          && validateLocalAiModelId(payload.model) !== activeModelId
-        ) {
-          throw new Error("Local AI completion model identity mismatch");
+        const options = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          credentials: "omit",
+          body: JSON.stringify({
+            model: activeModelId,
+            messages,
+            max_tokens: input.maxTokens,
+            stream: onDelta !== null,
+          }),
+        };
+        const url = base + "/v1/chat/completions";
+        const label = "Local AI inference";
+        let text;
+        if (onDelta === null) {
+          const { response, payload } = await requestJson(
+            url, options, inferenceTimeout, label,
+            LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES, signal,
+          );
+          if (!response.ok) throw new Error(`Local AI inference failed: HTTP ${response.status}`);
+          // OpenAI-compatible backends can report the actual serving model.
+          if (
+            payload?.model !== undefined
+            && payload?.model !== null
+            && validateLocalAiModelId(payload.model) !== activeModelId
+          ) {
+            throw new Error("Local AI completion model identity mismatch");
+          }
+          text = validateLocalAiResponseText(payload?.choices?.[0]?.message?.content);
+        } else {
+          text = await fetchWithTimeout(
+            fetchImpl, url, options, inferenceTimeout, label, activeControllers,
+            async (response) => {
+              if (!response.ok) {
+                cancelResponseBody(response);
+                throw new Error(`Local AI inference failed: HTTP ${response.status}`);
+              }
+              return readLocalAiCompletionStream(response, {
+                modelId: activeModelId,
+                onDelta,
+              });
+            },
+            signal,
+          );
         }
-        const text = validateLocalAiResponseText(payload?.choices?.[0]?.message?.content);
         publish({ ...snapshot, state: "ready" });
         return Object.freeze({ text, engineId: activeEngineId, modelId: activeModelId });
       } catch (error) {
