@@ -17,9 +17,9 @@ function safeMessage(message) {
   }
   if (message.role === "assistant" && (
     typeof message.engineId !== "string" || !message.engineId.trim()
-    || message.engineId.length > 80 || message.engineId.includes("\\0")
+    || message.engineId.length > 80 || message.engineId.includes("\0")
     || typeof message.modelId !== "string" || !message.modelId.trim()
-    || message.modelId.length > 160 || message.modelId.includes("\\0")
+    || message.modelId.length > 160 || message.modelId.includes("\0")
   )) {
     throw new TypeError("Assistant response requires verified model provenance");
   }
