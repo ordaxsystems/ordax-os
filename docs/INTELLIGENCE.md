@@ -2,6 +2,21 @@
 
 Status: **MVP SYSTEM FOUNDATION**
 
+## Decisão transversal — OrdaX Web, OS, Studio e ChatGPT (2026-10-10)
+
+**OrdaX Intelligence é um serviço sistêmico, não uma funcionalidade isolada do Studio.** Os clientes Web/OS/Studio/aplicativos devem reutilizar `ordax.intelligence/1`, model router e os atuais contratos de contexto e ações sem reconstruir identidade, histórico autoritativo, memória, grants ou catálogo. [Handoff de continuidade da raiz](../INTELLIGENCE-HANDOFF.md).
+
+A conexão opcional com ChatGPT tem dois fluxos *distintos*:
+
+- **Chat OrdaX → modelo:** o painel nativo usa um provider adapter autorizado e um port tipado para enviar/receber conversas, seja IA local, serviço remoto aprovado ou futura ponte ChatGPT Web suportada. O plugin MCP conectado a um cliente ChatGPT externo **não** é uma API de inferência para o painel OrdaX. A ponte Web em desenvolvimento nas PRs `ordax-apps#192` e `ordax-runtime#63` é experimental e não provou sessão ChatGPT real.
+- **ChatGPT externo → OrdaX:** o conector `ordax-chatgpt` em `ordax-platform` expõe Product MCP e serviços autorizados a um cliente ChatGPT compatível. OAuth, grants, contexto owner/Space/projeto/dispositivo, status e receipts continuam canônicos; o Studio não é gateway obrigatório nem dono do plugin.
+
+O usuário deve enxergar um painel Intelligence coerente e o estado de conexão/consentimento; não precisa ver detalhes técnicos do MCP, mas deve sempre poder revisar efeitos sensíveis. Nem login ChatGPT nem instalação de plugin concedem execução. A descoberta de apps vem de manifests e bindings verificados; intents e propostas são `authority=none`. O Action Catalog/approval/grants/Action Gateway/Runtime existente valida qualquer side effect. Interação visual por screenshots/mouse pode ser fallback de apps externos sem contrato, **não** o caminho normal dos first-party.
+
+**Status:** decisão de arquitetura/documentação. Nenhum provider ChatGPT Web foi ativado, nenhum cliente Web completo foi homologado, nenhum grant/consentimento foi criado e nenhum modelo externo recebeu acesso a Memory/arquivos por esta documentação. Conferir o source, `docs/CURRENT-STATE.md` e PRs antes de alterar gates.
+
+
+
 Ordax Intelligence is a system capability, not an application.
 
 The first-party Assistant may later provide a conversational Surface, but it is
