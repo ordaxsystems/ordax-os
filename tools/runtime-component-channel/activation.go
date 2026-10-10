@@ -967,6 +967,21 @@ func uninstallStateCommand(args []string) error {
 	return nil
 }
 
+// This classification is derived exclusively from the canonical activation
+// state; a user's removal intent outranks any bundled fallback.
+func currentResolutionSource(state activationState, bundled bool) string {
+	if state.Current != nil {
+		return "SLOT"
+	}
+	if state.UserRemoved {
+		return "REMOVED"
+	}
+	if bundled {
+		return "BUNDLED"
+	}
+	return "ABSENT"
+}
+
 func resolveCurrentCommand(args []string) error {
 	flags := flag.NewFlagSet("resolve-current", flag.ContinueOnError)
 	component := flags.String("component", "", "runtime component id")
@@ -983,12 +998,7 @@ func resolveCurrentCommand(args []string) error {
 		return err
 	}
 	if state.Current == nil {
-		source := "ABSENT"
-		if bundled {
-			source = "BUNDLED"
-		} else if state.UserRemoved {
-			source = "REMOVED"
-		}
+		source := currentResolutionSource(state, bundled)
 		fmt.Printf(
 			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
 			state.ComponentID, state.Revision, source,
