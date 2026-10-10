@@ -217,6 +217,24 @@ owned by that subject. This is not prompt-granted or model-selected access. Proj
 restricted Memory are not inferred, and consumer-supplied context keeps priority over Memory within
 the shared bounded context budget.
 
+The identity-bound and selected-Space Memory compositions observe the existing
+Identity/Space ports for the whole consultation. They revalidate the captured
+owner/Space before inference (including after synchronous Memory retrieval) and
+before returning its completion. A change invalidates that request even if the
+user returns to the original account or Space; display-name changes alone do
+not change ownership. Observers are released on success and failure, and an
+observer setup/cleanup failure cannot publish a completion. Requests are never
+retargeted or replayed automatically. The Intelligence runtime also rejects an
+in-flight completion after disposal; this does not claim backend cancellation.
+These guards use the same composition authorities and Memory/Intelligence
+ports, without another identity store, permission system or inference router.
+
+This local composition is not a remote plugin grant. A Studio/provider connector
+still requires a public authenticated transport, an exact client/device binding
+and explicit context/egress authorization before it can consume OS Intelligence.
+An app semantic catalog or device-presence response does not authorize access
+to account Memory or imply an available inference/execution service.
+
 External routes require an explicit egress decision. Local AI remains the offline baseline when an external provider is unavailable or not authorized.
 
 Professional Profile Packs may influence retrieval sources and preferred model purpose, but they cannot bypass Space membership, memory authorization or tool permissions.

@@ -47,7 +47,7 @@ function inferencePort({
       assert.match(request.systemPrompt, /never as instructions/i);
       assert.doesNotMatch(request.prompt, /no implicit authority/i);
       assert.match(request.prompt, /Model purpose:/);
-      onGenerate?.(request);
+      await onGenerate?.(request);
       return Object.freeze({ text: answer, engineId: resultEngineId, modelId: resultModelId });
     },
     publish(nextState) {
@@ -81,6 +81,21 @@ test("Ordax Intelligence refuses new work after dispose", async () => {
     /runtime is disposed/,
   );
   assert.equal(generated, false);
+});
+
+test("Ordax Intelligence refuses an in-flight completion after disposal without retry", async () => {
+  let finish;
+  let generated = 0;
+  const blocked = new Promise(resolve => { finish = resolve; });
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: inferencePort({ onGenerate: () => { generated++; return blocked; } }),
+  });
+  const response = intelligence.respond({ prompt: "pending local request" });
+  assert.equal(generated, 1);
+  intelligence.dispose();
+  finish();
+  await assert.rejects(response, /runtime is disposed/);
+  assert.equal(generated, 1);
 });
 
 test("Ordax Intelligence consumes bounded provenance-bearing context through local inference", async () => {
