@@ -1342,9 +1342,18 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       await client.send('Input.dispatchKeyEvent', {
         type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
       });
-      await sleep(90);
-      if (!await evaluate('!!document.querySelector("#account-mobile-more[role=dialog]")')) {
-        throw new Error('Mobile More did not open the Radix accessible dialog');
+      const moreDeadline = Date.now() + 5000;
+      while (!await evaluate('!!document.querySelector("#account-mobile-more[role=dialog]")')) {
+        if (Date.now() > moreDeadline) {
+          const details = await evaluate(`({
+            mobileNavigation: !!document.querySelector('.mobile-nav'),
+            mobileButton: document.querySelector('.mobile-nav button')?.outerHTML,
+            dialogs: [...document.querySelectorAll('[role=dialog]')].map(node => ({ id: node.id, html: node.outerHTML.slice(0, 600) })),
+            pageError: document.body.innerText.slice(-300)
+          })`);
+          throw new Error(`Mobile More did not open the Radix accessible dialog: ${JSON.stringify(details)}`);
+        }
+        await sleep(50);
       }
       if (!await evaluate('document.querySelector(".mobile-nav button")?.getAttribute("aria-expanded") === "true"')) {
         throw new Error('Mobile More trigger did not announce expanded');
