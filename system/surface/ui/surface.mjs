@@ -43,6 +43,7 @@ const WORKSPACE_PERSIST_ACTIONS = new Set([
   "window.maximize",
   "window.close",
   "workspace.show-desktop",
+  "app.catalog.sync",
 ]);
 
 const CONNECTIVITY_MESSAGE_IDS = Object.freeze({
@@ -397,7 +398,7 @@ export function mountSurface(
     throw new TypeError("Surface root must be a DOM Element");
   }
   assertSurfaceHost(host);
-  const catalog = assertAppRuntimeCatalog(appCatalog);
+  let catalog = assertAppRuntimeCatalog(appCatalog);
   const store = preferenceStore === null ? null : assertPreferenceStore(preferenceStore);
   const workspacePort = workspaceStore === null ? null : assertWorkspaceStore(workspaceStore);
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
@@ -1023,6 +1024,15 @@ export function mountSurface(
     schema: SURFACE_RENDER_LIFECYCLE_SCHEMA,
     preferences,
     localization,
+    replaceAppCatalog(nextCatalog) {
+      // Only trusted composition should hold this management method. External
+      // runtimes receive a restricted SurfaceRenderLifecycle projection.
+      const next = assertAppRuntimeCatalog(nextCatalog);
+      if (next === catalog) return catalog.list();
+      catalog = next;
+      dispatch({ type: "app.catalog.sync" });
+      return catalog.list();
+    },
     getAppTarget(appId) {
       const area = getActiveArea(state);
       const windowState = area.windows.find((item) => item.appId === appId);
