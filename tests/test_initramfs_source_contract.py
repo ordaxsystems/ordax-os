@@ -191,7 +191,7 @@ class InitramfsSourceContractTests(unittest.TestCase):
             portable["kernel_uapi_source_contract"],
             "bootstrap/kernel/source.json",
         )
-        self.assertEqual(portable["kernel_uapi_version"], KERNEL_SOURCE["version"])
+        self.assertNotIn("kernel_uapi_version", portable)  # computed by the kernel owner
         self.assertTrue(portable["kernel_uapi_headers_install"])
         self.assertFalse(portable["host_linux_headers_required"])
         self.assertEqual(

@@ -120,6 +120,17 @@ def load_contract() -> dict:
         raise BuildError("invalid BusyBox version")
     if not _SHA256.fullmatch(str(busybox.get("archive_sha256", ""))):
         raise BuildError("invalid BusyBox archive SHA-256")
+    portable = value.get("portable_v2_prerequisites")
+    if (
+        not isinstance(portable, dict)
+        or portable.get("kernel_uapi_source_contract") != "bootstrap/kernel/source.json"
+    ):
+        raise BuildError("initramfs UAPI must depend on the canonical kernel source")
+    if "kernel_uapi_version" in portable:
+        raise BuildError("initramfs UAPI version is derived; a duplicate release pin is forbidden")
+    # Keep the existing consumer field as a derived runtime projection only.
+    # The on-disk initramfs contract contains no second kernel release identity.
+    portable["kernel_uapi_version"] = KERNEL_BUILD.load_contract()["version"]
     return value
 
 
@@ -208,13 +219,8 @@ def check_contract() -> dict:
         raise BuildError("recovery mode may never invoke online ext4 growth")
     if contract.get("network_inside_fixed_initramfs") is not False:
         raise BuildError("network must remain outside the fixed initramfs")
-    kernel_source = KERNEL_BUILD.load_contract()
-    expected_uapi_version = contract["portable_v2_prerequisites"]["kernel_uapi_version"]
-    if kernel_source["version"] != expected_uapi_version:
-        raise BuildError(
-            "initramfs/kernel UAPI release drift: "
-            f"kernel source={kernel_source['version']} initramfs={expected_uapi_version}"
-        )
+    # load_contract enforces the canonical source pointer and derives this value.
+    # It must not accept a separately authored kernel release version.
     return {
         "busybox_version": contract["busybox"]["version"],
         "busybox_archive_sha256": contract["busybox"]["archive_sha256"],
