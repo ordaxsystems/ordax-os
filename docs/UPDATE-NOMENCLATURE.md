@@ -32,6 +32,21 @@ Um número de PR nunca é o número de uma atualização do notebook.
 
 A versão do produto, a Entrega, o SHA técnico e a versão de cada componente **não devem ser colapsados em um único número**.
 
+## Família OrdaX e versão por plataforma
+
+Os nomes públicos são resolvidos exclusivamente pelo contrato executável `system/contracts/product-family.mjs`, referenciado por `docs/contracts/branding.json` e conferido contra os cinco IDs do `foundation.json`. Não renomear os IDs técnicos `web`, `mobile`, `desktop`, `usb` e `native-disk` ou criar árvores de apps por plataforma.
+
+| Identidade pública | Versão e atualização |
+|---|---|
+| **OrdaX Web** | release/deploy Web próprio; sem versão declarada até existir publicação verificável |
+| **OrdaX Mobile** | aplicativo Android/iOS; versão do pacote/app próprio, sem presumir APK publicado |
+| **OrdaX Desktop** | app instalado no host, com pacote/atualizador próprio e assinatura quando houver release |
+| **OrdaX OS — USB** | versão do produto OS; Entrega, Base e release assinada continuam identidades diferentes |
+| **OrdaX OS — Nativo** | **a mesma versão de OrdaX OS do USB**, pois compartilham sistema/release; modo de instalação distinto |
+
+O `OrdaX Tablet` é layout da modalidade Mobile, não versão ou artefato independente; `OrdaX Studio` é um app com seu próprio owner/manifests e não um modo adicional. A mesma Conta e Surface não forçam o mesmo SemVer de todos os clientes. A versão atual `0.1.0` é **do protótipo de OS**, não uma versão implicitamente publicada de Web, APK ou Desktop. Não prefixar `v1.0` por marketing, não reutilizar números de PR e não derivar a presença de download da definição de marca.
+
+
 ## Sequência de Entrega
 
 Enquanto o protótipo usa a `main` como fonte de atualização do notebook Owner/Development, o número de Entrega é derivado da sequência first-parent de mudanças que realmente atingem o dispositivo.

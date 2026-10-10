@@ -8,13 +8,17 @@ OrdaX is one product with one identity, one Surface, one application model and s
 
 ```text
 OrdaX Web
-   -> OrdaX Mobile (Android / iPhone)
+   -> OrdaX Mobile (Android / iPhone; Tablet por layout responsivo)
    -> OrdaX Desktop
-   -> OrdaX USB
-   -> OrdaX Native
+   -> OrdaX OS — USB
+   -> OrdaX OS — Nativo
 ```
 
-These are capability targets, not separate products or forks.
+These are capability targets, not separate products or forks. The stable internal IDs remain `web`, `mobile`, `desktop`, `usb` and `native-disk`. The public names and version ownership are defined once in `system/contracts/product-family.mjs` (registered by `docs/contracts/branding.json`); the machine-readable capability policy stays in `docs/contracts/product-capabilities.json`.
+
+**OrdaX OS** is the bootable operating system, with **USB** and **Nativo** as installation/execution variants of the *same OS*, not independent version series. **OrdaX Mobile** is an Android/iOS client app, not a mobile operating system. **OrdaX Tablet** may be a responsive presentation of the same Mobile mode; it does not create a sixth mode or another app source. **OrdaX Studio** is an application distributed through the Apps owner, not an execution mode. The public portal is not OrdaX Web.
+
+Version numbering is not inferred from platform names. The OS modes share the real prototype version from `system/contracts/product-version.mjs`. Web, Mobile and Desktop may advance their own package/deployment versions independently **when their actual verified artifacts exist**; this contract assigns no hypothetical APK, desktop installer or Web release version. Availability and public download authorization remain with the respective release owners, not branding.
 
 ## MVP integration scope versus enabled public modes
 
@@ -49,7 +53,7 @@ It provides capabilities a browser cannot safely or reliably provide, including 
 
 OrdaX Desktop is not the OrdaX operating system and must never own raw host hardware by default. Privileged operations require a narrow, explicit capability boundary and separate user authorization.
 
-### 4. OrdaX USB
+### 4. OrdaX OS — USB
 
 Boots the real OrdaX operating system from removable media. It owns the machine while booted and therefore has substantially broader capabilities than Web, Mobile or Desktop.
 
@@ -74,7 +78,7 @@ The bootstrap exports that value as `ORDAX_PRODUCT_MODE`; guardian, supervisor a
 
 The future installer writes `native-disk` into the target bootstrap as part of installation materialization. This remains configuration of one product mode, not a code or release fork.
 
-### 5. OrdaX Native — integrated MVP target, not yet available
+### 5. OrdaX OS — Nativo — integrated MVP target, not yet available
 
 Installs the OrdaX operating system to SSD/NVMe/HDD using the shared signed release and a whole-disk, informed-destructive-consent flow. This work is **in scope for the integrated MVP**, while physical APPLY, boot without USB and recovery are not yet homologated; therefore the mode is **not yet an available user-facing capability**.
 
