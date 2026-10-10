@@ -1267,6 +1267,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
         mainVisible: visible(main),
         heroVisible: visible(hero) && hero.getBoundingClientRect().height >= 130,
         profileVisible: visible(document.querySelector('.profile-banner')),
+        noInventedPersonalPlan: document.querySelector('.profile-label')?.textContent !== 'Pessoal',
         originalLogoLoaded: logo?.complete && logo?.naturalWidth > 0,
         originalLandscapeLoaded: !!hero?.querySelector('img')?.naturalWidth,
         threeSummaryCards: summary.length === 3 && summary.every(visible),
@@ -1283,7 +1284,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       };
     })()`);
     const required = [
-      'noHorizontalOverflow', 'mainVisible', 'heroVisible', 'profileVisible',
+      'noHorizontalOverflow', 'mainVisible', 'heroVisible', 'profileVisible', 'noInventedPersonalPlan',
       'originalLogoLoaded', 'originalLandscapeLoaded', 'threeSummaryCards',
       'twoDashboardCards', 'noInventedConsumption',
       'noExposedUnverifiedIdentity', 'mobileNavigation', 'sidebarDesktop',
@@ -1426,7 +1427,8 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     const logout = menu?.querySelector('form[action="/auth/logout"]');
     const profile = menu?.querySelector('a[href="/conta/dados-pessoais"]');
     const security = menu?.querySelector('a[href="/conta/seguranca"]');
-    return menu && email === ${JSON.stringify(fixtureEmail)} && logout?.method.toLowerCase() === 'post' && !!profile && !!security;
+    return menu && email === ${JSON.stringify(fixtureEmail)} && logout?.method.toLowerCase() === 'post' && !!profile && !!security
+      && !!document.querySelector('.profile-banner a[href="/conta/dados-pessoais"]');
   })()`))) {
     if (Date.now() > authDeadline) throw new Error('verified fixture account menu lacks profile/security/logout');
     await sleep(40);
@@ -1441,7 +1443,8 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     return !!menu?.querySelector('a[href="/login/"]')
       && !menu.querySelector('.ordax-account-dropdown-email')
       && !menu.querySelector('form[action="/auth/logout"]')
-      && !document.querySelector('.profile-banner .profile-identity p')?.textContent?.includes(${JSON.stringify(fixtureEmail)});
+      && !document.querySelector('.profile-banner .profile-identity p')?.textContent?.includes(${JSON.stringify(fixtureEmail)})
+      && !!document.querySelector('.profile-banner a[href="/login/"]');
   })()`))) {
     if (Date.now() > expiredDeadline) throw new Error('expired session did not erase verified identity');
     await sleep(40);
