@@ -3,7 +3,6 @@ import { validateComponentRuntimeMetadata } from "../../contracts/component-runt
 import { assertVerifiedComponentPackageSource } from "../../contracts/verified-component-package-source.mjs";
 import { validateFileAssociationManifest } from "../../contracts/file-association-manifest.mjs";
 import { validateAppPresentationManifest } from "../../contracts/app-presentation-manifest.mjs";
-import { defineExternalFirstPartyApp } from "../../apps/external-app-definition.mjs";
 import {
   EXTERNAL_FIRST_PARTY_OWNER,
   isExternalFirstPartyComponentId,
@@ -105,9 +104,8 @@ export async function discoverVerifiedExternalApplications({
         : validateFileAssociationManifest(associationPayload, {
           appId, appVersion: component.version,
         });
-      const app = defineExternalFirstPartyApp(component, presentation);
       entries.push(Object.freeze({
-        app, component, metadata, presentation, association,
+        component, metadata, presentation, association,
       }));
     } catch (error) {
       onError?.(error, appId);
