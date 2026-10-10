@@ -242,3 +242,33 @@ não executa ferramentas, não confirma sucessos incertos e não expõe
 referências privadas. A Surface Web sem `appActivation` não ganha
 atalho fictício. O teste exerce o canal real da composição e verifica
 ausência de publicação com owner/Space divergentes ou Work concluído.
+
+## Destino por missão na Activity (integração ao SSOT da Surface)
+
+A navegação de `Revisar na Activity` foi aprimorada de abertura genérica
+do app para **Work preciso**: o Assistant emite um `target` versionado
+`ordax.activity-work-target/1`, derivado somente de uma instância válida
+`ordax.personal-runtime/1`. O contrato é propriedade de
+`system/apps/activity/work-navigation.mjs`, importado pelo Assistant,
+sem redefinição de formato, canal, store ou histórico.
+
+A Surface **continua dona** do destino de janela via
+`ordax.app-activation/1`, `getAppTarget(activityApp.id)` e
+`app.launch`/workspace. A Activity agora lê esse target após cada
+render e seleciona visualmente/foca **somente** se o mesmo Work ainda
+existir no Personal e corresponder exatamente a owner kind/id, Space
+corrente e `projectId:null`. O destino contém apenas IDs e schema,
+**não** token, grant, caminho de arquivo ou detalhes de ação. Uma troca
+de conta, Space, Work apagado, ID reaproveitado por outro owner ou
+formato desconhecido torna o destaque inválido; nenhuma execução é
+acionada e não se assume foco em outra missão. A Surface pode persistir
+um destino no workspace; Activity nunca trata a presença do destino
+como autorização. Destinos de projetos não são fabricados pelo Assistant
+global, que não tem seleção de projeto.
+
+A Activity continua responsável por suas aprovações e execuções.
+`scrollIntoView` e foco da carta são efeitos de navegação de UI, não
+um botão que autoriza ferramenta. O controle é compatível com ausência
+dos ports Identity/Space (sem seleção específica) para outras
+composições, como Web. Não altera modelo, inferência, streaming, Work
+ou armazenamento de dados.
