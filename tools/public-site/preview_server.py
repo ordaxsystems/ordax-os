@@ -11,6 +11,7 @@ import importlib.util
 import json
 import mimetypes
 import posixpath
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -106,6 +107,12 @@ class PublicPortalPreviewHandler(BaseHTTPRequestHandler):
     def _send_static(self, method: str) -> None:
         split = urlsplit(self.path)
         path = _safe_static_path(self.portal_server.site_root, split.path)
+        # Mirror the canonical Vercel /conta/:section SPA rewrite, but only
+        # for the reviewed React profile. Classic HTML navigation stays intact.
+        if (path is None or not path.is_file()) and re.fullmatch(r"/conta/[a-z][a-z0-9-]*/?", split.path):
+            entry = self.portal_server.site_root / "conta/index.html"
+            if entry.is_file() and b'<div id="root"></div>' in entry.read_bytes():
+                path = entry
         if path is None or not path.is_file():
             body = b"Not Found\n"
             self.send_response(404)

@@ -1,0 +1,93 @@
+name: Stage Original Account UI Bundle
+
+on:
+  push:
+    branches: [feat/account-original-lovable-source-20261010]
+    paths:
+      - '.github/workflows/account-lovable-stage-bundle.yml'
+      - 'sites/account-ui/lovable-original/src/**'
+      - 'sites/account-ui/lovable-original/index.html'
+      - 'sites/account-ui/lovable-original/vite.config.account.ts'
+
+# Source edits can arrive while CI is compiling. Only the latest branch
+# revision may stage artifacts; Git push remains non-force and fast-forward.
+concurrency:
+  group: account-lovable-stage-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    if: github.ref == 'refs/heads/feat/account-original-lovable-source-20261010'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout approved feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: feat/account-original-lovable-source-20261010
+          persist-credentials: false
+      - name: Setup approved pinned Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.3.10'
+      - name: Generate deterministic bundle from original sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sites/account-ui/verify_source.py
+          cd sites/account-ui/lovable-original
+          bun install --frozen-lockfile --ignore-scripts
+          bunx --no-install vite build --config vite.config.account.ts
+          cd ../../..
+          rm -rf sites/account-ui/prebuilt
+          mkdir -p sites/account-ui/prebuilt
+          cp -a sites/account-ui/candidate-dist/. sites/account-ui/prebuilt/
+          diff -qr sites/account-ui/candidate-dist sites/account-ui/prebuilt
+      - name: Commit candidate static bundle to isolated PR branch
+        shell: bash
+        env:
+          ORDAX_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -f sites/account-ui/prebuilt
+          if git diff --cached --quiet; then
+            echo 'ACCOUNT_PREBUILT_ALREADY_CURRENT=PASS'
+            exit 0
+          fi
+          base_sha="$(git rev-parse HEAD)"
+          git commit -m 'build(conta): bundle estático verificável do React Lovable com assets originais'
+          authorization="$(printf 'x-access-token:%s' "$ORDAX_PUSH_TOKEN" | base64 -w0)"
+          branch='feat/account-original-lovable-source-20261010'
+          repo="https://github.com/$GITHUB_REPOSITORY.git"
+          # The checkout is the latest branch revision when the runner starts.
+          # Recheck just before pushing to prevent stale artifacts from winning
+          # a race with source changes or independent PR edits.
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $authorization" \
+            fetch "$repo" "refs/heads/$branch"
+          latest_sha="$(git rev-parse FETCH_HEAD)"
+          if [ "$latest_sha" != "$base_sha" ]; then
+            if ! git merge-base --is-ancestor "$base_sha" "$latest_sha"; then
+              echo 'ACCOUNT_STAGE_REMOTE_HISTORY_DIVERGED=FAIL'
+              exit 1
+            fi
+            if ! git diff --quiet "$base_sha" "$latest_sha" -- \
+              sites/account-ui/lovable-original/src \
+              sites/account-ui/lovable-original/index.html \
+              sites/account-ui/lovable-original/vite.config.account.ts \
+              sites/account-ui/lovable-original/package.json \
+              sites/account-ui/lovable-original/bun.lock; then
+              echo 'ACCOUNT_STAGE_SUPERSEDED_BY_NEWER_SOURCE=PASS'
+              exit 0
+            fi
+            # Only unrelated commits arrived; transplant the generated bundle
+            # onto the current branch without rewriting remote history.
+            git rebase "$latest_sha"
+          fi
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $authorization" \
+            push "$repo" HEAD:"refs/heads/$branch"
+          echo 'ACCOUNT_PREBUILT_STAGE=PASS'

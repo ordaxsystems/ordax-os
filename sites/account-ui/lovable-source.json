@@ -1,0 +1,65 @@
+{
+  "$schema": "ordax.account-ui-lovable-source/1",
+  "source_repository": "washingtonmsdj/account-hub-pro",
+  "source_visibility": "private",
+  "source_commit": "0f955ece6e570801976d8ed77d2cada101b7a3fa",
+  "snapshot_kind": "verified-baseline-and-adapted-candidate",
+  "production_enabled": false,
+  "visual_owner": "source React/TSX and original CSS, until design tokens are consolidated",
+  "operational_owner": "ordaxsystems/ordax-os public identity and account services",
+  "destination": "sites/account-ui/lovable-original",
+  "assets_state": "original-binaries-imported-sha-verified",
+  "source_fidelity": [
+    {
+      "path": "src/components/account/overview.tsx",
+      "git_blob_sha": "3f2d988dd3f734a6e2b0f462cb2139e3ece7c6c5"
+    },
+    {
+      "path": "src/components/account/shell.tsx",
+      "git_blob_sha": "e9b956c061de1cf3228516a3cf3d19ad2caccd0b"
+    },
+    {
+      "path": "src/components/account/details.tsx",
+      "git_blob_sha": "d04487118e31d504b18d4b94a7b2ac6affcbc134"
+    },
+    {
+      "path": "src/components/account/integration-panel.tsx",
+      "git_blob_sha": "1786e4bf2e631b53ec3aaa2023d7c0456ed39c34"
+    },
+    {
+      "path": "src/lib/account/model.ts",
+      "git_blob_sha": "9b06816494a86604d172cb8c3ed36e124a2e6e0e"
+    },
+    {
+      "path": "src/styles.css",
+      "git_blob_sha": "772bb4ef2b595ef89d2cbdbf018e03330761b9a9"
+    },
+    {
+      "path": "package.json",
+      "git_blob_sha": "90838fc188dd038065a67529da35c5588d19dbe1"
+    }
+  ],
+  "integration_gate": "auth-proxy E2E + preview browser seven viewports + deterministic site bundle + CI + deploy",
+  "release_target": "ordax-os-public /conta/",
+  "separate_vercel_projects": false,
+  "verified_binary_assets": [
+    {
+      "path": "src/assets/ordax-landscape.jpg",
+      "git_blob_sha": "260e215794a3a38b03d0df6ce9395632aa7b78be",
+      "sha256": "7ddb6607fa2584e9702fe55a7c9d06e610ab1fe3db0f31e40757b7d9e0347294"
+    },
+    {
+      "path": "src/assets/ordax-mark.png",
+      "git_blob_sha": "fa3e17f13e91f7710dd03eb23d0d5d9b3fce7541",
+      "sha256": "e261b8e4e12dccb83c9dc2bbb77155ec7e6e69fe70c5b0a1e6bfee58f492827c"
+    }
+  ],
+  "adapter_state": "official-auth-session-provider-implemented-in-candidate",
+  "adapter_owner": "sites/account-ui/lovable-original/src/lib/account/official-session.tsx",
+  "ported_components": [
+    "src/components/account/shell.tsx",
+    "src/components/account/overview.tsx",
+    "src/components/account/details.tsx"
+  ],
+  "compile_proof": "GitHub Action Account Lovable Source Candidate passed on commit 924524d16e09fabfe0ac4c9ebf52041b4d70ccbd"
+}

@@ -27,7 +27,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.vercel["ignoreCommand"],
             "sh tools/public-site/should_skip_vercel_build.sh",
         )
-        self.assertTrue(self.vercel["git"]["deploymentEnabled"])
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {
+            "main": True,
+            "*": False,
+        })
         script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
         self.assertTrue(script.is_file())
 
@@ -104,6 +107,18 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("tools/public-site/build.py", "# canonical site builder changed")
             builder_change = commit("canonical site builder changed")
             self.assertEqual(ignored(releases_change, builder_change), 1)
+
+            # React account is part of this single public-site artifact.
+            # Both source and the reviewed prebuilt output must trigger Vercel.
+            write("sites/account-ui/lovable-original/src/account-entry.tsx", "export const account = true;")
+            account_source = commit("account React source changed")
+            self.assertEqual(ignored(builder_change, account_source), 1)
+            self.assertEqual(ignored(builder_change, account_source, "production"), 1)
+
+            write("sites/account-ui/prebuilt/index.html", "<div id='root'></div>")
+            account_bundle = commit("account React bundle changed")
+            self.assertEqual(ignored(account_source, account_bundle), 1)
+            self.assertEqual(ignored(account_source, account_bundle, "production"), 1)
 
     def test_cloudflare_exclusive_zone_is_active_with_independent_runtime_proof_pending(self):
         migration = self.contract["cloudflare_dns_migration"]
@@ -224,7 +239,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["runtime_proof_required_before_public_auth"])
         self.assertFalse(migration["automatic_git_deployments_frozen"])
         self.assertFalse(migration["reenable_git_deployments_only_after_new_team_runtime_proof"])
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], True)
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {
+            "main": True,
+            "*": False,
+        })
         self.assertEqual(
             migration["target_team_slug"],
             self.contract["vercel_adapter"]["team"],
@@ -404,11 +422,12 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "out/public-site")
         self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-site")
-        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
+        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --account-ui lovable --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
         self.assertEqual(rewrites["/account/:path*"], "/api/account-proxy?ordax_path=/account/:path*")
+        self.assertEqual(rewrites["/conta/:section"], "/conta/index.html")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.vercel_proxy)
         self.assertNotIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.vercel_proxy)

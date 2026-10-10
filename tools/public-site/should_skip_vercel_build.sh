@@ -22,6 +22,7 @@ fi
 # A git error is always treated as 'build', never as 'ignore'.
 if git diff --quiet "$previous" "$current" -- \
   sites/public \
+  sites/account-ui \
   api/account-proxy.mjs \
   infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs \
   infra/supabase/functions/_shared/bounded_body.mjs \
