@@ -62,10 +62,60 @@ mkdir -p /run/ordax/bootstrap-tools ||
     rescue "cannot retain portable activation helper"
 /bin/busybox chmod 0555 "$RUNTIME_STATE_HELPER" ||
     rescue "cannot protect portable activation helper"
-ESP_DEVICE="$(findfs LABEL=ORDAX-ESP 2>/dev/null || true)"
-case "$ESP_DEVICE" in
-    "") rescue "ORDAX-ESP partition not found" ;;
-esac
+# Discover both portable volumes together. Filesystem LABEL alone is not a
+# unique device identity: cloned media must never silently mix ESP and DATA.
+# sys_block/dev_root are explicit so the same code can be tested with fixtures.
+resolve_portable_devices() {
+    sys_block=$1
+    dev_root=$2
+    attempts=0
+    while [ "$attempts" -lt 12 ]; do
+        esp_count=0
+        data_count=0
+        esp_disk=
+        data_disk=
+        esp_found=
+        data_found=
+        for disk in "$sys_block"/*; do
+            [ -d "$disk" ] || continue
+            for partition in "$disk"/*; do
+                [ -f "$partition/partition" ] || continue
+                device="$dev_root/${partition##*/}"
+                [ -e "$device" ] || continue
+                metadata="$(blkid "$device" 2>/dev/null || true)"
+                case " $metadata " in
+                    *' LABEL="ORDAX-ESP"'*)
+                        esp_count=$((esp_count + 1))
+                        esp_disk=$disk
+                        esp_found=$device
+                        ;;
+                esac
+                case " $metadata " in
+                    *' LABEL="ORDAX-DATA"'*)
+                        data_count=$((data_count + 1))
+                        data_disk=$disk
+                        data_found=$device
+                        ;;
+                esac
+            done
+        done
+        # Duplicates or labels on different disks are not a safe boot target.
+        [ "$esp_count" -le 1 ] && [ "$data_count" -le 1 ] || return 2
+        if [ "$esp_count" -eq 1 ] && [ "$data_count" -eq 1 ]; then
+            [ "$esp_disk" = "$data_disk" ] || return 2
+            ESP_DEVICE=$esp_found
+            DATA_DEVICE=$data_found
+            return 0
+        fi
+        attempts=$((attempts + 1))
+        [ "$attempts" -lt 12 ] || break
+        sleep 1
+    done
+    return 1
+}
+
+resolve_portable_devices /sys/block /dev ||
+    rescue "missing, duplicated, or mismatched ORDAX-ESP/ORDAX-DATA volumes"
 mount -t vfat -o ro,nodev,nosuid "$ESP_DEVICE" "$ESP_MOUNT" ||
     rescue "cannot mount ORDAX-ESP read-only"
 
@@ -77,11 +127,6 @@ mount -t vfat -o ro,nodev,nosuid "$ESP_DEVICE" "$ESP_MOUNT" ||
 RECOVERY_MODE=0
 case " $(cat /proc/cmdline 2>/dev/null || true) " in
     *" ordax.mode=recovery "*) RECOVERY_MODE=1 ;;
-esac
-
-DATA_DEVICE="$(findfs LABEL=ORDAX-DATA 2>/dev/null || true)"
-case "$DATA_DEVICE" in
-    "") rescue "ORDAX-DATA partition not found" ;;
 esac
 
 case "$RECOVERY_MODE" in
