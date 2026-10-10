@@ -116,9 +116,15 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         ):
             self.assertNotIn(code, blockers)
 
-        # A valid custom domain alone never enables the account runtime.
+        # Vercel production env presence was verified in the sole official
+        # project; it is no longer an absence blocker, but *presence* cannot
+        # prove OIDC E2E, registered auth routes or an enabled account.
+        self.assertTrue(
+            preflight.load_json(ROOT, preflight.DEPLOYMENT)
+            ["vercel_migration"]["target_project_environment_variables_present"]
+        )
+        self.assertNotIn("vercel-production-environment", blockers)
         for code in (
-            "vercel-production-environment",
             "vercel-production-account-routes",
             "vercel-production-oidc-proof",
             "vercel-canonical-origin-binding",
