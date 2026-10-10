@@ -63,7 +63,7 @@ Four concepts must stay separate:
 3. **Installed-state SSOT** — for independently delivered `component-slot` apps, the canonical truth is the verified `current` activation owned by `ordax-runtime-component-channel`. A staged or cached slot is not an installation, and Store never keeps a second installed-app database.
 4. **Delivery projection** — `verified-store-projection.mjs` combines verified catalog metadata, the read-only current activation projection and first-party delivery policy into `ordax.app-store-catalog/2`. It persists no inventory and mints no authority.
 
-The Surface may project an absent, catalogued app as `available`. That never makes it launchable. A recommended absent app can open an install/details experience, but execution requires a verified payload supplied either by the current signed Stable release or by a future verified independent component slot.
+The Surface may project an absent or explicitly removed, catalogued app as `available` for **manual** reinstall. Native `source:removed` and ordinary `source:absent` are distinct observations derived from the same signed component channel; they are never a separate installed-state database. A removed app must not become eligible for automatic first-run installation merely because Store shows a verified candidate. That never makes it launchable. A recommended absent app can open an install/details experience, but execution requires a verified payload supplied either by the current signed Stable release or by a future verified independent component slot.
 
 ## Installation authority
 
