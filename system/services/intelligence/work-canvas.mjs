@@ -95,7 +95,9 @@ export function projectPersonalWorkCanvas(snapshotValue, contextValue) {
     entry.workItemId === work.id && entry.status === "uncertain");
   let state = STATES[work.state] ?? "unavailable";
   if (work.state === "completed" && result === null) state = "unavailable";
-  if (uncertain) state = "requires-action";
+  const revoked = snapshot.approvals.some((entry) =>
+    entry.workItemId === work.id && entry.status === "revoked");
+  if (uncertain || revoked) state = "requires-action";
   const visible = events.slice(-MAX_VISIBLE_STEPS);
   const steps = Object.freeze(visible.map((event) => Object.freeze({
     schema: PERSONAL_ORDAX_ACTIVITY_SCHEMA,
