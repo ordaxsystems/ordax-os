@@ -14,6 +14,8 @@ export function projectIntelligenceConversationCapabilities(snapshot = null) {
     engineId: available ? current.engineId : null,
     modelId: available ? current.modelId : null,
     streamingSupported: false,
+    // Local client HTTP request can now abort; engine-side interruption is not proven.
+    transportCancellationSupported: available,
     backendCancellationSupported: false,
     resultDiscardSupported: true,
     authority: "none",
