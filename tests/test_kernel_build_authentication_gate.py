@@ -113,6 +113,31 @@ class KernelAuthenticationGateTests(unittest.TestCase):
         self.set_contract()
         self.assertEqual(self.load()["version"], "6.6.52")
 
+    def test_signed_source_accepts_base64_newline_only_after_real_verification(self):
+        archive = Path(self.tmp.name) / f"linux-{VERSION}.tar.xz"
+        archive.write_bytes(b"fake compressed source")
+        receipt = {"status": "verified", "trusted_primary_fingerprint": self.fingerprint_if_present()}
+        with (
+            mock.patch.object(
+                BUILDER, "download_authentication_input",
+                side_effect=[b"signature-bytes", b"a2V5\n"],
+            ),
+            mock.patch.object(BUILDER.UPSTREAM_SIGNATURE, "verify", return_value=receipt) as verify,
+            mock.patch.object(BUILDER, "SOURCE_CONTRACT", self.contract),
+        ):
+            observed = BUILDER.authenticate_upstream_archive(
+                self.source, archive, Path(self.tmp.name)
+            )
+        self.assertEqual(observed, receipt)
+        self.assertEqual(
+            (Path(self.tmp.name) / "kernel-maintainer-public-key.asc").read_bytes(),
+            b"key",
+        )
+        verify.assert_called_once()
+
+    def fingerprint_if_present(self):
+        return self.source["upstream_signature"]["trusted_primary_fingerprint"]
+
     def test_signed_build_requires_verified_receipt_before_extraction(self):
         archive = Path(self.tmp.name) / f"linux-{VERSION}.tar.xz"
         archive.write_bytes(b"fake compressed source")
