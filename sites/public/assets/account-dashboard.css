@@ -191,7 +191,7 @@
   .account-navigation nav { grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
   .navigation-support { margin-top:16px; padding-top:16px; }
   .navigation-art { display:none; }
-  .account-enhanced .account-mobile-nav { position:fixed; z-index:6; bottom:0; left:0; right:0; display:grid; grid-template-columns:repeat(4,1fr); padding:8px 12px calc(8px + env(safe-area-inset-bottom)); background:var(--ordax-app-bg); border-top:1px solid var(--ordax-border-soft); }
+  .account-enhanced .account-mobile-nav { position:fixed; z-index:6; bottom:0; left:0; right:0; display:grid; grid-template-columns:repeat(3,1fr); padding:8px 12px calc(8px + env(safe-area-inset-bottom)); background:var(--ordax-app-bg); border-top:1px solid var(--ordax-border-soft); }
   .account-mobile-nav a,.account-mobile-nav button { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:5px; background:transparent; border:0; color:var(--ordax-muted); min-height:50px; font-size:10px; border-radius:var(--ordax-radius-md); cursor:pointer; }
   .account-mobile-nav a[aria-current="location"],.account-mobile-nav button[aria-expanded="true"] { background:var(--ordax-selected-bg); color:var(--ordax-text); }
   .account-profile { grid-template-columns:1fr; gap:16px; background-position:70% center; }
@@ -251,9 +251,8 @@
   .account-viewport-overview .account-navigation .navigation-support { border:0; padding:0; margin:0; }
   .account-viewport-overview .navigation-support>.eyebrow { display:none; }
   .account-viewport-overview.account-menu-open .account-navigation { background:var(--ordax-bg); }
-  .account-mobile-nav a[aria-current="location"] { background:transparent; position:relative; color:var(--ordax-brand-blue); }
-  .account-mobile-nav a[aria-current="location"] .account-icon { width:32px; height:32px; padding:6px; border:1px solid var(--ordax-brand-blue); border-radius:50%; background:linear-gradient(145deg,var(--ordax-brand-blue),var(--ordax-brand-violet)); color:var(--ordax-text); box-shadow:0 0 12px color-mix(in srgb,var(--ordax-brand-blue) 50%,transparent); }
-  .account-mobile-nav a[aria-current="location"]::after { content:""; position:absolute; bottom:0; width:22px; height:2px; border-radius:2px; background:var(--ordax-brand-blue); }
+  .account-mobile-nav .mobile-web-entry { background:transparent; position:relative; color:var(--ordax-brand-blue); }
+  .account-mobile-nav .mobile-web-entry .account-icon { width:32px; height:32px; padding:6px; border:1px solid var(--ordax-brand-blue); border-radius:50%; background:linear-gradient(145deg,var(--ordax-brand-blue),var(--ordax-brand-violet)); color:var(--ordax-text); box-shadow:0 0 12px color-mix(in srgb,var(--ordax-brand-blue) 50%,transparent); }
   .card-heading h2 { font-size:13px; }
   .card-summary { margin:4px 0 0 31px; font-size:11px; }
   .account-content:not([data-view="visao-geral"]) .account-card { padding:20px; }

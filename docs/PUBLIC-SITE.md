@@ -87,7 +87,7 @@ The phone overview follows the concept's compact profile rather than shrinking
 the desktop landscape hero: a neutral circular avatar, account label and the
 same native session disclosure in a 90px closed card. It then presents three
 primary shortcuts with compact labels, a continuous service list and a circular
-active Account control in the bottom navigation. All eleven sections, session
+primary Web entry in the bottom navigation. All eleven sections, session
 states and detailed explanations use the existing DOM and owners. No portrait,
 name, plan badge, notification count or device metric is fabricated. Desktop
 keeps its landscape/card composition; the phone viewport proof also rejects a
@@ -105,7 +105,12 @@ link and Escape returns focus to its trigger. Desktop remains unrestricted.
 Phone typography, spacing, dark token-based backgrounds, compact profile, service
 chevrons and rounded last visible row follow the approved concept. The browser
 gate checks both row fit and an available More destination for every overflow
-section, including the separate Web-entry link.
+section, including the Web availability section. The mobile bar prioritizes the gated
+`/web/` entry at its center, between Home and More. This primary shortcut does
+not claim Web is the current page or that its runtime is available. My account
+remains in More in addition to services outside the viewport; that link reuses
+the existing overview section. The header profile remains owned by verified
+session navigation.
 
 The same entrypoint is reproducible locally after building the public artifact:
 
