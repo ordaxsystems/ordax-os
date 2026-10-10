@@ -43,116 +43,44 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ## Route ownership
 
-### My account and Web entry — 2026-10-09 source candidate
+### Minha Conta — composição e owners atuais (2026-10-10)
 
-The user-approved account concept is implemented as a responsive product-facing
-dashboard: desktop lateral navigation and cards; mobile account shortcuts,
-compact service rows, section detail and a single shared navigation menu. Profile
-and session, plan, security, devices, storage/sync, integrations, preferences,
-activity/notifications, billing, privacy, Web entry and support are covered.
-Only existing session/logout and portal locale actions are operational;
-unsupported services have explicit availability, with no simulated profile,
-2FA toggle, device count, billing record, cloud usage or notification feed.
-Search filters service content; section navigation preserves browser history,
-direct links and keyboard focus. JavaScript-free navigation remains readable.
+`sites/public/conta/index.html` define uma central de identidade e serviços;
+`assets/account-dashboard.css` é o owner da composição e
+`assets/account-portal.js` controla apenas apresentação, busca, hash e foco.
+O layout continua sobre a revisão da `main` publicada no preview Vercel
+`496805eef9baae45cf50698514e4e30fa9b6a9d6`, sem copiar um segundo frontend.
 
-The overview follows the approved viewport composition: a bounded 1440px shell,
-210px desktop rail, compact landscape profile banner and three service columns
-from 1200px. Narrow phones retain three primary shortcuts and a fixed bottom
-navigation; intermediate screens use two service columns. Session verification,
-sign-in and sign-out remain accessible through a native disclosure inside the
-profile banner. Extended service explanations remain in the section details;
-without JavaScript, all sections remain readable. Mobile search opens explicitly
-and Escape restores focus to its trigger; it does not crowd the profile header.
+A grade desktop tem três cartões prioritários alinhados (assinatura, consumo,
+faturamento), banner compacto e cartões de gerenciamento. O mobile apresenta
+perfil compacto, assinatura e consumo em largura total, pagamentos/segurança
+lado a lado e serviços em linhas. Os mesmos elementos e IDs atendem resumo,
+busca e detalhes. Os 12 serviços permanecem alcançáveis pela rolagem natural;
+não há recorte por altura nem catálogo paralelo para Mais.
 
-The Public Site Candidate workflow uses the existing isolated Chromium/CDP
-driver and canonical loopback preview server to verify actual 1440x900,
-1024x768, 390x844, 320x740 and 844x390 viewports. It checks horizontal overflow,
-section coverage, desktop columns, primary mobile alignment, session disclosure,
-detail focus and mobile search/Escape, and retains rendered PNGs plus a report.
-This is layout/interaction evidence, not live account-provider homologation.
-The account header follows the concept's dedicated composition: a 76px desktop
-bar with the canonical 42px mark, a bounded violet search field and compact
-notification, Web-entry and profile actions. The notification shortcut uses
-the existing section navigation; Web remains the gated product-entry page.
-The profile action reuses the existing verified header-session owner and a
-neutral user symbol instead of a fabricated portrait or another brand mark.
-Phones keep the brand, search, notification and profile on one compact row
-with a 68px minimum height;
-the search field expands only when requested. The orb is decorative, not a
-voice/AI control. Browser proof rejects an unexpectedly stacked header and
-verifies the notification shortcut's destination and keyboard focus.
+O cabeçalho mantém uma linha nos celulares, busca sob demanda, atividade e
+perfil. A barra mobile pertence à Conta: Resumo / Assinatura / Consumo / Mais.
+Mais reutiliza a navegação lateral e inclui acesso ao site e à entrada `/web/`,
+que mantém autenticação e disponibilidade próprias. Escape fecha Mais/busca
+e restaura foco. A sessão nativa e os controles de dados pessoais ficam
+juntos abaixo da identidade; abrir a sessão expande os dados sem sobreposição.
+Todos os alvos de ação mantêm área de toque de pelo menos 44px.
 
-The account page has a single heading, followed by a plain native session
-disclosure instead of a repeated profile card or avatar. The disclosure keeps
-verified session, email, login and logout under their existing Identity owner.
-Phone primary shortcuts retain compact labels and a continuous service list;
-desktop retains the service card grid. All eleven sections and detailed
-explanations use the existing DOM. No profile, plan badge, notification count
-or device metric is fabricated. Without JavaScript, content remains readable.
+Símbolo, paisagem, fonte e cores vêm do pipeline canônico de branding da
+Surface. Não existe paleta ou imagem de usuário paralela. A sessão, e-mail,
+saída e catálogo comercial pertencem aos owners existentes; nome/foto,
+assinatura ativa, preços, créditos, quotas, uso, cobrança, dispositivos e
+permissões não são presumidos. Indicadores decorativos não representam
+percentuais de consumo. Indisponibilidade aparece explicitamente quando o
+respectivo serviço não está confirmado. Sem JavaScript, o conteúdo continua
+legível. Dados de sessão são apagados antes de revalidação/bfcache.
 
-The phone overview now distributes services by measured viewport space, rather
-than a fixed duplicated menu catalog. After rendering the shared cards, the
-presentation owner keeps complete rows above the existing bottom navigation
-and maps overflow sections to their existing sidebar links under More. Resizing,
-font readiness, locale changes, search expansion and session disclosure recompute
-the allocation. Search and deep-linked detail views retain all content and normal
-scrolling; JavaScript-free content is not clipped. More focuses its first visible
-link and Escape returns focus to its trigger. Desktop remains unrestricted.
-Phone typography, spacing, dark token-based backgrounds, service
-chevrons and rounded last visible row follow the approved concept. The browser
-gate checks both row fit and an available More destination for every overflow
-section, including the Web availability section. The mobile bar prioritizes the gated
-`/web/` entry in a four-action bar: Home, OrdaX Web, Activity and More.
-Home returns to the public site; Activity opens the existing account
-activity/notification section. Neither shortcut starts another service. This primary shortcut does
-not claim Web is the current page or that its runtime is available. My account
-remains in More in addition to services outside the viewport; that link reuses
-the existing overview section. The header profile remains owned by verified
-session navigation.
-
-### Correção de fidelidade visual — account dashboard
-
-O concept de referência prioriza uma hierarquia editorial, não apenas quantidade
-de cartões. A apresentação usa o símbolo e a paisagem canônicos da Surface,
-banner de perfil com tipografia maior, cartão de planos destacado com arte,
-consumo com linhas visuais sem inventar quotas e estado honesto de faturamento.
-Os cartões secundários exibem ícone em superfície, título e descrição.
-Desktop mantém grade de três colunas; mobile empilha e utiliza barra própria
-com Resumo, Assinatura, Consumo e Mais, sem replicar o menu do OrdaX Web.
-Não há paleta alternativa, novo logotipo nem imagem de usuário fictícia.
-
-O e-mail no banner vem somente da sessão verificada já consumida em
-`sites/public/assets/site.js`, com limpezas de dados antes de cada
-revalidação e ao perder sessão. Ausência do provedor não vira nome presumido.
-Asserções visuais de navegador cobrem altura mínima de banner/cartões,
-arte canônica, textos secundários, ausência de vazamento de identidade
-e os cinco viewports existentes.
-
-### Atualização da Minha Conta — desktop e mobile (2026-10-10)
-
-Esta revisão substitui especificamente a composição antiga da visão geral e
-sua estratégia de ocultar serviços conforme a altura do celular. O portal
-`/conta/` agora é uma **central de identidade e serviços contratados**:
-cabeçalho e banner de perfil, três cartões prioritários (assinatura,
-consumo e faturamento) e atalhos para dados pessoais, segurança, dispositivos
-autorizados, privacidade, integrações autorizadas, preferências, atividade,
-armazenamento e suporte. Navegação lateral desktop é exclusiva da Conta.
-No celular a barra inferior tem **Resumo / Assinatura / Consumo / Mais**,
-sem replicar Apps, Projetos nem o menu principal do OrdaX Web. Todos os
-serviços podem ser alcançados rolando a página ou pelo menu Mais;
-não há corte baseado no viewport. O OrdaX Web conserva seu link global
-independente no cabeçalho e sua autenticação/autorização próprias.
-
-O estado de sessão, e-mail autenticado, saída, catálogo comercial e idioma
-continuam sob seus respectivos donos. Não se presume nome, foto, assinatura
-ativa, cobrança, crédito, quota, uso, dispositivo ou conexão autorizada
-sem dados oficiais. Elementos de consumo e faturamento exibem indisponibilidade
-explícita quando não há serviço confirmado. A experiência sem JavaScript
-permanece legível e os deep links mantêm hash, foco e histórico.
-A prova browser-smoke verifica 12 seções, grupos prioritários, navegação
-da conta, busca, detalhe e overflow horizontal nas cinco resoluções.
-A prova em navegador não substitui homologação de serviços pagos reais.
+A prova existente de Chromium/CDP verifica desktop, tablet, quatro tamanhos de
+celular (incluindo 320x568) e orientação horizontal, com PNGs e relatório.
+Verifica alinhamento, ausência de overflow horizontal, cobertura de seções,
+banner, menu, sessão, busca, deep links, detalhes e foco. Os testes de sessão
+validam os gates e a limpeza de dados. Essas evidências não homologam serviços
+pagos nem ativam o produto Web em produção.
 
 The same entrypoint is reproducible locally after building the public artifact:
 

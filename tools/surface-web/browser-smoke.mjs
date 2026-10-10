@@ -1227,7 +1227,7 @@ async function provePublicAccount(client, url, evidenceDir) {
     return reply.result?.value;
   }
   const reports = [];
-  for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['landscape',844,390]]) {
+  for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['short',320,568],['wide-phone',430,932],['landscape',844,390]]) {
     await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
     await client.send('Page.navigate', { url });
     const deadline = Date.now() + 30_000;
@@ -1260,9 +1260,13 @@ async function provePublicAccount(client, url, evidenceDir) {
         columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
         profileHeight:box(profile).height,
         accountBanner:!!profile.querySelector('.account-profile-intro'),
-        heroMinHeight:box(profile).height>=145,
+        heroMinHeight:box(profile).height>=130 && box(profile).height<=190,
         decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
-        accountCardMinHeight:box(cards[0]).height>=(phone?150:230),
+        accountCardMinHeight:box(cards[0]).height>=(phone?150:210),
+        touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].every(element=>box(element).height>=44),
+        mobileBillingPair:!phone || Math.abs(box(cards[2]).top-box(document.getElementById('seguranca')).top)<2,
+        desktopCardAlignment:innerWidth<1200 || Math.abs(box(cards[0]).height-box(cards[2]).height)<2,
+        mobileWebReachable:!!document.querySelector('#account-navigation a[href="/web/"]'),
         managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
         verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
           document.querySelector('[data-account-hero-email]').textContent.trim()==='',
@@ -1278,10 +1282,10 @@ async function provePublicAccount(client, url, evidenceDir) {
       };
     })()`);
     if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
-        !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
+        !report.touchTargets || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
         !report.mobileSearchCollapsed || report.headerHeight > 80 ||
         (width === 1440 && report.columns !== 3) ||
-        (width < 600 && report.columns !== 1) ||
+        (width < 600 && report.columns !== 2) ||
         (width > 1199 && !report.primaryTilesAligned)) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
@@ -1312,6 +1316,16 @@ async function provePublicAccount(client, url, evidenceDir) {
       if (!await evaluate('document.activeElement.matches("[data-account-search]")')) throw new Error('mobile search did not focus');
       await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
       if (!await evaluate('document.activeElement.matches("[data-account-search-toggle]") && !document.body.classList.contains("account-search-open")')) throw new Error('mobile search Escape failed');
+    }
+    if (width <= 600) {
+      await evaluate(`document.querySelector('#account-navigation a[href="#visao-geral"]').click(); window.OrdaXPublicI18n.setLocale('en-US')`);
+      await sleep(100);
+      const englishFits = await evaluate('document.documentElement.scrollWidth<=innerWidth && document.querySelector(".account-header").getBoundingClientRect().height<=80');
+      if (!englishFits) throw new Error(`${name} English layout overflowed`);
+      const englishShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+      await writeFile(join(evidenceDir, `account-${name}-en.png`), Buffer.from(englishShot.data, 'base64'));
+      await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
+      report.englishFits = englishFits;
     }
     reports.push({ name, ...report, detailAndFocus: detail });
   }

@@ -643,6 +643,7 @@
     ["Assinaturas pagas ainda não estão disponíveis.","Paid subscriptions are not yet available."],
     ["Seu plano e seus limites precisam ser confirmados pelo serviço da conta. Nenhum plano é atribuído por esta página.","Your plan and limits must be verified by the account service. This page does not assign a plan."],
     ["Revise sua sessão e os métodos de acesso.","Review your session and sign-in methods."],
+    ["Sessão","Session"],
     ["Sessão neste navegador","Session in this browser"],
     ["Verificar sessão","Check session"],
     ["Autenticação em duas etapas","Two-factor authentication"],
