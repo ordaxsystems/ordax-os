@@ -377,3 +377,81 @@
  .account-menu-open::before{background:Canvas;opacity:.8}
  .account-profile-avatar,.card-heading>.account-icon{background:Canvas;box-shadow:none}
 }
+
+/* Lovable overview composition — public portal only; brand and data remain canonical. */
+.account-heading-signature,.account-heading-mark,.account-heading-dot{display:none}
+.account-content[data-view="visao-geral"] .account-heading{
+  position:relative;isolation:isolate;overflow:hidden;min-height:205px;
+  display:flex;align-items:center;padding:clamp(20px,2.5vw,32px);
+  border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-xl);
+  background:linear-gradient(95deg,var(--ordax-bg) 0%,color-mix(in srgb,var(--ordax-bg) 94%,transparent) 35%,color-mix(in srgb,var(--ordax-bg) 18%,transparent) 100%),
+    url("/assets/ordax-landscape.png") right 45% / cover no-repeat;
+  box-shadow:var(--ordax-shadow-soft);
+}
+.account-content[data-view="visao-geral"] .account-heading::after{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at 78% 40%,color-mix(in srgb,var(--ordax-brand-blue) 15%,transparent),transparent 46%);
+}
+.account-heading-copy{position:relative;z-index:1;min-width:0}
+.account-content[data-view="visao-geral"] .account-heading .eyebrow{
+  display:block;margin:0 0 12px;color:var(--ordax-accent);
+}
+.account-content[data-view="visao-geral"] .account-heading h1{
+  font-size:clamp(31px,3.6vw,48px);line-height:1.1;margin-bottom:12px;
+}
+.account-content[data-view="visao-geral"] .account-heading-dot{
+  display:inline;color:var(--ordax-brand-blue);
+}
+.account-content[data-view="visao-geral"] .account-heading p:last-of-type{
+  max-width:450px;color:var(--ordax-text);font-size:clamp(13px,1.2vw,15px);
+}
+.account-content[data-view="visao-geral"] .account-heading-signature{
+  display:block;margin-top:22px;color:var(--ordax-muted);font-size:10px;font-weight:650;letter-spacing:.13em;
+}
+.account-content[data-view="visao-geral"] .account-heading-mark{
+  display:block;position:absolute;right:clamp(20px,7vw,90px);top:50%;
+  width:116px;height:116px;transform:translateY(-50%);
+  opacity:.62;filter:drop-shadow(0 0 20px color-mix(in srgb,var(--ordax-brand-blue) 48%,transparent));
+  pointer-events:none;
+}
+/* A real zero-data chart: a grid and message, never fabricated metrics or series. */
+.account-usage-visual{
+  margin-top:var(--ordax-space-4);padding:13px;
+  border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);
+  background:color-mix(in srgb,var(--ordax-app-bg) 78%,transparent);
+}
+.account-usage-visual-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:650}
+.account-usage-visual-period{color:var(--ordax-muted);font-size:11px;font-weight:450}
+.account-usage-visual-plot{
+  position:relative;display:grid;place-items:center;min-height:125px;margin-top:10px;overflow:hidden;
+}
+.account-usage-visual-grid{
+  position:absolute;inset:4px 0 0;opacity:.58;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,var(--ordax-border-soft) 0 1px,transparent 1px 30px);
+}
+.account-usage-visual-empty{
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;min-width:0;max-width:100%;padding:10px 12px;text-align:center;
+  color:var(--ordax-muted);font-size:11px;
+  background:color-mix(in srgb,var(--ordax-app-bg) 86%,transparent);
+  border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-sm);
+}
+.account-usage-visual-empty .account-icon{color:var(--ordax-accent);width:20px;height:20px}
+.account-usage-visual-empty strong{font-size:12px;color:var(--ordax-text);font-weight:600}
+@media(max-width:900px){
+  .account-content[data-view="visao-geral"] .account-heading{min-height:188px}
+  .account-content[data-view="visao-geral"] .account-heading-mark{right:25px;width:82px;height:82px;opacity:.4}
+}
+@media(max-width:600px){
+  .account-content[data-view="visao-geral"] .account-heading{
+    min-height:174px;padding:20px 18px;background-position:center,right center;background-size:auto,auto 240px;
+  }
+  .account-content[data-view="visao-geral"] .account-heading h1{font-size:30px}
+  .account-content[data-view="visao-geral"] .account-heading .eyebrow{margin-bottom:8px;font-size:9px}
+  .account-content[data-view="visao-geral"] .account-heading-signature{margin-top:14px;font-size:8px;letter-spacing:.1em}
+  .account-content[data-view="visao-geral"] .account-heading-mark{right:8px;width:65px;height:65px;opacity:.24}
+  .account-usage-visual{padding:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .account-usage-visual *{animation:none;transition:none}
+}
