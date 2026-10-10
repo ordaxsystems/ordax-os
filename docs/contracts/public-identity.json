@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-entry/1",
-  "status": "provider-adapter-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-legal-policy-pending-registration-disabled-close-disabled",
+  "status": "canonical-identity-source-auth-only-full-account-pending",
   "purpose": "public-site-account-entry-boundary",
   "routes": {
     "login_page": "/login/",
@@ -43,6 +43,7 @@
   },
   "backend": {
     "gateway_boundary": "services/public-identity/README.md",
+    "canonical_supabase_destination_contract": "infra/supabase/product/account_destination_migration_plan.json",
     "provider_adapter_preparation": "infra/supabase/identity",
     "provider_configured": false,
     "dedicated_or_isolated_target_required": true,
@@ -131,18 +132,6 @@
     "native_direct_auth_rate_limit_raw_ip_persisted": false,
     "public_login_legal_receipt_guard_deployed": true,
     "public_login_legal_receipt_guard_deployment_revision_observed": 28
-  },
-  "supabase_candidate": {
-    "status": "dedicated-target-schema-and-edge-gateway-deployed",
-    "project_name": "ordax-control-plane",
-    "project_ref": "eobcxuyvhkvdmkbaihwh",
-    "preflight": "infra/supabase/identity/preflight.sql",
-    "migration_root": "infra/supabase/product/migrations",
-    "product_schema_applied": true,
-    "public_auth_enabled": false,
-    "existing_shared_project_mutation_allowed": false,
-    "previous_shared_project_rejected": true,
-    "password_provider_adapter_implemented": true
   },
   "legal_readiness": {
     "contract": "docs/contracts/public-legal-readiness.json",

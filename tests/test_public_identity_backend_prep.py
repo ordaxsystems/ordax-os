@@ -17,7 +17,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         contract = json.loads(IDENTITY_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "provider-adapter-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-legal-policy-pending-registration-disabled-close-disabled",
+            "canonical-identity-source-auth-only-full-account-pending",
         )
         self.assertFalse(contract["backend"]["provider_configured"])
         self.assertTrue(contract["backend"]["password_auth_flow_implemented"])
@@ -113,11 +113,16 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["password_recovery_completion_flow_implemented"])
         self.assertFalse(contract["backend"]["password_recovery_completion_enabled"])
         self.assertFalse(contract["backend"]["password_recovery_email_template_applied"])
-        candidate = contract["supabase_candidate"]
-        self.assertEqual(candidate["project_name"], "ordax-control-plane")
-        self.assertTrue(candidate["product_schema_applied"])
-        self.assertFalse(candidate["public_auth_enabled"])
-        self.assertFalse(candidate["existing_shared_project_mutation_allowed"])
+        # Only the canonical migration/destination plan owns the provider.
+        # Old project refs must not survive in a second identity contract.
+        self.assertNotIn("supabase_candidate", contract)
+        destination_path = ROOT / contract["backend"]["canonical_supabase_destination_contract"]
+        destination = json.loads(destination_path.read_text(encoding="utf-8"))
+        self.assertEqual(destination["destination_project_name"], "ordax-platform")
+        self.assertEqual(destination["destination_project_ref"], "jhfphsjptrpmtnzkpwud")
+        self.assertNotIn("ordax-control-plane", json.dumps(contract))
+        self.assertNotIn("eobcxuyvhkvdmkbaihwh", json.dumps(contract))
+        self.assertFalse(destination["parallel_identity_write_allowed"])
 
     def test_gateway_boundary_does_not_claim_live_public_provider(self):
         text = SERVICE_README.read_text(encoding="utf-8")

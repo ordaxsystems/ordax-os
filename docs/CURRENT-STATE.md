@@ -1,5 +1,26 @@
 # Current State
 
+## Development vs. public legal attestation — 2026-10-10
+
+The canonical `MVP.md` and
+`docs/contracts/public-legal-readiness.json` now distinguish **source
+development and integration** from **publication of an online Account flow**.
+The public-site candidate and all OS/USB/Native/Apps/Studio/Runtime builds do
+not require live legal-policy attestation to proceed. The separate
+`public-legal-integrity` workflow still runs strict production attestation on
+its schedule or when manually requested. The active policy's published HTML
+digest mismatch remains a **public signup/release** issue, not a gate on
+source/CI or offline USB development. See `docs/PUBLIC-LEGAL-READINESS.md`.
+
+The identity entry contract no longer carries the retired
+`supabase_candidate` project: its sole provider destination owner is
+`infra/supabase/product/account_destination_migration_plan.json`
+(`ordax-platform`). Runtime policy state is verified live; three stale
+source-level false values for policy activation/visibility were removed.
+This changes **no authentication credentials, tables, real user records,
+legal receipts or public-account activation flags**.
+
+
 ## Public deployment proof — 2026-10-10
 
 `ordax.com.br` serves the public portal deployed from `7d5b4d4` (production
