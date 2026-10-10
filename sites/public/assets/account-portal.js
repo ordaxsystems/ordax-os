@@ -5,6 +5,7 @@
   if (!content) return;
   const cards = [...document.querySelectorAll("[data-account-card]")];
   const overview = document.querySelector("[data-account-overview]");
+  const overviewHeading = document.querySelector("[data-account-overview-heading]");
   const search = document.querySelector("[data-account-search]");
   const back = document.querySelector("[data-account-back]");
   const empty = document.querySelector("[data-account-no-results]");
@@ -57,6 +58,7 @@
     content.dataset.searching = String(searching);
     if (servicesHeading) servicesHeading.hidden = searching || view !== "visao-geral";
     overview.hidden = searching || view !== "visao-geral";
+    if (overviewHeading) overviewHeading.hidden = searching || view !== "visao-geral";
     back.hidden = view === "visao-geral" && !searching;
     let visible = 0;
     for (const card of cards) {
