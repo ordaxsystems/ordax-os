@@ -15,10 +15,10 @@
 #include <unistd.h>
 
 /* Minimal early-boot RGB565 framebuffer renderer. No codec or service dependency. */
-#define SRC_W 640U
-#define SRC_H 360U
+#define SRC_W 1280U
+#define SRC_H 720U
 #define FRAME_BYTES (SRC_W * SRC_H * 2U)
-#define FRAME_INTERVAL_NS 83333333L
+#define FRAME_INTERVAL_NS 41666667L
 static volatile sig_atomic_t stopped;
 static void on_stop(int sig) {(void)sig; stopped=1;}
 static uint32_t convert_color(uint16_t p, const struct fb_var_screeninfo *v) {
