@@ -53,14 +53,23 @@ enquanto novos commits da `main` eram publicados separadamente.
    `ordax-os-public-tau.vercel.app`,
    `ordax-os-public-ordaxsystems.vercel.app` e
    `ordax-os-public-git-main-ordaxsystems.vercel.app`
-   foram configurados pelo **mecanismo de alias nativo da Vercel**,
-   todos com `redirect=ordax.com.br`. A verificação real confirmou
-   **307** em `/conta/` e `/auth/session` no alias `tau`,
-   chegando a `https://ordax.com.br`. O redirect nativo ocorre
-   antes de servir HTML estático; uma primeira tentativa de
-   `vercel.json redirects` cobria o proxy, mas não `/conta/`.
-   Essa regra duplicada foi retirada do código. Endereços imutáveis
-   de preview continuam sujeitos à proteção Vercel Authentication/SSO.
+   são redirecionados por **três regras de rota no projeto Vercel**
+   (Routing Rules; versão live
+   `39e67bd6-f57a-454a-bb1b-65cdcdcb9849`).
+   Todas usam host exato, `src=/(.*)`,
+   `dest=https://ordax.com.br/$1` e HTTP **307**.
+   A prova HTTP real confirmou redirecionamento em
+   `/conta/`, `/auth/session`, `/login/` e
+   `/conta/?tab=seguranca`, preservando caminho e query.
+   Endereços imutáveis de preview mantêm Vercel SSO.
+
+   Duas tentativas menos adequadas foram **retiradas do owner**:
+   `vercel.json redirects` não interceptou páginas estáticas,
+   e `assign_alias(redirect=...)` foi removido automaticamente
+   do alias principal pela publicação Git seguinte. Não tratar
+   redirects de deployment como estado do projeto. A solução
+   atual reside exclusivamente nas Routing Rules do projeto,
+   persistentes entre deploys e independentes da branch.
 4. Contrato `docs/contracts/public-site-deployment.json`
    atualiza apenas fatos verificados: Git deixou de ficar
    congelado e as variáveis de ambiente de produção e
@@ -71,9 +80,10 @@ enquanto novos commits da `main` eram publicados separadamente.
 ## Critérios de aceitação
 
 - Os testes novos `test_public_canonical_host_redirects.py`
-  exigem a configuração de alias nativa declarada no contrato de
-  implantação, **nenhum redirect duplicado em `vercel.json`**,
-  e os mesmos rewrites canônicos de Account.
+  exigem o owner de **Routing Rules do projeto** declarado no
+  contrato de implantação, regex com captura de caminho, hosts
+  exatos, **nenhum redirect duplicado em `vercel.json`** e os
+  mesmos rewrites canônicos de Account.
 - Os testes existentes `test_public_site_deployment.py`
   confirmam Git deploy habilitado, filtro por fontes públicas,
   build ao alterar Site e fail-safe por histórico não disponível.

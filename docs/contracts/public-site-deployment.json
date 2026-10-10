@@ -27,7 +27,10 @@
     "target_git_repository": "ordaxsystems/ordax-os",
     "target_project_assigned_domain": "ordax-os-public-tau.vercel.app",
     "target_project_assigned_domain_verified": true,
-    "canonical_public_alias_redirect_owner": "vercel-project-alias",
+    "canonical_public_alias_redirect_owner": "vercel-project-routing-rules",
+    "canonical_public_alias_redirect_route_src": "/(.*)",
+    "canonical_public_alias_redirect_route_dest": "https://ordax.com.br/$1",
+    "canonical_public_alias_redirect_route_has_exact_host": true,
     "canonical_public_alias_redirect_target": "ordax.com.br",
     "canonical_public_alias_redirect_http_status": 307,
     "canonical_public_alias_redirects": [
