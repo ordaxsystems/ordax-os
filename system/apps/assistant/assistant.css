@@ -24,7 +24,8 @@
 }
 
 .ordax-assistant-description,
-.ordax-assistant-footnote {
+.ordax-assistant-footnote,
+.ordax-assistant-provider {
   margin: 6px 0 0;
   color: var(--ordax-muted);
   font-size: 0.72rem;
@@ -99,6 +100,12 @@
   font-size: 0.72rem;
 }
 
+.ordax-assistant-notice {
+  margin: 0;
+  color: var(--ordax-muted);
+  font-size: 0.72rem;
+}
+
 .ordax-assistant-compose {
   display: grid;
   gap: 8px;
@@ -125,7 +132,8 @@
 }
 
 .ordax-assistant-clear,
-.ordax-assistant-send {
+.ordax-assistant-send,
+.ordax-assistant-discard {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--ordax-border);
@@ -145,13 +153,15 @@
 
 .ordax-assistant-compose textarea:focus-visible,
 .ordax-assistant-clear:focus-visible,
-.ordax-assistant-send:focus-visible {
+.ordax-assistant-send:focus-visible,
+.ordax-assistant-discard:focus-visible {
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
 }
 
 .ordax-assistant-clear:disabled,
 .ordax-assistant-send:disabled,
+.ordax-assistant-discard:disabled,
 .ordax-assistant-compose textarea:disabled {
   opacity: 0.48;
   cursor: not-allowed;
@@ -171,7 +181,8 @@
   }
 
   .ordax-assistant-clear,
-  .ordax-assistant-send {
+  .ordax-assistant-send,
+  .ordax-assistant-discard {
     flex: 1 1 auto;
   }
 }

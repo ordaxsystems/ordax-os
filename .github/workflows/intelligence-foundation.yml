@@ -12,6 +12,7 @@ on:
       - 'docs/INTELLIGENCE.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
+      - 'docs/contracts/intelligence-conversation-capabilities.json'
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/cloud-memory-sync-boundary.json'
@@ -28,6 +29,7 @@ on:
       - 'docs/contracts/intelligence-tools.json'
       - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
+      - 'system/contracts/intelligence-conversation-capabilities.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -79,6 +81,8 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_intelligence_conversation_capabilities.mjs'
+      - 'tests/test_assistant_conversation.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
       - 'tests/test_model_router_runtime.mjs'
       - 'tests/test_intelligence_artifact.mjs'
@@ -179,6 +183,7 @@ on:
       - 'docs/INTELLIGENCE.md'
       - 'docs/LOCAL-AI-TUNING.md'
       - 'docs/contracts/intelligence.json'
+      - 'docs/contracts/intelligence-conversation-capabilities.json'
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/memory.json'
       - 'docs/contracts/cloud-memory-sync-boundary.json'
@@ -195,6 +200,7 @@ on:
       - 'docs/contracts/intelligence-tools.json'
       - 'docs/contracts/semantic-index.json'
       - 'system/contracts/intelligence.mjs'
+      - 'system/contracts/intelligence-conversation-capabilities.mjs'
       - 'system/contracts/local-ai.mjs'
       - 'system/contracts/memory.mjs'
       - 'system/contracts/memory-store.mjs'
@@ -245,6 +251,8 @@ on:
       - 'tests/test_native_memory_integration.py'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_intelligence_runtime.mjs'
+      - 'tests/test_intelligence_conversation_capabilities.mjs'
+      - 'tests/test_assistant_conversation.mjs'
       - 'tests/test_intelligence_authorized_memory.mjs'
       - 'tests/test_model_router_runtime.mjs'
       - 'tests/test_intelligence_artifact.mjs'
@@ -439,6 +447,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_intelligence_runtime.mjs
+          node --test tests/test_intelligence_conversation_capabilities.mjs
           node --test tests/test_assistant_conversation.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs

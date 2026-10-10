@@ -7,6 +7,7 @@ import {
   validateIntelligenceSnapshot,
 } from "../../contracts/intelligence.mjs";
 
+import { projectIntelligenceConversationCapabilities } from "../../contracts/intelligence-conversation-capabilities.mjs";
 import { assertIdentitySessionPort, validateIdentitySessionSnapshot } from "../../contracts/identity-session.mjs";
 import { assertSpaceSelectionPort, validateSpaceSelectionSnapshot } from "../../contracts/space-selection.mjs";
 import { assertProfileActivationStatePort, validateProfileActivationState } from "../../contracts/profile-activation-state.mjs";
@@ -143,6 +144,8 @@ export function createAssistantConversationRuntime({
   let scopeKey = readConversationScope(identity, selection, activation);
   let scopeGeneration = 0;
   let requestInFlight = false;
+  let inferencePending = false;
+  let discardRequested = false;
   let messages = Object.freeze([]);
   let state = scopeKey === null
     ? "unavailable"
@@ -166,6 +169,10 @@ export function createAssistantConversationRuntime({
     toolExecution: false,
     persistence: "session",
     memoryCaptureState,
+    providerCapabilities: projectIntelligenceConversationCapabilities(intelligence?.getSnapshot() ?? null),
+    inferencePending,
+    discardRequested,
+    canDiscardPending: inferencePending && !discardRequested && !disposed,
   });
 
   const publish = () => {
@@ -261,8 +268,11 @@ export function createAssistantConversationRuntime({
           memoryCaptureState = "error";
         }
       }
-      append("user", prompt);
+      const submittedMessage = append("user", prompt);
       requestInFlight = true;
+      inferencePending = true;
+      discardRequested = false;
+      let wasDiscarded = false;
       state = "busy";
       lastError = null;
       publish();
@@ -274,9 +284,13 @@ export function createAssistantConversationRuntime({
           context: priorContext,
           maxTokens: 512,
         }));
+        inferencePending = false;
         reconcileScope();
         if (disposed || scopeGeneration !== generationAtStart) {
           throw new Error("Assistant conversation context changed");
+        }
+        if (discardRequested) {
+          throw new Error("Assistant response marked for discard");
         }
         append("assistant", response.text, {
           engineId: response.engineId,
@@ -325,6 +339,14 @@ export function createAssistantConversationRuntime({
         if (scopeGeneration !== generationAtStart) {
           throw new Error("Assistant conversation context changed");
         }
+        if (discardRequested) {
+          // The current inference port cannot abort generation. Drop only this
+          // session turn once it settles, without persisting model output.
+          messages = Object.freeze(messages.filter((message) => message.id !== submittedMessage.id));
+          lastError = "response-discarded";
+          wasDiscarded = true;
+          throw new Error("Assistant response discarded");
+        }
         state = runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
         if (state === "ready") state = "error";
         lastError = "response-failed";
@@ -332,13 +354,23 @@ export function createAssistantConversationRuntime({
         throw new Error("Assistant response failed");
       } finally {
         requestInFlight = false;
-        if (!disposed && scopeGeneration !== generationAtStart) {
+        inferencePending = false;
+        discardRequested = false;
+        if (!disposed && (scopeGeneration !== generationAtStart || wasDiscarded)) {
           state = scopeKey === null
             ? "unavailable"
             : runtimeState(validateIntelligenceSnapshot(intelligence.getSnapshot()));
           publish();
         }
       }
+    },
+    discardPendingResponse() {
+      assertAlive();
+      if (!requestInFlight || !inferencePending || discardRequested) return false;
+      discardRequested = true;
+      // No backend abort is available. Prevent another send until settlement.
+      publish();
+      return true;
     },
     clear() {
       assertAlive();
