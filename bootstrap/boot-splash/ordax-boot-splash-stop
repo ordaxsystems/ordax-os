@@ -1,0 +1,8 @@
+#!/bin/sh
+# Bounded handoff to compositor; never wait for a missing/stale splash.
+set -eu
+CONTROL_ROOT=${ORDAX_BOOT_CONTROL_ROOT:-/run/ordax-boot-splash}
+FIFO=$CONTROL_ROOT/stop
+[ -p "$FIFO" ] && [ ! -L "$FIFO" ] || exit 0
+/bin/busybox timeout -k 1 1 /bin/sh -c 'printf stop >"$1"' sh "$FIFO" 2>/dev/null || true
+exit 0
