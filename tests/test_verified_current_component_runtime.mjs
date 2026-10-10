@@ -1,17 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
-import { COMPONENT_SLOT_SOURCE_SCHEMA } from "../system/contracts/component-slot-source.mjs";
+import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { loadVerifiedCurrentComponentRuntime as load } from "../system/services/components/current-slot-loader.mjs";
 
 const revision = Object.freeze({
   componentId: "internet", state: "current", source: "slot", revision: 4,
   version: "0.3.0", sourceCommit: "a".repeat(40), entrypoint: "src/runtime.mjs", pendingHealth: null,
 });
-const source = Object.freeze({
-  schema: COMPONENT_SLOT_SOURCE_SCHEMA,
-  metadataUrl(id, state) { return `http://127.0.0.1:43121/__ordax/native/component-runtime?component=${id}&state=${state}`; },
-  runtimeUrl(rec) { return `http://127.0.0.1:43121/__ordax/native/component-module/${rec.componentId}/${rec.state}/${rec.version}/${rec.sourceCommit}/${rec.entrypoint}`; },
+const source = createNativeComponentSlotSource({
+  location: { href: "http://127.0.0.1:43121/" },
 });
 function fixture(states = [revision]) {
   let reads = 0, imports = 0, mounts = 0, destroys = 0, reported = null;
