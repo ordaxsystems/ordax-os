@@ -59,3 +59,19 @@ test("Surface reducer does not trust arbitrary app IDs or pretend catalog author
   const empty = createAppRuntimeCatalog({ external: [] });
   assert.equal(reduceSurfaceState(state, action, empty), state);
 });
+
+test("catalog removal prunes failed external windows without losing OS workspace or persistence", () => {
+  let state = createSurfaceState(host, {}, null, catalog);
+  state = reduceSurfaceState(state, action, catalog);
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" }, catalog);
+  state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" }, catalog);
+  state = reduceSurfaceState(state, action, catalog);
+  const withoutInstalledNotes = createAppRuntimeCatalog({ external: [] });
+  state = reduceSurfaceState(state, { type: "app.catalog.sync" }, withoutInstalledNotes);
+  assert.deepEqual(state.areas.map(area => area.windows.map(w => w.appId)), [["files"], []]);
+  assert.equal(state.areas[1].activeWindowId, null);
+  assert.equal(state.areas[0].activeWindowId, "files");
+  assert.equal(reduceSurfaceState(state, action, withoutInstalledNotes), state);
+  const snapshot = createWorkspaceSnapshot(state);
+  assert.deepEqual(snapshot.areas.map(area => area.windows.map(w => w.appId)), [["files"], []]);
+});
