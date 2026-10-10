@@ -5,6 +5,8 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Minha Conta OrdaX: dados pessoais, assinatura, consumo, pagamentos, segurança e privacidade.", "My OrdaX Account: personal details, subscriptions, usage, payments, security and privacy."],
+    ["Minha Conta", "My Account"],
     ["CONTA ORDA X / IDENTIDADE", "ORDA X ACCOUNT / IDENTITY"],
     ["Seu espaço começa pela sua identidade.", "Your space starts with your identity."],
     ["Consulte sua Conta OrdaX com sessão verificada pelo servidor. A página pública e o OrdaX Web permanecem experiências separadas.", "Access your OrdaX Account with a server-verified session. The public website and OrdaX Web remain separate experiences."],
