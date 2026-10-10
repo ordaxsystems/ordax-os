@@ -6,6 +6,9 @@ on:
     paths:
       - 'boot/esp/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/network/**'
       - 'bootstrap/release-acquisition/**'
@@ -26,6 +29,9 @@ on:
     paths:
       - 'boot/esp/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/network/**'
       - 'bootstrap/release-acquisition/**'

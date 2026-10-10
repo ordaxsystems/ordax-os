@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tests/test_kernel_build_environment_contract.py'
       - 'tests/test_kernel_reproducibility_ssot.py'
@@ -12,6 +15,9 @@ on:
   pull_request:
     paths:
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tests/test_kernel_build_environment_contract.py'
       - 'tests/test_kernel_reproducibility_ssot.py'
