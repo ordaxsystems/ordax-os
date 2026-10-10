@@ -105,6 +105,18 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             builder_change = commit("canonical site builder changed")
             self.assertEqual(ignored(releases_change, builder_change), 1)
 
+            # React account is part of this single public-site artifact.
+            # Both source and the reviewed prebuilt output must trigger Vercel.
+            write("sites/account-ui/lovable-original/src/account-entry.tsx", "export const account = true;")
+            account_source = commit("account React source changed")
+            self.assertEqual(ignored(builder_change, account_source), 1)
+            self.assertEqual(ignored(builder_change, account_source, "production"), 1)
+
+            write("sites/account-ui/prebuilt/index.html", "<div id='root'></div>")
+            account_bundle = commit("account React bundle changed")
+            self.assertEqual(ignored(account_source, account_bundle), 1)
+            self.assertEqual(ignored(account_source, account_bundle, "production"), 1)
+
     def test_cloudflare_exclusive_zone_is_active_with_independent_runtime_proof_pending(self):
         migration = self.contract["cloudflare_dns_migration"]
         self.assertEqual(migration["purpose"], "ordax-os-only")
