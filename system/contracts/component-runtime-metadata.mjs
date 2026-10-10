@@ -69,7 +69,7 @@ export function validateComponentRuntimeMetadata(
 
   if (
     state !== "current"
-    || !["absent", "bundled"].includes(value.source)
+    || !["absent", "bundled", "removed"].includes(value.source)
     || value.version !== null
     || value.sourceCommit !== null
     || value.entrypoint !== null
