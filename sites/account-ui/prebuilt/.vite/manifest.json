@@ -1,0 +1,24 @@
+{
+  "index.html": {
+    "file": "index-C6kwb45x.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "assets": [
+      "ordax-mark-CGR6QRLV.png",
+      "ordax-landscape-DDPozHSm.jpg"
+    ]
+  },
+  "src/assets/ordax-landscape.jpg": {
+    "file": "ordax-landscape-DDPozHSm.jpg",
+    "src": "src/assets/ordax-landscape.jpg"
+  },
+  "src/assets/ordax-mark.png": {
+    "file": "ordax-mark-CGR6QRLV.png",
+    "src": "src/assets/ordax-mark.png"
+  },
+  "style.css": {
+    "file": "style-CtOKXK7F.css",
+    "src": "style.css"
+  }
+}
