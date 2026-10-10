@@ -46,8 +46,10 @@ function fixture({
   if (state === "waiting-approval" || attemptStatus !== null) {
     event("approval-requested", "Aprovação solicitada", 2, { approvalId: "approval-a" });
   } else {
-    event(state === "completed" ? "completed" : state === "failed" ? "failed" : "progress",
-      "Estado confirmado", 3);
+    const completed = state === "completed";
+    event(completed ? "completed" : state === "failed" ? "failed" : "progress",
+      "Estado confirmado", completed ? 5 : 3,
+      { artifactRefs: completed && withResult ? ["result:result-a"] : [] });
   }
   if (attemptStatus !== null) {
     event("approval-resolved", "Aprovação concedida", 3, { approvalId: "approval-a" });
