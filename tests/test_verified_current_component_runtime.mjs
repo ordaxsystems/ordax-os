@@ -113,3 +113,21 @@ test("module URL with additional unverified path segments is rejected", async ()
   assert.equal(f.state().imports, 0);
   assert.match(f.state().reported.message, /escaped immutable Native namespace/);
 });
+
+test("a runtime resolving after mount timeout is destroyed, not leaked", async () => {
+  let finishMount;
+  let destroyed = 0;
+  const f = fixture();
+  const pending = f.run({
+    timeout: 100,
+    importModule: async () => ({ componentRuntime: {
+      schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
+      mount() { return new Promise((resolve) => { finishMount = resolve; }); },
+    } }),
+  });
+  assert.equal(await pending, null);
+  assert.match(f.state().reported.message, /mount timed out/);
+  finishMount({ destroy() { destroyed++; } });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(destroyed, 1);
+});

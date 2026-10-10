@@ -42,6 +42,34 @@ function canonicalMetadataUrl(source, componentId) {
   return url;
 }
 
+async function mountBounded(runtime, context, milliseconds, componentId) {
+  let expired = false;
+  let timer;
+  const pending = Promise.resolve()
+    .then(() => runtime.mount(context))
+    .then((value) => {
+      const mounted = validateMountedComponent(value, componentId);
+      if (expired) {
+        try { mounted.destroy(); } catch { /* app-owned cleanup is isolated */ }
+        throw new Error("Current component mount completed after its deadline");
+      }
+      return mounted;
+    });
+  try {
+    return await Promise.race([
+      pending,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          expired = true;
+          reject(new Error("Current component mount timed out"));
+        }, milliseconds);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function readCurrent(source, componentId, fetchImpl, timeout) {
   const url = canonicalMetadataUrl(source, componentId);
   const response = await bounded(
@@ -108,9 +136,7 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed before mount");
     }
-    mounted = validateMountedComponent(
-      await bounded(() => runtime.mount(context), limit, "mount"), id,
-    );
+    mounted = await mountBounded(runtime, context, limit, id);
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed during mount");
     }
