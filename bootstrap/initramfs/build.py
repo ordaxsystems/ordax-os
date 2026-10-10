@@ -1184,7 +1184,7 @@ def main() -> int:
             result = verify(args.out_dir)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
-    except (BuildError, OSError, subprocess.CalledProcessError) as exc:
+    except (BuildError, KERNEL_BUILD.BuildError, OSError, subprocess.CalledProcessError) as exc:
         print(f"initramfs-build: ERROR: {exc}", file=sys.stderr)
         return 1
 
