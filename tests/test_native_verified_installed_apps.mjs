@@ -7,6 +7,7 @@ import {
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
 import { APP_DATA_SCHEMA } from "../system/contracts/app-data.mjs";
+import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 import { installTrustedComponentContextProvider } from "../system/services/components/runtime-loader.mjs";
 import { createAppRuntimeCatalog } from "../system/apps/runtime-catalog.mjs";
 
@@ -185,12 +186,126 @@ test("mismatched trusted App Data identity is rejected before module load", asyn
   }
 });
 
+test("caller context cannot inject privileged file, AI, account or App Data ports", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  for (const key of ["fileSpace", "intelligence", "identitySessionPort", "appActivation", "appData"]) {
+    await assert.rejects(
+      () => mountNativeVerifiedInstalledApps({
+        installed, source, context: { root: {}, [key]: {} },
+      }),
+      /caller context cannot supply privileged ports/,
+      key,
+    );
+  }
+});
+
+test("inherited fields, accessors, symbols and non-enumerable grants are rejected", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  const inherited = Object.create({ fileSpace: { readTextFile() {} } });
+  inherited.root = {};
+  const hidden = Object.defineProperty({ root: {} }, "fileSpace", {
+    enumerable: false, value: {},
+  });
+  const getter = Object.defineProperty({ root: {} }, "surfaceLifecycle", {
+    get() { throw new Error("must not execute context getter"); },
+  });
+  for (const context of [inherited, hidden, getter, { root: {}, [Symbol("grant")]: 1 }]) {
+    await assert.rejects(
+      () => mountNativeVerifiedInstalledApps({ installed, source, context }),
+      /caller context cannot supply privileged ports/,
+    );
+  }
+});
+
+test("full Surface object cannot be passed as an external lifecycle", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  const localization = Object.freeze({
+    schema: "ordax.localization/2",
+    translate() { return ""; },
+    getLocale() { return "pt-BR"; },
+    getProfile() { return createLocaleProfile("pt-BR"); },
+    subscribe() { return () => {}; },
+  });
+  const scoped = {
+    schema: "ordax.surface-render-lifecycle/5",
+    localization,
+    subscribeRender() { return () => {}; },
+    getAppTarget() { return null; },
+    setAppTarget() {},
+  };
+  await assert.rejects(
+    () => mountNativeVerifiedInstalledApps({
+      installed, source,
+      context: { root: {}, surfaceLifecycle: { ...scoped, preferences: {} } },
+    }),
+    /minimal projection/,
+  );
+});
+
+test("nested Surface lifecycle getters are rejected before they execute", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  let invoked = false;
+  const nested = Object.defineProperty({
+    schema: "ordax.surface-render-lifecycle/5",
+  }, "getAppTarget", {
+    enumerable: true,
+    get() { invoked = true; return () => null; },
+  });
+  await assert.rejects(
+    () => mountNativeVerifiedInstalledApps({
+      installed, source, context: { root: {}, surfaceLifecycle: nested },
+    }),
+    /minimal projection/,
+  );
+  assert.equal(invoked, false);
+});
+
+test("valid minimal Surface context passes the broker without device grants", async () => {
+  const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
+  const localization = Object.freeze({
+    schema: "ordax.localization/2",
+    translate() { return ""; },
+    getLocale() { return "pt-BR"; },
+    getProfile() { return createLocaleProfile("pt-BR"); },
+    subscribe() { return () => {}; },
+  });
+  const lifecycle = Object.freeze({
+    schema: "ordax.surface-render-lifecycle/5",
+    localization,
+    subscribeRender() { return () => {}; },
+    getAppTarget() { return null; },
+    setAppTarget() {},
+  });
+  let sawMounted = false;
+  const mounts = await mountNativeVerifiedInstalledApps({
+    installed, source, context: Object.freeze({ root: "scoped-root", surfaceLifecycle: lifecycle }),
+    fetchImpl: async () => ({ ok: true, json: async () => metadata }),
+    importModule: async () => ({ componentRuntime: {
+      schema: COMPONENT_RUNTIME_SCHEMA, componentId: "notes", version: "0.4.3",
+      mount(context) {
+        assert.equal(context.root, "scoped-root");
+        assert.equal(context.surfaceLifecycle, lifecycle);
+        assert.equal(context.appData?.identity?.appId, "notes");
+        assert.deepEqual(
+          Object.keys(context).sort(),
+          ["appData", "root", "surfaceLifecycle"],
+        );
+        sawMounted = true;
+        return { destroy() {} };
+      },
+    } }),
+  });
+  assert.equal(sawMounted, true);
+  assert.deepEqual(mounts.mountedIds, ["notes"]);
+  mounts.destroy();
+});
+
 test("a caller cannot inject or override the host App Data port", async () => {
   const installed = createNativeVerifiedInstalledAppCatalog([item]).installed;
   await assert.rejects(
     () => mountNativeVerifiedInstalledApps({
       installed, source, context: { root: {}, appData: appDataPort() },
     }),
-    /caller context cannot supply App Data/,
+    /caller context cannot supply privileged ports/,
   );
 });
