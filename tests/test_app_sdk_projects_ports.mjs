@@ -23,9 +23,9 @@ async function json(path) {
   return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
 }
 
-test("App SDK 1.12 preserves the read-only Projects host boundary without raw Device Agent execution", async () => {
+test("App SDK 1.13 preserves the read-only Projects host boundary without raw Device Agent execution", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.12.0");
+  assert.equal(bundle.bundle_version, "1.13.0");
   assert.equal(bundle.authority, "none");
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
