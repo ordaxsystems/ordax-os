@@ -120,7 +120,19 @@ function fixture({ page = "cadastro", altered = null, oversized = false,
   return {
     state, form, legal, submit, requests,
     get challenges() { return challenges; },
-    async settle() { for (let i = 0; i < 16; ++i) await pause(); },
+    async settle() {
+      // WebCrypto's async digest may finish after 16 event-loop ticks under CI
+      // load. Observe the real terminal identity state instead of a timed guess.
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        if (state.dataset.status === "ready" || state.dataset.status === "unavailable") {
+          await pause();
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      throw new Error("identity-fixture-never-reached-terminal-state");
+    },
   };
 }
 
