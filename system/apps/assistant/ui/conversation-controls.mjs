@@ -1,8 +1,10 @@
 import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
+import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../../../contracts/personal-ordax.mjs";
+import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../../../contracts/personal-ordax-store.mjs";
 import { projectAssistantResultCanvas } from "./result-view-model.mjs";
-import { projectAssistantWorkStrip } from "./work-strip.mjs";
+import { projectAssistantWorkStrip, resolveAssistantWorkScope } from "./work-strip.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="assistant-conversation"]';
 
@@ -49,6 +51,48 @@ export function beginAssistantSubmission(conversation, draft) {
   return Object.freeze({ accepted, pending });
 }
 
+// User-initiated, foreground-only reasoning through the *existing*
+// Personal OrdaX Work runtime. This is NOT the Assistant chat submission,
+// a background workflow, or authorization to use tools.
+export function canRecordAssistantWork(personal, identityPort, selectionPort, snapshot, draft) {
+  if (!canSubmitAssistantDraft(snapshot, draft)
+    || draft.trim().length > PERSONAL_ORDAX_MAX_GOAL_CHARS
+    || personal?.schema !== PERSONAL_ORDAX_RUNTIME_SCHEMA
+    || typeof personal.getSnapshot !== "function"
+    || typeof personal.create !== "function"
+    || typeof personal.run !== "function"
+    || typeof identityPort?.getSnapshot !== "function"
+    || typeof selectionPort?.getSnapshot !== "function") return false;
+  try {
+    return resolveAssistantWorkScope(
+      personal.getSnapshot(), identityPort.getSnapshot(), selectionPort.getSnapshot(),
+    ) !== null;
+  } catch {
+    return false; // Invalid owner/Space/schema must not create a Work item.
+  }
+}
+
+export function beginAssistantRecordedWork(personal, identityPort, selectionPort, snapshot, draft) {
+  if (!canRecordAssistantWork(personal, identityPort, selectionPort, snapshot, draft)) {
+    return Object.freeze({ accepted: false, workItemId: null, pending: null });
+  }
+  const scope = resolveAssistantWorkScope(
+    personal.getSnapshot(), identityPort.getSnapshot(), selectionPort.getSnapshot(),
+  );
+  if (scope === null) return Object.freeze({ accepted: false, workItemId: null, pending: null });
+  // create() is synchronous and checks owner, Space and project authority
+  // again in Personal. The user pressed the dedicated Work button.
+  const item = personal.create(draft.trim(), { spaceId: scope.spaceId, projectId: null });
+  if (item.ownerKind !== scope.ownerKind || item.ownerId !== scope.ownerId
+    || item.spaceId !== scope.spaceId || item.projectId !== null) {
+    throw new Error("Personal Work returned an incompatible owner/Space scope");
+  }
+  // Always forward to Personal's foreground run(): its own Activity events,
+  // response receipt, errors and cancellation are the only source of status.
+  const pending = Promise.resolve().then(() => personal.run(item.id));
+  return Object.freeze({ accepted: true, workItemId: item.id, pending });
+}
+
 export function mountAssistantConversationControls(
   root,
   conversationValue,
@@ -64,6 +108,7 @@ export function mountAssistantConversationControls(
   const documentObject = root.ownerDocument;
   let destroyed = false;
   let draft = "";
+  let recordedWorkError = false;
   let mountedSlot = null;
 
   const workCards = () => {
@@ -318,6 +363,19 @@ export function mountAssistantConversationControls(
     send.dataset.assistantSend = "";
     send.disabled = !canSubmitAssistantDraft(snapshot, draft);
     actions.append(clear, send);
+    if (canRecordAssistantWork(personalOrdax, identitySessionPort, spaceSelectionPort, snapshot, draft)) {
+      const record = node(documentObject, "button", "ordax-assistant-work-submit",
+        t("assistant.action.recordWork"));
+      record.type = "button";
+      record.dataset.assistantRecordWork = "";
+      actions.append(record);
+    }
+    if (recordedWorkError) {
+      const error = node(documentObject, "p", "ordax-assistant-work-error",
+        t("assistant.work.submission.error"));
+      error.setAttribute("role", "alert");
+      form.append(error);
+    }
     if (snapshot.inferencePending) {
       const discard = node(documentObject, "button", "ordax-assistant-discard",
         t(snapshot.discardRequested ? "assistant.action.discard.pending" : "assistant.action.discard"));
@@ -334,6 +392,12 @@ export function mountAssistantConversationControls(
       ? `${t("assistant.provider.local")} · ${provider.engineId} / ${provider.modelId}`
       : t("assistant.provider.unavailable");
     slot.append(node(documentObject, "p", "ordax-assistant-provider", providerLabel));
+    if (canRecordAssistantWork(
+      personalOrdax, identitySessionPort, spaceSelectionPort, snapshot, draft,
+    )) {
+      slot.append(node(documentObject, "p", "ordax-assistant-work-explainer",
+        t("assistant.work.submission.explainer")));
+    }
 
     if (view.history.length > 0) {
       const details = node(documentObject, "details", "ordax-assistant-history");
@@ -372,13 +436,58 @@ export function mountAssistantConversationControls(
     void submission.pending.catch(() => render());
   };
 
+  const submitRecordedWork = () => {
+    try {
+      const result = beginAssistantRecordedWork(
+        personalOrdax, identitySessionPort, spaceSelectionPort,
+        conversation.getSnapshot(), draft,
+      );
+      if (!result.accepted) return;
+      draft = "";
+      recordedWorkError = false;
+      render();
+      void result.pending.catch(() => {
+        if (destroyed) return;
+        // A late error from a previous owner/Space must not appear in the
+        // newly selected context. The Personal runtime itself owns the state.
+        try {
+          const current = personalOrdax.getSnapshot();
+          const scope = resolveAssistantWorkScope(
+            current, identitySessionPort.getSnapshot(), spaceSelectionPort.getSnapshot());
+          const item = current.workItems.find((work) => work.id === result.workItemId);
+          if (scope === null || !item
+            || item.ownerKind !== scope.ownerKind || item.ownerId !== scope.ownerId
+            || item.spaceId !== scope.spaceId || item.projectId !== null) return;
+        } catch {
+          return;
+        }
+        recordedWorkError = true;
+        render();
+      });
+    } catch {
+      // No retry, grant or fictitious state mutation. Keep input on create failure.
+      recordedWorkError = true;
+      render();
+    }
+  };
+
   const onInput = (event) => {
     const target = event.target;
     if (target?.dataset?.assistantInput === undefined) return;
     draft = target.value;
+    recordedWorkError = false;
     const button = mountedSlot?.querySelector("[data-assistant-send]");
     if (button) {
       button.disabled = !canSubmitAssistantDraft(conversation.getSnapshot(), draft);
+    }
+    const oldRecord = mountedSlot?.querySelector("[data-assistant-record-work]");
+    const ready = canRecordAssistantWork(
+      personalOrdax, identitySessionPort, spaceSelectionPort, conversation.getSnapshot(), draft);
+    if (oldRecord) {
+      oldRecord.disabled = !ready;
+    } else if (ready) {
+      // Rebuild the exact controls using canonical owner/Space and draft state.
+      render();
     }
   };
 
@@ -398,6 +507,10 @@ export function mountAssistantConversationControls(
       submit();
       return;
     }
+    if (target.dataset.assistantRecordWork !== undefined) {
+      submitRecordedWork();
+      return;
+    }
     if (target.dataset.assistantClear !== undefined) {
       draft = "";
       conversation.clear();
@@ -413,8 +526,14 @@ export function mountAssistantConversationControls(
   root.addEventListener("click", onClick);
   const unsubscribeConversation = conversation.subscribe(render);
   const unsubscribeWork = personalOrdax?.subscribe?.(() => render()) ?? null;
-  const unsubscribeOwner = identitySessionPort?.subscribe?.(() => render()) ?? null;
-  const unsubscribeSpace = spaceSelectionPort?.subscribe?.(() => render()) ?? null;
+  const unsubscribeOwner = identitySessionPort?.subscribe?.(() => {
+    recordedWorkError = false;
+    render();
+  }) ?? null;
+  const unsubscribeSpace = spaceSelectionPort?.subscribe?.(() => {
+    recordedWorkError = false;
+    render();
+  }) ?? null;
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
 
   return Object.freeze({

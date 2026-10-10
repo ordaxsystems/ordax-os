@@ -5,6 +5,7 @@ export const PERSONAL_ORDAX_APPROVAL_SCHEMA = "ordax.personal-approval/1";
 export const PERSONAL_ORDAX_WORK_RESULT_SCHEMA = "ordax.personal-work-result/1";
 export const PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA = "ordax.personal-action-attempt/1";
 export const PERSONAL_ORDAX_MAX_RESULT_CHARS = 65536;
+export const PERSONAL_ORDAX_MAX_GOAL_CHARS = 4096;
 
 const OWNER_KINDS = new Set(["device", "account"]);
 const WORK_STATES = new Set([
@@ -137,7 +138,7 @@ export function validatePersonalWorkItem(value) {
     id: boundedText(value.id, "personal work id", 160),
     ownerKind: owner.ownerKind,
     ownerId: owner.ownerId,
-    goal: boundedText(value.goal, "personal work goal", 4096),
+    goal: boundedText(value.goal, "personal work goal", PERSONAL_ORDAX_MAX_GOAL_CHARS),
     state: value.state,
     spaceId: optionalText(value.spaceId, "personal work Space id", 160),
     projectId: optionalText(value.projectId, "personal work project id", 240),

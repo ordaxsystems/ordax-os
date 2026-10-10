@@ -8,35 +8,47 @@ import { projectPersonalWorkCanvas } from "../../../services/intelligence/work-c
 export const ASSISTANT_WORK_STRIP_SCHEMA = "ordax.assistant-work-strip/1";
 const MAX_CARDS = 3;
 
-export function projectAssistantWorkStrip(personalSnapshot, identityValue, selectionValue) {
-  const unavailable = Object.freeze({
-    schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: Object.freeze([]), remainingCount: 0,
-  });
-  if (personalSnapshot === null || identityValue === null || selectionValue === null) {
-    return unavailable;
-  }
+// Shared authorization fence for the Native Assistant's read-only cards
+// and an explicit, user-initiated foreground Work request. No persisted
+// Assistant-owned state or implied project selection is introduced.
+export function resolveAssistantWorkScope(personalSnapshot, identityValue, selectionValue) {
+  if (personalSnapshot === null || identityValue === null || selectionValue === null) return null;
   const identity = validateIdentitySessionSnapshot(identityValue);
   const selection = validateSpaceSelectionSnapshot(selectionValue);
-  if (identity.state === "unavailable") return unavailable;
+  if (identity.state === "unavailable") return null;
   const personal = validatePersonalOrdaxRuntimeSnapshot(personalSnapshot);
 
   let visibleSpace = null;
   if (identity.state === "signed-out") {
     if (personal.ownerKind !== "device" || personal.ownerId !== null
-      || selection.state !== "unavailable") return unavailable;
+      || selection.state !== "unavailable") return null;
   } else if (identity.state === "signed-in") {
     if (personal.ownerKind !== "account" || personal.ownerId !== identity.subjectId
       || selection.state === "unavailable" || selection.subjectId !== identity.subjectId) {
-      return unavailable;
+      return null;
     }
     visibleSpace = selection.state === "selected" ? selection.selectedSpace.id : null;
-  } else return unavailable;
+  } else return null;
 
+  return Object.freeze({
+    ownerKind: personal.ownerKind, ownerId: personal.ownerId,
+    spaceId: visibleSpace, projectId: null,
+  });
+}
+
+export function projectAssistantWorkStrip(personalSnapshot, identityValue, selectionValue) {
+  const unavailable = Object.freeze({
+    schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: Object.freeze([]), remainingCount: 0,
+  });
+  const scope = resolveAssistantWorkScope(personalSnapshot, identityValue, selectionValue);
+  if (scope === null) return unavailable;
+  const personal = validatePersonalOrdaxRuntimeSnapshot(personalSnapshot);
+  const visibleSpace = scope.spaceId;
   const scoped = personal.workItems.filter((item) =>
     // Projects have no active selection in this global Assistant. They stay
     // available in their authorized Personal OrdaX/Activity owner only.
     item.projectId === null && (item.spaceId === null || item.spaceId === visibleSpace)
-    && (identity.state === "signed-in" || item.spaceId === null)
+    && (scope.ownerKind === "account" || item.spaceId === null)
   );
   // Priority affects only presentation, never Work state or permissions.
   // A real outstanding approval / uncertain execution must not be hidden
