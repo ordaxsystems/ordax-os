@@ -124,7 +124,11 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.doesNotMatch(source, /personalOrdax\.executeApplicationAction\(/);
 
   assert.equal(source.includes("file-space:"), false);
-  assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\)\)/);
+  // The same canonical snapshot must feed both the Activity projection and
+  // the authorization fence for a targeted Work; separate reads can race.
+  assert.match(source, /const source = personalOrdax\\.getSnapshot\\(\\);/);
+  assert.match(source, /projectPersonalActivitySnapshot\\(source\\)/);
+  assert.match(source, /resolvePersonalActivityWorkTarget\\([\\s\\S]*?appTarget, source,/);
   assert.doesNotMatch(
     source,
     /localStorage|sessionStorage|createPersonalOrdaxRuntime|conversation\.send|grantIssuer|\.issue\(/,
