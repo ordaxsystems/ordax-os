@@ -104,6 +104,29 @@ layout HTML anterior até a ativação canônica.
 A criação do bundle compilado **não constitui publicação ou aprovação
 de produção**. As provas requeridas abaixo continuam independentes.
 
+### Correções de prontidão para publicação
+
+- `src/lib/account/navigation.ts` adapta o caminho absoluto de `/conta/*`
+  ao catálogo de seções original; `model.ts` continua com SHA original
+  intacto. Breadcrumb e destaque lateral usam o mesmo caminho.
+- O rodapé jurídico usa o endpoint público `/privacidade/`, em vez de
+  confundi-lo com o painel privado de dados e privacidade.
+- O adaptador de sessão revalida no foco, na visibilidade e no retorno de
+  histórico (bfcache). Identidade exibida no resumo é sempre derivada da
+  resposta autenticada, nunca de fixtures.
+- A prova Chromium exercita expiração de uma sessão autenticada **simulada
+  somente dentro do navegador de teste**, exigindo que a identidade
+  desapareça imediatamente; login real segue gate independente.
+- `tools/public-site/should_skip_vercel_build.sh` agora inclui
+  `sites/account-ui` no mesmo filtro do Vercel já existente. Testes impedem
+  que edições na fonte ou no bundle sejam ignoradas em produção.
+- O workflow de staging tem concorrência cancelável por branch e
+  nunca usa force push. Um build ultrapassado não pode sobrescrever
+  arquivos de versão posterior.
+- A UI React atual é original em pt-BR. Antes de afirmar paridade de
+  idiomas com o restante do site, traduzir os textos React pelo catálogo
+  oficial `sites/public/i18n`, sem dicionário paralelo.
+
 ### Gates antes do merge
 
 - Comparação de composição/asset em desktop, tablet, celular, teclado,
