@@ -283,7 +283,40 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
     return files
 
 
-def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict:
+ACCOUNT_UI_PREBUILT = ROOT / "sites/account-ui/prebuilt"
+
+def stage_account_lovable(stage: Path) -> None:
+    """Ship the reviewed, precompiled React bundle without npm during Vercel deploy.
+
+    The authoritative source and lockfile are sites/account-ui/lovable-original;
+    CI rebuilds and byte-compares this prebuilt bundle against that source.
+    """
+    source = ACCOUNT_UI_PREBUILT
+    if not (source / "index.html").is_file():
+        raise PublicSiteError("reviewed account React bundle missing")
+    markup = (source / "index.html").read_text(encoding="utf-8")
+    if '<div id="root"></div>' not in markup:
+        raise PublicSiteError("account React application root missing")
+    if 'src="/assets/account/' not in markup or 'href="/assets/account/' not in markup:
+        raise PublicSiteError("account assets must be same-origin and content-addressed")
+    if "https://" in markup or "http://" in markup:
+        raise PublicSiteError("account candidate embeds remote runtime dependencies")
+    allowed = {".js", ".css", ".png", ".jpg", ".jpeg", ".svg", ".woff", ".woff2"}
+    contents = sorted(source.iterdir(), key=lambda entry: entry.name)
+    for item in contents:
+        if item.name == "index.html" or item.name == ".vite":
+            continue
+        if not item.is_file() or item.is_symlink() or item.suffix not in allowed:
+            raise PublicSiteError("unapproved account UI bundle entry")
+        if item.stat().st_size > 4 * 1024 * 1024:
+            raise PublicSiteError("account bundle asset too large")
+        dst = stage / "assets/account" / item.name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(item, dst)
+    (stage / "conta/index.html").write_text(markup, encoding="utf-8")
+
+
+def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE, account_ui: str = 'classic') -> dict:
     if not SHA40_RE.fullmatch(source_commit):
         raise PublicSiteError("source commit must be a full lowercase 40-hex Git SHA")
     if out_dir.exists() and any(out_dir.iterdir()):
@@ -299,6 +332,11 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
             destination = stage / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, destination)
+
+        if account_ui == "lovable":
+            stage_account_lovable(stage)
+        elif account_ui != "classic":
+            raise PublicSiteError("unsupported public account UI profile")
 
         # Derived CSS bridge: no manual palette in sites/public and no risk of
         # overwriting in-progress public-site layouts or source files.
@@ -374,7 +412,8 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
                     "lazy": True,
                 }
             ],
-            "framework_runtime_dependency": False,
+            "framework_runtime_dependency": account_ui == "lovable",
+            "account_ui_source": "sites/account-ui/lovable-original" if account_ui == "lovable" else "sites/public/conta",
             "routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/licencas/", "/privacidade/", "/termos/"],
             "public_release_catalog": {
                 "path": "/" + PUBLIC_CATALOG_RELATIVE.as_posix(),
@@ -484,7 +523,7 @@ def command_check() -> int:
 
 
 def command_build(args: argparse.Namespace) -> int:
-    manifest = build_bundle(Path(args.out_dir), args.source_commit)
+    manifest = build_bundle(Path(args.out_dir), args.source_commit, account_ui=args.account_ui)
     print("PUBLIC_SITE_BUILD=PASS")
     print(f"PUBLIC_SITE_FILE_COUNT={len(manifest['files'])}")
     return 0
@@ -504,6 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     build = sub.add_parser("build")
     build.add_argument("--out-dir", default="out/public-site")
     build.add_argument("--source-commit", required=True)
+    build.add_argument("--account-ui", choices=("classic", "lovable"), default="classic")
     verify = sub.add_parser("verify")
     verify.add_argument("--out-dir", default="out/public-site")
     args = parser.parse_args(argv)
