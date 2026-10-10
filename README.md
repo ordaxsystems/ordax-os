@@ -9,6 +9,11 @@ Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/o
 > `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
 ## MVP e canais de produto
+## Continuidade do Intelligence entre OS, Web e aplicativos
+
+Para continuar a integração **OrdaX Intelligence + ChatGPT opcional + plugin MCP + ações nativas** leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) antes de alterar Studio, Surface, router, provider connectors ou Runtime. É guia de coordenação; a autoridade permanece nos contratos de `docs/INTELLIGENCE.md` e `docs/contracts/repository-ownership.json`. O chat dentro do Web e o conector usado no ChatGPT externo são fluxos distintos; source experimental não confirma disponibilidade real.
+
+
 
 O alvo de lançamento, a divisão **Owner/Development vs Stable/MVP**, o modelo de atualização sem Git para usuário final e os gates mínimos de produto estão documentados em [MVP.md](MVP.md). Leia esse arquivo antes de trabalhar em pendrive público, Creator, releases, site, conta ou lançamento.
 
