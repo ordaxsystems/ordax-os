@@ -53,7 +53,7 @@ export function validateAppPresentationManifest(value, expected = {}) {
       || Object.keys(value.translations).length > 40) {
     throw new TypeError("App presentation translations are invalid");
   }
-  const translations = Object.create(null);
+  const translations = {}; // Round-trip compatible with validated JSON objects.
   for (const [locale, copy] of Object.entries(value.translations)) {
     validateLocale(locale);
     if (locale === sourceLocale) {
