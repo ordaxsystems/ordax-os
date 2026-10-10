@@ -392,7 +392,9 @@ export function mountAssistantConversationControls(
       ? `${t("assistant.provider.local")} · ${provider.engineId} / ${provider.modelId}`
       : t("assistant.provider.unavailable");
     slot.append(node(documentObject, "p", "ordax-assistant-provider", providerLabel));
-    if (personalOrdax?.schema === PERSONAL_ORDAX_RUNTIME_SCHEMA) {
+    if (canRecordAssistantWork(
+      personalOrdax, identitySessionPort, spaceSelectionPort, snapshot, draft,
+    )) {
       slot.append(node(documentObject, "p", "ordax-assistant-work-explainer",
         t("assistant.work.submission.explainer")));
     }
@@ -446,7 +448,19 @@ export function mountAssistantConversationControls(
       render();
       void result.pending.catch(() => {
         if (destroyed) return;
-        // Error is generic; never display a result from another owner.
+        // A late error from a previous owner/Space must not appear in the
+        // newly selected context. The Personal runtime itself owns the state.
+        try {
+          const current = personalOrdax.getSnapshot();
+          const scope = resolveAssistantWorkScope(
+            current, identitySessionPort.getSnapshot(), spaceSelectionPort.getSnapshot());
+          const item = current.workItems.find((work) => work.id === result.workItemId);
+          if (scope === null || !item
+            || item.ownerKind !== scope.ownerKind || item.ownerId !== scope.ownerId
+            || item.spaceId !== scope.spaceId || item.projectId !== null) return;
+        } catch {
+          return;
+        }
         recordedWorkError = true;
         render();
       });
