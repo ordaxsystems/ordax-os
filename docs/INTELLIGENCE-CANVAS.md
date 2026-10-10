@@ -61,3 +61,29 @@ contexto explícitos, sem iniciar Work pelo prompt; adicionar renderers por tipo
 somente com dados provenientes de fontes verificadas e grants revalidados.
 P2 pertence aos owners de capacidades/Runtime/Platform já descritos em
 `INTELLIGENCE-HANDOFF.md`.
+
+## Missões verificadas no Assistant Native (fatia seguinte da P1)
+
+O Assistant Native agora recebe opcionalmente **a mesma instância** de Personal
+OrdaX que alimenta Activity. O render `ui/work-strip.mjs` é somente leitura:
+valida snapshots canônicos de identidade, seleção de Space e runtime Personal;
+filtra owner e Space exatos a cada atualização; projeta com
+`projectPersonalWorkCanvas` (P0). Não transforma prompt em Work, não cria
+broker, workflow, aprovação, store, executor ou percentuais.
+
+Exibe até três Work items recentes, cada um com até cinco eventos reais
+`ordax.personal-activity/1`, estado de Work e texto de Result validado
+`ordax.personal-work-result/1`. Sem evento, não apresenta etapas.
+Execução incerta/revogação preserva `requires-action`; a UI não concede
+ações. A Activity original mantém os botões de operações sensíveis sob grants.
+
+O global Assistant não possui seleção de projeto. Portanto os Work items
+vinculados a `projectId` são **omitidos**, não associados por prompt.
+Na ausência de Personal/Identity/Space port, inclusive no Web, não há missões
+fictícias nem tentativa de acessar dados de outro owner.
+
+Cobertura: `tests/test_assistant_work_strip.mjs` com runtime Personal real
+e adapter de inferência de teste, estados queued/completed, isolamento de
+owner/Space, indisponibilidade e auditoria do binding Native. O gate é
+`Intelligence Foundation`. CI e testes de source não provam E2E físico
+com plugin, provedor remoto, revogação dinâmica ou seleção de projeto.

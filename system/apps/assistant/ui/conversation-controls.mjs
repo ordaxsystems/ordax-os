@@ -2,6 +2,7 @@ import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.m
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
 import { projectAssistantResultCanvas } from "./result-view-model.mjs";
+import { projectAssistantWorkStrip } from "./work-strip.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="assistant-conversation"]';
 
@@ -52,6 +53,7 @@ export function mountAssistantConversationControls(
   root,
   conversationValue,
   surfaceLifecycle,
+  { personalOrdax = null, identitySessionPort = null, spaceSelectionPort = null } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Assistant controls require a Surface root Element");
@@ -63,6 +65,21 @@ export function mountAssistantConversationControls(
   let destroyed = false;
   let draft = "";
   let mountedSlot = null;
+
+  const workCards = () => {
+    if (!personalOrdax || !identitySessionPort || !spaceSelectionPort) return [];
+    try {
+      // Read the current owners together on *every* render, including after
+      // owner/Space change. Never retain a work snapshot across contexts.
+      return projectAssistantWorkStrip(
+        personalOrdax.getSnapshot(),
+        identitySessionPort.getSnapshot(),
+        spaceSelectionPort.getSnapshot(),
+      ).cards;
+    } catch {
+      return []; // Invalid/stale authorization and schemas fail closed.
+    }
+  };
 
   const stateCopy = (state) => {
     if (state === "ready") return t("assistant.state.ready");
@@ -131,6 +148,43 @@ export function mountAssistantConversationControls(
     // Failed/discarded requests have no fabricated result; the existing
     // conversation error notice below explains what happened.
     if (canvas.childElementCount > 0) slot.append(canvas);
+
+    const verifiedWork = workCards();
+    if (verifiedWork.length > 0) {
+      const missions = node(documentObject, "section", "ordax-assistant-work-strip");
+      missions.setAttribute("aria-label", t("assistant.work.aria"));
+      missions.append(node(documentObject, "h4", "ordax-assistant-work-title",
+        t("assistant.work.title")));
+      for (const work of verifiedWork) {
+        const card = node(documentObject, "article", "ordax-assistant-work-card");
+        card.dataset.assistantWorkId = work.workItemId;
+        card.dataset.assistantWorkState = work.state;
+        card.append(
+          node(documentObject, "strong", "ordax-assistant-work-goal", work.goal),
+          node(documentObject, "span", "ordax-assistant-work-state",
+            t(`assistant.work.state.${work.state}`)),
+        );
+        if (work.steps.length > 0) {
+          const list = node(documentObject, "ol", "ordax-assistant-work-events");
+          for (const event of work.steps) {
+            const line = node(documentObject, "li", "", event.summary);
+            line.dataset.assistantWorkEvent = event.type;
+            line.dataset.assistantWorkSequence = String(event.sequence);
+            list.append(line);
+          }
+          if (work.stepsTruncated) list.append(node(documentObject, "li", "", "…"));
+          card.append(list);
+        }
+        if (work.state === "result" && work.result?.kind === "text") {
+          card.append(node(documentObject, "p", "ordax-assistant-work-result",
+            work.result.text));
+        }
+        missions.append(card);
+      }
+      missions.append(node(documentObject, "p", "ordax-assistant-work-caption",
+        t("assistant.work.readonly")));
+      slot.append(missions);
+    }
 
     if (snapshot.lastError || view.state === "failed") {
       const discarded = snapshot.lastError === "response-discarded";
@@ -253,6 +307,9 @@ export function mountAssistantConversationControls(
   root.addEventListener("keydown", onKeyDown);
   root.addEventListener("click", onClick);
   const unsubscribeConversation = conversation.subscribe(render);
+  const unsubscribeWork = personalOrdax?.subscribe?.(() => render()) ?? null;
+  const unsubscribeOwner = identitySessionPort?.subscribe?.(() => render()) ?? null;
+  const unsubscribeSpace = spaceSelectionPort?.subscribe?.(() => render()) ?? null;
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
 
   return Object.freeze({
@@ -260,6 +317,9 @@ export function mountAssistantConversationControls(
       if (destroyed) return;
       destroyed = true;
       unsubscribeRender();
+      unsubscribeSpace?.();
+      unsubscribeOwner?.();
+      unsubscribeWork?.();
       unsubscribeConversation();
       root.removeEventListener("input", onInput);
       root.removeEventListener("keydown", onKeyDown);

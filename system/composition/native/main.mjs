@@ -981,6 +981,7 @@ async function start() {
       surfaceLifecycle: surface,
       intelligence: selectedSpaceIntelligence,
       memoryCapture: assistantMemoryCapture,
+      personalOrdax,
       identitySessionPort: identitySession,
       spaceSelectionPort: spaceSelection,
       profileActivationStatePort: profileActivationState,
