@@ -1292,7 +1292,16 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `react-account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
-    await evaluate('document.querySelector("button.account-menu").click()');
+    // Radix DropdownMenu listens to genuine pointer/keyboard events, not
+    // HTMLElement.click(), which skips pointerdown and can hide regressions.
+    await evaluate('document.querySelector("button.account-menu").focus()');
+    await client.send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+    });
+    await client.send('Input.dispatchKeyEvent', {
+      type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
+    });
+    await sleep(90);
     if (!await evaluate("!!document.querySelector('[role=menu].ordax-account-dropdown')")) {
       throw new Error(`${name} account menu did not open`);
     }
