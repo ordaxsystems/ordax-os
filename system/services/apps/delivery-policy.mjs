@@ -11,7 +11,7 @@ const RAW_POLICIES = Object.freeze([
   { appId: "system", deliveryClass: "structural", removable: false, discovery: "installed-only" },
   { appId: "store", deliveryClass: "structural", removable: false, discovery: "installed-only" },
 
-  { appId: "files", deliveryClass: "on-demand", removable: true, discovery: "store-only" },
+  { appId: "files", deliveryClass: "bootstrap", removable: true, discovery: "installed-only" },
   { appId: "internet", deliveryClass: "bootstrap", removable: true, discovery: "installed-only" },
 
   { appId: "assistant", deliveryClass: "on-demand", removable: true, discovery: "launcher-recommended" },
