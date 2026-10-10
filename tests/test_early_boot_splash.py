@@ -10,7 +10,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "bootstrap/boot-splash"
-FRAME_BYTES = 640 * 360 * 2
+FRAME_BYTES = 1280 * 720 * 2
 
 class EarlyBootSplashTests(unittest.TestCase):
     def test_media_compiler_preserves_original_sound_and_exact_hashes(self):
@@ -19,7 +19,7 @@ class EarlyBootSplashTests(unittest.TestCase):
         self.assertIn("'acodec','pcm_s16le'", text)
         self.assertIn("'ar','48000'", text)
         self.assertIn("'ac','2'", text)
-        self.assertIn("FRAMES = 640, 360, 12, 106", text)
+        self.assertIn("FRAMES = 1280, 720, 24, 212", text)
         self.assertIn("source SHA-256 mismatch", text)
         self.assertIn("compiled asset mismatch", text)
         self.assertIn("'boot_blocking':False", text)
