@@ -112,12 +112,14 @@ não contratados. Retry, reativação da aba e retorno pelo histórico revalidam
 sessão; dados pessoais são limpos na invalidação, no logout e no `pagehide`.
 Respostas de gerações antigas não restauram dados revogados.
 
-`vercel.json` é o owner dos redirecionamentos permanentes de `/conta-2` para a
+`vercel.json` é o owner dos redirecionamentos internos permanentes de `/conta-2` para a
 rota principal. Preview lê a mesma configuração; o build gera
 `public-redirects.nginx.conf` para o adapter Nginx. Não há cópia da página antiga
 como fallback. Query e fragmento continuam nos acessos compatíveis; a navegação
 é interna e não concede autenticação. Assets do cliente e das entradas de login
 recebem versões pelo hash do conteúdo.
+Os redirects de domínio permanecem exclusivamente nas regras de aliases do
+projeto Vercel; a política interna não aceita condições de host nem destinos externos.
 
 Critérios de aceite: uma única implementação; redirecionamentos e atalhos
 compatíveis; menu, sessão e ausência de dados inventados verificados; PT-BR/en-US
