@@ -39,6 +39,11 @@
       "uses": "actions/upload-artifact",
       "sha": "b7c566a772e6b6bfb58ed0dc250532a479d7789f",
       "version_label": "v6"
+    },
+    {
+      "uses": "oven-sh/setup-bun",
+      "sha": "0c5077e51419868618aeaa5fe8019c62421857d6",
+      "version_label": "v2.2.0"
     }
   ],
   "workflow_policy": {
