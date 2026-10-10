@@ -40,6 +40,8 @@ on:
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
       - 'tests/test_initramfs_upstream_authentication.py'
+      - 'tests/test_portable_qemu_kernel_source_ssot.py'
+      - 'tests/test_kernel_ci_env.py'
       - 'tests/test_portable_v2_uefi_boot_proof_contract.py'
       - 'tests/test_portable_v3_cold_health_qemu_proof.py'
       - 'tests/test_stable_release_activation_transaction.py'
@@ -83,6 +85,8 @@ on:
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
       - 'tests/test_initramfs_upstream_authentication.py'
+      - 'tests/test_portable_qemu_kernel_source_ssot.py'
+      - 'tests/test_kernel_ci_env.py'
       - 'tests/test_portable_v2_uefi_boot_proof_contract.py'
       - 'tests/test_portable_v3_cold_health_qemu_proof.py'
       - 'tests/test_stable_release_activation_transaction.py'
@@ -115,6 +119,11 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Resolve canonical kernel ABI for build artifacts
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -134,6 +143,8 @@ jobs:
           set -euo pipefail
           python -m unittest tests.test_portable_v2_qemu_boot_proof_contract -v
           python -m unittest tests.test_initramfs_upstream_authentication -v
+          python -m unittest tests.test_portable_qemu_kernel_source_ssot -v
+          python -m unittest tests.test_kernel_ci_env -v
           python -m unittest tests.test_portable_v4_ai_handoff_contract -v
           python -m unittest tests.test_portable_v3_cold_health_qemu_proof -v
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
@@ -188,11 +199,11 @@ jobs:
             --work-dir "$work/kernel-work" \
             --out-dir "$work/kernel"
           python bootstrap/kernel/verify.py "$work/kernel"
-          test -s "$work/kernel/vmlinuz-6.6.52"
-          test -s "$work/kernel/kernel-modules-6.6.52.tar"
-          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-6.6.52.config"
-          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-6.6.52.config"
-          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-6.6.52.config"
+          test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
+          test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
 
       - name: Build and verify exact Stable Base
         env:
@@ -202,7 +213,7 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-6.6.52.tar" \
+              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
               --out-dir "$work/stable-base" \
               --cache-dir "$work/stable-base-cache" \
               > "$work/metadata/stable-base-build.json"
@@ -483,7 +494,7 @@ jobs:
           rm -rf "$work/qemu-proof"
           mkdir -p "$work/qemu-proof"
           sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -530,7 +541,7 @@ jobs:
           mkdir -p "$work/qemu-one-shot-proof"
 
           sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -600,7 +611,7 @@ jobs:
           rm -rf "$work/uefi-proof"
           mkdir -p "$work/uefi-proof"
           sudo -E python3 bootstrap/portable-v2/uefi_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
