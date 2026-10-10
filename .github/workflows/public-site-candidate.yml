@@ -269,11 +269,12 @@ jobs:
             --evidence-dir out/account-viewport-proof
 
       - name: Upload account viewport evidence
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: ordax-account-viewports-${{ github.sha }}
           path: out/account-viewport-proof/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Upload public site candidate

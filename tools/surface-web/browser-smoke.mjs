@@ -286,24 +286,41 @@ class CdpClient {
         const pending = this.pending.get(message.id);
         if (!pending) return;
         this.pending.delete(message.id);
+        clearTimeout(pending.timer);
         if (message.error) pending.reject(new Error(`${pending.method}: ${message.error.message}`));
         else pending.resolve(message.result ?? {});
         return;
       }
       this.events.push(message);
     });
+    this.socket.addEventListener('close', () => this.rejectPending(new Error('DevTools connection closed before proof completion')));
+    this.socket.addEventListener('error', () => this.rejectPending(new Error('DevTools connection failed')));
+  }
+
+  rejectPending(error) {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
   }
 
   send(method, params = {}) {
     const id = this.nextId;
     this.nextId += 1;
     return new Promise((resolvePromise, reject) => {
-      this.pending.set(id, { resolve: resolvePromise, reject, method });
-      this.socket.send(JSON.stringify({ id, method, params }));
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`DevTools command timed out: ${method}`));
+      }, 30_000);
+      this.pending.set(id, { resolve: resolvePromise, reject, method, timer });
+      try { this.socket.send(JSON.stringify({ id, method, params })); }
+      catch (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }
     });
   }
 
   close() {
+    this.rejectPending(new Error('DevTools proof client disposed'));
     this.socket.close();
   }
 }
@@ -1234,10 +1251,13 @@ async function provePublicAccount(client, url, evidenceDir) {
     const point = await evaluate(`(() => {
       const element = document.querySelector(${JSON.stringify(selector)});
       if (!element) return null;
-      element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
       const box = element.getBoundingClientRect();
       if (!box.width || !box.height) return null;
-      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      const point = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      const hit = document.elementFromPoint(point.x, point.y);
+      if (hit !== element && !element.contains(hit)) throw new Error('account control is obstructed: ' + ${JSON.stringify(selector)});
+      return point;
     })()`);
     if (!point) throw new Error(`account control is not visible: ${selector}`);
     await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
@@ -1316,9 +1336,10 @@ async function provePublicAccount(client, url, evidenceDir) {
     await evaluate('location.hash = "#consumo"');
     await sleep(50);
     await click('#usage-tab-storage');
-    await evaluate('document.querySelector("#usage-tab-storage").focus()');
+    if (!await evaluate('document.activeElement.id === "usage-tab-storage" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error(`${name} storage selection failed`);
     await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'ArrowRight', code:'ArrowRight', windowsVirtualKeyCode:39 });
-    if (!await evaluate('document.activeElement.id === "usage-tab-apis" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error('usage keyboard navigation failed');
+    await client.send('Input.dispatchKeyEvent', { type:'keyUp', key:'ArrowRight', code:'ArrowRight', windowsVirtualKeyCode:39 });
+    if (!await evaluate('document.activeElement.id === "usage-tab-apis" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error(`${name} usage keyboard navigation failed`);
     await evaluate('location.hash = "#preferencias"');
     await sleep(50);
     if (!await evaluate('!document.querySelector("[role=switch]") && document.querySelector("#account-locale").options.length === 2')) throw new Error('preferences invented an account service');
@@ -1444,8 +1465,8 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+try { await main(); } catch (error) {
   console.error('SURFACE_BROWSER_SMOKE=FAIL');
   console.error(error.stack ?? String(error));
   process.exitCode = 1;
-});
+}
