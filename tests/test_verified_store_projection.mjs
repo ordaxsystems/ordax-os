@@ -238,6 +238,27 @@ test("installed external app remains removable even after it disappears from cat
   projection.destroy();
 });
 
+test("explicitly removed component is absent but permits only deliberate verified Store reinstall", async () => {
+  const catalog = catalogPort(ready([candidate("notes", "0.4.3", "Notas")]));
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      notes: metadata("notes", { source: "removed", revision: 9 }),
+      studio: metadata("studio"),
+    }),
+  });
+  await projection.refresh();
+  const notes = projection.port.getSnapshot().entries.find(item => item.appId === "notes");
+  assert.equal(notes.state, "available");
+  assert.equal(notes.installedVersion, null);
+  assert.equal(notes.installable, true);
+  assert.equal(notes.removable, false);
+  assert.equal(notes.artifactIdentityVerified, true);
+  assert.equal(notes.provenanceVerified, true);
+  projection.destroy();
+});
+
 test("catalog drift, bundled source and unavailable activation fail closed without minting lifecycle authority", async () => {
   for (const [current, expectedReason] of [
     [

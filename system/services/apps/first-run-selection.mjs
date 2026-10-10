@@ -4,6 +4,7 @@ import {
 import {
   validateAppStoreCatalogSnapshot,
 } from "../../contracts/app-store.mjs";
+import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
 
 // Selection policy only. It never installs, signs, activates, or removes an app.
 // IDs are existing app identities, not a parallel source/package registry.
@@ -109,19 +110,42 @@ export function planFirstRunAppSelectionFromStore({
   initialProvisioning,
   explicitlyRemovedAppIds,
   storeCatalogSnapshot,
+  nativeCurrentMetadata = [],
 } = {}) {
   const snapshot = validateAppStoreCatalogSnapshot(storeCatalogSnapshot);
   const entries = snapshot.state === "ready"
     ? snapshot.entries.filter((entry) => DEFAULT_ID_SET.has(entry.appId))
     : [];
+  if (!Array.isArray(nativeCurrentMetadata)) {
+    throw new TypeError("nativeCurrentMetadata must be a bounded Native observation array");
+  }
+  const observations = new Map();
+  for (const raw of nativeCurrentMetadata) {
+    const current = validateComponentRuntimeMetadata(raw, { state: "current" });
+    if (!DEFAULT_ID_SET.has(current.componentId) || observations.has(current.componentId)) {
+      throw new TypeError("Native current observation has unknown or duplicate app id");
+    }
+    observations.set(current.componentId, current);
+  }
+  const verifiedRemoved = [...observations.values()]
+    .filter((current) => current.source === "removed")
+    .map((current) => current.componentId);
+  const removed = validatedIds(explicitlyRemovedAppIds, "explicitlyRemovedAppIds");
+  for (const id of verifiedRemoved) removed.add(id);
+
+  // The Store entry deliberately allows a user to reinstall a removed app.
+  // It does NOT distinguish never-installed from explicitly removed. Therefore
+  // a default is eligible only with corroborating canonical Native absence.
+  // Missing/unavailable Native observations never mint installation requests.
   return planFirstRunAppSelection({
     initialProvisioning,
-    explicitlyRemovedAppIds,
+    explicitlyRemovedAppIds: [...removed],
     installedAppIds: entries
       .filter((entry) => entry.installedVersion !== null)
       .map((entry) => entry.appId),
     verifiedCandidateAppIds: entries
       .filter((entry) => entry.state === "available"
+        && observations.get(entry.appId)?.source === "absent"
         && entry.installable === true
         && entry.installedVersion === null
         && entry.artifactIdentityVerified === true

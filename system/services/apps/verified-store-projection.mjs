@@ -91,7 +91,10 @@ function projectEntry({ appId, candidate, current, policy }) {
     });
   }
 
-  if (current.source === "absent") {
+  // Explicit removal is absent from activation but remains manually reinstallable
+  // through the SAME signed Store lifecycle; the first-run owner must use the
+  // canonical Native removal marker to exclude automatic installation.
+  if (current.source === "absent" || current.source === "removed") {
     if (candidate === null) return null;
     if (policy.deliveryClass === "structural") {
       return blockedEntry({

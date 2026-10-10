@@ -100,6 +100,16 @@ function storeSnapshot(entries, state = "ready") {
   });
 }
 
+function nativeCurrent(appId, source, overrides = {}) {
+  return {
+    componentId: appId, state: "current", source, revision: 3,
+    version: source === "slot" ? "0.4.3" : null,
+    sourceCommit: source === "slot" ? "a".repeat(40) : null,
+    entrypoint: source === "slot" ? `system/apps/${appId}/src/runtime.mjs` : null,
+    pendingHealth: null, ...overrides,
+  };
+}
+
 test("Store-backed first-run selection uses only actual verified current-slot and installable candidates", () => {
   const current = storeSnapshot([
     storeEntry("notes", {
@@ -116,8 +126,13 @@ test("Store-backed first-run selection uses only actual verified current-slot an
   ]);
   const plan = planFirstRunAppSelectionFromStore({
     initialProvisioning: true,
-    explicitlyRemovedAppIds: ["clock"],
+    explicitlyRemovedAppIds: [],
     storeCatalogSnapshot: current,
+    nativeCurrentMetadata: [
+      nativeCurrent("notes", "slot"),
+      nativeCurrent("calculator", "absent"),
+      nativeCurrent("clock", "removed"),
+    ],
   });
   assert.deepEqual(plan.alreadyInstalledAppIds, ["notes"]);
   assert.deepEqual(plan.eligibleCandidateAppIds, ["calculator"]);
@@ -151,4 +166,47 @@ test("Store-backed selection cannot install when catalog is unavailable, candida
     initialProvisioning: true, explicitlyRemovedAppIds: ["notes", "notes"],
     storeCatalogSnapshot: ready,
   }), /duplicate/);
+});
+
+test("Store alone cannot auto-install a user-removed app offered for voluntary reinstall", () => {
+  const ready = storeSnapshot([storeEntry("notes"), storeEntry("calculator")]);
+  const noNativeProof = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true, explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: ready,
+  });
+  assert.deepEqual(noNativeProof.eligibleCandidateAppIds, []);
+  assert.ok(noNativeProof.unavailableAppIds.includes("notes"));
+  const removed = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true, explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: ready,
+    nativeCurrentMetadata: [
+      nativeCurrent("notes", "removed"),
+      nativeCurrent("calculator", "absent"),
+    ],
+  });
+  assert.deepEqual(removed.eligibleCandidateAppIds, ["calculator"]);
+  assert.ok(removed.suppressedAppIds.includes("notes"));
+  assert.ok(!removed.eligibleCandidateAppIds.includes("notes"));
+  assert.equal(removed.reinstallAfterUserRemoval, false);
+});
+
+test("Native metadata for defaults must be exact, unique and compatible with Store installed state", () => {
+  const ready = storeSnapshot([storeEntry("notes")]);
+  const options = {
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: ready,
+  };
+  assert.throws(() => planFirstRunAppSelectionFromStore({
+    ...options, nativeCurrentMetadata: [nativeCurrent("notes", "removed", { entrypoint: "x" })],
+  }), /inconsistent/);
+  assert.throws(() => planFirstRunAppSelectionFromStore({
+    ...options, nativeCurrentMetadata: [nativeCurrent("notes", "absent"), nativeCurrent("notes", "absent")],
+  }), /duplicate/);
+  assert.throws(() => planFirstRunAppSelectionFromStore({
+    ...options, nativeCurrentMetadata: [nativeCurrent("unknown", "absent")],
+  }), /unknown/);
+  assert.throws(() => planFirstRunAppSelectionFromStore({
+    ...options, nativeCurrentMetadata: null,
+  }), /bounded Native observation array/);
 });

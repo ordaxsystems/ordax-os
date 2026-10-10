@@ -189,6 +189,39 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIsNone(resolution.entrypoint)
         self.assertIsNone(resolution.slot)
 
+    def test_native_metadata_preserves_explicit_removal_without_slot_or_execution_authority(self):
+        for component_id in ("internet", "notes", "calculator"):
+            output = (
+                "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+                f"COMPONENT_ID={component_id}\n"
+                "REVISION=9\n"
+                "SOURCE=REMOVED\n"
+                "RUNTIME_SERVED_FROM_SLOT=NO\n"
+            ).encode("utf-8")
+            result = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
+            with mock.patch.object(slots.subprocess, "run", return_value=result):
+                resolution = slots.resolve_component_slot(
+                    helper_path="/signed/bin/helper",
+                    trust_path="/signed/trust/public.json",
+                    component_id=component_id,
+                    state="current",
+                )
+            self.assertEqual(resolution.source, "removed")
+            self.assertEqual(resolution.revision, 9)
+            self.assertIsNone(resolution.version)
+            self.assertIsNone(resolution.slot)
+
+        with self.assertRaises(slots.ComponentSlotVerificationError):
+            slots._parse_resolution_output(
+                b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+                b"COMPONENT_ID=notes\n"
+                b"REVISION=9\n"
+                b"SOURCE=REMOVED\n"
+                b"CURRENT_VERSION=9.0.0\n"
+                b"RUNTIME_SERVED_FROM_SLOT=NO\n",
+                "notes", "current",
+            )
+
     def test_verified_external_app_manifest_path_is_readable_but_untrusted_apps_are_not(self):
         commit = "7" * 40
         request = slots.parse_component_module_path(
