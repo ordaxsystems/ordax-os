@@ -1014,6 +1014,12 @@
     ["Abrir Conta oficial", "Open official account"],
     ["Esta prévia precisa de JavaScript para exibir as seções da conta.", "This preview requires JavaScript to display account sections."],
     ["Prévia 2", "Preview 2"],
+    ["Armazenamento", "Storage"],
+    ["Central de ajuda", "Help center"],
+    ["IA", "AI"],
+    ["APIs", "APIs"],
+    ["English", "English"],
+    ["Español", "Español"],
   ];
 
   const SEMANTIC = Object.freeze({

@@ -32,7 +32,7 @@ function sameArray(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-const PORTUGUESE_MARKERS = /[ãõçÃÕÇ]|\b(?:não|uma|para|seu|sua|conta|cadastro|senha|licenças|privacidade|termos|recuperação|pendrive|disponível|indisponível|projeto|referências|arquivos|notas|preparação|pública|público|primeiro|atualizações|experiência|segurança|conhecer|criar|entrar|início|ainda|somente|quando|dados|exemplo|documentação|acesso|sessão|escrita|trabalho|entrega|preferências|aplicativos|principais)\b/i;
+const PORTUGUESE_MARKERS = /[ãõçÃÕÇ]|\b(?:não|uma|para|seu|sua|conta|cadastro|senha|licenças|privacidade|termos|recuperação|pendrive|disponível|indisponível|projeto|referências|arquivos|notas|preparação|pública|público|primeiro|atualizações|experiência|segurança|conhecer|criar|entrar|início|ainda|somente|quando|dados|exemplo|documentação|acesso|sessão|escrita|trabalho|entrega|preferências|aplicativos|principais|armazenamento|consumo|faturamento|assinatura|ajuda)\b/i;
 
 function looksPortuguese(value) {
   return PORTUGUESE_MARKERS.test(normalize(value));
@@ -249,6 +249,36 @@ for (const value of fixtureStrings) {
 }
 
 const runtime = read("sites/public/i18n/runtime.js");
+const localeRuntimeContext = vm.createContext({
+  window: { OrdaXPublicI18nCatalog: catalog },
+  navigator: { languages: ["en-US"], language: "en-US" },
+  localStorage: { getItem: () => null, setItem: () => {} },
+  document: {
+    nodeType: 9,
+    documentElement: {},
+    querySelector: () => null,
+    createTreeWalker: () => ({ nextNode: () => null }),
+    dispatchEvent: () => {},
+  },
+  Node: { TEXT_NODE: 3, ELEMENT_NODE: 1, DOCUMENT_NODE: 9 },
+  NodeFilter: { SHOW_ELEMENT: 1, SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
+  MutationObserver: class { observe() {} },
+  CustomEvent: class {},
+});
+vm.runInContext(runtime, localeRuntimeContext, { filename: "sites/public/i18n/runtime.js" });
+const localeRuntime = localeRuntimeContext.window.OrdaXPublicI18n;
+assert(localeRuntime.getLocale() === "en-US", "locale regression must exercise the real runtime in en-US");
+for (const [source, translated] of [
+  ["Armazenamento", "Storage"],
+  ["Central de ajuda", "Help center"],
+  ["IA", "AI"],
+  ["Inteligência artificial", "Artificial intelligence"],
+  ["APIs e serviços", "APIs and services"],
+]) {
+  assert(localeRuntime.fromSource(source) === translated, `account resource translation regression: ${source}`);
+}
+localeRuntime.setLocale("pt-BR");
+assert(localeRuntime.fromSource("Armazenamento") === "Armazenamento", "resource label must restore pt-BR through the same runtime");
 for (const anchor of [
   'const STORAGE_KEY = "ordax.public.locale"',
   'document.documentElement.lang = activeLocale',
@@ -298,10 +328,21 @@ for (const value of collectUserFacingJsLiterals(playground)) {
 }
 const accountExperiment = read("sites/public/assets/account-2.js");
 // These are DOM/route identifiers, not labels. Visible labels remain covered.
-const accountImplementationTokens = new Set(["conta-2", "dados-pessoais", "privacidade", "/conta/"]);
+const accountImplementationTokens = new Set(["conta-2", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/"]);
 for (const value of collectUserFacingJsLiterals(accountExperiment, accountImplementationTokens)) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `account experiment copy missing from localization owner: ${value}`);
+}
+// Direct translation calls and visible metadata cannot rely on Portuguese-word
+// heuristics: labels such as "Armazenamento" previously escaped those markers.
+for (const expression of [
+  /\btx\(\s*"((?:\\.|[^"\\])*)"\s*\)/g,
+  /\b(?:title|description|label|name|owner|q|a):\s*"((?:\\.|[^"\\])*)"/g,
+]) {
+  for (const match of accountExperiment.matchAll(expression)) {
+    const value = normalize(match[1].replace(/\\(["'\\])/g, "$1"));
+    assert(sourceMessages.has(value), `account experiment translated label missing from localization owner: ${value}`);
+  }
 }
 assert(/\bi18n(?:\.|\?\.)fromSource\(/.test(accountExperiment), "account experiment labels must use the existing public-site locale owner");
 assert(
