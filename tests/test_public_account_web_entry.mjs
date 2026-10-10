@@ -21,7 +21,7 @@ function element() {
 function fixture({ page = "web", authenticated = true, entry = "/ordax/", enabled = true, invalidSession = false, failure = false } = {}) {
   const selectors = page === "web"
     ? ["[data-web-state]", "[data-web-launch]", "[data-web-login]", "[data-web-retry]"]
-    : ["[data-account-state]", "[data-account-authenticated]", "[data-account-anonymous]", "[data-account-unavailable]", "[data-account-email]", "[data-account-hero-email]", '[data-account-logout] button[type="submit"]'];
+    : ["[data-account-state]", "[data-account-authenticated]", "[data-account-anonymous]", "[data-account-unavailable]", "[data-account-email]", "[data-account-hero-email]", "[data-account-logout]", '[data-account-logout] button[type="submit"]'];
   const nodes = new Map(selectors.map(selector => [selector, element()]));
   const events = {};
   const requests = [];
@@ -112,11 +112,14 @@ test("account data is text only and cleared immediately on back navigation after
   assert.equal(hero.hidden, false);
   assert.equal(hero.innerHTML, undefined);
   assert.equal(f.nodes.get("[data-account-authenticated]").hidden, false);
+  assert.equal(f.nodes.get("[data-account-logout]").hidden, false);
+  assert.equal(f.nodes.get('[data-account-logout] button[type="submit"]').disabled, false);
   f.delayConfig(); f.signOut(); f.events.pageshow({ persisted: true });
   assert.equal(email.textContent, "");
   assert.equal(hero.textContent, "");
   assert.equal(hero.hidden, true);
   assert.equal(f.nodes.get("[data-account-authenticated]").hidden, true);
+  assert.equal(f.nodes.get("[data-account-logout]").hidden, true);
   assert.equal(f.nodes.get('[data-account-logout] button[type="submit"]').disabled, true);
   await flush(); f.releaseConfig(); await flush();
   assert.equal(f.nodes.get("[data-account-anonymous]").hidden, false);

@@ -110,6 +110,13 @@
 .account-profile-copy .account-hero-email{font-size:13px;color:var(--ordax-text);overflow-wrap:anywhere;margin:0 0 4px}
 .account-profile-action{display:inline-flex;align-items:center;justify-content:center;gap:15px;min-height:44px;padding:10px 14px;border:1px solid var(--ordax-border);border-radius:var(--ordax-radius-md);background:color-mix(in srgb,var(--ordax-app-bg) 83%,transparent);font-size:12px}
 .account-profile-action:hover{background:var(--ordax-selected-bg)}
+/* Single server-owned logout form: visible without expanding session details
+   only after the same-origin authenticated session is verified. */
+.account-logout-shortcut[hidden]{display:none}
+.account-logout-shortcut{margin:0;min-width:0}
+.account-logout-shortcut .account-profile-action{width:100%;cursor:pointer;color:var(--ordax-text)}
+.account-logout-shortcut .account-profile-action:disabled{cursor:default;opacity:.6}
+.account-profile-controls:has(.account-logout-shortcut:not([hidden])) .account-session-disclosure{grid-column:1/-1}
 .account-profile-controls{display:flex;align-items:stretch;flex-direction:column;gap:var(--ordax-space-2);min-width:0}
 .account-session:has(.account-session-disclosure[open]){grid-template-columns:minmax(0,1fr)}
 .account-session-disclosure{margin:0}

@@ -47,6 +47,22 @@ class AccountLovableDashboardTests(unittest.TestCase):
         self.assertNotIn('R$ 12.480', self.html)
         self.assertNotIn('999 GB', self.html)
 
+    def test_logout_is_visible_at_profile_level_only_for_verified_sessions(self):
+        site = (ROOT / "sites/public/assets/site.js").read_text(encoding="utf-8")
+        self.assertEqual(self.html.count('data-account-logout'), 1)
+        self.assertLess(
+            self.html.index('data-account-logout'),
+            self.html.index('<details class="account-session-disclosure"'),
+        )
+        self.assertIn('class="account-logout-shortcut" action="/auth/logout" method="post" data-account-logout hidden', self.html)
+        self.assertIn('>Sair da conta</button>', self.html)
+        self.assertIn(".account-logout-shortcut[hidden]{display:none}", self.css)
+        self.assertIn('logoutForm.hidden = true;', site)
+        self.assertIn('logoutForm.hidden = false;', site)
+        self.assertIn('if (session.authenticated === true)', site)
+        self.assertIn('logout.disabled = false;', site)
+        self.assertNotIn('window.localStorage', self.html)
+
     def test_locale_owner_contains_new_user_copy(self):
         for source in ("Informações disponíveis da conta", "Identidade", "Conta OrdaX", "Plano atual",
                        "Não confirmado", "Não verificados", "Seu universo em resumo", "Visão geral da conta"):

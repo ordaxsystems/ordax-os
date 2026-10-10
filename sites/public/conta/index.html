@@ -63,9 +63,10 @@
         </div>
         <div class="account-profile-controls">
           <a class="account-profile-action" href="#dados-pessoais" data-account-section>Dados pessoais <span aria-hidden="true">↗</span></a>
+          <form class="account-logout-shortcut" action="/auth/logout" method="post" data-account-logout hidden><button type="submit" class="account-profile-action account-profile-action-logout" disabled>Sair da conta</button></form>
         <details class="account-session-disclosure"><summary id="account-session-title" aria-label="Sessão neste navegador"><span class="session-summary-label"><span class="profile-desktop-title">Sessão neste navegador</span><span class="profile-mobile-title">Sessão</span></span><span class="session-summary-arrow" aria-hidden="true">⌄</span></summary><div class="account-session-body">
           <div class="identity-state" data-account-state data-status="checking" aria-live="polite" aria-busy="true"><strong>Verificando sua sessão</strong><p>Consultando o serviço oficial de identidade.</p></div>
-          <section data-account-authenticated hidden aria-label="Sessão autenticada"><dl class="account-details"><div><dt>E-mail da conta</dt><dd data-account-email></dd></div></dl><div class="session-actions"><p>Seu perfil é apresentado a partir da sessão confirmada. Edição de nome e foto ainda não está disponível no portal.</p><form action="/auth/logout" method="post" data-account-logout><button type="submit" class="button button-secondary" disabled>Encerrar sessão</button></form></div></section>
+          <section data-account-authenticated hidden aria-label="Sessão autenticada"><dl class="account-details"><div><dt>E-mail da conta</dt><dd data-account-email></dd></div></dl><div class="session-actions"><p>Seu perfil é apresentado a partir da sessão confirmada. Edição de nome e foto ainda não está disponível no portal.</p></div></section>
           <section data-account-anonymous hidden><p>Entre para acessar os dados confirmados da sua conta.</p><div class="portal-actions"><a class="button button-primary" href="/login/">Entrar na Conta OrdaX</a><a class="button button-secondary" href="/cadastro/">Criar conta</a></div></section>
           <section data-account-unavailable hidden><a class="button button-secondary" href="/conta/">Tentar novamente</a></section>
         </div></details>

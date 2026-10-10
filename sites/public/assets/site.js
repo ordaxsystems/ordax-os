@@ -398,6 +398,8 @@
     const email = document.querySelector("[data-account-email]");
     const hero = document.querySelector("[data-account-hero-email]");
     const logout = document.querySelector('[data-account-logout] button[type="submit"]');
+    const logoutForm = document.querySelector("[data-account-logout]");
+    if (logoutForm) logoutForm.hidden = true;
     if (email) email.textContent = "";
     if (hero) { hero.textContent = ""; hero.hidden = true; }
     if (logout) logout.disabled = true;
@@ -412,7 +414,8 @@
     const email = document.querySelector("[data-account-email]");
     const hero = document.querySelector("[data-account-hero-email]");
     const logout = document.querySelector('[data-account-logout] button[type="submit"]');
-    if (!state || !authenticated || !anonymous || !unavailable || !email || !logout) return;
+    const logoutForm = document.querySelector("[data-account-logout]");
+    if (!state || !authenticated || !anonymous || !unavailable || !email || !logout || !logoutForm) return;
 
     // Always hide stale personal information during refresh and locale changes.
     authenticated.hidden = true;
@@ -421,6 +424,7 @@
     email.textContent = "";
     if (hero) { hero.textContent = ""; hero.hidden = true; }
     logout.disabled = true;
+    logoutForm.hidden = true;
     state.dataset.status = "checking";
     state.setAttribute("aria-busy", "true");
     setStatus("[data-account-state]", t("account.session.checking.title"), t("account.session.checking.detail"));
@@ -441,6 +445,7 @@
         }
         authenticated.hidden = false;
         logout.disabled = false;
+        logoutForm.hidden = false;
         state.dataset.status = "ready";
         setStatus("[data-account-state]", t("account.session.active.title"), t("account.session.active.detail"));
       } else {
