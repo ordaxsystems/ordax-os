@@ -767,3 +767,25 @@ test("Current Space authorization wrapper forwards the same bounded relevance qu
   assert.deepEqual(reads, [["space-test", { query: "Extrusão de PLA" }]]);
   assert.equal(ai.requests.length, 1);
 });
+
+test("Profile-content bridge preserves inference cancellation through the verified Space reader", async () => {
+  const intelligence = intelligencePort();
+  const originalRespond = intelligence.respond.bind(intelligence);
+  let deliveredSignal = null;
+  intelligence.respond = (request, options) => {
+    deliveredSignal = options?.signal;
+    return originalRespond(request);
+  };
+  const port = {
+    schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+    async read(spaceId) { return validateProfileContentContext(context(spaceId, [])); },
+  };
+  const bridge = createProfileContentIntelligence({
+    intelligencePort: intelligence,
+    profileContentContextPort: port,
+  }).forSpace("space-dev");
+  const controller = new AbortController();
+  await bridge.respond({ prompt: "Explique" }, { signal: controller.signal });
+  assert.equal(deliveredSignal, controller.signal);
+  assert.equal(intelligence.requests.length, 1);
+});

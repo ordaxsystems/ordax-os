@@ -22,6 +22,7 @@ test("Conversation provider projection reuses the Intelligence snapshot without 
   assert.equal(projected.engineId, "llama.cpp");
   assert.equal(projected.modelId, "qwen-verified");
   assert.equal(projected.streamingSupported, false);
+  assert.equal(projected.transportCancellationSupported, true);
   assert.equal(projected.backendCancellationSupported, false);
   assert.equal(projected.resultDiscardSupported, true);
   assert.equal(projected.authority, "none");
@@ -39,6 +40,7 @@ test("Absent or degraded Intelligence never invents a model or external provider
   }]) {
     const projected = projectIntelligenceConversationCapabilities(input);
     assert.equal(projected.provider, "unavailable");
+    assert.equal(projected.transportCancellationSupported, false);
     assert.equal(projected.engineId, null);
     assert.equal(projected.modelId, null);
   }

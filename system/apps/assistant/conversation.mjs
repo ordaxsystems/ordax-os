@@ -146,6 +146,7 @@ export function createAssistantConversationRuntime({
   let requestInFlight = false;
   let inferencePending = false;
   let discardRequested = false;
+  let pendingInferenceController = null;
   let messages = Object.freeze([]);
   let state = scopeKey === null
     ? "unavailable"
@@ -200,6 +201,9 @@ export function createAssistantConversationRuntime({
     if (scopeKey === next) return;
     scopeKey = next;
     scopeGeneration += 1;
+    // Stop only this client's inference transport; owner/Space fencing still
+    // discards late replies from an adapter that ignores cancellation.
+    pendingInferenceController?.abort();
     messages = Object.freeze([]);
     lastError = null;
     memoryCaptureState = memoryCapture === null ? "unavailable" : "idle";
@@ -269,6 +273,8 @@ export function createAssistantConversationRuntime({
         }
       }
       const submittedMessage = append("user", prompt);
+      const inferenceController = new AbortController();
+      pendingInferenceController = inferenceController;
       requestInFlight = true;
       inferencePending = true;
       discardRequested = false;
@@ -283,7 +289,7 @@ export function createAssistantConversationRuntime({
           prompt,
           context: priorContext,
           maxTokens: 512,
-        }));
+        }, { signal: inferenceController.signal }));
         inferencePending = false;
         reconcileScope();
         if (disposed || scopeGeneration !== generationAtStart) {
@@ -356,6 +362,9 @@ export function createAssistantConversationRuntime({
         requestInFlight = false;
         inferencePending = false;
         discardRequested = false;
+        if (pendingInferenceController === inferenceController) {
+          pendingInferenceController = null;
+        }
         if (!disposed && (scopeGeneration !== generationAtStart || wasDiscarded)) {
           state = scopeKey === null
             ? "unavailable"
@@ -368,7 +377,9 @@ export function createAssistantConversationRuntime({
       assertAlive();
       if (!requestInFlight || !inferencePending || discardRequested) return false;
       discardRequested = true;
-      // No backend abort is available. Prevent another send until settlement.
+      // Abort the client transport. This does not prove the engine stopped
+      // computing; retain the same late-result and Memory discard fences.
+      pendingInferenceController?.abort();
       publish();
       return true;
     },
@@ -392,6 +403,7 @@ export function createAssistantConversationRuntime({
     dispose() {
       if (disposed) return;
       disposed = true;
+      pendingInferenceController?.abort();
       unsubscribe?.();
       unsubscribeActivation?.();
       unsubscribeSelection();

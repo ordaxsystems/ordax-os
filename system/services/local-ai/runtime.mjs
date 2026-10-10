@@ -14,6 +14,14 @@ const DEFAULT_ENDPOINT = "http://127.0.0.1:17865";
 const DEFAULT_PROBE_TIMEOUT_MS = 3000;
 const DEFAULT_INFERENCE_TIMEOUT_MS = 120000;
 const DISPOSE_ABORT_REASON = "ordax-local-ai-disposed";
+const REQUEST_ABORT_REASON = "ordax-local-ai-request-cancelled";
+
+function assertInferenceSignal(signal) {
+  if (signal !== null && !(signal instanceof AbortSignal)) {
+    throw new TypeError("Local AI inference signal must be an AbortSignal");
+  }
+  if (signal?.aborted) throw new Error("Local AI inference request cancelled");
+}
 const LITERAL_LOOPBACK_ENDPOINT_RE = /^http:\/\/127\.0\.0\.1(?::[0-9]{1,5})?(?:[/?#]|$)/;
 
 function normalizeEndpoint(value) {
@@ -166,23 +174,40 @@ async function fetchWithTimeout(
   label,
   activeControllers,
   consume = null,
+  requestSignal = null,
 ) {
   const controller = new AbortController();
+  const abortRequest = () => controller.abort(REQUEST_ABORT_REASON);
+  // The caller's cancellation must not cancel unrelated probes or requests.
+  if (requestSignal !== null) {
+    assertInferenceSignal(requestSignal);
+    requestSignal.addEventListener("abort", abortRequest, { once: true });
+    if (requestSignal.aborted) abortRequest();
+  }
   activeControllers.add(controller);
   const timer = setTimeout(() => controller.abort(), milliseconds);
   try {
+    if (controller.signal.aborted) throw new Error("Local AI inference request cancelled");
     const response = await fetchImpl(url, { ...options, signal: controller.signal });
-    return consume === null ? response : await consume(response);
+    if (controller.signal.aborted) throw new Error("Local AI inference request cancelled");
+    const value = consume === null ? response : await consume(response);
+    // Also reject if an adapter ignores the abort signal and responds late.
+    if (controller.signal.aborted) throw new Error("Local AI inference request cancelled");
+    return value;
   } catch (error) {
     if (controller.signal.aborted) {
       if (controller.signal.reason === DISPOSE_ABORT_REASON) {
         throw new Error("Local AI runtime is disposed");
+      }
+      if (controller.signal.reason === REQUEST_ABORT_REASON) {
+        throw new Error("Local AI inference request cancelled");
       }
       throw new Error(`${label} timed out after ${milliseconds}ms`);
     }
     throw error;
   } finally {
     clearTimeout(timer);
+    requestSignal?.removeEventListener("abort", abortRequest);
     activeControllers.delete(controller);
   }
 }
@@ -245,7 +270,7 @@ export function createLocalAiRuntime({
     },
   );
 
-  const requestJson = (url, options, milliseconds, label, maxBytes) => fetchWithTimeout(
+  const requestJson = (url, options, milliseconds, label, maxBytes, requestSignal = null) => fetchWithTimeout(
     fetchImpl,
     url,
     options,
@@ -262,6 +287,7 @@ export function createLocalAiRuntime({
         payload: await readBoundedJson(response, maxBytes, `${label} response`),
       });
     },
+    requestSignal,
   );
 
   const discoverModel = async (label) => {
@@ -432,9 +458,10 @@ export function createLocalAiRuntime({
       }
       return snapshot;
     },
-    async generate(requestValue) {
+    async generate(requestValue, { signal = null } = {}) {
       assertAlive();
       const input = validateLocalAiRequest(requestValue);
+      assertInferenceSignal(signal);
       if (snapshot.state !== "ready") {
         throw new Error("Local AI is not ready");
       }
@@ -464,6 +491,7 @@ export function createLocalAiRuntime({
           inferenceTimeout,
           "Local AI inference",
           LOCAL_AI_MAX_COMPLETION_RESPONSE_BYTES,
+          signal,
         );
         if (!response.ok) throw new Error(`Local AI inference failed: HTTP ${response.status}`);
         // Some OpenAI-compatible backends report the model that actually served

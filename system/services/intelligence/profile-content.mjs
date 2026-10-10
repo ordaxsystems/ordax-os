@@ -62,7 +62,7 @@ export function createProfileContentIntelligence({
   const intelligence = assertIntelligencePort(intelligencePort);
   const profileContext = assertProfileContentContextPort(profileContentContextPort);
 
-  const respondForSpace = async (value, spaceId) => {
+  const respondForSpace = async (value, spaceId, signal = null) => {
     const request = validateIntelligenceRequest(value);
     const normalizedSpaceId = boundedSpaceId(spaceId);
 
@@ -91,7 +91,7 @@ export function createProfileContentIntelligence({
       context: [...request.context, ...additions],
       maxTokens: request.maxTokens,
     });
-    return intelligence.respond(merged);
+    return intelligence.respond(merged, { signal });
   };
 
   return Object.freeze({
@@ -102,8 +102,8 @@ export function createProfileContentIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    respond(value, { spaceId } = {}) {
-      return respondForSpace(value, spaceId);
+    respond(value, { spaceId, signal = null } = {}) {
+      return respondForSpace(value, spaceId, signal);
     },
     forSpace(spaceId) {
       const boundSpaceId = boundedSpaceId(spaceId);
@@ -115,8 +115,8 @@ export function createProfileContentIntelligence({
         subscribe(listener) {
           return intelligence.subscribe(listener);
         },
-        respond(value) {
-          return respondForSpace(value, boundSpaceId);
+        respond(value, { signal = null } = {}) {
+          return respondForSpace(value, boundSpaceId, signal);
         },
       });
     },
@@ -145,7 +145,7 @@ export function createSelectedSpaceProfileContentIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    async respond(value) {
+    async respond(value, { signal = null } = {}) {
       const request = validateIntelligenceRequest(value);
       const currentSpace = () => {
         const currentIdentity = validateIdentitySessionSnapshot(identity.getSnapshot());
@@ -156,7 +156,7 @@ export function createSelectedSpaceProfileContentIntelligence({
       const selected = validateSpaceSelectionSnapshot(selection.getSnapshot());
       if (selected.state !== "selected") {
         // With no selected Space, consult the generic model without a profile.
-        return intelligence.respond(request);
+        return intelligence.respond(request, { signal });
       }
       const authorized = currentSpace();
       if (!authorized) {
@@ -199,7 +199,7 @@ export function createSelectedSpaceProfileContentIntelligence({
         schema: INTELLIGENCE_PORT_SCHEMA,
         getSnapshot: () => intelligence.getSnapshot(),
         subscribe: (listener) => intelligence.subscribe(listener),
-        respond: (merged) => {
+        respond: (merged, { signal: forwardedSignal = null } = {}) => {
           const now = validateSpaceSelectionSnapshot(selection.getSnapshot());
           const space = currentSpace();
           assertStableActivation();
@@ -211,7 +211,7 @@ export function createSelectedSpaceProfileContentIntelligence({
           ) {
             throw new Error("Profile-content Intelligence Space changed while reading context");
           }
-          return intelligence.respond(merged);
+          return intelligence.respond(merged, { signal: forwardedSignal });
         },
       };
       // Use the existing bounded context composition, with an additional
@@ -219,7 +219,7 @@ export function createSelectedSpaceProfileContentIntelligence({
       return createProfileContentIntelligence({
         intelligencePort: securedContextPort,
         profileContentContextPort: verifiedProfileContext,
-      }).forSpace(spaceId).respond(request);
+      }).forSpace(spaceId).respond(request, { signal });
     },
   });
 }

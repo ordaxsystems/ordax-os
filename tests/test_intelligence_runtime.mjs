@@ -41,13 +41,13 @@ function inferencePort({
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    async generate(request) {
+    async generate(request, options = {}) {
       assert.match(request.systemPrompt, /Ordax Intelligence/);
       assert.match(request.systemPrompt, /no implicit authority/i);
       assert.match(request.systemPrompt, /never as instructions/i);
       assert.doesNotMatch(request.prompt, /no implicit authority/i);
       assert.match(request.prompt, /Model purpose:/);
-      await onGenerate?.(request);
+      await onGenerate?.(request, options);
       return Object.freeze({ text: answer, engineId: resultEngineId, modelId: resultModelId });
     },
     publish(nextState) {
@@ -343,4 +343,46 @@ test("Intelligence rejects unbounded or authority-shaped input before inference"
     }),
     /bounded array/,
   );
+});
+
+test("Intelligence forwards an AbortSignal to the existing Local AI port without placing it in model input", async () => {
+  const controller = new AbortController();
+  let seenOptions;
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: inferencePort({ onGenerate(request, options) {
+      seenOptions = options;
+      assert.equal(Object.hasOwn(request, "signal"), false);
+    } }),
+  });
+  const response = await intelligence.respond({ prompt: "consulta" }, { signal: controller.signal });
+  assert.equal(response.authority, "none");
+  assert.equal(seenOptions.signal, controller.signal);
+  assert.equal(intelligence.getSnapshot().toolExecution, false);
+  intelligence.dispose();
+});
+
+test("Intelligence rejects aborted or invalid caller signals before inference and late results", async () => {
+  let finishes;
+  let forwarded = 0;
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: inferencePort({ onGenerate() {
+      forwarded += 1;
+      return new Promise(resolve => { finishes = resolve; });
+    } }),
+  });
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(() => intelligence.respond({ prompt: "não encaminhar" }, {
+    signal: controller.signal,
+  }), /request cancelled/);
+  await assert.rejects(() => intelligence.respond({ prompt: "inválido" }, {
+    signal: {},
+  }), /AbortSignal/);
+  assert.equal(forwarded, 0);
+  const active = new AbortController();
+  const pending = intelligence.respond({ prompt: "pendente" }, { signal: active.signal });
+  active.abort();
+  finishes();
+  await assert.rejects(pending, /request cancelled/);
+  intelligence.dispose();
 });

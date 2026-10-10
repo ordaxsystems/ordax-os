@@ -80,7 +80,7 @@ export function createApplicationContextIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    respond(value) {
+    respond(value, { signal = null } = {}) {
       const request = validateIntelligenceRequest(value);
       for (const entry of request.context) {
         if (reservedContextId(entry.id)) {
@@ -131,7 +131,7 @@ export function createApplicationContextIntelligence({
         prompt: request.prompt,
         context,
         maxTokens: request.maxTokens,
-      }));
+      }), { signal });
     },
   });
 }

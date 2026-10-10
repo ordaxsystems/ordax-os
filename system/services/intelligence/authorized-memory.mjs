@@ -89,6 +89,7 @@ export function createAuthorizedMemoryIntelligence({ intelligencePort, memoryPor
       authorizations,
       memoryQuery: queryValue,
       memoryLimit: limitValue,
+      signal = null,
     } = {}) {
       const request = validateIntelligenceRequest(value);
       const normalizedAuthorizations = validateAuthorizations(authorizations);
@@ -121,7 +122,7 @@ export function createAuthorizedMemoryIntelligence({ intelligencePort, memoryPor
         context: [...request.context, ...memoryContext],
         maxTokens: request.maxTokens,
       });
-      return intelligence.respond(merged);
+      return intelligence.respond(merged, { signal });
     },
   });
 }
@@ -179,11 +180,11 @@ async function withCurrentMemoryContext(intelligence, selection, identity, respo
       schema: INTELLIGENCE_PORT_SCHEMA,
       getSnapshot: () => intelligence.getSnapshot(),
       subscribe: (listener) => intelligence.subscribe(listener),
-      respond(value) {
+      respond(value, { signal = null } = {}) {
         // Memory retrieval may synchronously publish a context change. Do not
         // send the retrieved old-owner context to inference in that case.
         assertCurrent();
-        return intelligence.respond(value);
+        return intelligence.respond(value, { signal });
       },
     });
     const result = await respond(guarded, captured);
@@ -216,15 +217,16 @@ export function createSelectedSpaceMemoryIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    respond(value) {
+    respond(value, { signal = null } = {}) {
       return withCurrentMemoryContext(intelligence, selection, null, (guarded, { selected: snapshot }) => {
         if (snapshot.state !== "selected") {
-          return guarded.respond(validateIntelligenceRequest(value));
+          return guarded.respond(validateIntelligenceRequest(value), { signal });
         }
         const authorized = createAuthorizedMemoryIntelligence({
           intelligencePort: guarded, memoryPort: memory,
         });
         return authorized.respond(value, {
+          signal,
           authorizations: [{
             schema: "ordax.memory-context-auth/1",
             authority: "composition",
@@ -260,7 +262,7 @@ export function createIdentityBoundMemoryIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    async respond(value) {
+    async respond(value, { signal = null } = {}) {
       return withCurrentMemoryContext(intelligence, selection, identity, (guarded, {
         account: identitySnapshot, selected: selectionSnapshot,
       }) => {
@@ -310,7 +312,7 @@ export function createIdentityBoundMemoryIntelligence({
         const authorized = createAuthorizedMemoryIntelligence({
           intelligencePort: guarded, memoryPort: memory,
         });
-        return authorized.respond(value, { authorizations });
+        return authorized.respond(value, { authorizations, signal });
       });
     },
   });

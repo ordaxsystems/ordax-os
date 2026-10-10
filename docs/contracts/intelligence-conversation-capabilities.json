@@ -17,12 +17,13 @@
   "streaming_supported": false,
   "backend_cancellation_supported": false,
   "result_discard_supported": true,
-  "discard_semantics": "suppress-late-result-and-memory-capture-only;inference-may-continue-until-settled",
+  "discard_semantics": "abort-local-client-http-request-and-suppress-late-result-and-memory-capture;engine-may-continue-until-settled",
   "history_persistence": "session",
   "context_source": "existing-identity-space-profile-owners",
   "project_context_implicit": false,
   "grants_from_conversation": false,
   "tool_execution": false,
   "mcp_plugin_as_inference": false,
-  "external_egress_enabled": false
+  "external_egress_enabled": false,
+  "transport_cancellation_supported": true
 }

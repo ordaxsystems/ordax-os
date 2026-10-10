@@ -151,9 +151,13 @@ export function createIntelligenceRuntime({ inferencePort, modelRouterPort = nul
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    async respond(value) {
+    async respond(value, { signal = null } = {}) {
       assertAlive();
       const request = validateIntelligenceRequest(value);
+      if (signal !== null && !(signal instanceof AbortSignal)) {
+        throw new TypeError("Intelligence inference signal must be an AbortSignal");
+      }
+      if (signal?.aborted) throw new Error("Intelligence request cancelled");
       if (snapshot.state !== "ready") {
         throw new Error("Ordax Intelligence local inference is not ready");
       }
@@ -169,8 +173,9 @@ export function createIntelligenceRuntime({ inferencePort, modelRouterPort = nul
         systemPrompt: INTELLIGENCE_SYSTEM_PROMPT,
         prompt: renderRequest(request, route),
         maxTokens: request.maxTokens,
-      });
+      }, { signal });
       assertAlive();
+      if (signal?.aborted) throw new Error("Intelligence request cancelled");
       if (result.engineId !== route.engineId || result.modelId !== route.modelId) {
         throw new Error("Local inference identity changed after route selection");
       }
