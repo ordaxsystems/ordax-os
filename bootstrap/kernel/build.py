@@ -404,7 +404,7 @@ def verify_resolved_config(config: Path, requested: dict[str, str]) -> None:
         raise BuildError(f"Kconfig rejected requested OrdaX selectors:\n{preview}")
 
 
-def package_modules(stage: Path, destination: Path) -> set[str]:
+def package_modules(stage: Path, destination: Path, expected_release: str) -> set[str]:
     root = stage / "lib" / "modules"
     if not root.is_dir():
         raise BuildError("modules_install did not create lib/modules")
@@ -412,6 +412,11 @@ def package_modules(stage: Path, destination: Path) -> set[str]:
     if len(release_dirs) != 1:
         raise BuildError(f"expected one kernel release directory, found {len(release_dirs)}")
     release_root = release_dirs[0]
+    if release_root.name != expected_release:
+        raise BuildError(
+            f"kernel/module ABI mismatch: expected={expected_release} "
+            f"actual={release_root.name}"
+        )
     module_basenames: set[str] = set()
     with tarfile.open(destination, "w", format=tarfile.USTAR_FORMAT) as archive:
         for path in sorted(stage.rglob("*"), key=lambda p: p.as_posix()):
@@ -553,6 +558,19 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
     requested = merge_fragment(build_dir / ".config", fragment)
     run(["make", "-C", str(source), f"O={build_dir}", "olddefconfig"], cwd=ROOT, env=env)
     verify_resolved_config(build_dir / ".config", requested)
+    observed_kernelrelease = subprocess.run(
+        ["make", "-s", "-C", str(source), f"O={build_dir}", "kernelrelease"],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if observed_kernelrelease != contract["version"]:
+        raise BuildError(
+            f"kernelrelease differs from pinned ABI: "
+            f"expected={contract['version']} actual={observed_kernelrelease}"
+        )
 
     run(
         ["make", "-C", str(source), f"O={build_dir}", f"-j{max(1, jobs)}", "bzImage", "modules"],
@@ -578,7 +596,7 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
     vmlinuz = out_dir / f"vmlinuz-{contract['version']}"
     shutil.copy2(bzimage, vmlinuz)
     modules_tar = out_dir / f"kernel-modules-{contract['version']}.tar"
-    modules = package_modules(module_stage, modules_tar)
+    modules = package_modules(module_stage, modules_tar, contract['version'])
     final_config = out_dir / f"kernel-{contract['version']}.config"
     shutil.copy2(build_dir / ".config", final_config)
 
@@ -631,15 +649,33 @@ def build(work_dir: Path, out_dir: Path, jobs: int) -> dict:
 
 
 def main() -> int:
+    global SOURCE_CONTRACT
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("check", help="validate source/config contract only")
+    check_parser = sub.add_parser("check", help="validate source/config contract only")
+    check_parser.add_argument(
+        "--source-contract", type=Path, default=SOURCE_CONTRACT,
+        help="canonical pin or explicitly reviewed staged kernel source contract",
+    )
     build_parser = sub.add_parser("build", help="build kernel candidate and provenance")
     build_parser.add_argument("--work-dir", type=Path, default=ROOT / "out" / "kernel-work")
     build_parser.add_argument("--out-dir", type=Path, default=ROOT / "out" / "kernel")
     build_parser.add_argument("--jobs", type=int, default=max(1, os.cpu_count() or 1))
+    build_parser.add_argument(
+        "--source-contract", type=Path, default=SOURCE_CONTRACT,
+        help="canonical pin or explicitly reviewed staged kernel source contract",
+    )
     args = parser.parse_args()
     try:
+        selected = args.source_contract
+        if selected.is_symlink() or not selected.is_file():
+            raise BuildError("kernel source contract is missing or unsafe")
+        selected = selected.resolve()
+        canonical = (KERNEL_DIR / "source.json").resolve()
+        candidates = (KERNEL_DIR / "candidates").resolve()
+        if selected != canonical and candidates not in selected.parents:
+            raise BuildError("kernel source contract must be canonical or a reviewed staging candidate")
+        SOURCE_CONTRACT = selected
         if args.command == "check":
             print(json.dumps(check_contract(), indent=2, sort_keys=True))
         else:
