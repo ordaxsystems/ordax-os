@@ -111,6 +111,35 @@
   },
   "account_area": {
     "route": "/conta/",
+    "session_presentation_port": {
+      "schema": "prototype-ordax.public-account-client/1",
+      "source": "sites/public/assets/site.js",
+      "global": "OrdaXPublicAccount",
+      "owner": "public-site",
+      "authority": "none",
+      "methods": [
+        "getSnapshot",
+        "readSession",
+        "refreshSession",
+        "subscribe",
+        "bindProfileMenu"
+      ],
+      "snapshot_fields": [
+        "status",
+        "email"
+      ],
+      "statuses": [
+        "checking",
+        "authenticated",
+        "anonymous",
+        "unavailable",
+        "leaving"
+      ],
+      "credential_exposure_allowed": false,
+      "identity_persistence_allowed": false,
+      "logout_transport": "native-same-origin-post-form",
+      "identity_contract": "docs/contracts/public-identity.json"
+    },
     "requires_authenticated_session": true,
     "fail_closed_until_identity_ready": true,
     "may_simulate_user_data": false,
@@ -125,6 +154,23 @@
       "session_verification_required": true,
       "destination_must_enforce_own_authorization": true,
       "surface_imported_by_portal": false
+    },
+    "presentation": {
+      "status": "canonical-account-layout-user-approved-source",
+      "may_access_account_services": true,
+      "supported_service_routes": [
+        "GET /auth/session",
+        "POST /auth/logout"
+      ],
+      "session_client": "prototype-ordax.public-account-client/1",
+      "may_activate_account_services": false,
+      "may_simulate_user_data": false,
+      "search_engine_indexing_allowed": false,
+      "provenance": "docs/evidence/public-account-layout-reference-2026-10-10.json",
+      "source": "sites/public/conta/index.html",
+      "controller": "sites/public/assets/account-portal.js",
+      "styles": "sites/public/assets/account-dashboard.css",
+      "visual_policy": "system/surface/ui/tokens.css"
     }
   },
   "mvp_scope": {

@@ -60,6 +60,14 @@ class KernelCandidateCIScopeTests(unittest.TestCase):
         self.assertIn('git show "FETCH_HEAD:bootstrap/kernel/candidates/$CANDIDATE_VERSION.json"', scheduled)
         self.assertIn('gh pr list --state all --head "$branch"', scheduled)
         self.assertIn('gh pr create', scheduled)
+        # Recovery from branch-only or PR-only publication must dispatch missing
+        # exact-head CI without rerunning an existing job or reopening closed PRs.
+        self.assertIn('if test "$state" = "OPEN"; then', scheduled)
+        self.assertIn('if test "$state" = "CLOSED" || test "$state" = "MERGED"; then', scheduled)
+        self.assertIn('gh run list --workflow kernel-lts-candidate.yml', scheduled)
+        self.assertIn('select(.headSha ==', scheduled)
+        self.assertIn('if test -n "$existing_run"; then', scheduled)
+        self.assertIn('gh pr create', scheduled)
         self.assertNotIn("physical_write_allowed: true", scheduled)
 
 

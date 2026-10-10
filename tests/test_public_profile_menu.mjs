@@ -92,7 +92,7 @@ function fixture({ signedIn = true } = {}) {
   };
   vm.runInNewContext(source, { ...view, URL, URLSearchParams, console });
   return {
-    parent, login, register, doc, events,
+    parent, login, register, doc, events, account: view.window.OrdaXPublicAccount,
     signOut() { signedIn = false; },
     menus() { return parent.children.filter(child => child.className === "ordax-profile-menu"); },
   };
@@ -176,4 +176,40 @@ test("anonymous visitors never receive the authenticated profile menu", async ()
   assert.equal(f.menus().length, 0);
   assert.equal(f.login.href, "/login/");
   assert.equal(f.login.getAttribute("aria-haspopup"), null);
+});
+
+test("canonical account profile menu uses registered canonical account routes and native logout stays connected during submit", async () => {
+  const f = fixture();
+  await flush();
+  const trigger = element("button");
+  f.parent.appendChild(trigger);
+  const dispose = f.account.bindProfileMenu(trigger, { accountRoute: "/conta/" });
+  const menu = f.menus()[1];
+  assert.deepEqual(menu.children.filter(child => child.tagName === "a").map(link => link.href), [
+    "/conta/", "/conta/#dados-pessoais", "/conta/#seguranca",
+    "/conta/#dispositivos", "/conta/#preferencias",
+  ]);
+  const form = menu.children.find(child => child.tagName === "form");
+  form.dispatch("submit");
+  assert.equal(f.account.getSnapshot().status, "leaving");
+  assert.equal(f.account.getSnapshot().email, "");
+  assert.equal(form.parentElement, menu);
+  assert.equal(menu.removed, false, "removing the form during submit can cancel the native POST");
+  assert.equal(menu.hidden, true);
+  assert.equal((await f.account.refreshSession()).status, "leaving",
+    "a refresh must not restore private data while the native logout is pending");
+  dispose();
+  assert.equal(menu.removed, true);
+});
+
+test("canonical account menu cannot receive off-origin destinations or logout for an anonymous session", async () => {
+  const f = fixture({ signedIn: false });
+  await f.account.readSession();
+  const trigger = element("button");
+  f.parent.appendChild(trigger);
+  const dispose = f.account.bindProfileMenu(trigger, { accountRoute: "https://untrusted.test/" });
+  const menu = f.menus()[0];
+  assert.deepEqual(menu.children.filter(child => child.tagName === "a").map(link => link.href), ["/login/", "/cadastro/"]);
+  assert.equal(menu.children.some(child => child.tagName === "form"), false);
+  dispose();
 });

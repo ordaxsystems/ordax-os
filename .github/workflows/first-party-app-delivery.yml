@@ -25,6 +25,9 @@ on:
       - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/first-run-selection.mjs'
+      - 'tests/test_first_run_selection.mjs'
+      - 'docs/APP-PORTFOLIO-AND-PREINSTALL.md'
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'tools/app-policy/render_external_first_party_policy.py'
       - 'tools/app-policy/render_native_store_metadata_policy.py'
@@ -82,6 +85,9 @@ on:
       - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/first-run-selection.mjs'
+      - 'tests/test_first_run_selection.mjs'
+      - 'docs/APP-PORTFOLIO-AND-PREINSTALL.md'
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'tools/app-policy/render_native_store_metadata_policy.py'
       - 'system/surface/runtime/native_store_metadata_policy.py'
@@ -151,6 +157,8 @@ jobs:
           node --check system/contracts/component-runtime-metadata.mjs
           node --check system/contracts/verified-app-store-catalog.mjs
           node --check system/services/apps/delivery-policy.mjs
+          node --check system/services/apps/first-run-selection.mjs
+          node --check tests/test_first_run_selection.mjs
           node --check system/services/apps/external-first-party-policy.mjs
           python -m py_compile tools/app-policy/render_external_first_party_policy.py
           python tools/app-policy/render_external_first_party_policy.py --check
@@ -189,6 +197,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_first_party_app_delivery.mjs
+          node --test tests/test_first_run_selection.mjs
           node --test tests/test_file_association_manifest.mjs
           node --test tests/test_file_open_registry.mjs
           node --test tests/test_app_presentation_manifest.mjs

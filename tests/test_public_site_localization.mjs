@@ -32,7 +32,7 @@ function sameArray(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-const PORTUGUESE_MARKERS = /[ãõçÃÕÇ]|\b(?:não|uma|para|seu|sua|conta|cadastro|senha|licenças|privacidade|termos|recuperação|pendrive|disponível|indisponível|projeto|referências|arquivos|notas|preparação|pública|público|primeiro|atualizações|experiência|segurança|conhecer|criar|entrar|início|ainda|somente|quando|dados|exemplo|documentação|acesso|sessão|escrita|trabalho|entrega|preferências|aplicativos|principais)\b/i;
+const PORTUGUESE_MARKERS = /[ãõçÃÕÇ]|\b(?:não|uma|para|seu|sua|conta|cadastro|senha|licenças|privacidade|termos|recuperação|pendrive|disponível|indisponível|projeto|referências|arquivos|notas|preparação|pública|público|primeiro|atualizações|experiência|segurança|conhecer|criar|entrar|início|ainda|somente|quando|dados|exemplo|documentação|acesso|sessão|escrita|trabalho|entrega|preferências|aplicativos|principais|armazenamento|consumo|faturamento|assinatura|ajuda)\b/i;
 
 function looksPortuguese(value) {
   return PORTUGUESE_MARKERS.test(normalize(value));
@@ -67,7 +67,7 @@ function collectUserFacingHtml(html) {
   return values;
 }
 
-function collectUserFacingJsLiterals(source) {
+function collectUserFacingJsLiterals(source, implementationTokens = new Set()) {
   const values = [];
 
   function collect(raw) {
@@ -77,7 +77,7 @@ function collectUserFacingJsLiterals(source) {
 
     if (!decoded.includes("<")) {
       const value = normalize(decoded);
-      if (value) values.push(value);
+      if (value && !implementationTokens.has(value)) values.push(value);
       return;
     }
 
@@ -90,16 +90,75 @@ function collectUserFacingJsLiterals(source) {
     }
   }
 
-  for (const expression of [
-    /"((?:\\.|[^"\\])*)"/g,
-    /'((?:\\.|[^'\\])*)'/g,
-    /`((?:\\.|[^`\\])*)`/g,
-  ]) {
-    for (const match of source.matchAll(expression)) collect(match[1]);
+  // Read strings inside interpolation expressions independently. A flat regex
+  // mistakes nested quotes/backticks for copy and can miss rendered template text.
+  function scan(start, interpolation = false) {
+    let index = start;
+    let braces = 0;
+    while (index < source.length) {
+      const character = source[index];
+      if (character === "/" && source[index + 1] === "/") {
+        const end = source.indexOf("\n", index + 2);
+        index = end === -1 ? source.length : end + 1;
+        continue;
+      }
+      if (character === "/" && source[index + 1] === "*") {
+        const end = source.indexOf("*/", index + 2);
+        index = end === -1 ? source.length : end + 2;
+        continue;
+      }
+      if (character === "/" && /(?:[=(,:!?;{]|\breturn)\s*$/.test(source.slice(0, index))) {
+        let inClass = false;
+        index += 1;
+        while (index < source.length) {
+          if (source[index] === "\\") index += 2;
+          else if (source[index] === "[") { inClass = true; index += 1; }
+          else if (source[index] === "]") { inClass = false; index += 1; }
+          else if (source[index] === "/" && !inClass) { index += 1; break; }
+          else index += 1;
+        }
+        while (/[a-z]/i.test(source[index] ?? "") && index < source.length) index += 1;
+        continue;
+      }
+      if (character === '"' || character === "'" || character === "`") {
+        const quote = character;
+        let raw = "";
+        index += 1;
+        while (index < source.length) {
+          if (source[index] === "\\") {
+            raw += source.slice(index, index + 2);
+            index += 2;
+          } else if (quote === "`" && source[index] === "$" && source[index + 1] === "{") {
+            index = scan(index + 2, true);
+            raw += " ";
+          } else if (source[index] === quote) {
+            index += 1;
+            break;
+          } else {
+            raw += source[index];
+            index += 1;
+          }
+        }
+        collect(raw);
+        continue;
+      }
+      if (interpolation && character === "}") {
+        if (braces === 0) return index + 1;
+        braces -= 1;
+      } else if (interpolation && character === "{") {
+        braces += 1;
+      }
+      index += 1;
+    }
+    return index;
   }
-
+  scan(0);
   return values;
 }
+
+const nestedTemplateCopy = collectUserFacingJsLiterals('const view = `<section>${["a"].map(() => tx("Sua conta"))}</section><small>Seu perfil</small>`;');
+assert(nestedTemplateCopy.includes("Sua conta"), "locale coverage must inspect copy inside nested template expressions");
+assert(nestedTemplateCopy.includes("Seu perfil"), "locale coverage must inspect literal rendered template text");
 
 const catalog = loadCatalog();
 assert(catalog?.schema === "prototype-ordax.public-site-localization/1", "unexpected localization catalog schema");
@@ -189,6 +248,36 @@ for (const value of fixtureStrings) {
 }
 
 const runtime = read("sites/public/i18n/runtime.js");
+const localeRuntimeContext = vm.createContext({
+  window: { OrdaXPublicI18nCatalog: catalog },
+  navigator: { languages: ["en-US"], language: "en-US" },
+  localStorage: { getItem: () => null, setItem: () => {} },
+  document: {
+    nodeType: 9,
+    documentElement: {},
+    querySelector: () => null,
+    createTreeWalker: () => ({ nextNode: () => null }),
+    dispatchEvent: () => {},
+  },
+  Node: { TEXT_NODE: 3, ELEMENT_NODE: 1, DOCUMENT_NODE: 9 },
+  NodeFilter: { SHOW_ELEMENT: 1, SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
+  MutationObserver: class { observe() {} },
+  CustomEvent: class {},
+});
+vm.runInContext(runtime, localeRuntimeContext, { filename: "sites/public/i18n/runtime.js" });
+const localeRuntime = localeRuntimeContext.window.OrdaXPublicI18n;
+assert(localeRuntime.getLocale() === "en-US", "locale regression must exercise the real runtime in en-US");
+for (const [source, translated] of [
+  ["Armazenamento", "Storage"],
+  ["Central de ajuda", "Help center"],
+  ["IA", "AI"],
+  ["Inteligência artificial", "Artificial intelligence"],
+  ["APIs e serviços", "APIs and services"],
+]) {
+  assert(localeRuntime.fromSource(source) === translated, `account resource translation regression: ${source}`);
+}
+localeRuntime.setLocale("pt-BR");
+assert(localeRuntime.fromSource("Armazenamento") === "Armazenamento", "resource label must restore pt-BR through the same runtime");
 for (const anchor of [
   'const STORAGE_KEY = "ordax.public.locale"',
   'document.documentElement.lang = activeLocale',
@@ -235,6 +324,33 @@ const playground = read("sites/public/assets/playground.js");
 for (const value of collectUserFacingJsLiterals(playground)) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `playground source copy missing from localization owner: ${value}`);
+}
+const accountPortal = read("sites/public/assets/account-portal.js");
+// These are DOM/route identifiers, not labels. Visible labels remain covered.
+const accountImplementationTokens = new Set(["conta", "integracoes", "dados-pessoais", "privacidade", "assinatura", "consumo", "faturamento", "/conta/"]);
+for (const value of collectUserFacingJsLiterals(accountPortal, accountImplementationTokens)) {
+  if (!looksPortuguese(value)) continue;
+  assert(sourceMessages.has(normalize(value)), `account portal copy missing from localization owner: ${value}`);
+}
+// Direct translation calls and visible metadata cannot rely on Portuguese-word
+// heuristics: labels such as "Armazenamento" previously escaped those markers.
+for (const expression of [
+  /\btx\(\s*"((?:\\.|[^"\\])*)"\s*\)/g,
+  /\b(?:title|description|label|name|owner|q|a):\s*"((?:\\.|[^"\\])*)"/g,
+]) {
+  for (const match of accountPortal.matchAll(expression)) {
+    const value = normalize(match[1].replace(/\\(["'\\])/g, "$1"));
+    assert(sourceMessages.has(value), `account portal translated label missing from localization owner: ${value}`);
+  }
+}
+assert(/\bi18n(?:\.|\?\.)fromSource\(/.test(accountPortal), "account portal labels must use the existing public-site locale owner");
+assert(
+  accountPortal.includes('document.addEventListener("ordax:localechange"'),
+  "account portal must rerender dynamic copy when the public-site locale changes"
+);
+for (const id of ["account.usage.unavailablePeriod", "account.activity.period"]) {
+  assert(accountPortal.includes(id), `account portal interpolation must use the existing locale owner: ${id}`);
+  assert(typeof pt[id] === "string" && typeof en[id] === "string", `account portal interpolation missing translation: ${id}`);
 }
 for (const id of [
   "playground.note.initialTitle",

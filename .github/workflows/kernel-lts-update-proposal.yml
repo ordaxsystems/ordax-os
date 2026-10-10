@@ -104,11 +104,24 @@ jobs:
             git show "FETCH_HEAD:bootstrap/kernel/candidates/proposal.json" |
               cmp - bootstrap/kernel/candidates/proposal.json
             state="$(gh pr list --state all --head "$branch" --json state --jq '.[0].state // empty')"
-            if test -n "$state"; then
-              echo "Authenticated patch already submitted ($state); retaining prior review."
+            if test "$state" = "CLOSED" || test "$state" = "MERGED"; then
+              echo "Authenticated proposal already reviewed ($state); never silently reopen."
               exit 0
             fi
-            echo "Recovering authenticated branch without a previous PR."
+            if test -n "$state" && test "$state" != "OPEN"; then
+              echo "Unexpected proposal PR state: $state" >&2
+              exit 1
+            fi
+            if test "$state" = "OPEN"; then
+              echo "Authenticated proposal PR already open; checking its exact-head CI."
+            else
+              echo "Recovering authenticated branch without a previous PR."
+              gh pr create \
+                --base main \
+                --head "$branch" \
+                --title "chore(kernel): authenticated LTS $CANDIDATE_VERSION candidate" \
+                --body "Machine-generated, signature-verified candidate for the current Linux LTS line. Requires the reusable Kernel LTS Candidate workflow and code review. Does not change the active kernel, authorize physical writes, rotate trust keys, or promote a release."
+            fi
           else
             git switch -c "$branch"
             git add -- bootstrap/kernel/candidates/
@@ -118,12 +131,21 @@ jobs:
             fi
             git commit -m "chore(kernel): propose authenticated LTS $CANDIDATE_VERSION"
             git push origin "$branch"
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "chore(kernel): authenticated LTS $CANDIDATE_VERSION candidate" \
+              --body "Machine-generated, signature-verified candidate for the current Linux LTS line. Requires the reusable Kernel LTS Candidate workflow and code review. Does not change the active kernel, authorize physical writes, rotate trust keys, or promote a release."
           fi
-          gh pr create \
-            --base main \
-            --head "$branch" \
-            --title "chore(kernel): authenticated LTS $CANDIDATE_VERSION candidate" \
-            --body "Machine-generated, signature-verified candidate for the current Linux LTS line. Requires the reusable Kernel LTS Candidate workflow and code review. Does not change the active kernel, authorize physical writes, rotate trust keys, or promote a release."
-          # PRs created with GITHUB_TOKEN do not cause a pull_request CI run.
-          # workflow_dispatch is explicitly permitted and creates checks on this head.
-          gh workflow run kernel-lts-candidate.yml --ref "$branch"
+          # GITHUB_TOKEN-created PRs do not trigger pull_request CI. Resume a missing
+          # dispatch after partial publication; never repeat a run for the exact head.
+          branch_head="$(git ls-remote --exit-code --heads origin "$branch" | awk '{print $1}')"
+          test "$branch_head" != ""
+          existing_run="$(gh run list --workflow kernel-lts-candidate.yml \
+            --branch "$branch" --limit 100 --json headSha \
+            --jq ".[] | select(.headSha == \"$branch_head\") | .headSha" | head -n 1)"
+          if test -n "$existing_run"; then
+            echo "Exact-head Kernel LTS Candidate CI already exists; not rebuilding."
+          else
+            gh workflow run kernel-lts-candidate.yml --ref "$branch"
+          fi

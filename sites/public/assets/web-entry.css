@@ -1,0 +1,34 @@
+/* Web access composition. Visual policy is compiled from OrdaX tokens. */
+body.web-entry{margin:0;color:var(--ordax-text);background:var(--ordax-bg);font-family:var(--ordax-font);line-height:1.5}
+.web-entry [hidden]{display:none!important}
+.web-entry a{color:inherit;text-decoration:none}
+.web-entry :focus-visible{outline:3px solid var(--ordax-focus);outline-offset:4px}
+.web-entry .ordax-symbol{display:inline-block;width:34px;height:34px;flex-shrink:0}
+.web-entry .account-brand{display:flex;gap:11px;align-items:center;font-size:23px;font-weight:650;letter-spacing:var(--ordax-tracking-tight)}
+.web-entry .brand-os{font-weight:300}
+.web-entry .site-header{position:relative;padding:24px 32px;border-bottom:1px solid var(--ordax-border-soft)}
+.web-entry .eyebrow{font-size:10px;letter-spacing:.16em;font-weight:700;color:var(--ordax-muted)}
+.web-entry .button{display:inline-flex;align-items:center;gap:12px;padding:10px 16px;min-height:44px;border-radius:var(--ordax-radius-md);font-size:12px;white-space:normal}
+.web-entry .button-primary{background:var(--ordax-button-bg);color:var(--ordax-button-text);border:1px solid var(--ordax-button-bg)}
+.web-entry .button-secondary{background:var(--ordax-subtle-bg);border:1px solid var(--ordax-border);color:var(--ordax-text)}
+.web-entry .identity-state{background:transparent;border:0}
+.web-entry .identity-state strong{font-size:13px}
+.web-entry .identity-state p{font-size:12px;color:var(--ordax-muted);margin:5px 0 0}
+.web-entry .web-entry-layout{max-width:1280px;margin:auto;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);gap:70px;align-items:center;min-height:calc(100dvh - 180px);padding:60px 32px}
+.web-entry .web-entry-story h1{font-size:clamp(36px,4vw,60px);line-height:1.12;letter-spacing:var(--ordax-tracking-tight);font-weight:var(--ordax-title-weight);margin:0 0 24px}
+.web-entry .web-lead{color:var(--ordax-muted);font-size:15px;line-height:1.8}
+.web-entry .web-entry-benefits{display:grid;gap:22px;margin-top:34px}
+.web-entry .web-entry-benefits>div{padding-left:40px;position:relative}
+.web-entry .web-entry-benefits span{position:absolute;left:0;color:var(--ordax-accent);font-size:11px}
+.web-entry .web-entry-benefits h2{font-size:14px;margin:0 0 7px}
+.web-entry .web-entry-benefits p{color:var(--ordax-muted);font-size:12px;line-height:1.7;margin:0}
+.web-entry .web-entry-card{padding:32px;border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-xl);background:var(--ordax-panel);box-shadow:var(--ordax-shadow)}
+.web-entry .web-entry-card h2{font-size:28px;letter-spacing:var(--ordax-tracking-tight);font-weight:var(--ordax-title-weight);margin:24px 0}
+.web-entry .web-entry-card .identity-state{padding:20px 0}
+.web-entry .web-entry-card .button{width:100%;justify-content:space-between;margin-top:12px}
+.web-entry .web-entry-note{color:var(--ordax-muted);font-size:12px;line-height:1.7;margin:24px 0}
+.web-entry .web-account-link{border-top:1px solid var(--ordax-border-soft);padding-top:20px;display:flex;gap:16px;justify-content:space-between;font-size:12px}
+.web-entry .site-footer{max-width:1280px;margin:auto;display:flex;gap:24px;justify-content:space-between;padding:24px 32px;color:var(--ordax-muted);border-top:1px solid var(--ordax-border-soft);font-size:12px}
+.web-entry .site-footer nav{display:flex;gap:20px}
+@media(max-width:900px){.web-entry .web-entry-layout{gap:32px;padding:40px 24px}}
+@media(max-width:600px){.web-entry .web-entry-layout{display:block;padding:36px 22px}.web-entry .web-entry-card{margin-top:32px;padding:24px}.web-entry .site-header{flex-direction:column;align-items:start;gap:18px;padding:20px}.web-entry .site-nav{width:100%;flex-wrap:wrap;gap:16px}.web-entry .site-footer{flex-direction:column;padding:24px}}

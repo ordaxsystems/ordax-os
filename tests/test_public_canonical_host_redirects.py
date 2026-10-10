@@ -1,7 +1,7 @@
 """Canonical OrdaX public host: exactly one Git/Vercel project and auth origin.
 
 Vercel project-alias records perform host redirects *before* filesystem
-delivery. Source-defined redirects were insufficient for static /conta/.
+delivery. Source-defined host redirects were insufficient for static /conta/.
 The official deployment contract records the required alias configuration,
 while native Vercel alias records remain the runtime authority.
 """
@@ -39,8 +39,6 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(migration["canonical_public_alias_redirect_http_status"], 307)
         self.assertEqual(set(migration["canonical_public_alias_redirects"]), EXPECTED_HOSTS)
         self.assertNotIn(CANONICAL, EXPECTED_HOSTS)
-        # Do not duplicate platform alias routing in application redirects,
-        # which can miss static routes under the deployment filesystem.
         self.assertNotIn("redirects", self.config)
 
     def test_single_origin_auth_proxy_and_auto_git_deployment(self):

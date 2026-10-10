@@ -286,24 +286,41 @@ class CdpClient {
         const pending = this.pending.get(message.id);
         if (!pending) return;
         this.pending.delete(message.id);
+        clearTimeout(pending.timer);
         if (message.error) pending.reject(new Error(`${pending.method}: ${message.error.message}`));
         else pending.resolve(message.result ?? {});
         return;
       }
       this.events.push(message);
     });
+    this.socket.addEventListener('close', () => this.rejectPending(new Error('DevTools connection closed before proof completion')));
+    this.socket.addEventListener('error', () => this.rejectPending(new Error('DevTools connection failed')));
+  }
+
+  rejectPending(error) {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
   }
 
   send(method, params = {}) {
     const id = this.nextId;
     this.nextId += 1;
     return new Promise((resolvePromise, reject) => {
-      this.pending.set(id, { resolve: resolvePromise, reject, method });
-      this.socket.send(JSON.stringify({ id, method, params }));
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`DevTools command timed out: ${method}`));
+      }, 30_000);
+      this.pending.set(id, { resolve: resolvePromise, reject, method, timer });
+      try { this.socket.send(JSON.stringify({ id, method, params })); }
+      catch (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }
     });
   }
 
   close() {
+    this.rejectPending(new Error('DevTools proof client disposed'));
     this.socket.close();
   }
 }
@@ -1226,119 +1243,113 @@ async function provePublicAccount(client, url, evidenceDir) {
     if (reply.exceptionDetails) throw new Error(reply.exceptionDetails.exception?.description ?? 'account proof evaluation failed');
     return reply.result?.value;
   }
+  async function escapeDialog() {
+    await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  }
+  async function click(selector) {
+    const point = await evaluate(`(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) return null;
+      element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+      const box = element.getBoundingClientRect();
+      if (!box.width || !box.height) return null;
+      const point = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      const hit = document.elementFromPoint(point.x, point.y);
+      if (hit !== element && !element.contains(hit)) throw new Error('account control is obstructed: ' + ${JSON.stringify(selector)});
+      return point;
+    })()`);
+    if (!point) throw new Error(`account control is not visible: ${selector}`);
+    await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+    await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
+    await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
+  }
   const reports = [];
   for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['short',320,568],['wide-phone',430,932],['landscape',844,390]]) {
     await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
-    await client.send('Page.navigate', { url });
+    await client.send('Page.navigate', { url: new URL('#visao-geral', url).href });
     const deadline = Date.now() + 30_000;
-    while (!await evaluate('document.readyState === "complete" && document.body.classList.contains("account-enhanced") && document.querySelector("[data-account-state]")?.dataset.status !== "checking"')) {
-      if (Date.now() > deadline) {
-        const readiness = await evaluate('({ path:location.pathname, document:document.readyState, enhanced:document.body?.classList.contains("account-enhanced"), session:document.querySelector("[data-account-state]")?.dataset.status })');
-        throw new Error(`${name} account preview readiness timed out: ${JSON.stringify(readiness)}`);
-      }
+    while (!await evaluate('document.readyState === "complete" && document.querySelector("#account-content h1") && document.querySelector("#account-session")?.dataset.status !== "checking"')) {
+      if (Date.now() > deadline) throw new Error(`${name} account preview readiness timed out`);
       await sleep(50);
     }
     await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
-    await evaluate('document.querySelector(".account-session-disclosure summary").click()');
-    if (!await evaluate('document.querySelector(".account-session-disclosure").open && document.querySelector("[data-account-state]").getBoundingClientRect().height > 0')) throw new Error('session disclosure failed');
-    await evaluate('document.querySelector(".account-session-disclosure summary").click()');
-    await sleep(100);
     const report = await evaluate(`(() => {
-      const cards = [...document.querySelectorAll('[data-account-card]')];
       const box = element => element.getBoundingClientRect();
-      const phone = innerWidth <= 600;
-      const profile = document.querySelector('[data-account-overview]');
-      const plan = box(document.getElementById('plano'));
-      const billing = box(document.getElementById('faturamento'));
-      const usage = box(document.getElementById('consumo'));
-      const security = box(document.getElementById('seguranca'));
-      const hero = box(document.querySelector('.account-heading'));
-      const chart = document.querySelector('.account-usage-visual');
-      const dashboardChart = document.querySelector('[data-account-dashboard-activity]');
-      const cardIds = cards.map(card => card.id);
-      const nav = [...document.querySelectorAll('.account-mobile-nav > *')];
+      const phone = innerWidth <= 760;
+      const cards = [...document.querySelectorAll('.summary-grid > article')];
+      const sidebar = [...document.querySelectorAll('#sidebar-navigation a, .sidebar-bottom a[data-section]')];
+      const nav = [...document.querySelectorAll('#mobile-navigation > *')];
       return {
-        width:innerWidth, height:innerHeight,
-        noOverflow:document.documentElement.scrollWidth <= innerWidth,
-        allSections:cards.length===12 && new Set(cardIds).size===12,
-        firstCards:cardIds.slice(0,3).join(',')==='plano,consumo,faturamento',
-        noHiddenServices:cards.every(card=>!card.hidden),
-        columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
-        profileHeight:box(profile).height,
-        accountBanner:!!profile.querySelector('.account-profile-intro'),
-        singleUsageChart:document.querySelectorAll('.account-usage-visual').length === 1 &&
-          chart.parentElement.matches('[data-account-dashboard-chart-slot]') &&
-          !dashboardChart.hidden && box(dashboardChart).top >= plan.bottom,
-        liveSections:cards.length===12 && !!document.querySelector('[data-account-profile-identity]'),
-        heroMinHeight:hero.height>=150 && box(profile).height>=110 && box(profile).height<=540,
-        decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
-        accountCardMinHeight:box(cards[0]).height>=(phone?150:210),
-        touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].filter(element=>element.getClientRects().length>0).every(element=>box(element).height>=44),
-        mobileBillingPair:!phone || (plan.top < usage.top && usage.top < billing.top && billing.top < security.top),
-        desktopCardAlignment:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
-        mobileWebReachable:!!document.querySelector('#account-navigation a[href="/web/"]'),
-        managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
-        logoutHonest:document.querySelector('[data-account-logout]').hidden === true,
-        verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
-          document.querySelector('[data-account-hero-email]').textContent.trim()==='',
-        primaryTilesAligned:innerWidth<1200 || (Math.abs(plan.top-usage.top)<2 && Math.abs(plan.top-billing.top)<2),
-        headerHeight:box(document.querySelector('.account-header')).height,
-        accountNavigation:nav.length===4 &&
-          nav[0].getAttribute('href')==='#visao-geral' &&
-          nav[1].getAttribute('href')==='#plano' &&
-          nav[2].getAttribute('href')==='#consumo' &&
-          nav[3].hasAttribute('data-account-menu'),
-        accountInMore:!phone || !document.querySelector('#account-navigation a[href="#visao-geral"]').hidden,
-        mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none'
+        width: innerWidth, height: innerHeight,
+        noOverflow: document.documentElement.scrollWidth <= innerWidth,
+        canonicalPage: document.body.dataset.page === 'conta' && location.pathname === '/conta/',
+        onePresentation: document.querySelectorAll('#account-content').length === 1,
+        allSections: sidebar.length === 12 && new Set(sidebar.map(link => link.hash)).size === 12,
+        overview: !!document.querySelector('.overview-hero h1') && !!document.querySelector('.profile-banner'),
+        summaryCards: cards.length === 3,
+        primaryTilesAligned: innerWidth < 1200 || cards.every(card => Math.abs(box(card).top - box(cards[0]).top) < 2),
+        singleUsageChart: document.querySelectorAll('.usage-chart').length === 1,
+        emptyChart: !!document.querySelector('.chart-empty') && !document.querySelector('.usage-chart polyline'),
+        decorativePlanSymbol: !!document.querySelector('.plan-body img[src="/assets/ordax-symbol.png"]'),
+        managementSections: document.querySelectorAll('.management-grid a').length === 9,
+        mobileWebReachable: !!document.querySelector('#more-dialog a[href="/web/"]'),
+        noInventedIdentity: !document.querySelector('.verified-email').textContent.includes('@'),
+        accountNavigation: nav.length === 5 && nav.slice(0,4).map(item => item.hash).join(',') === '#visao-geral,#assinatura,#consumo,#seguranca' && nav[4].id === 'more-toggle',
+        touchTargets: !phone || nav.every(element => box(element).height >= 44),
+        headerHeight: box(document.querySelector('.topbar')).height,
+        unavailableSession: ['anonymous','unavailable'].includes(document.querySelector('#account-session').dataset.status)
       };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
-        !report.touchTargets || !report.logoutHonest || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.singleUsageChart || !report.liveSections || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
-        !report.mobileSearchCollapsed || report.headerHeight > 80 ||
-        (width === 1440 && report.columns !== 12) ||
-        (width < 600 && report.columns !== 12) ||
-        (width > 1199 && !report.primaryTilesAligned)) {
+    if (Object.entries(report).some(([key,value]) => !['width','height','headerHeight'].includes(key) && value !== true) || report.headerHeight > 80) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
-    if (width <= 600) {
-      await evaluate('document.querySelector("[data-account-menu]").click()');
-      if (!await evaluate('document.activeElement.matches("#account-navigation a:not([hidden])")')) throw new Error('More did not focus an available account section');
+    if (width <= 760) {
+      await click('#more-toggle');
+      if (!await evaluate('document.querySelector("#more-dialog").open && document.querySelector("#more-dialog").contains(document.activeElement)')) throw new Error('More focus failed');
       const moreShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
       await writeFile(join(evidenceDir, `account-${name}-more.png`), Buffer.from(moreShot.data, 'base64'));
-      await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
-      if (!await evaluate('document.activeElement.matches("[data-account-menu]") && !document.body.classList.contains("account-menu-open")')) throw new Error('More Escape failed');
-      const overflowDetail = await evaluate(`(() => {
-        const link = document.querySelector('#account-navigation a[data-account-section]:not([hidden]):not([href="#visao-geral"])');
-        const id = link.hash.slice(1);
-        link.click();
-        return document.querySelector('[data-account-content]').dataset.view === id && !document.getElementById(id).hidden && document.activeElement.id === id+'-title';
-      })()`);
-      if (!overflowDetail) throw new Error('More account section detail was inaccessible');
+      await escapeDialog();
+      if (!await evaluate('!document.querySelector("#more-dialog").open && document.activeElement.id === "more-toggle"')) throw new Error('More Escape failed');
+      await click('#more-toggle');
+      await click('#more-navigation a[href="#integracoes"]');
+      await sleep(50);
+      if (!await evaluate('location.hash === "#integracoes" && document.activeElement.matches("#account-content h1") && !document.querySelector("#more-dialog").open')) throw new Error('More section routing/focus failed');
     }
-    await evaluate('document.querySelector(".account-header-actions [data-account-section]").click()');
-    if (!await evaluate('document.querySelector("[data-account-content]").dataset.view === "atividade" && document.activeElement.id === "atividade-title"')) throw new Error(`${name} notification shortcut failed`);
-    await evaluate('document.querySelector("#seguranca > .card-heading").click()');
-    const detail = await evaluate('document.querySelector("[data-account-content]").dataset.view === "seguranca" && getComputedStyle(document.querySelector("#seguranca .card-note")).display !== "none" && document.activeElement.id === "seguranca-title"');
-    if (!detail) throw new Error(`${name} account detail/focus failed`);
-    if (width <= 900) {
-      await evaluate('document.querySelector("[data-account-search-toggle]").click()');
-      if (!await evaluate('document.activeElement.matches("[data-account-search]")')) throw new Error('mobile search did not focus');
-      await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-      if (!await evaluate('document.activeElement.matches("[data-account-search-toggle]") && !document.body.classList.contains("account-search-open")')) throw new Error('mobile search Escape failed');
-    }
-    if (width <= 600) {
-      await evaluate(`document.querySelector('#account-navigation a[href="#visao-geral"]').click(); window.OrdaXPublicI18n.setLocale('en-US')`);
-      await sleep(100);
-      const englishFits = await evaluate('document.documentElement.scrollWidth<=innerWidth && document.querySelector(".account-header").getBoundingClientRect().height<=80');
-      if (!englishFits) throw new Error(`${name} English layout overflowed`);
-      const englishShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
-      await writeFile(join(evidenceDir, `account-${name}-en.png`), Buffer.from(englishShot.data, 'base64'));
-      await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
-      report.englishFits = englishFits;
-    }
-    reports.push({ name, ...report, detailAndFocus: detail });
+    await click('[data-open-dialog=notifications]');
+    if (!await evaluate('document.querySelector("#account-dialog").open && document.querySelector(".empty-state.compact")')) throw new Error('notification shortcut failed');
+    await escapeDialog();
+    if (!await evaluate('document.activeElement.matches("[data-open-dialog=notifications]")')) throw new Error('notification Escape focus failed');
+    await click('#profile-menu-trigger');
+    if (!await evaluate(`!document.querySelector('#ordax-profile-menu').hidden && !document.querySelector('#ordax-profile-menu .ordax-profile-signout') && !!document.querySelector('#ordax-profile-menu a[href="/login/"]')`)) throw new Error('profile menu invented an authenticated session');
+    await escapeDialog();
+    if (width <= 760) await click('#more-toggle');
+    await click(width <= 760 ? '#more-dialog [data-open-dialog=search]' : '.topbar [data-open-dialog=search]');
+    if (!await evaluate('document.activeElement.id === "dialog-search"')) throw new Error('account search focus failed');
+    await evaluate('document.querySelector("#dialog-search").value = "dispositivos"; document.querySelector("#dialog-search").dispatchEvent(new Event("input", { bubbles: true }))');
+    if (!await evaluate('document.querySelectorAll("#search-results a").length === 1')) throw new Error('account search filtering failed');
+    await click('#search-results a');
+    await sleep(50);
+    if (!await evaluate('location.hash === "#dispositivos" && document.activeElement.matches("#account-content h1") && !document.querySelector("#account-dialog").open')) throw new Error('search section routing/focus failed');
+    await evaluate('location.hash = "#consumo"');
+    await sleep(50);
+    await click('#usage-tab-storage');
+    if (!await evaluate('document.activeElement.id === "usage-tab-storage" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error(`${name} storage selection failed`);
+    await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'ArrowRight', code:'ArrowRight', windowsVirtualKeyCode:39 });
+    await client.send('Input.dispatchKeyEvent', { type:'keyUp', key:'ArrowRight', code:'ArrowRight', windowsVirtualKeyCode:39 });
+    if (!await evaluate('document.activeElement.id === "usage-tab-apis" && document.activeElement.getAttribute("aria-selected") === "true"')) throw new Error(`${name} usage keyboard navigation failed`);
+    await evaluate('location.hash = "#preferencias"');
+    await sleep(50);
+    if (!await evaluate('!document.querySelector("[role=switch]") && document.querySelector("#account-locale").options.length === 2')) throw new Error('preferences invented an account service');
+    await evaluate('location.hash = "#visao-geral"; window.OrdaXPublicI18n.setLocale("en-US")');
+    await sleep(100);
+    if (!await evaluate('document.documentElement.scrollWidth <= innerWidth && document.querySelector(".topbar").getBoundingClientRect().height <= 80 && document.documentElement.lang === "en-US"')) throw new Error(`${name} English layout overflowed`);
+    const englishShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+    await writeFile(join(evidenceDir, `account-${name}-en.png`), Buffer.from(englishShot.data, 'base64'));
+    await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
+    reports.push({ name, ...report, dialogsAndFocus: true, sectionRouting: true, keyboardTabs: true, englishFits: true });
   }
   if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) throw new Error('public account emitted a JavaScript exception');
   await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));
@@ -1454,8 +1465,8 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+try { await main(); } catch (error) {
   console.error('SURFACE_BROWSER_SMOKE=FAIL');
   console.error(error.stack ?? String(error));
   process.exitCode = 1;
-});
+}
