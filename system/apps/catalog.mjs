@@ -3,6 +3,7 @@ import { accountApp } from "./account/app.mjs";
 import { activityApp } from "./activity/app.mjs";
 import { assistantApp } from "./assistant/app.mjs";
 import { internetApp } from "./internet/app.mjs";
+import { filesApp } from "./files/app.mjs";
 import { projectsApp } from "./projects/app.mjs";
 import { networkApp } from "./network/app.mjs";
 import { settingsApp } from "./settings/app.mjs";
@@ -10,6 +11,7 @@ import { studioApp } from "./studio/app.mjs";
 import { storeApp } from "./store/app.mjs";
 import { systemApp } from "./system/app.mjs";
 const APPS = Object.freeze([
+  filesApp,
   projectsApp,
   studioApp,
   networkApp,
