@@ -1177,6 +1177,10 @@ export function mountPersonalActivityControls(
   root.addEventListener("input", onInput);
   root.addEventListener("click", onClick);
   const unsubscribeRuntime = personalOrdax?.subscribe(() => render()) ?? (() => {});
+  // Work may not publish a new event when the selected Space changes (for
+  // example, a completed Work). Revalidate the displayed locator immediately.
+  const unsubscribeIdentity = identity?.subscribe(() => render()) ?? (() => {});
+  const unsubscribeSpace = spaceSelection?.subscribe(() => render()) ?? (() => {});
   const unsubscribeRender = lifecycle.subscribeRender(() => render());
 
   return Object.freeze({
@@ -1184,6 +1188,8 @@ export function mountPersonalActivityControls(
       if (destroyed) return;
       destroyed = true;
       unsubscribeRender();
+      unsubscribeSpace();
+      unsubscribeIdentity();
       unsubscribeRuntime();
       root.removeEventListener("input", onInput);
       root.removeEventListener("click", onClick);
