@@ -67,7 +67,7 @@ function collectUserFacingHtml(html) {
   return values;
 }
 
-function collectUserFacingJsLiterals(source) {
+function collectUserFacingJsLiterals(source, implementationTokens = new Set()) {
   const values = [];
 
   function collect(raw) {
@@ -77,7 +77,7 @@ function collectUserFacingJsLiterals(source) {
 
     if (!decoded.includes("<")) {
       const value = normalize(decoded);
-      if (value) values.push(value);
+      if (value && !implementationTokens.has(value)) values.push(value);
       return;
     }
 
@@ -90,16 +90,75 @@ function collectUserFacingJsLiterals(source) {
     }
   }
 
-  for (const expression of [
-    /"((?:\\.|[^"\\])*)"/g,
-    /'((?:\\.|[^'\\])*)'/g,
-    /`((?:\\.|[^`\\])*)`/g,
-  ]) {
-    for (const match of source.matchAll(expression)) collect(match[1]);
+  // Read strings inside interpolation expressions independently. A flat regex
+  // mistakes nested quotes/backticks for copy and can miss rendered template text.
+  function scan(start, interpolation = false) {
+    let index = start;
+    let braces = 0;
+    while (index < source.length) {
+      const character = source[index];
+      if (character === "/" && source[index + 1] === "/") {
+        const end = source.indexOf("\n", index + 2);
+        index = end === -1 ? source.length : end + 1;
+        continue;
+      }
+      if (character === "/" && source[index + 1] === "*") {
+        const end = source.indexOf("*/", index + 2);
+        index = end === -1 ? source.length : end + 2;
+        continue;
+      }
+      if (character === "/" && /(?:[=(,:!?;{]|\breturn)\s*$/.test(source.slice(0, index))) {
+        let inClass = false;
+        index += 1;
+        while (index < source.length) {
+          if (source[index] === "\\") index += 2;
+          else if (source[index] === "[") { inClass = true; index += 1; }
+          else if (source[index] === "]") { inClass = false; index += 1; }
+          else if (source[index] === "/" && !inClass) { index += 1; break; }
+          else index += 1;
+        }
+        while (/[a-z]/i.test(source[index] ?? "") && index < source.length) index += 1;
+        continue;
+      }
+      if (character === '"' || character === "'" || character === "`") {
+        const quote = character;
+        let raw = "";
+        index += 1;
+        while (index < source.length) {
+          if (source[index] === "\\") {
+            raw += source.slice(index, index + 2);
+            index += 2;
+          } else if (quote === "`" && source[index] === "$" && source[index + 1] === "{") {
+            index = scan(index + 2, true);
+            raw += " ";
+          } else if (source[index] === quote) {
+            index += 1;
+            break;
+          } else {
+            raw += source[index];
+            index += 1;
+          }
+        }
+        collect(raw);
+        continue;
+      }
+      if (interpolation && character === "}") {
+        if (braces === 0) return index + 1;
+        braces -= 1;
+      } else if (interpolation && character === "{") {
+        braces += 1;
+      }
+      index += 1;
+    }
+    return index;
   }
-
+  scan(0);
   return values;
 }
+
+const nestedTemplateCopy = collectUserFacingJsLiterals('const view = `<section>${["a"].map(() => tx("Sua conta"))}</section><small>Seu perfil</small>`;');
+assert(nestedTemplateCopy.includes("Sua conta"), "locale coverage must inspect copy inside nested template expressions");
+assert(nestedTemplateCopy.includes("Seu perfil"), "locale coverage must inspect literal rendered template text");
 
 const catalog = loadCatalog();
 assert(catalog?.schema === "prototype-ordax.public-site-localization/1", "unexpected localization catalog schema");
@@ -137,6 +196,7 @@ const routes = [
   "sites/public/login/index.html",
   "sites/public/cadastro/index.html",
   "sites/public/conta/index.html",
+  "sites/public/conta-2/index.html",
   "sites/public/web/index.html",
   "sites/public/recuperar/index.html",
   "sites/public/recuperar/nova-senha/index.html",
@@ -235,6 +295,22 @@ const playground = read("sites/public/assets/playground.js");
 for (const value of collectUserFacingJsLiterals(playground)) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `playground source copy missing from localization owner: ${value}`);
+}
+const accountExperiment = read("sites/public/assets/account-2.js");
+// These are DOM/route identifiers, not labels. Visible labels remain covered.
+const accountImplementationTokens = new Set(["conta-2", "dados-pessoais", "privacidade", "/conta/"]);
+for (const value of collectUserFacingJsLiterals(accountExperiment, accountImplementationTokens)) {
+  if (!looksPortuguese(value)) continue;
+  assert(sourceMessages.has(normalize(value)), `account experiment copy missing from localization owner: ${value}`);
+}
+assert(/\bi18n(?:\.|\?\.)fromSource\(/.test(accountExperiment), "account experiment labels must use the existing public-site locale owner");
+assert(
+  accountExperiment.includes('document.addEventListener("ordax:localechange"'),
+  "account experiment must rerender dynamic copy when the public-site locale changes"
+);
+for (const id of ["account2.usage.unavailablePeriod", "account2.activity.period"]) {
+  assert(accountExperiment.includes(id), `account experiment interpolation must use the existing locale owner: ${id}`);
+  assert(typeof pt[id] === "string" && typeof en[id] === "string", `account experiment interpolation missing translation: ${id}`);
 }
 for (const id of [
   "playground.note.initialTitle",

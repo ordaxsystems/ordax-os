@@ -1,0 +1,32 @@
+{
+  "status": "experimental-layout-source-not-official-account-migration",
+  "owner": "ordaxsystems/ordax-os",
+  "route": "/conta-2/",
+  "reference": {
+    "repository": "washingtonmsdj/account-hub-pro",
+    "commit": "0f955ece6e570801976d8ed77d2cada101b7a3fa",
+    "components": ["src/components/account/shell.tsx", "src/components/account/overview.tsx", "src/components/account/details.tsx", "src/components/account/integration-panel.tsx", "src/lib/account/model.ts", "src/styles.css"],
+    "authorization": "user-requested-layout-reproduction-for-comparison",
+    "license_file_present": false,
+    "readme_code_ownership_statement_present": true
+  },
+  "illustration": {
+    "reference_path": "src/assets/ordax-landscape.jpg",
+    "local_owner": "sites/public/assets/account-2-landscape.jpg",
+    "sha256": "7ddb6607fa2584e9702fe55a7c9d06e610ab1fe3db0f31e40757b7d9e0347294",
+    "size": 130161
+  },
+  "canonical_assets": {
+    "symbol": "system/surface/ui/brand/ordax-symbol.png",
+    "font": "system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "build": "tools/public-site/build.py"
+  },
+  "boundary": {
+    "official_account_replaced": false,
+    "identity_service_added": false,
+    "fake_account_metrics": false,
+    "billing_activated": false,
+    "remote_runtime_added": false,
+    "framework_dependencies_imported": false
+  }
+}

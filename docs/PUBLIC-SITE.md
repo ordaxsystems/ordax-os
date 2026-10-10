@@ -71,6 +71,41 @@ The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
 
 ## Route ownership
 
+### Conta 2 — comparação visual isolada (2026-10-10)
+
+Por solicitação explícita do usuário, `/conta-2/` reproduz o layout do
+`washingtonmsdj/account-hub-pro` no commit
+`0f955ece6e570801976d8ed77d2cada101b7a3fa` para avaliação antes de qualquer
+migração. A conta oficial `/conta/`, suas permissões e sua integração de
+sessão permanecem com os mesmos owners. Não há redirecionamento automático,
+troca da home, catálogo comercial, backend ou fonte de Identity adicional.
+
+`sites/public/conta-2/index.html`, `assets/account-2.css` e
+`assets/account-2.js` são uma composição experimental; navegação, busca,
+filtros, menus e ajuda são apresentação. Serviços não conectados continuam
+sem dados, cobrança, concessão de acesso ou alterações de conta. Preferências
+de exemplo são limitadas à sessão da prévia. A localização continua no
+catálogo e runtime existentes do portal. O símbolo e a fonte Inter continuam
+sendo derivados do pipeline canônico. A ilustração original da referência
+tem um único arquivo local `assets/account-2-landscape.jpg`, restrito a esta
+composição; ela não substitui o wallpaper do OS. A paleta experimental é
+escopada à página, sem alterar tokens globais.
+
+A referência é um projeto OrdaX fornecido pelo usuário, cujo README declara
+ownership do código ao autor do projeto; não contém LICENSE explícita.
+O port foi autorizado pelo pedido de reprodução para avaliação. Isso não
+atribui uma licença geral à referência nem aprova incorporação de suas
+dependências. Não foram transportados React/TanStack, Supabase, IA Lovable,
+chaves, rotas de servidor ou código de integrações. A proveniência de fonte
+e ilustração é registrada em
+`docs/evidence/account-2-reference-2026-10-10.json`. Uma migração oficial
+depende da avaliação do usuário e de integrar capacidades reais pelos owners
+atuais, nunca de promover a prévia visual a produto autenticado.
+
+A rota recebe `noindex`; os assets de apresentação têm versões derivadas de
+hash no build existente do site. Não requer novo pipeline, framework ou
+build do kernel/Surface.
+
 ### Minha Conta — composição e owners atuais (2026-10-10)
 
 `sites/public/conta/index.html` define uma central de identidade e serviços;

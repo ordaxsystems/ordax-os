@@ -158,6 +158,13 @@
       ]
     },
     {
+      "source": "/conta-2/:path*",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" },
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
       "source": "/licencas/:path*",
       "headers": [
         {
