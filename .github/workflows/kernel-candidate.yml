@@ -6,11 +6,13 @@ on:
     paths:
       - "bootstrap/kernel/**"
       - "tests/test_kernel_artifact_verifier.py"
+      - "tests/test_kernel_build_authentication_gate.py"
       - ".github/workflows/kernel-candidate.yml"
   pull_request:
     paths:
       - "bootstrap/kernel/**"
       - "tests/test_kernel_artifact_verifier.py"
+      - "tests/test_kernel_build_authentication_gate.py"
       - ".github/workflows/kernel-candidate.yml"
   workflow_dispatch:
 
@@ -44,7 +46,9 @@ jobs:
         run: python bootstrap/kernel/build.py check
 
       - name: Run kernel artifact verifier regressions
-        run: python -m unittest discover -s tests -p 'test_kernel_artifact_verifier.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_kernel_artifact_verifier.py' -v
+          python -m unittest discover -s tests -p 'test_kernel_build_authentication_gate.py' -v
 
       - name: Build kernel candidate with provenance
         env:

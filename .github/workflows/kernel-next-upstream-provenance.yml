@@ -1,0 +1,113 @@
+name: Kernel 6.6.158 Upstream Provenance Proof
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/kernel/verify_upstream_signature.py'
+      - 'tests/test_kernel_upstream_signature.py'
+      - '.github/workflows/kernel-next-upstream-provenance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authenticate-next-lts-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact candidate source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Prepare isolated read-only proposed source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/kernel-next-source"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          current = json.loads(Path('bootstrap/kernel/source.json').read_text(encoding='utf-8'))
+          version = '6.6.158'
+          base = 'https://cdn.kernel.org/pub/linux/kernel/v6.x/'
+          current.update({
+              'version': version,
+              'archive_url': f'{base}linux-{version}.tar.xz',
+              'signature_url': f'{base}linux-{version}.tar.sign',
+              'archive_sha256': '9eb33173b0e04e898d431587c78c47ee6e19e3fdf2ea007323de82af14bb2a4f',
+              'upstream_signature': {
+                  'algorithm': 'openpgp-detached-tar',
+                  'trusted_primary_fingerprint': '647F28654894E3BD457199BE38DBBDC86092693E',
+                  'trusted_public_key_url': 'https://kernel.googlesource.com/pub/scm/docs/kernel/pgpkeys/+/9518bddaef900dd832e3e16be1d88923c620b749/keys/38DBBDC86092693E.asc?format=TEXT',
+              },
+          })
+          current.pop('legacy_evidence_only', None)
+          current['build']['physical_artifact_authorized'] = False
+          current['build']['pinned_environment_resolved'] = False
+          work = Path(os.environ['RUNNER_TEMP']) / 'kernel-next-source'
+          (work / 'candidate-source.json').write_text(
+              json.dumps(current, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Download proposed upstream release and fingerprint-pinned public key
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/kernel-next-source"
+          cd "$work"
+          curl --fail --location --show-error --silent --retry 3 --connect-timeout 20 \
+            'https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.158.tar.xz' \
+            -o 'linux-6.6.158.tar.xz'
+          curl --fail --location --show-error --silent --retry 3 --connect-timeout 20 \
+            'https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.158.tar.sign' \
+            -o 'linux-6.6.158.tar.sign'
+          # Gitiles mirrors the kernel.org kernel-developer key repository at a fixed commit.
+          curl --fail --location --show-error --silent --retry 3 --connect-timeout 20 \
+            'https://kernel.googlesource.com/pub/scm/docs/kernel/pgpkeys/+/9518bddaef900dd832e3e16be1d88923c620b749/keys/38DBBDC86092693E.asc?format=TEXT' \
+            | base64 --decode > 'kernel-maintainer-public-key.asc'
+
+      - name: Verify bytes and detached OpenPGP signature of Linux 6.6.158
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/kernel-next-source"
+          python3 bootstrap/kernel/verify_upstream_signature.py \
+            --source-contract "$work/candidate-source.json" \
+            --archive "$work/linux-6.6.158.tar.xz" \
+            --signature "$work/linux-6.6.158.tar.sign" \
+            --public-key "$work/kernel-maintainer-public-key.asc" \
+            --out "$work/upstream-provenance.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads(
+              (Path(os.environ['RUNNER_TEMP']) / 'kernel-next-source/upstream-provenance.json').read_text()
+          )
+          assert report['status'] == 'verified'
+          assert report['kernel_version'] == '6.6.158'
+          assert report['archive_sha256'] == '9eb33173b0e04e898d431587c78c47ee6e19e3fdf2ea007323de82af14bb2a4f'
+          assert report['trusted_primary_fingerprint'] == '647F28654894E3BD457199BE38DBBDC86092693E'
+          assert report['physical_write_authorized'] is False
+          print('UPSTREAM_KERNEL_6_6_158_SOURCE_AUTHENTICATED=YES')
+          print('KERNEL_COMPILED=NO')
+          print('PHYSICAL_BOOT_AUTHORIZED=NO')
+          PY
+
+      - name: Retain provenance receipt only
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: upstream-kernel-6.6.158-provenance-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/kernel-next-source/upstream-provenance.json
+          if-no-files-found: error
+          retention-days: 30
