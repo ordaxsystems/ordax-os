@@ -14,6 +14,7 @@
     "privacy": "/privacidade/",
     "terms": "/termos/",
     "account": "/conta/",
+    "account_layout_preview": "/conta-2/",
     "recovery": "/recuperar/",
     "recovery_complete": "/recuperar/nova-senha/",
     "recovery_new_password": "/recuperar/nova-senha/",
@@ -111,6 +112,15 @@
   },
   "account_area": {
     "route": "/conta/",
+    "experimental_layout": {
+      "route": "/conta-2/",
+      "status": "visual-comparison-only",
+      "replaces_official_account": false,
+      "may_access_account_services": false,
+      "may_simulate_user_data": false,
+      "search_engine_indexing_allowed": false,
+      "provenance": "docs/evidence/account-2-reference-2026-10-10.json"
+    },
     "requires_authenticated_session": true,
     "fail_closed_until_identity_ready": true,
     "may_simulate_user_data": false,

@@ -18,12 +18,29 @@ class PublicSiteContractTests(unittest.TestCase):
             "recuperar/index.html",
             "recuperar/nova-senha/index.html",
             "conta/index.html",
+            "conta-2/index.html",
             "web/index.html",
             "licencas/index.html",
             "privacidade/index.html",
             "termos/index.html",
         ):
             self.assertTrue((SITE / relative).is_file(), relative)
+
+    def test_experimental_account_route_preserves_official_account_boundary(self):
+        contract = json.loads(PUBLIC_CONTRACT.read_text(encoding="utf-8"))
+        preview = contract["account_area"]["experimental_layout"]
+        self.assertEqual(preview["route"], contract["routes"]["account_layout_preview"])
+        self.assertNotEqual(preview["route"], contract["account_area"]["route"])
+        self.assertFalse(preview["replaces_official_account"])
+        self.assertFalse(preview["may_access_account_services"])
+        self.assertFalse(preview["may_simulate_user_data"])
+        self.assertFalse(preview["search_engine_indexing_allowed"])
+        provenance = json.loads((ROOT / preview["provenance"]).read_text(encoding="utf-8"))
+        self.assertEqual(provenance["route"], preview["route"])
+        markup = (SITE / "conta-2/index.html").read_text(encoding="utf-8")
+        self.assertIn('data-public-locale-slot', markup)
+        self.assertIn('content="noindex, nofollow"', markup)
+        self.assertIn('href="/conta/"', markup)
 
     def test_public_site_is_distinct_from_product_web_mode(self):
         contract = json.loads(PUBLIC_CONTRACT.read_text(encoding="utf-8"))
