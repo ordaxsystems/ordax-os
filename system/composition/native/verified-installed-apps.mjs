@@ -2,6 +2,8 @@ import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { createAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { defineExternalFirstPartyApp } from "../../apps/external-app-definition.mjs";
 import { loadVerifiedCurrentComponentRuntime } from "../../services/components/current-slot-loader.mjs";
+import { composeTrustedComponentContext } from "../../services/components/runtime-loader.mjs";
+import { assertAppDataPort } from "../../contracts/app-data.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../../services/apps/external-first-party-policy.mjs";
 
 /**
@@ -56,26 +58,49 @@ export async function mountNativeVerifiedInstalledApps({
   context, onError = null,
 } = {}) {
   if (!Array.isArray(installed)) throw new TypeError("Installed app mounts require an array");
+  if (!context || typeof context !== "object" || Array.isArray(context)
+    || Object.prototype.hasOwnProperty.call(context, "appData")) {
+    throw new TypeError("Installed app caller context cannot supply App Data");
+  }
   if (onError !== null && typeof onError !== "function") {
     throw new TypeError("Installed app mount error handler must be a function or null");
   }
-  const mounts = await Promise.all(installed.map(async (entry) => {
-    const mounted = await loadVerifiedCurrentComponentRuntime({
-      componentId: entry.component.id,
-      source,
-      fetchImpl,
-      importModule,
-      context,
-      onError(error) { onError?.(error, entry.component.id); },
-    });
-    return mounted;
+  const results = await Promise.all(installed.map(async (entry) => {
+    const appId = entry.component.id;
+    if (!hasNativeExternalFirstPartyModuleRead(appId)) {
+      onError?.(new TypeError("App is outside the Native module-read policy"), appId);
+      return null;
+    }
+    try {
+      // The privileged bootstrap holds the binding and verifies its owner.
+      // The app, its manifest and the caller context may not forge App Data.
+      const trusted = await composeTrustedComponentContext(appId, Object.freeze({ ...context }));
+      const appData = assertAppDataPort(trusted.appData);
+      if (appData.identity.appId !== appId) {
+        throw new TypeError("Trusted App Data identity does not match the installed app");
+      }
+      const mounted = await loadVerifiedCurrentComponentRuntime({
+        componentId: appId,
+        source,
+        fetchImpl,
+        importModule,
+        context: trusted,
+        onError(error) { onError?.(error, appId); },
+      });
+      return mounted === null ? null : Object.freeze({ appId, mounted });
+    } catch (error) {
+      onError?.(error, appId);
+      return null;
+    }
   }));
+  const mountedIds = Object.freeze(results.filter(Boolean).map((value) => value.appId));
   return Object.freeze({
     destroy() {
-      for (const mounted of mounts) {
-        try { mounted?.destroy(); } catch { /* component teardown is isolated */ }
+      for (const result of results) {
+        try { result?.mounted.destroy(); } catch { /* component teardown is isolated */ }
       }
     },
-    mountedCount: mounts.filter(Boolean).length,
+    mountedIds,
+    mountedCount: mountedIds.length,
   });
 }
