@@ -760,3 +760,108 @@ test("Local AI streaming signal cancellation does not convert partial tokens int
   assert.equal(runtime.getSnapshot().state, "ready");
   runtime.dispose();
 });
+
+test("Local AI streaming rejects token-limit finish_reason instead of promoting truncated text", async () => {
+  const pieces = [];
+  let probes = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) { probes += 1; return { ok: true }; }
+      return streamedCompletion([
+        streamFrame("partial "),
+        streamFrame("answer", { finishReason: "length" }),
+        "data: [DONE]\n\n",
+      ]);
+    },
+  });
+  await runtime.probe();
+  await assert.rejects(
+    () => runtime.generate({ prompt: "não aceitar truncamento" }, {
+      onDelta(delta) { pieces.push(delta); },
+    }),
+    /completion was truncated/,
+  );
+  assert.deepEqual(pieces, ["partial "]);
+  assert.equal(probes, 2);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
+
+test("Local AI abort settles an SSE reader that ignores both read cancellation and cancel()", async () => {
+  let started;
+  const reading = new Promise(resolve => { started = resolve; });
+  const controller = new AbortController();
+  let cancelled = 0;
+  let released = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      return {
+        ok: true,
+        headers: { get: (name) => name === "content-type" ? "text/event-stream" : null },
+        body: {
+          getReader() {
+            return {
+              read() {
+                started();
+                return new Promise(() => {});
+              },
+              cancel() {
+                cancelled += 1;
+                return new Promise(() => {});
+              },
+              releaseLock() { released += 1; },
+            };
+          },
+        },
+      };
+    },
+  });
+  await runtime.probe();
+  const request = runtime.generate({ prompt: "read bloqueado" }, {
+    signal: controller.signal,
+    onDelta() { throw new Error("must not emit a delta"); },
+  });
+  await reading;
+  controller.abort();
+  await assert.rejects(request, /request cancelled/);
+  assert.equal(cancelled > 0, true);
+  assert.equal(released, 1);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
+
+test("Local AI abort settles a pending async onDelta and suppresses further partial output", async () => {
+  let began;
+  const entered = new Promise(resolve => { began = resolve; });
+  const controller = new AbortController();
+  let seen = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      return streamedCompletion([
+        streamFrame("first"),
+        streamFrame("second", { finishReason: "stop" }),
+        "data: [DONE]\n\n",
+      ]);
+    },
+  });
+  await runtime.probe();
+  const request = runtime.generate({ prompt: "callback bloqueado" }, {
+    signal: controller.signal,
+    onDelta() {
+      seen += 1;
+      began();
+      return new Promise(() => {});
+    },
+  });
+  await entered;
+  controller.abort();
+  await assert.rejects(request, /request cancelled/);
+  assert.equal(seen, 1);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
