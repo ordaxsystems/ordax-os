@@ -42,6 +42,9 @@ jobs:
         run: |
           set -euo pipefail
           test -s sites/account-ui/candidate-dist/index.html
+          # Exactly the source-built output must be shipped by the Vercel builder.
+          diff -qr sites/account-ui/candidate-dist sites/account-ui/prebuilt
+          echo 'ORDAX_ACCOUNT_PREBUILT_MATCHES_SOURCE=PASS'
           find sites/account-ui/candidate-dist -type f | LC_ALL=C sort | xargs sha256sum > "$RUNNER_TEMP/account-build-a.sha"
           cd sites/account-ui/lovable-original
           bunx --no-install vite build --config vite.config.account.ts
