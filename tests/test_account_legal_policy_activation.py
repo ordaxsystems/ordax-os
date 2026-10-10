@@ -432,9 +432,16 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self.assertIn("activate-reviewed-legal-policy", text)
         self.assertIn("refs/heads/main", text)
         self.assertIn("ordaxsystems/ordax-os", text)
-        self.assertIn("## Production publication attestation", (
-            ROOT / "docs/PUBLIC-LEGAL-READINESS.md"
-        ).read_text(encoding="utf-8"))
+        legal_readiness = (ROOT / "docs/PUBLIC-LEGAL-READINESS.md").read_text(
+            encoding="utf-8"
+        )
+        # The canonical legal document separates development from publication.
+        # A historical production-attestation heading is not a policy contract.
+        self.assertIn("docs/contracts/public-legal-readiness.json", legal_readiness)
+        self.assertIn(
+            "`.github/workflows/public-legal-policy-activation.yml`: **único**",
+            legal_readiness,
+        )
         self.assertIn("secrets.ORDAX_SUPABASE_SECRET_KEY", text)
         self.assertIn("ACCOUNT_LEGAL_POLICY_OPERATOR_CREDENTIAL_PRINTED=NO", text)
         self.assertIn("activate_account_legal_policy.py candidate", text)
