@@ -68,8 +68,10 @@ mkdir -p /run/ordax/bootstrap-tools ||
 resolve_portable_devices() {
     sys_block=$1
     dev_root=$2
-    attempts=0
-    while [ "$attempts" -lt 12 ]; do
+    # POSIX shell positional parameters provide 12 bounded attempts without
+    # arithmetic expansion in the fixed BusyBox PID1.
+    set -- 1 2 3 4 5 6 7 8 9 10 11 12
+    while [ "$#" -gt 0 ]; do
         esp_count=0
         data_count=0
         esp_disk=
@@ -85,14 +87,16 @@ resolve_portable_devices() {
                 metadata="$(blkid "$device" 2>/dev/null || true)"
                 case " $metadata " in
                     *' LABEL="ORDAX-ESP"'*)
-                        esp_count=$((esp_count + 1))
+                        [ "$esp_count" -eq 0 ] || return 2
+                        esp_count=1
                         esp_disk=$disk
                         esp_found=$device
                         ;;
                 esac
                 case " $metadata " in
                     *' LABEL="ORDAX-DATA"'*)
-                        data_count=$((data_count + 1))
+                        [ "$data_count" -eq 0 ] || return 2
+                        data_count=1
                         data_disk=$disk
                         data_found=$device
                         ;;
@@ -107,8 +111,8 @@ resolve_portable_devices() {
             DATA_DEVICE=$data_found
             return 0
         fi
-        attempts=$((attempts + 1))
-        [ "$attempts" -lt 12 ] || break
+        shift
+        [ "$#" -gt 0 ] || break
         sleep 1
     done
     return 1
