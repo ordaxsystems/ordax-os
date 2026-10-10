@@ -404,11 +404,12 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "out/public-site")
         self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-site")
-        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
+        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --account-ui lovable --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
         self.assertEqual(rewrites["/account/:path*"], "/api/account-proxy?ordax_path=/account/:path*")
+        self.assertEqual(rewrites["/conta/:section"], "/conta/index.html")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.vercel_proxy)
         self.assertNotIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.vercel_proxy)
