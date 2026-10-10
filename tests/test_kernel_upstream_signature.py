@@ -78,6 +78,7 @@ class KernelUpstreamSignatureTests(unittest.TestCase):
             "upstream_signature": {
                 "algorithm": "openpgp-detached-tar",
                 "trusted_primary_fingerprint": self.fingerprint,
+                "trusted_public_key_url": "https://kernel.googlesource.com/pub/scm/docs/kernel/pgpkeys/+/9518bddaef900dd832e3e16be1d88923c620b749/keys/38DBBDC86092693E.asc?format=TEXT",
             },
         }
         self.write_contract()
