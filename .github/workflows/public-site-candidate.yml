@@ -9,6 +9,7 @@ on:
       - 'api/account-proxy.mjs'
       - 'vercel.json'
       - 'tools/public-site/**'
+      - 'tools/surface-web/browser-smoke.mjs'
       - 'tools/brand/**'
       - 'system/surface/ui/tokens.css'
       - 'system/surface/ui/brand/**'
@@ -82,6 +83,7 @@ on:
       - 'api/account-proxy.mjs'
       - 'vercel.json'
       - 'tools/public-site/**'
+      - 'tools/surface-web/browser-smoke.mjs'
       - 'tools/brand/**'
       - 'system/surface/ui/tokens.css'
       - 'system/surface/ui/brand/**'
@@ -226,6 +228,32 @@ jobs:
           echo 'PUBLIC_SITE_REPEATABILITY=PASS'
           echo 'KERNEL_REBUILD_REQUIRED=NO'
           echo 'SHARED_SYSTEM_REBUILD_REQUIRED=NO'
+
+      - name: Prove account viewport and keyboard interaction
+        run: |
+          set -euo pipefail
+          python tools/public-site/preview_server.py \
+            --site-root out/public-site --bind 127.0.0.1 --port 4178 \
+            > "$RUNNER_TEMP/account-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:4178/conta/ > /dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+          node tools/surface-web/browser-smoke.mjs \
+            --public-account-url http://127.0.0.1:4178/conta/ \
+            --evidence-dir out/account-viewport-proof
+
+      - name: Upload account viewport evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-account-viewports-${{ github.sha }}
+          path: out/account-viewport-proof/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload public site candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

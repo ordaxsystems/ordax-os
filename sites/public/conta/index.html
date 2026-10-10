@@ -18,7 +18,8 @@
   <div class="account-shell">
     <header class="site-header account-header">
       <a class="account-brand" href="/" aria-label="OrdaX — início"><span class="ordax-symbol" aria-hidden="true"></span><span>OrdaX <span class="brand-os">OS</span></span></a>
-      <label class="account-search"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span class="sr-only">Buscar na conta</span><input type="search" placeholder="Buscar na conta" autocomplete="off" data-account-search aria-controls="account-cards"></label>
+      <label class="account-search" id="account-search-field"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span class="sr-only">Buscar na conta</span><input type="search" placeholder="Buscar na conta" autocomplete="off" data-account-search aria-controls="account-cards"></label>
+      <button class="account-search-toggle" type="button" data-account-search-toggle aria-label="Buscar na conta" aria-expanded="false" aria-controls="account-search-field"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg></button>
       <nav class="site-nav" aria-label="Navegação principal"><a href="/web/" class="header-web-link">OrdaX Web <span aria-hidden="true">↗</span></a><a href="/login/" data-auth-nav="login"><span class="header-account-symbol ordax-symbol" aria-hidden="true"></span><span data-auth-nav-label>Entrar</span></a></nav>
     </header>
     <aside class="account-navigation" id="account-navigation">
@@ -42,12 +43,12 @@
       <div class="account-heading"><div><p class="eyebrow">SEU ESPAÇO ORDAX</p><h1>Minha conta</h1><p>Conta, serviços e preferências. Tudo no seu espaço.</p></div><a class="text-link" href="#visao-geral" data-account-section data-account-back hidden>← Visão geral</a></div>
       <section class="account-profile" id="visao-geral" data-account-overview aria-labelledby="profile-title">
         <div class="profile-copy"><span class="profile-symbol ordax-symbol" aria-hidden="true"></span><div><p class="eyebrow">IDENTIDADE ORDAX</p><h2 id="profile-title">Seu espaço começa com você.</h2><p>Uma conta para o seu ecossistema.</p></div></div>
-        <div class="profile-session">
+        <details class="profile-session"><summary>Sessão neste navegador <span aria-hidden="true">⌄</span></summary><div class="profile-session-body">
           <div class="identity-state" data-account-state data-status="checking" aria-live="polite" aria-busy="true"><strong>Verificando sua sessão</strong><p>Consultando o serviço oficial de identidade.</p></div>
           <section data-account-authenticated hidden aria-label="Sessão autenticada"><dl class="account-details"><div><dt>E-mail da conta</dt><dd data-account-email></dd></div></dl><div class="session-actions"><p>Seu perfil é apresentado a partir da sessão confirmada. Edição de nome e foto ainda não está disponível no portal.</p><form action="/auth/logout" method="post" data-account-logout><button type="submit" class="button button-secondary" disabled>Encerrar sessão</button></form></div></section>
           <section data-account-anonymous hidden><p>Entre para acessar os dados confirmados da sua conta.</p><div class="portal-actions"><a class="button button-primary" href="/login/">Entrar na Conta OrdaX</a><a class="button button-secondary" href="/cadastro/">Criar conta</a></div></section>
           <section data-account-unavailable hidden><a class="button button-secondary" href="/conta/">Tentar novamente</a></section>
-        </div>
+        </div></details>
       </section>
       <p class="sr-only" data-account-search-status aria-live="polite"></p>
       <div class="account-cards" id="account-cards">
@@ -66,6 +67,16 @@
           <p class="card-summary">Computadores e celulares vinculados à sua conta.</p>
           <div class="card-content"><div class="service-empty"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/></svg><p>Não há um catálogo de dispositivos disponível neste portal.</p></div><p class="card-note">Estar logado não autoriza controle remoto. Vínculos, permissões e revogação pertencem ao serviço de dispositivos.</p></div>
         </section>
+        <section class="account-card" id="atividade" data-account-card aria-labelledby="atividade-title">
+          <a href="#atividade" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4l3-8 3 16 3-8h3"/></svg><h2 id="atividade-title">Atividade e notificações</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
+          <p class="card-summary">Acompanhe eventos confirmados da sua conta.</p>
+          <div class="card-content"><div class="service-empty"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4l3-8 3 16 3-8h3"/></svg><p>O histórico de acessos e as notificações da conta ainda não estão disponíveis no portal.</p></div><p class="card-note">Nenhum evento, alerta ou atividade é inferido do histórico deste navegador.</p></div>
+        </section>
+        <section class="account-card" id="faturamento" data-account-card aria-labelledby="faturamento-title">
+          <a href="#faturamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h2 id="faturamento-title">Pagamento e faturamento</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
+          <p class="card-summary">Assinaturas, cobranças e documentos.</p>
+          <div class="card-content"><dl class="service-rows"><div><dt>Assinaturas pagas</dt><dd>Indisponíveis</dd></div><div><dt>Preços e limites comerciais</dt><dd>Em definição</dd></div></dl><p class="card-note">Não há cobrança, cartão cadastrado ou renovação confirmada para mostrar. Métodos de pagamento, recibos e notas fiscais dependerão do serviço de faturamento.</p></div>
+        </section>
         <section class="account-card" id="armazenamento" data-account-card aria-labelledby="armazenamento-title">
           <a href="#armazenamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14v14H5Z"/><path d="M3 3h18v4H3Zm6 9h6"/></svg><h2 id="armazenamento-title">Armazenamento e sincronização</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">Seus arquivos e a continuidade entre dispositivos.</p>
@@ -81,25 +92,15 @@
           <p class="card-summary">Personalize a apresentação deste portal.</p>
           <div class="card-content"><div class="preference-row"><div><h3>Idioma da interface</h3><p>A escolha fica neste navegador.</p></div><div data-public-locale-slot></div></div><dl class="service-rows"><div><dt>Identidade visual</dt><dd>Meia-noite · OrdaX</dd></div></dl><p class="card-note">Preferências do sistema, acessibilidade e notificações são gerenciadas pelo OrdaX. O idioma deste portal não altera a configuração dos seus dispositivos.</p></div>
         </section>
-        <section class="account-card" id="atividade" data-account-card aria-labelledby="atividade-title">
-          <a href="#atividade" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4l3-8 3 16 3-8h3"/></svg><h2 id="atividade-title">Atividade e notificações</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
-          <p class="card-summary">Acompanhe eventos confirmados da sua conta.</p>
-          <div class="card-content"><div class="service-empty"><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h4l3-8 3 16 3-8h3"/></svg><p>O histórico de acessos e as notificações da conta ainda não estão disponíveis no portal.</p></div><p class="card-note">Nenhum evento, alerta ou atividade é inferido do histórico deste navegador.</p></div>
-        </section>
-        <section class="account-card" id="faturamento" data-account-card aria-labelledby="faturamento-title">
-          <a href="#faturamento" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h2 id="faturamento-title">Pagamento e faturamento</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
-          <p class="card-summary">Assinaturas, cobranças e documentos.</p>
-          <div class="card-content"><dl class="service-rows"><div><dt>Assinaturas pagas</dt><dd>Indisponíveis</dd></div><div><dt>Preços e limites comerciais</dt><dd>Em definição</dd></div></dl><p class="card-note">Não há cobrança, cartão cadastrado ou renovação confirmada para mostrar. Métodos de pagamento, recibos e notas fiscais dependerão do serviço de faturamento.</p></div>
+        <section class="account-card" id="acesso-web" data-account-card aria-labelledby="acesso-web-title">
+          <a href="#acesso-web" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a19 19 0 0 1 0 18 19 19 0 0 1 0-18"/></svg><h2 id="acesso-web-title">OrdaX Web</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
+          <p class="card-summary">Seu próximo ponto de acesso ao sistema.</p>
+          <div class="card-content"><p>A mesma identidade OrdaX, com recursos e permissões do seu espaço.</p><p class="card-note">A página de acesso verifica a sessão e informa a disponibilidade do sistema Web. Arquivos locais exigem um dispositivo autorizado e online.</p><a class="button button-primary" href="/web/">Acessar OrdaX Web <span aria-hidden="true">↗</span></a></div>
         </section>
         <section class="account-card" id="privacidade" data-account-card aria-labelledby="privacidade-title">
           <a href="#privacidade" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><h2 id="privacidade-title">Dados e privacidade</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
           <p class="card-summary">Entenda e gerencie os dados da sua conta.</p>
           <div class="card-content"><dl class="service-rows"><div><dt>Exportar dados da conta</dt><dd>Indisponível no portal</dd></div><div><dt>Excluir conta</dt><dd>Indisponível no portal</dd></div></dl><p class="card-note">Exportação e exclusão precisam de autenticação, confirmação e autorização do serviço responsável. Encerrar uma sessão não exclui sua conta nem arquivos locais.</p><div class="portal-actions"><a class="text-link" href="/privacidade/">Privacidade <span aria-hidden="true">↗</span></a><a class="text-link" href="/termos/">Termos <span aria-hidden="true">↗</span></a></div></div>
-        </section>
-        <section class="account-card" id="acesso-web" data-account-card aria-labelledby="acesso-web-title">
-          <a href="#acesso-web" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a19 19 0 0 1 0 18 19 19 0 0 1 0-18"/></svg><h2 id="acesso-web-title">OrdaX Web</h2><span class="card-arrow" aria-hidden="true">↗</span></a>
-          <p class="card-summary">Seu próximo ponto de acesso ao sistema.</p>
-          <div class="card-content"><p>A mesma identidade OrdaX, com recursos e permissões do seu espaço.</p><p class="card-note">A página de acesso verifica a sessão e informa a disponibilidade do sistema Web. Arquivos locais exigem um dispositivo autorizado e online.</p><a class="button button-primary" href="/web/">Acessar OrdaX Web <span aria-hidden="true">↗</span></a></div>
         </section>
         <section class="account-card" id="suporte" data-account-card aria-labelledby="suporte-title">
           <a href="#suporte" class="card-heading" data-account-section><svg class="account-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 8a3 3 0 0 1 6 0c0 3-3 2-3 5m0 3v1"/></svg><h2 id="suporte-title">Ajuda e suporte</h2><span class="card-arrow" aria-hidden="true">↗</span></a>

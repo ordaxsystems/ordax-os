@@ -56,6 +56,29 @@ unsupported services have explicit availability, with no simulated profile,
 Search filters service content; section navigation preserves browser history,
 direct links and keyboard focus. JavaScript-free navigation remains readable.
 
+The overview follows the approved viewport composition: a bounded 1440px shell,
+210px desktop rail, compact landscape profile banner and three service columns
+from 1200px. Narrow phones retain three primary shortcuts and a fixed bottom
+navigation; intermediate screens use two service columns. Session verification,
+sign-in and sign-out remain accessible through a native disclosure inside the
+profile banner. Extended service explanations remain in the section details;
+without JavaScript, all sections remain readable. Mobile search opens explicitly
+and Escape restores focus to its trigger; it does not crowd the profile header.
+
+The Public Site Candidate workflow uses the existing isolated Chromium/CDP
+driver and canonical loopback preview server to verify actual 1440x900,
+1024x768, 390x844, 320x740 and 844x390 viewports. It checks horizontal overflow,
+section coverage, desktop columns, primary mobile alignment, session disclosure,
+detail focus and mobile search/Escape, and retains rendered PNGs plus a report.
+This is layout/interaction evidence, not live account-provider homologation.
+The same entrypoint is reproducible locally after building the public artifact:
+
+```bash
+python tools/public-site/preview_server.py --site-root out/public-site --bind 127.0.0.1 --port 4178
+# In another terminal; ORDAX_CHROME_BIN may select an installed Chromium browser.
+node tools/surface-web/browser-smoke.mjs --public-account-url http://127.0.0.1:4178/conta/ --evidence-dir out/account-viewport-proof
+```
+
 The existing brand compiler exports typography, material and brand-fill tokens
 from `system/surface/ui/tokens.css`. Public build copies the exact original
 Surface symbol, landscape and Inter bytes and derives its local font declaration;

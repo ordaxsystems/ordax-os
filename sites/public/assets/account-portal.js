@@ -10,6 +10,7 @@
   const empty = document.querySelector("[data-account-no-results]");
   const status = document.querySelector("[data-account-search-status]");
   const menu = document.querySelector("[data-account-menu]");
+  const searchToggle = document.querySelector("[data-account-search-toggle]");
   const links = [...document.querySelectorAll("[data-account-section]")];
   const sections = new Set(["visao-geral", ...cards.map(card => card.id)]);
   const normalize = value => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
@@ -66,7 +67,18 @@
   }
   search?.addEventListener("input", () => render());
   search?.addEventListener("keydown", event => {
-    if (event.key === "Escape") { search.value = ""; render(); }
+    if (event.key === "Escape") {
+      search.value = "";
+      document.body.classList.remove("account-search-open");
+      searchToggle?.setAttribute("aria-expanded", "false");
+      if (window.matchMedia("(max-width:900px)").matches) searchToggle?.focus();
+      render();
+    }
+  });
+  searchToggle?.addEventListener("click", () => {
+    const open = document.body.classList.toggle("account-search-open");
+    searchToggle.setAttribute("aria-expanded", String(open));
+    if (open) { closeMenu(); search?.focus(); }
   });
   menu?.addEventListener("click", () => {
     const open = document.body.classList.toggle("account-menu-open");

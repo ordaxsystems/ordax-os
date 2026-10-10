@@ -11,6 +11,10 @@ through the single Surface `brand/symbol.css` owner; legacy CSS drawings are rem
 deep links, keyboard focus and mobile navigation. Plan names are derived from
 entitlements; locale uses the existing portal owner. These are presentation
 capabilities, not activation of billing, profile editing or device control.
+The overview now follows the approved compact desktop/mobile viewport composition;
+session controls use a native disclosure and mobile search opens on demand.
+The existing isolated browser gate verifies five actual viewports and keyboard
+interaction in Public Site CI, with rendered screenshots retained as evidence.
 
 Account data comes only from the existing verified
 same-origin session; native sign-out remains unchanged. Back navigation clears
@@ -28,7 +32,7 @@ The shared rail now opens the existing Studio host integration panel. The panel 
 
 ## Surface visual identity — 2026-10-09 source candidate
 
-Midnight (dark) and Ice (light) implement the approved ribbon/blue-violet visual direction in the shared Surface tokens/composition. The original local ribbon SVG is shared by the shell and loading screen; the generated landscape is a local offline asset with recorded provenance. Navigation, command search, Home shortcuts and the floating dock retain canonical state owners; Settings previews use the same tokens and the existing `appearance.theme` owner. Light remains the default, and preference persistence, accessibility and account-sync authority are unchanged. See [DESKTOP-IDENTITY.md](DESKTOP-IDENTITY.md) for scope, acceptance and ownership. This source candidate does not activate a production release or establish physical-media evidence.
+Midnight (dark) and Ice (light) implement the approved ribbon/blue-violet visual direction in the shared Surface tokens/composition. The approved transparent ribbon PNG and its canonical presentation stylesheet are shared by the shell, loading screen and public headers; the generated landscape is a local offline asset with recorded provenance. Navigation, command search, Home shortcuts and the floating dock retain canonical state owners; Settings previews use the same tokens and the existing `appearance.theme` owner. Light remains the default, and preference persistence, accessibility and account-sync authority are unchanged. See [DESKTOP-IDENTITY.md](DESKTOP-IDENTITY.md) for scope, acceptance and ownership. This source candidate does not activate a production release or establish physical-media evidence.
 
 Status date: 2026-09-30
 
