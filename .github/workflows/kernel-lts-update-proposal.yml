@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -73,6 +73,8 @@ jobs:
           branch="automation/kernel-lts-$CANDIDATE_VERSION"
           git config user.name "ordax-kernel-updater[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # GitHub CLI provides ephemeral git credentials from GH_TOKEN only here.
+          gh auth setup-git
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             echo "Update branch already exists; refusing to overwrite reviewed history."
             exit 0
