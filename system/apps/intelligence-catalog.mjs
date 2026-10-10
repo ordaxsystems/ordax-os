@@ -1,6 +1,7 @@
 import { accountIntelligenceManifest } from "./account/ai/manifest.mjs";
 import { activityIntelligenceManifest } from "./activity/ai/manifest.mjs";
 import { assistantIntelligenceManifest } from "./assistant/ai/manifest.mjs";
+import { filesIntelligenceManifest } from "./files/ai/manifest.mjs";
 import { internetIntelligenceManifest } from "./internet/ai/manifest.mjs";
 import { networkIntelligenceManifest } from "./network/ai/manifest.mjs";
 import { projectsIntelligenceManifest } from "./projects/ai/manifest.mjs";
@@ -8,6 +9,7 @@ import { settingsIntelligenceManifest } from "./settings/ai/manifest.mjs";
 import { systemIntelligenceManifest } from "./system/ai/manifest.mjs";
 
 const BUNDLED_FIRST_PARTY_INTELLIGENCE_MANIFESTS = Object.freeze([
+  filesIntelligenceManifest,
   projectsIntelligenceManifest,
   internetIntelligenceManifest,
   networkIntelligenceManifest,
