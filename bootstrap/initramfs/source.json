@@ -267,6 +267,22 @@
     "busybox_runtime_copy_applets": [
       "cp",
       "chmod"
-    ]
+    ],
+    "partition_discovery": {
+      "owner": "bootstrap/initramfs/portable_init.sh",
+      "mechanism": "bounded-sysfs-partition-scan-with-busybox-blkid",
+      "partitions": [
+        "ORDAX-ESP",
+        "ORDAX-DATA"
+      ],
+      "attempts": 12,
+      "interval_seconds": 1,
+      "requires_same_parent_disk": true,
+      "rejects_duplicate_labels": true,
+      "missing_or_ambiguous_policy": "local-offline-recovery",
+      "uses_network": false,
+      "mutates_media_during_discovery": false,
+      "scope": "stable-mvp-usb; does not constitute boot-volume cryptographic attestation"
+    }
   }
 }
