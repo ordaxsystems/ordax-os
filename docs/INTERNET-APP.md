@@ -459,3 +459,9 @@ On the notebook, validate in this order:
 O serviço genérico `system/services/components/current-slot-loader.mjs` agora consome o slot `current` verificado pelo host Native. Obtém metadata pela origem local, confirma ID, versão, commit, estado e revisão, exige módulo sob namespace imutável, revalida antes/depois do mount e destrói uma montagem que perdeu a ativação. Ausência retorna `null`; fontes bundled, metadata inconsistente e URLs externas falham fechados. O serviço não assina, instala, altera grants, publica nem promove componentes.
 
 A composição do Internet **ainda não usa este carregador**: preserva o runtime embutido até o Gate A remove-first. Esta preparação isolada não autoriza fonte duplicada no repositório de apps nem instalação de produção.
+
+## Catálogo Native de aplicativos externos instalados
+
+Na composição Native, `discoverVerifiedExternalApplications` usa exclusivamente o broker do slot `current` para ler o manifesto do componente e o manifesto de apresentação; o catálogo único é derivado dessas leituras por `createNativeVerifiedInstalledAppCatalog` e injetado na Surface. A montagem usa `loadVerifiedCurrentComponentRuntime` e o mesmo contexto protegido por App Data, com rechecagem de revisão, versão, commit e origem antes e depois do mount. Remoção ou falha no slot não permite fallback para o source embutido. Colisões de IDs com apps ainda built-in permanecem com o OS; portanto, Internet ainda é carregado da fonte do OS até a remoção Gate A, sem instalação paralela. Os componentes externos montados são destruídos com a Surface.
+
+Esta conexão consome slots que o host **já** tenha validado e ativado; não cria slots, não autoriza assinatura, publicação ou promoção, nem transforma o catálogo da Store em origem de execução.

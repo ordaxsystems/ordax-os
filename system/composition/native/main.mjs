@@ -59,6 +59,12 @@ import { createAppLifecycleRequestService } from "../../services/apps/store-life
 import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
+import { discoverVerifiedExternalApplications } from "../../services/apps/verified-external-app-catalog.mjs";
+import { createNativeComponentSlotSource } from "../../adapters/native/component-slot-source.mjs";
+import {
+  createNativeVerifiedInstalledAppCatalog,
+  mountNativeVerifiedInstalledApps,
+} from "./verified-installed-apps.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
 import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
@@ -191,6 +197,16 @@ async function start() {
       fetchImpl: verifiedComponentFetch,
     }),
   );
+  const verifiedInstalledAppEntriesPromise = optionalNativeProbe(
+    "OrdaX Native verified installed app catalog unavailable",
+    () => discoverVerifiedExternalApplications({
+      source: verifiedComponentPackageSource,
+      fetchImpl: verifiedComponentFetch,
+      onError(error, appId) {
+        console.warn(`OrdaX installed app ${appId} discovery rejected`, error);
+      },
+    }),
+  );
   const preferenceStorePromise = createNativePreferenceStore(window);
   const firstRunStateStorePromise = createNativeFirstRunStateStore(window);
   const localSessionPromise = optionalNativeProbe(
@@ -309,6 +325,12 @@ async function start() {
     powerStatus,
   ] = await optionalPortsPromise;
 
+  const installedAppEntries = await verifiedInstalledAppEntriesPromise ?? [];
+  const installedAppCatalog = await optionalNativeProbe(
+    "OrdaX installed app presentation catalog rejected",
+    () => createNativeVerifiedInstalledAppCatalog(installedAppEntries),
+  );
+  const appCatalog = installedAppCatalog?.catalog;
   const componentManager = createComponentManager({
     manifests: listSystemComponents(),
     store: componentStateStore,
@@ -698,6 +720,7 @@ async function start() {
     preferenceStore,
     workspaceStore,
     appActivation,
+    appCatalog ?? undefined,
   );
   const assistantMemoryCapture = memory === null
     ? null
@@ -1012,6 +1035,23 @@ async function start() {
     },
   });
 
+  const externalAppMounts = await optionalNativeProbe(
+    "OrdaX installed component runtime mounting unavailable",
+    () => mountNativeVerifiedInstalledApps({
+      installed: installedAppCatalog?.installed ?? [],
+      source: createNativeComponentSlotSource(window),
+      fetchImpl: verifiedComponentFetch,
+      importModule: (url) => import(url),
+      context: {
+        root, surfaceLifecycle: surface, appActivation,
+        fileSpace, intelligence: selectedSpaceIntelligence,
+      },
+      onError(error, appId) {
+        reportClientDiagnostic(`installed-app-runtime:${appId}`, error);
+      },
+    }),
+  );
+
   bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   let firstRun = null;
   try {
@@ -1067,6 +1107,7 @@ async function start() {
       assistantComponent?.destroy();
       activityComponent?.destroy();
       internetComponent?.destroy();
+      externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
