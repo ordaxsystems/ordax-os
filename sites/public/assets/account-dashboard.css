@@ -523,3 +523,79 @@
  .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dt,
  .account-content[data-view="visao-geral"]:not([data-searching="true"]) #consumo .account-usage-lines dd{font-size:10px;overflow-wrap:anywhere}
 }
+
+/* Account navigation + verified profile — phase 3. Uses canonical public/Surface tokens. */
+.account-breadcrumb{
+ display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap;margin:0 0 17px;
+ color:var(--ordax-muted);font-size:11px;letter-spacing:.025em;
+}
+.account-breadcrumb a{color:var(--ordax-muted)}
+.account-breadcrumb a:hover{color:var(--ordax-text)}
+.account-breadcrumb [aria-current="page"]{color:var(--ordax-text);font-weight:600}
+.account-breadcrumb-details{display:inline-flex;align-items:center;gap:10px;min-width:0}
+.account-breadcrumb-details [data-account-breadcrumb-current]{overflow-wrap:anywhere}
+.account-sidebar-toggle{
+ width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;
+ border:1px solid var(--ordax-border-soft);border-radius:var(--ordax-radius-md);
+ background:var(--ordax-subtle-bg);color:var(--ordax-text);cursor:pointer;
+}
+.account-sidebar-toggle .account-icon{width:21px;height:21px;color:var(--ordax-muted)}
+.account-sidebar-toggle:hover{background:var(--ordax-hover-bg);border-color:var(--ordax-brand-blue)}
+.account-profile-verified{
+ display:flex;align-items:flex-start;gap:14px;min-width:0;padding:19px;
+ margin-bottom:18px;border:1px solid var(--ordax-border-soft);
+ border-radius:var(--ordax-radius-lg);
+ background:linear-gradient(115deg,color-mix(in srgb,var(--ordax-brand-blue) 9%,var(--ordax-app-bg)),var(--ordax-app-bg));
+}
+.account-profile-verified-icon{
+ width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;
+ border-radius:var(--ordax-radius-md);background:var(--ordax-selected-bg);
+}
+.account-profile-verified-icon .account-icon{width:20px;height:20px;color:var(--ordax-accent)}
+.account-profile-verified>div{min-width:0}
+.account-profile-verified-title{
+ margin:0 0 4px;font-size:11px;color:var(--ordax-muted);font-weight:600;
+}
+.account-profile-verified-email{
+ margin:0 0 6px;color:var(--ordax-text);font-size:clamp(15px,1.6vw,19px);
+ font-weight:650;overflow-wrap:anywhere;line-height:1.4;
+}
+.account-profile-verified-note{margin:0;color:var(--ordax-muted);font-size:11px}
+@media(min-width:901px){
+ .account-enhanced.account-sidebar-collapsed .account-shell{
+   grid-template-columns:76px minmax(0,1fr);
+ }
+ .account-enhanced.account-sidebar-collapsed .account-navigation{padding-inline:8px}
+ .account-enhanced.account-sidebar-collapsed .navigation-heading{justify-content:center}
+ .account-enhanced.account-sidebar-collapsed .navigation-heading>.eyebrow,
+ .account-enhanced.account-sidebar-collapsed .navigation-support>.eyebrow,
+ .account-enhanced.account-sidebar-collapsed .navigation-art,
+ .account-enhanced.account-sidebar-collapsed .navigation-support a:not([data-account-section]){display:none}
+ .account-enhanced.account-sidebar-collapsed .account-navigation a{
+   padding:10px;justify-content:center;gap:0;min-height:48px;
+ }
+ .account-enhanced.account-sidebar-collapsed .account-navigation a span{
+   position:absolute!important;width:1px!important;height:1px!important;
+   padding:0!important;margin:-1px!important;overflow:hidden!important;
+   clip-path:inset(50%)!important;white-space:nowrap!important;
+ }
+ .account-enhanced.account-sidebar-collapsed .navigation-support{
+   margin-top:12px;padding-top:12px;
+ }
+ .account-enhanced.account-sidebar-collapsed .account-sidebar-toggle .account-icon{
+   transform:scaleX(-1);
+ }
+}
+@media(max-width:900px){
+ .account-sidebar-toggle{display:none}
+ .account-breadcrumb{margin-bottom:12px}
+}
+@media(max-width:460px){
+ .account-breadcrumb{font-size:10px;gap:7px}
+ .account-breadcrumb-details{gap:7px}
+ .account-profile-verified{padding:14px}
+ .account-profile-verified-icon{width:35px;height:35px;flex-basis:35px}
+}
+@media(prefers-reduced-motion:reduce){
+ .account-sidebar-toggle .account-icon{transition:none}
+}
