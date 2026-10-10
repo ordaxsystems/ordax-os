@@ -46,6 +46,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_kernel_update_engine.py' -v
 
       - name: Install exact proposed-kernel build and signature dependencies
+        if: steps.candidate.outputs.available == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -54,6 +55,7 @@ jobs:
             dwarves kmod xz-utils pkg-config gnupg
 
       - name: Validate active kernel and selected signed candidate
+        if: steps.candidate.outputs.available == 'true'
         run: |
           set -euo pipefail
           python3 bootstrap/kernel/build.py check
@@ -64,6 +66,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_kernel_module_release_abi.py' -v
 
       - name: Build authenticated staged kernel and modules
+        if: steps.candidate.outputs.available == 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -76,6 +79,7 @@ jobs:
           python3 bootstrap/kernel/verify.py out/kernel-next
 
       - name: Verify candidate identity, upstream signature and exact artifact digests
+        if: steps.candidate.outputs.available == 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -85,6 +89,7 @@ jobs:
             --source-commit "$ORDAX_SOURCE_COMMIT"
 
       - name: Upload staged candidate only
+        if: steps.candidate.outputs.available == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: ordax-kernel-${{ steps.candidate.outputs.version }}-staged-${{ github.event.pull_request.head.sha || github.sha }}
