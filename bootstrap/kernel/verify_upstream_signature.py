@@ -79,6 +79,16 @@ def validate_source_contract(source: dict) -> tuple[str, str, str]:
         raise VerificationError("invalid kernel source SHA-256 pin")
     if not isinstance(signature, dict) or signature.get("algorithm") != "openpgp-detached-tar":
         raise VerificationError("missing mandatory OpenPGP signature policy")
+    trusted_key_url = signature.get("trusted_public_key_url")
+    if (
+        not isinstance(trusted_key_url, str)
+        or re.fullmatch(
+            r"https://kernel[.]googlesource[.]com/pub/scm/docs/kernel/pgpkeys/"
+            r"[+]/[0-9a-f]{40}/keys/[0-9A-F]{16}[.]asc[?]format=TEXT",
+            trusted_key_url,
+        ) is None
+    ):
+        raise VerificationError("trusted public key URL must be an immutable kernel.org key-mirror commit")
     expected_fpr = signature.get("trusted_primary_fingerprint")
     if not isinstance(expected_fpr, str) or not HEX40.fullmatch(expected_fpr.upper()):
         raise VerificationError("invalid trusted OpenPGP fingerprint")
