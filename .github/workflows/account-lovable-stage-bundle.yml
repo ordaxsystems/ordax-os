@@ -35,6 +35,7 @@ jobs:
           bun install --frozen-lockfile --ignore-scripts
           bunx --no-install vite build --config vite.config.account.ts
           cd ../../..
+          rm -rf sites/account-ui/prebuilt
           mkdir -p sites/account-ui/prebuilt
           cp -a sites/account-ui/candidate-dist/. sites/account-ui/prebuilt/
           diff -qr sites/account-ui/candidate-dist sites/account-ui/prebuilt
@@ -46,7 +47,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f sites/account-ui/prebuilt
+          git add -A -f sites/account-ui/prebuilt
           if git diff --cached --quiet; then
             echo 'ACCOUNT_PREBUILT_ALREADY_CURRENT=PASS'
             exit 0
