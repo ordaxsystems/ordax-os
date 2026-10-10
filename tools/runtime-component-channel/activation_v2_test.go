@@ -703,7 +703,7 @@ func TestExplicitRemovalCannotCoexistWithCurrentSlot(t *testing.T) {
 	state := emptyActivationState("internet")
 	state.UserRemoved = true
 	state.Current = &slotIdentity{
-		Version: "1.0.0",
+		Version:      "1.0.0",
 		SourceCommit: "1111111111111111111111111111111111111111",
 	}
 	if err := validateActivationState(state, "internet"); err == nil ||
