@@ -395,8 +395,10 @@ test("Intelligence streams provisional deltas to opt-in callers while keeping th
       async onGenerate(request, options) {
         generationOptions.push(options);
         assert.equal(Object.hasOwn(request, "onDelta"), false);
-        await options.onDelta("parte ");
-        await options.onDelta("final");
+        if (options.onDelta !== null) {
+          await options.onDelta("parte ");
+          await options.onDelta("final");
+        }
       },
       answer: "parte final",
     }),
