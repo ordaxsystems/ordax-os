@@ -1384,8 +1384,9 @@ export function mountFileSpaceControls(
     if (!projectPort) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === projectId);
     if (!project) return;
+    const request = requestOrdinal + 1;
     const loaded = await load(project.path);
-    if (destroyed) return;
+    if (destroyed || request !== requestOrdinal) return;
     if (!loaded) {
       setMessage("files.project.folderUnavailable");
       replaceView();
@@ -1505,13 +1506,13 @@ export function mountFileSpaceControls(
     const selected = selectedRecentEntry();
     if (!selected) return;
     const targetPath = selected.path;
-    recentMode = false;
-    selectedRecentPath = null;
+    const request = requestOrdinal + 1;
+    const loaded = await load(parentPath(targetPath));
+    if (destroyed || request !== requestOrdinal || !loaded) return;
+    // The successful reveal is now the only owner of preview state.
     previewRequestOrdinal += 1;
     previewPending = false;
     textPreview = null;
-    const loaded = await load(parentPath(targetPath));
-    if (destroyed || !loaded) return;
     const exists = listing?.entries.some(
       (entry) => joinPath(listing.path, entry.name) === targetPath,
     );
@@ -1766,10 +1767,6 @@ export function mountFileSpaceControls(
   const replaceView = () => renderView(true);
 
   const load = async (path, { recordHistory = true } = {}) => {
-    recentMode = false;
-    selectedRecentPath = null;
-    trashMode = false;
-    selectedTrashId = null;
     const ordinal = ++requestOrdinal;
     pending = true;
     clearMessage();
@@ -1777,6 +1774,12 @@ export function mountFileSpaceControls(
     try {
       const next = validateListingForRequest(await port.list(path), path);
       if (destroyed || ordinal !== requestOrdinal) return false;
+      // Switch view only after the requested directory has been validated.
+      // A failed request must not discard the current Recents or Trash view.
+      recentMode = false;
+      selectedRecentPath = null;
+      trashMode = false;
+      selectedTrashId = null;
       lifecycle.setAppTarget("files", next.path);
       const changedPath = Boolean(listing && listing.path !== next.path);
       if (changedPath) {
@@ -1828,14 +1831,12 @@ export function mountFileSpaceControls(
       return;
     }
     const targetPath = navigationHistory[targetIndex];
-    const previousIndex = navigationIndex;
+    const request = requestOrdinal + 1;
     const loaded = await load(targetPath, { recordHistory: false });
-    if (destroyed) return;
-    if (loaded) {
-      navigationIndex = targetIndex;
-    } else {
-      navigationIndex = previousIndex;
-    }
+    // A newer navigation owns the history index; a superseded request must
+    // never roll it back or move it to an outdated history position.
+    if (destroyed || request !== requestOrdinal) return;
+    if (loaded) navigationIndex = targetIndex;
     replaceView();
   };
 
@@ -2955,15 +2956,17 @@ export function mountFileSpaceControls(
   };
 
   const loadWithFallback = async (target, fallback = "/") => {
+    const request = requestOrdinal + 1;
     const loaded = await load(target);
-    if (destroyed || loaded) return loaded;
+    if (destroyed || request !== requestOrdinal || loaded) return loaded;
     if (listing) {
       lifecycle.setAppTarget("files", listing.path);
       return false;
     }
     if (target !== fallback) {
+      const fallbackRequest = requestOrdinal + 1;
       const fallbackLoaded = await load(fallback);
-      if (destroyed || fallbackLoaded) return fallbackLoaded;
+      if (destroyed || fallbackRequest !== requestOrdinal || fallbackLoaded) return fallbackLoaded;
     }
     lifecycle.setAppTarget("files", null);
     return false;
