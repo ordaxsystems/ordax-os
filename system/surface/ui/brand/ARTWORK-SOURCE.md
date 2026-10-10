@@ -9,3 +9,8 @@ Owner: `ordaxsystems/ordax-os`, Surface visual identity. Policy: `docs/DESKTOP-I
 Generation brief: premium original 16:9 midnight alpine landscape; sculptural navy mountain peaks in the lower third, glacial valley, a thin luminous electric-blue elliptical arc behind the mountains, restrained violet/cyan atmosphere, sparse stars and quiet areas for interface overlays. No text, logo, interface, frames, devices, watermarks, cities or planets.
 
 The original generated file is retained in the generating session. The tracked PNG is byte-identical. Relative CSS references include it in the reproducible offline Web and Native source graphs. Light and high-contrast presentations use SSOT scrim/opacity tokens rather than modified artwork copies.
+
+Symbol presentation is centralized in `symbol.css`. Native/Web compositions
+load this owner directly, and the public site compiles the same rules into its
+existing design-system export. Header geometry remains page-owned; alternate
+CSS drawings of the symbol have been removed from the public source.

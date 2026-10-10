@@ -24,6 +24,7 @@ const CSS_FILES = [
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
   'system/surface/ui/identity.css',
+  'system/surface/ui/brand/symbol.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
   'system/apps/assistant/assistant.css': 'text/css',
@@ -300,10 +301,16 @@ class CdpClient {
 // offline bundle bytes. CSS variable substitution need not carry megabytes of
 // base64 inside a declaration. The private proof page owns the Blob lifetime.
 function injectedStylesExpression(styles) {
-  return `(${JSON.stringify(styles)}).replace(/url\\("data:image\\/png;base64,([^\"]+)"\\)/g, (_, encoded) => {
-    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-    return 'url("' + URL.createObjectURL(new Blob([bytes], { type: 'image/png' })) + '")';
-  })`;
+  return `(() => {
+    const localPngUrls = new Map();
+    return (${JSON.stringify(styles)}).replace(/url\\("data:image\\/png;base64,([^\"]+)"\\)/g, (_, encoded) => {
+      if (!localPngUrls.has(encoded)) {
+        const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+        localPngUrls.set(encoded, URL.createObjectURL(new Blob([bytes], { type: 'image/png' })));
+      }
+      return 'url("' + localPngUrls.get(encoded) + '")';
+    });
+  })()`;
 }
 
 function buildProofExpression(moduleSources, styles, assetUrls) {
@@ -750,8 +757,18 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     };
     result.lightPreviewFollowsTokens = previewMatchesRoot('light');
     const brand = root.querySelector('.ordax-brand-symbol');
-    result.localBrandMaskLoaded = Boolean(brand &&
-      getComputedStyle(brand).maskImage.includes('data:image/svg+xml;base64,'));
+    const brandImageUrl = brand && getComputedStyle(brand).backgroundImage.match(/^url\\(["']?([^"')]+)["']?\\)$/)?.[1];
+    const brandImage = new Image();
+    if (brandImageUrl) brandImage.src = brandImageUrl;
+    if (brandImageUrl) await brandImage.decode();
+    result.localBrandImageLoaded = Boolean(brandImageUrl?.startsWith('blob:') &&
+      brandImage.naturalWidth === 1254 && brandImage.naturalHeight === 1254);
+    const previousContrast = root.dataset.ordaxContrast;
+    root.dataset.ordaxContrast = 'high';
+    result.brandHighContrastUsesSameImage = Boolean(brandImageUrl &&
+      getComputedStyle(brand).maskImage.includes(brandImageUrl));
+    if (previousContrast === undefined) delete root.dataset.ordaxContrast;
+    else root.dataset.ordaxContrast = previousContrast;
     await document.fonts.ready;
     result.localFontLoaded = [...document.fonts].some((font) => font.family === 'Inter' && font.status === 'loaded');
 
@@ -1105,7 +1122,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
 
     const required = [
       'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherSubjectMismatchFailsClosed', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
-      'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandMaskLoaded', 'localFontLoaded',
+      'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandImageLoaded', 'brandHighContrastUsesSameImage', 'localFontLoaded',
       'globalHeaderClearOfWindows',
       'studioNavigationOpensSharedApp', 'studioWebAvailabilityIsHonest',
       'studioUnavailableDoesNotDisplayZeroMetrics', 'studioChatUsesExternalPublicSite',

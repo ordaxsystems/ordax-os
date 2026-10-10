@@ -213,11 +213,14 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertEqual(int.from_bytes(data[20:24], 'big'), 1254)
         self.assertEqual(data[25], 6)  # RGBA preserves the supplied transparent background.
         self.assertFalse((SURFACE / 'brand' / 'ordax-symbol.svg').exists())
+        css = (SURFACE / 'brand/symbol.css').read_text(encoding='utf-8')
+        self.assertIn('background: url("./ordax-symbol.png")', css)
+        self.assertIn('@media (forced-colors: active)', css)
+        self.assertIn('[data-ordax-contrast="high"]', css)
+        for composition in (WEB_INDEX, NATIVE_INDEX):
+            self.assertIn('../../surface/ui/brand/symbol.css', composition.read_text(encoding='utf-8'))
         for stylesheet in ('identity.css', 'boot-screen.css'):
-            css = (SURFACE / stylesheet).read_text(encoding='utf-8')
-            self.assertIn('background: url("./brand/ordax-symbol.png")', css)
-            self.assertIn('@media (forced-colors: active)', css)
-            self.assertIn('[data-ordax-contrast="high"]', css)
+            self.assertNotIn('ordax-symbol.png', (SURFACE / stylesheet).read_text(encoding='utf-8'))
         provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
         self.assertIn(hashlib.sha256(data).hexdigest(), provenance)
 

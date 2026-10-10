@@ -60,7 +60,11 @@ The existing brand compiler exports typography, material and brand-fill tokens
 from `system/surface/ui/tokens.css`. Public build copies the exact original
 Surface symbol, landscape and Inter bytes and derives its local font declaration;
 no artwork or type palette is authored again in the portal. Marketing and
-credential pages retain their independent existing composition. The plan list
+credential pages retain their independent existing composition, while all
+public mark containers now use the same approved transparent symbol. Its
+presentation comes from `system/surface/ui/brand/symbol.css`, compiled together
+with the existing public token export; legacy CSS drawings have been removed.
+The legal HTML rendering transform stays unchanged. The plan list
 is derived at build from `docs/contracts/entitlements.json`, not an additional
 commercial catalog. Locale selection uses the existing public i18n owner;
 it changes this browser's portal language, never device preferences.

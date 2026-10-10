@@ -52,7 +52,6 @@
 .ordax-boot-mark {
   width: 48px;
   height: 48px;
-  background: url("./brand/ordax-symbol.png") center / contain no-repeat;
 }
 
 .ordax-boot-wordmark {
@@ -124,22 +123,5 @@
     animation: none;
     width: 100%;
     opacity: 0.75;
-  }
-}
-
-/* One approved asset; its alpha provides the accessible silhouette. */
-[data-ordax-contrast="high"] .ordax-boot-mark {
-  background: var(--ordax-text);
-  mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-  -webkit-mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-  filter: none;
-}
-@media (forced-colors: active) {
-  .ordax-boot-mark {
-    background: CanvasText;
-    mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-    -webkit-mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-    filter: none;
-    forced-color-adjust: none;
   }
 }

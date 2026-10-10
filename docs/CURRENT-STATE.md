@@ -6,7 +6,8 @@ The public portal now has a responsive My account overview at `/conta/` and a
 separate `/web/` entry.
 
 The account concept now uses the user-approved transparent ribbon, OS landscape and Inter through
-the canonical brand build. It includes responsive service sections, search,
+the canonical brand build. Symbol presentation is now shared with all public headers
+through the single Surface `brand/symbol.css` owner; legacy CSS drawings are removed. It includes responsive service sections, search,
 deep links, keyboard focus and mobile navigation. Plan names are derived from
 entitlements; locale uses the existing portal owner. These are presentation
 capabilities, not activation of billing, profile editing or device control.

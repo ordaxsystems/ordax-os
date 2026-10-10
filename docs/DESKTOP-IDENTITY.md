@@ -25,6 +25,11 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
+`system/surface/ui/brand/symbol.css` owns symbol presentation and accessible
+silhouettes. Web/Native compositions load it directly. The public compiler
+derives the same rules alongside its existing token export, without changing
+legal HTML transforms or introducing page-specific drawings of the mark.
+
 Legacy palette literals must be removed from active contracts when the identity changes; they must not be retained in comments or assertions merely to satisfy obsolete tests. Projects, Notes and Internet now consume the shared semantic tokens directly in their component styles, so the temporary first-party application identity bridge is no longer part of the runtime.
 
 Existing `appearance.theme` values (`light`, `dark`), labels (Claro, Escuro), persistence, account synchronization and the light default remain unchanged. Users switch materials in **Ajustes → Aparência**. Settings miniatures inherit the exact theme tokens through `data-theme-preview`, so they cannot drift into independent palettes. Success, warning and error retain independent semantic colors.

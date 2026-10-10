@@ -151,7 +151,10 @@ ainda elegíveis a migrações posteriores, sem bloquear o MVP.
 ## Substituição pelo símbolo aprovado — 2026-10-09
 
 A aprovação explícita do usuário substitui o vetor simplificado no OS, na
-inicialização e nos portais Minha conta/Web. Os registros anteriores sobre
+inicialização e em todos os cabeçalhos do site público, incluindo Minha
+conta/Web. `system/surface/ui/brand/symbol.css` concentra a apresentação e as
+silhuetas acessíveis; o compilador distribui essas regras junto da exportação
+de tokens. Os desenhos antigos em CSS foram removidos. Os registros anteriores sobre
 preservação da marca pública descrevem aquela etapa. O arquivo tem SHA-256
 registrado no owner da Surface. A publicação continua sujeita aos gates de
 cada produto. Identidade, planos e autenticação mantêm os serviços canônicos.

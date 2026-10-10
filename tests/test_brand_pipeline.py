@@ -31,6 +31,21 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertNotIn("[[ordax-", content)
             self.assertNotIn("access_token", content)
 
+    def test_symbol_styles_are_derived_once_and_reject_external_assets(self):
+        import re
+        css = brand.render_site_identity_css()
+        self.assertEqual(css, brand.render_site_css() + "\n" + brand.SYMBOL_CSS.read_text(encoding="utf-8"))
+        self.assertEqual(set(re.findall(r'url\("([^"]+)"\)', css)), {'./ordax-symbol.png'})
+        for name in ("site", "account", "portal", "playground", "download"):
+            source = (ROOT / "sites/public/assets" / (name + ".css")).read_text(encoding="utf-8")
+            self.assertNotRegex(source, r'\.brand-mark\s+(?:span|i)\s*\{')
+        with tempfile.TemporaryDirectory() as tmp:
+            changed = Path(tmp) / "symbol.css"
+            for url in ('https://example.invalid/logo.png', '../other-symbol.png', 'data:image/png;base64,AAAA'):
+                changed.write_text(brand.SYMBOL_CSS.read_text(encoding="utf-8").replace('./ordax-symbol.png', url), encoding="utf-8")
+                with self.assertRaises(brand.BrandError):
+                    brand.render_site_identity_css(symbol_path=changed)
+
     def test_token_change_derives_css_and_email_without_editing_templates(self):
         sample = brand.TOKENS.read_text(encoding="utf-8")
         old_dark = brand.load_colors()[0]["--ordax-bg"]

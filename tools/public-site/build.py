@@ -35,6 +35,7 @@ if _BRAND_SPEC is None or _BRAND_SPEC.loader is None:
 _BRAND_MODULE = importlib.util.module_from_spec(_BRAND_SPEC)
 _BRAND_SPEC.loader.exec_module(_BRAND_MODULE)
 render_site_css = _BRAND_MODULE.render_site_css
+render_site_identity_css = _BRAND_MODULE.render_site_identity_css
 render_site_font_css = _BRAND_MODULE.render_site_font_css
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -302,7 +303,7 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
         # Derived CSS bridge: no manual palette in sites/public and no risk of
         # overwriting in-progress public-site layouts or source files.
         token_asset = stage / "assets" / "ordax-design-tokens.css"
-        token_asset.write_text(render_site_css(), encoding="utf-8")
+        token_asset.write_text(render_site_identity_css(), encoding="utf-8")
         # Use the identical source asset consumed by Native and Surface Web.
         # Its mask/symbol is exposed for UI composition; existing public HTML
         # and its in-progress layout remain untouched.
@@ -445,7 +446,7 @@ def verify_bundle(out_dir: Path) -> dict:
             raise PublicSiteError("canonical OrdaX public visual asset missing or stale")
     if actual.get("assets/ordax-font.css") is None or actual["assets/ordax-font.css"].read_text(encoding="utf-8") != render_site_font_css():
         raise PublicSiteError("canonical OrdaX public font declaration missing or stale")
-    if actual.get("assets/ordax-design-tokens.css") is None or actual["assets/ordax-design-tokens.css"].read_text(encoding="utf-8") != render_site_css():
+    if actual.get("assets/ordax-design-tokens.css") is None or actual["assets/ordax-design-tokens.css"].read_text(encoding="utf-8") != render_site_identity_css():
         raise PublicSiteError("canonical OrdaX public design tokens missing or stale")
 
     for relative, path in actual.items():

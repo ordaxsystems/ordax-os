@@ -83,26 +83,6 @@ a {
   height: 30px;
 }
 
-.brand-mark span {
-  position: absolute;
-  left: 0;
-  top: 2px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--ink);
-}
-
-.brand-mark i {
-  position: absolute;
-  left: 27px;
-  top: 0;
-  width: 9px;
-  height: 34px;
-  background: var(--accent);
-  transform: skew(-28deg);
-}
-
 .brand-name {
   font-family: var(--serif);
   font-size: 35px;

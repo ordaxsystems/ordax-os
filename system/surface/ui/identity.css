@@ -34,7 +34,6 @@ body { background: var(--ordax-bg); font-weight: 400; }
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  background: url("./brand/ordax-symbol.png") center / contain no-repeat;
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ordax-brand-blue) 35%, transparent));
 }
 .ordax-rail-nav { gap: 5px; padding: 18px 14px; }
@@ -486,20 +485,3 @@ body { background: var(--ordax-bg); font-weight: 400; }
 }
 [data-ordax-motion="reduced"] .ordax-shell button,
 [data-ordax-motion="reduced"] .ordax-window { transition: none; }
-
-/* One approved asset; its alpha provides the accessible silhouette. */
-[data-ordax-contrast="high"] .ordax-brand-symbol {
-  background: var(--ordax-text);
-  mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-  -webkit-mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-  filter: none;
-}
-@media (forced-colors: active) {
-  .ordax-brand-symbol {
-    background: CanvasText;
-    mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-    -webkit-mask: url("./brand/ordax-symbol.png") center / contain no-repeat;
-    filter: none;
-    forced-color-adjust: none;
-  }
-}
