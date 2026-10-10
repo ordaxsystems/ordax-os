@@ -2,8 +2,8 @@
 
 ## Estado em 2026-10-10
 
-**Branch de trabalho, não publicada.** Os arquivos de React, modelo e CSS
-copiados em `lovable-original/` preservam os mesmos SHA de blob do commit
+**Branch de trabalho, não publicada.** A importação inicial dos arquivos
+em `lovable-original/` preservou os mesmos SHA de blob do commit
 `washingtonmsdj/account-hub-pro@0f955ece6e570801976d8ed77d2cada101b7a3fa`.
 Os hashes individuais são registrados em `lovable-source.json`.
 A fonte privada continua privada; não copiar credenciais, .env, tokens ou
@@ -13,17 +13,42 @@ A migração anterior `sites/public/conta/` era uma reimplementação HTML/CSS.
 Esta migração tem outro objetivo: **usar de fato a árvore de componentes, CSS e
 assets do Lovable**, com adaptadores explícitos para o backend OrdaX.
 
-### Dependência externa para completar a cópia
+### Fonte e assets originais recebidos — comprovados
 
-A captura final usa `src/assets/ordax-landscape.jpg`,
-`src/assets/ordax-mark.png` e outros binários. O GitHub App permite ler o
-código em texto, mas a transferência de binários de um repositório privado
-entre as duas instalações GitHub não está disponível nesse conector. Um
-workflow isolado da fonte tentou gerar um artifact de exportação e recebeu
-`Artifact storage quota has been hit`. **Não usar imagens substitutas para
-alegar fidelidade.** Para completar, materializar/exportar o ZIP original
-do Lovable (Code → Download ZIP) com `src/assets/`, juntamente com as fontes
-necessárias, e conferir SHA contra o GitHub. Não fazer a fonte privada pública.
+O proprietário anexou `account-hub-pro-main.zip` nesta conversa.
+Todos os componentes importados foram comparados por SHA de blob Git com a
+fonte privada, e os binários essenciais foram transferidos ao owner oficial
+via blobs binários com os mesmos hashes Git:
+- `src/assets/ordax-landscape.jpg` SHA-256 `7ddb6607fa2584e9702fe55a7c9d06e610ab1fe3db0f31e40757b7d9e0347294`;
+- `src/assets/ordax-mark.png` SHA-256 `e261b8e4e12dccb83c9dc2bbb77155ec7e6e69fe70c5b0a1e6bfee58f492827c`.
+
+A dependência de transferência de imagens está **resolvida**. O protótipo
+original foi preservado byte a byte no primeiro commit de importação; os
+componentes de Shell, Overview e Details receberam depois as adaptações
+pontuais listadas em `lovable-source.json`.
+
+### Candidato React compilável (ainda não publicado)
+
+`lovable-original/src/account-entry.tsx` define uma SPA dedicada a
+`/conta`, sem importar a landing page, Loja, Intelligence ou outros
+produtos prototipados. A mesma árvore React e CSS original é compilada
+estaticamente com Vite e Tailwind, usando `bun.lock` original, pelo
+`Account Lovable Source Candidate`. Foram comprovados build e repetição
+determinística, com imagens originais incluídas no bundle.
+
+O adaptador `official-session.tsx` usa exclusivamente o contrato
+`prototype-ordax.public-identity-session/1` do `/auth/session` same-origin,
+sem criar backend, login alternativo, tokens no cliente ou memória de sessão.
+Os controles de conta passam a expor os links reais de login/cadastro,
+perfil verificado e o formulário `POST /auth/logout`. Sessões expiradas
+limpam a identidade antes de revalidar. Informações de assinatura, consumo,
+faturas e dispositivos ainda não integradas permanecem indisponíveis.
+
+O caminho público `/conta/` continua com a implementação anterior até que
+a SPA compilada seja integrada ao builder determinístico do `public-site`,
+as rotas profundas e a autenticação passem nos testes E2E, e o deploy seja
+promovido no projeto Vercel existente. **Não fazer merge da PR de importação
+nem substituir a produção sem essas provas.**
 
 ### Arquitetura-alvo
 
