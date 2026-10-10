@@ -54,10 +54,25 @@ class KernelCandidatePipelineTests(unittest.TestCase):
             "source_contract": "bootstrap/kernel/candidates/6.6.158.json"
         }), encoding="utf-8")
 
-    def test_real_selected_candidate_is_newer_than_active(self):
-        path, source = PIPELINE.select_candidate()
+    def test_real_selected_candidate_remains_valid_after_future_promotion(self):
+        path, source = PIPELINE.select_candidate(require_newer=False)
+        self.assertEqual(path.name, f"{source['version']}.json")
+        active = PIPELINE.read_json(ROOT / "bootstrap/kernel/source.json")
+        self.assertGreaterEqual(
+            PIPELINE.version_tuple(source["version"]),
+            PIPELINE.version_tuple(active["version"]),
+        )
+
+    def test_promoted_candidate_remains_discoverable_but_not_rebuilt(self):
+        self.active.write_text(json.dumps({
+            "$schema": "prototype-ordax.kernel-source/1",
+            "version": "6.6.158",
+        }), encoding="utf-8")
+        path, source = PIPELINE.select_candidate(self.root, require_newer=False)
+        self.assertEqual(path, self.contract)
         self.assertEqual(source["version"], "6.6.158")
-        self.assertEqual(path.name, "6.6.158.json")
+        with self.assertRaises(PIPELINE.CandidateError):
+            PIPELINE.select_candidate(self.root)
 
     def test_derived_identity_has_no_duplicate_version_or_digest(self):
         path, source = PIPELINE.select_candidate(self.root)
