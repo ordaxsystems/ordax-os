@@ -191,7 +191,7 @@ async function fetchWithTimeout(
     if (controller.signal.aborted) throw new Error("Local AI inference request cancelled");
     const response = await fetchImpl(url, { ...options, signal: controller.signal });
     if (controller.signal.aborted) throw new Error("Local AI inference request cancelled");
-    const value = consume === null ? response : await consume(response);
+    const value = consume === null ? response : await consume(response, controller.signal);
     // Also reject if an adapter ignores the abort signal and responds late.
     if (controller.signal.aborted) throw new Error("Local AI inference request cancelled");
     return value;
@@ -511,7 +511,7 @@ export function createLocalAiRuntime({
         } else {
           text = await fetchWithTimeout(
             fetchImpl, url, options, inferenceTimeout, label, activeControllers,
-            async (response) => {
+            async (response, transportSignal) => {
               if (!response.ok) {
                 cancelResponseBody(response);
                 throw new Error(`Local AI inference failed: HTTP ${response.status}`);
@@ -519,6 +519,7 @@ export function createLocalAiRuntime({
               return readLocalAiCompletionStream(response, {
                 modelId: activeModelId,
                 onDelta,
+                signal: transportSignal,
               });
             },
             signal,
