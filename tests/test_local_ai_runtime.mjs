@@ -552,3 +552,211 @@ test("Local AI discards a late completion from a fetch adapter that ignores abor
   assert.equal(runtime.getSnapshot().state, "ready");
   runtime.dispose();
 });
+
+function streamedCompletion(frames, { contentType = "text/event-stream; charset=utf-8", segments = null } = {}) {
+  const encoded = new TextEncoder().encode(frames.join(""));
+  const chunks = segments === null
+    ? [encoded]
+    : segments.map(([from, to]) => encoded.slice(from, to));
+  return new Response(new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      controller.close();
+    },
+  }), { status: 200, headers: { "Content-Type": contentType } });
+}
+
+function streamFrame(content, { model = "ordax-small", finishReason = null } = {}) {
+  return `data: ${JSON.stringify({
+    model,
+    choices: [{ index: 0, delta: { content }, finish_reason: finishReason }],
+  })}\n\n`;
+}
+
+test("Local AI opt-in SSE delivers ordered UTF-8 deltas and the verified final answer", async () => {
+  const sent = [];
+  let requestBody = null;
+  const first = streamFrame("Olá ");
+  const second = streamFrame("mundo", { finishReason: "stop" });
+  const frames = [first, second, "data: [DONE]\r\n\r\n"];
+  const joined = frames.join("").replaceAll("\n\n", "\r\n\r\n");
+  const bytes = new TextEncoder().encode(joined);
+  // Split in the middle of an accented UTF-8 character and SSE boundaries.
+  const splitAt = bytes.findIndex((value) => value === 0xc3) + 1;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url, options = {}) => {
+      if (url.endsWith("/health")) return { ok: true };
+      requestBody = JSON.parse(options.body);
+      return new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(bytes.slice(0, splitAt));
+          controller.enqueue(bytes.slice(splitAt, splitAt + 3));
+          controller.enqueue(bytes.slice(splitAt + 3));
+          controller.close();
+        },
+      }), { status: 200, headers: { "content-type": "text/event-stream" } });
+    },
+  });
+  await runtime.probe();
+  const result = await runtime.generate({ prompt: "responda" }, {
+    async onDelta(delta) {
+      await Promise.resolve();
+      sent.push(delta);
+    },
+  });
+  assert.equal(requestBody.stream, true);
+  assert.deepEqual(sent, ["Olá ", "mundo"]);
+  assert.equal(result.text, "Olá mundo");
+  assert.equal(result.engineId, "llama.cpp");
+  assert.equal(result.modelId, "ordax-small");
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
+
+test("Local AI streaming fails closed on incomplete or untrusted SSE frames", async () => {
+  const cases = [
+    {
+      name: "no final [DONE]",
+      frames: [streamFrame("primeiro", { finishReason: "stop" })],
+      match: /verified \[DONE\]/,
+    },
+    {
+      name: "no final finish_reason",
+      frames: [streamFrame("primeiro"), "data: [DONE]\n\n"],
+      match: /before finish_reason/,
+    },
+    {
+      name: "mismatched backend model",
+      frames: [streamFrame("primeiro", { model: "wrong-model" }), "data: [DONE]\n\n"],
+      match: /model identity mismatch/,
+    },
+    {
+      name: "tool call in stream",
+      frames: [`data: ${JSON.stringify({
+        model: "ordax-small",
+        choices: [{ index: 0, delta: { tool_calls: [] }, finish_reason: "stop" }],
+      })}\n\n`, "data: [DONE]\n\n"],
+      match: /assistant text only/,
+    },
+    {
+      name: "untrusted field",
+      frames: ["event: action\n\n"],
+      match: /unsupported SSE field/,
+    },
+    {
+      name: "data after [DONE]",
+      frames: [streamFrame("ok", { finishReason: "stop" }), "data: [DONE]\n\n", streamFrame("bad")],
+      match: /after \[DONE\]/,
+    },
+  ];
+  for (const { name, frames, match } of cases) {
+    let healthCalls = 0;
+    const deltas = [];
+    const runtime = createLocalAiRuntime({
+      modelId: "ordax-small",
+      fetchImpl: async (url) => {
+        if (url.endsWith("/health")) { healthCalls += 1; return { ok: true }; }
+        return streamedCompletion(frames);
+      },
+    });
+    await runtime.probe();
+    await assert.rejects(() => runtime.generate({ prompt: "teste" }, {
+      onDelta(delta) { deltas.push(delta); },
+    }), match, name);
+    assert.equal(runtime.getSnapshot().state, "ready", name);
+    assert.equal(healthCalls, 2, name);
+    runtime.dispose();
+  }
+});
+
+test("Local AI streaming rejects missing SSE MIME and mismatched model before emitting text", async () => {
+  let delivered = 0;
+  for (const mode of ["mime", "model"]) {
+    const runtime = createLocalAiRuntime({
+      modelId: "ordax-small",
+      fetchImpl: async (url) => {
+        if (url.endsWith("/health")) return { ok: true };
+        return streamedCompletion([streamFrame("not delivered", {
+          model: mode === "model" ? "wrong-model" : "ordax-small",
+          finishReason: "stop",
+        }), "data: [DONE]\n\n"], {
+          contentType: mode === "mime" ? "application/json" : "text/event-stream",
+        });
+      },
+    });
+    await runtime.probe();
+    await assert.rejects(() => runtime.generate({ prompt: "teste" }, {
+      onDelta() { delivered += 1; },
+    }), mode === "mime" ? /text\/event-stream/ : /model identity mismatch/);
+    runtime.dispose();
+  }
+  assert.equal(delivered, 0);
+});
+
+test("Local AI streaming enforces raw byte limits and rejects invalid onDelta before HTTP", async () => {
+  let completes = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      completes += 1;
+      return streamedCompletion([": x\n\n".repeat(270000)]);
+    },
+  });
+  await runtime.probe();
+  await assert.rejects(() => runtime.generate({ prompt: "teste" }, {
+    onDelta: "not-a-function",
+  }), /onDelta must be a function/);
+  assert.equal(completes, 0);
+  await assert.rejects(() => runtime.generate({ prompt: "teste" }, {
+    onDelta() {},
+  }), /byte limit/);
+  assert.equal(completes, 1);
+  runtime.dispose();
+});
+
+test("Local AI streaming propagates onDelta callback failures and suppresses late result", async () => {
+  let healthCalls = 0;
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) { healthCalls += 1; return { ok: true }; }
+      return streamedCompletion([streamFrame("provisório"), streamFrame("restante", {
+        finishReason: "stop",
+      }), "data: [DONE]\n\n"]);
+    },
+  });
+  await runtime.probe();
+  await assert.rejects(() => runtime.generate({ prompt: "teste" }, {
+    onDelta() { throw new Error("consumer refused the partial output"); },
+  }), /consumer refused/);
+  assert.equal(healthCalls, 2);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});
+
+test("Local AI streaming signal cancellation does not convert partial tokens into a result", async () => {
+  const controller = new AbortController();
+  const pieces = [];
+  const runtime = createLocalAiRuntime({
+    modelId: "ordax-small",
+    fetchImpl: async (url) => {
+      if (url.endsWith("/health")) return { ok: true };
+      return streamedCompletion([streamFrame("parte"), streamFrame("seguinte", {
+        finishReason: "stop",
+      }), "data: [DONE]\n\n"]);
+    },
+  });
+  await runtime.probe();
+  await assert.rejects(() => runtime.generate({ prompt: "teste" }, {
+    signal: controller.signal,
+    onDelta(delta) {
+      pieces.push(delta);
+      controller.abort();
+    },
+  }), /request cancelled/);
+  assert.deepEqual(pieces, ["parte"]);
+  assert.equal(runtime.getSnapshot().state, "ready");
+  runtime.dispose();
+});

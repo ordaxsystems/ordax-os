@@ -41,10 +41,28 @@ de listener/timer; uma falha real mantém o recheck de saúde.
 Descartar, sair do contexto de conta/Space/perfil ou desmontar Assistant
 aborta o transporte e mantém os fences de contexto/Memory. O usuário
 não ganha autoridade sobre o processo de modelo, que pode continuar executando
-até que o host reconheça a desconexão. Não há garantia de abort do motor nem
-streaming/SSE de tokens. A projeção de capabilities diferencia
+até que o host reconheça a desconexão. Não há garantia de abort do motor nem streaming de tokens disponível na interface. A projeção de capabilities diferencia
 `transportCancellationSupported=true` quando o modelo local está disponível
 de `backendCancellationSupported=false`, sem prometer fim da computação.
+
+#### Transporte incremental SSE local (source, opt-in)
+
+O próprio `ordax.local-ai/1` agora aceita opcionalmente `onDelta` em
+`generate(request, { onDelta, signal })`. Com `onDelta`, solicita
+`stream: true` ao backend HTTP loopback; sem `onDelta`, preserva o POST
+`stream: false` e o contrato de resposta que os consumidores atuais usam.
+Um leitor SSE único e limitado processa frames `data:` em UTF-8,
+valida a identidade de modelo reportada, o limite de bytes/eventos/texto,
+proíbe tool calls e exige `finish_reason` e `[DONE]` antes de
+retornar uma resposta final válida. Cancelamento, timeout e erros de
+callback mantêm o tratamento anterior de revalidação de saúde.
+
+Os deltas notificados por `onDelta` são **provisórios** e só se tornam
+uma resposta validada após a terminação correta da sessão SSE; não podem
+ser usados como receipts, ações ou Memory antes disso. O streaming do
+port de conversa/Assistant continua `false` e não foi ativado no
+OrdaX Web/Studio ou nos providers externos. Não foi feito E2E com
+llama.cpp real nem certificação de parada do motor.
 
 A conversa Assistant continua sendo uma sessão limitada e vinculada aos owners
 de Identity/Space/Profile existentes, sem projeto inferido. O controle

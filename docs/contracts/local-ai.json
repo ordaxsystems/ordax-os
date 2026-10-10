@@ -127,5 +127,20 @@
     "cancel_other_operations": false,
     "server_engine_abort_proven": false,
     "late_completions_discarded": true
+  },
+  "streaming_transport": {
+    "implementation": "system/services/local-ai/completion-stream.mjs",
+    "api": "generate(request, { onDelta, signal })",
+    "backend_protocol": "OpenAI-compatible text/event-stream",
+    "enabled_only_if_on_delta_requested": true,
+    "default_inference_remains_buffered": true,
+    "max_sse_response_bytes": 1048576,
+    "max_sse_events": 16384,
+    "max_accumulated_text_chars": 131072,
+    "requires_final_finish_reason_and_done": true,
+    "validates_reported_model_identity": true,
+    "callback_deltas_are_provisional": true,
+    "conversation_streaming_exposed": false,
+    "engine_streaming_hardware_proven": false
   }
 }
