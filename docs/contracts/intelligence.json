@@ -108,5 +108,18 @@
     "exact_duplicate_coalescing": true,
     "exact_duplicate_mints_new_id": false,
     "semantic_supersession_enabled": false
+  },
+  "local_streaming": {
+    "port": "ordax.intelligence/1",
+    "option": "respond(request, { signal, onDelta })",
+    "mode": "opt-in-provisional-local-only",
+    "on_delta_type": "string",
+    "final_response_contract": "ordax.intelligence-response/1",
+    "callback_error_aborts_inference": true,
+    "owner_space_profile_checks_each_delta": true,
+    "default_without_callback": "buffered-unchanged",
+    "assistant_ui_streaming_enabled": false,
+    "external_providers_enabled": false,
+    "engine_hardware_proof": false
   }
 }

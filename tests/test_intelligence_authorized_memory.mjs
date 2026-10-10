@@ -776,3 +776,60 @@ test("Identity-bound authorized Memory preserves the caller cancellation signal 
   assert.equal(intelligence.requests.length, 1);
   assert.equal(intelligence.requests[0].context.length, 0);
 });
+
+test("Identity-bound Memory stream latches an owner switch and never emits the next delta", async () => {
+  const identity = identityPort({ state: "signed-out" });
+  const selection = selectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "unavailable",
+  });
+  const intelligence = intelligencePort();
+  intelligence.respond = async (request, options = {}) => {
+    await options.onDelta("owner anterior");
+    identity.set({ state: "signed-in", subjectId: "novo-dono", displayName: "Nova conta" });
+    await options.onDelta("vazamento");
+    throw new Error("must not reach streaming completion");
+  };
+  const bridge = createIdentityBoundMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memoryPort([]),
+    identitySessionPort: identity,
+    spaceSelectionPort: selection,
+  });
+  const chunks = [];
+  await assert.rejects(() => bridge.respond({ prompt: "dados antigos" }, {
+    onDelta(delta) { chunks.push(delta); },
+  }), /memory context changed during inference/);
+  assert.deepEqual(chunks, ["owner anterior"]);
+  assert.equal(identity.listenerCount(), 0);
+  assert.equal(selection.listenerCount(), 0);
+});
+
+test("Authorized-Memory bridge retains provisional stream and exact owner authorization", async () => {
+  const intelligence = intelligencePort();
+  let forwarded = null;
+  intelligence.respond = async (request, options = {}) => {
+    forwarded = request;
+    await options.onDelta("parcial");
+    return {
+      schema: INTELLIGENCE_RESPONSE_SCHEMA,
+      text: "parcial",
+      engineId: "llama.cpp",
+      modelId: "qwen-test",
+      authority: "none",
+    };
+  };
+  const bridge = createAuthorizedMemoryIntelligence({
+    intelligencePort: intelligence,
+    memoryPort: memoryPort([memoryItem()]),
+  });
+  const deltas = [];
+  const answer = await bridge.respond({ prompt: "teste" }, {
+    authorizations: [deviceAuthorization],
+    onDelta(delta) { deltas.push(delta); },
+  });
+  assert.deepEqual(deltas, ["parcial"]);
+  assert.equal(answer.authority, "none");
+  assert.equal(forwarded.context.length, 1);
+  assert.match(forwarded.context[0].provenance, /^memory:device:/);
+});

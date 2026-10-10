@@ -62,7 +62,7 @@ export function createProfileContentIntelligence({
   const intelligence = assertIntelligencePort(intelligencePort);
   const profileContext = assertProfileContentContextPort(profileContentContextPort);
 
-  const respondForSpace = async (value, spaceId, signal = null) => {
+  const respondForSpace = async (value, spaceId, { signal = null, onDelta = null } = {}) => {
     const request = validateIntelligenceRequest(value);
     const normalizedSpaceId = boundedSpaceId(spaceId);
 
@@ -91,7 +91,7 @@ export function createProfileContentIntelligence({
       context: [...request.context, ...additions],
       maxTokens: request.maxTokens,
     });
-    return intelligence.respond(merged, { signal });
+    return intelligence.respond(merged, { signal, onDelta });
   };
 
   return Object.freeze({
@@ -102,8 +102,8 @@ export function createProfileContentIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    respond(value, { spaceId, signal = null } = {}) {
-      return respondForSpace(value, spaceId, signal);
+    respond(value, { spaceId, signal = null, onDelta = null } = {}) {
+      return respondForSpace(value, spaceId, { signal, onDelta });
     },
     forSpace(spaceId) {
       const boundSpaceId = boundedSpaceId(spaceId);
@@ -115,8 +115,8 @@ export function createProfileContentIntelligence({
         subscribe(listener) {
           return intelligence.subscribe(listener);
         },
-        respond(value, { signal = null } = {}) {
-          return respondForSpace(value, boundSpaceId, signal);
+        respond(value, { signal = null, onDelta = null } = {}) {
+          return respondForSpace(value, boundSpaceId, { signal, onDelta });
         },
       });
     },
@@ -145,7 +145,7 @@ export function createSelectedSpaceProfileContentIntelligence({
     subscribe(listener) {
       return intelligence.subscribe(listener);
     },
-    async respond(value, { signal = null } = {}) {
+    async respond(value, { signal = null, onDelta = null } = {}) {
       const request = validateIntelligenceRequest(value);
       const currentSpace = () => {
         const currentIdentity = validateIdentitySessionSnapshot(identity.getSnapshot());
@@ -156,7 +156,7 @@ export function createSelectedSpaceProfileContentIntelligence({
       const selected = validateSpaceSelectionSnapshot(selection.getSnapshot());
       if (selected.state !== "selected") {
         // With no selected Space, consult the generic model without a profile.
-        return intelligence.respond(request, { signal });
+        return intelligence.respond(request, { signal, onDelta });
       }
       const authorized = currentSpace();
       if (!authorized) {
@@ -195,23 +195,33 @@ export function createSelectedSpaceProfileContentIntelligence({
           return context;
         },
       };
+      const assertSpaceCurrent = () => {
+        const now = validateSpaceSelectionSnapshot(selection.getSnapshot());
+        const space = currentSpace();
+        assertStableActivation();
+        if (
+          now.state !== "selected"
+          || now.subjectId !== subjectId
+          || space?.id !== spaceId
+          || space.kind !== authorized.kind
+        ) {
+          throw new Error("Profile-content Intelligence Space changed while reading context");
+        }
+      };
       const securedContextPort = {
         schema: INTELLIGENCE_PORT_SCHEMA,
         getSnapshot: () => intelligence.getSnapshot(),
         subscribe: (listener) => intelligence.subscribe(listener),
-        respond: (merged, { signal: forwardedSignal = null } = {}) => {
-          const now = validateSpaceSelectionSnapshot(selection.getSnapshot());
-          const space = currentSpace();
-          assertStableActivation();
-          if (
-            now.state !== "selected"
-            || now.subjectId !== subjectId
-            || space?.id !== spaceId
-            || space.kind !== authorized.kind
-          ) {
-            throw new Error("Profile-content Intelligence Space changed while reading context");
-          }
-          return intelligence.respond(merged, { signal: forwardedSignal });
+        respond: (merged, { signal: forwardedSignal = null, onDelta: forwardDelta = null } = {}) => {
+          assertSpaceCurrent();
+          return intelligence.respond(merged, {
+            signal: forwardedSignal,
+            onDelta: forwardDelta === null ? null : async (delta) => {
+              assertSpaceCurrent();
+              await forwardDelta(delta);
+              assertSpaceCurrent();
+            },
+          });
         },
       };
       // Use the existing bounded context composition, with an additional
@@ -219,7 +229,7 @@ export function createSelectedSpaceProfileContentIntelligence({
       return createProfileContentIntelligence({
         intelligencePort: securedContextPort,
         profileContentContextPort: verifiedProfileContext,
-      }).forSpace(spaceId).respond(request, { signal });
+      }).forSpace(spaceId).respond(request, { signal, onDelta });
     },
   });
 }

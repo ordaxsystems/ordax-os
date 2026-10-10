@@ -789,3 +789,91 @@ test("Profile-content bridge preserves inference cancellation through the verifi
   assert.equal(deliveredSignal, controller.signal);
   assert.equal(intelligence.requests.length, 1);
 });
+
+test("Selected-Space Profile streaming blocks further deltas immediately after Space change", async () => {
+  const originalSpace = {
+    id: "space-one", ownerId: "user-1", name: "Um", kind: "professional",
+    state: "active", profilePack: "developer",
+  };
+  const nextSpace = {
+    id: "space-two", ownerId: "user-1", name: "Dois", kind: "professional",
+    state: "active", profilePack: "developer",
+  };
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected",
+    subjectId: "user-1",
+    selectedSpace: originalSpace,
+  });
+  const auth = authorizedContext(selection, [nextSpace]);
+  const model = intelligencePort();
+  model.respond = async (request, options) => {
+    await options.onDelta("só para o primeiro Space");
+    selection.set({
+      schema: SPACE_SELECTION_SCHEMA,
+      state: "selected", subjectId: "user-1", selectedSpace: nextSpace,
+    });
+    await options.onDelta("nunca para o segundo");
+    throw new Error("must not return late response");
+  };
+  const profile = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: model,
+    spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId) {
+        return validateProfileContentContext(context(spaceId, [], {
+          slug: "developer", version: 1,
+        }));
+      },
+    },
+  });
+  const received = [];
+  await assert.rejects(() => profile.respond({ prompt: "consulta" }, {
+    onDelta(delta) { received.push(delta); },
+  }), /Space changed while reading context/);
+  assert.deepEqual(received, ["só para o primeiro Space"]);
+});
+
+test("Profile streaming rechecks authority after an async callback changes the active account", async () => {
+  const original = {
+    id: "space-one", ownerId: "user-1", name: "Um",
+    kind: "professional", state: "active", profilePack: "developer",
+  };
+  const selection = spaceSelectionPort({
+    schema: SPACE_SELECTION_SCHEMA,
+    state: "selected", subjectId: "user-1", selectedSpace: original,
+  });
+  const auth = authorizedContext(selection);
+  const model = intelligencePort();
+  model.respond = async (request, options) => {
+    await options.onDelta("primeiro");
+    throw new Error("must not continue");
+  };
+  const profile = createSelectedSpaceProfileContentIntelligence({
+    intelligencePort: model, spaceSelectionPort: selection,
+    identitySessionPort: auth.identitySessionPort,
+    spacesPort: auth.spacesPort,
+    profileActivationStatePort: auth.profileActivationStatePort,
+    profileContentContextPort: {
+      schema: PROFILE_CONTENT_CONTEXT_PORT_SCHEMA,
+      async read(spaceId) {
+        return validateProfileContentContext(context(spaceId, [], {
+          slug: "developer", version: 1,
+        }));
+      },
+    },
+  });
+  const received = [];
+  await assert.rejects(() => profile.respond({ prompt: "consulta" }, {
+    async onDelta(delta) {
+      received.push(delta);
+      await Promise.resolve();
+      auth.setSubject("user-2");
+    },
+  }), /Space changed while reading context/);
+  assert.deepEqual(received, ["primeiro"]);
+});

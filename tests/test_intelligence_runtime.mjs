@@ -386,3 +386,115 @@ test("Intelligence rejects aborted or invalid caller signals before inference an
   await assert.rejects(pending, /request cancelled/);
   intelligence.dispose();
 });
+
+test("Intelligence streams provisional deltas to opt-in callers while keeping the final response authoritative", async () => {
+  const received = [];
+  const generationOptions = [];
+  const ai = createIntelligenceRuntime({
+    inferencePort: inferencePort({
+      async onGenerate(request, options) {
+        generationOptions.push(options);
+        assert.equal(Object.hasOwn(request, "onDelta"), false);
+        if (options.onDelta !== null) {
+          await options.onDelta("parte ");
+          await options.onDelta("final");
+        }
+      },
+      answer: "parte final",
+    }),
+  });
+  const result = await ai.respond({ intent: "ask", prompt: "teste" }, {
+    async onDelta(part) {
+      await Promise.resolve();
+      received.push(part);
+    },
+  });
+  assert.deepEqual(received, ["parte ", "final"]);
+  assert.equal(result.text, "parte final");
+  assert.equal(result.authority, "none");
+  assert.equal(ai.getSnapshot().toolExecution, false);
+  const legacy = await ai.respond({ prompt: "sem streaming" });
+  assert.equal(legacy.text, "parte final");
+  assert.equal(generationOptions[1].onDelta, null);
+  ai.dispose();
+});
+
+test("Intelligence streaming rejects callback failures and prevents output after cancellation", async () => {
+  const controller = new AbortController();
+  let late = false;
+  const ai = createIntelligenceRuntime({
+    inferencePort: inferencePort({
+      async onGenerate(request, options) {
+        await options.onDelta("primeiro");
+        late = true;
+        await options.onDelta("segundo");
+      },
+    }),
+  });
+  const received = [];
+  await assert.rejects(() => ai.respond({ prompt: "cancelar" }, {
+    signal: controller.signal,
+    onDelta(value) {
+      received.push(value);
+      controller.abort();
+    },
+  }), /request cancelled/);
+  assert.deepEqual(received, ["primeiro"]);
+  assert.equal(late, false);
+  await assert.rejects(() => ai.respond({ prompt: "erro" }, {
+    onDelta() { throw new Error("consumer failed"); },
+  }), /consumer failed/);
+  await assert.rejects(() => ai.respond({ prompt: "inválido" }, {
+    onDelta: "not-a-function",
+  }), /onDelta must be a function/);
+  ai.dispose();
+});
+
+test("Intelligence incremental transport composes with the real Local AI SSE port and keeps legacy buffered mode", async () => {
+  const { createLocalAiRuntime } = await import("../system/services/local-ai/runtime.mjs");
+  const requests = [];
+  const local = createLocalAiRuntime({
+    modelId: "qwen-small",
+    fetchImpl: async (url, options = {}) => {
+      if (url.endsWith("/health")) return new Response(null, { status: 200 });
+      const body = JSON.parse(options.body);
+      requests.push(body);
+      if (!body.stream) {
+        return new Response(JSON.stringify({
+          model: "qwen-small",
+          choices: [{ message: { content: "buffered" } }],
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      const encoder = new TextEncoder();
+      const lines = [
+        JSON.stringify({ model: "qwen-small", choices: [
+          { index: 0, delta: { content: "Olá" }, finish_reason: null },
+        ] }),
+        JSON.stringify({ model: "qwen-small", choices: [
+          { index: 0, delta: { content: " mundo" }, finish_reason: "stop" },
+        ] }),
+      ].map(item => `data: ${item}\n\n`).join("") + "data: [DONE]\n\n";
+      return new Response(new ReadableStream({
+        start(controller) {
+          const encoded = encoder.encode(lines);
+          controller.enqueue(encoded.slice(0, 30));
+          controller.enqueue(encoded.slice(30));
+          controller.close();
+        },
+      }), { headers: { "content-type": "text/event-stream" }, status: 200 });
+    },
+  });
+  await local.probe();
+  const intelligence = createIntelligenceRuntime({ inferencePort: local });
+  const parts = [];
+  const result = await intelligence.respond({ prompt: "Diga olá" }, {
+    onDelta(part) { parts.push(part); },
+  });
+  assert.deepEqual(parts, ["Olá", " mundo"]);
+  assert.equal(result.text, "Olá mundo");
+  assert.equal(result.modelId, "qwen-small");
+  assert.equal((await intelligence.respond({ prompt: "modo antigo" })).text, "buffered");
+  assert.deepEqual(requests.map(body => body.stream), [true, false]);
+  intelligence.dispose();
+  local.dispose();
+});
