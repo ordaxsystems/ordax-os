@@ -1293,14 +1293,14 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `react-account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
     await evaluate('document.querySelector("button.account-menu").click()');
-    if (!await evaluate('!!document.querySelector('[role="menu"].ordax-account-dropdown')')) {
+    if (!await evaluate("!!document.querySelector('[role=menu].ordax-account-dropdown')")) {
       throw new Error(`${name} account menu did not open`);
     }
     await client.send('Input.dispatchKeyEvent', {
       type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
     });
     await sleep(70);
-    if (await evaluate('!!document.querySelector('[role="menu"].ordax-account-dropdown')')) {
+    if (await evaluate("!!document.querySelector('[role=menu].ordax-account-dropdown')")) {
       throw new Error(`${name} account menu Escape did not close`);
     }
     await evaluate('document.querySelector(".plan-button a, a.plan-button")?.click()');
