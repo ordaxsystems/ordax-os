@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.12.0",
+  "bundle_version": "1.15.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -76,6 +76,90 @@
     },
     {
       "major": 1,
+      "name": "browser-download",
+      "schema": "ordax.browser-download-port/1",
+      "source_git_blob": "e0a35cf13683195ff946abc56146bd5085456f5d",
+      "source_path": "system/contracts/browser-download.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-favorites",
+      "schema": "ordax.browser-favorites/1",
+      "source_git_blob": "7b6a4fa737b4d02a491481a9fbb65144e9b03426",
+      "source_path": "system/contracts/browser-favorites.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-favorites-store",
+      "schema": "ordax.browser-favorites-store/1",
+      "source_git_blob": "5d5e0c2cc618f68d1f8ab4bd5be15075a6531aa1",
+      "source_path": "system/contracts/browser-favorites-store.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-history",
+      "schema": "ordax.browser-history/1",
+      "source_git_blob": "dbddb05320643aad1ca8624e01964076a4054a71",
+      "source_path": "system/contracts/browser-history.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-history-store",
+      "schema": "ordax.browser-history-store/1",
+      "source_git_blob": "37e284e891b42f35a3fdf30b093dc5fc42c301a0",
+      "source_path": "system/contracts/browser-history-store.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-navigation",
+      "schema": "ordax.browser-navigation-policy/1",
+      "source_git_blob": "434b88f6453d59907572c06fa5e47c874db90af8",
+      "source_path": "system/contracts/browser-navigation.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-page-find",
+      "schema": "ordax.browser-page-find-port/1",
+      "source_git_blob": "35f3aee251bfffeb09f95b7a6835017510a2a6b9",
+      "source_path": "system/contracts/browser-page-find.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-page-selection",
+      "schema": "ordax.browser-page-selection-port/1",
+      "source_git_blob": "b58bebc49d1f1294f441eb3e2bd2419a8de43518",
+      "source_path": "system/contracts/browser-page-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-page-selection-data",
+      "schema": "ordax.browser-page-selection/1",
+      "source_git_blob": "b58bebc49d1f1294f441eb3e2bd2419a8de43518",
+      "source_path": "system/contracts/browser-page-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-search-preferences",
+      "schema": "ordax.browser-search-preferences/1",
+      "source_git_blob": "b501154b0b87f780028324d380e8781178fe5a0e",
+      "source_path": "system/contracts/browser-search-preferences.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-search-preferences-store",
+      "schema": "ordax.browser-search-preferences-store/1",
+      "source_git_blob": "b501154b0b87f780028324d380e8781178fe5a0e",
+      "source_path": "system/contracts/browser-search-preferences.mjs"
+    },
+    {
+      "major": 1,
+      "name": "browser-session",
+      "schema": "ordax.browser-session/1",
+      "source_git_blob": "172f547cbd7214940609d683e84f351c59a419f6",
+      "source_path": "system/contracts/browser-session.mjs"
+    },
+    {
+      "major": 1,
       "name": "component-localization",
       "schema": "prototype-ordax.component-localization/1",
       "source_git_blob": "9e72bcbf8b89a6d3f089331dcbbdc5d3c543a020",
@@ -146,10 +230,24 @@
     },
     {
       "major": 1,
+      "name": "recent-files",
+      "schema": "ordax.recent-files/1",
+      "source_git_blob": "06372c634f7fbb5e8d84bdea9e1c5a92761d37c0",
+      "source_path": "system/contracts/recent-files.mjs"
+    },
+    {
+      "major": 1,
       "name": "first-party-app-delivery",
       "schema": "ordax.first-party-app-delivery-policy/1",
       "source_git_blob": "48cf6edb09b245083f3f6baef0462cd070e0dff6",
       "source_path": "system/contracts/first-party-app-delivery.mjs"
+    },
+    {
+      "major": 1,
+      "name": "identity-session",
+      "schema": "ordax.identity-session/1",
+      "source_git_blob": "42de971e341fa746e2e2383120b3132b6f8e913b",
+      "source_path": "system/contracts/identity-session.mjs"
     },
     {
       "major": 1,
@@ -195,6 +293,20 @@
     },
     {
       "major": 1,
+      "name": "profile-activation-state",
+      "schema": "ordax.profile-activation-state/1",
+      "source_git_blob": "3c45856a70c1e3e3b6ddaee4ad58d0cc66306ff1",
+      "source_path": "system/contracts/profile-activation-state.mjs"
+    },
+    {
+      "major": 1,
+      "name": "profile-activation-state-port",
+      "schema": "ordax.profile-activation-state-port/1",
+      "source_git_blob": "3c45856a70c1e3e3b6ddaee4ad58d0cc66306ff1",
+      "source_path": "system/contracts/profile-activation-state.mjs"
+    },
+    {
+      "major": 1,
       "name": "project-catalog",
       "schema": "ordax.project-catalog/1",
       "source_git_blob": "a598f300ae53b30283e90ea0834e70799b56c609",
@@ -213,6 +325,55 @@
       "schema": "ordax.project-cloud-links-reader/1",
       "source_git_blob": "f62016f3e2b09cbad6b4ed0f1dceafc453f19948",
       "source_path": "system/contracts/project-cloud-links-reader.mjs"
+    },
+    {
+      "major": 1,
+      "name": "project-web-references",
+      "schema": "ordax.project-web-references/1",
+      "source_git_blob": "496f47fc06b1ffc44a3964927425922bbf36bfc1",
+      "source_path": "system/contracts/project-web-references.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-selection",
+      "schema": "ordax.space-selection/1",
+      "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
+      "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-selection-record",
+      "schema": "ordax.space-selection-record/1",
+      "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
+      "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-selection-store",
+      "schema": "ordax.space-selection-store/1",
+      "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
+      "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 1,
+      "name": "spaces",
+      "schema": "ordax.spaces/1",
+      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_path": "system/contracts/spaces.mjs"
+    },
+    {
+      "major": 1,
+      "name": "spaces-profile-packs",
+      "schema": "ordax.profile-packs/1",
+      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_path": "system/contracts/spaces.mjs"
+    },
+    {
+      "major": 1,
+      "name": "spaces-snapshot",
+      "schema": "ordax.spaces-snapshot/1",
+      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_path": "system/contracts/spaces.mjs"
     },
     {
       "major": 1,

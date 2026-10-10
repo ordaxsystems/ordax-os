@@ -5,6 +5,7 @@ import {
   MAX_DOCUMENT_PREVIEW_BYTES,
   assertFileSpacePort,
   validateFileListing,
+  validateFileSpacePath,
   validateImagePreview,
   validateMediaPreview,
   validateDocumentPreview,
@@ -35,6 +36,24 @@ function requireSuccess(response, operation) {
     throw new FileSpaceOperationError(operation, response.status);
   }
   return response;
+}
+
+async function validateResponseListing(response, requestedPath) {
+  // Validate the result before exposing it to platform project/recent-file
+  // observers; a shape-valid response for a different folder is not success.
+  const listing = validateFileListing(await response.json());
+  if (listing.path !== validateFileSpacePath(requestedPath)) {
+    throw new TypeError("Native file-space listing path differs from requested path");
+  }
+  return listing;
+}
+
+async function validateResponseText(response, requestedPath) {
+  const file = validateTextFile(await response.json());
+  if (file.path !== validateFileSpacePath(requestedPath)) {
+    throw new TypeError("Native file-space text path differs from requested path");
+  }
+  return file;
 }
 
 function endpointFor(path) {
@@ -82,7 +101,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
       credentials: "same-origin",
     });
     requireSuccess(response, "listing");
-    return validateFileListing(await response.json());
+    return validateResponseListing(response, path);
   };
 
   // Probe the bounded user root before advertising this capability.
@@ -100,7 +119,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         credentials: "same-origin",
       });
       requireSuccess(response, "text-read");
-      return validateTextFile(await response.json());
+      return validateResponseText(response, path);
     },
     async readImagePreview(path) {
       const response = await windowRef.fetch(imagePreviewEndpointFor(path), {
@@ -174,7 +193,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         }),
       });
       requireSuccess(response, "copy");
-      return validateFileListing(await response.json());
+      return validateResponseListing(response, destinationPath);
     },
     async renameEntry(path, name, newName) {
       const response = await windowRef.fetch(FILES_ENDPOINT, {
@@ -185,7 +204,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         body: JSON.stringify({ action: "rename-entry", path, name, newName }),
       });
       requireSuccess(response, "rename");
-      return validateFileListing(await response.json());
+      return validateResponseListing(response, path);
     },
     async moveEntry(sourcePath, name, destinationPath) {
       const response = await windowRef.fetch(FILES_ENDPOINT, {
@@ -201,7 +220,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         }),
       });
       requireSuccess(response, "move");
-      return validateFileListing(await response.json());
+      return validateResponseListing(response, destinationPath);
     },
     async trashEntry(path, name) {
       const response = await windowRef.fetch(FILES_ENDPOINT, {
@@ -212,7 +231,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         body: JSON.stringify({ action: "trash-entry", path, name }),
       });
       requireSuccess(response, "trash");
-      return validateFileListing(await response.json());
+      return validateResponseListing(response, path);
     },
     async listTrash() {
       const response = await windowRef.fetch(TRASH_ENDPOINT, {
@@ -277,7 +296,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         body: bytes,
       });
       requireSuccess(response, "import");
-      return validateFileListing(await response.json());
+      return validateResponseListing(response, path);
     },
     async createDirectory(path, name) {
       const response = await windowRef.fetch(FILES_ENDPOINT, {
@@ -288,7 +307,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
         body: JSON.stringify({ action: "create-directory", path, name }),
       });
       requireSuccess(response, "create-directory");
-      return validateFileListing(await response.json());
+      return validateResponseListing(response, path);
     },
   };
 

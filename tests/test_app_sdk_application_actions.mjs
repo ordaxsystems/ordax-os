@@ -25,9 +25,9 @@ async function json(path) {
   return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
 }
 
-test("App SDK 1.12 publishes Application Action contracts from canonical authority-free sources", async () => {
+test("App SDK 1.14 publishes Application Action contracts from canonical authority-free sources", async () => {
   const bundle = await json("sdk/app-sdk-v1/bundle.json");
-  assert.equal(bundle.bundle_version, "1.12.0");
+  assert.equal(bundle.bundle_version, "1.15.0");
   assert.equal(bundle.authority, "none");
 
   const byName = new Map(bundle.contracts.map((contract) => [contract.name, contract]));
@@ -73,7 +73,7 @@ test("App SDK 1.12 publishes Application Action contracts from canonical authori
     "project-cloud-links-reader",
     "studio-runtime-v3",
   ]) {
-    assert.ok(byName.has(required), `App SDK 1.12 must preserve earlier contract ${required}`);
+    assert.ok(byName.has(required), `App SDK 1.14 must preserve earlier contract ${required}`);
   }
 
   assert.equal(

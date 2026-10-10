@@ -35,6 +35,38 @@ class FilesNavigationHistoryTests(unittest.TestCase):
         self.assertIn('setMessage("files.location.openFailed")', load_block)
         self.assertLess(load_block.index("const next = validateListingForRequest"), load_block.index("searchQuery = \"\""))
 
+    def test_failed_navigation_preserves_recents_and_trash_modes(self):
+        controls = CONTROLS.read_text(encoding="utf-8")
+        block = controls.split("const load = async", 1)[1].split("const navigateHistory", 1)[0]
+        verified = block.index("const next = validateListingForRequest")
+        mode_switch = block.index("recentMode = false;")
+        self.assertLess(verified, mode_switch)
+        self.assertLess(mode_switch, block.index('lifecycle.setAppTarget("files", next.path)'))
+        self.assertLess(mode_switch, block.index("listing = next"))
+        self.assertIn("if (destroyed || ordinal !== requestOrdinal) return false;", block)
+
+    def test_superseded_history_cannot_revert_newer_navigation(self):
+        controls = CONTROLS.read_text(encoding="utf-8")
+        history = controls.split("const navigateHistory = async", 1)[1].split("const openTextFile", 1)[0]
+        self.assertIn("const request = requestOrdinal + 1;", history)
+        self.assertIn("if (destroyed || request !== requestOrdinal) return;", history)
+        self.assertLess(
+            history.index("if (destroyed || request !== requestOrdinal) return;"),
+            history.index("navigationIndex = targetIndex"),
+        )
+        self.assertNotIn("navigationIndex = previousIndex", history)
+
+    def test_project_recent_and_fallback_ignore_superseded_navigation(self):
+        controls = CONTROLS.read_text(encoding="utf-8")
+        project = controls.split("const openProject = async", 1)[1].split("const removeProject", 1)[0]
+        reveal = controls.split("const revealRecent = async", 1)[1].split("const paint =", 1)[0]
+        fallback = controls.split("const loadWithFallback = async", 1)[1].split("root.addEventListener", 1)[0]
+        self.assertIn("if (destroyed || request !== requestOrdinal) return;", project)
+        self.assertIn("if (destroyed || request !== requestOrdinal || !loaded) return;", reveal)
+        self.assertLess(reveal.index("await load(parentPath(targetPath))"), reveal.index("previewRequestOrdinal += 1;"))
+        self.assertIn("if (destroyed || request !== requestOrdinal || loaded) return loaded;", fallback)
+        self.assertIn("if (destroyed || fallbackRequest !== requestOrdinal || fallbackLoaded)", fallback)
+
     def test_navigation_controls_are_accessible_and_responsive(self):
         controls = CONTROLS.read_text(encoding="utf-8")
         css = CSS.read_text(encoding="utf-8")

@@ -577,6 +577,7 @@ function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
     await Promise.resolve();
     result.dockShortcutOpensRealOwner = Boolean(root.querySelector('[data-window-id="files"]'));
     result.homeNavigationClearsWhenAppIsActive = root.querySelector('[data-show-desktop]')?.hasAttribute('aria-current') === false;
+
     result.sharedShortcutLabels = [...root.querySelectorAll('.ordax-home-action, .ordax-dock-shortcut')].every((button) => button.getAttribute('aria-label') === root.querySelector('.ordax-rail [data-sidebar-app="' + button.dataset.sidebarApp + '"]')?.getAttribute('aria-label'));
     const wallpaper = getComputedStyle(root.querySelector('[data-workspace]'), '::before').backgroundImage;
     const wallpaperUrl = wallpaper.match(/url\\("?(blob:[^"\\)]+)"?\\)/)?.[1];
