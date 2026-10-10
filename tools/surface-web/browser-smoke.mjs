@@ -1305,7 +1305,8 @@ async function provePublicAccount(client, url, evidenceDir) {
     await click('#profile-menu-trigger');
     if (!await evaluate(`!document.querySelector('#ordax-profile-menu').hidden && !document.querySelector('#ordax-profile-menu .ordax-profile-signout') && !!document.querySelector('#ordax-profile-menu a[href="/login/"]')`)) throw new Error('profile menu invented an authenticated session');
     await escapeDialog();
-    await click('[data-open-dialog=search]');
+    if (width <= 760) await click('#more-toggle');
+    await click(width <= 760 ? '#more-dialog [data-open-dialog=search]' : '.topbar [data-open-dialog=search]');
     if (!await evaluate('document.activeElement.id === "dialog-search"')) throw new Error('account search focus failed');
     await evaluate('document.querySelector("#dialog-search").value = "dispositivos"; document.querySelector("#dialog-search").dispatchEvent(new Event("input", { bubbles: true }))');
     if (!await evaluate('document.querySelectorAll("#search-results a").length === 1')) throw new Error('account search filtering failed');
