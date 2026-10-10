@@ -14,6 +14,7 @@ fail-closed until the independent bootstrap, trust and provisioning gates pass.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import base64
 import hashlib
 import json
@@ -28,7 +29,20 @@ import tarfile
 import tempfile
 import urllib.request
 
-import verify_upstream_signature as UPSTREAM_SIGNATURE
+# Initramfs imports this builder by absolute spec; never depend on sys.path/cwd.
+def _load_upstream_signature_verifier():
+    filename = Path(__file__).resolve().with_name("verify_upstream_signature.py")
+    spec = importlib.util.spec_from_file_location(
+        "ordax_kernel_upstream_signature_verifier", filename
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot resolve kernel upstream signature verifier")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+UPSTREAM_SIGNATURE = _load_upstream_signature_verifier()
 
 ROOT = Path(__file__).resolve().parents[2]
 KERNEL_DIR = ROOT / "bootstrap" / "kernel"
