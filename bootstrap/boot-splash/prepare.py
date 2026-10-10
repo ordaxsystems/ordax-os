@@ -8,9 +8,9 @@ from pathlib import Path
 import subprocess
 
 ORIGINAL_SHA = 'bcab385c001833529cd40b9bb8685e5eb33b7fec12b308d4a3a047965f500769'
-WIDTH, HEIGHT, FPS, FRAMES = 640, 360, 12, 106
+WIDTH, HEIGHT, FPS, FRAMES = 1280, 720, 24, 212
 EXPECTED = {
-    'frames.rgb565.zst': '82103c596add28d2945b172c418e4e9d03c1e4b6e3600a4f1b1a76be931bdb38',
+    'frames.rgb565.zst': '691247dc90a44ffcbeb6c3ae953f756b74f2fff5f0cd3e84f98de36c5747f2ab',
     'boot-audio.wav': '78c35e843facdf25033d207acd82f6ba4354cdd75763bca48494a86c36e9b1f0',
 }
 
@@ -40,7 +40,7 @@ def main():
              '-pix_fmt','rgb565le','-f','rawvideo',str(raw)])
         if raw.stat().st_size != WIDTH*HEIGHT*2*FRAMES:
             raise SystemExit('unexpected frame count or frame size')
-        run(['zstd','-T1','-q','-f','-8',str(raw),'-o',str(args.output/'frames.rgb565.zst')])
+        run(['zstd','-T1','-q','-f','-9',str(raw),'-o',str(args.output/'frames.rgb565.zst')])
         run(['ffmpeg','-nostdin','-hide_banner','-loglevel','error','-y','-i',str(args.original),
              '-vn','-acodec','pcm_s16le','-ar','48000','-ac','2',str(args.output/'boot-audio.wav')])
         raw.unlink()
