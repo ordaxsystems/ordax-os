@@ -56,6 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           (cd tools/creator && go test -count=1 ./...)
+          python -m unittest tests.test_owner_dev_bundle_verifier -v
 
       - name: Install build dependencies
         run: |
@@ -355,6 +356,16 @@ jobs:
           echo "OWNER_SEED_SHA256=$seed_sha"
           echo 'OWNER_GUI_RAW_BACKEND_LINKED=NO'
           echo 'OWNER_RAW_HELPER_SEPARATE=YES'
+
+      - name: Verify exact Owner Development ZIP before publication
+        run: |
+          set -euo pipefail
+          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
+          python tools/creator/verify_owner_dev_bundle.py \
+            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
+            --metadata "$release/creator-owner-update.json" \
+            --checksums "$release/SHA256SUMS.txt" \
+            --source-commit "$GITHUB_SHA"
 
       - name: Destroy ephemeral private key before publish
         run: |
