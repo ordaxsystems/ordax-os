@@ -1219,7 +1219,122 @@ async function evaluateProof(client, expression, label) {
 
 let bundleDirGlobal = null;
 
+async function proveReactPublicAccount(client, url, evidenceDir) {
+  // Same CDP/browser runner as the canonical public account proof, but with
+  // assertions for the literal Lovable React tree rather than the old HTML UI.
+  await mkdir(evidenceDir, { recursive: true });
+  const evaluate = async (expression) => {
+    const response = await client.send('Runtime.evaluate', {
+      expression, awaitPromise: true, returnByValue: true,
+    });
+    if (response.exceptionDetails) {
+      throw new Error(response.exceptionDetails.exception?.description ?? 'React account evaluation failed');
+    }
+    return response.result?.value;
+  };
+  const reports = [];
+  const viewports = [
+    ['desktop', 1440, 900], ['tablet', 1024, 768],
+    ['mobile', 390, 844], ['narrow', 320, 740],
+    ['short', 320, 568], ['wide-phone', 430, 932], ['landscape', 844, 390],
+  ];
+  for (const [name, width, height] of viewports) {
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width, height, deviceScaleFactor: 1, mobile: width < 600,
+    });
+    await client.send('Page.navigate', { url });
+    const deadline = Date.now() + 30_000;
+    while (!await evaluate('document.readyState === "complete" && !!document.querySelector(".account-app .overview-hero")')) {
+      if (Date.now() > deadline) {
+        throw new Error(`${name} React account boot timed out: ${JSON.stringify(await evaluate('({path:location.pathname, html:document.body.innerText.slice(0,300)})'))}`);
+      }
+      await sleep(50);
+    }
+    await evaluate('document.fonts.ready.then(() => true)');
+    const report = await evaluate(`(() => {
+      const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const hero = document.querySelector('.overview-hero');
+      const main = document.querySelector('.account-main');
+      const nav = document.querySelector('.mobile-nav');
+      const sidebar = document.querySelector('.desktop-sidebar');
+      const logo = document.querySelector('.topbar .brand img');
+      const summary = [...document.querySelectorAll('.summary-grid > .account-card')];
+      const secondary = [...document.querySelectorAll('.dashboard-grid > .account-card')];
+      return {
+        path: location.pathname,
+        width: innerWidth,
+        noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth + 1,
+        mainVisible: visible(main),
+        heroVisible: visible(hero) && hero.getBoundingClientRect().height >= 130,
+        profileVisible: visible(document.querySelector('.profile-banner')),
+        originalLogoLoaded: logo?.complete && logo?.naturalWidth > 0,
+        originalLandscapeLoaded: !!hero?.querySelector('img')?.naturalWidth,
+        threeSummaryCards: summary.length === 3 && summary.every(visible),
+        twoDashboardCards: secondary.length === 2 && secondary.every(visible),
+        noInventedConsumption: !!document.querySelector('.chart-empty') &&
+          document.querySelector('.chart-empty').innerText.includes('indisponíveis'),
+        noExposedUnverifiedIdentity: !document.querySelector('.account-session-email'),
+        mobileNavigation: innerWidth >= 600 || visible(nav),
+        sidebarDesktop: innerWidth < 1100 || visible(sidebar),
+        accountButton: visible(document.querySelector('button.account-menu')),
+        contentWidth: main?.getBoundingClientRect().width || 0
+      };
+    })()`);
+    const required = [
+      'noHorizontalOverflow', 'mainVisible', 'heroVisible', 'profileVisible',
+      'originalLogoLoaded', 'originalLandscapeLoaded', 'threeSummaryCards',
+      'twoDashboardCards', 'noInventedConsumption',
+      'noExposedUnverifiedIdentity', 'mobileNavigation', 'sidebarDesktop',
+      'accountButton',
+    ];
+    if (report.path !== '/conta/' || required.some(key => !report[key])) {
+      throw new Error(`${name} React account visual contract failed: ${JSON.stringify(report)}`);
+    }
+    const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await writeFile(join(evidenceDir, `react-account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
+    await evaluate('document.querySelector("button.account-menu").click()');
+    if (!await evaluate('!!document.querySelector("[role=dialog]")')) {
+      throw new Error(`${name} account menu did not open`);
+    }
+    await client.send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+    });
+    await sleep(70);
+    if (await evaluate('!!document.querySelector("[role=dialog]")')) {
+      throw new Error(`${name} account menu Escape did not close`);
+    }
+    await evaluate('document.querySelector(".plan-button a, a.plan-button")?.click()');
+    const sectionDeadline = Date.now() + 5000;
+    while (!await evaluate('location.pathname === "/conta/assinatura" && !!document.querySelector(".detail-page-heading")')) {
+      if (Date.now() > sectionDeadline) {
+        throw new Error(`${name} React account route /conta/assinatura failed`);
+      }
+      await sleep(30);
+    }
+    await client.send('Page.navigate', { url: new URL('/conta/seguranca', url).href });
+    const deepDeadline = Date.now() + 5000;
+    while (!await evaluate('document.readyState === "complete" && !!document.querySelector(".detail-page-heading")')) {
+      if (Date.now() > deepDeadline) {
+        throw new Error(`${name} React deep link /conta/seguranca failed`);
+      }
+      await sleep(50);
+    }
+    const deep = await evaluate('location.pathname === "/conta/seguranca" && document.querySelector(".detail-page-heading h1")?.textContent === "Segurança e acesso"');
+    if (!deep) throw new Error(`${name} React deep link did not resolve security section`);
+    reports.push({ name, ...report, menuAndEscape: true, clientRoute: true, deepLink: true });
+  }
+  if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) {
+    throw new Error('React account emitted a JavaScript exception');
+  }
+  await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));
+  console.log(`PUBLIC_REACT_ACCOUNT_VIEWPORT_PROOF=PASS ${JSON.stringify(reports)}`);
+}
+
 async function provePublicAccount(client, url, evidenceDir) {
+  const markup = await (await fetch(url)).text();
+  if (markup.includes('<div id="root"></div>')) {
+    return proveReactPublicAccount(client, url, evidenceDir);
+  }
   await mkdir(evidenceDir, { recursive: true });
   async function evaluate(expression) {
     const reply = await client.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
