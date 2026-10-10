@@ -401,7 +401,7 @@ export function mountPersonalActivityControls(
         }
         if (canvas.stepsTruncated) {
           timeline.append(node(documentObject, "li", "ordax-activity-latest",
-            t("activity.latest")));
+            "…"));
         }
         if (timeline.childElementCount > 0) article.append(timeline);
 
