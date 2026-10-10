@@ -44,6 +44,11 @@ class UpdateError(RuntimeError):
     pass
 
 
+class LTSLineEOL(UpdateError):
+    """The selected Linux LTS line has left the upstream longterm feed."""
+    pass
+
+
 def signed_feed_entry(feed: dict, current: str) -> dict:
     current_tuple = PIPELINE.version_tuple(current)
     if not isinstance(feed, dict) or not isinstance(feed.get("releases"), list):
@@ -64,8 +69,10 @@ def signed_feed_entry(feed: dict, current: str) -> dict:
         if release.get("source") != archive or release.get("pgp") != signature:
             raise UpdateError("official feed release URLs conflict with kernel.org canonical paths")
         found.append((release_tuple, {"version": version, "source": archive, "pgp": signature}))
+    if not found:
+        raise LTSLineEOL("the selected kernel LTS line is absent from maintained upstream releases")
     if len(found) != 1:
-        raise UpdateError("expected exactly one supported longterm release for the selected kernel line")
+        raise UpdateError("upstream lists ambiguous longterm releases for the selected kernel line")
     return found[0][1]
 
 
@@ -215,7 +222,18 @@ def main() -> int:
     args = parser.parse_args()
     try:
         _, selected = PIPELINE.select_candidate(require_newer=False)
-        feed = signed_feed_entry(load_feed(), selected["version"])
+        try:
+            feed = signed_feed_entry(load_feed(), selected["version"])
+        except LTSLineEOL:
+            if args.command != "discover":
+                raise
+            print(json.dumps({
+                "status": "lts-line-upgrade-required",
+                "current_candidate": selected["version"],
+                "physical_write_authorized": False,
+                "family_auto_migration_allowed": False,
+            }, indent=2, sort_keys=True))
+            return 0
         if args.version and args.version != feed["version"]:
             raise UpdateError("requested patch does not match latest signed longterm feed")
         if args.command == "discover":
