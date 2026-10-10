@@ -9,6 +9,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: write  # workflow_dispatch requires Actions write on GitHub REST API
 
 concurrency:
   group: ordax-kernel-lts-update-proposal
