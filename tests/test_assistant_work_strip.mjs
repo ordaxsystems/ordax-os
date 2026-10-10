@@ -143,3 +143,80 @@ test("Native Assistant reads the existing Personal runtime; UI never executes mi
   assert.match(ui, /personalOrdax\?\.subscribe\?\.\(\(\) => render\(\)\)/);
   assert.doesNotMatch(ui, /personalOrdax\.run\(|personalOrdax\.create\(|personalOrdax\.approve\(/);
 });
+
+
+test("real pending approval outranks newer completed responses without changing Work authority", async () => {
+  const id = port("ordax.identity-session/1", identity());
+  let tick = 20000;
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, intelligencePort: model(),
+    now: () => tick++,
+  });
+  try {
+    const urgent = runtime.create("Solicitação de autorização");
+    const approval = runtime.requestApproval(urgent.id, {
+      actionId: "device.file.read", toolId: "native-file-reader",
+      toolArtifactSha256: "a".repeat(64), effect: "read",
+      reason: "Ação requer aprovação explícita",
+    });
+    assert.equal(approval.status, "pending");
+    for (let i = 0; i < 3; i += 1) {
+      const item = runtime.create(`Resultado posterior ${i}`);
+      await runtime.run(item.id);
+    }
+    const view = projectAssistantWorkStrip(runtime.getSnapshot(), id.getSnapshot(), unavailableSpace());
+    assert.equal(view.cards.length, 3);
+    assert.equal(view.cards[0].workItemId, urgent.id);
+    assert.equal(view.cards[0].state, "requires-action");
+    assert.equal(view.cards[0].result, null);
+    assert.equal(view.cards[0].resultId, null);
+    assert.deepEqual(view.cards[0].steps.map(event => event.type),
+      ["queued", "approval-requested"]);
+    assert.equal(view.remainingCount, 1);
+    assert.equal(view.cards[0].completionPercent, null);
+    assert.equal(view.cards[0].authority, "none");
+    const result = view.cards.find(card => card.state === "result");
+    assert.ok(result);
+    assert.equal(result.provenance.sourceSchema, "ordax.personal-work-result/1");
+    assert.equal(result.provenance.engineId, "llama.cpp");
+    assert.equal(result.result.resultId, result.resultId);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("bounded, read-only mission list reports hidden authenticated items instead of discarding them", () => {
+  const id = port("ordax.identity-session/1", identity());
+  let tick = 40000;
+  const runtime = createPersonalOrdaxRuntime({
+    identitySessionPort: id, now: () => tick++,
+  });
+  try {
+    for (let i = 0; i < 10; i += 1) runtime.create(`Missão registrada ${i}`);
+    const view = projectAssistantWorkStrip(runtime.getSnapshot(), id.getSnapshot(), unavailableSpace());
+    assert.equal(view.cards.length, 3);
+    assert.equal(view.remainingCount, 7);
+    assert.equal(view.cards[0].goal, "Missão registrada 9");
+    assert.ok(view.cards.every(card => card.state === "working"));
+    assert.equal(Object.isFrozen(view.cards), true);
+    assert.equal(Object.isFrozen(view), true);
+    assert.deepEqual(projectAssistantWorkStrip(null, id.getSnapshot(), unavailableSpace()), {
+      schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: [], remainingCount: 0,
+    });
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test("Canvas displays event timestamp, scoped provenance and prioritizes real Work without invoking actions", async () => {
+  const ui = await readFile(
+    new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8",
+  );
+  assert.match(ui, /const snapshot = conversation.getSnapshot\(\);/);
+  assert.match(ui, /dataset\.assistantWorkDetails = work\.workItemId/);
+  assert.match(ui, /when\.dateTime = event\.occurredAt/);
+  assert.match(ui, /work\.provenance\.engineId/);
+  assert.match(ui, /verifiedWork\.remainingCount > 0/);
+  assert.match(ui, /textarea\.focus\(\{ preventScroll: true \}\)/);
+  assert.doesNotMatch(ui, /innerHTML|insertAdjacentHTML|personalOrdax\.run\(|personalOrdax\.approve\(/);
+});
