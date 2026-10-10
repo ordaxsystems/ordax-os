@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import wave
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,6 +15,28 @@ SRC = ROOT / "bootstrap/boot-splash"
 FRAME_BYTES = 1280 * 720 * 2
 
 class EarlyBootSplashTests(unittest.TestCase):
+    def test_uploaded_media_integrity_and_original_audio_pcm(self):
+        """Check Git objects are real binary media, not wrong files or LFS pointers."""
+        lock = json.loads((SRC / "asset-lock.json").read_text(encoding="utf-8"))
+        expected = {"video": ("frames.rgb565.zst", b"\\x28\\xb5\\x2f\\xfd"),
+                    "audio": ("boot-audio.wav", b"RIFF")}
+        for kind, (name, magic) in expected.items():
+            asset = SRC / "media" / name
+            self.assertTrue(asset.is_file(), str(asset))
+            self.assertFalse(asset.is_symlink(), str(asset))
+            dig = hashlib.sha256()
+            with asset.open("rb") as stream:
+                self.assertEqual(stream.read(4), magic)
+                stream.seek(0)
+                for block in iter(lambda: stream.read(1024 * 1024), b""):
+                    dig.update(block)
+            self.assertEqual(dig.hexdigest(), lock[kind]["sha256"])
+        with wave.open(str(SRC / "media/boot-audio.wav"), "rb") as wav:
+            self.assertEqual(wav.getframerate(), 48000)
+            self.assertEqual(wav.getnchannels(), 2)
+            self.assertEqual(wav.getsampwidth(), 2)
+            self.assertGreater(wav.getnframes(), 48000)
+
     def test_media_compiler_preserves_original_sound_and_exact_hashes(self):
         text = (SRC / "prepare.py").read_text(encoding="utf-8")
         self.assertIn("bcab385c001833529cd40b9bb8685e5eb33b7fec12b308d4a3a047965f500769", text)
