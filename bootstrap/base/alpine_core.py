@@ -37,6 +37,8 @@ PACKAGES = [
     "iw",
     "wpa_supplicant",
     "zstd",
+    "alsa-utils",
+    "alsa-ucm-conf",
     "linux-firmware-other",
     "linux-firmware-rtlwifi",
     "linux-firmware-mediatek",
@@ -474,6 +476,50 @@ def select_dev_module_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]
     )
 
 
+def install_developer_boot_splash(rootfs: Path) -> None:
+    """Embed verified media and a statically linked renderer in the Base.
+
+    The developer profile is built on the release builder, not on the notebook.
+    Both media blobs must be checked in before the Base can be published.
+    """
+    splash_dir = ROOT / "bootstrap/boot-splash"
+    manifest = json.loads((splash_dir / "asset-lock.json").read_text(encoding="utf-8"))
+    if manifest.get("$schema") != "ordax.boot-splash-assets/1":
+        raise BuildError("invalid developer boot splash contract")
+    if manifest.get("stage") != "pre-surface-development-base":
+        raise BuildError("boot splash belongs to another stage")
+    media_dir = splash_dir / "media"
+    destination = rootfs / "usr/share/ordax/boot-splash"
+    destination.mkdir(parents=True, exist_ok=True)
+    for key in ("video", "audio"):
+        record = manifest.get(key, {})
+        name = record.get("name")
+        expected = record.get("sha256")
+        if name not in ("frames.rgb565.zst", "boot-audio.wav"):
+            raise BuildError("unexpected developer boot media name")
+        if not isinstance(expected, str) or SHA256_RE.fullmatch(expected) is None:
+            raise BuildError("invalid developer boot media SHA")
+        source = media_dir / name
+        if not source.is_file() or source.is_symlink():
+            raise BuildError(f"developer boot media absent: {name}")
+        if source.stat().st_size > 12 * 1024 * 1024 or sha256_file(source) != expected:
+            raise BuildError(f"developer boot media integrity mismatch: {name}")
+        target = destination / name
+        shutil.copyfile(source, target)
+        if sha256_file(target) != expected:
+            raise BuildError(f"developer boot media stage mismatch: {name}")
+    cc = shutil.which("musl-gcc")
+    if not cc:
+        raise BuildError("pinned Developer builder needs musl-gcc for static splash")
+    source = splash_dir / "fb_splash.c"
+    player = rootfs / "usr/local/bin/ordax-fb-splash"
+    run([cc, "-static", "-std=c11", "-Os", "-Wall", "-Wextra", "-Werror",
+         str(source), "-o", str(player)])
+    for name in ("ordax-boot-splash", "ordax-boot-splash-stop"):
+        copy_script(splash_dir / name, rootfs / f"usr/local/bin/{name}")
+    stage("developer-boot-splash-assets-verified")
+
+
 def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
     if not kernel_modules.is_file() or kernel_modules.is_symlink():
         raise BuildError("kernel modules archive is missing or unsafe")
@@ -488,6 +534,7 @@ def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
     for name in ("ordax-network", "ordax-pull", "ordax-rollback", "ordax-run"):
         copy_script(ROOT / f"bootstrap/dev-base/{name}", rootfs / f"usr/local/bin/{name}")
     copy_script(ROOT / "bootstrap/recovery/entrypoint", rootfs / "ordax/bootstrap/recovery/entrypoint")
+    install_developer_boot_splash(rootfs)
 
     for directory in ("workspace", "state", "home", "run", "tmp", "proc", "sys", "dev", "root"):
         path = rootfs / directory
