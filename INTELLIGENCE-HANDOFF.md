@@ -1,4 +1,4 @@
-# ORdaX Intelligence — HANDOFF TRANSVERSAL
+# OrdaX Intelligence — HANDOFF TRANSVERSAL
 
 > **Decisão 2026-10-10 — guia de retomada, não nova autoridade de código.** Este arquivo na raiz foi criado para que outros chats/agents entendam o trabalho e prossigam sem reiniciar, duplicar sistemas ou interpretar testes simulados como release. Revalidar a `main` e as PRs antes de implementar. Em divergência prevalecem código + contratos públicos, `docs/CURRENT-STATE.md`, `docs/README.md`, `MVP.md` e os documentos canônicos de domínio.
 
