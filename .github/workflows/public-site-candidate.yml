@@ -41,6 +41,7 @@ on:
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_account_entry_ux.py'
       - 'tests/test_public_account_lovable_overview.py'
+      - 'tests/test_public_account_lovable_dashboard.py'
       - 'tests/test_public_site_localization.mjs'
       - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
@@ -119,6 +120,7 @@ on:
       - 'tests/test_public_site_contract.py'
       - 'tests/test_public_account_entry_ux.py'
       - 'tests/test_public_account_lovable_overview.py'
+      - 'tests/test_public_account_lovable_dashboard.py'
       - 'tests/test_public_site_localization.mjs'
       - 'tests/test_public_site_localization_runtime.mjs'
       - 'tests/test_public_release_catalog.py'
@@ -208,6 +210,7 @@ jobs:
           python -m unittest tests.test_public_site_contract -v
           python -m unittest tests.test_public_account_entry_ux -v
           python -m unittest tests.test_public_account_lovable_overview -v
+          python -m unittest tests.test_public_account_lovable_dashboard -v
           python -m unittest tests.test_public_release_catalog -v
           python -m unittest tests.test_public_identity_backend_prep -v
           python -m unittest tests.test_public_identity_gateway -v

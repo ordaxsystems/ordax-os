@@ -5,6 +5,14 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Informações disponíveis da conta", "Available account information"],
+    ["Identidade", "Identity"],
+    ["Conta OrdaX", "OrdaX Account"],
+    ["Plano atual", "Current plan"],
+    ["Não confirmado", "Not confirmed"],
+    ["Não verificados", "Not verified"],
+    ["Seu universo em resumo", "Your universe at a glance"],
+    ["Visão geral da conta", "Account overview"],
     ["SEU UNIVERSO, CONECTADO", "YOUR UNIVERSE, CONNECTED"],
     ["Sua identidade, assinatura e recursos. Tudo em um só lugar.", "Your identity, subscription and resources. All in one place."],
     ["Sua identidade e seus recursos.", "Your identity and resources."],

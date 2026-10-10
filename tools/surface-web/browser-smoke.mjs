@@ -1248,7 +1248,10 @@ async function provePublicAccount(client, url, evidenceDir) {
       const box = element => element.getBoundingClientRect();
       const phone = innerWidth <= 600;
       const profile = document.querySelector('[data-account-overview]');
-      const primary = cards.slice(0, 3).map(box);
+      const plan = box(document.getElementById('plano'));
+      const billing = box(document.getElementById('faturamento'));
+      const usage = box(document.getElementById('consumo'));
+      const security = box(document.getElementById('seguranca'));
       const cardIds = cards.map(card => card.id);
       const nav = [...document.querySelectorAll('.account-mobile-nav > *')];
       return {
@@ -1260,17 +1263,17 @@ async function provePublicAccount(client, url, evidenceDir) {
         columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
         profileHeight:box(profile).height,
         accountBanner:!!profile.querySelector('.account-profile-intro'),
-        heroMinHeight:box(profile).height>=130 && box(profile).height<=190,
+        heroMinHeight:box(profile).height>=190 && box(profile).height<=540,
         decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
         accountCardMinHeight:box(cards[0]).height>=(phone?150:210),
         touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].every(element=>box(element).height>=44),
-        mobileBillingPair:!phone || Math.abs(box(cards[2]).top-box(document.getElementById('seguranca')).top)<2,
-        desktopCardAlignment:innerWidth<1200 || Math.abs(box(cards[0]).height-box(cards[2]).height)<2,
+        mobileBillingPair:!phone || (plan.top < billing.top && billing.top < usage.top && usage.top < security.top),
+        desktopCardAlignment:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
         mobileWebReachable:!!document.querySelector('#account-navigation a[href="/web/"]'),
         managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
         verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
           document.querySelector('[data-account-hero-email]').textContent.trim()==='',
-        primaryTilesAligned:Math.abs(primary[0].top-primary[2].top)<2,
+        primaryTilesAligned:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
         headerHeight:box(document.querySelector('.account-header')).height,
         accountNavigation:nav.length===4 &&
           nav[0].getAttribute('href')==='#visao-geral' &&
@@ -1284,8 +1287,8 @@ async function provePublicAccount(client, url, evidenceDir) {
     if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
         !report.touchTargets || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
         !report.mobileSearchCollapsed || report.headerHeight > 80 ||
-        (width === 1440 && report.columns !== 3) ||
-        (width < 600 && report.columns !== 2) ||
+        (width === 1440 && report.columns !== 12) ||
+        (width < 600 && report.columns !== 12) ||
         (width > 1199 && !report.primaryTilesAligned)) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
