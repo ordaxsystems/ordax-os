@@ -7,10 +7,13 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 
 SCHEMA = "prototype-ordax.kernel-build-environment/1"
 REPORT_SCHEMA = "prototype-ordax.kernel-reproducibility-verification/1"
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SOURCE_CONTRACT = ROOT / "bootstrap/kernel/source.json"
 
 
 def sha256(path: Path) -> str:
@@ -25,11 +28,34 @@ def fail(message: str) -> "None":
     raise SystemExit(f"KERNEL_REPRODUCIBILITY=FAIL\nREASON={message}")
 
 
+def current_artifact_names(kernel_source_contract: Path) -> tuple[str, list[str]]:
+    """Compare current kernel bytes by the active source pin, not old evidence."""
+    try:
+        if kernel_source_contract.is_symlink() or not kernel_source_contract.is_file():
+            fail("kernel source contract is missing or unsafe")
+        source = json.loads(kernel_source_contract.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        fail(f"invalid canonical kernel source contract: {exc}")
+    version = source.get("version")
+    if (
+        source.get("$schema") != "prototype-ordax.kernel-source/1"
+        or not isinstance(version, str)
+        or re.fullmatch(r"[0-9]+[.][0-9]+[.][0-9]+", version) is None
+    ):
+        fail("invalid canonical kernel source schema or version")
+    return version, [
+        f"kernel-{version}.config",
+        f"kernel-modules-{version}.tar",
+        f"vmlinuz-{version}",
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("contract", type=Path)
     parser.add_argument("artifact_dir", type=Path)
     parser.add_argument("--repeat-artifact-dir", type=Path, required=True)
+    parser.add_argument("--kernel-source-contract", type=Path, default=DEFAULT_SOURCE_CONTRACT)
     parser.add_argument("--ca-bundle-sha-file", type=Path, required=True)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
@@ -46,10 +72,11 @@ def main() -> int:
     if not reference_artifacts:
         fail("reference artifact inventory is missing")
 
+    current_version, current_names = current_artifact_names(args.kernel_source_contract)
     observed_artifacts = {}
     repeat_artifacts = {}
     mismatches = {}
-    for name in sorted(reference_artifacts):
+    for name in sorted(current_names):
         current_path = args.artifact_dir / name
         repeat_path = args.repeat_artifact_dir / name
         if not current_path.is_file():
@@ -81,6 +108,9 @@ def main() -> int:
         "$schema": REPORT_SCHEMA,
         "status": "pass",
         "reference_environment_source_commit": reference["source_commit"],
+        "kernel_version": current_version,
+        "current_source_artifact_names": sorted(current_names),
+        "historical_reference_artifact_names": sorted(reference_artifacts),
         "artifact_digests": observed_artifacts,
         "repeat_artifact_digests": repeat_artifacts,
         "ca_bundle_sha256": observed_ca,

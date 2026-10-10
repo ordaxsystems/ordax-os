@@ -7,12 +7,14 @@ on:
       - 'bootstrap/kernel/**'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tests/test_kernel_build_environment_contract.py'
+      - 'tests/test_kernel_reproducibility_ssot.py'
       - '.github/workflows/kernel-pinned-environment.yml'
   pull_request:
     paths:
       - 'bootstrap/kernel/**'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tests/test_kernel_build_environment_contract.py'
+      - 'tests/test_kernel_reproducibility_ssot.py'
       - '.github/workflows/kernel-pinned-environment.yml'
   workflow_dispatch:
 
@@ -40,6 +42,7 @@ jobs:
         run: |
           python -m json.tool docs/contracts/kernel-build-environment.json >/dev/null
           python -m unittest discover -s tests -p 'test_kernel_build_environment_contract.py' -v
+          python -m unittest discover -s tests -p 'test_kernel_reproducibility_ssot.py' -v
 
       - name: Resolve immutable environment inputs
         id: env
@@ -174,12 +177,16 @@ jobs:
           def digest(path):
               return hashlib.sha256(path.read_bytes()).hexdigest()
 
+          kernel_source = json.loads(pathlib.Path('bootstrap/kernel/source.json').read_text(encoding='utf-8'))
+          if kernel_source.get('$schema') != 'prototype-ordax.kernel-source/1':
+              raise SystemExit('invalid canonical kernel source schema')
+          version = kernel_source['version']
           artifacts = {
               name: digest(root / 'kernel-pinned' / name)
               for name in (
-                  'kernel-6.6.52.config',
-                  'kernel-modules-6.6.52.tar',
-                  'vmlinuz-6.6.52',
+                  f'kernel-{version}.config',
+                  f'kernel-modules-{version}.tar',
+                  f'vmlinuz-{version}',
               )
           }
           provenance = root / 'kernel-pinned' / 'kernel-provenance.json'
