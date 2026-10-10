@@ -465,3 +465,7 @@ A composição do Internet **ainda não usa este carregador**: preserva o runtim
 Na composição Native, `discoverVerifiedExternalApplications` usa exclusivamente o broker do slot `current` para ler o manifesto do componente e o manifesto de apresentação; o catálogo único é derivado dessas leituras por `createNativeVerifiedInstalledAppCatalog` e injetado na Surface. A montagem usa `loadVerifiedCurrentComponentRuntime` e o mesmo contexto protegido por App Data, com rechecagem de revisão, versão, commit e origem antes e depois do mount. Remoção ou falha no slot não permite fallback para o source embutido. Colisões de IDs com apps ainda built-in permanecem com o OS; portanto, Internet ainda é carregado da fonte do OS até a remoção Gate A, sem instalação paralela. Os componentes externos montados são destruídos com a Surface.
 
 Esta conexão consome slots que o host **já** tenha validado e ativado; não cria slots, não autoriza assinatura, publicação ou promoção, nem transforma o catálogo da Store em origem de execução.
+
+## Prazo máximo de descoberta Native
+
+A descoberta de aplicativos instalados é opcional na inicialização Native e possui prazo global limitado a 5 segundos, com `AbortSignal` passado aos pedidos do broker e parada fail-closed caso a leitura trave. Uma consulta de slot inacessível não pode manter indefinidamente o boot aguardando um aplicativo opcional. O host continua sendo a autoridade exclusiva da verificação de slots; o timeout não habilita publicação nem um fallback para implementação embutida.

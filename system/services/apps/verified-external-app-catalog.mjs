@@ -49,6 +49,7 @@ export async function discoverVerifiedExternalApplications({
   fetchImpl,
   appIds = listExternalFirstPartyComponentIds(),
   onError = null,
+  deadlineMs = 5_000,
 } = {}) {
   const packageSource = assertVerifiedComponentPackageSource(source);
   if (typeof fetchImpl !== "function") {
@@ -62,13 +63,28 @@ export async function discoverVerifiedExternalApplications({
   if (onError !== null && typeof onError !== "function") {
     throw new TypeError("Verified external app onError must be a function or null");
   }
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 100 || deadlineMs > 30_000) {
+    throw new TypeError("Verified external app discovery deadline must be 100..30000 ms");
+  }
+  const controller = new AbortController();
+  const fetchWithAbort = (url, options) =>
+    fetchImpl(url, { ...options, signal: controller.signal });
+  let timer = null;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error("Verified external app discovery deadline exceeded"));
+    }, deadlineMs);
+  });
+  const readAll = async () => {
   const entries = [];
   for (const appId of appIds) {
+    if (controller.signal.aborted) break;
     // A store candidate is not yet a native module-read permission.
     if (!hasNativeExternalFirstPartyModuleRead(appId)) continue;
     try {
       const metadataPayload = await readJson(
-        await fetchImpl(packageSource.metadataUrl(appId, "current"), REQUEST_OPTIONS),
+        await fetchWithAbort(packageSource.metadataUrl(appId, "current"), REQUEST_OPTIONS),
         `Verified ${appId} slot metadata`,
         true,
       );
@@ -81,7 +97,7 @@ export async function discoverVerifiedExternalApplications({
         throw new TypeError(`Verified ${appId} entrypoint escaped its package`);
       }
       const component = defineComponentManifest(await readPackageFile({
-        source: packageSource, fetchImpl, appId, metadata, file: "app.json",
+        source: packageSource, fetchImpl: fetchWithAbort, appId, metadata, file: "app.json",
       }));
       if (component.id !== appId || component.version !== metadata.version
           || component.kind !== "app" || component.releaseMode !== "component-slot"
@@ -89,7 +105,7 @@ export async function discoverVerifiedExternalApplications({
         throw new TypeError(`Verified external app identity drifted: ${appId}`);
       }
       const presentationPayload = await readPackageFile({
-        source: packageSource, fetchImpl, appId, metadata,
+        source: packageSource, fetchImpl: fetchWithAbort, appId, metadata,
         file: "presentation/manifest.json", optional: true,
       });
       if (presentationPayload === null) continue;
@@ -97,7 +113,7 @@ export async function discoverVerifiedExternalApplications({
         appId, appVersion: component.version,
       });
       const associationPayload = await readPackageFile({
-        source: packageSource, fetchImpl, appId, metadata,
+        source: packageSource, fetchImpl: fetchWithAbort, appId, metadata,
         file: "associations/manifest.json", optional: true,
       });
       const association = associationPayload === null ? null
@@ -108,7 +124,7 @@ export async function discoverVerifiedExternalApplications({
       // Do not publish a presentation built from a stale immutable identity.
       const currentAfterFiles = validateComponentRuntimeMetadata(
         await readJson(
-          await fetchImpl(packageSource.metadataUrl(appId, "current"), REQUEST_OPTIONS),
+          await fetchWithAbort(packageSource.metadataUrl(appId, "current"), REQUEST_OPTIONS),
           `Verified ${appId} current slot recheck`,
         ),
         { componentId: appId, state: "current" },
@@ -119,12 +135,20 @@ export async function discoverVerifiedExternalApplications({
         )) {
         throw new TypeError(`Verified external app activation changed during discovery: ${appId}`);
       }
+      if (controller.signal.aborted) break;
       entries.push(Object.freeze({
         component, metadata, presentation, association,
       }));
     } catch (error) {
+      if (controller.signal.aborted) throw error;
       onError?.(error, appId);
     }
   }
   return Object.freeze(entries);
+  };
+  try {
+    return await Promise.race([readAll(), deadline]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
 }

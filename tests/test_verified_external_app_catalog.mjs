@@ -163,3 +163,30 @@ test("a component that disappears during discovery cannot enter the Surface cata
   });
   assert.deepEqual(entries, []);
 });
+
+test("Native app discovery has a bounded deadline even if host fetch never resolves", async () => {
+  const t = fixture();
+  let aborted = false;
+  await assert.rejects(
+    () => discoverVerifiedExternalApplications({
+      source: t.source,
+      fetchImpl: async (_, request) => {
+        return new Promise(() => {
+          request.signal.addEventListener("abort", () => { aborted = true; }, { once: true });
+        });
+      },
+      appIds: ["notes"],
+      deadlineMs: 100,
+    }),
+    /deadline exceeded/,
+  );
+  assert.equal(aborted, true);
+});
+
+test("invalid discovery deadline is rejected before any privileged read", async () => {
+  const t = fixture();
+  await assert.rejects(() => discoverVerifiedExternalApplications({
+    source: t.source, fetchImpl: t.fetchImpl, appIds: ["notes"], deadlineMs: 0,
+  }), /discovery deadline/);
+  assert.equal(t.calls.length, 0);
+});
