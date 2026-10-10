@@ -16,6 +16,7 @@ on:
       - 'tests/test_kernel_update_engine.py'
       - 'tests/test_kernel_candidate_ci_scope.py'
       - '.github/workflows/kernel-lts-candidate.yml'
+      - '.github/workflows/kernel-lts-update-proposal.yml'
   workflow_dispatch:
 
 permissions:
