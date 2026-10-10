@@ -1,6 +1,8 @@
 """Future LTS patch discovery and update policy; no internet in unit tests."""
 from __future__ import annotations
 
+import contextlib
+import io
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -45,6 +47,23 @@ class KernelUpdateEngineTests(unittest.TestCase):
             UPDATER.signed_feed_entry({"releases": [bad]}, "6.6.158")
         with self.assertRaises(UPDATER.UpdateError):
             UPDATER.signed_feed_entry({"releases": [dict(self.record, iseol=True)]}, "6.6.158")
+
+    def test_eol_requires_family_migration_without_automatic_switch(self):
+        self.assertRaises(
+            UPDATER.LTSLineEOL,
+            UPDATER.signed_feed_entry,
+            {"releases": [self.feed["releases"][1]]},
+            "6.6.158",
+        )
+        output = io.StringIO()
+        with (
+            mock.patch.object(UPDATER, "load_feed", return_value={"releases": [self.feed["releases"][1]]}),
+            mock.patch("sys.argv", ["update_engine.py", "discover"]),
+            contextlib.redirect_stdout(output),
+        ):
+            self.assertEqual(UPDATER.main(), 0)
+        self.assertIn('"status": "lts-line-upgrade-required"', output.getvalue())
+        self.assertIn('"family_auto_migration_allowed": false', output.getvalue())
 
     def test_reuses_signed_immutable_trust_without_auto_key_rotation(self):
         selected = {
