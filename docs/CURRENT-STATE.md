@@ -2,8 +2,12 @@
 
 ## Public deployment proof — 2026-10-10
 
-`ordax.com.br` serves the public portal deployed from `0e8ed671` with the
-verified account dashboard visual fixes. Anonymous HTTPS proof uses the shared SSOT state machine with four
+`ordax.com.br` serves the public portal deployed from `7d5b4d4` (production
+Vercel deployment `dpl_GFtqgXd9TTbfz7QeDN5eh3i9vK7J`, `READY`) with the
+verified account dashboard visual fixes and browser-side registration digest
+gate. The delivered `/assets/site.js` was independently fetched over HTTPS
+and confirmed to include the SHA-256 check for both published legal pages.
+Anonymous HTTPS proof uses the shared SSOT state machine with four
 explicit states: `gated`, `disabled-unconfigured`, `auth-only`, and `full`. The observed production state
 is **`auth-only`**: a real anonymous Supabase-backed session and active
 registration policy are reachable through same-origin, while full public

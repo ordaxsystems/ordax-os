@@ -28,7 +28,7 @@ promover a Conta completa, recovery, sync, exportacao e fechamento. Nenhuma
 mudanca de gate e implicita nesta prova. As seções historicas abaixo descrevem
 etapas anteriores e nao substituem esta evidencia de runtime.
 
-Status atual: PORTAL PUBLICADO / AUTH-ONLY / HASH LEGAL DIVERGENTE / MVP PUBLICO BLOQUEADO (2026-10-10). Evidencia: `docs/evidence/public-legal-integrity-2026-10-10.md`.
+Status atual: PORTAL PUBLICADO / AUTH-ONLY / HASH LEGAL DIVERGENTE / MVP PUBLICO BLOQUEADO (2026-10-10). Evidencia: `docs/evidence/public-legal-integrity-2026-10-10.md`. A protecao de cadastro foi publicada no deploy Vercel `dpl_GFtqgXd9TTbfz7QeDN5eh3i9vK7J` (`7d5b4d4`): o navegador valida os hashes dos dois HTML juridicos antes de liberar novo aceite, mas a rotacao versionada da politica no owner continua pendente.
 
 The public OrdaX site is a separate delivery surface from the OrdaX Web product mode.
 
