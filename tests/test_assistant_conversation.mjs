@@ -579,3 +579,55 @@ test("Assistant does not offer discard after inference finishes and Memory captu
   assert.equal(conversation.getSnapshot().messages.at(-1).text, "ok");
   conversation.dispose();
 });
+
+test("Assistant discard sends AbortSignal and suppresses inference output and Memory", async () => {
+  const intelligence = intelligencePort();
+  let signal;
+  intelligence.respond = (request, options) => {
+    intelligence.requests.push(request);
+    signal = options.signal;
+    return new Promise((resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("transport aborted")), { once: true });
+    });
+  };
+  let captures = 0;
+  const conversation = createAssistantConversationRuntime({
+    intelligencePort: intelligence,
+    memoryCapture: {
+      bindTurn() { return { async capture() { captures += 1; } }; },
+    },
+  });
+  const pending = conversation.send("cancelar geração");
+  assert.ok(signal instanceof AbortSignal);
+  assert.equal(signal.aborted, false);
+  assert.equal(conversation.discardPendingResponse(), true);
+  await assert.rejects(pending, /discarded/);
+  assert.equal(signal.aborted, true);
+  assert.equal(captures, 0);
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  assert.equal(conversation.getSnapshot().state, "ready");
+  conversation.dispose();
+});
+
+test("Assistant aborts old request on Space change without leaking its content into the next owner", async () => {
+  const scope = scopePorts("account-a", "space-a");
+  const intelligence = intelligencePort();
+  let signal;
+  intelligence.respond = (request, options) => {
+    signal = options.signal;
+    return new Promise((resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("old scope aborted")), { once: true });
+    });
+  };
+  const conversation = createBoundConversationRuntime({
+    intelligencePort: intelligence,
+    identitySessionPort: scope.identity,
+    spaceSelectionPort: scope.spaceSelection,
+  });
+  const pending = conversation.send("segredo de A");
+  scope.spaceSelection.setSnapshot(selectedSpace("account-a", "space-b"));
+  assert.equal(signal.aborted, true);
+  await assert.rejects(pending, /context changed/);
+  assert.deepEqual(conversation.getSnapshot().messages, []);
+  conversation.dispose();
+});
