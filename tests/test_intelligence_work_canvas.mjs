@@ -30,41 +30,64 @@ function fixture({
     goal: "Criar plano", state, spaceId: "space-a", projectId: "project-a",
     pendingApprovalId: state === "waiting-approval" ? "approval-a" : null,
     backgroundExecution: false, contextRefs: [],
-    createdAt: at(0), updatedAt: at(5),
+    createdAt: at(0), updatedAt: at(6),
   };
-  const activities = withEvents ? [
+  const activities = [
     { workItemId: workId, sequence: 1, type: "queued", summary: "Recebida",
-      occurredAt: at(1), artifactRefs: [] },
+      occurredAt: at(0), artifactRefs: [] },
     { workItemId: workId, sequence: 2, type: "started", summary: "Iniciada",
-      occurredAt: at(2), artifactRefs: [] },
-    { workItemId: workId, sequence: 3,
-      type: state === "completed" ? "completed" : state === "failed" ? "failed" : "progress",
-      summary: "Estado confirmado", occurredAt: at(3), artifactRefs: [] },
-  ] : [];
+      occurredAt: at(1), artifactRefs: [] },
+  ];
+  const event = (type, summary, minute, metadata = {}) => activities.push({
+    workItemId: workId, sequence: activities.length + 1, type, summary,
+    occurredAt: at(minute), artifactRefs: [], ...metadata,
+  });
+  if (state === "waiting-approval" || attemptStatus !== null) {
+    event("approval-requested", "Aprovação solicitada", 2, { approvalId: "approval-a" });
+  } else {
+    event(state === "completed" ? "completed" : state === "failed" ? "failed" : "progress",
+      "Estado confirmado", 3);
+  }
+  if (attemptStatus !== null) {
+    event("approval-resolved", "Aprovação concedida", 3, { approvalId: "approval-a" });
+    event("action-started", "Execução iniciada", 4,
+      { approvalId: "approval-a", actionId: "action-a" });
+    event("action-finished", "Resultado não confirmado", 5,
+      { approvalId: "approval-a", actionId: "action-a" });
+  }
   const results = withResult && state === "completed" ? [{
     id: "result-a", workItemId: workId, kind: "intelligence-response",
     text, engineId: "llama.cpp", modelId: "model-a", authority: "none",
     artifactRefs: ["file:private-ref"], createdAt: at(4),
   }] : [];
-  const approvals = state === "waiting-approval" ? [{
+  const approvals = state === "waiting-approval" || attemptStatus !== null ? [{
     id: "approval-a", workItemId: workId, actionId: "action-a",
     toolId: "tool-a", toolArtifactSha256: "a".repeat(64),
-    effect: "write", resourceRef: "file:authorized", status: "pending",
+    effect: attemptStatus === null ? "write" : "read",
+    resourceRef: attemptStatus === null ? "file:authorized" : null,
+    status: attemptStatus === null ? "pending" : "approved",
     reason: "Precisa de aprovação", grantRef: null,
-    requestedAt: at(2), resolvedAt: null, executedAt: null,
+    requestedAt: at(2), resolvedAt: attemptStatus === null ? null : at(3),
+    executedAt: null,
   }] : [];
+  const decisions = attemptStatus === null ? [] : [{
+    workItemId: workId, approvalId: "approval-a", actionId: "action-a",
+    effect: "read", decision: "allow", authoritySource: "system-policy",
+    grantRef: null, reason: "Leitura permitida", decidedAt: at(3),
+  }];
   const attempts = attemptStatus === null ? [] : [{
     id: "attempt-a", workItemId: workId, approvalId: "approval-a",
     actionId: "action-a", toolId: "tool-a",
     toolArtifactSha256: "a".repeat(64), effect: "read",
     resourceRef: null, grantRef: null, status: attemptStatus,
     summary: "Execução não confirmada", artifactRefs: [],
-    startedAt: at(2), finishedAt: at(3),
+    startedAt: at(4), finishedAt: at(5),
   }];
+  if (!withEvents) activities.length = 0;
   return {
     schema: "ordax.personal-runtime/1", persistence: "session",
     ownerKind: "account", ownerId: "owner-a", nextOrdinal: 1,
-    workItems: [work], activities, results, approvals, decisions: [], attempts,
+    workItems: [work], activities, results, approvals, decisions, attempts,
   };
 }
 
@@ -128,7 +151,7 @@ test("only existing receipt-backed lifecycle events are shown: paused, failed, a
   assert.equal(paused.workState, "paused");
   const failed = projectPersonalWorkCanvas(fixture({ state: "failed" }), scope);
   assert.equal(failed.state, "failed");
-  const uncertain = projectPersonalWorkCanvas(fixture({ attemptStatus: "uncertain" }), scope);
+  const uncertain = projectPersonalWorkCanvas(fixture({ state: "paused", attemptStatus: "uncertain" }), scope);
   assert.equal(uncertain.state, "requires-action");
   assert.equal(uncertain.blocks.length, 0);
   assert.equal(uncertain.resultId, null);
