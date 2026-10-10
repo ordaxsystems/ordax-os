@@ -40,9 +40,9 @@ class EarlyBootSplashTests(unittest.TestCase):
     def test_media_compiler_preserves_original_sound_and_exact_hashes(self):
         text = (SRC / "prepare.py").read_text(encoding="utf-8")
         self.assertIn("bcab385c001833529cd40b9bb8685e5eb33b7fec12b308d4a3a047965f500769", text)
-        self.assertIn("'acodec','pcm_s16le'", text)
-        self.assertIn("'ar','48000'", text)
-        self.assertIn("'ac','2'", text)
+        self.assertIn("'-acodec','pcm_s16le'", text)
+        self.assertIn("'-ar','48000'", text)
+        self.assertIn("'-ac','2'", text)
         self.assertIn("FRAMES = 1280, 720, 24, 212", text)
         self.assertIn("source SHA-256 mismatch", text)
         self.assertIn("compiled asset mismatch", text)
