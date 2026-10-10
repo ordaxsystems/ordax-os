@@ -31,6 +31,8 @@ O plano consolidado de evolução dessa camada está em [PLANO-07-PERSONAL-ORDAX
 
 ## Um produto, modos evolutivos
 
+**Família oficial de nomes:** OrdaX Web (navegador), OrdaX Mobile (Android/iOS, com layout para tablet), OrdaX Desktop (aplicativo para PC) e **OrdaX OS** (variantes USB e Nativo). OrdaX Studio é aplicativo, não uma sexta edição. O owner executável de nomes e versões por modo é [`system/contracts/product-family.mjs`](system/contracts/product-family.mjs); a política de disponibilidade e releases continua separada em seus contratos próprios. Não atribuir a clientes ainda não publicados uma versão imaginária.
+
 A arquitetura continua preparada para Web, Mobile, Desktop, USB e Native sem forks de produto.
 
 ```text
