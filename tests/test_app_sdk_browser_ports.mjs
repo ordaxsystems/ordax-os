@@ -138,7 +138,7 @@ test("SDK 1.14 publishes identity, profile, space and web-reference source contr
     assert.ok(item, name);
     assert.equal(item.schema, schema);
     assert.equal(item.major, 1);
-    assert.match(item.source_path, /^system\\/contracts\\/[a-z-]+\\.mjs$/);
+    assert.match(item.source_path, /^system\/contracts\/[a-z-]+\.mjs$/);
     assert.match(item.source_git_blob, /^[0-9a-f]{40}$/);
   }
   const snapshot = validateIdentitySessionSnapshot({ state: "signed-out" });
