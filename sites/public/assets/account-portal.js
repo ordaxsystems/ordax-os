@@ -34,6 +34,8 @@
     { id: "suporte", title: "Central de ajuda", icon: "help", description: "Encontre respostas e cuide da sua experiência OrdaX." }
   ]);
   const byId = new Map(sections.map(section => [section.id, section]));
+  const mobileSections = Object.freeze([{ id: "visao-geral", label: "Resumo" }, { id: "assinatura", label: "Assinatura" }, { id: "consumo", label: "Consumo" }, { id: "seguranca", label: "Segurança" }]);
+  const mobileSectionIds = new Set(mobileSections.map(section => section.id));
   const periods = Object.freeze({ month: "Este mês", week: "Últimos 7 dias", thirty: "Últimos 30 dias", year: "Este ano" });
   const resourceTabs = Object.freeze({ overview: "Visão geral", ai: "IA", storage: "Armazenamento", apis: "APIs" });
   const resources = Object.freeze([
@@ -206,9 +208,8 @@
 
   function renderNavigation() {
     document.getElementById("sidebar-navigation").innerHTML = sections.filter(section => section.id !== "suporte").map((section, index) => `<a href="#${section.id}" title="${tx(section.title)}" aria-label="${tx(section.title)}" class="sidebar-link${state.section === section.id ? " active" : ""}${index === 5 ? " nav-separator" : ""}" data-section="${section.id}"${state.section === section.id ? ' aria-current="page"' : ""}>${icon(section.icon)}<span>${tx(section.title)}</span>${state.section === section.id ? '<span class="active-dot"></span>' : ""}</a>`).join("");
-    const mobile = [{ id: "visao-geral", label: "Resumo" }, { id: "assinatura", label: "Assinatura" }, { id: "consumo", label: "Consumo" }, { id: "seguranca", label: "Segurança" }];
-    document.getElementById("mobile-navigation").innerHTML = mobile.map(item => `<a href="#${item.id}"${state.section === item.id ? ' class="active" aria-current="page"' : ""}>${icon(byId.get(item.id).icon)}<span>${tx(item.label)}</span></a>`).join("") + `<button type="button" class="button ghost${mobile.some(item => item.id === state.section) ? "" : " active"}" id="more-toggle" data-open-more aria-controls="more-dialog" aria-expanded="${moreDialog.open}">${icon("more")}<span>${tx("Mais")}</span></button>`;
-    document.getElementById("more-navigation").innerHTML = sections.slice(1).map(section => `<a href="#${section.id}"${state.section === section.id ? ' aria-current="page"' : ""}>${icon(section.icon)}${tx(section.title)}${icon("chevron-right")}</a>`).join("");
+    document.getElementById("mobile-navigation").innerHTML = mobileSections.map(item => `<a href="#${item.id}"${state.section === item.id ? ' class="active" aria-current="page"' : ""}>${icon(byId.get(item.id).icon)}<span>${tx(item.label)}</span></a>`).join("") + `<button type="button" class="button ghost${mobileSectionIds.has(state.section) ? "" : " active"}" id="more-toggle" data-open-more aria-controls="more-dialog" aria-expanded="${moreDialog.open}">${icon("more")}<span>${tx("Mais")}</span></button>`;
+    document.getElementById("more-navigation").innerHTML = sections.filter(section => !mobileSectionIds.has(section.id)).map(section => `<a href="#${section.id}"${state.section === section.id ? ' aria-current="page"' : ""}>${icon(section.icon)}${tx(section.title)}${icon("chevron-right")}</a>`).join("");
     const supportLink = root.querySelector('.sidebar-bottom [data-section="suporte"]');
     supportLink.classList.toggle("active", state.section === "suporte");
     if (state.section === "suporte") supportLink.setAttribute("aria-current", "page"); else supportLink.removeAttribute("aria-current");

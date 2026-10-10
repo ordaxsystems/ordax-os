@@ -95,7 +95,7 @@ serviços da referência.
 
 A UI apresenta resumo, dados pessoais, assinatura, consumo, faturamento,
 segurança, dispositivos, privacidade, integrações, preferências, atividade e
-suporte. Navegação lateral, busca e Mais usam um único catálogo de seções.
+suporte. Navegação lateral, busca e Mais usam um único catálogo de seções. Na navegação móvel, Resumo, Assinatura, Consumo e Segurança são os atalhos principais; Mais contém somente as oito áreas restantes, além da busca e das entradas para o site e OrdaX Web.
 O idioma usa o runtime oficial e sua preferência
 local existente; controles de demonstração de idioma/notificações foram removidos.
 Nomes de planos são gerados do contrato de entitlements: não indicam contratação,

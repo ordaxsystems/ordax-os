@@ -120,3 +120,17 @@ test("subscription states its actual availability and keeps uncontracted purchas
   assert.ok(/<button[^>]+disabled>Cancelar assinatura<\/button>/.test(html));
   assert.ok(!html.includes("<form"));
 });
+
+
+test("mobile navigation and More partition every account section without repeated shortcuts", () => {
+  const f = fixture("#integracoes");
+  const targets = html => [...html.matchAll(/href="#([^"]+)"/g)].map(match => match[1]);
+  const primary = targets(f.get("mobile-navigation").innerHTML);
+  const more = targets(f.get("more-navigation").innerHTML);
+  const sidebar = targets(f.get("sidebar-navigation").innerHTML);
+  assert.deepEqual(primary, ["visao-geral", "assinatura", "consumo", "seguranca"]);
+  assert.equal(new Set([...primary, ...more]).size, primary.length + more.length);
+  assert.deepEqual([...primary, ...more].sort(), [...sidebar, "suporte"].sort());
+  assert.ok(f.get("mobile-navigation").innerHTML.includes('class="button ghost active"'));
+  assert.ok(f.get("more-navigation").innerHTML.includes('href="#integracoes" aria-current="page"'));
+});
