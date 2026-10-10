@@ -1,5 +1,6 @@
 // Shared browser navigation policy. The native host is the final network boundary.
 // This module converts user-entered text into a public URL or an explicit search.
+export const BROWSER_NAVIGATION_POLICY_SCHEMA = "ordax.browser-navigation-policy/1";
 export const BROWSER_SEARCH_PROVIDERS = Object.freeze([
   Object.freeze({ id: "duckduckgo", name: "DuckDuckGo", origin: "https://duckduckgo.com/", queryParameter: "q" }),
   Object.freeze({ id: "brave", name: "Brave Search", origin: "https://search.brave.com/search", queryParameter: "q" }),
