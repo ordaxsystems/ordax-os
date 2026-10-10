@@ -27,7 +27,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.vercel["ignoreCommand"],
             "sh tools/public-site/should_skip_vercel_build.sh",
         )
-        self.assertTrue(self.vercel["git"]["deploymentEnabled"])
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {
+            "main": True,
+            "*": False,
+        })
         script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
         self.assertTrue(script.is_file())
 
