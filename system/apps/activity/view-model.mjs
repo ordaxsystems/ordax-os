@@ -1,4 +1,5 @@
 import { validatePersonalOrdaxRuntimeSnapshot } from "../../contracts/personal-ordax-store.mjs";
+import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
 
 export function projectPersonalActivitySnapshot(value) {
   const snapshot = validatePersonalOrdaxRuntimeSnapshot(value);
@@ -37,6 +38,15 @@ export function projectPersonalActivitySnapshot(value) {
     persistence: snapshot.persistence,
     work: Object.freeze(snapshot.workItems.map((item) => Object.freeze({
       item,
+      // Personal OrdaX is the only owner of this snapshot. Explicit IDs ensure
+      // that this projection cannot select another work item or invent context.
+      canvas: projectPersonalWorkCanvas(snapshot, {
+        ownerKind: snapshot.ownerKind,
+        ownerId: snapshot.ownerId,
+        spaceId: item.spaceId,
+        projectId: item.projectId,
+        workItemId: item.id,
+      }),
       activities: Object.freeze([...(activitiesByWork.get(item.id) ?? [])]),
       result: resultByWork.get(item.id) ?? null,
       pendingApproval: item.pendingApprovalId === null
