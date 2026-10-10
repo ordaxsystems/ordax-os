@@ -42,7 +42,8 @@
 .account-header-actions .header-icon-link { justify-content:center; width:44px; min-width:44px; min-height:44px; border-radius:50%; }
 .account-header-actions .account-icon { width:19px; height:19px; color:var(--ordax-muted); }
 .account-header-actions a:hover { background:var(--ordax-hover-bg); }
-.account-header-actions .header-profile-link { gap:8px; padding:4px 8px; border-radius:100px; font-size:11px; }
+.account-portal .account-header-actions .header-profile-link { gap:8px; min-width:0; flex-shrink:1; padding:4px 8px; border-radius:100px; font-size:11px; }
+.header-profile-link [data-auth-nav-label] { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .header-profile-avatar { display:grid; place-items:center; width:32px; height:32px; flex-shrink:0; border:1px solid var(--ordax-border); border-radius:50%; background:var(--ordax-subtle-bg); }
 .header-profile-avatar .account-icon { color:var(--ordax-text); width:19px; height:19px; }
 .account-header-actions .header-profile-arrow { width:12px; height:12px; }
