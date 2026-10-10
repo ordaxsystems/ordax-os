@@ -53,10 +53,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                     "commit", "-m", message)
                 return git("rev-parse", "HEAD")
 
-            def ignored(previous, current):
+            def ignored(previous, current, environment="preview"):
                 env = dict(os.environ)
                 env["VERCEL_GIT_PREVIOUS_SHA"] = previous
                 env["VERCEL_GIT_COMMIT_SHA"] = current
+                env["VERCEL_ENV"] = environment
                 result = subprocess.run(
                     ["sh", str(script)], cwd=work, env=env,
                     capture_output=True, text=True, check=False,
@@ -77,6 +78,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("docs/README.md", "documentation only")
             docs_only = commit("unrelated documentation")
             self.assertEqual(ignored(initial, docs_only), 0)
+            # Preview/staging may be the previous Vercel deployment even when
+            # production still serves an older SHA. Never skip production.
+            self.assertEqual(ignored(initial, docs_only, "production"), 1)
+            self.assertEqual(ignored(docs_only, docs_only, "production"), 1)
+            self.assertEqual(ignored(docs_only, docs_only, "preview"), 0)
 
             write("sites/public/index.html", "<h1>OrdaX updated</h1>")
             site_change = commit("public site change")
