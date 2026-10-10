@@ -397,11 +397,15 @@
     }
     const email = document.querySelector("[data-account-email]");
     const hero = document.querySelector("[data-account-hero-email]");
+    const profileEmail = document.querySelector("[data-account-profile-email]");
+    const profileIdentity = document.querySelector("[data-account-profile-identity]");
     const logout = document.querySelector('[data-account-logout] button[type="submit"]');
     const logoutForm = document.querySelector("[data-account-logout]");
     if (logoutForm) logoutForm.hidden = true;
     if (email) email.textContent = "";
     if (hero) { hero.textContent = ""; hero.hidden = true; }
+    if (profileEmail) profileEmail.textContent = "";
+    if (profileIdentity) profileIdentity.hidden = true;
     if (logout) logout.disabled = true;
   }
 
@@ -413,6 +417,8 @@
     const unavailable = document.querySelector("[data-account-unavailable]");
     const email = document.querySelector("[data-account-email]");
     const hero = document.querySelector("[data-account-hero-email]");
+    const profileEmail = document.querySelector("[data-account-profile-email]");
+    const profileIdentity = document.querySelector("[data-account-profile-identity]");
     const logout = document.querySelector('[data-account-logout] button[type="submit"]');
     const logoutForm = document.querySelector("[data-account-logout]");
     if (!state || !authenticated || !anonymous || !unavailable || !email || !logout || !logoutForm) return;
@@ -423,6 +429,8 @@
     unavailable.hidden = true;
     email.textContent = "";
     if (hero) { hero.textContent = ""; hero.hidden = true; }
+    if (profileEmail) profileEmail.textContent = "";
+    if (profileIdentity) profileIdentity.hidden = true;
     logout.disabled = true;
     logoutForm.hidden = true;
     state.dataset.status = "checking";
@@ -442,6 +450,12 @@
           // Mirror the same verified identity value; clear it during every revalidation.
           hero.textContent = email.textContent;
           hero.hidden = false;
+        }
+        if (profileEmail && profileIdentity) {
+          // Display the same verified session value in Dados pessoais.
+          // No extra request, caching or separate identity state is created.
+          profileEmail.textContent = email.textContent;
+          profileIdentity.hidden = false;
         }
         authenticated.hidden = false;
         logout.disabled = false;
