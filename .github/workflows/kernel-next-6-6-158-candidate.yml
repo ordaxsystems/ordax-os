@@ -8,6 +8,7 @@ on:
       - 'bootstrap/kernel/candidates/6.6.158.json'
       - 'bootstrap/kernel/config/ordax.fragment'
       - 'tests/test_kernel_build_authentication_gate.py'
+      - 'tests/test_kernel_module_release_abi.py'
       - '.github/workflows/kernel-next-6-6-158-candidate.yml'
   workflow_dispatch:
 
@@ -46,6 +47,7 @@ jobs:
             --source-contract bootstrap/kernel/candidates/6.6.158.json
           python3 -m unittest discover -s tests -p 'test_kernel_build_authentication_gate.py' -v
           python3 -m unittest discover -s tests -p 'test_kernel_upstream_signature.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_module_release_abi.py' -v
 
       - name: Build authenticated 6.6.158 kernel and modules in isolated candidate lane
         env:
