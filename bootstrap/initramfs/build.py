@@ -208,6 +208,13 @@ def check_contract() -> dict:
         raise BuildError("recovery mode may never invoke online ext4 growth")
     if contract.get("network_inside_fixed_initramfs") is not False:
         raise BuildError("network must remain outside the fixed initramfs")
+    kernel_source = KERNEL_BUILD.load_contract()
+    expected_uapi_version = contract["portable_v2_prerequisites"]["kernel_uapi_version"]
+    if kernel_source["version"] != expected_uapi_version:
+        raise BuildError(
+            "initramfs/kernel UAPI release drift: "
+            f"kernel source={kernel_source['version']} initramfs={expected_uapi_version}"
+        )
     return {
         "busybox_version": contract["busybox"]["version"],
         "busybox_archive_sha256": contract["busybox"]["archive_sha256"],
@@ -296,7 +303,13 @@ def sha256_tree(root: Path) -> str:
 
 def prepare_kernel_uapi(work_dir: Path, env: dict[str, str]) -> dict:
     contract = KERNEL_BUILD.load_contract()
-    archive = KERNEL_BUILD.download_archive(contract, work_dir / "kernel-uapi-cache")
+    cache_dir = work_dir / "kernel-uapi-cache"
+    archive = KERNEL_BUILD.download_archive(contract, cache_dir)
+    # Kernel UAPI headers are another extraction path for the same upstream
+    # source. Authenticate *before* reading/extracting signed-source tarballs.
+    upstream_authentication = KERNEL_BUILD.authenticate_upstream_archive(
+        contract, archive, cache_dir
+    )
     source = KERNEL_BUILD.extract_archive(
         archive,
         work_dir / "kernel-uapi-source",
@@ -336,6 +349,7 @@ def prepare_kernel_uapi(work_dir: Path, env: dict[str, str]) -> dict:
         "kernel_version": contract["version"],
         "kernel_archive_sha256": sha256_file(archive),
         "kernel_source_contract_sha256": sha256_file(KERNEL_BUILD.SOURCE_CONTRACT),
+        "upstream_authentication": upstream_authentication,
         "headers_tree_sha256": sha256_tree(include),
         "linux_version_h_sha256": sha256_file(include / "linux" / "version.h"),
         "linux_loop_h_sha256": sha256_file(include / "linux" / "loop.h"),
@@ -978,6 +992,26 @@ def verify(out_dir: Path) -> dict:
     ):
         raise BuildError("initramfs provenance is missing the canonical ext4 health policy")
     kernel_uapi = provenance.get("kernel_uapi", {})
+    canonical_kernel = KERNEL_BUILD.load_contract()
+    signature_policy = canonical_kernel.get("upstream_signature")
+    upstream_auth = kernel_uapi.get("upstream_authentication")
+    if signature_policy is not None:
+        if (
+            not isinstance(upstream_auth, dict)
+            or upstream_auth.get("status") != "verified"
+            or upstream_auth.get("trusted_primary_fingerprint")
+            != signature_policy["trusted_primary_fingerprint"]
+            or upstream_auth.get("kernel_version") != canonical_kernel["version"]
+            or upstream_auth.get("archive_sha256") != canonical_kernel["archive_sha256"]
+            or upstream_auth.get("source_contract_sha256")
+            != sha256_file(KERNEL_BUILD.SOURCE_CONTRACT)
+        ):
+            raise BuildError("initramfs UAPI lacks authenticated upstream source provenance")
+    elif upstream_auth is not None and upstream_auth != {
+        "status": "legacy-unsigned-6.6.52-only",
+        "verified": False,
+    }:
+        raise BuildError("initramfs UAPI historical source authentication state is invalid")
     if (
         kernel_uapi.get("kernel_version") != load_contract()["portable_v2_prerequisites"]["kernel_uapi_version"]
         or not _SHA256.fullmatch(str(kernel_uapi.get("kernel_archive_sha256", "")))
@@ -1150,7 +1184,7 @@ def main() -> int:
             result = verify(args.out_dir)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
-    except (BuildError, OSError, subprocess.CalledProcessError) as exc:
+    except (BuildError, KERNEL_BUILD.BuildError, OSError, subprocess.CalledProcessError) as exc:
         print(f"initramfs-build: ERROR: {exc}", file=sys.stderr)
         return 1
 

@@ -5,6 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = json.loads((ROOT / "bootstrap/initramfs/source.json").read_text(encoding="utf-8"))
+KERNEL_SOURCE = json.loads((ROOT / "bootstrap/kernel/source.json").read_text(encoding="utf-8"))
 INIT = (ROOT / CONTRACT["root_init"]).read_text(encoding="utf-8")
 DEV_BOOTSTRAP = (ROOT / "bootstrap/dev/entrypoint").read_text(encoding="utf-8")
 BUILDER = (ROOT / "bootstrap/initramfs/build.py").read_text(encoding="utf-8")
@@ -112,6 +113,7 @@ class InitramfsSourceContractTests(unittest.TestCase):
         self.assertIn('"CONFIG_FEATURE_VOLUMEID_EXFAT": "y"', BUILDER)
         self.assertIn("prepare_kernel_uapi", BUILDER)
         self.assertIn("KERNEL_BUILD.download_archive", BUILDER)
+        self.assertIn("KERNEL_BUILD.authenticate_upstream_archive", BUILDER)
         self.assertIn("KERNEL_BUILD.extract_archive", BUILDER)
         self.assertIn('"headers_install"', BUILDER)
         self.assertIn('f"EXTRA_CFLAGS=-I{uapi_include}"', BUILDER)
@@ -189,7 +191,7 @@ class InitramfsSourceContractTests(unittest.TestCase):
             portable["kernel_uapi_source_contract"],
             "bootstrap/kernel/source.json",
         )
-        self.assertEqual(portable["kernel_uapi_version"], "6.6.52")
+        self.assertEqual(portable["kernel_uapi_version"], KERNEL_SOURCE["version"])
         self.assertTrue(portable["kernel_uapi_headers_install"])
         self.assertFalse(portable["host_linux_headers_required"])
         self.assertEqual(
