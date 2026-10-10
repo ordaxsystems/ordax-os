@@ -1252,11 +1252,13 @@ async function provePublicAccount(client, url, evidenceDir) {
         headerHeight:box(document.querySelector('.account-header')).height,
         mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none' };
     })()`);
-    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || (width === 1440 && report.columns !== 3) || (width < 600 && !report.primaryTilesAligned)) {
+    if (!report.noOverflow || !report.allSections || !report.overviewNotesHidden || !report.mobileSearchCollapsed || report.headerHeight > 80 || (width === 1440 && report.columns !== 3) || (width < 600 && !report.primaryTilesAligned)) {
       throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
+    await evaluate('document.querySelector(".account-header-actions [data-account-section]").click()');
+    if (!await evaluate('document.querySelector("[data-account-content]").dataset.view === "atividade" && document.activeElement.id === "atividade-title"')) throw new Error(`${name} notification shortcut failed`);
     await evaluate('document.querySelector("#seguranca > .card-heading").click()');
     const detail = await evaluate('document.querySelector("[data-account-content]").dataset.view === "seguranca" && getComputedStyle(document.querySelector("#seguranca .card-note")).display !== "none" && document.activeElement.id === "seguranca-title"');
     if (!detail) throw new Error(`${name} account detail/focus failed`);
