@@ -1,12 +1,9 @@
 #!/bin/sh
 # Single canonical ignored-build decision for the public Vercel adapter.
 # Vercel: exit 0 skips; exit 1 builds. Uncertain history MUST build.
-# Production deploys are deliberate, manually triggered releases. A previous
-# staging build may have the same SHA while the live production is older;
-# never let that cross-environment comparison cancel a production release.
-if [ "${VERCEL_ENV:-}" = "production" ]; then
-  exit 1
-fi
+# One Git-connected Vercel project: main builds automatically when the public
+# site or an imported contract changes. Unrelated OS commits may skip equally
+# in production and preview. Missing/uncertain history always builds.
 # The first deployment has no VERCEL_GIT_PREVIOUS_SHA. Shallow clones may
 # likewise lack an older commit; neither condition is an error.
 previous=${VERCEL_GIT_PREVIOUS_SHA:-}

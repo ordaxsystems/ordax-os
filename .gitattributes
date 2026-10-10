@@ -17,6 +17,9 @@ tools/creator/physical_promotion.py text eol=lf
 # The proof producer emits canonical LF and the promotion contract binds its bytes.
 docs/evidence/canonical-v4-release-proof.json text eol=lf
 
+# The Vercel ignore-build policy executes in POSIX shells on CI and locally.
+tools/public-site/should_skip_vercel_build.sh text eol=lf
+
 # The release discovery URL is bound by exact byte SHA-256 in minimal-bootstrap.
 bootstrap/config/release-envelope-url text eol=lf
 

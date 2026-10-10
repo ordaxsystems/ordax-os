@@ -27,7 +27,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.vercel["ignoreCommand"],
             "sh tools/public-site/should_skip_vercel_build.sh",
         )
-        self.assertFalse(self.vercel["git"]["deploymentEnabled"])
+        self.assertTrue(self.vercel["git"]["deploymentEnabled"])
         script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
         self.assertTrue(script.is_file())
 
@@ -78,10 +78,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("docs/README.md", "documentation only")
             docs_only = commit("unrelated documentation")
             self.assertEqual(ignored(initial, docs_only), 0)
-            # Preview/staging may be the previous Vercel deployment even when
-            # production still serves an older SHA. Never skip production.
-            self.assertEqual(ignored(initial, docs_only, "production"), 1)
-            self.assertEqual(ignored(docs_only, docs_only, "production"), 1)
+            # Git production now uses the same canonical input change filter:
+            # unrelated OS commits do not consume a new public deployment.
+            self.assertEqual(ignored(initial, docs_only, "production"), 0)
+            self.assertEqual(ignored(docs_only, docs_only, "production"), 0)
             self.assertEqual(ignored(docs_only, docs_only, "preview"), 0)
 
             write("sites/public/index.html", "<h1>OrdaX updated</h1>")
@@ -203,7 +203,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(migration["target_legacy_project_dashboard_detachment_verified"])
         self.assertFalse(migration["target_runtime_oidc_e2e_verified"])
         self.assertFalse(migration["target_runtime_oidc_e2e_verified"])
-        self.assertFalse(migration["target_project_environment_variables_present"])
+        self.assertTrue(migration["target_project_environment_variables_present"])
         self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
         self.assertEqual(migration["target_team_slug"], "ordaxsystems")
         self.assertEqual(migration["target_project"], "ordax-os-public")
@@ -222,9 +222,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             ],
         )
         self.assertTrue(migration["runtime_proof_required_before_public_auth"])
-        self.assertTrue(migration["automatic_git_deployments_frozen"])
-        self.assertTrue(migration["reenable_git_deployments_only_after_new_team_runtime_proof"])
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], False)
+        self.assertFalse(migration["automatic_git_deployments_frozen"])
+        self.assertFalse(migration["reenable_git_deployments_only_after_new_team_runtime_proof"])
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], True)
         self.assertEqual(
             migration["target_team_slug"],
             self.contract["vercel_adapter"]["team"],
@@ -475,7 +475,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         requirements = self.contract["production_requirements"]
         self.assertEqual(adapter["canonical_public_origin_environment_variable"], "ORDAX_PUBLIC_ORIGIN")
         self.assertTrue(adapter["canonical_public_origin_required"])
-        self.assertFalse(adapter["canonical_public_origin_live_configured"])
+        self.assertTrue(adapter["canonical_public_origin_live_configured"])
         self.assertFalse(adapter["canonical_public_origin_deployment_verified"])
         self.assertEqual(adapter["canonical_public_origin"], "https://ordax.com.br")
         self.assertEqual(adapter["team"], "ordaxsystems")
