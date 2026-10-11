@@ -57,6 +57,11 @@ jobs:
           if ($probe.active -ne $true) {throw 'No valid live artifacts'}
           Write-Output 'EXACT_FROZEN_OPERATOR_REQUEST=VERIFIED'
 
+      - name: Verify original Git blob export is immune to Windows CRLF
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_exact_signed_envelope_git_blob.py -v
+
       - name: Download only exact immutable GitHub artifacts and signed public envelope
         shell: pwsh
         run: |
@@ -107,13 +112,10 @@ jobs:
             if ($files.Count -ne 1) {throw ('EROFS cardinality mismatch: ' + $fileName)}
             Copy-Item -LiteralPath $files[0].FullName -Destination (Join-Path $package $fileName)
           }
-          $blobPath = 'docs/evidence/canonical-v4-signed-envelope-' + $sha + '.json'
-          $public = Join-Path 'docs/evidence' ('canonical-v4-signed-envelope-' + $sha + '.json')
-          if (-not (Test-Path -LiteralPath $public -PathType Leaf)) {throw 'Signed envelope is not approved in source'}
-          git -c core.autocrlf=false checkout-index -f -- $blobPath
-          if ($LASTEXITCODE -ne 0) {throw 'Cannot restore exact signed Git blob without Windows newline conversion'}
-          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $public).Hash.ToLowerInvariant() -cne $env:ENVELOPE_SHA256) {throw 'Public envelope hash mismatch'}
-          Copy-Item -LiteralPath $public -Destination (Join-Path $package 'release-envelope.json')
+          # Windows checkout may turn LF into CRLF, even for a signed envelope.
+          # Read immutable Git object bytes, never hash/copy the worktree text.
+          python tools/release-operator/export_exact_signed_envelope.py --repo-root . --source-commit $sha --expected-sha256 $env:ENVELOPE_SHA256 --output (Join-Path $package 'release-envelope.json')
+          if ($LASTEXITCODE -ne 0) {throw 'Exact approved Git envelope export failed'}
           Write-Output 'CANONICAL_SIGNED_PAYLOAD_STAGED_FOR_READ_ONLY_VERIFICATION=YES'
 
       - name: Build exact release-agent and execute official Windows Step 5
