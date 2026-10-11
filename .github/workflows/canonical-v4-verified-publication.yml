@@ -103,7 +103,9 @@ jobs:
               or publication.get("status") != "pending-explicit-https-publication"
               or publication.get("source_repository") != repo
               or publication.get("release_tag") != tag
-              or os.environ["CONFIRM_TAG"] != tag
+              # Only publishing requires the exact tag. Read-only verification
+              # requires an empty confirmation, as checked by the mode gate.
+              or (os.environ["OPERATION"] == "publish" and os.environ["CONFIRM_TAG"] != tag)
               or active.get("source_commit") != sha
               or active.get("release_tag") != tag
               or active.get("source_repository") != repo):
