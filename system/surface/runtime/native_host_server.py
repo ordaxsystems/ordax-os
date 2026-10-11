@@ -150,6 +150,8 @@ HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
 FIRST_RUN_FILE = "/var/lib/ordax/first-run.json"
+# Threaded native host: serialize OOBE completion checks with persistent writes.
+_FIRST_RUN_WRITE_LOCK = threading.Lock()
 DEVICE_PROFILE_FILE = "/var/lib/ordax/device-profile.json"
 LOCAL_SESSION_CREDENTIAL_FILE = "/var/lib/ordax/local-session-credential.json"
 COMPONENT_STATE_FILE = "/var/lib/ordax/component-state.json"
@@ -717,33 +719,57 @@ def read_first_run_state() -> dict:
     return payload if valid_first_run_state(payload) else initial_first_run_state()
 
 
+def _fsync_first_run_directory(directory: str) -> None:
+    fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def write_first_run_state(state_value: dict) -> None:
     if not valid_first_run_state(state_value):
         raise ValueError("invalid first-run state")
     directory = os.path.dirname(FIRST_RUN_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
-    temporary = f"{FIRST_RUN_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
-    try:
-        with open(temporary, "w", encoding="utf-8") as handle:
-            os.fchmod(handle.fileno(), 0o600)
-            json.dump(state_value, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, FIRST_RUN_FILE)
-    finally:
+    with _FIRST_RUN_WRITE_LOCK:
+        # A completed First Run receipt cannot be modified through OOBE:
+        # later settings and identity changes have their own system owners.
         try:
-            os.unlink(temporary)
+            if os.path.islink(FIRST_RUN_FILE):
+                raise ValueError("first-run receipt cannot be a symlink")
+            with open(FIRST_RUN_FILE, "r", encoding="utf-8") as handle:
+                previous = json.load(handle)
         except FileNotFoundError:
-            pass
-    try:
-        directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-    except OSError:
-        return
-    try:
-        os.fsync(directory_fd)
-    finally:
-        os.close(directory_fd)
+            previous = None
+        except (json.JSONDecodeError, UnicodeError) as exc:
+            raise ValueError("existing first-run receipt unreadable") from exc
+        if previous is not None:
+            if not valid_first_run_state(previous):
+                raise ValueError("existing first-run receipt invalid")
+            if previous["completed"]:
+                if previous == state_value:
+                    # Reconfirm durability even after an earlier uncertain reply.
+                    _fsync_first_run_directory(directory)
+                    return
+                raise ValueError("completed first-run receipt cannot be overwritten")
+
+        temporary = f"{FIRST_RUN_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
+        try:
+            with open(temporary, "x", encoding="utf-8") as handle:
+                os.fchmod(handle.fileno(), 0o600)
+                json.dump(state_value, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, FIRST_RUN_FILE)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+        # This must raise if durable directory flush cannot be completed.
+        _fsync_first_run_directory(directory)
 
 
 def valid_device_display_name(value: object) -> bool:

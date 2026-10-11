@@ -18,7 +18,13 @@
     "completion_must_be_durable_before_dismiss": true,
     "state_is_separate_from_user_preferences": true,
     "state_is_separate_from_identity_session": true,
-    "state_is_separate_from_local_session_secret": true
+    "state_is_separate_from_local_session_secret": true,
+    "completed_receipt_monotonic": true,
+    "identical_completed_retry_idempotent": true,
+    "corrupt_existing_receipt_must_not_be_overwritten": true,
+    "concurrent_completion_posts_serialized": true,
+    "directory_entry_fsync_required_before_acknowledgement": true,
+    "post_completion_regional_edits_owner": "settings"
   },
   "flow": [
     "welcome",
