@@ -62,3 +62,29 @@ O builder exige os três IDs de execução, verifica o ref `release-candidate/<S
 Até o fechamento dos gates: `release_signed=false`, `release_published=false`, `physical_target_selected=false`, `physical_write_authorized=false`, `physical_write_performed=false`, `stable_channel_promoted=false`.
 
 Nenhuma etapa acima lê a chave privada, grava mídia USB, acessa discos internos ou usa o Development como prova do Stable. A evidência de boot QEMU, se concluída, permanece **virtual e não física**.
+
+## Consolidação das três execuções (observação posterior)
+
+Os três workflows foram consultados novamente na API oficial do GitHub e
+retornaram **`completed/success`**, com `event=workflow_dispatch`,
+`head_sha=03f88eeaf382a59aaefbcf4943d0639d2730741b` e
+`head_branch=release-candidate/03f88eeaf382a59aaefbcf4943d0639d2730741b`.
+O inventário de artefatos revelou exatamente os seguintes registros canônicos
+(`expired=false` em todas as consultas):
+
+| Tipo | Run ID | Artifact ID | SHA-256 do ZIP no GitHub |
+|---|---:|---:|---|
+| Sistema | 38126436379 | 11697581939 | `2bbf4dbc06a10a391b78d3d2fb72ce53d6760b69e2335239f351da7d39fb4b40` |
+| Surface | 38126441063 | 11696773362 | `bd7d2dddd81cb6e2a93f7060332412037d8376980d7aae291d27dc58ec128a46` |
+| IA local | 38126446991 | 11697502993 | `3db1360d77d724eb8375ff5ba82bdc840ce8348b614c18ef87fb219cb98ed0d9` |
+
+O novo pedido **não assinado** passou a ser proposto em
+`docs/contracts/canonical-v4-signing-request-active.json`. Sua PR deve
+executar o seletor existente, o preflight live e uma **reconstrução independente
+pelo builder canônico**, conferindo todos os IDs e URLs. A montagem pós-merge
+deve ainda baixar e verificar os bytes reais dos três EROFS.
+
+**Não são provas de assinatura, publicação, materialização no USB ou boot
+físico.** Permanecem explicitamente bloqueados o lançamento público e a
+autorização de gravação.
+
