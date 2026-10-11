@@ -5,7 +5,7 @@ import {
   isIdentityActionSupported,
 } from "../../contracts/identity-actions.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
-import { assertIdentityCredentialsPort } from "../../contracts/identity-credentials.mjs";
+import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
@@ -769,8 +769,14 @@ export function mountFirstRunExperience(
     try {
       const policy = await credentialsPort.registrationPolicy();
       if (destroyed) return;
-      registrationPolicy = policy.registrationEnabled === true ? policy : null;
-      if (registrationPolicy === null) registrationLegalAccepted = false;
+      const nextPolicy = (
+        policy.registrationEnabled === true
+        && isIdentityActionSupported(actionsSnapshot, "register")
+      ) ? policy : null;
+      if (!sameRegistrationLegalPolicy(registrationPolicy, nextPolicy)) {
+        registrationLegalAccepted = false;
+      }
+      registrationPolicy = nextPolicy;
     } catch {
       if (!destroyed) {
         registrationPolicy = null;
