@@ -74,6 +74,8 @@ não autoriza gravação. A existência de `canonical-request.json`, por si,
 não torna o lançamento liberado. A prova assinada/materializada, Authenticode
 do Creator público e o boot físico permanecem gates distintos.
 
+**Candidata operacional congelada em 2026-10-11:** o SHA `03f88eeaf382a59aaefbcf4943d0639d2730741b` está preservado em `release-candidate/<SHA40>`, com três execuções manuais dos workflows canônicos. Runs e estágios de comprovação registrados em [evidência da candidata Stable v4](evidence/stable-v4-operator-source-freeze-2026-10-11.md). Essa evidência não modifica o request ativo, não comprova assinatura nem autoriza gravação USB.
+
 ## O que falta hoje para um lançamento público
 
 A auditoria de source/CI e o boot em QEMU não substituem a prova física da Stable/MVP atual. A release canônica v4 existente é histórica/pré-hardening e não deve ser reaproveitada para uma nova autorização. Faltam prova nova exata da versão candidata, gate de pré-autorização, autorização do proprietário no contexto específico, testes físicos com leitura de artefatos, sessão gráfica, first run, apps essenciais, cold-health e rollback. Ver `docs/MVP-PRE-PHYSICAL-HANDOFF.md` para a ordem e os requisitos atualizados.
