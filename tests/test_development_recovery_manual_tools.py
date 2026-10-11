@@ -41,6 +41,7 @@ class DevelopmentRecoveryManualToolsTests(unittest.TestCase):
             end = SOURCE.index("export PATH", start) + len("export PATH")
             shell = SOURCE[start:end]
             shell = shell.replace("/usr/local/bin/", str(bin_dir) + "/")
+            shell = shell.replace("/usr/local/bin:", str(bin_dir) + ":")
             shell = shell.replace("/usr/local/sbin:", str(sbin_dir) + ":")
             env = os.environ.copy()
             env["ORDAX_DISTRIBUTION_PROFILE"] = profile
