@@ -479,6 +479,8 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 		return 1
 	case wmDrawItem:
 		return drawCreatorNativeItem(lParam)
+	case wmMeasureItem:
+		return measureCreatorItem(lParam)
 	case wmCtlColorStatic, wmCtlColorEdit, wmCtlColorListBox:
 		if brush := creatorControlColor(message, wParam, lParam); brush != 0 {
 			return brush
