@@ -66,6 +66,37 @@ UEFI
 
 The OrdaX source itself is **not** preseeded on the USB. `main` remains the source authority.
 
+## Recuperação do primeiro runtime gráfico (11/10/2026)
+
+Em um notebook Owner/Development, a instalação inicial do Cage/WebKit pode
+registrar `Installing (218/247)` e ser interrompida antes da confirmação de
+saúde da Surface. Esse progresso **não é conclusão** da instalação.
+A fase de aquisição do runtime e a verificação posterior da Surface possuem
+orçamentos/heartbeats separados na `main`.
+
+Uma base de desenvolvimento anterior à correção do PATH de recuperação pode
+mostrar `sh: ordax-pull: not found`, apesar de ter o helper em
+`/usr/local/bin/ordax-pull`. Isso decorre do PATH mínimo compartilhado da
+recuperação, não prova falta de checkout nem requer novo flash. Para mídia
+já inicializada, no shell local de recuperação:
+
+```sh
+ls -l /usr/local/bin/ordax-pull /usr/local/bin/ordax-run
+/usr/local/bin/ordax-pull
+/usr/local/bin/ordax-run
+```
+
+Execute `ordax-run` apenas depois de o pull ter sido concluído com sucesso.
+Caso os arquivos não existam, registre o resultado e não tente copiar
+arquivos de terceiros nem reformatar o USB. A recuperação agora expõe os
+comandos no PATH **somente** no perfil `owner-development` USB e somente quando
+ambos os helpers já estão presentes e executáveis. No Stable/MVP o PATH mínimo
+permanece intocado; nenhum desses fluxos inicia rede, Git ou mutação automática
+ao entrar no shell de recuperação. O sistema Development atualiza a cópia
+pré-instalada do helper de recuperação por meio do bridge de helpers após
+o supervisor se tornar operacional; a imagem física antiga não se altera
+automaticamente apenas porque o repositório recebeu a correção.
+
 ## Daily loop
 
 After the development base has been flashed once and the notebook can boot it:
