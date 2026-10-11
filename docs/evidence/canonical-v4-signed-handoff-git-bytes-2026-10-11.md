@@ -16,3 +16,12 @@ O teste tests/test_exact_signed_envelope_git_blob.py cobre a candidata aprovada,
 ## Limites
 
 A prova completa de handoff ainda precisa passar para a candidata 03f88eeaf382a59aaefbcf4943d0639d2730741b. Publicação HTTPS, materialização canônica e vínculo da nova prova v4 seguem como gates independentes. physical_write_allowed=false permanece inalterado; nenhum pendrive foi escolhido ou gravado.
+
+
+## Prova seguinte e responsabilidade de plataforma
+
+Na execução [38155966069](https://github.com/ordaxsystems/ordax-os/actions/runs/38155966069), a exportação binária foi aprovada no Windows, junto com os testes de regressão e os downloads de artefatos assinados. A próxima etapa falhou **antes do Step 5**, quando a suíte Go de **materialização Linux** foi executada em Windows: a chamada os.Open(diretório).Sync() retorna Access is denied nesse host, inclusive em diretórios temporários dos testes.
+
+A correção de fluxo separa as duas provas sem abrir exceções à integridade: uma etapa Ubuntu 24.04 faz checkout no SHA congelado e executa a suíte Go completa (gravação, fsync, falhas e imutabilidade); somente após esse sucesso, a etapa Windows compila o mesmo release-agent na revisão congelada e executa o Step 5 de **verificação de assinatura e SHA dos três EROFS**. O workflow permanece sem capacidade de publicação ou gravação física.
+
+Isto não habilita a utilização das rotas de materialização Linux no Windows; eventuais chamadas mutáveis continuam falhando fechado nesse sistema. Não foram modificados os bytes do commit assinado 03f88eea, o manifesto, a assinatura ou a custódia de chaves.
