@@ -1,5 +1,6 @@
 """Synthetic-only tests; no GitHub publication, network or physical-media writes."""
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -23,7 +24,7 @@ PLAN = {
 
 def remote(*, draft):
     return {
-        "tag_name": TAG, "target_commitish": SHA,
+        "id": 409954063, "tag_name": TAG, "target_commitish": SHA,
         "draft": draft, "prerelease": True,
         "assets": [{"name": row["name"], "digest": "sha256:" + row["sha256"],
                     "size": row["size"], "state": "uploaded"}
@@ -57,15 +58,15 @@ class PublicationOperatorTests(unittest.TestCase):
                 publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag="wrong")
             call.assert_not_called()
 
-    def test_publishes_only_after_draft_verified(self):
+    def test_new_release_created_only_after_absence_then_verified(self):
         with patch.object(publisher, "require_tag_absent") as tag_check, \
              patch.object(publisher, "remote_release", side_effect=[
-                 remote(draft=True), remote(draft=False)]) as fetch, \
+                 None, remote(draft=True), remote(draft=False)]) as fetch, \
              patch.object(publisher, "command", return_value="") as call:
             report = publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag=TAG)
         self.assertEqual(report["status"], "published-prerelease-verifiable-https")
         self.assertFalse(report["physical_write_authorized"])
-        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(fetch.call_count, 3)
         tag_check.assert_called_once_with(TAG)
         self.assertEqual(call.call_count, 2)
         create_args = call.call_args_list[0].args[0]
@@ -74,20 +75,103 @@ class PublicationOperatorTests(unittest.TestCase):
                          list(publisher.ASSET_NAMES))
         self.assertIn("--draft", create_args)
         self.assertIn("--prerelease", create_args)
-        self.assertEqual(call.call_args_list[1].args[0][:4],
-                         ["gh", "release", "edit", TAG])
+        patch_args = call.call_args_list[1].args[0]
+        self.assertEqual(patch_args, [
+            "gh", "api", "--method", "PATCH",
+            "repos/" + publisher.REPO + "/releases/409954063",
+            "-F", "draft=false", "-F", "prerelease=true",
+        ])
 
-    def test_remote_staging_mismatch_never_publishes(self):
+    def test_existing_exact_draft_is_reused_without_reupload_or_tag_creation(self):
+        with patch.object(publisher, "require_tag_absent") as tag_check, \
+             patch.object(publisher, "remote_release", side_effect=[
+                 remote(draft=True), remote(draft=False)]) as fetch, \
+             patch.object(publisher, "command", return_value="") as call:
+            report = publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag=TAG)
+        self.assertTrue(report["release_published"])
+        self.assertEqual(fetch.call_count, 2)
+        tag_check.assert_not_called()
+        call.assert_called_once()
+        args = call.call_args.args[0]
+        self.assertEqual(args[:5], [
+            "gh", "api", "--method", "PATCH",
+            "repos/" + publisher.REPO + "/releases/409954063",
+        ])
+        self.assertNotIn("release", args[:3])
+
+    def test_existing_draft_must_match_all_five_hashes_before_patch(self):
+        bad = remote(draft=True)
+        bad["assets"][2]["size"] = -1
+        with patch.object(publisher, "require_tag_absent") as tag_check, \
+             patch.object(publisher, "remote_release", return_value=bad), \
+             patch.object(publisher, "command") as call:
+            with self.assertRaisesRegex(publisher.AdmissionError, "digest mismatch"):
+                publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag=TAG)
+        tag_check.assert_not_called()
+        call.assert_not_called()
+
+    def test_public_or_incorrect_existing_release_never_rewritten(self):
+        for mutate in (
+            lambda x: x.update(draft=False),
+            lambda x: x.update(target_commitish="b" * 40),
+            lambda x: x.update(id="unsafe"),
+            lambda x: x["assets"].append({"name": "unexpected", "size": 1}),
+        ):
+            draft = remote(draft=True)
+            mutate(draft)
+            with self.subTest(draft=draft), \
+                 patch.object(publisher, "require_tag_absent") as tag_check, \
+                 patch.object(publisher, "remote_release", return_value=draft), \
+                 patch.object(publisher, "command") as call:
+                with self.assertRaises(publisher.AdmissionError):
+                    publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag=TAG)
+                tag_check.assert_not_called()
+                call.assert_not_called()
+
+    def test_new_staging_mismatch_never_publishes(self):
         bad = remote(draft=True)
         bad["assets"][2]["size"] = -1
         with patch.object(publisher, "require_tag_absent"), \
-             patch.object(publisher, "remote_release", return_value=bad), \
+             patch.object(publisher, "remote_release", side_effect=[None, bad]), \
              patch.object(publisher, "command") as call:
             with self.assertRaisesRegex(publisher.AdmissionError, "digest mismatch"):
                 publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag=TAG)
             self.assertEqual(call.call_count, 1)
             self.assertEqual(call.call_args.args[0][:3],
                              ["gh", "release", "create"])
+
+    def test_post_publish_metadata_must_keep_same_immutable_id(self):
+        wrong = remote(draft=False)
+        wrong["id"] = 777
+        with patch.object(publisher, "remote_release", side_effect=[
+                 remote(draft=True), wrong]), \
+             patch.object(publisher, "command") as call:
+            with self.assertRaisesRegex(publisher.AdmissionError, "identity changed"):
+                publisher.publish_reviewed(PLAN, Path("/tmp"), confirmed_tag=TAG)
+        call.assert_called_once()
+
+    def test_drafts_visible_in_authenticated_release_collection(self):
+        with patch.object(publisher, "command", return_value=json.dumps([
+            {"id": 1, "tag_name": "unrelated"},
+            remote(draft=True),
+        ])) as call:
+            release = publisher.remote_release(TAG)
+        self.assertEqual(release["id"], 409954063)
+        call.assert_called_once_with([
+            "gh", "api", "repos/" + publisher.REPO +
+            "/releases?per_page=100&page=1",
+        ])
+
+    def test_ambiguous_or_broken_release_inventory_fails_closed(self):
+        for value in (
+            json.dumps([remote(draft=True), remote(draft=True)]),
+            json.dumps({"not": "a release array"}),
+            "not-json",
+        ):
+            with self.subTest(value=value), \
+                 patch.object(publisher, "command", return_value=value):
+                with self.assertRaises(publisher.AdmissionError):
+                    publisher.remote_release(TAG)
 
     def test_existing_tag_or_auth_error_is_not_treated_as_absence(self):
         cases = [(0, "HTTP/2 200 OK\r\n"), (1, "HTTP/2 403 Forbidden\r\n"),
