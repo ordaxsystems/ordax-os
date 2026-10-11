@@ -1,5 +1,8 @@
 # Current State
 
+Web sidebar: adaptive destinations use the CSS row-height token and move overflow into Mais without sidebar scrolling. Base contains notification/profile icons only; environment settings use Ajustes. Source presentation only; no authority/service changes. [Acceptance](DESKTOP-IDENTITY.md#adaptive-sidebar-and-icon-only-account--2026-10-11).
+
+
 Web layout: full-height desktop sidebar and centered floating app dock replace the full-width footer strip; mobile navigation remains unchanged. Owner/acceptance: [Desktop Identity](DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
 
 

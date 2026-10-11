@@ -248,8 +248,8 @@ clock, clock state or refresh interval. There is no shell topbar or reserved hea
 row: apps/pages own the top edge, bounded only by device safe area, sidebar and
 bottom navigation. Search remains available through Apps/Ctrl K and the Menu;
 Space switching remains in the desktop sidebar/mobile Space destination.
-Sidebar navigation scrolls separately from its utilities; the collapsed sidebar
-keeps icon actions accessible. No identity, service, app state or authority is copied.
+Sidebar destinations adapt to available height without scrolling; omitted items
+remain in Mais. The collapsed sidebar keeps icon actions accessible. No identity, service, app state or authority is copied.
 
 Risks: short-height navigation, dropdown focus, mobile menu dismissal, expanded
 workspace bounds and compact pane geometry. Acceptance: eight responsive viewports,
@@ -263,10 +263,34 @@ overflow and original app draft/node retention. Existing Home controls enforce
 Owner: OS Surface; explicit user-requested layout revision. Desktop sidebar reaches
 the viewport bottom, including account/notifications. The footer contains only the
 centered app dock: no full-width background, blur or separator line. Only the dock
-receives pointer input. Space selection/window arrangement move to the sidebar;
-connection state remains in the existing sidebar service status. Workspace extends to the bottom behind the dock; content padding preserves
+receives pointer input. Space selection/window arrangement remain accessible through Mais;
+connection state is reported there without claiming a connected service. Workspace extends to the bottom behind the dock; content padding preserves
 app control reachability without a reserved footer strip. No second window
 manager or app state is introduced. Mobile retains the five-destination navigation.
 Acceptance: sidebar bottom aligns with viewport, dock centers in usable width,
 transparent/pointer-transparent footer, sidebar collapsed controls, notification
 opening and mobile menus at desktop/short/tablet widths.
+
+### Adaptive sidebar and icon-only account — 2026-10-11
+
+Owner: OS Surface; explicit user-requested refinement. One navigation component
+projects existing route destinations plus Studio/Notes/Ajustes shortcuts. It never
+adds a second route catalog or duplicates Arquivos in a favorites section. The
+desktop container measures available height and uses the CSS row-height token
+to allocate visible destinations, keeping Ajustes when space permits and reserving
+Mais. Omitted destinations remain launchable through the shared dropdown. Space
+selection/window arrangement also live there. Resize restores visible items; the
+sidebar itself has no scrolling owner. Mobile keeps a scrollable Menu sheet.
+
+The fixed base contains only accessible notifications/profile icon buttons.
+Identity menu retains Minha Conta/site navigation; environment preferences use
+the existing Ajustes app. Mais opens after a completed touch tap so a native pan
+starting on its trigger does not intercept Menu scrolling. Keyboard/mouse behavior
+stays with the shared Radix component, using its public controlled/event props.
+No clock, simulated identity or duplicated app state.
+Risk: short-height/collapsed layout, focus during resize, dropdown selection and
+mobile Menu nesting. Acceptance: exact union of visible/omitted destinations with
+no duplicates; controls inside bounds/no sidebar scroll; two icon-only base buttons;
+route/app opening from Mais; responsive resize/restoration; mobile Ajustes and
+identity/notifications/launcher reachable, native pan/tap distinction, with preserved
+app drafts and lifecycle.

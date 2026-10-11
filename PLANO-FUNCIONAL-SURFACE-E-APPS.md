@@ -1,5 +1,8 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+ > **Sidebar adaptável — 11/10/2026:** refinamento explícito solicitado, sem rolagem na lateral; Mais reúne itens que não cabem. Base com sino/perfil, Ajustes concentra preferências. Catálogo/rotas/lifecycle existentes preservados. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#adaptive-sidebar-and-icon-only-account--2026-10-11).
+
+
  > **Dock Web — 11/10/2026:** pedido explícito: sidebar até o rodapé e dock central flutuante, sem faixa/linha inferior; preserva lifecycle e navegação mobile. [Owner, riscos e aceite](docs/DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
 
 

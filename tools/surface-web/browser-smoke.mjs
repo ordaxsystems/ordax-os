@@ -60,6 +60,48 @@ try {
     const result=await evaluate('(()=>{const n=document.querySelector('+JSON.stringify('[aria-label="Janela '+name+'"]')+'),d=document.querySelector(".web-desktop"),r=n.getBoundingClientRect(),b=d.getBoundingClientRect();return {maximized:n.classList.contains("web-window-maximized"),equal:[r.left-b.left,r.top-b.top,r.width-b.width,r.height-b.height].every(v=>Math.abs(v)<1),foreground:n.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))};})()');
     assert.ok(result.maximized&&result.equal&&result.foreground,JSON.stringify({name,result}));
   }
+  async function adaptiveSidebarProof(width,height) {
+    const expected=['Início','OrdaX Intelligence','Aplicativos','Projetos','Arquivos','Spaces','Internet','Loja','Studio','Notas','Ajustes'];
+    if(width<=820){
+      await click('[aria-label="Menu do workspace"]');
+      const base=await evaluate("(()=>{const a=document.querySelector('.web-mobile-menu .web-navigation-account');return {count:a.querySelectorAll('button').length,iconsOnly:[...a.querySelectorAll('button')].every(n=>!n.textContent.trim())};})()");
+      assert.equal(base.count,2);assert.equal(base.iconsOnly,true);
+      await click('.web-mobile-menu [title="Ajustes"]');await noDialog();await fullWindow('Ajustes');
+      await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();return;
+    }
+    const geometry=await evaluate("(()=>{const s=document.querySelector('.web-sidebar'),root=s.querySelector('.web-navigation-content'),a=s.querySelector('.web-navigation-account'),rows=[...root.querySelectorAll('.web-nav-link')],r=root.getBoundingClientRect();return {titles:rows.filter(n=>!n.classList.contains('web-navigation-more')).map(n=>n.title),inside:rows.every(n=>{const b=n.getBoundingClientRect();return b.top>=r.top-1&&b.bottom<=r.bottom+1}),noScroll:[s,s.querySelector('.web-navigation-scroll'),root].every(n=>n.scrollHeight<=n.clientHeight+1),accountCount:a.querySelectorAll('button').length,iconsOnly:[...a.querySelectorAll('button')].every(n=>!n.textContent.trim()),footer:a.getBoundingClientRect().bottom<=innerHeight};})()");
+    assert.ok(geometry.inside&&geometry.noScroll&&geometry.iconsOnly&&geometry.footer,JSON.stringify({width,height,geometry}));assert.equal(geometry.accountCount,2);
+    await click('.web-sidebar [aria-label="Mais opções de navegação"]');
+    const hidden=await evaluate("[...document.querySelectorAll('.web-navigation-more-menu [role=menuitem]')].map(n=>n.textContent.trim())");
+    const destinations=hidden.filter(n=>expected.includes(n));const all=[...geometry.titles,...destinations];
+    assert.equal(all.length,new Set(all).size,'Destinations appear once across sidebar and Mais');
+    assert.deepEqual([...all].sort(),[...expected].sort(),'Mais preserves every omitted destination');
+    assert.ok(hidden.includes('Selecionar Space')&&hidden.includes('Organizar janelas'));
+    assert.equal(await evaluate("document.querySelector('.web-navigation-more-menu').textContent.includes('Serviços não conectados')"),true);
+    if(destinations.includes('Notas')){
+      await click('.web-navigation-more-menu [role=menuitem][data-destination="notes"]');
+    }else{
+      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await sleep(150);
+      await click('.web-sidebar [title="Notas"]');
+    }
+    await noDialog();await fullWindow('Notas');
+    const menuDeadline=Date.now()+3000;
+    while(await evaluate("!!document.querySelector('.web-navigation-more-menu')")){if(Date.now()>menuDeadline)throw Error('Mais did not finish closing after app selection');await sleep(25);}
+    await click('.web-sidebar [aria-label="Mais opções de navegação"]');
+    await click('.web-navigation-more-menu [role=menuitem][data-action="select-space"]');await sleep(200);
+    assert.equal(await evaluate("!!document.querySelector('.web-space-dialog[role=dialog]')"),true,'Space picker remains in Mais');
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await noDialog();
+    const before=geometry.titles.length;
+    await client.send('Emulation.setDeviceMetricsOverride',{width,height:300,deviceScaleFactor:1,mobile:false});await sleep(200);
+    assert.ok(await evaluate("(()=>{const s=document.querySelector('.web-sidebar'),r=s.querySelector('.web-navigation-content'),a=s.querySelector('.web-navigation-account');return s.scrollHeight<=s.clientHeight+1&&r.scrollHeight<=r.clientHeight+1&&a.getBoundingClientRect().bottom<=innerHeight+1&&r.querySelectorAll('.web-nav-link').length<=2;})()"),'Short desktop sends all remaining destinations to Mais without clipping the base icons');
+    await click('[aria-label="Recolher navegação"]');await sleep(150);await click('.web-sidebar [aria-label="Mais opções de navegação"]');
+    assert.equal(await evaluate("[...document.querySelectorAll('.web-navigation-more-menu [role=menuitem] span')].every(n=>getComputedStyle(n).display!=='none')"),true,'Collapsed sidebar keeps text visible in Mais');
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await sleep(150);await click('[aria-label="Expandir navegação"]');
+    await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await sleep(200);
+    assert.equal(await evaluate("document.querySelectorAll('.web-sidebar .web-nav-link:not(.web-navigation-more)').length"),before,'Destinations return after viewport expands');
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
+  }
   async function navigationUtilitiesProof(width,height) {
     if(width>820)assert.equal(await evaluate("(()=>{const s=document.querySelector('.web-sidebar').getBoundingClientRect(),f=document.querySelector('.web-systembar'),d=f.querySelector('.web-dock'),r=d.getBoundingClientRect(),b=f.getBoundingClientRect(),style=getComputedStyle(f);return Math.abs(s.bottom-innerHeight)<=1&&Math.abs(document.querySelector('.web-desktop').getBoundingClientRect().bottom-innerHeight)<=1&&Math.abs((r.left+r.right)/2-(b.left+b.right)/2)<=1&&style.backgroundColor==='rgba(0, 0, 0, 0)'&&parseFloat(style.borderTopWidth)===0&&style.pointerEvents==='none'&&getComputedStyle(d).pointerEvents==='auto'&&f.children.length===1;})()"),true,'Full-height sidebar and centered floating dock replace the full-width footer strip');
 
@@ -208,6 +250,7 @@ try {
       assert.equal(await evaluate("document.querySelector('.web-mobile-menu').contains(document.activeElement)"),true,'Focus remains within the mobile menu');
     }
     await touchScroll('.web-mobile-menu .web-navigation-scroll');
+    assert.equal(await evaluate("!!document.querySelector('.web-navigation-more-menu')"),false,'A native pan from Mais must not open a dropdown');
     const scrolledMenu=await dialogChrome('.web-mobile-menu');
     const scrolledMenuFooter=await evaluate("(()=>{const dialog=document.querySelector('.web-mobile-menu'),button=dialog.querySelector('.web-mobile-windows'),d=dialog.getBoundingClientRect(),r=button.getBoundingClientRect(),s=getComputedStyle(button);return {width:r.width,height:r.height,top:r.top,bottom:r.bottom,dialogBottom:d.bottom,display:s.display,buttons:[...document.querySelectorAll('.web-mobile-bar>button')].map(n=>{const b=n.getBoundingClientRect();return {width:b.width,height:b.height};})};})()");
     assert.ok(Math.abs(menuFooter.top-scrolledMenuFooter.top)<1&&Math.abs(menuFooter.bottom-scrolledMenuFooter.bottom)<1,'Menu window action stays fixed while navigation scrolls');
@@ -215,7 +258,10 @@ try {
     assert.ok(await evaluate("document.querySelector('.web-mobile-menu .web-navigation-scroll').scrollTop>0"));
     const scrolledShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(evidence,'mobile-menu-scrolled-'+width+'x'+height+'.png'),Buffer.from(scrolledShot.data,'base64'));
-    await click('.web-mobile-menu [title="Ajustes do ambiente"]');await noDialog();
+    await click('.web-mobile-menu [aria-label="Mais opções de navegação"]');
+    assert.equal(await evaluate("!!document.querySelector('.web-navigation-more-menu[role=menu]')"),true,'A complete touch tap opens Mais');
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await sleep(200);
+    await click('.web-mobile-menu [title="Ajustes"]');await noDialog();
     assert.equal(await evaluate("!!document.querySelector('[aria-label=\"Janela Ajustes\"].web-window-active')"),true,'The last menu actions remain reachable in a short viewport');
     assert.equal(await evaluate("document.activeElement===document.querySelector('[aria-label=\"Menu do workspace\"]')"),true);
     await click('.web-mobile-bar [aria-label="Mostrar Início"]');
@@ -357,7 +403,7 @@ try {
       await client.send('Page.navigate',{url:origin+'/?view='+view});await ready();
       if(view==='files'||view==='internet')await fullWindow(view==='files'?'Arquivos':'Internet');
       else if(view!=='home')assert.equal(await evaluate("(()=>{const d=document.querySelector('.web-desktop').getBoundingClientRect(),p=document.querySelector('.web-primary-pane').getBoundingClientRect();return [p.top-d.top,p.left-d.left,p.width-d.width,p.height-d.height].every(v=>Math.abs(v)<1);})()"),true,'Workspace pages use the complete area outside shell chrome');
-      const state=await evaluate("({canonical:document.querySelectorAll('.web-workspace').length===1&&location.pathname==='/',noOverflow:document.documentElement.scrollWidth<=innerWidth,assets:[...document.images].filter(img=>img.getClientRects().length>0).every(img=>img.complete&&img.naturalWidth>0),font:document.fonts.check('14px Inter'),unavailable:document.querySelector('.web-sidebar-status')?.textContent.includes('não conectados')})");
+      const state=await evaluate("({canonical:document.querySelectorAll('.web-workspace').length===1&&location.pathname==='/',noOverflow:document.documentElement.scrollWidth<=innerWidth,assets:[...document.images].filter(img=>img.getClientRects().length>0).every(img=>img.complete&&img.naturalWidth>0),font:document.fonts.check('14px Inter')})");
       assert.ok(Object.values(state).every(Boolean),JSON.stringify({width,height,view,state}));
       if (view === 'store') {
         assert.equal(await evaluate("document.querySelector('.st-root')?.dataset.storeMode"), 'official');
@@ -388,6 +434,7 @@ try {
     await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await sleep(100);
     await noDialog();
+    await adaptiveSidebarProof(width,height);
     await navigationUtilitiesProof(width,height);
     await openingProof(width,height);
     await homeResponsiveProof(width,height);
