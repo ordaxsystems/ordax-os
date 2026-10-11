@@ -44,6 +44,7 @@ jobs:
           pushd tools/creator >/dev/null
           go test -count=1 ./cmd/ordax-creator-app
           popd >/dev/null
+          python -m unittest tests.test_creator_single_paint -v
           echo 'CREATOR_GUIDED_EXPERIENCE_TESTS=PASS'
 
       - name: Compile split Windows owner boundaries
