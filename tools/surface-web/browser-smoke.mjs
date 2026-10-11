@@ -61,6 +61,8 @@ try {
     assert.ok(result.maximized&&result.equal&&result.foreground,JSON.stringify({name,result}));
   }
   async function navigationUtilitiesProof(width,height) {
+    if(width>820)assert.equal(await evaluate("(()=>{const s=document.querySelector('.web-sidebar').getBoundingClientRect(),f=document.querySelector('.web-systembar'),d=f.querySelector('.web-dock'),r=d.getBoundingClientRect(),b=f.getBoundingClientRect(),style=getComputedStyle(f);return Math.abs(s.bottom-innerHeight)<=1&&Math.abs(document.querySelector('.web-desktop').getBoundingClientRect().bottom-innerHeight)<=1&&Math.abs((r.left+r.right)/2-(b.left+b.right)/2)<=1&&style.backgroundColor==='rgba(0, 0, 0, 0)'&&parseFloat(style.borderTopWidth)===0&&style.pointerEvents==='none'&&getComputedStyle(d).pointerEvents==='auto'&&f.children.length===1;})()"),true,'Full-height sidebar and centered floating dock replace the full-width footer strip');
+
     if(width<=820)await click('[aria-label="Menu do workspace"]');
     else assert.equal(await evaluate("!!document.querySelector('.web-sidebar [aria-label=\"Menu de identidade\"]') && !!document.querySelector('.web-sidebar [aria-label=\"Abrir notificações\"]') && !document.querySelector('.web-system-status time')"),true,'Profile and notifications remain in the sidebar; the Web clock is absent');
     await click('[aria-label="Menu de identidade"]');

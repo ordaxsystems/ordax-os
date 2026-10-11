@@ -1,5 +1,8 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+ > **Dock Web — 11/10/2026:** pedido explícito: sidebar até o rodapé e dock central flutuante, sem faixa/linha inferior; preserva lifecycle e navegação mobile. [Owner, riscos e aceite](docs/DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
+
+
 > **Navegação Web — 11/10/2026:** ajuste explícito solicitado: controles do header passam à navegação compartilhada (perfil/notificações na sidebar; relógio Web removido), liberando o topo para apps; sem outro gerenciador, serviços ou estado de identidade. Exceção de UX ao piso MVP, com riscos e aceite em [Desktop Identity](docs/DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
 
 

@@ -247,7 +247,7 @@ shared WorkspaceAccount. Mobile Menu keeps these utilities. The Web shell has no
 clock, clock state or refresh interval. There is no shell topbar or reserved header
 row: apps/pages own the top edge, bounded only by device safe area, sidebar and
 bottom navigation. Search remains available through Apps/Ctrl K and the Menu;
-Space switching remains in the existing desktop footer/mobile Space destination.
+Space switching remains in the desktop sidebar/mobile Space destination.
 Sidebar navigation scrolls separately from its utilities; the collapsed sidebar
 keeps icon actions accessible. No identity, service, app state or authority is copied.
 
@@ -257,3 +257,16 @@ workspace bounds and compact pane geometry. Acceptance: eight responsive viewpor
 launcher/Menu/identity/notification reachability, safe-area offsets, no horizontal
 overflow and original app draft/node retention. Existing Home controls enforce
 44 px touch minimum at the shared tablet/mobile breakpoint.
+
+### Full-height sidebar and floating dock — 2026-10-11
+
+Owner: OS Surface; explicit user-requested layout revision. Desktop sidebar reaches
+the viewport bottom, including account/notifications. The footer contains only the
+centered app dock: no full-width background, blur or separator line. Only the dock
+receives pointer input. Space selection/window arrangement move to the sidebar;
+connection state remains in the existing sidebar service status. Workspace extends to the bottom behind the dock; content padding preserves
+app control reachability without a reserved footer strip. No second window
+manager or app state is introduced. Mobile retains the five-destination navigation.
+Acceptance: sidebar bottom aligns with viewport, dock centers in usable width,
+transparent/pointer-transparent footer, sidebar collapsed controls, notification
+opening and mobile menus at desktop/short/tablet widths.

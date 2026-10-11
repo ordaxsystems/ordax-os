@@ -1,5 +1,8 @@
 # Current State
 
+Web layout: full-height desktop sidebar and centered floating app dock replace the full-width footer strip; mobile navigation remains unchanged. Owner/acceptance: [Desktop Identity](DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
+
+
 ## Web navigation utilities — 2026-10-11
 
 Source preview moves shell search/profile/notifications to shared navigation chrome (desktop sidebar search/profile/notifications; mobile Menu; no Web clock). Apps occupy the top edge; only safe area/sidebar/bottom navigation remain outside. Existing reducers, dialogs and app instances are retained. Services and release gates are unchanged. Acceptance and risks: [Desktop Identity](DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
