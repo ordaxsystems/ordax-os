@@ -42,8 +42,13 @@ try {
   async function click(selector){
     const point=await evaluate("(()=>{const node=[...document.querySelectorAll("+JSON.stringify(selector)+")].find(node=>node.getClientRects().length>0);if(!node)throw Error('Missing control');node.scrollIntoView({block:'center',inline:'center',behavior:'instant'});const box=node.getBoundingClientRect();const x=box.left+box.width/2,y=box.top+box.height/2,hit=document.elementFromPoint(x,y);if(!box.width||!box.height||!node.contains(hit))return {obstructed:true,box:{x,y,width:box.width,height:box.height},hit:hit?.outerHTML.slice(0,400)};return {x,y};})()");
     if(point.obstructed){const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(evidence,'failure.png'),Buffer.from(shot.data,'base64'));throw Error('Obstructed '+selector+': '+JSON.stringify(point));}
+    if(await evaluate('navigator.maxTouchPoints>0')) {
+      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+      await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    } else {
     await client.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
     await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
+    }
     await sleep(100);
   }
 
@@ -74,6 +79,64 @@ try {
     if(layout.controls) assert.ok(Math.abs(layout.controls.top-layout.primary.bottom)<1,JSON.stringify(layout));
     return layout;
   }
+
+  async function mobileNavigationProof(width,height) {
+    if(width>760)return;
+    assert.equal(await evaluate("document.querySelector('.web-mobile-bar [aria-current=page]')?.textContent"),'Início');
+    assert.equal(await evaluate("document.querySelector('.web-mobile-bar [aria-label=\"Abrir aplicativos\"]').dataset.selected"),'false');
+    const touch=await evaluate("(()=>{const root=document.querySelector('.web-window-compact:not(.web-compact-hidden)'),buttons=[...root.querySelectorAll('.web-window-titlebar button')].filter(b=>b.getClientRects().length>0);return buttons.map(b=>{const r=b.getBoundingClientRect();return {width:r.width,height:r.height};});})()");
+    assert.equal(touch.length,3,'Mobile titlebar keeps three direct actions; other actions remain in its menu');
+    assert.ok(touch.every(b=>b.width>=44&&b.height>=44));
+    assert.ok(await evaluate("parseFloat(getComputedStyle(document.querySelector('[aria-label=\"Buscar arquivos\"]')).fontSize)>=16"));
+    const fileUi=await evaluate("(()=>{const w=document.querySelector('[aria-label=\"Janela Arquivos\"]');return {places:[...w.querySelectorAll('.web-app-navigation button')].every(n=>parseFloat(getComputedStyle(n).fontSize)>=12&&n.getBoundingClientRect().height>=44),status:parseFloat(getComputedStyle(w.querySelector('.web-status')).fontSize)>=11,viewButtons:[...w.querySelectorAll('.web-toolbar-actions [aria-pressed]')].every(n=>n.getClientRects().length>0&&n.getBoundingClientRect().width>=44)};})()");
+    assert.ok(Object.values(fileUi).every(Boolean),JSON.stringify(fileUi));
+    await click('[aria-label="Janela Arquivos"] [aria-label="Visualização em lista"]');
+    assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Arquivos\"] [aria-label=\"Visualização em lista\"]').getAttribute('aria-pressed')"),'true');
+    await click('[aria-label="Janela Arquivos"] [aria-label="Visualização em grade"]');
+    await click('[aria-label="Menu do workspace"]');
+    assert.equal(await evaluate("!!document.querySelector('.web-mobile-menu[role=dialog]') && document.querySelector('.web-mobile-menu').contains(document.activeElement)"),true);
+    const menuShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(join(evidence,'mobile-menu-'+width+'x'+height+'.png'),Buffer.from(menuShot.data,'base64'));
+    for(let i=0;i<18;i++){
+      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+      assert.equal(await evaluate("document.querySelector('.web-mobile-menu').contains(document.activeElement)"),true,'Focus remains within the mobile menu');
+    }
+    await click('.web-mobile-menu [title="Ajustes do ambiente"]');await noDialog();
+    assert.equal(await evaluate("!!document.querySelector('[aria-label=\"Janela Ajustes\"].web-window-active')"),true,'The last menu actions remain reachable in a short viewport');
+    assert.equal(await evaluate("document.activeElement===document.querySelector('[aria-label=\"Menu do workspace\"]')"),true);
+    await click('.web-mobile-bar [aria-current], .web-mobile-bar button:nth-child(2)');
+    await click('[aria-label="Menu do workspace"]');
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await noDialog();
+    assert.equal(await evaluate("document.activeElement===document.querySelector('[aria-label=\"Menu do workspace\"]')"),true,'Escape restores menu-trigger focus');
+    await click('[aria-label="Menu do workspace"]');
+    await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:5,y:5}]});
+    await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await sleep(100);await noDialog();
+    if(width===390){
+      await click('[aria-label="Menu do workspace"]');
+      await client.send('Emulation.setDeviceMetricsOverride',{width:1024,height:768,deviceScaleFactor:1,mobile:false});
+      await noDialog();
+      assert.equal(await evaluate("document.querySelector('.web-sidebar').getClientRects().length>0"),true,'Desktop navigation replaces the mobile menu after resize');
+      await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await sleep(150);
+    }
+    await click('.web-mobile-bar [aria-label="Visão geral das janelas"]');
+    assert.equal(await evaluate("document.querySelector('.web-mobile-bar [aria-label=\"Visão geral das janelas\"]').dataset.selected"),'true');
+    await click('[aria-label="Abrir Studio pela visão geral"]');await noDialog();
+    assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"Janela Studio\"]').length===1 && !!document.querySelector('[aria-label=\"Janela Studio\"].web-window-active')"),true);
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
+  }
+  async function closeWindow(name) {
+    const selector='[aria-label="Fechar '+name+'"]';
+    if(await evaluate("!![...document.querySelectorAll("+JSON.stringify(selector)+")].find(n=>n.getClientRects().length>0)"))await click(selector);
+    else {
+      await click('[aria-label="Menu da janela '+name+'"]');
+      await click('.web-window-menu [role=menuitem]:last-child');
+    }
+  }
+
   async function splitProof(width,height) {
     await paneLayout('expanded');
     await click('[aria-label="Abrir aplicativos"]');
@@ -130,13 +193,14 @@ try {
     await click('.web-launcher [title="Abrir Arquivos"]');await noDialog();
     await click('[aria-label="Compactar Arquivos"]');
     await paneLayout('expanded');await retained();
-    await click('[aria-label="Fechar Arquivos"]');
+    await closeWindow('Arquivos');
     await paneLayout('none');await retained();
   }
 
   const reports=[];
   for(const [width,height] of [[1440,900],[1024,768],[700,650],[390,844],[320,568],[844,390]]){
     await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});
+    await client.send('Emulation.setTouchEmulationEnabled',{enabled:width<=760,maxTouchPoints:1});
     for(const view of ['home','assistant','projects','spaces','apps','files','internet','store']){
       await client.send('Page.navigate',{url:origin+'/?view='+view});await ready();
       const state=await evaluate("({canonical:document.querySelectorAll('.web-workspace').length===1&&location.pathname==='/',noOverflow:document.documentElement.scrollWidth<=innerWidth,assets:[...document.images].filter(img=>img.getClientRects().length>0).every(img=>img.complete&&img.naturalWidth>0),font:document.fonts.check('14px Inter'),unavailable:document.querySelector('.web-sidebar-status')?.textContent.includes('não conectados')})");
@@ -170,6 +234,7 @@ try {
     await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await sleep(100);
     await noDialog();
+    await mobileNavigationProof(width,height);
     await splitProof(width,height);
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
     if(width>760){
@@ -184,7 +249,7 @@ try {
     }
     const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(evidence,'web-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
-    reports.push({width,height,views:8,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,assets:true,noOverflow:true,launcher:true,windowLifecycle:width>760});
+    reports.push({width,height,views:8,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,mobileNavigation:width<=760,assets:true,noOverflow:true,launcher:true,windowLifecycle:width>760});
   }
   return reports;
  });

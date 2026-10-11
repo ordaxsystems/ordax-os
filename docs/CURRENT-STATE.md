@@ -1,5 +1,17 @@
 # Current State
 
+## Web mobile usability — 2026-10-11
+
+The canonical workspace now shares its navigation component between the desktop
+sidebar and a scrollable mobile Dialog. Bottom navigation reflects the active
+area, app switching closes the overview, window actions remain reachable through
+the existing menu, and narrow File views retain grid/list controls. Mobile text,
+search fields and touch targets are enlarged without duplicating state or
+service authority. Split-pane geometry and mounted app state are preserved.
+Owner, dependencies, risks and browser acceptance: docs/DESKTOP-IDENTITY.md.
+This remains a Web presentation candidate; pending service integrations are
+unchanged.
+
 ## Web compact panes — 2026-10-11
 
 The canonical Web workspace now reserves two responsive tracks for primary
