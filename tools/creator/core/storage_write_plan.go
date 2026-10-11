@@ -267,13 +267,23 @@ func buildPreparedWriteRegionsFromSeed(layout PhysicalStorageLayout, seedBytes u
 // ORDAX-DATA signature-clearing/GPT regions are copied and read back. Omitting
 // it keeps the broader legacy plan used by generic writer fixtures.
 func PlanPreparedPhysicalWrite(file *os.File, targetBytes uint64, bootstrapSeedBytes ...uint64) (PhysicalWritePlan, error) {
+	return planPreparedPhysicalWrite(file, targetBytes, false, bootstrapSeedBytes...)
+}
+
+// PlanOwnerDevelopmentPreparedPhysicalWrite checks the exact development-only
+// GPT geometry before a privileged writer can consume a prepared image.
+func PlanOwnerDevelopmentPreparedPhysicalWrite(file *os.File, targetBytes uint64, bootstrapSeedBytes ...uint64) (PhysicalWritePlan, error) {
+	return planPreparedPhysicalWrite(file, targetBytes, true, bootstrapSeedBytes...)
+}
+
+func planPreparedPhysicalWrite(file *os.File, targetBytes uint64, ownerDevelopment bool, bootstrapSeedBytes ...uint64) (PhysicalWritePlan, error) {
 	if file == nil {
 		return PhysicalWritePlan{}, errors.New("prepared image is required")
 	}
 	if len(bootstrapSeedBytes) > 1 {
 		return PhysicalWritePlan{}, errors.New("at most one bootstrap seed size may be supplied")
 	}
-	layout, err := PlanPhysicalStorage(targetBytes)
+	layout, err := planPhysicalStorage(targetBytes, ownerDevelopment)
 	if err != nil {
 		return PhysicalWritePlan{}, err
 	}
