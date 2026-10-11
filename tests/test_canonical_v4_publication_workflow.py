@@ -135,7 +135,7 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
         ).strip()
         with tempfile.TemporaryDirectory() as directory:
             fake_gh = Path(directory) / "gh"
-            fake_gh.write_text('#!/bin/sh\\nprintf "%s\\\\n" "$FAKE_MAIN_SHA"\\n',
+            fake_gh.write_text('#!/bin/sh\nprintf "%s\\n" "$FAKE_MAIN_SHA"\n',
                                encoding="utf-8")
             fake_gh.chmod(0o700)
             base = dict(os.environ)
