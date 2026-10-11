@@ -161,8 +161,8 @@ func renderWriteProgress() {
 	writeMu.Lock()
 	state := writeState
 	writeMu.Unlock()
-	setText(statusLabel, state.Status)
-	setText(hintLabel, state.Hint)
+	setCreatorStatus(state.Status)
+	setCreatorHint(state.Hint)
 	if state.Determinate {
 		setProgressPercent(state.Percent)
 	} else {
@@ -180,8 +180,8 @@ func renderWriteDone() {
 	state := writeState
 	writeMu.Unlock()
 
-	setText(statusLabel, state.Status)
-	setText(hintLabel, state.Hint)
+	setCreatorStatus(state.Status)
+	setCreatorHint(state.Hint)
 	if state.Success {
 		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		setProgressComplete()
