@@ -432,9 +432,18 @@ jobs:
             --repo "$repo" --clobber
           gh release delete-asset creator-owner-prototype 'OrdaX-Creator.exe' \
             --repo "$repo" --yes || true
-          gh release edit creator-owner-prototype --repo "$repo" --target "$GITHUB_SHA" \
-            --title 'OrdaX Creator - Development Git USB' \
-            --notes 'Development bundle: extract the ZIP and run OrdaX-Creator.exe. GUI and privileged RAW writer are separate. Ordinary OrdaX changes remain remote main -> ordax-pull -> ordax-run.'
+          # The tag is the stable address of the Owner/Development channel, not
+          # the source identity of the mutable asset. GitHub may deny release
+          # metadata PATCH (HTTP 403) even when authorized asset upload succeeds.
+          # Never depend on moving the historical tag or updating its target.
+          gh api "repos/$repo/releases/tags/creator-owner-prototype" > "$RUNNER_TEMP/owner-published-release.json"
+          python3 tools/creator/verify_owner_published_release.py \
+            --release "$RUNNER_TEMP/owner-published-release.json" \
+            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
+            --metadata "$release/creator-owner-update.json" \
+            --checksums "$release/SHA256SUMS.txt" \
+            --readme "$release/LEIA-ME.txt" \
+            --source-commit "$GITHUB_SHA"
           echo 'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE'
           echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
           echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=YES'
