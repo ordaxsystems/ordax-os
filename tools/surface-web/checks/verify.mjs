@@ -3,9 +3,45 @@ import {createHash} from 'node:crypto';
 import {readFile, readdir} from 'node:fs/promises';
 import {windowReducer, initialWindows} from '../../../system/surface/workspace/lib/web/windows.ts';
 import {askIntelligence} from '../../../system/surface/workspace/lib/intelligence/ai.functions.ts';
+import {desktopReducer, initialDesktopState} from '../../../system/surface/workspace/components/central/desktop-state.ts';
 const root = new URL('../../../', import.meta.url);
 const sourceRoot = new URL('system/surface/workspace/', root);
 const provenance = JSON.parse(await readFile(new URL('docs/evidence/web-layout-reference-2026-10-10.json', root), 'utf8'));
+const centralReference = JSON.parse(await readFile(new URL('docs/evidence/web-central-reference-2026-10-11.json', root), 'utf8'));
+for (const entry of centralReference.files) {
+  const bytes = await readFile(new URL(entry.target, root));
+  const sha = value => createHash('sha256').update(value).digest('hex');
+  const candidates = [sha(bytes)];
+  if (!entry.source.startsWith('src/assets/')) {
+    let restored = bytes.toString('utf8').replace(/\r\n/g, '\n');
+    for (const edit of [...(centralReference.textChanges[entry.source] ?? [])].reverse()) {
+      const from = edit.from.replace(/\r\n/g, '\n');
+      const to = edit.to.replace(/\r\n/g, '\n');
+      assert.ok(restored.includes(to), 'Missing integration adjustment: ' + entry.target);
+      restored = restored.replaceAll(to, from);
+    }
+    candidates.push(sha(restored), sha(restored.replace(/\n/g, '\r\n')));
+  }
+  assert.ok(candidates.includes(entry.sha256), 'Central reference drift: ' + entry.target);
+}
+const composition = await readFile(new URL('system/composition/web/main.tsx', root), 'utf8');
+assert.ok(composition.includes('<Central/>'), 'The approved Central is the primary Web page');
+assert.ok(!composition.includes('WebShell'), 'Previous Web presentation must not be mounted');
+const initialDesktopSnapshot = JSON.stringify(initialDesktopState);
+let desktop = desktopReducer(initialDesktopState, {type: 'open', title: 'Projetos'});
+desktop = desktopReducer(desktop, {type: 'open', title: 'Projetos'});
+assert.equal(desktop.windows.length, 1, 'Opening twice must not duplicate a desktop window');
+desktop = desktopReducer(desktop, {type: 'open', title: 'Arquivos'});
+desktop = desktopReducer(desktop, {type: 'show-desktop'});
+assert.equal(desktop.active, null);
+assert.ok(desktop.windows.every(window => window.minimized));
+desktop = desktopReducer(desktop, {type: 'focus', title: 'Projetos'});
+assert.equal(desktop.active, 'Projetos');
+assert.equal(desktop.windows.at(-1).title, 'Projetos');
+assert.equal(desktop.windows.at(-1).minimized, false);
+desktop = desktopReducer(desktop, {type: 'close', title: 'Projetos'});
+assert.ok(!desktop.windows.some(window => window.title === 'Projetos'));
+assert.equal(JSON.stringify(initialDesktopState), initialDesktopSnapshot);
 let verified = 0;
 for (const entry of provenance.files) {
   if (entry.path === 'src/lib/intelligence/ai.functions.ts' || Object.hasOwn(provenance.excluded_files ?? {}, entry.path)) continue;
@@ -67,16 +103,15 @@ console.log('PASS: ' + verified + ' reference files/assets (recorded edits rever
 
 if (process.argv.includes('--preview')) {
   const origin = 'http://127.0.0.1:4201';
-  const views = ['home', 'assistant', 'apps', 'projects', 'files', 'spaces', 'internet', 'store'];
   for (const path of ['/web2', '/web2/']) assert.equal((await fetch(origin + path)).status, 404, 'Retired route must not be preserved: ' + path);
   let html = '';
-  for (const path of ['/', ...views.map(view => '/?view=' + view)]) {
+  for (const path of ['/']) {
     const response = await fetch(new URL(path, origin), {signal: AbortSignal.timeout(8000)});
     assert.equal(response.status, 200, 'Direct reload fails: ' + path);
     html = await response.text();
     assert.ok(html.includes('<div id="ordax-root"></div>'), 'Missing app document: ' + path);
   }
-  assert.ok(html.includes('<meta name="color-scheme" content="dark"'), 'Native controls must match the dark theme');
+  assert.ok(html.includes('<meta name="color-scheme" content="light dark"'), 'Both native-control themes must be supported');
   const assets = [...html.matchAll(/(?:src|href)="((?:\.\/|\/)assets\/[^" ]+)"/g)].map(match => match[1]);
   assert.ok(assets.length >= 2, 'Missing compiled JS/CSS references');
   const compiledAssets = await readdir(new URL('out/web-ui/assets/', root));
@@ -88,5 +123,5 @@ if (process.argv.includes('--preview')) {
     const built = await readFile(new URL('out/web-ui/' + path.replace(/^\.\//, '').replace(/^\//, ''), root));
     assert.equal(createHash('sha256').update(served).digest('hex'), createHash('sha256').update(built).digest('hex'), 'Stale build served: ' + path);
   }
-  console.log('PASS: preview direct reload for 8 views; ' + compiledAssets.length + ' build assets match served bytes; dark native controls declared (HTTP only, not browser rendering)');
+  console.log('PASS: primary Central reload; ' + compiledAssets.length + ' build assets match served bytes; both native-control themes declared (HTTP only, not browser rendering)');
 }

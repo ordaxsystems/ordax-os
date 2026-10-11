@@ -4,12 +4,11 @@ import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tan
 import { Toaster } from 'sonner';
 import { createUnavailableAppStoreCatalogPort } from '../../contracts/app-store.mjs';
 import { StoreCatalogProvider } from '../../surface/workspace/components/store/catalog-context';
-import { WebShell } from '../../surface/workspace/components/web/shell';
-import { normalizeWebView } from '../../surface/workspace/lib/web/model';
+import { Central } from '../../surface/workspace/components/central/central';
 import { createSurfaceBootScreen } from '../../surface/ui/boot-screen.mjs';
 import { translateSurfaceMessage } from '../../services/i18n/surface.mjs';
 import '../../surface/ui/tokens.css';
-import '../../surface/workspace/styles.css';
+import '../../surface/workspace/components/central/styles.css';
 import '../../surface/ui/boot-screen.css';
 const boot = createSurfaceBootScreen(document);
 const text = (id: string) => translateSurfaceMessage('pt-BR', id);
@@ -25,13 +24,11 @@ class WorkspaceBoundary extends Component<{children: ReactNode}, {failed: boolea
   render() { return this.state.failed ? <p role="alert">{text('surface.boot.failed')}</p> : this.props.children; }
 }
 function Workspace() {
-  const { view } = web.useSearch();
   useEffect(() => { boot.ready(); }, []);
-  return <><StoreCatalogProvider port={storeCatalog}><WebShell view={view}/></StoreCatalogProvider><Toaster/></>;
+  return <><StoreCatalogProvider port={storeCatalog}><Central/></StoreCatalogProvider><Toaster/></>;
 }
 const web = createRoute({
   getParentRoute: () => route, path: '/',
-  validateSearch: (search: Record<string, unknown>) => ({view: normalizeWebView(search.view)}),
   component: Workspace
 });
 // Canonical Web product entry. Unknown paths do not become alternate product mounts.

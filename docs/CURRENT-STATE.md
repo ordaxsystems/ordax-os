@@ -1,5 +1,23 @@
 # Current State
 
+## Web Central principal — 2026-10-11
+
+Pedido explícito do usuário: promover a referência `ordaxsystems/lovable-core-ui`
+(`89438133b322e3ef87e862c80af3a3dbe18251f5`) à página Web principal. A entrada
+canônica monta somente `Central`; não há rota alternativa, redirect ou montagem
+da Home/WebShell anterior. Central e área de trabalho clássica compartilham
+dados de apresentação, componentes e temas claro/escuro da referência.
+
+Serviços, Native e Conta pública permanecem sob seus owners. Dados da referência
+estão identificados como demonstração; conexão ao backend é a etapa seguinte.
+Componentes de aplicativos e estado de janelas existentes foram preservados
+após rejeição automática da exclusão ampla. Nenhum build de produção, comando
+npm ou teste local foi executado, por restrição explícita do usuário. Fonte e
+checks atualizados não equivalem a release ou implantação comprovada.
+Owner, limitações e proveniência: [Desktop Identity](DESKTOP-IDENTITY.md#canonical-web-central--2026-10-11).
+As notas anteriores sobre Home, dock, panes e navegação Web abaixo ficam
+substituídas por essa decisão; seus consumidores de serviços continuam em source.
+
 ## Stable v4 — handoff assinado validado, publicação pendente (2026-10-11)
 
 A candidata congelada `03f88eeaf382a59aaefbcf4943d0639d2730741b` passou no workflow oficial [Canonical v4 Signed Handoff Proof, run 38156353913](https://github.com/ordaxsystems/ordax-os/actions/runs/38156353913). A suíte Go completa executou com sucesso em Ubuntu 24.04 na revisão exata; o verificador Windows executou Step 5 e confirmou a assinatura Ed25519, a igualdade byte a byte do payload/manifesto e os hashes e tamanhos reais dos três EROFS. Recibo `prototype-ordax.portable-v4-signed-handoff-verification/1` baixado e conferido: os três indicadores de assinatura, payload e artefatos são `true`, enquanto `release_published`, `release_activated` e `physical_write_performed` são `false`.

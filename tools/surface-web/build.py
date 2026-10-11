@@ -46,6 +46,7 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
         PurePosixPath("tools/surface-web/vite.config.ts"),
         PurePosixPath("tools/surface-web/tsconfig.json"),
         PurePosixPath("docs/evidence/web-layout-reference-2026-10-10.json"),
+        PurePosixPath("docs/evidence/web-central-reference-2026-10-11.json"),
         PurePosixPath("system/surface/ui/brand/ordax-symbol.png"),
         PurePosixPath("system/services/local-ai/source-lock.json"),
         PurePosixPath("third_party/licenses/Inter-OFL-1.1.txt"),

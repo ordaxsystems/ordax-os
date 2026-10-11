@@ -2,6 +2,26 @@
 
 Status: CANONICAL LEDGER
 
+## Web Central presentation — 2026-10-11
+
+COMPONENT=Surface Web Central and classic desktop presentation
+LEGACY_REPOSITORY=ordaxsystems/lovable-core-ui
+LEGACY_COMMIT=89438133b322e3ef87e862c80af3a3dbe18251f5
+LEGACY_PATH=src/components/central, src/styles.css, src/assets/alpine-{day,night}.jpg
+RESPONSIBILITY=Primary Web layout, responsive composition, local appearance and illustrative window state
+WHY_NEEDED=Explicit user selection of this layout as the sole active Web page
+DEPENDENCIES=Existing React, shared Button/Dialog, Lucide, Tailwind, local Inter and OS Web boot/error boundary
+SECURITY_REVIEW=Presentation-only data; no Identity, grants, execution, sync or backend introduced; no upstream SSR/telemetry imported
+TESTS=Local build/npm/tests excluded by the user; existing service/window checks preserved and new reference/browser checks prepared, not executed
+ARTIFACT_SHA256=Per-file source digests in docs/evidence/web-central-reference-2026-10-11.json
+DECISION=ADOPTED
+
+This is source adoption, not public release approval. The reference has no root
+LICENSE; final distribution review remains pending. Previous Web presentation
+components remain reusable source after automatic review rejected broad
+deletion, but the canonical root no longer mounts them. Backend connection is
+explicitly deferred; Native and public Account are not replaced.
+
 This file controls selective reuse from `washingtonmsdj/novo-ordax-os`.
 
 ## Rule

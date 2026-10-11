@@ -1,0 +1,34 @@
+{
+  "schema": "ordax.web-central-reference/1",
+  "repository": "https://github.com/ordaxsystems/lovable-core-ui",
+  "commit": "89438133b322e3ef87e862c80af3a3dbe18251f5",
+  "owner": "OrdaX OS Surface",
+  "canonical_entry": "system/composition/web/main.tsx",
+  "scope": "One active Web presentation; backend integrations deferred",
+  "authorization": "User explicitly requested this reference as the primary Web interface",
+  "license_review": "User-supplied OrdaX repository; no upstream LICENSE found; distribution review pending",
+  "validation": {"local_build_executed": false, "local_tests_executed": false, "npm_executed": false},
+  "files": [
+    {"source": "src/components/central/central.tsx", "target": "system/surface/workspace/components/central/central.tsx", "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32"},
+    {"source": "src/components/central/config.ts", "target": "system/surface/workspace/components/central/config.ts", "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca"},
+    {"source": "src/components/central/primitives.tsx", "target": "system/surface/workspace/components/central/primitives.tsx", "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330"},
+    {"source": "src/components/central/desktop.tsx", "target": "system/surface/workspace/components/central/desktop.tsx", "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa"},
+    {"source": "src/components/central/desktop-state.ts", "target": "system/surface/workspace/components/central/desktop-state.ts", "sha256": "29495a38b755ce63ab6938a605edb2eb0f6a7e6e4e10ede7dabdf25a85c08728"},
+    {"source": "src/styles.css", "target": "system/surface/workspace/components/central/styles.css", "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea"},
+    {"source": "src/assets/alpine-day.jpg", "target": "system/surface/workspace/assets/alpine-day.jpg", "sha256": "80c205cfa78aff01adfa3ef87e6a20da626354114424a153bbdef05bb6188b0e"},
+    {"source": "src/assets/alpine-night.jpg", "target": "system/surface/workspace/assets/alpine-night.jpg", "sha256": "9ac18bd3aaed4fccc7249d31c722faad5eb8b9dee638ae556e56d47157bf8afe"}
+  ],
+  "textChanges": {
+    "src/styles.css": [{"from": "@source \"../src\";", "to": "@source \".\";\n@source \"../ui\";"}],
+    "src/components/central/primitives.tsx": [
+      {"from": "aria-label=\"OrdaX OS Web\"", "to": "aria-label=\"OrdaX OS Web — demonstração visual\""},
+      {"from": "<span className=\"brand-sub\">WEB</span>", "to": "<span className=\"brand-sub\">WEB · DEMONSTRAÇÃO</span>"}
+    ]
+  },
+  "integration_adjustments": [
+    "Mount Central in the existing canonical boot/error boundary and root route",
+    "Reuse shared UI components and local Inter font; no upstream SSR or telemetry imported",
+    "Mark example account, devices, activity and storage as presentation data",
+    "Preserve existing app/service consumers and window code without mounting the previous Web page"
+  ]
+}

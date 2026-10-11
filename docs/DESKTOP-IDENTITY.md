@@ -79,7 +79,48 @@ Roadmap: shared Surface identity and minimal functional desktop in `PLANO-FUNCIO
 Acceptance requires visual/contrast regressions, existing preference/localization tests, source-graph and deterministic bundle verification, and real Chromium shell/composition smoke. Web inspection covers desktop and narrow breakpoints and both materials. Source publication is a reviewable candidate, not production activation, a signed release or proof of USB/mobile hardware operation. A visual refresh does not require a kernel rebuild or USB rewrite.
 
 
-## Canonical Web presentation — 2026-10-10
+## Canonical Web Central — 2026-10-11
+
+The sole active Web page now mounts `Central` from
+`system/surface/workspace/components/central/`, through the existing boot,
+error boundary and root route in `system/composition/web/main.tsx`.
+The user explicitly selected `ordaxsystems/lovable-core-ui` at
+`89438133b322e3ef87e862c80af3a3dbe18251f5` as the primary presentation.
+Central and classic desktop are two views within this same page, sharing
+`config.ts`, visual primitives, theme tokens and the desktop-state reducer.
+There is no alternate product URL, query-selected old page or redirect.
+
+The Web palette, spacing and composition come from the adopted
+`components/central/styles.css`, with local light/dark alpine assets and the
+existing vendored Inter font. Native identity, public Account, services,
+contracts, dependency locks and installation/release gates remain unchanged.
+The reference's TanStack Start server, telemetry and remote font links are not
+imported into the product. The existing shared Button/Dialog are reused.
+
+Backend wiring is deferred at the user's request. The reference's account,
+projects, activity, devices and storage are examples; the brand labels the
+page as a demonstration. Prompt submission does not infer or execute actions.
+Local theme/view preferences do not establish an Identity or sync service.
+Existing application, Store and Intelligence consumers remain in source for
+the next integration phase; the former WebShell is not mounted or exposed as
+a second page. Broad code removal was rejected by automatic approval review,
+so no shared application/window functionality was deleted.
+
+Owner: OrdaX OS Surface, under `PLANO-FUNCIONAL-SURFACE-E-APPS.md`.
+Provenance and reversible integration adjustments:
+`docs/evidence/web-central-reference-2026-10-11.json`.
+Risk: unconnected example data, viewport/focus behavior, dependency versions
+and final distribution license review. Local build, npm and test execution
+were explicitly excluded by the user. Updated checks are prepared for CI;
+their presence is not a passing result or a release/deployment proof.
+
+## Superseded Web presentation notes — 2026-10-10/11
+
+The Web notes below describe the previous presentation, retained as source
+history and library capabilities. They do not describe the currently mounted
+Central or certify its behavior. The section above is the active Web decision.
+
+### Previous canonical Web presentation — 2026-10-10
 
 The approved Account Hub layout is adopted into the OS-owned portable Surface at
 system/surface/workspace/. The sole Web bootstrap is system/composition/web/main.tsx.
