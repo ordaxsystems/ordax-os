@@ -17,6 +17,7 @@ from urllib.error import HTTPError, URLError
 from build_canonical_v4_request import (
     build_request,
     fetch_json,
+    verify_frozen_candidate_ref,
 )
 from select_active_signing_request import (
     ACTIVE_PATH,
@@ -36,7 +37,13 @@ def live_request_matches(root: Path, request: dict, token: str, *, fetch=fetch_j
         runs[kind] = fetch(f"/actions/runs/{run_id}", token)
         inventories[kind] = fetch(f"/actions/runs/{run_id}/artifacts?per_page=100", token)
     live = build_request(request["source_commit"], runs, inventories, load_historical_request(root))
-    return live == request
+    if live != request:
+        return False
+    # Run metadata proves which ref was used then; also prove the immutable
+    # candidate branch has not been moved or deleted *now* before assembly.
+    # Reuse the canonical builder verifier instead of adding a second owner.
+    verify_frozen_candidate_ref(request["source_commit"], live["operator_ref"], token, fetch=fetch)
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:
