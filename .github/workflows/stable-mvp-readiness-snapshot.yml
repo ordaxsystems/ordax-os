@@ -9,6 +9,9 @@ on:
       - 'tools/creator/physical_promotion.py'
       - 'tools/creator/stable_mvp_usb_readiness.py'
       - 'tools/ops/first_mvp_operator_readiness.py'
+      - 'tools/ops/stable_release_request_snapshot.py'
+      - 'tests/test_stable_release_request_snapshot.py'
+      - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-consumer-flow.json'
       - 'tests/test_first_mvp_operator_readiness.py'
@@ -54,6 +57,7 @@ jobs:
             tests.test_pre_usb_nova_ordax_audit \
             tests.test_stable_mvp_usb_readiness \
             tests.test_first_mvp_operator_readiness \
+            tests.test_stable_release_request_snapshot \
             tests.test_physical_promotion_boundary \
             tests.test_stable_mvp_readiness_snapshot_workflow -v
           python -m unittest discover -s tests -p 'test_canonical_v4_operator_retention.py' -v
@@ -66,12 +70,22 @@ jobs:
           set -euo pipefail
           mkdir -p out/mvp-readiness
           python tools/ops/first_mvp_operator_readiness.py --repo-root . > out/mvp-readiness/operator.json
+          python tools/ops/stable_release_request_snapshot.py --repo-root . --source-commit "$SOURCE_COMMIT_SHA" > out/mvp-readiness/canonical-request.json
           python - <<'PY'
           import json
           import os
           from pathlib import Path
 
           operator = json.loads(Path("out/mvp-readiness/operator.json").read_text(encoding="utf-8"))
+          request = json.loads(Path("out/mvp-readiness/canonical-request.json").read_text(encoding="utf-8"))
+          if request.get("$schema") != "prototype-ordax.stable-release-request-snapshot/1":
+              raise SystemExit("Missing canonical request snapshot")
+          if request.get("status") not in {
+              "exact-source-request-present", "source-request-differs", "no-validated-request"
+          }:
+              raise SystemExit("Unrecognized request snapshot status")
+          if request.get("physical_write_authorized") is not False or request.get("release_signed_by_this_snapshot") is not False:
+              raise SystemExit("Readiness snapshot must never claim release or physical authorization")
           if operator.get("$schema") != "prototype-ordax.first-mvp-operator-readiness/1":
               raise SystemExit("Unexpected operator readiness schema")
           if operator.get("status") not in {"blocked", "ready-for-operator-handoff"} or "error" in operator:
@@ -121,6 +135,12 @@ jobs:
               f"**Commit do workflow:** \x60{sha}\x60",
               f"**Estado canônico:** \x60{state['status']}\x60",
               f"**Etapa atual:** \x60{state['stage']}\x60",
+              "",
+              "**Solicitação canônica de assinatura (somente leitura):**",
+              f"- Commit da solicitação validada: `{request['validated_request_source_commit'] or 'nenhum'}`",
+              f"- Mesmo commit deste snapshot: `{request['request_matches_snapshot_commit']}`",
+              f"- Etapa: `{request['status']}`",
+              "- Este snapshot **não** confere expiração ou bytes remotos e não assina nada.",
               "",
               "**Pendências obrigatórias restantes para o USB:**",
           ]

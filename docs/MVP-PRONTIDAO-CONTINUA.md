@@ -46,6 +46,34 @@ O job é considerado bem-sucedido quando o **avaliador** funciona e o snapshot �
 
 Artefatos incluem `operator.json` (agregador canônico), `status.json` (mesmo objeto USB sem nova avaliação) e explicação por SHA; só leitura, sem chave privada, sem seleção de USB, sem alteração da autorização, sem acionamento do writer e sem publicação.
 
+## Identidade exata da candidata Stable e solicitação canônica
+
+O workflow read-only agora também publica `canonical-request.json` pelo
+`tools/ops/stable_release_request_snapshot.py`. A avaliação **não** redefine
+o seletor `tools/release-operator/select_active_signing_request.py`;
+ela o utiliza como autoridade local sobre proveniência e validação do pedido,
+depois compara o `source_commit` da solicitação ativa com o SHA que gerou
+o snapshot.
+
+```sh
+python tools/ops/stable_release_request_snapshot.py --source-commit <SHA40>
+```
+
+O resultado diferencia `exact-source-request-present`,
+`source-request-differs` e `no-validated-request`. A diferença de commit
+não indica automaticamente erro: uma candidata congelada em
+`release-candidate/<SHA40>` pode coexistir com novas alterações na `main`.
+Mas **somente os bytes daquela candidata** poderiam receber assinatura,
+materialização e provas correspondentes. Se o objetivo for disponibilizar as
+correções mais novas da `main`, será necessário novo pedido com builds e
+provas ligados a outro SHA.
+
+Esse relatório não baixa nem verifica o prazo dos artifacts no GitHub, não
+abre PEM, não lê chave, não assina, não publica, não confere mídia física e
+não autoriza gravação. A existência de `canonical-request.json`, por si,
+não torna o lançamento liberado. A prova assinada/materializada, Authenticode
+do Creator público e o boot físico permanecem gates distintos.
+
 ## O que falta hoje para um lançamento público
 
 A auditoria de source/CI e o boot em QEMU não substituem a prova física da Stable/MVP atual. A release canônica v4 existente é histórica/pré-hardening e não deve ser reaproveitada para uma nova autorização. Faltam prova nova exata da versão candidata, gate de pré-autorização, autorização do proprietário no contexto específico, testes físicos com leitura de artefatos, sessão gráfica, first run, apps essenciais, cold-health e rollback. Ver `docs/MVP-PRE-PHYSICAL-HANDOFF.md` para a ordem e os requisitos atualizados.
