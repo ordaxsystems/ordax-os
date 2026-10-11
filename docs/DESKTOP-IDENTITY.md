@@ -402,3 +402,12 @@ Owner: OS Surface. Risk: narrow-rail spacing and source provenance drift. Accept
 four-square icon without toggle text, both launch controls on the same row, bottom
 card with avatar/plan/derived usage/settings, same state in both views. Source review
 and whitespace inspection only; build, npm and tests not run under user restriction.
+
+### Home row notification control — 2026-10-11
+
+User-requested Surface placement: pin Home and its notification icon in a single
+shared sidebar row. Remaining destinations keep the measured More overflow; the
+previous lower standalone notification control is removed. Both actions remain
+separate keyboard-accessible buttons and use the existing launcher/state. The
+narrow rail preserves the same horizontal row. Very short layouts retain access
+to Space via Start. No backend changes; no build, npm or tests executed.

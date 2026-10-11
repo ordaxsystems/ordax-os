@@ -38,7 +38,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "8fc6a9077527cb09d08bc684216ff6dc02bd38033d92fa3983a51c8c74156282",
+      "adaptedSha256": "af1b5bd9b86410a60738b6bf5f379c45faa4a2156d8059d333f741e18a84d56f",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "75fb639b6f63146832c5da8735d4c6f17a30f022584146228662bb16a0c1e6b9",
+      "adaptedSha256": "78e36e8b16f39c52f8b1ca1bd2d66740c2539546b2b0fe2a48e53a46041e7795",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -92,7 +92,8 @@
     "Shared active window state and stable app nodes across Central/Desktop and responsive compact mode",
     "One mounted bottom navigation in both views, with Start, fixed view toggle and shared open-app list",
     "Full-height non-scrolling shared sidebar owns Start/view switch, with measured navigation overflow and running apps in the separate bottom dock",
-    "Horizontal Start/four-square view toggle and shared AccountCard matching user reference; quota/plan remain presentation fixtures"
+    "Horizontal Start/four-square view toggle and shared AccountCard matching user reference; quota/plan remain presentation fixtures",
+    "Notification icon placed alongside pinned Home in the same shared sidebar row"
   ],
   "native_files": [
     {

@@ -440,8 +440,6 @@
 .sidebar-launcher { display: grid; grid-template-columns: minmax(0,1fr) 44px; gap: 8px; flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 8px; }
 .workspace-sidebar .sidebar-launcher > button { min-width: 0; width: 100%; height: 44px; justify-content: flex-start; gap: 10px; font-size: 11px; }
 .workspace-sidebar .workspace-view-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
-.sidebar-utilities { display: flex; justify-content: space-between; flex-shrink: 0; }
-.sidebar-utilities > button { width: 44px; height: 44px; }
 .workspace-navigation .desktop-running-apps { flex: 1; }
 @media (max-width: 760px) {
   .window-workspace { --workspace-rail: 64px; }
@@ -450,13 +448,12 @@
   .workspace-sidebar .brand-name, .workspace-sidebar .brand-sub, .workspace-sidebar .os-nav-item > span, .workspace-sidebar .sidebar-launcher > button > span { display: none; }
   .workspace-sidebar .sidebar-launcher .brand-mark { display: block; }
   .workspace-sidebar .os-nav-item, .workspace-sidebar .sidebar-launcher > button { justify-content: center; width: 100%; padding: 0; }
-  .workspace-sidebar .sidebar-utilities { flex-direction: column; }
   .window-workspace .desktop-topbar { padding-inline: 8px; }
   .desktop-topbar .brand-name { display: none; }
   .workspace-navigation .desktop-task { width: auto; max-width: 120px; padding-inline: 8px; }
   .workspace-navigation .desktop-task span { display: inline; max-width: 80px; }
 }
-@media (max-height: 420px) { .workspace-sidebar .sidebar-utilities { display: none; } }
+
 @media (max-height: 280px) { .workspace-sidebar > .brand { display: none; } .window-workspace .workspace-sidebar { gap: 4px; padding-block: 8px; } }
 
 @media (max-width: 760px) { .window-workspace .mobile-header .brand-name { font-size: 12px; } .window-workspace .mobile-header .brand-sub { font-size: 7px; } }
@@ -491,3 +488,12 @@
   .sidebar-account { padding: 4px; }
   .sidebar-account .account-open { justify-content: center; }
 }
+
+.sidebar-home-row { display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; gap: 4px; flex-shrink: 0; }
+.sidebar-home-row > button { min-width: 0; height: 44px; }
+.sidebar-home-row .sidebar-notifications { width: 44px; }
+@media (max-width: 760px) {
+  .sidebar-home-row { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; }
+  .sidebar-home-row > button, .sidebar-home-row .sidebar-notifications { width: 24px; min-width: 24px; padding: 0; justify-content: center; }
+}
+@media (max-height: 240px) { .workspace-sidebar .sidebar-account { display: none; } }
