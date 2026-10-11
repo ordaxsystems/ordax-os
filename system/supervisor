@@ -2336,6 +2336,7 @@ else
 fi
 
 while :; do
+    supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
     /bin/busybox sleep "$UPDATE_INTERVAL"
 
     if [ -n "$SURFACE_PID" ] && ! kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
