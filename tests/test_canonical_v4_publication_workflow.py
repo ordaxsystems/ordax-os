@@ -89,8 +89,7 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
             "' \"$RUNNER_TEMP/operator-live-probe.json\"", 1
         )[0]
         self.assertIn('.active == true', expr)
-        if shutil.which("jq") is None:
-            self.skipTest("jq is required on the production Ubuntu runner")
+        self.assertIsNotNone(shutil.which("jq"), "jq must exist on Ubuntu runner")
         base = {
             "status": "live-artifacts-verified", "active": True,
             "signing_performed": False, "publication_performed": False,
