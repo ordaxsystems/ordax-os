@@ -34,6 +34,7 @@ export function oauthConsentResponse(request, env) {
   }
   const url = new URL(request.url);
   const authorizationId = url.searchParams.get("authorization_id") ?? "";
+  if (url.searchParams.getAll("authorization_id").length !== 1 || !/^[A-Za-z0-9_-]{1,256}$/.test(authorizationId)) return new Response("Solicitação OAuth inválida.", {status:400,headers:{"cache-control":"no-store"}});
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const redirectUrl = `https://ordax.com.br/oauth/consent?authorization_id=${encodeURIComponent(authorizationId)}`;
   const html = `<!doctype html>
