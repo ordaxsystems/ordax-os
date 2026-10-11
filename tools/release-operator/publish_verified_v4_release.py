@@ -100,14 +100,39 @@ def verify_uploaded_release(release: dict, plan: dict, *, draft: bool) -> None:
             raise AdmissionError("public release artifact digest mismatch: " + item["name"])
 
 
-def remote_release(tag: str) -> dict:
-    try:
-        result = json.loads(command([
-            "gh", "api", f"repos/{REPO}/releases/tags/{tag}",
-        ]))
-    except (ValueError, json.JSONDecodeError) as exc:
-        raise AdmissionError("cannot parse canonical release metadata") from exc
-    return result
+def remote_release(tag: str) -> dict | None:
+    """Locate exact releases, including drafts hidden by the tag endpoint.
+
+    The authenticated collection is the single source of metadata before
+    and after publication. Refuse ambiguous or incomplete inventories.
+    """
+    found = []
+    for page in range(1, 21):
+        try:
+            page_data = json.loads(command([
+                "gh", "api", f"repos/{REPO}/releases?per_page=100&page={page}",
+            ]))
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise AdmissionError("cannot parse canonical releases inventory") from exc
+        if not isinstance(page_data, list) or len(page_data) > 100:
+            raise AdmissionError("invalid canonical releases inventory")
+        for release in page_data:
+            if not isinstance(release, dict):
+                raise AdmissionError("invalid release inventory entry")
+            if release.get("tag_name") == tag:
+                found.append(release)
+        if len(found) > 1:
+            raise AdmissionError("ambiguous canonical release tag")
+        if len(page_data) < 100:
+            return found[0] if found else None
+    raise AdmissionError("canonical releases inventory exceeds review limit")
+
+
+def exact_release_id(release: dict) -> int:
+    release_id = release.get("id") if isinstance(release, dict) else None
+    if type(release_id) is not int or release_id <= 0:
+        raise AdmissionError("canonical release has no valid immutable ID")
+    return release_id
 
 
 def require_tag_absent(tag: str) -> None:
@@ -129,23 +154,39 @@ def publish_reviewed(plan: dict, bundle: Path, *, confirmed_tag: str) -> dict:
     tag = plan["release_tag"]
     if confirmed_tag != tag:
         raise AdmissionError("explicit confirmation does not match frozen tag")
-    require_tag_absent(tag)
-    args = [
-        "gh", "release", "create", tag,
-        *(str(bundle / name) for name in ASSET_NAMES),
-        "--repo", REPO, "--target", plan["source_commit"],
-        "--title", "OrdaX Stable v4 candidate " + plan["source_commit"][:12],
-        "--notes", ("Canonical signed candidate for HTTPS materialization; "
-                    "USB physical write and Stable channel promotion remain blocked."),
-        "--draft", "--prerelease",
-    ]
-    # GitHub rejects existing releases; never use upload --clobber or overwrite.
-    command(args)
-    verify_uploaded_release(remote_release(tag), plan, draft=True)
-    # No public asset is served until all five uploaded digests are verified.
-    command(["gh", "release", "edit", tag, "--repo", REPO,
-             "--draft=false", "--prerelease"])
-    verify_uploaded_release(remote_release(tag), plan, draft=False)
+
+    existing = remote_release(tag)
+    if existing is not None:
+        # A prior attempt may have staged all five assets, but failed when
+        # GitHub's releases/tags endpoint hid the draft. Resume only the
+        # exact verified draft: no clobber, reupload or parallel release.
+        verify_uploaded_release(existing, plan, draft=True)
+        release = existing
+    else:
+        require_tag_absent(tag)
+        args = [
+            "gh", "release", "create", tag,
+            *(str(bundle / name) for name in ASSET_NAMES),
+            "--repo", REPO, "--target", plan["source_commit"],
+            "--title", "OrdaX Stable v4 candidate " + plan["source_commit"][:12],
+            "--notes", ("Canonical signed candidate for HTTPS materialization; "
+                        "USB physical write and Stable channel promotion remain blocked."),
+            "--draft", "--prerelease",
+        ]
+        command(args)
+        release = remote_release(tag)
+        verify_uploaded_release(release, plan, draft=True)
+
+    release_id = exact_release_id(release)
+    # Resolve the exact draft by its immutable ID; the tag endpoint can 404.
+    # -F sends typed booleans, not strings, to GitHub's PATCH API.
+    command(["gh", "api", "--method", "PATCH",
+             f"repos/{REPO}/releases/{release_id}",
+             "-F", "draft=false", "-F", "prerelease=true"])
+    verified_public = remote_release(tag)
+    if exact_release_id(verified_public) != release_id:
+        raise AdmissionError("canonical release identity changed after publish")
+    verify_uploaded_release(verified_public, plan, draft=False)
     return {
         "schema": REPORT_SCHEMA,
         "source_commit": plan["source_commit"],
