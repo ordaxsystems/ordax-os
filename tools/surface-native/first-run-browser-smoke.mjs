@@ -1,0 +1,132 @@
+#!/usr/bin/env node
+// First-run DOM integration proof using real ESM modules in disposable Chromium.
+import {readFile} from 'node:fs/promises';
+import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
+import {runBrowser} from '../browser-proof/chromium.mjs';
+const ROOT=resolve('.');
+const ENTRY='system/surface/ui/first-run.mjs';
+const RE=/\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
+const DYNAMIC=/\bimport\(\s*["']([^"']+)["']\s*\)/g;
+const key=p=>'ordax-oobe/'+p.split('/').map(encodeURIComponent).join('/');
+function dependency(path,sub) {
+ if(!sub.startsWith('.'))throw Error('Non-local dependency: '+sub);
+ const next=normalize(join(dirname(path),sub)).replaceAll('\\','/');
+ const r=relative(ROOT,resolve(ROOT,next));
+ if(r==='..'||r.startsWith('..'+sep)||isAbsolute(r))throw Error('Dependency escapes root');
+ return next;
+}
+async function sources() {
+ const waiting=[ENTRY], found=new Map();
+ while(waiting.length) {
+  const p=waiting.pop();if(found.has(p))continue;
+  const s=await readFile(join(ROOT,p),'utf8');found.set(p,s);
+  for(const m of [...s.matchAll(RE),...s.matchAll(DYNAMIC)])waiting.push(dependency(p,m[1]));
+ }
+ return Object.fromEntries([...found].map(([p,s])=>[p,
+   s.replace(RE,(all,sub)=>all.replace(sub,key(dependency(p,sub))))
+    .replace(DYNAMIC,(all,sub)=>all.replace(sub,key(dependency(p,sub))))
+ ]));
+}
+async function scenario(modules,css) {
+ document.open();
+ document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><main id="proof-root"></main></body></html>');
+ document.close();
+ const style=document.createElement('style');style.textContent=css;document.head.append(style);
+ const urls={},map={};
+ for(const [path,source] of Object.entries(modules)) {
+  urls[path]=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+  map['ordax-oobe/'+path.split('/').map(encodeURIComponent).join('/')]=urls[path];
+ }
+ const script=document.createElement('script');script.type='importmap';
+ script.textContent=JSON.stringify({imports:map});document.head.append(script);
+ const {mountFirstRunExperience}=await import(urls['system/surface/ui/first-run.mjs']);
+ const root=document.querySelector('#proof-root');
+ const delay=()=>new Promise(done=>setTimeout(done,0));
+ const get=kind=>document.querySelector('[data-first-run-action="'+kind+'"]');
+ const click=async kind=>{
+  const b=get(kind);if(!b||b.disabled)throw Error('Missing/disabled '+kind);
+  b.click();await delay();
+ };
+ const defaultState=()=>({schema:'ordax.first-run-state/1',completed:false,locale:'pt-BR',timeZone:'America/Bahia',accountMode:null});
+ function fixture({identity=false,failSave=false}={}) {
+  let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:{state:'unavailable'};
+  let fail=failSave;let refreshSession=null;const writes=[],listeners=new Set();let prefs={};
+  const stateStore={schema:'ordax.first-run-state-store/1',load:()=>state,
+   async save(next) {if(fail)throw Error('proof-write-failure');writes.push(next);state=next;return next;}};
+  const preferences={schema:'ordax.preference-runtime/1',getSnapshot:()=>prefs,
+   set(key,value){prefs={...prefs,[key]:value};},subscribe(){return ()=>{};}};
+  const identitySession={schema:'ordax.identity-session/1',getSnapshot:()=>session,
+   subscribe(listener){listeners.add(listener);listener(session);return ()=>listeners.delete(listener);},
+   async refresh(){if(refreshSession)session=refreshSession;return session;}};
+  const identityActions={schema:'ordax.identity-actions/1',getSnapshot:()=>({supportedActions:session.state==='signed-in'?['sign-out']:[]}),
+   subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(){throw Error('unavailable proof identity');}};
+  return {ports:{stateStore,preferences,identitySession,identityActions},
+   get state(){return state;},get writes(){return writes;},get prefs(){return prefs;},
+   failSave(v){fail=v;},onRefresh(next){refreshSession=next;},session(next){session=next;for(const fn of listeners)fn(next);}};
+ }
+ async function reachAccount(){
+  await click('next');
+  if(!document.querySelector('[data-first-run-locale]'))throw Error('Missing regional step');
+  await click('next');await click('next');await click('next');
+  if(!get('account-local'))throw Error('Missing account step');
+ }
+ async function finishLocal(){await click('account-local');await click('next');await click('finish');}
+ const checks={};
+ const offline=fixture();
+ const first=mountFirstRunExperience(root,offline.ports);
+ checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
+ checks.modalAccessibility=document.querySelector('.ordax-first-run')?.getAttribute('aria-modal')==='true';
+ await reachAccount();await finishLocal();
+ checks.offlineReceipt=offline.state.completed && offline.state.accountMode==='local-only';
+ checks.onlyClosesAfterSave=offline.writes.length===1 && !document.querySelector('.ordax-first-run');
+ checks.regionalPreference=offline.prefs['regional.locale']==='pt-BR';
+ checks.restoredRoot=root.inert===false && root.getAttribute('aria-hidden')===null;
+ checks.noOobeReplay=mountFirstRunExperience(root,offline.ports).shown===false;
+
+ const identity=fixture({identity:true});
+ mountFirstRunExperience(root,identity.ports);await reachAccount();
+ await click('account-identity');await click('next');
+ identity.session({state:'signed-out'});await delay();
+ checks.revokedSessionReturnsToAccount=!!get('account-local') && !identity.state.completed && identity.writes.length===0;
+ await finishLocal();
+ checks.localModeStillWorks=identity.state.completed && identity.state.accountMode==='local-only';
+
+ const current=fixture({identity:true});
+ mountFirstRunExperience(root,current.ports);await reachAccount();
+ await click('account-identity');await click('next');await click('finish');
+ checks.activeIdentityReceipt=current.state.completed && current.state.accountMode==='identity'
+  && !Object.prototype.hasOwnProperty.call(current.state,'subjectId')
+  && current.writes.length===1 && !document.querySelector('.ordax-first-run');
+
+ const expired=fixture({identity:true});
+ mountFirstRunExperience(root,expired.ports);await reachAccount();
+ await click('account-identity');await click('next');
+ expired.onRefresh({state:'signed-in',subjectId:'owner-B',displayName:'Other Proof User'});
+ await click('finish');
+ checks.refreshChangedOwnerReturnsToAccount=!!get('account-local')
+  && !expired.state.completed && expired.writes.length===0;
+ await finishLocal();
+ checks.refreshedIdentityAllowsLocalFallback=expired.state.completed
+  && expired.state.accountMode==='local-only';
+
+ const storage=fixture({failSave:true});
+ mountFirstRunExperience(root,storage.ports);await reachAccount();await finishLocal();
+ checks.failedSaveKeepsWizard=!!document.querySelector('.ordax-first-run-error') && !!get('finish')
+  && storage.writes.length===0 && !storage.state.completed;
+ storage.failSave(false);await click('finish');
+ checks.retryIsDurable=storage.state.completed && storage.writes.length===1 && !document.querySelector('.ordax-first-run');
+ for(const url of Object.values(urls))URL.revokeObjectURL(url);
+ const failed=Object.entries(checks).filter(([,pass])=>!pass).map(([name])=>name);
+ return {passed:failed.length===0,assertions:Object.keys(checks).length,failed,checks};
+}
+const modules=await sources();
+const css=(await Promise.all(['system/surface/ui/tokens.css','system/surface/ui/first-run.css'].map(p=>readFile(join(ROOT,p),'utf8')))).join('\n');
+const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+')';
+runBrowser(async client=>{
+ const response=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});
+ if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description??response.exceptionDetails.text);
+ const result=response.result?.value;
+ if(!result?.passed)throw Error('OOBE browser assertions: '+JSON.stringify(result));
+ console.log('ORDAX_FIRST_RUN_CHROMIUM_E2E=PASS');
+ console.log('ORDAX_FIRST_RUN_ASSERTIONS='+result.assertions);
+}).catch(error=>{console.error(error);process.exitCode=1;});
