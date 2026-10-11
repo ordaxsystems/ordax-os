@@ -15,6 +15,8 @@ const (
 	storageMainMaxBytes   = uint64(8 * 1024 * 1024 * 1024)
 	storageDataMinBytes   = uint64(1 * 1024 * 1024 * 1024)
 	storageGPTTailSectors = uint64(33) // 32 entry sectors + backup GPT header.
+	ownerDevelopmentMainMinBytes = uint64(5 * 1024 * 1024 * 1024)
+	ownerDevelopmentMainMaxBytes = uint64(16 * 1024 * 1024 * 1024)
 )
 
 // PhysicalStorageLayout is the target USB geometry for the storage-v2 design.
@@ -71,10 +73,21 @@ func preferredMainBytes(targetBytes uint64) uint64 {
 	return preferred
 }
 
-// PlanPhysicalStorage calculates the future three-partition USB layout:
-// ORDAX-ESP (FAT32), ORDAX (bounded ext4), ORDAX-DATA (remaining exFAT).
-// It is pure geometry only and performs no physical I/O.
+// PlanPhysicalStorage preserves the canonical public storage-v2 geometry.
+// ORDAX-ESP (FAT32), bounded ORDAX (ext4), and ORDAX-DATA (exFAT).
 func PlanPhysicalStorage(targetBytes uint64) (PhysicalStorageLayout, error) {
+    return planPhysicalStorage(targetBytes, false)
+}
+
+// PlanOwnerDevelopmentStorage reserves enough writable ext4 space for the
+// Git checkout plus the dynamic Cage/WebKit APK runtime on the Developer USB.
+// Public/Stable remains on PlanPhysicalStorage. Owner media smaller than this
+// budget is rejected before preparing an image or opening a device.
+func PlanOwnerDevelopmentStorage(targetBytes uint64) (PhysicalStorageLayout, error) {
+    return planPhysicalStorage(targetBytes, true)
+}
+
+func planPhysicalStorage(targetBytes uint64, ownerDevelopment bool) (PhysicalStorageLayout, error) {
 	if targetBytes == 0 || targetBytes%storageSectorBytes != 0 {
 		return PhysicalStorageLayout{}, errors.New("USB capacity must be positive and 512-byte aligned")
 	}
@@ -91,6 +104,23 @@ func PlanPhysicalStorage(targetBytes uint64) (PhysicalStorageLayout, error) {
 		return PhysicalStorageLayout{}, err
 	}
 	mainBytes := preferredMainBytes(targetBytes)
+	if ownerDevelopment {
+		// Leave >=1GiB user DATA; GPT and alignment overhead remain reserved.
+		reserve := storageESPBytes + storageDataMinBytes + 2*storageAlignmentBytes
+		if targetBytes <= reserve {
+			return PhysicalStorageLayout{}, errors.New("Owner/Development USB is too small for runtime and data")
+		}
+		mainBytes = alignDown(targetBytes-reserve, storageAlignmentBytes)
+		if mainBytes > ownerDevelopmentMainMaxBytes {
+			mainBytes = ownerDevelopmentMainMaxBytes
+		}
+		if mainBytes < ownerDevelopmentMainMinBytes {
+			return PhysicalStorageLayout{}, fmt.Errorf(
+				"Owner/Development USB cannot provide a %d byte writable ext4 runtime partition; use a larger disposable USB",
+				ownerDevelopmentMainMinBytes,
+			)
+		}
+	}
 	mainSectors := mainBytes / storageSectorBytes
 	if mainSectors == 0 || mainStart > ^uint64(0)-(mainSectors-1) {
 		return PhysicalStorageLayout{}, errors.New("ORDAX system partition geometry overflow")

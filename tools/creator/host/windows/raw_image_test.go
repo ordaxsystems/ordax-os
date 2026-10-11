@@ -168,3 +168,27 @@ func TestStreamRawImageVerifiedChecksBytesWhileWriting(t *testing.T) {
 		t.Fatalf("source growth wrote %d bytes, expected exactly %d authorized bytes", grownDestination.Len(), len(data))
 	}
 }
+
+func TestOwnerDevelopmentStorageRequiresExactSeedAndKnownProfile(t *testing.T) {
+    image := writeRawFixture(t, []byte("development geometry validation"))
+    target := targetForRawImage(image)
+    request := RawDiskApplyRequest{
+        Target: target,
+        ConfirmationToken: target.ConfirmationToken,
+        Image: image,
+        CanonicalTrustResolved: true,
+        DestructiveAuthorization: DestructiveAuthorizationToken(target, image),
+        StorageProfile: "owner-development",
+    }
+    if _, err := validateRawDiskApplyRequestPolicy(request); err == nil {
+        t.Fatal("development profile without verified bootstrap seed accepted")
+    }
+    request.BootstrapSeedBytes = 16
+    if _, err := validateRawDiskApplyRequestPolicy(request); err != nil {
+        t.Fatalf("explicit owner profile rejected before geometry validation: %v", err)
+    }
+    request.StorageProfile = "unknown-profile"
+    if _, err := validateRawDiskApplyRequestPolicy(request); err == nil {
+        t.Fatal("unknown storage profile accepted")
+    }
+}

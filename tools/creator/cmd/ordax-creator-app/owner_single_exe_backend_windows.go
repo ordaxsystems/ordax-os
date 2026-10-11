@@ -453,7 +453,7 @@ func runOwnerPrepare(args []string) error {
 		return fmt.Errorf("materializar seed autorizado: %w", err)
 	}
 
-	prepared, err := creatorcore.PreparePhysicalStorageImage(rawSeedPath, *out, target.PhysicalDiskBytes)
+	prepared, err := creatorcore.PrepareOwnerDevelopmentStorageImage(rawSeedPath, *out, target.PhysicalDiskBytes)
 	if err != nil {
 		return err
 	}
@@ -611,6 +611,7 @@ func runOwnerApply(args []string) error {
 		ConfirmationToken:         *confirm,
 		Image:                     image,
 		BootstrapSeedBytes:        provenance.SeedSize,
+		StorageProfile:            "owner-development",
 		CanonicalTrustResolved:    true,
 		DestructiveAuthorization:  *authorize,
 	}
@@ -618,7 +619,7 @@ func runOwnerApply(args []string) error {
 	if err != nil {
 		return err
 	}
-	layout, err := creatorcore.PlanPhysicalStorage(target.PhysicalDiskBytes)
+	layout, err := creatorcore.PlanOwnerDevelopmentStorage(target.PhysicalDiskBytes)
 	if err != nil {
 		return fmt.Errorf("rebuild authorized storage layout after raw verification: %w", err)
 	}
