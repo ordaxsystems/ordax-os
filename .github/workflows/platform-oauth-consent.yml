@@ -1,0 +1,33 @@
+name: OrdaX Platform OAuth Consent
+
+on:
+  pull_request:
+    paths:
+      - "api/oauth-consent.mjs"
+      - "vercel.json"
+      - "infra/supabase/functions/_shared/account_email_confirmation.mjs"
+      - "tests/test_platform_oauth_consent_vercel.mjs"
+      - ".github/workflows/platform-oauth-consent.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/oauth-consent.mjs"
+      - "vercel.json"
+      - "tests/test_platform_oauth_consent_vercel.mjs"
+      - ".github/workflows/platform-oauth-consent.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  first-party-consent:
+    name: Canonical Supabase Consent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate OAuth consent origin, server and request boundaries
+        run: node --test tests/test_platform_oauth_consent_vercel.mjs
