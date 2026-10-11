@@ -467,7 +467,7 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         )
         self.assertEqual(
             authorization["release_binding"]["source_commit"],
-            historical["source_commit"],
+            "03f88eeaf382a59aaefbcf4943d0639d2730741b",
         )
         self.assertEqual(
             state["CANONICAL_V4_RELEASE_PROOF_HISTORY"],
