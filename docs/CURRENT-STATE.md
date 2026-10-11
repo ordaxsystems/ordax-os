@@ -2,6 +2,8 @@
 
 ## Web Central principal — 2026-10-11
 
+Incremento de janelas: Central e Desktop agora compartilham o lifecycle ativo de minimizar, compacto, recolher, expandir, maximizar/restaurar e fechar. Instâncias e rascunhos permanecem montados durante essas transições; no mobile, compacto reserva a metade inferior do viewport. Backend e validação automatizada continuam pendentes. [Owner, risco e aceite](DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).
+
 Pedido explícito do usuário: promover a referência `ordaxsystems/lovable-core-ui`
 (`89438133b322e3ef87e862c80af3a3dbe18251f5`) à página Web principal. A entrada
 canônica monta somente `Central`; não há rota alternativa, redirect ou montagem

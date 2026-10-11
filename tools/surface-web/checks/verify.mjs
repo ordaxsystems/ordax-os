@@ -11,6 +11,11 @@ const centralReference = JSON.parse(await readFile(new URL('docs/evidence/web-ce
 for (const entry of centralReference.files) {
   const bytes = await readFile(new URL(entry.target, root));
   const sha = value => createHash('sha256').update(value).digest('hex');
+  if (entry.adaptedSha256) {
+    assert.equal(sha(bytes.toString('utf8').replace(/\r\n/g, '\n')), entry.adaptedSha256, 'Central adaptation drift: ' + entry.target);
+    assert.ok(entry.adaptation && /^[a-f0-9]{64}$/.test(entry.sha256), 'Adaptations retain upstream provenance');
+    continue;
+  }
   const candidates = [sha(bytes)];
   if (!entry.source.startsWith('src/assets/')) {
     let restored = bytes.toString('utf8').replace(/\r\n/g, '\n');
@@ -23,6 +28,10 @@ for (const entry of centralReference.files) {
     candidates.push(sha(restored), sha(restored.replace(/\n/g, '\r\n')));
   }
   assert.ok(candidates.includes(entry.sha256), 'Central reference drift: ' + entry.target);
+}
+for (const entry of centralReference.native_files ?? []) {
+  const source = (await readFile(new URL(entry.target, root), 'utf8')).replace(/\r\n/g, '\n');
+  assert.equal(createHash('sha256').update(source).digest('hex'), entry.sha256, 'Native Central source drift: ' + entry.target);
 }
 const composition = await readFile(new URL('system/composition/web/main.tsx', root), 'utf8');
 assert.ok(composition.includes('<Central/>'), 'The approved Central is the primary Web page');
@@ -39,6 +48,20 @@ desktop = desktopReducer(desktop, {type: 'focus', title: 'Projetos'});
 assert.equal(desktop.active, 'Projetos');
 assert.equal(desktop.windows.at(-1).title, 'Projetos');
 assert.equal(desktop.windows.at(-1).minimized, false);
+assert.equal(desktop.windows.at(-1).mode, 'maximized', 'New apps occupy the available workspace');
+desktop = desktopReducer(desktop, {type: 'maximize', title: 'Projetos'});
+assert.equal(desktop.windows.at(-1).mode, 'normal');
+desktop = desktopReducer(desktop, {type: 'compact', title: 'Projetos'});
+desktop = desktopReducer(desktop, {type: 'toggle-compact'});
+assert.equal(desktop.compactCollapsed, true);
+desktop = desktopReducer(desktop, {type: 'minimize', title: 'Projetos'});
+assert.equal(desktop.windows.at(-1).mode, 'compact', 'Minimizing preserves compact mode');
+desktop = desktopReducer(desktop, {type: 'focus', title: 'Projetos'});
+assert.equal(desktop.compactCollapsed, false);
+desktop = desktopReducer(desktop, {type: 'restore', title: 'Projetos'});
+assert.equal(desktop.windows.at(-1).mode, 'normal', 'Leaving compact restores the prior size');
+const unchanged = desktopReducer(desktop, {type: 'focus', title: 'Unknown'});
+assert.equal(unchanged, desktop, 'Unknown focus never creates another app');
 desktop = desktopReducer(desktop, {type: 'close', title: 'Projetos'});
 assert.ok(!desktop.windows.some(window => window.title === 'Projetos'));
 assert.equal(JSON.stringify(initialDesktopState), initialDesktopSnapshot);

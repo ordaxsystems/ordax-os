@@ -26,3 +26,10 @@ source-input and emitted-file digests; they are not signed releases.
 Service connections are the next stage. Pending controls and unavailable states
 remain in their existing sources; labeled demonstrations grant no authority. Native/Account browser proofs
 share only test infrastructure under tools/browser-proof.
+
+Window controls are owned by the shared Central reducer and WindowLayer. Both
+presentations keep app nodes mounted across minimize/compact/restore and view
+changes. Compact mode reserves a lower viewport track; collapse/minimize return
+space to the upper area. Close/reload do not retain local drafts. This is still
+a presentation increment; automated viewport/lifecycle checks were updated,
+not executed locally. See the shared lifecycle record in Desktop Identity.

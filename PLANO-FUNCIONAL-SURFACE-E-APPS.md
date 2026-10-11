@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Janelas da Central — 11/10/2026:** incremento explícito solicitado: controle compartilhado para minimizar, compactar, recolher, expandir e restaurar, com divisão mobile e instâncias estáveis. Owner Surface; sem backend novo e sem build/npm/testes locais. [Risco, escopo e aceite](docs/DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).
+
 > **Central Web principal — 11/10/2026:** pedido explícito para tornar a composição de `ordaxsystems/lovable-core-ui` a única página Web ativa. Central/área de trabalho e temas usam uma fonte de apresentação; backend fica para a etapa seguinte. Substitui as decisões visuais Web listadas abaixo, preservando capacidades e consumidores existentes. Sem build, npm ou testes locais nesta entrega; [owner, risco, proveniência e aceite](docs/DESKTOP-IDENTITY.md#canonical-web-central--2026-10-11).
 
  > **Dock Web — 11/10/2026:** pedido explícito: sidebar até o rodapé e dock central flutuante, sem faixa/linha inferior; preserva lifecycle e navegação mobile. [Owner, riscos e aceite](docs/DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).

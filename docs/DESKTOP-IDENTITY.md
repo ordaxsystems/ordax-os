@@ -311,3 +311,39 @@ manager or app state is introduced. Mobile retains the five-destination navigati
 Acceptance: sidebar bottom aligns with viewport, dock centers in usable width,
 transparent/pointer-transparent footer, sidebar collapsed controls, notification
 opening and mobile menus at desktop/short/tablet widths.
+
+## Shared Central window lifecycle — 2026-10-11
+
+User-requested increment in the Surface functional plan: minimize, compact,
+collapse, expand, maximize, restore and close in the approved primary Web UI.
+Owner: OrdaX OS Surface. Dependency: shared UI controls and presentation-only
+Central data; no new Runtime, grants, identity, storage or intelligence authority.
+
+`central/desktop-state.ts` owns the active window lifecycle for both presentations.
+Central holds the reducer; Desktop consumes it. `central/window-layer.tsx` renders
+one keyed, stable app instance per title. Minimized and inactive apps stay mounted
+but hidden; close removes the instance. Switching Central/Desktop preserves these
+instances, local drafts and modes within the current page session. Page reload
+and closing a window discard this local presentation state; this is not durable
+project memory or task persistence.
+
+New windows open maximized in the app area. Mobile compact mode reserves a lower
+half in the viewport grid, above navigation and running-app controls; the current
+Central/app retains an independently scrollable upper half. Collapse reserves
+only the titlebar; minimize releases the compact track. Desktop uses a bounded
+lower panel. The same CSS tracks size the background and window layer, including
+safe-area clearance. No iframe duplication, viewport scaling or second active
+window manager is introduced. Shared controls have accessible names and 44px
+window-action targets; focus moves to the active window or its restore shortcut.
+
+Risk: viewport/focus regressions, hidden app resource usage and draft loss on
+explicit close/reload. Backend apps are still pending; illustrative panels do not
+claim a real connection. Source provenance retains upstream hashes and records
+normalized derivative hashes and reasons for these authorized modifications.
+
+Acceptance: one open instance per app; compact/minimize/restore preserve the same
+app DOM and draft; minimized apps remain reachable; close removes them; mobile
+panes fit above navigation with independent scrolling. Existing reducer/browser
+checks were updated to cover the increment, but NOT executed locally. No build,
+npm, typecheck or test was run, per the user's explicit restriction. Browser and
+CI evidence remain pending; these notes do not establish production readiness.
