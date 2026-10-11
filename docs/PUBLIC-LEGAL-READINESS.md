@@ -98,3 +98,56 @@ servidor real.
 fim de continuar programando o OS.** Qualquer limpeza intencional de ambiente
 de testes deve ser uma operação separada, precisamente escopada, e nunca uma
 consequência automática do build.
+
+## Arquitetura de snapshots de consentimento (11/10/2026)
+
+**Separação que evita a causa da divergência:** as rotas
+`/privacidade/` e `/termos/` continuam páginas de apresentação que podem
+receber melhorias visuais. Elas não devem ser usadas como novo documento de
+aceite após a política histórica `2026.10.09`. Para uma nova versão
+aprovada, a identidade da política aponta para:
+
+```text
+/legal/<versao>/privacidade/
+/legal/<versao>/termos/
+```
+
+Cada página acima é **uma publicação imutável de bytes HTML**. Ela é servida
+na mesma origem HTTPS. A versão na URL, a versão do documento retornada pelo
+servidor e a versão registrada pela política devem coincidir exatamente.
+O cliente, o verificador público e a ativação compartilham esse protocolo;
+uma URL dinâmica ou de outra origem é recusada. O construtor do site **não
+injeta folhas de estilo nem altera links/cache busting** nessas cópias.
+
+A revisão de cada par de snapshots entra no livro de hashes
+`docs/contracts/public-legal-snapshots.json`, conferido por
+`tools/public-site/legal_snapshots.py`. Ele define version/kind, tamanho e
+SHA-256 dos bytes do arquivo publicado. O build falha se arquivos forem
+mudados, removidos, acrescidos sem aprovação, renomeados ou se o hash divergir.
+O owner da política **ativa** e dos recibos permanece na Platform/Supabase;
+este livro é só a identidade dos arquivos estáticos arquivados.
+
+Procedimento de lançamento de **nova** versão jurídica:
+
+1. Revisar e aprovar o conteúdo legal final de ambos os documentos, incluindo
+   versão e data efetiva. Criar um par novo em
+   `sites/public/legal/<versao>/privacidade/index.html` e
+   `sites/public/legal/<versao>/termos/index.html`, sem alterar versões já
+   aprovadas. Registrar SHA-256/tamanho exatos no livro versionado.
+2. Ajustar `docs/contracts/public-legal-readiness.json` para os novos
+   caminhos, versão, data e estado revisado pelo responsável. Executar
+   `python tools/public-site/build.py check` e o CI jurídico.
+3. Publicar os snapshots no site HTTPS antes de ativar a política, verificar
+   os bytes efetivamente servidos e executar o ativador canônico separado.
+   O ativador recusa arquivos não fixados no livro ou URLs divergentes.
+4. Com a política oficial do servidor atualizada, testar cadastro, aceite
+   registrado, login/logout, revogação e recuperação, e executar novamente
+   `python tools/public-site/probe_public_network.py --legal-consistency`.
+
+**Estado atual:** o livro está vazio porque nenhuma nova versão foi aprovada/
+publicada nesta alteração. A política histórica `2026.10.09` e seus recibos
+foram preservados, inclusive a divergência live já detectada. Nenhum novo
+aceite foi ativado e nenhum teste de cadastro real foi declarado aprovado.
+Este trabalho corrige o mecanismo para a próxima publicação jurídica, sem
+mascarar a falha que já existe em produção nem bloquear boot offline.
+

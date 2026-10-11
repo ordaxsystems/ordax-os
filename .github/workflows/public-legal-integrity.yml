@@ -10,6 +10,11 @@ on:
       - 'sites/public/privacidade/index.html'
       - 'sites/public/termos/index.html'
       - 'docs/contracts/public-legal-readiness.json'
+      - 'docs/contracts/public-legal-snapshots.json'
+      - 'tools/public-site/legal_snapshots.py'
+      - 'sites/public/assets/site.js'
+      - 'tests/test_immutable_legal_snapshots.py'
+      - 'tests/test_public_signup_legal_integrity.mjs'
       - 'tools/public-site/public_html_render.py'
       - 'tools/public-site/build.py'
       - 'tools/public-site/activate_account_legal_policy.py'
@@ -26,6 +31,11 @@ on:
       - 'sites/public/privacidade/index.html'
       - 'sites/public/termos/index.html'
       - 'docs/contracts/public-legal-readiness.json'
+      - 'docs/contracts/public-legal-snapshots.json'
+      - 'tools/public-site/legal_snapshots.py'
+      - 'sites/public/assets/site.js'
+      - 'tests/test_immutable_legal_snapshots.py'
+      - 'tests/test_public_signup_legal_integrity.mjs'
       - 'tools/public-site/public_html_render.py'
       - 'tools/public-site/build.py'
       - 'tools/public-site/activate_account_legal_policy.py'
@@ -57,6 +67,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_public_site_network_proof.py' -v
           python -m unittest discover -s tests -p 'test_public_legal_hash_consistency.py' -v
+          python -m unittest discover -s tests -p 'test_immutable_legal_snapshots.py' -v
+          node --test tests/test_public_signup_legal_integrity.mjs
           python -m unittest discover -s tests -p 'test_account_legal_policy_activation.py' -v
           python -m unittest discover -s tests -p 'test_brand_pipeline.py' -v
           python -m unittest discover -s tests -p 'test_public_site_contract.py' -v
