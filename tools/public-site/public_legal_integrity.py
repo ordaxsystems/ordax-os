@@ -16,6 +16,22 @@ POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1"
 MAX_POLICY_BYTES = 128 * 1024
 MAX_HTML_BYTES = 2 * 1024 * 1024
 ROUTES = (("privacy", "/privacidade/"), ("terms", "/termos/"))
+# Historical active policy may still reference its approved, mutable URL.
+# Later versions must have their own immutable byte-stable publication URL.
+LAST_LEGACY_DOCUMENT_VERSION = "2026.10.09"
+
+
+def canonical_legal_route(label: str, version: str) -> str:
+    """Map policy identity onto an exact same-origin immutable URL (or legacy)."""
+    if not isinstance(version, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", version):
+        raise PublicLegalIntegrityError("registration-policy-document-version-invalid")
+    slug = dict(ROUTES).get(label)
+    if slug is None:
+        raise PublicLegalIntegrityError("registration-policy-document-kind-invalid")
+    if version == LAST_LEGACY_DOCUMENT_VERSION:
+        return slug
+    return f"/legal/{version}{slug}"
+
 
 
 class PublicLegalIntegrityError(ValueError):
@@ -66,8 +82,12 @@ def verify_public_legal_integrity(
         if not isinstance(item, dict):
             fail("registration-policy-document-invalid:" + label)
         digest = item.get("sha256")
+        try:
+            expected_route = canonical_legal_route(label, item.get("version"))
+        except PublicLegalIntegrityError:
+            fail("registration-policy-document-fields:" + label)
         if (
-            item.get("url") != origin + route
+            item.get("url") != origin + expected_route
             or not isinstance(item.get("version"), str)
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", item["version"])
             or not isinstance(item.get("effectiveDate"), str)
@@ -76,7 +96,7 @@ def verify_public_legal_integrity(
             or not re.fullmatch(r"[0-9a-f]{64}", digest)
         ):
             fail("registration-policy-document-fields:" + label)
-        with get(route, accept="text/html") as response:
+        with get(expected_route, accept="text/html") as response:
             if response.status != 200:
                 fail("published-legal-document-unavailable:" + label)
             if response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "text/html":
