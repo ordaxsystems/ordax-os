@@ -126,7 +126,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("runtime/native-surface", text)
         self.assertIn("run_bounded_apk()", text)
         self.assertIn('/bin/busybox timeout -k 10 "$timeout_seconds" /sbin/apk', text)
-        self.assertIn('RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-180}', text)
+        self.assertIn('RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-600}', text)
         self.assertIn('RUNTIME_UPGRADE_TIMEOUT=${ORDAX_RUNTIME_UPGRADE_TIMEOUT_SECONDS:-120}', text)
         self.assertIn('run_bounded_apk "$RUNTIME_INSTALL_TIMEOUT"', text)
         self.assertIn("--keys-dir /etc/apk/keys", text)
