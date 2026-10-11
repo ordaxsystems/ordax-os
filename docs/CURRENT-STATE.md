@@ -1,5 +1,14 @@
 # Current State
 
+## Stable v4 — handoff assinado validado, publicação pendente (2026-10-11)
+
+A candidata congelada `03f88eeaf382a59aaefbcf4943d0639d2730741b` passou no workflow oficial [Canonical v4 Signed Handoff Proof, run 38156353913](https://github.com/ordaxsystems/ordax-os/actions/runs/38156353913). A suíte Go completa executou com sucesso em Ubuntu 24.04 na revisão exata; o verificador Windows executou Step 5 e confirmou a assinatura Ed25519, a igualdade byte a byte do payload/manifesto e os hashes e tamanhos reais dos três EROFS. Recibo `prototype-ordax.portable-v4-signed-handoff-verification/1` baixado e conferido: os três indicadores de assinatura, payload e artefatos são `true`, enquanto `release_published`, `release_activated` e `physical_write_performed` são `false`.
+
+O erro de CRLF do checkout Windows foi corrigido pela PR #1656; a separação entre teste de materialização Linux e verificador Windows pela PR #1657. Ambos os arquivos e checks pertencem à `main`, sem mudança dos bytes assinados, do manifesto ou da custódia da chave. Evidências detalhadas: [registro de handoff e correções](evidence/canonical-v4-signed-handoff-git-bytes-2026-10-11.md).
+
+**Bloqueio operacional seguinte:** a candidata ainda não tem os três EROFS e o envelope publicados juntos por HTTPS canônico. Sem a publicação verificada não existe recibo válido de materialização pelo release-agent, portanto `canonical_v4_release_proof_bound=false` e `physical_write_allowed=false` permanecem. Autorizar um USB físico, executar boot e provar rollback são gates distintos e ainda pendentes. Esta prova não lança a release Stable.
+
+
 Web layout: full-height desktop sidebar and centered floating app dock replace the full-width footer strip; mobile navigation remains unchanged. Owner/acceptance: [Desktop Identity](DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
 
 
