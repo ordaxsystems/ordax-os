@@ -1,3 +1,5 @@
+import { PUBLIC_ACCOUNT_ORIGIN } from "../infra/supabase/functions/_shared/account_email_confirmation.mjs";
+
 // Canonical first-party OAuth consent presentation owned by OrdaX OS public site.
 // Uses the official Supabase OAuth methods; no new grant/identity/executor owner.
 // Migrated from ordax-platform/control-plane/cloudflare/src/oauth_consent.ts.
@@ -36,7 +38,7 @@ export function oauthConsentResponse(request, env) {
   const authorizationId = url.searchParams.get("authorization_id") ?? "";
   if (url.searchParams.getAll("authorization_id").length !== 1 || !/^[A-Za-z0-9_-]{1,256}$/.test(authorizationId)) return new Response("Solicitação OAuth inválida.", {status:400,headers:{"cache-control":"no-store"}});
   const nonce = crypto.randomUUID().replace(/-/g, "");
-  const redirectUrl = `https://ordax.com.br/oauth/consent?authorization_id=${encodeURIComponent(authorizationId)}`;
+  const redirectUrl = `${PUBLIC_ACCOUNT_ORIGIN}/oauth/consent?authorization_id=${encodeURIComponent(authorizationId)}`;
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Autorizar acesso ao ORDAX</title>
