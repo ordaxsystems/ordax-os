@@ -138,8 +138,9 @@ Geometry is owned by two CSS Grid tracks in `workspace/styles.css`. The layout
 state is derived from the existing window reducer and carousel flag; there is
 no second window manager or persisted geometry copy. Every AppWindow keeps its
 key and parent across compact, restored and minimized modes, preserving mounted
-React state. Pages and app content scroll independently. Normal/maximized
-windows stay within the primary track, and drag/resize measure that same pane.
+React state. Pages and app content scroll independently. Normal windows stay
+within the primary track and drag/resize measure that pane. Maximized windows
+span both workspace tracks, leaving shell header/sidebar/navigation outside.
 
 Dependencies: existing workspace reducer, ResizeObserver, shared appearance
 tokens and browser viewport/safe-area support. Risk: short viewports, narrow
@@ -217,3 +218,23 @@ Acceptance: strict build/reference restoration, real Chromium at 320, 390,
 700, 820, 821, 844, 1024 and 1440 px, Home ordering/grids and native touch
 scrolling, accessible control sizes, 8 direct views, launcher/menu focus and
 shared app/draft retention through compact modes.
+
+### Full workspace app opening — 2026-10-11
+
+Owner: OrdaX OS Surface, under the same functional-plan window increment. New
+windows open maximized; detaching a compact app also fills the available
+workspace. Explicit normal geometry, minimizing and compact modes remain
+choices, and reopening a manually restored window retains that choice. Page
+entries (Projects, Spaces, Store, Apps and Intelligence) use the complete primary
+area without reserving a hidden compact control row. Their transitions preserve
+the Home pane preference; explicit compact actions reveal split panes again.
+
+The existing reducer owns opening/restoration/focus. The window stage isolates
+its stacking below shell chrome; per-window layers no longer saturate at 35,
+so the latest opened/focused app stays in front after repeated switches. No app
+node is remounted or reparented, no second window manager or service authority.
+Risks: maximized grid bounds, stacking contexts and page/compact transitions.
+Acceptance: reducer lifecycle/geometry and repeated-focus checks, strict build,
+source reference restoration and real Chromium at eight viewports. Every app
+entry fills the workspace and owns the hit-test foreground; all page entries
+fill the shell content area, with compact, immersive and draft state retained.

@@ -1,5 +1,14 @@
 # Current State
 
+## Web app opening — 2026-10-11
+
+New and detached app windows open maximized across the workspace, outside the
+shared header/sidebar/navigation. Page entries use the full content area. The
+existing reducers preserve user-selected normal geometry, compact layouts and
+mounted app state; isolated stacking keeps the latest app above older windows
+without saturating focus order. No pending service port is activated.
+Owner, risks and acceptance: docs/DESKTOP-IDENTITY.md.
+
 ## Web mobile usability — 2026-10-11
 
 The canonical workspace now shares its navigation component between the desktop

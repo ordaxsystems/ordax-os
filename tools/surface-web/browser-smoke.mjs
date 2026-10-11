@@ -56,6 +56,25 @@ try {
     const deadline=Date.now()+3000;
     while(await evaluate("!!document.querySelector('[role=dialog]')")){if(Date.now()>deadline)throw Error('Dialog did not finish closing');await sleep(25);}
   }
+  async function fullWindow(name) {
+    const result=await evaluate('(()=>{const n=document.querySelector('+JSON.stringify('[aria-label="Janela '+name+'"]')+'),d=document.querySelector(".web-desktop"),r=n.getBoundingClientRect(),b=d.getBoundingClientRect();return {maximized:n.classList.contains("web-window-maximized"),equal:[r.left-b.left,r.top-b.top,r.width-b.width,r.height-b.height].every(v=>Math.abs(v)<1),foreground:n.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))};})()');
+    assert.ok(result.maximized&&result.equal&&result.foreground,JSON.stringify({name,result}));
+  }
+  async function openingProof(width,height) {
+    for(const name of ['Studio','Arquivos','Internet','Galeria','Notas','Ajustes']) {
+      await click('[aria-label="Abrir aplicativos"]');
+      await click('.web-launcher [title="Abrir '+name+'"]');await noDialog();await fullWindow(name);
+    }
+    await click('[aria-label="Abrir notificações"]');await fullWindow('Notificações');
+    const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(join(evidence,'full-app-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+    if(width===1440){
+      for(let i=0;i<40;i++)await click('[aria-label="Abrir '+(i%2?'Studio':'Arquivos')+' pelo dock"]');
+      await fullWindow('Studio');
+      assert.ok(await evaluate("Number(getComputedStyle(document.querySelector('[aria-label=\"Janela Studio\"]')).zIndex)>Number(getComputedStyle(document.querySelector('[aria-label=\"Janela Arquivos\"]')).zIndex)"), 'Stacking remains ordered beyond the former layer cap');
+    }
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
+  }
   async function paneLayout(expected) {
     const layout = await evaluate(`(() => {
       const rect = node => { const b=node.getBoundingClientRect(); return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,width:b.width,height:b.height}; };
@@ -65,15 +84,15 @@ try {
         root:rect(document.querySelector('.web-workspace')), viewport:innerHeight,
         noDocumentScroll:document.documentElement.scrollHeight<=innerHeight,
         windows:[...document.querySelectorAll('.web-window')].filter(visible).map(node=>({mode:[...node.classList].find(value=>/^web-window-(normal|maximized|compact|immersive)$/.test(value)),rect:rect(node)})),
-        controls:document.querySelector('.web-carousel-controls') ? rect(document.querySelector('.web-carousel-controls')) : null};
+        controls:document.querySelector('.web-carousel-controls') && visible(document.querySelector('.web-carousel-controls')) ? rect(document.querySelector('.web-carousel-controls')) : null};
     })()`);
     if(expected) assert.equal(layout.mode,expected);
     assert.ok(Math.abs(layout.root.height-layout.viewport)<1 && layout.noDocumentScroll, JSON.stringify(layout));
-    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' ? layout.controls.height : 0;
+    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' ? layout.controls?.height??0 : 0;
     assert.ok(Math.abs(layout.primary.height-(layout.desktop.height-reserved))<1, JSON.stringify(layout));
     for(const win of layout.windows) {
       if(win.mode==='web-window-immersive')continue;
-      const bounds=win.mode==='web-window-compact' ? {top:layout.primary.bottom,bottom:layout.desktop.bottom} : layout.primary;
+      const bounds=win.mode==='web-window-compact' ? {top:layout.primary.bottom,bottom:layout.desktop.bottom} : win.mode==='web-window-maximized' ? layout.desktop : layout.primary;
       assert.ok(win.rect.top>=bounds.top-1 && win.rect.bottom<=bounds.bottom+1 && win.rect.left>=layout.desktop.left-1 && win.rect.right<=layout.desktop.right+1, JSON.stringify({layout,win}));
     }
     if(layout.controls) assert.ok(Math.abs(layout.controls.top-layout.primary.bottom)<1,JSON.stringify(layout));
@@ -81,7 +100,7 @@ try {
   }
 
   async function dialogChrome(selector) {
-    return evaluate('(()=>{const d=document.querySelector('+JSON.stringify(selector)+'),title=d.querySelector("h2"),close=d.querySelector(":scope>button"),t=title.getBoundingClientRect(),c=close.getBoundingClientRect(),r=d.getBoundingClientRect();return {titleTop:t.top,closeTop:c.top,inside:r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1,closeVisible:close.contains(document.elementFromPoint(c.left+c.width/2,c.top+c.height/2)),closeTarget:c.width>=44&&c.height>=44};})()');
+    return evaluate('(()=>{const d=document.querySelector('+JSON.stringify(selector)+'),title=d.querySelector("h2"),close=d.querySelector(":scope>[data-slot=dialog-close]"),t=title.getBoundingClientRect(),c=close.getBoundingClientRect(),r=d.getBoundingClientRect();return {titleTop:t.top,closeTop:c.top,inside:r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1,closeVisible:close.contains(document.elementFromPoint(c.left+c.width/2,c.top+c.height/2)),closeTarget:c.width>=44&&c.height>=44};})()');
   }
   async function touchScroll(selector) {
     const point=await evaluate('(()=>{const n=document.querySelector('+JSON.stringify(selector)+'),r=n.getBoundingClientRect();return {x:r.left+r.width/2,y:r.bottom-20,distance:Math.min(300,r.height-40)};})()');
@@ -270,6 +289,10 @@ try {
     await paneLayout('expanded');await retained();
     await click('[aria-label="Destacar Notas"]');
     await paneLayout('expanded');await retained();
+    await fullWindow('Notas');
+    await click('[aria-label="Menu da janela Notas"]');
+    await click('.web-window-menu [role=menuitem]:nth-child(3)');
+
 
     await click('[aria-label="Menu da janela Notas"]');
     await click('.web-window-menu [role=menuitem]:nth-child(5)');
@@ -313,6 +336,8 @@ try {
     await client.send('Emulation.setTouchEmulationEnabled',{enabled:width<=820,maxTouchPoints:1});
     for(const view of ['home','assistant','projects','spaces','apps','files','internet','store']){
       await client.send('Page.navigate',{url:origin+'/?view='+view});await ready();
+      if(view==='files'||view==='internet')await fullWindow(view==='files'?'Arquivos':'Internet');
+      else if(view!=='home')assert.equal(await evaluate("(()=>{const d=document.querySelector('.web-desktop').getBoundingClientRect(),p=document.querySelector('.web-primary-pane').getBoundingClientRect();return [p.top-d.top,p.left-d.left,p.width-d.width,p.height-d.height].every(v=>Math.abs(v)<1);})()"),true,'Workspace pages use the complete area outside shell chrome');
       const state=await evaluate("({canonical:document.querySelectorAll('.web-workspace').length===1&&location.pathname==='/',noOverflow:document.documentElement.scrollWidth<=innerWidth,assets:[...document.images].filter(img=>img.getClientRects().length>0).every(img=>img.complete&&img.naturalWidth>0),font:document.fonts.check('14px Inter'),unavailable:document.querySelector('.web-sidebar-status')?.textContent.includes('não conectados')})");
       assert.ok(Object.values(state).every(Boolean),JSON.stringify({width,height,view,state}));
       if (view === 'store') {
@@ -344,13 +369,14 @@ try {
     await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await sleep(100);
     await noDialog();
+    await openingProof(width,height);
     await homeResponsiveProof(width,height);
     await launcherProof(width,height);
     await mobileNavigationProof(width,height);
     await splitProof(width,height);
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
     if(width>820){
-      await click('[aria-label="Abrir Studio pelo dock"]');await click('[aria-label="Maximizar Studio"]');
+      await click('[aria-label="Abrir Studio pelo dock"]');await fullWindow('Studio');
       assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);await paneLayout('expanded');
       await click('[aria-label="Minimizar Studio"]');await click('[aria-label="Abrir Studio pelo dock"]');
       assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);
@@ -361,7 +387,7 @@ try {
     }
     const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(evidence,'web-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
-    reports.push({width,height,views:8,responsiveHome:true,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,mobileNavigation:width<=820,assets:true,noOverflow:true,launcher:true,dialogScrollAndFocus:true,windowLifecycle:width>820});
+    reports.push({width,height,views:8,responsiveHome:true,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,fullAppOpening:true,mobileNavigation:width<=820,assets:true,noOverflow:true,launcher:true,dialogScrollAndFocus:true,windowLifecycle:width>820});
     console.log('SURFACE_VIEWPORT=PASS '+width+'x'+height);
   }
   return reports;

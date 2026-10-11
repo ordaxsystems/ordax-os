@@ -1402,3 +1402,13 @@ pane principal; reducer, modos compactos e rascunho Intelligence preservados.
 Barra inferior segue Início, Aura, Apps, Space e Menu. Aura usa a sessão
 Intelligence existente; a visão geral de janelas fica acessível no Menu.
 Verificação inclui os dois lados do breakpoint 820/821 px e os cinco destinos.
+
+### Abertura de apps na área útil completa — 2026-10-11
+
+Incremento explícito solicitado: novas janelas e destaque de compactas abrem
+maximizados sobre os dois tracks, preservando header/rail/navegação. Projetos,
+Spaces, Loja, Apps e Intelligence ocupam a área completa ao entrar. O reducer
+existente preserva escolhas posteriores de modo/geometria e estado montado;
+a ordem de foco não satura e fica isolada abaixo do chrome. Sem segundo window
+manager ou ativação de serviços. Owner, risco, dependências e aceite por viewport:
+docs/DESKTOP-IDENTITY.md.
