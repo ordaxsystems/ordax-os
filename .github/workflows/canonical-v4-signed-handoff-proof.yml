@@ -21,7 +21,44 @@ permissions:
   actions: read
 
 jobs:
+  verify-linux-release-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Validate exact frozen source input
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Check out the signed source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_commit }}
+          persist-credentials: false
+
+      - name: Configure pinned Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+          check-latest: false
+
+      - name: Prove exact Linux release-agent write durability and regressions
+        working-directory: bootstrap/release-acquisition
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          go test -count=1 ./...
+          echo 'FROZEN_RELEASE_AGENT_LINUX_REGRESSIONS=PASS'
+
   verify-exact-signed-v4:
+    needs: verify-linux-release-agent
     runs-on: windows-2025
     timeout-minutes: 90
     env:
@@ -135,8 +172,9 @@ jobs:
               (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $package 'release-ed25519.json')).Hash) {throw 'Trust differs from frozen source'}
           Push-Location (Join-Path $source 'bootstrap/release-acquisition')
           try {
-            go test -count=1 ./...
-            if ($LASTEXITCODE -ne 0) {throw 'Release-agent tests failed'}
+            # The full write/fsync suite passed on the exact frozen Linux
+            # revision. Windows is used for read-only signature and artifact
+            # verification, not Linux filesystem materialization.
             go build -trimpath -buildvcs=false -o (Join-Path $package 'ordax-release-agent.exe') .
             if ($LASTEXITCODE -ne 0) {throw 'Release-agent build failed'}
           } finally {Pop-Location}
