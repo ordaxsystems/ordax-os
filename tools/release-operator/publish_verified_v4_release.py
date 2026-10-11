@@ -119,7 +119,7 @@ def require_tag_absent(tag: str) -> None:
         )
     except OSError as exc:
         raise AdmissionError("GitHub tag preflight unavailable") from exc
-    statuses = re.findall(r"^HTTP/\\S+\\s+(\\d{3})\\b", proc.stdout, re.MULTILINE)
+    statuses = re.findall(r"^HTTP/\S+\s+(\d{3})\b", proc.stdout, re.MULTILINE)
     if proc.returncode != 0 and statuses == ["404"]:
         return
     raise AdmissionError("canonical release tag already exists or cannot be checked")
