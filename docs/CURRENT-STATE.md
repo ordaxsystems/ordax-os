@@ -7,7 +7,16 @@ sidebar and a scrollable mobile Dialog. Bottom navigation reflects the active
 area, app switching closes the overview, window actions remain reachable through
 the existing menu, and narrow File views retain grid/list controls. Mobile text,
 search fields and touch targets are enlarged without duplicating state or
-service authority. Split-pane geometry and mounted app state are preserved.
+service authority. Menu and launcher headers/close stay visible while content
+scrolls; the launcher avoids forced keyboard focus for coarse-pointer devices
+and exposes clear-search, filter state and no-results feedback. Home now follows the user-provided responsive HTML structure through one
+React composition and the existing tokens/catalog: one-column mobile content,
+3/2-column app grid, environment shortcuts, projects and activity. The touch
+shell boundary is 820 px; prototype scripts and illustrative data are excluded.
+Home scrolls in the primary pane and preserves its shared Intelligence draft.
+Bottom navigation follows Início, Aura, Apps, Space and Menu. Aura reuses
+Intelligence; the existing window overview remains available within Menu.
+Split-pane geometry and mounted app state are preserved.
 Owner, dependencies, risks and browser acceptance: docs/DESKTOP-IDENTITY.md.
 This remains a Web presentation candidate; pending service integrations are
 unchanged.
