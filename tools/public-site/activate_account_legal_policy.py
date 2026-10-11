@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from legal_operator import operator_blockers
 from public_html_render import render_public_html
+from public_legal_integrity import canonical_legal_route
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -114,6 +115,8 @@ def verify_published_legal_documents(candidate: dict) -> None:
         try:
             route = documents[name]["route"]
             item = candidate[name]
+            if route != canonical_legal_route(name, documents[name]["version"]):
+                fail("legal-document-canonical-version-route-mismatch")
             expected_url = origin + route
             local_digest = sha256_published_html_source(route_file(route))
             if (
@@ -168,6 +171,10 @@ def sha256_published_html_source(path: Path) -> str:
     injects the shared brand stylesheet link. Policy digests MUST use those
     emitted bytes, not a separately hashed source or a guessed visual asset.
     """
+    # Immutable snapshots are copied byte-for-byte by the public builder.
+    # Do not inject theme markup or cache-bust links into accepted legal bytes.
+    if "legal" in path.parts and path.parent.parent.parent == SITE / "legal":
+        return hashlib.sha256(path.read_bytes()).hexdigest()
     markup = render_public_html(path.read_text(encoding="utf-8"))
     return hashlib.sha256(markup.encode("utf-8")).hexdigest()
 
@@ -203,8 +210,8 @@ def build_candidate(origin: str) -> dict:
             raise ValueError(f"{name} version invalid")
         if not isinstance(effective_date, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", effective_date):
             raise ValueError(f"{name} effective date invalid")
-        if not isinstance(route, str):
-            raise ValueError(f"{name} route invalid")
+        if not isinstance(route, str) or route != canonical_legal_route(name, version):
+            raise ValueError(f"{name} route must be version-bound and same-origin")
         path = route_file(route)
         if not path.is_file():
             raise ValueError(f"{name} page missing")
