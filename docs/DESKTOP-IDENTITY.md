@@ -129,7 +129,7 @@ authority has been introduced. See [Store boundary and acceptance](STORE-WEB-CAT
 Owner: OrdaX OS Surface, within the functional workspace/window increment of
 `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. The canonical Web composition divides the
 available desktop into a primary pane and a compact pane. Expanded compact
-windows receive half the height after the shared header/footer and mobile safe
+windows receive half the height after the shared navigation and mobile safe
 area are deducted. Collapsing the carousel leaves only its accessible control
 row; minimizing or closing the last compact window releases the whole primary
 pane. The existing immersive mode remains a full-viewport option.
@@ -140,7 +140,7 @@ no second window manager or persisted geometry copy. Every AppWindow keeps its
 key and parent across compact, restored and minimized modes, preserving mounted
 React state. Pages and app content scroll independently. Normal windows stay
 within the primary track and drag/resize measure that pane. Maximized windows
-span both workspace tracks, leaving shell header/sidebar/navigation outside.
+span both workspace tracks, leaving shell sidebar/navigation outside. The top edge belongs to the app; system utilities live in navigation.
 
 Dependencies: existing workspace reducer, ResizeObserver, shared appearance
 tokens and browser viewport/safe-area support. Risk: short viewports, narrow
@@ -238,3 +238,21 @@ Acceptance: reducer lifecycle/geometry and repeated-focus checks, strict build,
 source reference restoration and real Chromium at eight viewports. Every app
 entry fills the workspace and owns the hit-test foreground; all page entries
 fill the shell content area, with compact, immersive and draft state retained.
+
+### System utilities in navigation — 2026-10-11
+
+Owner: OS Surface. Explicit user-requested continuation of full workspace opening.
+The shared WorkspaceChrome component places brand/search and account/notifications
+in the desktop sidebar and mobile Menu. There is no shell topbar or reserved header
+row: apps/pages own the top edge, bounded only by device safe area, sidebar and
+bottom navigation. Search remains available through Apps/Ctrl K and the Menu;
+Space switching remains in the existing desktop footer/mobile Space destination.
+Sidebar navigation scrolls separately from its utilities; the collapsed sidebar
+keeps icon actions accessible. No identity, service, app state or authority is copied.
+
+Risks: short-height navigation, dropdown focus, mobile menu dismissal, expanded
+workspace bounds and compact pane geometry. Acceptance: eight responsive viewports,
+64 direct routes, foreground/full workspace opening, compact restoration, mobile
+launcher/Menu/identity/notification reachability, safe-area offsets, no horizontal
+overflow and original app draft/node retention. Existing Home controls enforce
+44 px touch minimum at the shared tablet/mobile breakpoint.

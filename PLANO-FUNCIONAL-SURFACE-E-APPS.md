@@ -1,5 +1,8 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Navegação Web — 11/10/2026:** ajuste explícito solicitado: controles do header passam à navegação compartilhada, liberando o topo para apps; sem outro gerenciador, serviços ou estado de identidade. Exceção de UX ao piso MVP, com riscos e aceite em [Desktop Identity](docs/DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
+
+
 > **Loja Web — 11/10/2026:** pedido explícito de continuidade após a atualização do Lovable. Apresentação única conectada ao port público de catálogo; candidato de IA usa o source-lock do OS. Modo oficial é o padrão e a demonstração exige escolha explícita. Transporte Web e lifecycle reais permanecem pendentes; [owner, contratos, risco e aceite](docs/STORE-WEB-CATALOG-PRESENTATION.md).
 
 > **Composição Web — 10/10/2026:** pedido explícito de adaptar o workspace do Account Hub. Reimplementação no shell compartilhado existente, sem importar serviços ou estado simulado. Header, sidebar, Home e dock usam tokens, catálogo e eventos canônicos; [owner, limites e aceite](docs/DESKTOP-IDENTITY.md#account-hub-workspace-composition--2026-10-10).

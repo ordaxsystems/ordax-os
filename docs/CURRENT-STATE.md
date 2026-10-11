@@ -1,5 +1,10 @@
 # Current State
 
+## Web navigation utilities — 2026-10-11
+
+Source preview moves shell search/profile/notifications to shared navigation chrome (desktop sidebar/mobile Menu). Apps occupy the top edge; only safe area/sidebar/bottom navigation remain outside. Existing reducers, dialogs and app instances are retained. Services and release gates are unchanged. Acceptance and risks: [Desktop Identity](DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
+
+
 ## Web app opening — 2026-10-11
 
 New and detached app windows open maximized across the workspace, outside the
