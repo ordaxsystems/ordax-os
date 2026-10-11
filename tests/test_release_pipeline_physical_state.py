@@ -26,13 +26,13 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
         self.assertEqual(result["status"], "pass")
         self.assertEqual(
             result["currentAuthorizationStatus"],
-            "blocked-canonical-v4-release-proof-pending",
+            "blocked-explicit-physical-authorization-pending",
         )
-        self.assertFalse(result["replacementV4ProofBound"])
+        self.assertTrue(result["replacementV4ProofBound"])
         self.assertFalse(result["explicitOwnerAuthorization"])
         self.assertFalse(result["physicalWriteAllowed"])
         self.assertEqual(
-            result["historicalV4ProofSha256"],
+            result["currentV4ProofSha256"],
             authorization["bindings"]["canonical_v4_release_proof_sha256"],
         )
 
@@ -53,7 +53,7 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
 
             authorization_path = temp_root / "docs/contracts/physical-write-authorization.json"
             authorization = json.loads(authorization_path.read_text(encoding="utf-8"))
-            authorization["requirements"]["canonical_v4_release_proof_bound"] = True
+            authorization["requirements"]["canonical_v4_release_proof_bound"] = False
             authorization_path.write_text(
                 json.dumps(authorization, indent=2) + "\n",
                 encoding="utf-8",
@@ -61,7 +61,7 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 current_release_trust.ContractError,
-                "replacement canonical v4 proof must not be marked bound",
+                "replacement canonical v4 proof binding state mismatch",
             ):
                 current_release_trust.validate(temp_root)
 
@@ -79,9 +79,9 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
         authorization = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
         self.assertEqual(
             authorization["status"],
-            "blocked-canonical-v4-release-proof-pending",
+            "blocked-explicit-physical-authorization-pending",
         )
-        self.assertFalse(authorization["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertTrue(authorization["requirements"]["canonical_v4_release_proof_bound"])
         self.assertFalse(authorization["explicit_owner_authorization"])
         self.assertFalse(authorization["physical_write_allowed"])
 

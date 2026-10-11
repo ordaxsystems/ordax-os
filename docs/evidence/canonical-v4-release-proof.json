@@ -1,30 +1,30 @@
 {
-  "schema": "prototype-ordax.portable-v4-canonical-release-proof/1",
-  "source_commit": "b924ff8d74d1761232381ae3f9604bba17497cfd",
-  "canonical_envelope_url": "https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-stable-v4-b924ff8d74d1761232381ae3f9604bba17497cfd/release-envelope.json",
-  "canonical_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
-  "release_manifest_sha256": "ddab1681ffecacca000ff1014d3b354978c1f4a785985998b673816e18e65b85",
-  "release_envelope_sha256": "cc89cf7436357c5d479624d74e32325d4eb249a6fc1334385fb55827c313f5c9",
-  "artifacts": {
-    "system.erofs": {
-      "sha256": "2828d9b1e7c0331b3e99aafe564f3e78233e9a17fb0b5c05c9a430a4ea8caeb3",
-      "size": 1462272
-    },
-    "native-surface-runtime.erofs": {
-      "sha256": "99039e8a7d696377955a46de0f68528b11c524fbc6f01c908d24952e8e80174c",
-      "size": 1051987968
-    },
-    "local-ai-runtime.erofs": {
-      "sha256": "b244056dad3609357e8a70433f53f41becacd8f3bd93da3d8b23f9e99d86e11a",
-      "size": 568061952
-    }
-  },
-  "signed_handoff_receipt_sha256": "ad129e55bbb1dfd05810b9bae3210c067e48d44e80bb36ae3a78572f9205dfee",
-  "canonical_materialization_receipt_sha256": "eb31141e600f0a42308d153cce71ac78048a475f8aa9c2d553d447c71f90b942",
-  "signed_handoff_verified": true,
-  "canonical_materialization_verified": true,
-  "release_activated": false,
-  "physical_target_selected": false,
-  "physical_write_authorized": false,
-  "physical_write_performed": false
+    "schema":  "prototype-ordax.portable-v4-canonical-release-proof/1",
+    "source_commit":  "03f88eeaf382a59aaefbcf4943d0639d2730741b",
+    "canonical_envelope_url":  "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-03f88eeaf382a59aaefbcf4943d0639d2730741b/release-envelope.json",
+    "canonical_trust_sha256":  "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
+    "release_manifest_sha256":  "5dc9213b65eaffa7adf67c0addc7dbe32af1e06ae4b9a4f5a8dea37aa8ee99d6",
+    "release_envelope_sha256":  "d9ab389cd55c481785491cb1c3881936e47e7347bdc69ccea5c76a7437969a90",
+    "artifacts":  {
+                      "system.erofs":  {
+                                           "sha256":  "c17a19d68f02b1f00228707fa991af32e2d63ff6f40dc3ea798a675c6a261145",
+                                           "size":  7520256
+                                       },
+                      "native-surface-runtime.erofs":  {
+                                                           "sha256":  "9f1dfc339a69ac95b2c3f56e4d103e550dca8e4cb2b8b35cc2dcb9a581af69ef",
+                                                           "size":  1052020736
+                                                       },
+                      "local-ai-runtime.erofs":  {
+                                                     "sha256":  "b244056dad3609357e8a70433f53f41becacd8f3bd93da3d8b23f9e99d86e11a",
+                                                     "size":  568061952
+                                                 }
+                  },
+    "signed_handoff_receipt_sha256":  "fbdc117ea2f461334392bd1f0d5bdbc24ebc22071e43166b77d68e9aff1ea043",
+    "canonical_materialization_receipt_sha256":  "0f74d61045bd086e5dad8b6b5eeaf498742e1191a7a7acb4984728278f85e2c0",
+    "signed_handoff_verified":  true,
+    "canonical_materialization_verified":  true,
+    "release_activated":  false,
+    "physical_target_selected":  false,
+    "physical_write_authorized":  false,
+    "physical_write_performed":  false
 }

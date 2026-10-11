@@ -295,7 +295,10 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         self.assertFalse(auth["physical_write_allowed"])
         self.assertFalse(auth["explicit_owner_authorization"])
         self.assertIsNone(auth["authorization_context_sha256"])
-        self.assertFalse(auth["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertEqual(auth["status"], "blocked-explicit-physical-authorization-pending")
+        self.assertEqual(auth["release_binding"]["source_commit"],
+                         "03f88eeaf382a59aaefbcf4943d0639d2730741b")
 
     def test_pending_owner_authorization_fixture_remains_fail_closed(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -18,9 +18,9 @@ PRIOR_CANONICAL_V4_RELEASE_CANDIDATE_PROOF=PASS_PRE_HARDENING_HISTORY
 PRIOR_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF
 PRIOR_STABLE_MVP_ARTIFACT_READBACK=PASS_17_OF_17
 PRIOR_STABLE_MVP_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
-CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF=PENDING_POST_HARDENING_REPLACEMENT
-CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF_BOUND=NO
-PHYSICAL_WRITE_AUTHORIZATION=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING
+CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_HTTPS_MATERIALIZED
+CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF_BOUND=YES_VERIFIED
+PHYSICAL_WRITE_AUTHORIZATION=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING
 EXPLICIT_OWNER_AUTHORIZATION=NO
 PHYSICAL_WRITE_ALLOWED=NO
 PHYSICAL_TARGET_SELECTED=NO
@@ -32,20 +32,20 @@ STABLE_CHANNEL_PUBLICATION=PENDING_AFTER_CURRENT_PHYSICAL_PROOF
 
 `PASS` in source, CI or historical physical evidence never upgrades a current physical gate implicitly.
 
-## Why the previous proof cannot be rebound
+## Current verified v4 proof and separate physical authorization
 
 `docs/contracts/physical-write-authorization.json` is authoritative for destructive eligibility. Its current state is:
 
 ```text
-status=blocked-canonical-v4-release-proof-pending
+status=blocked-explicit-physical-authorization-pending
 physical_write_allowed=false
 explicit_owner_authorization=false
-canonical_v4_release_proof_bound=false
+canonical_v4_release_proof_bound=true
 ```
 
-The historical release binding remains recorded so the repository can identify which release was superseded. `tools/creator/bind_canonical_v4_release_proof.py` now rejects both the same historical proof bytes and a repackaged proof for the same superseded source commit while the contract is in replacement-proof state.
+The historical proof of source `b924ff8d74d1761232381ae3f9604bba17497cfd` remains evidence of the previous controlled USB. It cannot reopen authorization. The current release proof from `03f88eeaf382a59aaefbcf4943d0639d2730741b` was built from the real handoff and HTTPS materialization receipts, validated by Step 7 and bound by `tools/creator/bind_canonical_v4_release_proof.py` on 11/10/2026.
 
-A genuinely new signed/materialized v4 proof from a new post-hardening source commit is required before the state machine may advance to `blocked-explicit-physical-authorization-pending`. Only after that transition can explicit owner authorization become reachable again.
+The safe proof-binding transition is complete. Explicit owner authorization is now a separate **ungranted** operation; no physical-media preparation, target selection or USB write is implied by the bound receipt.
 
 No proof binding, owner authorization or CI result opens a device, selects a target, confirms destructive work, bypasses UAC or invokes the physical writer.
 
@@ -66,12 +66,12 @@ The authoritative separation remains the one in `docs/PROMOTION-GATES.md`: sourc
 
 ## Ordered remaining gates
 
-The repository is currently at the **replacement canonical v4 release proof required** stage. The ordered remaining gates are:
+The repository is currently at the **explicit owner authorization pending** stage. The ordered lifecycle gates, including the already completed non-destructive proof steps, are:
 
-1. build/sign/publish a new canonical v4 prerelease whose source and artifact bytes include the post-#588 hardening;
-2. materialize and verify that exact prerelease through the official non-activating path and produce a new canonical v4 release proof;
-3. bind that new proof; the binder must reject the superseded pre-hardening source/proof;
-4. run the read-only promotion preflight and obtain `pre_authorization_ready=true` for the new exact context;
+1. **CONCLUÍDO:** build/sign/publish a new canonical v4 prerelease whose source and artifact bytes include the post-#588 hardening;
+2. **CONCLUÍDO:** materialize and verify that exact prerelease through the official non-activating path and produce a new canonical v4 release proof;
+3. **CONCLUÍDO:** bind that new proof; the binder must reject the superseded pre-hardening source/proof;
+4. **CONCLUÍDO EM CI:** run the read-only promotion preflight and obtain `pre_authorization_ready=true` for the new exact context;
 5. record a new explicit owner authorization for that exact context — only after a deliberate owner decision;
 6. separately select the physical USB and revalidate its live identity immediately before destructive work;
 7. require target-specific destructive confirmation and Windows UAC;
@@ -94,8 +94,8 @@ python tools/creator/stable_mvp_usb_readiness.py
 The output deliberately distinguishes:
 
 - `pre_usb_product_source_complete`;
-- `canonical_v4_release_proof_valid` — the historical proof may still be cryptographically valid;
-- `canonical_v4_release_proof_current` — false while that proof is superseded;
+- `canonical_v4_release_proof_valid` — the current proof has the exact signed evidence;
+- `canonical_v4_release_proof_current` — true only for the exact current source;
 - `canonical_v4_release_proof_bound_requirement`;
 - `physical_authorization_status`;
 - owner authorization state;
@@ -106,9 +106,9 @@ The output deliberately distinguishes:
 At the current stage the expected high-level result is:
 
 ```text
-stage=canonical-v4-release-proof-pending
-next_stage=canonical-v4-release-proof
-canonical_v4_release_proof_current=false
+stage=explicit-owner-authorization-pending
+next_stage=explicit-owner-authorization
+canonical_v4_release_proof_current=true
 owner_authorization_recorded=false
 physical_write_performed=false
 ```
@@ -135,7 +135,7 @@ It deliberately keeps three concerns independent:
 - `official_creator`: whether the end-user Windows Creator has its separate Authenticode publisher identity/certificate policy configured and is ready for public distribution;
 - `native_installation`: whether post-MVP internal-disk foundations may exist in source while remaining hidden, disabled and fail-closed in the MVP.
 
-At the current replacement-proof stage, `first_usb` must remain blocked. The historical first USB proof does not make the next post-hardening physical flow authorized.
+At the current explicit-consent-pending stage, `first_usb` must remain blocked. The historical first USB proof does not make the next post-hardening physical flow authorized.
 
 An unconfigured Authenticode identity for the public Creator remains a publication blocker for public Creator distribution, but it is independent from canonical Stable/MVP release-proof freshness and physical owner consent.
 

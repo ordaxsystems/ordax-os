@@ -128,7 +128,7 @@ readback e chegou a boot UEFI real. Os achados físicos motivaram o hardening in
 na PR #588.
 
 A decisão corrente é diferente da decisão original deste plano: **qualquer novo reteste
-do candidato pós-hardening permanece bloqueado até existir e ser vinculado um replacement canonical v4 proof; somente depois disso a autorização explícita fresca volta a ser alcançável**, além
+do candidato pós-hardening permanece bloqueado **até nova autorização explícita do dono**: o novo proof canônico v4 já foi vinculado em 11/10/2026; ainda valem
 dos gates de target, UAC e confirmação destrutiva. O proof anterior é evidência histórica,
 não autoridade reutilizável.
 
@@ -464,20 +464,20 @@ Voltar à missão física somente quando:
 
 1. todos os itens A estiverem PASS em source/CI ou tiverem uma decisão canônica explícita
    retirando-os do MVP;
-2. existir um **replacement** manifest/release v4 pós-hardening assinado/materializável e um novo aggregate receipt `canonical-v4-release-proof.json` validado/vinculado a outro source commit; o proof histórico de `b924ff8d74d1761232381ae3f9604bba17497cfd` não satisfaz esse gate;
+2. **CONCLUÍDO:** novo manifest/release v4 pós-hardening da fonte `03f88eeaf382a59aaefbcf4943d0639d2730741b` assinado, materializado por HTTPS e vinculado ao recibo agregado `canonical-v4-release-proof.json`; a prova de `b924ff8d74d1761232381ae3f9604bba17497cfd` permanece apenas como histórico;
 3. os testes descartáveis/UEFI relevantes estiverem verdes;
 4. documentação canônica e contratos estiverem coerentes;
-5. somente depois do replacement proof vinculado permitir um **novo** preflight de consentimento do dono e, após consentimento explícito, aplicar novamente os gates físicos já existentes.
+5. executar novo preflight de consentimento do dono com a prova atual vinculada; somente após consentimento explícito, aplicar os gates físicos de seleção de mídia, confirmação destrutiva, UAC e readback.
 
 O primeiro proof controlado é evidência histórica e não autorização permanente. Para o
 candidato pós-hardening atual, o estado correto é:
 
 ```text
 CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_BOUND_VERSIONED_PRERELEASE_PRE_HARDENING
-CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PASS_POST_HARDENING_SIGNED_HTTPS_MATERIALIZED_AND_BOUND
 FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING
 FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING
 FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
-CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=BLOCKED_REPLACEMENT_RELEASE_PROOF
-PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING
+CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_EXPLICIT_OWNER_AUTHORIZATION_AND_LIVE_USB_PROOF
+PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING
 ```
