@@ -15,6 +15,9 @@ on:
       - 'tests/test_build_canonical_v4_request.py'
       - 'tests/test_canonical_v4_execution_owner_guard.py'
       - 'tools/release-operator/**'
+      - '.github/workflows/canonical-v4-verified-publication.yml'
+      - 'docs/contracts/canonical-v4-publication-request.json'
+      - 'tests/test_canonical_v4_publication_workflow.py'
       - 'tests/test_canonical_v4_signing_request.py'
   pull_request:
     paths:
@@ -23,6 +26,9 @@ on:
       - 'docs/contracts/canonical-v4-signing-request.json'
       - 'docs/contracts/canonical-v4-signing-request-active.json'
       - 'tools/release-operator/**'
+      - '.github/workflows/canonical-v4-verified-publication.yml'
+      - 'docs/contracts/canonical-v4-publication-request.json'
+      - 'tests/test_canonical_v4_publication_workflow.py'
       - 'tests/test_canonical_v4_live_operator_artifacts.py'
       - 'tests/test_canonical_v4_signing_request*.py'
       - 'tests/test_build_canonical_v4_request.py'
@@ -56,6 +62,7 @@ jobs:
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_live_operator_artifacts.py'
           python3 -m unittest discover -v -s tests -p 'test_validate_v4_publication_staging.py'
           python3 -m unittest discover -v -s tests -p 'test_publish_verified_v4_release.py'
+          python3 -m unittest discover -v -s tests -p 'test_canonical_v4_publication_workflow.py'
       - name: Select current request without confusing historical provenance
         id: select
         run: |
