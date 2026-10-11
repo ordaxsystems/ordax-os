@@ -5,6 +5,8 @@ import {
   FIRST_RUN_STATE_SCHEMA,
   completeFirstRunState,
   createInitialFirstRunState,
+  matchesFirstRunIdentitySelection,
+  verifyFirstRunIdentitySession,
   seedMissingRegionalPreferencesFromFirstRun,
   validateFirstRunState,
 } from "../system/services/state/first-run.mjs";
@@ -126,4 +128,44 @@ test("completed first-run repairs only missing regional preference keys", () => 
   );
   assert.equal(incomplete.changed, false);
   assert.deepEqual(incomplete.snapshot, {});
+});
+
+test("first-run identity choice is bound to the current exact authenticated subject", () => {
+  const accountA = { state: "signed-in", subjectId: "account-A", displayName: "Pessoa" };
+  const accountB = { state: "signed-in", subjectId: "account-B", displayName: "Pessoa" };
+  assert.equal(matchesFirstRunIdentitySelection("account-A", accountA), true);
+  assert.equal(matchesFirstRunIdentitySelection("account-A", accountB), false);
+  assert.equal(matchesFirstRunIdentitySelection("account-A", { state: "signed-out" }), false);
+  assert.equal(matchesFirstRunIdentitySelection("account-A", { state: "unavailable" }), false);
+  assert.equal(matchesFirstRunIdentitySelection(null, accountA), false);
+  assert.equal(matchesFirstRunIdentitySelection("", accountA), false);
+  assert.equal(matchesFirstRunIdentitySelection("account-A", { state: "signed-in", subjectId: "account-A" }), false);
+  assert.equal(matchesFirstRunIdentitySelection("account-A", null), false);
+});
+
+test("first-run identity completion refreshes the real session before saving a receipt", async () => {
+  const accountA = { state: "signed-in", subjectId: "account-A", displayName: "Pessoa" };
+  const accountB = { state: "signed-in", subjectId: "account-B", displayName: "Pessoa" };
+  let current = accountA;
+  let calls = 0;
+  const session = {
+    getSnapshot: () => current,
+    refresh: async () => { calls += 1; },
+  };
+  assert.equal(await verifyFirstRunIdentitySession(session, "account-A"), true);
+  assert.equal(calls, 1);
+  current = accountB;
+  assert.equal(await verifyFirstRunIdentitySession(session, "account-A"), false);
+  current = { state: "signed-out" };
+  assert.equal(await verifyFirstRunIdentitySession(session, "account-A"), false);
+  assert.equal(calls, 3);
+  assert.equal(await verifyFirstRunIdentitySession({ getSnapshot: () => accountA }, "account-A"), false);
+  assert.equal(await verifyFirstRunIdentitySession({
+    getSnapshot: () => accountA, refresh: async () => { throw new Error("offline"); },
+  }, "account-A"), false);
+  current = accountA;
+  assert.equal(await verifyFirstRunIdentitySession({
+    getSnapshot: () => current, refresh: async () => { current = accountB; },
+  }, "account-A"), false);
+  assert.equal(await verifyFirstRunIdentitySession(null, "account-A"), false);
 });

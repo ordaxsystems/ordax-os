@@ -21,7 +21,7 @@ import {
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
-import { completeFirstRunState, validateFirstRunState } from "../../services/state/first-run.mjs";
+import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
   networkManagementFailureMessage,
@@ -155,6 +155,7 @@ export function mountFirstRunExperience(
   let identityMessage = "";
   let identityEmailDraft = "";
   let identityPasswordDraft = "";
+  let selectedIdentitySubjectId = null;
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
@@ -182,6 +183,7 @@ export function mountFirstRunExperience(
     networkOrdinal += 1;
     passwordDraft = "";
     identityPasswordDraft = "";
+    selectedIdentitySubjectId = null;
     localSessionSecretDraft = "";
     localSessionConfirmDraft = "";
     unsubscribeLocalSession?.();
@@ -837,6 +839,21 @@ export function mountFirstRunExperience(
     completionError = "";
     render();
     try {
+      if (draft.accountMode === "identity") {
+        // Recheck the live authority before persisting an identity-mode first run.
+        // A cached or unavailable session must never become an authenticated receipt.
+        const identityStillCurrent = await verifyFirstRunIdentitySession(sessionPort, selectedIdentitySubjectId);
+        if (destroyed) return;
+        if (!identityStillCurrent) {
+          draft.accountMode = null;
+          selectedIdentitySubjectId = null;
+          stepIndex = STEPS.indexOf("account");
+          identityMessage = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
+          finishing = false;
+          render();
+          return;
+        }
+      }
       preferencePort.set(REGIONAL_LOCALE_PREFERENCE_ID, draft.locale);
       preferencePort.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, draft.timeZone);
       await store.save(completeFirstRunState(draft));
@@ -880,10 +897,18 @@ export function mountFirstRunExperience(
       }
     } else if (kind === "account-sign-in") void runIdentity("sign-in");
     else if (kind === "account-register") void runIdentity("register");
-    else if (kind === "account-identity" && sessionSnapshot.state === "signed-in") {
+    else if (kind === "account-identity") {
+      const currentSession = sessionPort.getSnapshot();
+      if (currentSession.state !== "signed-in") {
+        identityMessage = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
+        render();
+        return;
+      }
+      selectedIdentitySubjectId = currentSession.subjectId;
       draft.accountMode = "identity";
       go(stepIndex + 1);
     } else if (kind === "account-local") {
+      selectedIdentitySubjectId = null;
       draft.accountMode = "local-only";
       go(stepIndex + 1);
     }
@@ -943,6 +968,16 @@ export function mountFirstRunExperience(
 
   unsubscribeSession = sessionPort.subscribe((snapshot) => {
     sessionSnapshot = snapshot;
+    if (
+      draft.accountMode === "identity"
+      && !finishing
+      && !matchesFirstRunIdentitySelection(selectedIdentitySubjectId, sessionSnapshot)
+    ) {
+      draft.accountMode = null;
+      selectedIdentitySubjectId = null;
+      stepIndex = STEPS.indexOf("account");
+      identityMessage = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
+    }
     if (sessionSnapshot.state === "signed-in") {
       registrationPolicy = null;
       registrationLegalAccepted = false;

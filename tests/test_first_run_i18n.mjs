@@ -43,3 +43,10 @@ test("Portuguese remains the canonical source language and unknown locales fail 
   assert.equal(translateFirstRunText("pt-BR", "Continuar"), "Continuar");
   assert.equal(translateFirstRunText("it-IT", "Continuar"), "Continuar");
 });
+
+test("changed identity selection warning is translated for each supported first-run locale", () => {
+  const message = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
+  for (const locale of LOCALES) {
+    assert.notEqual(translateFirstRunText(locale, message), message);
+  }
+});
