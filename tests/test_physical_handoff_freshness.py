@@ -69,8 +69,8 @@ class PhysicalHandoffFreshnessTests(unittest.TestCase):
 
     def test_remaining_order_keeps_non_destructive_proof_before_consent(self):
         handoff = self.handoff
-        proof = handoff.index("1. build/sign/publish a new canonical v4 prerelease")
-        bind = handoff.index("3. bind that new proof")
+        proof = handoff.index("1. **CONCLUÍDO:** build/sign/publish a new canonical v4 prerelease")
+        bind = handoff.index("3. **CONCLUÍDO:** bind that new proof")
         consent = handoff.index("5. record a new explicit owner authorization")
         target = handoff.index("6. separately select the physical USB")
         write = handoff.index("8. execute a new physical write only when explicitly authorized")
