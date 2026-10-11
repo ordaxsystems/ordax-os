@@ -170,7 +170,7 @@ No platform gets its own incompatible synchronization model.
 
 ### Surface identity-session refresh ordering
 
-The existing `ordax.identity-session/1` adapter (`system/adapters/web/identity.mjs`) is the only session reader for Surface consumers, including OOBE and account actions. Multiple `/auth/session` reads may overlap. Each refresh receives a monotonically increasing local sequence; only the most recently started pending refresh may publish a snapshot. Late older responses and transport errors cannot roll back a newer account/logout observation, and disposed instances cannot publish. This ordering is ephemeral presentation state, not a second session authority, authentication receipt or cross-device session sync.
+The existing `ordax.identity-session/1` adapter (`system/adapters/web/identity.mjs`) is the only session reader for Surface consumers, including OOBE and account actions. Multiple `/auth/session` reads may overlap. Each refresh receives a monotonically increasing local sequence; only the most recently started pending refresh may publish a snapshot. Late older responses and transport errors cannot roll back a newer account/logout observation, and disposed instances cannot publish. This ordering is ephemeral presentation state, not a second session authority, authentication receipt or cross-device session sync. The existing identity-actions adapter also orders registration-policy reads: a stale earlier response cannot re-enable or disable Create account after a newer legal-capability decision, and disposing the adapter invalidates pending policy reads.
 
 ## Device-private account session
 

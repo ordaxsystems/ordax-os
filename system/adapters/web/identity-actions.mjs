@@ -35,6 +35,7 @@ export function createWebIdentityActions(
   });
   const listeners = new Set();
   let disposed = false;
+  let policyRefreshSequence = 0;
 
   const emit = () => {
     if (disposed) return;
@@ -54,6 +55,7 @@ export function createWebIdentityActions(
   const unsubscribe = session?.subscribe(update) ?? (() => {});
 
   const refreshRegistration = async () => {
+    const sequence = ++policyRefreshSequence;
     let nextAllowed = registrationEnabled;
     if (registrationPolicy !== null) {
       try {
@@ -63,7 +65,7 @@ export function createWebIdentityActions(
         nextAllowed = false;
       }
     }
-    if (disposed) return snapshot;
+    if (disposed || sequence !== policyRefreshSequence) return snapshot;
     if (nextAllowed !== registrationAllowed) {
       registrationAllowed = nextAllowed;
       update(session?.getSnapshot() ?? { state: "unavailable" });
@@ -117,6 +119,7 @@ export function createWebIdentityActions(
     },
     dispose() {
       disposed = true;
+      policyRefreshSequence += 1;
       unsubscribe();
       listeners.clear();
     },
