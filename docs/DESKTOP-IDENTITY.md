@@ -129,7 +129,7 @@ authority has been introduced. See [Store boundary and acceptance](STORE-WEB-CAT
 Owner: OrdaX OS Surface, within the functional workspace/window increment of
 `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. The canonical Web composition divides the
 available desktop into a primary pane and a compact pane. Expanded compact
-windows receive half the height after the shared header/footer and mobile safe
+windows receive half the height after the shared navigation and mobile safe
 area are deducted. Collapsing the carousel leaves only its accessible control
 row; minimizing or closing the last compact window releases the whole primary
 pane. The existing immersive mode remains a full-viewport option.
@@ -138,8 +138,9 @@ Geometry is owned by two CSS Grid tracks in `workspace/styles.css`. The layout
 state is derived from the existing window reducer and carousel flag; there is
 no second window manager or persisted geometry copy. Every AppWindow keeps its
 key and parent across compact, restored and minimized modes, preserving mounted
-React state. Pages and app content scroll independently. Normal/maximized
-windows stay within the primary track, and drag/resize measure that same pane.
+React state. Pages and app content scroll independently. Normal windows stay
+within the primary track and drag/resize measure that pane. Maximized windows
+span both workspace tracks, leaving shell sidebar/navigation outside. The top edge belongs to the app; system utilities live in navigation.
 
 Dependencies: existing workspace reducer, ResizeObserver, shared appearance
 tokens and browser viewport/safe-area support. Risk: short viewports, narrow
@@ -217,3 +218,55 @@ Acceptance: strict build/reference restoration, real Chromium at 320, 390,
 700, 820, 821, 844, 1024 and 1440 px, Home ordering/grids and native touch
 scrolling, accessible control sizes, 8 direct views, launcher/menu focus and
 shared app/draft retention through compact modes.
+
+### Full workspace app opening — 2026-10-11
+
+Owner: OrdaX OS Surface, under the same functional-plan window increment. New
+windows open maximized; detaching a compact app also fills the available
+workspace. Explicit normal geometry, minimizing and compact modes remain
+choices, and reopening a manually restored window retains that choice. Page
+entries (Projects, Spaces, Store, Apps and Intelligence) use the complete primary
+area without reserving a hidden compact control row. Their transitions preserve
+the Home pane preference; explicit compact actions reveal split panes again.
+
+The existing reducer owns opening/restoration/focus. The window stage isolates
+its stacking below shell chrome; per-window layers no longer saturate at 35,
+so the latest opened/focused app stays in front after repeated switches. No app
+node is remounted or reparented, no second window manager or service authority.
+Risks: maximized grid bounds, stacking contexts and page/compact transitions.
+Acceptance: reducer lifecycle/geometry and repeated-focus checks, strict build,
+source reference restoration and real Chromium at eight viewports. Every app
+entry fills the workspace and owns the hit-test foreground; all page entries
+fill the shell content area, with compact, immersive and draft state retained.
+
+### System utilities in navigation — 2026-10-11
+
+Owner: OS Surface. Explicit user-requested continuation of full workspace opening.
+The shared WorkspaceChrome component places brand/search and account/notifications in the desktop sidebar through
+shared WorkspaceAccount. Mobile Menu keeps these utilities. The Web shell has no
+clock, clock state or refresh interval. There is no shell topbar or reserved header
+row: apps/pages own the top edge, bounded only by device safe area, sidebar and
+bottom navigation. Search remains available through Apps/Ctrl K and the Menu;
+Space switching remains in the desktop sidebar/mobile Space destination.
+Sidebar navigation scrolls separately from its utilities; the collapsed sidebar
+keeps icon actions accessible. No identity, service, app state or authority is copied.
+
+Risks: short-height navigation, dropdown focus, mobile menu dismissal, expanded
+workspace bounds and compact pane geometry. Acceptance: eight responsive viewports,
+64 direct routes, foreground/full workspace opening, compact restoration, mobile
+launcher/Menu/identity/notification reachability, safe-area offsets, no horizontal
+overflow and original app draft/node retention. Existing Home controls enforce
+44 px touch minimum at the shared tablet/mobile breakpoint.
+
+### Full-height sidebar and floating dock — 2026-10-11
+
+Owner: OS Surface; explicit user-requested layout revision. Desktop sidebar reaches
+the viewport bottom, including account/notifications. The footer contains only the
+centered app dock: no full-width background, blur or separator line. Only the dock
+receives pointer input. Space selection/window arrangement move to the sidebar;
+connection state remains in the existing sidebar service status. Workspace extends to the bottom behind the dock; content padding preserves
+app control reachability without a reserved footer strip. No second window
+manager or app state is introduced. Mobile retains the five-destination navigation.
+Acceptance: sidebar bottom aligns with viewport, dock centers in usable width,
+transparent/pointer-transparent footer, sidebar collapsed controls, notification
+opening and mobile menus at desktop/short/tablet widths.

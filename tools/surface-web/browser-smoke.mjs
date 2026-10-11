@@ -56,6 +56,42 @@ try {
     const deadline=Date.now()+3000;
     while(await evaluate("!!document.querySelector('[role=dialog]')")){if(Date.now()>deadline)throw Error('Dialog did not finish closing');await sleep(25);}
   }
+  async function fullWindow(name) {
+    const result=await evaluate('(()=>{const n=document.querySelector('+JSON.stringify('[aria-label="Janela '+name+'"]')+'),d=document.querySelector(".web-desktop"),r=n.getBoundingClientRect(),b=d.getBoundingClientRect();return {maximized:n.classList.contains("web-window-maximized"),equal:[r.left-b.left,r.top-b.top,r.width-b.width,r.height-b.height].every(v=>Math.abs(v)<1),foreground:n.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))};})()');
+    assert.ok(result.maximized&&result.equal&&result.foreground,JSON.stringify({name,result}));
+  }
+  async function navigationUtilitiesProof(width,height) {
+    if(width>820)assert.equal(await evaluate("(()=>{const s=document.querySelector('.web-sidebar').getBoundingClientRect(),f=document.querySelector('.web-systembar'),d=f.querySelector('.web-dock'),r=d.getBoundingClientRect(),b=f.getBoundingClientRect(),style=getComputedStyle(f);return Math.abs(s.bottom-innerHeight)<=1&&Math.abs(document.querySelector('.web-desktop').getBoundingClientRect().bottom-innerHeight)<=1&&Math.abs((r.left+r.right)/2-(b.left+b.right)/2)<=1&&style.backgroundColor==='rgba(0, 0, 0, 0)'&&parseFloat(style.borderTopWidth)===0&&style.pointerEvents==='none'&&getComputedStyle(d).pointerEvents==='auto'&&f.children.length===1;})()"),true,'Full-height sidebar and centered floating dock replace the full-width footer strip');
+
+    if(width<=820)await click('[aria-label="Menu do workspace"]');
+    else assert.equal(await evaluate("!!document.querySelector('.web-sidebar [aria-label=\"Menu de identidade\"]') && !!document.querySelector('.web-sidebar [aria-label=\"Abrir notificações\"]') && !document.querySelector('.web-system-status time')"),true,'Profile and notifications remain in the sidebar; the Web clock is absent');
+    await click('[aria-label="Menu de identidade"]');
+    assert.equal(await evaluate("[...document.querySelectorAll('[role=menuitem]')].some(n=>n.textContent.includes('Minha Conta')&&n.getAttribute('href')==='/conta/')"),true,'Account link remains in canonical identity menu');
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await sleep(150);
+    await click('[aria-label="Abrir launcher"]');await sleep(250);
+    assert.equal(await evaluate("!!document.querySelector('.web-launcher[role=dialog]')"),true,'Navigation search opens the shared launcher');
+    await click('.web-launcher [title="Abrir Studio"]');await noDialog();await fullWindow('Studio');
+    if(width>820){await click('[aria-label="Recolher navegação"]');await fullWindow('Studio');assert.equal(await evaluate("[...document.querySelectorAll('.web-sidebar [aria-label=\"Menu de identidade\"],.web-sidebar [aria-label=\"Abrir launcher\"],.web-sidebar [aria-label=\"Abrir notificações\"]')].every(n=>n.getBoundingClientRect().width>=29&&n.getClientRects().length>0)"),true);await click('[aria-label="Expandir navegação"]');}
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
+  }
+  async function openingProof(width,height) {
+    for(const name of ['Studio','Arquivos','Internet','Galeria','Notas','Ajustes']) {
+      await click('[aria-label="Abrir aplicativos"]');
+      await click('.web-launcher [title="Abrir '+name+'"]');await noDialog();await fullWindow(name);
+    }
+    if(width<=820)await click('[aria-label="Menu do workspace"]');
+    await click('[aria-label="Abrir notificações"]');await noDialog();await fullWindow('Notificações');
+    assert.equal(await evaluate("document.querySelector('.web-topbar')===null && Math.abs(document.querySelector('.web-desktop').getBoundingClientRect().top-parseFloat(getComputedStyle(document.querySelector('.web-workspace')).getPropertyValue('--web-header-height')))<=1"),true,'Shell utilities leave the app header area free');
+    const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(join(evidence,'full-app-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+    if(width===1440){
+      for(let i=0;i<40;i++)await click('[aria-label="Abrir '+(i%2?'Studio':'Arquivos')+' pelo dock"]');
+      await fullWindow('Studio');
+      assert.ok(await evaluate("Number(getComputedStyle(document.querySelector('[aria-label=\"Janela Studio\"]')).zIndex)>Number(getComputedStyle(document.querySelector('[aria-label=\"Janela Arquivos\"]')).zIndex)"), 'Stacking remains ordered beyond the former layer cap');
+    }
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
+  }
   async function paneLayout(expected) {
     const layout = await evaluate(`(() => {
       const rect = node => { const b=node.getBoundingClientRect(); return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,width:b.width,height:b.height}; };
@@ -65,15 +101,15 @@ try {
         root:rect(document.querySelector('.web-workspace')), viewport:innerHeight,
         noDocumentScroll:document.documentElement.scrollHeight<=innerHeight,
         windows:[...document.querySelectorAll('.web-window')].filter(visible).map(node=>({mode:[...node.classList].find(value=>/^web-window-(normal|maximized|compact|immersive)$/.test(value)),rect:rect(node)})),
-        controls:document.querySelector('.web-carousel-controls') ? rect(document.querySelector('.web-carousel-controls')) : null};
+        controls:document.querySelector('.web-carousel-controls') && visible(document.querySelector('.web-carousel-controls')) ? rect(document.querySelector('.web-carousel-controls')) : null};
     })()`);
     if(expected) assert.equal(layout.mode,expected);
     assert.ok(Math.abs(layout.root.height-layout.viewport)<1 && layout.noDocumentScroll, JSON.stringify(layout));
-    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' ? layout.controls.height : 0;
+    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' ? layout.controls?.height??0 : 0;
     assert.ok(Math.abs(layout.primary.height-(layout.desktop.height-reserved))<1, JSON.stringify(layout));
     for(const win of layout.windows) {
       if(win.mode==='web-window-immersive')continue;
-      const bounds=win.mode==='web-window-compact' ? {top:layout.primary.bottom,bottom:layout.desktop.bottom} : layout.primary;
+      const bounds=win.mode==='web-window-compact' ? {top:layout.primary.bottom,bottom:layout.desktop.bottom} : win.mode==='web-window-maximized' ? layout.desktop : layout.primary;
       assert.ok(win.rect.top>=bounds.top-1 && win.rect.bottom<=bounds.bottom+1 && win.rect.left>=layout.desktop.left-1 && win.rect.right<=layout.desktop.right+1, JSON.stringify({layout,win}));
     }
     if(layout.controls) assert.ok(Math.abs(layout.controls.top-layout.primary.bottom)<1,JSON.stringify(layout));
@@ -81,7 +117,7 @@ try {
   }
 
   async function dialogChrome(selector) {
-    return evaluate('(()=>{const d=document.querySelector('+JSON.stringify(selector)+'),title=d.querySelector("h2"),close=d.querySelector(":scope>button"),t=title.getBoundingClientRect(),c=close.getBoundingClientRect(),r=d.getBoundingClientRect();return {titleTop:t.top,closeTop:c.top,inside:r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1,closeVisible:close.contains(document.elementFromPoint(c.left+c.width/2,c.top+c.height/2)),closeTarget:c.width>=44&&c.height>=44};})()');
+    return evaluate('(()=>{const d=document.querySelector('+JSON.stringify(selector)+'),title=d.querySelector("h2"),close=d.querySelector(":scope>[data-slot=dialog-close]"),t=title.getBoundingClientRect(),c=close.getBoundingClientRect(),r=d.getBoundingClientRect();return {titleTop:t.top,closeTop:c.top,inside:r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1,closeVisible:close.contains(document.elementFromPoint(c.left+c.width/2,c.top+c.height/2)),closeTarget:c.width>=44&&c.height>=44};})()');
   }
   async function touchScroll(selector) {
     const point=await evaluate('(()=>{const n=document.querySelector('+JSON.stringify(selector)+'),r=n.getBoundingClientRect();return {x:r.left+r.width/2,y:r.bottom-20,distance:Math.min(300,r.height-40)};})()');
@@ -171,12 +207,12 @@ try {
       await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
       assert.equal(await evaluate("document.querySelector('.web-mobile-menu').contains(document.activeElement)"),true,'Focus remains within the mobile menu');
     }
-    await touchScroll('.web-mobile-menu .web-navigation-content');
+    await touchScroll('.web-mobile-menu .web-navigation-scroll');
     const scrolledMenu=await dialogChrome('.web-mobile-menu');
     const scrolledMenuFooter=await evaluate("(()=>{const dialog=document.querySelector('.web-mobile-menu'),button=dialog.querySelector('.web-mobile-windows'),d=dialog.getBoundingClientRect(),r=button.getBoundingClientRect(),s=getComputedStyle(button);return {width:r.width,height:r.height,top:r.top,bottom:r.bottom,dialogBottom:d.bottom,display:s.display,buttons:[...document.querySelectorAll('.web-mobile-bar>button')].map(n=>{const b=n.getBoundingClientRect();return {width:b.width,height:b.height};})};})()");
     assert.ok(Math.abs(menuFooter.top-scrolledMenuFooter.top)<1&&Math.abs(menuFooter.bottom-scrolledMenuFooter.bottom)<1,'Menu window action stays fixed while navigation scrolls');
     assert.ok(Math.abs(menuChrome.titleTop-scrolledMenu.titleTop)<1&&Math.abs(menuChrome.closeTop-scrolledMenu.closeTop)<1&&scrolledMenu.closeVisible&&scrolledMenu.closeTarget,'Menu header and close remain reachable after scrolling');
-    assert.ok(await evaluate("document.querySelector('.web-mobile-menu .web-navigation-content').scrollTop>0"));
+    assert.ok(await evaluate("document.querySelector('.web-mobile-menu .web-navigation-scroll').scrollTop>0"));
     const scrolledShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(evidence,'mobile-menu-scrolled-'+width+'x'+height+'.png'),Buffer.from(scrolledShot.data,'base64'));
     await click('.web-mobile-menu [title="Ajustes do ambiente"]');await noDialog();
@@ -208,9 +244,11 @@ try {
     assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"Janela Studio\"]').length===1 && !!document.querySelector('[aria-label=\"Janela Studio\"].web-window-active')"),true);
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
   }
+  // DOMRect can differ from a 44px computed target by a subpixel (observed 43.999984px).
+  // A 0.02px tolerance covers that rounding without accepting smaller touch targets.
   async function homeResponsiveProof(width,height) {
     await click('[aria-label="Recolher janelas compactas"]');await paneLayout('collapsed');
-    const geometry=await evaluate("(()=>{const root=document.querySelector('.web-home'),grid=n=>getComputedStyle(n).gridTemplateColumns.split(' ').length,r=n=>{const b=n.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom};},cards=[...root.querySelectorAll('.web-home-overview>section,.web-featured,.web-home-continuity>section')];return {columns:grid(root.querySelector('.web-featured-apps')),overviewColumns:grid(root.querySelector('.web-home-overview')),order:cards.every((n,i)=>i===0||widthPlaceholder>1050||r(n).top>=r(cards[i-1]).bottom-1),inside:cards.every(n=>r(n).left>=0&&r(n).right<=innerWidth),touch:[...root.querySelectorAll('button,a')].filter(n=>n.getClientRects().length>0).every(n=>{const b=n.getBoundingClientRect();return b.width>=44&&b.height>=44}),shellMobile:getComputedStyle(document.querySelector('.web-mobile-bar')).display!=='none',search:getComputedStyle(document.querySelector('[aria-label=\"Abrir launcher\"]')).display!=='none',singleScroll:getComputedStyle(document.querySelector('.web-page-home')).overflowY!=='auto'};})()".replace('widthPlaceholder',String(width)));
+    const geometry=await evaluate("(()=>{const root=document.querySelector('.web-home'),grid=n=>getComputedStyle(n).gridTemplateColumns.split(' ').length,r=n=>{const b=n.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom};},cards=[...root.querySelectorAll('.web-home-overview>section,.web-featured,.web-home-continuity>section')];return {columns:grid(root.querySelector('.web-featured-apps')),overviewColumns:grid(root.querySelector('.web-home-overview')),order:cards.every((n,i)=>i===0||widthPlaceholder>1050||r(n).top>=r(cards[i-1]).bottom-1),inside:cards.every(n=>r(n).left>=0&&r(n).right<=innerWidth),touch:[...root.querySelectorAll('button,a')].filter(n=>n.getClientRects().length>0).every(n=>{const b=n.getBoundingClientRect();return b.width>=44-.02&&b.height>=44-.02}),shellMobile:getComputedStyle(document.querySelector('.web-mobile-bar')).display!=='none',search:[...document.querySelectorAll('[aria-label=\"Abrir launcher\"],.web-mobile-bar [aria-label=\"Abrir aplicativos\"]')].some(n=>n.getClientRects().length>0),singleScroll:getComputedStyle(document.querySelector('.web-page-home')).overflowY!=='auto'};})()".replace('widthPlaceholder',String(width)));
     assert.equal(geometry.columns,width<=365?2:width<=1350?3:6,JSON.stringify({width,geometry}));
     assert.equal(geometry.overviewColumns,width<=1050?1:2,JSON.stringify({width,geometry}));
     assert.ok(geometry.inside&&geometry.order&&geometry.singleScroll,JSON.stringify({width,geometry}));
@@ -270,6 +308,10 @@ try {
     await paneLayout('expanded');await retained();
     await click('[aria-label="Destacar Notas"]');
     await paneLayout('expanded');await retained();
+    await fullWindow('Notas');
+    await click('[aria-label="Menu da janela Notas"]');
+    await click('.web-window-menu [role=menuitem]:nth-child(3)');
+
 
     await click('[aria-label="Menu da janela Notas"]');
     await click('.web-window-menu [role=menuitem]:nth-child(5)');
@@ -313,6 +355,8 @@ try {
     await client.send('Emulation.setTouchEmulationEnabled',{enabled:width<=820,maxTouchPoints:1});
     for(const view of ['home','assistant','projects','spaces','apps','files','internet','store']){
       await client.send('Page.navigate',{url:origin+'/?view='+view});await ready();
+      if(view==='files'||view==='internet')await fullWindow(view==='files'?'Arquivos':'Internet');
+      else if(view!=='home')assert.equal(await evaluate("(()=>{const d=document.querySelector('.web-desktop').getBoundingClientRect(),p=document.querySelector('.web-primary-pane').getBoundingClientRect();return [p.top-d.top,p.left-d.left,p.width-d.width,p.height-d.height].every(v=>Math.abs(v)<1);})()"),true,'Workspace pages use the complete area outside shell chrome');
       const state=await evaluate("({canonical:document.querySelectorAll('.web-workspace').length===1&&location.pathname==='/',noOverflow:document.documentElement.scrollWidth<=innerWidth,assets:[...document.images].filter(img=>img.getClientRects().length>0).every(img=>img.complete&&img.naturalWidth>0),font:document.fonts.check('14px Inter'),unavailable:document.querySelector('.web-sidebar-status')?.textContent.includes('não conectados')})");
       assert.ok(Object.values(state).every(Boolean),JSON.stringify({width,height,view,state}));
       if (view === 'store') {
@@ -344,13 +388,15 @@ try {
     await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await sleep(100);
     await noDialog();
+    await navigationUtilitiesProof(width,height);
+    await openingProof(width,height);
     await homeResponsiveProof(width,height);
     await launcherProof(width,height);
     await mobileNavigationProof(width,height);
     await splitProof(width,height);
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
     if(width>820){
-      await click('[aria-label="Abrir Studio pelo dock"]');await click('[aria-label="Maximizar Studio"]');
+      await click('[aria-label="Abrir Studio pelo dock"]');await fullWindow('Studio');
       assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);await paneLayout('expanded');
       await click('[aria-label="Minimizar Studio"]');await click('[aria-label="Abrir Studio pelo dock"]');
       assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);
@@ -361,7 +407,7 @@ try {
     }
     const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(evidence,'web-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
-    reports.push({width,height,views:8,responsiveHome:true,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,mobileNavigation:width<=820,assets:true,noOverflow:true,launcher:true,dialogScrollAndFocus:true,windowLifecycle:width>820});
+    reports.push({width,height,views:8,responsiveHome:true,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,fullAppOpening:true,mobileNavigation:width<=820,assets:true,noOverflow:true,launcher:true,dialogScrollAndFocus:true,windowLifecycle:width>820});
     console.log('SURFACE_VIEWPORT=PASS '+width+'x'+height);
   }
   return reports;

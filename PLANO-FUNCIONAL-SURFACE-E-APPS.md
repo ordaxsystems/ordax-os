@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+ > **Dock Web — 11/10/2026:** pedido explícito: sidebar até o rodapé e dock central flutuante, sem faixa/linha inferior; preserva lifecycle e navegação mobile. [Owner, riscos e aceite](docs/DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
+
+
+> **Navegação Web — 11/10/2026:** ajuste explícito solicitado: controles do header passam à navegação compartilhada (perfil/notificações na sidebar; relógio Web removido), liberando o topo para apps; sem outro gerenciador, serviços ou estado de identidade. Exceção de UX ao piso MVP, com riscos e aceite em [Desktop Identity](docs/DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
+
+
 > **Loja Web — 11/10/2026:** pedido explícito de continuidade após a atualização do Lovable. Apresentação única conectada ao port público de catálogo; candidato de IA usa o source-lock do OS. Modo oficial é o padrão e a demonstração exige escolha explícita. Transporte Web e lifecycle reais permanecem pendentes; [owner, contratos, risco e aceite](docs/STORE-WEB-CATALOG-PRESENTATION.md).
 
 > **Composição Web — 10/10/2026:** pedido explícito de adaptar o workspace do Account Hub. Reimplementação no shell compartilhado existente, sem importar serviços ou estado simulado. Header, sidebar, Home e dock usam tokens, catálogo e eventos canônicos; [owner, limites e aceite](docs/DESKTOP-IDENTITY.md#account-hub-workspace-composition--2026-10-10).
@@ -1402,3 +1408,13 @@ pane principal; reducer, modos compactos e rascunho Intelligence preservados.
 Barra inferior segue Início, Aura, Apps, Space e Menu. Aura usa a sessão
 Intelligence existente; a visão geral de janelas fica acessível no Menu.
 Verificação inclui os dois lados do breakpoint 820/821 px e os cinco destinos.
+
+### Abertura de apps na área útil completa — 2026-10-11
+
+Incremento explícito solicitado: novas janelas e destaque de compactas abrem
+maximizados sobre os dois tracks, preservando header/rail/navegação. Projetos,
+Spaces, Loja, Apps e Intelligence ocupam a área completa ao entrar. O reducer
+existente preserva escolhas posteriores de modo/geometria e estado montado;
+a ordem de foco não satura e fica isolada abaixo do chrome. Sem segundo window
+manager ou ativação de serviços. Owner, risco, dependências e aceite por viewport:
+docs/DESKTOP-IDENTITY.md.

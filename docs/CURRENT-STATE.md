@@ -1,5 +1,22 @@
 # Current State
 
+Web layout: full-height desktop sidebar and centered floating app dock replace the full-width footer strip; mobile navigation remains unchanged. Owner/acceptance: [Desktop Identity](DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
+
+
+## Web navigation utilities — 2026-10-11
+
+Source preview moves shell search/profile/notifications to shared navigation chrome (desktop sidebar search/profile/notifications; mobile Menu; no Web clock). Apps occupy the top edge; only safe area/sidebar/bottom navigation remain outside. Existing reducers, dialogs and app instances are retained. Services and release gates are unchanged. Acceptance and risks: [Desktop Identity](DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
+
+
+## Web app opening — 2026-10-11
+
+New and detached app windows open maximized across the workspace, outside the
+shared header/sidebar/navigation. Page entries use the full content area. The
+existing reducers preserve user-selected normal geometry, compact layouts and
+mounted app state; isolated stacking keeps the latest app above older windows
+without saturating focus order. No pending service port is activated.
+Owner, risks and acceptance: docs/DESKTOP-IDENTITY.md.
+
 ## Web mobile usability — 2026-10-11
 
 The canonical workspace now shares its navigation component between the desktop
