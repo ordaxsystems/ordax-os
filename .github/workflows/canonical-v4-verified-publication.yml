@@ -1,0 +1,202 @@
+name: Canonical v4 Verified HTTPS Publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_tag:
+        description: 'Confirm exact signed Stable v4 tag (prerelease only; no USB write)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish-reviewed-v4:
+    name: Verify and publish exact signed HTTPS assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CONFIRM_TAG: ${{ inputs.confirm_tag }}
+      REPO_SLUG: ordaxsystems/ordax-os
+    steps:
+      - name: Checkout official publisher without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Configure frozen Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+
+      - name: Admit only exact signed candidate and immutable GitHub artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          repo = "ordaxsystems/ordax-os"
+          publication = json.loads(Path("docs/contracts/canonical-v4-publication-request.json").read_text())
+          active = json.loads(Path("docs/contracts/canonical-v4-signing-request-active.json").read_text())
+          auth = json.loads(Path("docs/contracts/physical-write-authorization.json").read_text())
+          sha = publication["source_commit"]
+          tag = "ordax-stable-v4-" + sha
+          if not re.fullmatch(r"[0-9a-f]{40}", sha):
+              raise SystemExit("PUBLICATION=BLOCKED_BAD_SHA")
+          if (publication.get("$schema") != "prototype-ordax.canonical-v4-publication-request/1"
+              or publication.get("status") != "pending-explicit-https-publication"
+              or publication.get("source_repository") != repo
+              or publication.get("release_tag") != tag
+              or os.environ["CONFIRM_TAG"] != tag
+              or active.get("source_commit") != sha
+              or active.get("release_tag") != tag
+              or active.get("source_repository") != repo):
+              raise SystemExit("PUBLICATION=BLOCKED_CANDIDATE_CONFLICT")
+          for key in ("publication_performed", "release_activated", "physical_write_authorized", "physical_write_performed"):
+              if publication.get(key) is not False:
+                  raise SystemExit("PUBLICATION=BLOCKED_UNSAFE_REQUEST")
+          if (auth.get("physical_write_allowed") is not False
+              or auth.get("explicit_owner_authorization") is not False):
+              raise SystemExit("PUBLICATION=BLOCKED_PHYSICAL_AUTHORITY")
+          for kind in ("signing_request", "signed_handoff"):
+              item = publication[kind]
+              artifact_id, run_id = item["artifact_id"], item["run_id"]
+              if type(artifact_id) is not int or type(run_id) is not int or artifact_id <= 0 or run_id <= 0:
+                  raise SystemExit("PUBLICATION=BLOCKED_BAD_ARTIFACT_ID")
+              prefix = "canonical-v4-signing-request-" if kind == "signing_request" else "canonical-v4-signed-handoff-proof-"
+              if item.get("artifact_name") != prefix + sha:
+                  raise SystemExit("PUBLICATION=BLOCKED_ARTIFACT_NAME")
+              def gh(path):
+                  raw = subprocess.check_output(["gh", "api", f"repos/{repo}/{path}"])
+                  return json.loads(raw)
+              metadata = gh(f"actions/artifacts/{artifact_id}")
+              run = gh(f"actions/runs/{run_id}")
+              if (metadata.get("id") != artifact_id
+                  or metadata.get("name") != item["artifact_name"]
+                  or metadata.get("expired") is not False
+                  or not re.fullmatch(r"sha256:[0-9a-f]{64}", metadata.get("digest", ""))
+                  or metadata.get("workflow_run", {}).get("id") != run_id
+                  or run.get("conclusion") != "success"
+                  or run.get("status") != "completed"
+                  or run.get("repository", {}).get("full_name") != repo):
+                  raise SystemExit("PUBLICATION=BLOCKED_UNTRUSTED_ARTIFACT")
+          if not re.fullmatch(r"[0-9a-f]{64}", publication.get("release_envelope_sha256", "")):
+              raise SystemExit("PUBLICATION=BLOCKED_BAD_ENVELOPE_DIGEST")
+          print("CANONICAL_V4_PUBLICATION_ADMISSION=PASS_NO_WRITE")
+          PY
+          python3 tools/release-operator/probe_active_operator_artifacts.py
+          echo 'PHYSICAL_WRITE_AUTHORIZED=NO'
+
+      - name: Download signed proof and source-exact EROFS inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="$(jq -r '.source_commit' docs/contracts/canonical-v4-publication-request.json)"
+          signed_run="$(jq -r '.signed_handoff.run_id' docs/contracts/canonical-v4-publication-request.json)"
+          signed_name="$(jq -r '.signed_handoff.artifact_name' docs/contracts/canonical-v4-publication-request.json)"
+          request_run="$(jq -r '.signing_request.run_id' docs/contracts/canonical-v4-publication-request.json)"
+          request_name="$(jq -r '.signing_request.artifact_name' docs/contracts/canonical-v4-publication-request.json)"
+          root="$RUNNER_TEMP/canonical-v4"
+          mkdir -p "$root/bundle" "$root/input/signing" "$root/input/verified"
+          gh run download "$request_run" --repo "$REPO_SLUG" --name "$request_name" --dir "$root/input/signing"
+          gh run download "$signed_run" --repo "$REPO_SLUG" --name "$signed_name" --dir "$root/input/verified"
+          find_one() {
+            python3 - "$1" "$2" <<'PY'
+          from pathlib import Path
+          import sys
+          folder, name = Path(sys.argv[1]), sys.argv[2]
+          matches = [p for p in folder.rglob(name) if p.is_file() and not p.is_symlink()]
+          if len(matches) != 1:
+              raise SystemExit("REQUIRED_INPUT_CARDINALITY_MISMATCH=" + name)
+          print(matches[0])
+          PY
+          }
+          bundle="$root/bundle"
+          cp -- "$(find_one "$root/input/signing" release-manifest.json)" "$bundle/release-manifest.json"
+          cp -- "$(find_one "$root/input/signing" release-ed25519.json)" "$bundle/release-ed25519.json"
+          cp -- "$(find_one "$root/input/verified" signed-handoff-verification.json)" "$bundle/signed-handoff-verification.json"
+          active='docs/contracts/canonical-v4-signing-request-active.json'
+          for entry in 'system:system.erofs' 'surface:native-surface-runtime.erofs' 'local-ai:local-ai-runtime.erofs'; do
+            kind="$(printf '%s' "$entry" | cut -d: -f1)"
+            file="$(printf '%s' "$entry" | cut -d: -f2)"
+            run="$(jq -r --arg k "$kind" '.operator_artifacts[$k].run_id' "$active")"
+            name="$(jq -r --arg k "$kind" '.operator_artifacts[$k].artifact_name' "$active")"
+            mkdir -p "$root/input/$kind"
+            gh run download "$run" --repo "$REPO_SLUG" --name "$name" --dir "$root/input/$kind"
+            cp -- "$(find_one "$root/input/$kind" "$file")" "$bundle/$file"
+          done
+          python3 tools/release-operator/export_exact_signed_envelope.py \
+            --repo-root . --source-commit "$source_commit" \
+            --expected-sha256 "$(jq -r '.release_envelope_sha256' docs/contracts/canonical-v4-publication-request.json)" \
+            --output "$bundle/release-envelope.json"
+          echo 'CANONICAL_V4_FIVE_ARTIFACTS_STAGED=YES'
+
+      - name: Build frozen Linux release-agent and prove read-only verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(jq -r '.source_commit' docs/contracts/canonical-v4-publication-request.json)"
+          frozen="$RUNNER_TEMP/canonical-v4/frozen-source"
+          bundle="$RUNNER_TEMP/canonical-v4/bundle"
+          git fetch --no-tags origin "$sha"
+          git worktree add --detach "$frozen" "$sha"
+          test "$(git -C "$frozen" rev-parse HEAD)" = "$sha"
+          (cd "$frozen/bootstrap/release-acquisition" && go build -trimpath -buildvcs=false -o "$bundle/ordax-release-agent" .)
+          python3 tools/release-operator/publish_verified_v4_release.py \
+            --source-root . --source-commit "$sha" \
+            --bundle-dir "$bundle" \
+            --signing-request docs/contracts/canonical-v4-signing-request-active.json \
+            --signed-receipt "$bundle/signed-handoff-verification.json" \
+            --trust "$bundle/release-ed25519.json" \
+            --release-agent "$bundle/ordax-release-agent" \
+            > "$RUNNER_TEMP/canonical-v4-readonly-plan.json"
+          echo 'CANONICAL_V4_ED25519_AND_FIVE_HASHES=VERIFIED'
+
+      - name: Publish only remotely verified assets, never physical media
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(jq -r '.source_commit' docs/contracts/canonical-v4-publication-request.json)"
+          tag="$(jq -r '.release_tag' docs/contracts/canonical-v4-publication-request.json)"
+          bundle="$RUNNER_TEMP/canonical-v4/bundle"
+          python3 tools/release-operator/publish_verified_v4_release.py \
+            --source-root . --source-commit "$sha" \
+            --bundle-dir "$bundle" \
+            --signing-request docs/contracts/canonical-v4-signing-request-active.json \
+            --signed-receipt "$bundle/signed-handoff-verification.json" \
+            --trust "$bundle/release-ed25519.json" \
+            --release-agent "$bundle/ordax-release-agent" \
+            --publish --confirm-tag "$CONFIRM_TAG" \
+            > "$RUNNER_TEMP/canonical-v4-publication-receipt.json"
+          jq -e '.status == "published-prerelease-verifiable-https" and
+                 .release_published == true and
+                 .release_activated == false and
+                 .physical_write_authorized == false and
+                 .physical_write_performed == false' \
+                 "$RUNNER_TEMP/canonical-v4-publication-receipt.json"
+          {
+            echo '## Signed Stable v4 publication completed (prerelease only)'
+            echo "Source: $sha"
+            echo "Tag: $tag"
+            echo 'All five GitHub assets verified by remote SHA-256/size'
+            echo 'USB write: NOT AUTHORIZED'
+            echo 'Stable channel: NOT PROMOTED'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save only the public publication receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: canonical-v4-https-publication-receipt
+          path: ${{ runner.temp }}/canonical-v4-publication-receipt.json
+          if-no-files-found: error
+          retention-days: 14
