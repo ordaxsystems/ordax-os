@@ -68,12 +68,17 @@
     }
   }
 
-  // Legal consent must only reference the approved pages on this origin.
-  function canonicalLegalDocument(value, path) {
-    if (!validHttpsDocumentUrl(value)) return false;
+  // Only the historical policy can use mutable presentation pages. Every
+  // new consent version must point to its byte-stable publication snapshot.
+  function canonicalLegalDocument(value, path, version) {
+    if (!validHttpsDocumentUrl(value)
+        || typeof version !== "string"
+        || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(version)) return false;
     try {
       const url = new URL(value);
-      return url.origin === window.location.origin && url.pathname === path;
+      const expected = version === "2026.10.09"
+        ? path : `/legal/${version}${path}`;
+      return url.origin === window.location.origin && url.pathname === expected;
     } catch {
       return false;
     }
@@ -88,7 +93,7 @@
       && typeof value.effectiveDate === "string"
       && /^\d{4}-\d{2}-\d{2}$/.test(value.effectiveDate)
       && validSha256(value.sha256)
-      && canonicalLegalDocument(value.url, path)
+      && canonicalLegalDocument(value.url, path, value.version)
     );
   }
 
@@ -114,7 +119,7 @@
       [policy.privacy, "/privacidade/"],
       [policy.terms, "/termos/"],
     ]) {
-      if (!canonicalLegalDocument(documentInfo.url, route)) return false;
+      if (!canonicalLegalDocument(documentInfo.url, route, documentInfo.version)) return false;
       const response = await fetch(documentInfo.url, {
         method: "GET",
         credentials: "omit",
