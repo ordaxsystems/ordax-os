@@ -79,7 +79,7 @@ class ReleasePipelinePhysicalStateTests(unittest.TestCase):
         authorization = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
         self.assertEqual(
             authorization["status"],
-            "blocked-canonical-v4-release-proof-pending",
+            "blocked-explicit-physical-authorization-pending",
         )
         self.assertTrue(authorization["requirements"]["canonical_v4_release_proof_bound"])
         self.assertFalse(authorization["explicit_owner_authorization"])
