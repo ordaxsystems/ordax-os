@@ -181,6 +181,31 @@ A candidate that cannot select its exact rootfs or cannot satisfy health never b
 
 Early boot branding follows the same rule. Anything displayed only after the development base hands control to `system/` may update with the normal Git loop. A logo/splash shown before Git exists is part of the base/initramfs path and therefore changes on the next base boot. The current prototype still uses text-mode early boot; a branded graphical splash renderer has not yet been implemented.
 
+## First-boot graphical runtime provisioning (2026-10-11)
+
+The Owner/Development notebook may need to install the replaceable native
+Cage/WebKit graphical runtime after its first Git checkout. Alpine APK can
+report hundreds of packages; `Installing (218/247)` is **progress**, not a
+Surface health acknowledgement or proof of a finished installation.
+
+The native launcher writes a current-boot, exact-source-SHA provisioning marker
+only while its development graphical runtime is being provisioned. The system
+supervisor distinguishes this bounded acquisition phase (default maximum 660s)
+from the normal 30s graphical health deadline; once provisioning completes,
+actual Cage/WebKit/Surface heartbeat verification must still pass independently.
+The package acquisition itself is bounded (default 600s). Stable/MVP never
+uses this development APK acquisition path and keeps its separately governed
+health budget. The Guardian verifies a process-owned supervisor liveness marker
+independently of `state.json` updates, so an active first-run install cannot be
+misinterpreted as an idle/crashed supervisor.
+
+These are source/CI changes, **not yet a new physical boot proof**. A developer
+USB that has a working checkout can receive the fix via `ordax-pull` and try
+`ordax-run` without reflashing the USB. If it still enters recovery, inspect
+`/run/ordax-surface/host.log`, `/run/ordax-update/guardian.log` and the
+runtime's `http.log` for the actual failed phase; do not remove the physical
+USB safety gates or treat the historical partial APK output as proof of success.
+
 ## Network behavior
 
 Normal unpinned boot prefers Ethernet/USB tether because no credentials are required. If neither is available and a supported Wi-Fi interface is detected, the development base asks for SSID/password and stores its WPA configuration under `/state/network/`.
