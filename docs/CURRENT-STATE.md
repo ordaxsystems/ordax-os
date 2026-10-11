@@ -1,5 +1,14 @@
 # Current State
 
+## Web compact panes — 2026-10-11
+
+The canonical Web workspace now reserves two responsive tracks for primary
+content and compact windows. Floating apps fit the primary pane rather than
+covering the carousel. Collapsing releases its content space; no compact windows
+means no reserved row. App nodes remain mounted across mode changes. Owner,
+dependencies, risks and browser acceptance: docs/DESKTOP-IDENTITY.md. This is a
+Web source/candidate change; Native and production activation are independent.
+
 ## Web Store catalog presentation — 2026-10-11
 
 Store now consumes the existing authority-free catalog port through one React

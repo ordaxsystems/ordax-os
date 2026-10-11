@@ -1372,3 +1372,13 @@ proveniência, dependências, riscos e aceite: docs/DESKTOP-IDENTITY.md.
 Não existe workspace/rota de avaliação ou redirect. Recursos pendentes
 permanecem na interface; serviços reais serão conectados no próximo incremento.
 Autoridades de Apps, Runtime, Identity, Memory, Intelligence e sync preservadas.
+
+
+### Divisão responsiva das janelas compactas — 2026-10-11
+
+Incremento de geometria/interação da apresentação Web canônica: área atual
+na parte superior e janelas compactas na inferior, cada uma com rolagem própria.
+Recolher expande a área principal; minimizar/fechar a última compacta remove
+a reserva inferior. Uma composição, reducer existente e instâncias preservadas.
+Owner, dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
+Sem mudança de autoridade, contratos de serviço, Native ou ativação de produção.
