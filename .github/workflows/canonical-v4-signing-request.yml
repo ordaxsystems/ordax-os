@@ -70,6 +70,39 @@ jobs:
           python3 tools/release-operator/probe_active_operator_artifacts.py \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Independently reconstruct exact request with canonical GitHub-backed builder
+        if: steps.probe.outputs.active == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          requested = Path("docs/contracts/canonical-v4-signing-request-active.json")
+          doc = json.loads(requested.read_text(encoding="utf-8"))
+          ids = doc["operator_artifacts"]
+          candidate = Path(os.environ["RUNNER_TEMP"]) / "reconstructed-canonical-v4-request.json"
+          cmd = [
+              sys.executable, "tools/release-operator/build_canonical_v4_request.py",
+              "--source-commit", doc["source_commit"],
+              "--system-run", str(ids["system"]["run_id"]),
+              "--surface-run", str(ids["surface"]["run_id"]),
+              "--local-ai-run", str(ids["local-ai"]["run_id"]),
+              "--out", str(candidate),
+          ]
+          subprocess.run(cmd, check=True, timeout=120)
+          rebuilt = json.loads(candidate.read_text(encoding="utf-8"))
+          if rebuilt != doc:
+              raise SystemExit("ACTIVE_CANONICAL_V4_REQUEST=BLOCKED_BUILDER_RECONSTRUCTION_MISMATCH")
+          print("ACTIVE_CANONICAL_V4_REQUEST=CANONICAL_BUILDER_MATCH")
+          print("RELEASE_SIGNED=NO")
+          print("PHYSICAL_WRITE_AUTHORIZED=NO")
+          PY
+
       - name: State unsigned assembly availability
         run: |
           if [ "${{ steps.probe.outputs.active }}" = 'true' ]; then

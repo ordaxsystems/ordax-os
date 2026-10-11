@@ -54,12 +54,67 @@ class LiveCanonicalV4OperatorArtifactsTests(unittest.TestCase):
         with self.assertRaises(builder.ValidationError):
             probe.live_request_matches(ROOT, self.request, "test-token", fetch=self.fetch)
 
+    def test_frozen_candidate_ref_is_rechecked_at_live_assembly_boundary(self):
+        branch = "release-candidate/" + self.source_commit
+        for kind in self.runs:
+            self.runs[kind]["head_branch"] = branch
+            self.inventories[kind]["artifacts"][0]["workflow_run"]["head_branch"] = branch
+        self.request = builder.build_request(
+            self.source_commit, self.runs, self.inventories, self.historical
+        )
+        self.assertEqual(self.request["operator_ref"], branch)
+        seen = []
+        def get_live(route, token):
+            seen.append(route)
+            if route.startswith("/git/ref/heads/"):
+                return {
+                    "ref": "refs/heads/" + branch,
+                    "object": {"type": "commit", "sha": self.source_commit},
+                }
+            return self.fetch(route, token)
+        self.assertTrue(probe.live_request_matches(
+            ROOT, self.request, "read-only-test-token", fetch=get_live
+        ))
+        self.assertEqual(seen[-1], "/git/ref/heads/" + branch)
+
+        for changed in (
+            {"ref": "refs/heads/" + branch,
+             "object": {"type": "commit", "sha": "f" * 40}},
+            {"ref": "refs/heads/main",
+             "object": {"type": "commit", "sha": self.source_commit}},
+            {"ref": "refs/heads/" + branch,
+             "object": {"type": "tag", "sha": self.source_commit}},
+        ):
+            with self.subTest(changed=changed):
+                def moved(route, token):
+                    if route.startswith("/git/ref/heads/"):
+                        return changed
+                    return self.fetch(route, token)
+                with self.assertRaisesRegex(builder.ValidationError, "no longer points"):
+                    probe.live_request_matches(
+                        ROOT, self.request, "read-only-test-token", fetch=moved
+                    )
+
+    def test_historical_main_request_never_depends_on_candidate_branch(self):
+        def get_without_ref(route, token):
+            self.assertFalse(route.startswith("/git/ref/heads/"))
+            return self.fetch(route, token)
+        self.assertTrue(probe.live_request_matches(
+            ROOT, self.request, "read-only-test-token", fetch=get_without_ref
+        ))
+
     def test_workflow_uses_live_proof_not_static_selection(self):
         source = (ROOT / ".github/workflows/canonical-v4-signing-request.yml").read_text(encoding="utf-8")
         self.assertIn("active: $" + "{{ steps.probe.outputs.active }}", source)
         self.assertIn("if: steps.select.outputs.active == 'true'", source)
         self.assertIn("probe_active_operator_artifacts.py", source)
         self.assertIn("test_canonical_v4_live_operator_artifacts.py", source)
+        self.assertIn("Independently reconstruct exact request with canonical GitHub-backed builder", source)
+        self.assertIn("tools/release-operator/build_canonical_v4_request.py", source)
+        self.assertIn("ACTIVE_CANONICAL_V4_REQUEST=CANONICAL_BUILDER_MATCH", source)
+        self.assertIn("RELEASE_SIGNED=NO", source)
+        self.assertIn("PHYSICAL_WRITE_AUTHORIZED=NO", source)
+        self.assertIn("if rebuilt != doc:", source)
         self.assertNotIn("active: $" + "{{ steps.select.outputs.active }}", source)
 
     def test_missing_live_proof_writes_inactive_and_no_signature(self):
