@@ -13,6 +13,25 @@ The exact asset is `OrdaX-Creator-Owner-Prototype.zip`. The complete
 folder (GUI, privileged RAW writer, seed, provenance and README) must be
 extracted before running `OrdaX-Creator.exe`.
 
+### Identidade da release de desenvolvimento (SSOT)
+
+A tag fixa `creator-owner-prototype` serve **apenas como endereço do canal**.
+A referência `target_commitish` da release pode preservar o commit de sua
+criação; ela **não identifica** os bytes atualmente publicados e não deve ser
+usada como versão do Creator. A fonte de verdade por publicação é
+`creator-owner-update.json` (`source_commit`, `version`, `sha256`, `size`).
+A proveniência dentro do ZIP deve corresponder ao manifesto e ao SHA-256 dos
+assets publicados. O publicador agora faz *readback* do endpoint GitHub da
+release para validar os quatro assets e seus digests **após** o upload; nunca
+depende de `gh release edit` ou da movimentação da tag histórica.
+
+Em 11/10/2026, o GitHub permitiu publicar/repor assets, porém recusou
+`gh release edit` com HTTP 403. Esse resultado **não autoriza ignorar um
+upload não confirmado**: a validação remota de hashes, tamanhos, canal e
+commit continua obrigatória para CI passar. O canal continua exclusivamente
+de desenvolvimento, sem alterar autorização Stable/MVP nem gravações físicas.
+
+
 Before this bundle is published, `tools/creator/verify_owner_dev_bundle.py`
 checks its exact source commit, ZIP/hash manifest, member allowlist and seed
 digest. This is a **developer-only** test channel; it uses ephemeral prototype
