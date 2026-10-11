@@ -45,6 +45,7 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(
             [(r["source"], r["destination"]) for r in self.config["rewrites"]],
             [
+                ("/oauth/consent", "/api/oauth-consent"),
                 ("/auth/:path*", "/api/account-proxy?ordax_path=/auth/:path*"),
                 ("/sync/:path*", "/api/account-proxy?ordax_path=/sync/:path*"),
                 ("/account/:path*", "/api/account-proxy?ordax_path=/account/:path*"),
