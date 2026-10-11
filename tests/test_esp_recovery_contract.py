@@ -56,7 +56,21 @@ class ESPContractTest(unittest.TestCase):
         self.assertIn('mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax', INIT)
         self.assertIn("/ordax/bootstrap/recovery/entrypoint", INIT)
         self.assertIn("mounted read-only", RECOVERY)
-        self.assertNotIn("network", RECOVERY.lower().replace("no network", ""))
+        # Recovery may mention maintenance/network in comments or diagnostics,
+        # but must never execute acquisition, networking or write operations.
+        self.assertIn("No network, remote access or automatic mutation", RECOVERY)
+        non_display_code = "\n".join(
+            line.strip() for line in RECOVERY.splitlines()
+            if line.strip() and not line.lstrip().startswith(("#", "echo "))
+        )
+        for forbidden in (
+            "ordax-network", "ordax-pull", "ordax-run", "curl", "wget",
+            "udhcpc", "git", "mount", "umount", "dd", "mkfs", "wipefs",
+        ):
+            self.assertNotRegex(
+                non_display_code,
+                r"(?m)^(?:exec\s+)?(?:/usr/local/bin/)?"+forbidden+r"(?:\s|$)",
+            )
 
     def test_only_normal_and_recovery_loader_entries_exist(self):
         entries = ESP / "loader" / "entries"
