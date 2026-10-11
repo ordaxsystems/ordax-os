@@ -103,7 +103,7 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
         self.assertEqual(status["pre_authorization_blockers"], [])
         self.assertTrue(status["owner_authorization_required"])
         self.assertFalse(status["authorized_candidate_materialization_allowed"])
-        self.assertFalse(status["physical_write_performed"])
+        self.assertFalse(status["ready"])
 
     def test_audited_sources_are_bound_to_owner_authorization_context(self):
         context_paths = {
