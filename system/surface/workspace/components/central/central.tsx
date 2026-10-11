@@ -1,14 +1,14 @@
 import { useEffect, useReducer, useState, type FormEvent } from 'react';
-import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, Menu, House, Sparkles, LayoutGrid, WalletCards, MonitorSmartphone } from 'lucide-react';
+import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
 import { navigation, shortcuts, modes, favorites, projects, activities, devices } from './config';
 import { AppIcon, Avatar, Brand, Panel } from './primitives';
-import { Desktop } from './desktop';
+import { Desktop, WorkspaceNavigation } from './desktop';
 import { desktopReducer, initialDesktopState } from './desktop-state';
-import { RunningApps, WindowLayer } from './window-layer';
+import { WindowLayer } from './window-layer';
 
 export function Central() {
   const [windows, dispatch] = useReducer(desktopReducer, initialDesktopState);
@@ -51,7 +51,6 @@ export function Central() {
       </div>
     </aside>
     <main className="os-main">
-      <div className="central-view-toolbar"><div className="view-switch" aria-label="Visualização"><Button variant="ghost" data-window-home="true" data-active="true" aria-pressed="true"><LayoutGrid/>Central</Button><Button variant="ghost" aria-pressed="false" onClick={() => changeView('desktop')}><MonitorSmartphone/>Área de trabalho</Button></div></div>
       <div className="central-content" inert={regular}><header className="mobile-header"><Brand/><div className="mobile-tools">{notificationControl}{themeControl}{profileControl}</div></header>
       <section className="os-hero" aria-label="Sua central OrdaX OS">
         <img className="hero-wallpaper hero-wallpaper-day" src={dayWallpaper} alt="Lago alpino ao amanhecer" width={1920} height={768}/>
@@ -76,17 +75,16 @@ export function Central() {
       <footer className="os-footer"><span>OrdaX OS Web</span><span><span className="online-dot"/>Tudo em seu lugar.</span></footer>
       </div>
     </main>
-    <nav className="mobile-nav" aria-label="Navegação móvel">{[{ name: 'Início', icon: House }, { name: 'Aura', icon: Sparkles }, { name: 'Apps', icon: LayoutGrid }, { name: 'Espaços', icon: WalletCards }, { name: 'Mais', icon: Menu }].map(item => <Button variant="ghost" className="mobile-nav-item" key={item.name} data-active={item.name === 'Início'} onClick={() => openSection(item.name === 'Apps' ? 'Aplicativos' : item.name)}><item.icon/>{item.name}</Button>)}</nav>
     <Dialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialog}</DialogTitle><DialogDescription>{dialog === 'Entrada por voz' ? 'Aura ainda não está conectada a um serviço de inteligência artificial.' : 'Espaço de apresentação · OrdaX OS Web'}</DialogDescription></DialogHeader>
       {dialog === 'Adicionar aplicativo' && <div className="favorite-grid">{favorites.map(item => <Button variant="ghost" className="favorite-tile" key={item.name} onClick={() => { if (dialog === 'Adicionar aplicativo') { setAddedApps(previous => previous.filter(a => a !== `hidden:${item.name}`)); setDialog(null); } else openPanel(item.name); }}><AppIcon icon={item.icon} tone={item.tone}/>{item.name}</Button>)}</div>}
       {(dialog === 'Mais' || dialog === 'Espaço Pessoal') && <div className="modal-list">{(dialog === 'Mais' ? navigation.slice(2).map(n => n.name).concat('Configurações') : ['Espaço Pessoal']).map(name => <Button variant="secondary" className="justify-between" key={name} onClick={() => openPanel(name)}>{name}<ChevronRight/></Button>)}</div>}
       {dialog === 'Adicionar dispositivo' && <div className="modal-list">{devices.map(item => <div className="device-item" key={item.name}><item.icon/><span>{item.name}</span></div>)}</div>}
     </DialogContent></Dialog>
   </div></div>
-    <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onTheme={toggleTheme} onCentral={() => changeView('central')} state={windows} dispatch={dispatch}/></div>
+    <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onTheme={toggleTheme} onCentral={() => changeView('central')} dispatch={dispatch}/></div>
     </div>
     <div className="compact-reservation" aria-hidden="true"/>
-    {view === 'central' && windows.windows.length > 0 && <RunningApps state={windows} dispatch={dispatch}/>}
+    <WorkspaceNavigation state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
     <WindowLayer state={windows} dispatch={dispatch} theme={theme} onTheme={toggleTheme} onCentral={() => { dispatch({ type: 'show-desktop' }); changeView('central'); }}/>
   </div>;
 }

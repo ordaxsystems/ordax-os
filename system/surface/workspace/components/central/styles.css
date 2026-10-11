@@ -208,7 +208,7 @@
 .online-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--success); margin-right: 4px; }
 .add-device { width: 100%; height: 48px; font-size: 10px; }
 .os-footer { display: flex; justify-content: space-between; padding: 22px 3px 8px; color: var(--muted-foreground); font-size: 10px; }
-.mobile-header, .mobile-nav, .mobile-section-title { display: none; }
+.mobile-header, .mobile-section-title { display: none; }
 .modal-list { display: grid; gap: 10px; margin-top: 18px; }
 @media (min-width: 1500px) { .os-main { padding: 28px; } .os-hero { height: 300px; } .hero-content { padding-top: 60px; } }
 @media (max-width: 1150px) and (min-width: 761px) { :root { --sidebar-width: 185px; --layout-gap: 12px; } .os-main { padding: 16px; } .os-sidebar { padding-inline: 12px; } .content-grid { grid-template-columns: 1fr 1.1fr; } .activity-panel { grid-column: 1 / -1; } .activity-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .quick-item { padding: 10px; gap: 8px; } .quick-caption { display: none; } .lower-grid { grid-template-columns: 1fr; } }
@@ -248,9 +248,6 @@
   .activity-list { gap: 15px; }
   .device-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .os-footer { display: none; }
-  .mobile-nav { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); position: fixed; bottom: 0; left: 0; right: 0; background: var(--sidebar-surface); border-top: 1px solid var(--border); z-index: 40; padding: 7px 10px max(9px,env(safe-area-inset-bottom)); }
-  .mobile-nav-item { display: flex; flex-direction: column; height: 49px; gap: 4px; font-size: 9px; border-radius: 6px; padding: 4px; color: var(--foreground); }
-  .mobile-nav-item[data-active="true"] { color: var(--accent-foreground); background: var(--accent); }
 }
 @media (prefers-reduced-motion: no-preference) { .os-shell, .os-panel, .os-sidebar { transition: background-color .2s, color .2s, border-color .2s; } }
 
@@ -266,10 +263,6 @@
   --desktop-top-height: 68px;
 }
 [data-theme="dark"] { --desktop-surface: oklch(0.2 0.014 175 / 96%); --desktop-hover: oklch(0.99 0.002 85 / 10%); }
-.central-view-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.view-switch { display: inline-flex; background: var(--secondary); border: 1px solid var(--border); padding: 3px; border-radius: 7px; gap: 3px; }
-.view-switch > button { height: 30px; font-size: 11px; padding: 0 12px; }
-.view-switch > button[data-active="true"] { background: var(--card); box-shadow: var(--shadow-panel); }
 .classic-desktop { position: relative; height: 100svh; min-height: 440px; overflow: hidden; isolation: isolate; }
 .desktop-wallpaper { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
 .desktop-topbar { position: absolute; top: 0; left: 0; right: 0; height: var(--desktop-top-height); padding: 0 25px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; background: var(--desktop-surface); border-bottom: 1px solid var(--border); backdrop-filter: blur(20px); z-index: 5; }
@@ -332,9 +325,6 @@
 .desktop-unconnected { margin-top: 24px; }
 @media (max-height: 760px) { .desktop-shortcuts { grid-template-rows: repeat(4,92px); } }
 @media (max-width: 760px) {
-  .central-view-toolbar { margin: 15px 0 0; }
-  .view-switch { width: 100%; }
-  .view-switch > button { flex: 1; }
   .desktop-topbar { padding-inline: 15px; }
   .desktop-topbar .brand-name { font-size: 13px; }
   .desktop-topbar .brand-sub { font-size: 8px; }
@@ -358,7 +348,7 @@
 /* Surface window layout SSOT: reserved grid tracks, never viewport scaling. */
 .window-workspace {
   --compact-track: 0px;
-  --running-track: 0px;
+  --running-track: calc(var(--taskbar-height) + env(safe-area-inset-bottom));
   --navigation-track: 0px;
   height: 100vh;
   height: 100dvh;
@@ -373,7 +363,6 @@
 }
 .window-workspace[data-compact="expanded"] { --compact-track: min(calc((100dvh - var(--navigation-track) - var(--running-track)) * .45), 420px); }
 .window-workspace[data-compact="collapsed"] { --compact-track: 64px; }
-.window-workspace[data-view="central"][data-running="true"] { --running-track: 48px; }
 .workspace-stage { grid-row: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .central-presentation, .desktop-presentation, .window-workspace .os-shell { height: 100%; min-height: 0; }
 .window-workspace [hidden] { display: none !important; }
@@ -399,13 +388,13 @@
   height: auto;
   min-height: 0;
   min-width: 0;
-  margin: 68px 20px 20px calc(var(--sidebar-width) + 20px);
+  margin: 20px 20px 20px calc(var(--sidebar-width) + 20px);
   z-index: 1;
 }
 .workspace-window[data-maximized="true"] { inset: auto; width: auto; height: auto; }
 .workspace-window[data-mode="normal"] { width: min(690px, calc(100% - var(--sidebar-width) - 40px)); height: min(470px, calc(100% - 88px)); }
-.window-workspace[data-view="desktop"] .workspace-window { margin: calc(var(--desktop-top-height) + 12px) 20px calc(var(--taskbar-height) + 12px); }
-.window-workspace[data-view="desktop"] .workspace-window[data-mode="normal"] { width: min(690px, calc(100% - 40px)); height: min(470px, calc(100% - var(--desktop-top-height) - var(--taskbar-height) - 24px)); }
+.window-workspace[data-view="desktop"] .workspace-window { margin: calc(var(--desktop-top-height) + 12px) 20px 12px; }
+.window-workspace[data-view="desktop"] .workspace-window[data-mode="normal"] { width: min(690px, calc(100% - 40px)); height: min(470px, calc(100% - var(--desktop-top-height) - 24px)); }
 .window-workspace .workspace-window[data-mode="compact"] { grid-area: 2 / 1; margin: 8px 20px 8px calc(var(--sidebar-width) + 20px); width: auto; height: auto; }
 .window-workspace[data-view="desktop"] .workspace-window[data-mode="compact"] { margin-left: 20px; }
 .workspace-window .desktop-titlebar { height: 48px; min-height: 48px; padding-inline: 12px 4px; }
@@ -414,27 +403,31 @@
 .workspace-window .desktop-window-controls button { width: 44px; height: 44px; }
 .workspace-window .desktop-window-body { min-height: 0; overscroll-behavior: contain; }
 .workspace-window[data-collapsed="true"] .desktop-titlebar { border-bottom: 0; }
-.central-running-apps { grid-row: 3; display: flex; align-items: center; gap: 10px; padding: 4px 12px; margin-left: var(--sidebar-width); min-width: 0; overflow: hidden; border-top: 1px solid var(--border); background: var(--sidebar-surface); z-index: 40; }
-.central-running-apps .desktop-running-apps { flex: 1; }
-.central-running-apps > button { flex-shrink: 0; }
-.running-apps-label { color: var(--muted-foreground); font-size: 10px; }
 .window-workspace .desktop-start-menu, .window-workspace .desktop-menu-dismiss { z-index: 45; }
 .window-workspace .desktop-taskbar { z-index: 40; }
 @media (max-width: 760px) {
-  .window-workspace[data-view="central"] { --navigation-track: calc(65px + env(safe-area-inset-bottom)); }
   .window-workspace[data-compact="expanded"] { --compact-track: calc((100dvh - var(--navigation-track) - var(--running-track)) * .5); }
   .window-workspace[data-compact="collapsed"] { --compact-track: 48px; }
   .window-workspace .os-main { padding-bottom: 20px; }
-  .window-workspace .mobile-nav { height: var(--navigation-track); box-sizing: border-box; }
-  .window-workspace .workspace-window, .window-workspace[data-view="desktop"] .workspace-window { margin: 64px 0 0; border-radius: 8px 8px 0 0; }
-  .window-workspace[data-view="desktop"] .workspace-window { margin-top: var(--desktop-top-height); margin-bottom: var(--taskbar-height); }
+  .window-workspace .workspace-window, .window-workspace[data-view="desktop"] .workspace-window { margin: 0; border-radius: 8px 8px 0 0; }
+  .window-workspace[data-view="desktop"] .workspace-window { margin-top: var(--desktop-top-height); margin-bottom: 0; }
   .window-workspace .workspace-window[data-mode="normal"] { width: auto; height: auto; }
   .window-workspace .workspace-window[data-mode="compact"] { margin: 0; border-radius: 8px 8px 0 0; }
   .workspace-window .desktop-window-body { padding: 16px; }
   .workspace-window .desktop-window-title { gap: 6px; }
   .workspace-window .desktop-window-title > svg { display: none; }
-  .central-running-apps { margin-left: 0; padding-inline: 8px; gap: 8px; }
-  .central-running-apps .desktop-task { width: auto; padding-inline: 10px; max-width: 160px; }
-  .central-running-apps .desktop-task span { display: inline; max-width: 110px; }
-  .central-running-apps .desktop-task svg { width: 14px; }
+}
+
+/* One bottom navigation track in both presentations; launcher and toggle never move. */
+.window-workspace .workspace-navigation { grid-row: 3; position: relative; inset: auto; height: 100%; padding-bottom: env(safe-area-inset-bottom); z-index: 50; }
+.workspace-navigation .desktop-start-button { flex-shrink: 0; }
+.workspace-navigation .desktop-task { min-width: 44px; height: 44px; }
+.workspace-navigation .workspace-view-toggle { width: 44px; height: 44px; flex-shrink: 0; }
+.workspace-navigation .workspace-view-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+.window-workspace .desktop-start-menu { z-index: 49; bottom: calc(var(--running-track) + 10px); }
+.window-workspace .desktop-menu-dismiss { z-index: 48; }
+@media (max-width: 760px) {
+  .workspace-navigation .desktop-tray time, .workspace-navigation .desktop-tray .tray-status { display: none; }
+  .workspace-navigation .desktop-taskbar-left { gap: 2px; }
+  .workspace-navigation .desktop-start-button, .workspace-navigation .desktop-tray > button { width: 44px; height: 44px; }
 }

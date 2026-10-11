@@ -74,7 +74,7 @@ try {
       await until("document.documentElement.dataset.theme==='dark'");
       await click('[aria-label="Ativar tema claro"]');
       await until("document.documentElement.dataset.theme==='light'");
-      if(width<=760)assert.equal(await evaluate("getComputedStyle(document.querySelector('.mobile-nav')).display"),'grid');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       await evaluate("(()=>{const n=document.querySelector('.aura-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await click('[aria-label="Enviar ao Aura"]');
       await until("!!document.querySelector('[aria-label=\"Janela Aura\"]')");
@@ -92,7 +92,10 @@ try {
       assert.equal(await evaluate("window.proofAura.querySelector('input').value"),'Apenas demonstração','Minimize keeps the draft');
       await click('[aria-label="Expandir janela Aura"]');
       await click('[aria-label="Fechar Aura"]');
-      await clickByText('.view-switch button','Área de trabalho');
+      await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().toJSON()");
+      await click('[data-workspace-switch]');
+      assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');
+      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays beside Start in both views');
       await until("!!document.querySelector('.classic-desktop')");
       await clickByText('.desktop-shortcuts button','Projetos');
       await click('[aria-label="Restaurar janela Projetos"]');
@@ -109,7 +112,7 @@ try {
       await click('[aria-label="Restaurar janela Projetos"]');
       await click('[aria-label="Fechar Projetos"]');
       assert.equal(await evaluate("!document.querySelector('[aria-label=\"Restaurar janela Projetos\"]')"),true);
-      await clickByText('.desktop-top-actions button','Central');
+      await click('[data-workspace-switch]');
       await until("!!document.querySelector('.os-shell')");
       const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
       await writeFile(join(evidence,'central-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));

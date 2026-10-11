@@ -347,3 +347,21 @@ panes fit above navigation with independent scrolling. Existing reducer/browser
 checks were updated to cover the increment, but NOT executed locally. No build,
 npm, typecheck or test was run, per the user's explicit restriction. Browser and
 CI evidence remain pending; these notes do not establish production readiness.
+
+## Shared bottom navigation — 2026-10-11
+
+User-requested Surface increment: Central/Desktop switching moves to the button
+beside Start, in exactly the same mounted bottom navigation in both views.
+`WorkspaceNavigation` owns the launcher and consumes the shared window reducer;
+all open/minimized apps are listed after the toggle. It is rendered once outside
+the view presentations. The former top switch, separate Central running strip
+and five-item mobile navigation are removed from this active presentation.
+Mobile destinations remain accessible through Start; running apps scroll within
+the dock while Start and the view switch stay fixed. Safe-area spacing and the
+reserved bottom track apply equally to both views. No backend or authority change.
+
+Owner: OS Surface. Dependencies: existing Central reducer and shared Button.
+Risk: launcher focus and viewport spacing. Acceptance: one navigation node,
+constant toggle position beside Start, reachable open apps in both views and no
+app remount on switching. Existing browser-check source is updated; build, npm
+and tests were not executed, according to the standing user restriction.

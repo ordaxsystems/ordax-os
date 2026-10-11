@@ -50,11 +50,3 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
     })}
   </div>;
 }
-
-export function RunningApps({ state, dispatch }: Pick<Props, 'state' | 'dispatch'>) {
-  return <nav className="central-running-apps" aria-label="Janelas abertas">
-    <span className="running-apps-label">Janelas</span>
-    <div className="desktop-running-apps">{state.windows.map(window => <Button variant="ghost" className="desktop-task" key={window.title} data-active={state.active === window.title && !window.minimized} aria-label={`Restaurar janela ${window.title}`} data-window-restore={window.title} title={`${window.title}${window.minimized ? ' · minimizada' : window.mode === 'compact' ? ' · compacta' : ''}`} onClick={() => dispatch({ type: 'focus', title: window.title })}><LayoutGrid/><span>{window.title}</span></Button>)}</div>
-    <Button variant="ghost" size="icon" aria-label="Mostrar Central" title="Minimizar todas" onClick={() => dispatch({ type: 'show-desktop' })}><Minus/></Button>
-  </nav>;
-}

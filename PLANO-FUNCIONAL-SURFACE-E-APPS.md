@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Navegação inferior compartilhada — 11/10/2026:** botão Central/Área de trabalho ao lado de Iniciar, na mesma posição nas duas visualizações, seguido de todos os apps abertos. Um único componente e o mesmo estado de janelas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#shared-bottom-navigation--2026-10-11).
+
 > **Janelas da Central — 11/10/2026:** incremento explícito solicitado: controle compartilhado para minimizar, compactar, recolher, expandir e restaurar, com divisão mobile e instâncias estáveis. Owner Surface; sem backend novo e sem build/npm/testes locais. [Risco, escopo e aceite](docs/DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).
 
 > **Central Web principal — 11/10/2026:** pedido explícito para tornar a composição de `ordaxsystems/lovable-core-ui` a única página Web ativa. Central/área de trabalho e temas usam uma fonte de apresentação; backend fica para a etapa seguinte. Substitui as decisões visuais Web listadas abaixo, preservando capacidades e consumidores existentes. Sem build, npm ou testes locais nesta entrega; [owner, risco, proveniência e aceite](docs/DESKTOP-IDENTITY.md#canonical-web-central--2026-10-11).

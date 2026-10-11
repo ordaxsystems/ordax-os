@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "6fcef8790865db322b13e0efed8f66ba97f7ccea427a6f2785d7581d9b2525bf",
+      "adaptedSha256": "7a41a81a3b2977f324dcba2f13a3efacf4ade1e7b0aeb79fa8bcd083705f2010",
       "adaptation": "User-requested shared window lifecycle and responsive compact split; OrdaX OS Surface-owned presentation adaptation"
     },
     {
@@ -34,7 +34,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "4711ce24387556ac98655eecf80f248403184eaef10c0f2bf9f575a56b2a2944",
+      "adaptedSha256": "0915ecb6b02928cf1df89e26c657f91764dd19c9e2045e15fae56e2fc747786e",
       "adaptation": "User-requested shared window lifecycle and responsive compact split; OrdaX OS Surface-owned presentation adaptation"
     },
     {
@@ -48,7 +48,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "67464452fe0c4a38694f91c171c54b306b9cf3b3c93446d7bf767534831fab45",
+      "adaptedSha256": "95e8fb232489c1d7942b244c54f6768c2365c650a254ab3f0cfe022539da6ec8",
       "adaptation": "User-requested shared window lifecycle and responsive compact split; OrdaX OS Surface-owned presentation adaptation"
     },
     {
@@ -85,12 +85,13 @@
     "Reuse shared UI components and local Inter font; no upstream SSR or telemetry imported",
     "Mark example account, devices, activity and storage as presentation data",
     "Preserve existing app/service consumers and window code without mounting the previous Web page",
-    "Shared active window state and stable app nodes across Central/Desktop and responsive compact mode"
+    "Shared active window state and stable app nodes across Central/Desktop and responsive compact mode",
+    "One mounted bottom navigation in both views, with Start, fixed view toggle and shared open-app list"
   ],
   "native_files": [
     {
       "target": "system/surface/workspace/components/central/window-layer.tsx",
-      "sha256": "0b5bb026bc48ee2f1cea4e5e8d59bc163a9c20901cf12411df1d8546c6fb2bf5",
+      "sha256": "cb0e7c86fa69e1a4259eeee5ed413019f8435f956926f6f5f62221541eed0607",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls"
     }
