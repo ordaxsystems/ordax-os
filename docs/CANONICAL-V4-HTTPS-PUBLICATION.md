@@ -34,3 +34,13 @@ Requisitos: `gh` autenticado no repositório oficial com permissão de escrita e
 Ao final, a release permanece marcada como *prerelease*; a promoção ao canal Stable não ocorre. A publicação é a etapa necessária para permitir a materialização HTTPS canônica. Depois é obrigatório executar `.github/workflows/canonical-v4-materialization.yml`, obter o recibo de materialização, executar a verificação agregada Step 7 e vincular a nova prova ao Creator por `tools/creator/bind_canonical_v4_release_proof.py`.
 
 **Nenhum dos comandos acima escolhe disco, autoriza gravação física, aplica UAC nem altera a instalação de desenvolvimento.** O contrato `physical_write_allowed=false` só pode mudar pelo owner de autorização do dispositivo, em etapa explícita posterior.
+
+## Execução sem o computador de operador
+
+O workflow manual **Canonical v4 Verified HTTPS Publication** (`.github/workflows/canonical-v4-verified-publication.yml`) também utiliza o publicador oficial, sem depender do desktop Windows. Para executá-lo, selecionar a `main` na aba **Actions** do repositório, abrir esse workflow, escolher **Run workflow** e informar apenas a tag exata `ordax-stable-v4-03f88eeaf382a59aaefbcf4943d0639d2730741b` no campo `confirm_tag`.
+
+O contrato `docs/contracts/canonical-v4-publication-request.json` contém os IDs imutáveis dos recibos de assinatura/handoff, validados pela API do GitHub junto ao pedido ativo. O runner Ubuntu baixa os três artefatos EROFS por run/artifact name oficial, reconstitui o envelope a partir do blob do Git, compila o release-agent da revisão congelada, verifica a assinatura e os hashes e só então invoca o publicador. A permissão de gravação é restrita ao job manual de release, nunca ao gravador de disco. Um recibo pequeno é preservado como artifact do workflow; os EROFS não são reenviados como comprovante duplicado.
+
+**Prazos dos recibos:** os arquivos atuais do GitHub Actions expiram em **25 de outubro de 2026**. Se expirarem, é necessário gerar novos recibos verificados e atualizar o contrato pela `main` antes de publicar; o workflow rejeita IDs expirados. A aprovação da execução publica apenas uma *prerelease* HTTPS. Ainda serão obrigatórios materialização canônica, prova agregada Step 7, vínculo ao Creator e autorização física específica.
+
+O workflow **não executa automaticamente em push ou PR**. Ter o código em `main` não publica nada, e a tag precisa ser confirmada explicitamente por quem dispara a execução.
