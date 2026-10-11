@@ -1,0 +1,22 @@
+{
+  "$schema": "prototype-ordax.canonical-v4-publication-request/1",
+  "status": "pending-explicit-https-publication",
+  "source_repository": "ordaxsystems/ordax-os",
+  "source_commit": "03f88eeaf382a59aaefbcf4943d0639d2730741b",
+  "release_tag": "ordax-stable-v4-03f88eeaf382a59aaefbcf4943d0639d2730741b",
+  "signing_request": {
+    "run_id": 38127644552,
+    "artifact_id": 11697349496,
+    "artifact_name": "canonical-v4-signing-request-03f88eeaf382a59aaefbcf4943d0639d2730741b"
+  },
+  "signed_handoff": {
+    "run_id": 38156353913,
+    "artifact_id": 11709145163,
+    "artifact_name": "canonical-v4-signed-handoff-proof-03f88eeaf382a59aaefbcf4943d0639d2730741b"
+  },
+  "release_envelope_sha256": "d9ab389cd55c481785491cb1c3881936e47e7347bdc69ccea5c76a7437969a90",
+  "publication_performed": false,
+  "release_activated": false,
+  "physical_write_authorized": false,
+  "physical_write_performed": false
+}
