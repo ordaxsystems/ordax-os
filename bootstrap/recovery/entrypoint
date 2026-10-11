@@ -1,11 +1,25 @@
 #!/bin/sh
 set -eu
 
+# Stable/MVP recovery retains the minimal environment. Only the explicit
+# Owner/Development USB profile exposes the preinstalled manual Git tools.
+# Neither mode starts networking, updates, or disk mutation automatically.
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
+OWNER_DEV_MANUAL_TOOLS=0
+if [ "${ORDAX_DISTRIBUTION_PROFILE:-}" = "owner-development" ] &&
+   [ "${ORDAX_PRODUCT_MODE:-}" = "usb" ] &&
+   [ -x /usr/local/bin/ordax-pull ] &&
+   [ -x /usr/local/bin/ordax-run ]; then
+    PATH=/usr/local/sbin:/usr/local/bin:$PATH
+    OWNER_DEV_MANUAL_TOOLS=1
+fi
 export PATH
 
 echo "OrdaX recovery"
 echo "The ORDAX partition is mounted read-only at /ordax."
 echo "No network, remote access or automatic mutation is started in recovery."
+if [ "$OWNER_DEV_MANUAL_TOOLS" -eq 1 ]; then
+    echo "Owner/Development manual maintenance: ordax-pull, then ordax-run."
+fi
 echo "Type 'exit' to leave the shell; reboot the machine afterwards."
 exec sh
