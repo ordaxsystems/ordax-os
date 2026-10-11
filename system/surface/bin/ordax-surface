@@ -31,6 +31,7 @@ BASE_UPDATE_AGENT=$BASE_UPDATE_DIR/agent.sh
 BASE_UPDATE_LOG=$BASE_UPDATE_DIR/agent.log
 BASE_UPDATE_PID_FILE=$BASE_UPDATE_DIR/agent.pid
 SESSION_DIR=/run/ordax-surface
+RUNTIME_PROVISIONING_FILE=$SESSION_DIR/runtime-provisioning-source-sha
 RUNTIME_PROOF_CONTEXT=$SESSION_DIR/runtime-proof-context
 HTTP_LOG=$SESSION_DIR/http.log
 HOST_LOG=$SESSION_DIR/host.log
@@ -67,7 +68,7 @@ RUNTIME_READY=$DYNAMIC_RUNTIME_READY
 LEGACY_RUNTIME_ID=alpine-v3.22-cage-barkery-v1
 LEGACY_RUNTIME_ROOT=$RUNTIME_STATE/$LEGACY_RUNTIME_ID/rootfs
 LEGACY_RUNTIME_READY=$RUNTIME_STATE/$LEGACY_RUNTIME_ID/ready
-RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-180}
+RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-600}
 RUNTIME_UPGRADE_TIMEOUT=${ORDAX_RUNTIME_UPGRADE_TIMEOUT_SECONDS:-120}
 HTTP_PID=""
 GRAPHICS_PID=""
@@ -591,6 +592,7 @@ cleanup() {
         rm -rf "$STAGING_DIR"
         STAGING_DIR=""
     fi
+    rm -f "$RUNTIME_PROVISIONING_FILE" >/dev/null 2>&1 || true
 }
 
 terminate() {
@@ -1298,8 +1300,13 @@ reap_stale_runtime_processes
 clear_stale_runtime_mounts
 if ! runtime_is_ready; then
     printf 'OrdaX: preparando Surface grafica...\n'
+    # Current-boot, exact-SHA marker. Stable/MVP never acquires APK packages.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+        printf '%s\n' "$SOURCE_SHA" >"$RUNTIME_PROVISIONING_FILE"
+    fi
 fi
 ensure_runtime || fallback_with_reason "graphical runtime is unavailable after bounded provisioning attempt"
+rm -f "$RUNTIME_PROVISIONING_FILE"
 ensure_loopback || fallback_with_reason "failed to configure IPv4 loopback for local Surface HTTP"
 sync_runtime_resolver || echo "ordax-surface: external DNS unavailable inside graphical runtime; continuing local Surface" >>"$HOST_LOG"
 ensure_shared_memory || fallback_with_reason "failed to prepare /dev/shm for wlroots/Xwayland"
