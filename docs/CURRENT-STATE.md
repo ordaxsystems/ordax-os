@@ -1,5 +1,7 @@
 # Current State
 
+Web Home: viewport-bounded composition follows the supplied reference with Aura, projects, shared favorites, activity and devices. Explicit demonstration fixtures can be switched off; no connected account/project/service is claimed. Responsive summary opens complete details; no pre-opened app windows. Shared draft and compact lifecycle retained. [Owner, limits and acceptance](DESKTOP-IDENTITY.md#viewport-bounded-home-and-explicit-demonstration--2026-10-11).
+
 Web sidebar: adaptive destinations use the CSS row-height token and move overflow into Mais without sidebar scrolling. Base contains notification/profile icons only; environment settings use Ajustes. Source presentation only; no authority/service changes. [Acceptance](DESKTOP-IDENTITY.md#adaptive-sidebar-and-icon-only-account--2026-10-11).
 
 

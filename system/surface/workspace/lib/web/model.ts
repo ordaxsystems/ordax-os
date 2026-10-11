@@ -31,3 +31,25 @@ export const webNavigation: { id: WebView; title: string; icon: typeof House; ki
 export const webServices = { identity: account.connection, intelligence: 'unavailable', fileSpace: 'unavailable', projects: 'unavailable', spaces: 'unavailable', lifecycle: 'unavailable', sync: 'unavailable' } as const;
 export const getWebApp = (id: WebAppId) => webApps.find(app => app.id === id) ?? webApps[0];
 export const normalizeWebView = (value: unknown): WebView => webViews.find(view => view === value) ?? 'home';
+/** Explicit Home visual fixtures. Session-only examples, never a connected service or account state. */
+export const homeDemo = {
+  space: { name: 'Space Pessoal', status: 'Exemplo de Space ativo' },
+  projects: [
+    { id: 'os', name: 'OrdaX OS', description: 'Ajustes na interface e evolução do sistema.', edited: 'Editado há 2 horas', cover: 'landscape' },
+    { id: 'apps', name: 'OrdaX Apps', description: 'Planejamento da próxima versão de aplicativos.', edited: 'Editado há 5 horas', cover: 'apps' },
+    { id: 'bay', name: 'Bay of All Saints', description: 'Pesquisa e organização de referências.', edited: 'Editado ontem', cover: 'bay' },
+    { id: 'catalog', name: 'Catálogo', description: 'Estrutura e conteúdo do catálogo.', edited: 'Editado há 2 dias', cover: 'catalog' },
+  ],
+  activity: [
+    { id: 'update', title: 'Atualização do OrdaX OS', detail: 'Exemplo: preparando pacote', progress: 78, time: 'Em demonstração', kind: 'download' },
+    { id: 'sync', title: 'Sincronização de arquivos', detail: 'Exemplo: envio ao Space Pessoal', progress: 45, time: 'Em demonstração', kind: 'sync' },
+    { id: 'download', title: 'Download concluído', detail: 'Pacote de ícones de exemplo', progress: null, time: 'Há 12 min', kind: 'download' },
+    { id: 'install', title: 'Instalação de aplicativo', detail: 'OrdaX Notes · cenário de exemplo', progress: null, time: 'Há 28 min', kind: 'app' },
+    { id: 'security', title: 'Verificação de segurança', detail: 'Cenário de sistema protegido', progress: null, time: 'Há 1 hora', kind: 'security' },
+  ],
+  devices: [
+    { id: 'notebook', name: 'MacBook Pro', platform: 'macOS · OrdaX Web', status: 'Online · exemplo', kind: 'desktop' },
+    { id: 'phone', name: 'iPhone 15', platform: 'iOS · OrdaX App', status: 'Online · exemplo', kind: 'phone' },
+    { id: 'tablet', name: 'iPad Air', platform: 'iPadOS · OrdaX App', status: 'Offline · exemplo', kind: 'tablet' },
+  ],
+} as const;

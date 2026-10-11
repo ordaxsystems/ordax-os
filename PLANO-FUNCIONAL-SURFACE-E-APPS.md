@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Início Web — 11/10/2026:** pedido explícito de seguir a composição fornecida, sem rolagem e com dados de demonstração. Incremento de apresentação com resumo responsivo, detalhes acessíveis e sessão compartilhada; nenhuma autoridade/integração criada. [Owner, riscos e aceite](docs/DESKTOP-IDENTITY.md#viewport-bounded-home-and-explicit-demonstration--2026-10-11).
+
  > **Sidebar adaptável — 11/10/2026:** refinamento explícito solicitado, sem rolagem na lateral; Mais reúne itens que não cabem. Base com sino/perfil, Ajustes concentra preferências. Catálogo/rotas/lifecycle existentes preservados. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#adaptive-sidebar-and-icon-only-account--2026-10-11).
 
 
@@ -1403,11 +1405,13 @@ Divisão compacta e estado das janelas mantidos no reducer existente. Owner,
 dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
 Não cria outro source mobile, backend, contrato de execução ou estado global.
 
-Home adapta a estrutura do HTML responsivo fornecido pelo usuário: composição
-única, coluna móvel, grade de apps 3/2, atalhos do ambiente e continuação.
-Referência estrutural com digest na evidência existente; scripts simulados e
-dados ilustrativos não importados. Shell touch até 820 px e scroll restrito ao
-pane principal; reducer, modos compactos e rascunho Intelligence preservados.
+Home usa agora a composição de referência solicitada: Aura, projetos recentes,
+favoritos, atividade e Spaces/dispositivos. Dados de demonstração ficam no
+modelo Web existente, identificados e desligáveis; nenhum serviço é declarado
+conectado. Container queries adaptam o conteúdo ao pane, sem scroll no Início;
+resumos abrem detalhes completos em Dialog acessível. Startup sem apps pré-abertos.
+Reducer, modos compactos e rascunho Intelligence preservados. Owner, riscos e aceite:
+[Desktop Identity](docs/DESKTOP-IDENTITY.md#viewport-bounded-home-and-explicit-demonstration--2026-10-11).
 Barra inferior segue Início, Aura, Apps, Space e Menu. Aura usa a sessão
 Intelligence existente; a visão geral de janelas fica acessível no Menu.
 Verificação inclui os dois lados do breakpoint 820/821 px e os cinco destinos.

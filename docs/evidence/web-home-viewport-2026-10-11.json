@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "kind": "surface-web-local-browser-acceptance",
+  "owner": "ordaxsystems/ordax-os / Surface",
+  "verified_at": "2026-10-11T10:13:32.605Z",
+  "scope": "Viewport-bounded Home with explicit demo fixtures and shared workspace lifecycle",
+  "source_sha256_lf": {
+    "system/surface/workspace/components/web/home.tsx": "788332e75f11338639577b85f7233e29be3ef718416ea6c3659823de6b52f6ed",
+    "system/surface/workspace/components/web/pages.tsx": "871bb54706f44fa78a79763811f05894f31258ab444f01b0c3c75d45d9135da1",
+    "system/surface/workspace/components/web/shell.tsx": "edd3b20361b592a84c8ea26182e1e72cb355f85fdcf73c6b6c7187afcefe9b5b",
+    "system/surface/workspace/components/intelligence/surface.tsx": "73b8e21c85318ea627c9f69f01536670304555f7768028fe5db041183b85bb1b",
+    "system/surface/workspace/lib/web/model.ts": "d0a514faf7775e6d80154daf7c826020440f954c4e5bd45e76642272f5365991",
+    "system/surface/workspace/lib/web/windows.ts": "39f2387a6ab9f8ffdc61356d53cb15b0d91902cbdd288599a4d0a6819d7bc275",
+    "system/surface/workspace/lib/web/workspace.ts": "bec04e00d82e6279017b2038428265c403cb9055d4fe21b0e098c084ea0efe64",
+    "system/surface/workspace/styles.css": "edcd584898280bd036e435dc49dce76e1d3db402163a8f7cb0e89bbf99e7ae09"
+  },
+  "checks": {
+    "strict_types_and_vite": "passed",
+    "source_reference_files_lf_crlf": 34,
+    "source_graph_files": 79,
+    "preview_assets_matching_build": 16,
+    "unconnected_ai_status": 503,
+    "views_per_viewport": 8,
+    "home_demo_isolation": "passed",
+    "project_detail_reachability_and_focus": "passed",
+    "compact_draft_retention": "passed",
+    "aura_simulated_busy_and_result_geometry": "passed",
+    "window_stage_non_scrolling": "passed",
+    "dock_compact_controls_separation": "passed"
+  },
+  "browser_viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "passed": true
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "passed": true
+    },
+    {
+      "width": 820,
+      "height": 650,
+      "passed": true
+    },
+    {
+      "width": 821,
+      "height": 650,
+      "passed": true
+    },
+    {
+      "width": 700,
+      "height": 650,
+      "passed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "passed": true
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "passed": true
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "passed": true
+    }
+  ],
+  "additional_reference_viewport": {
+    "width": 1672,
+    "height": 941,
+    "home_and_details": "passed"
+  },
+  "reproduce": [
+    "npm run build --workspace tools/surface-web",
+    "npm run verify:preview --workspace tools/surface-web",
+    "python tools/surface-web/build.py check",
+    "node tools/surface-web/browser-smoke.mjs --bundle-dir out/web-ui --evidence-dir out/home-dashboard-regression"
+  ],
+  "authority": {
+    "services_connected": false,
+    "device_execution_granted": false,
+    "release_activated": false
+  }
+}

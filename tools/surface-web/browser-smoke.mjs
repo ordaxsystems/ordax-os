@@ -141,13 +141,16 @@ try {
       const visible=node=>node.getClientRects().length>0 && getComputedStyle(node).visibility==='visible';
       return {mode:desktop.dataset.compactLayout, desktop:rect(desktop), primary:rect(primary),
         root:rect(document.querySelector('.web-workspace')), viewport:innerHeight,
+        dockClearance:parseFloat(getComputedStyle(desktop).getPropertyValue('--compact-dock-clearance')),
         noDocumentScroll:document.documentElement.scrollHeight<=innerHeight,
+        stageScroll:[document.querySelector('.web-window-stage').scrollLeft,document.querySelector('.web-window-stage').scrollTop],
         windows:[...document.querySelectorAll('.web-window')].filter(visible).map(node=>({mode:[...node.classList].find(value=>/^web-window-(normal|maximized|compact|immersive)$/.test(value)),rect:rect(node)})),
         controls:document.querySelector('.web-carousel-controls') && visible(document.querySelector('.web-carousel-controls')) ? rect(document.querySelector('.web-carousel-controls')) : null};
     })()`);
     if(expected) assert.equal(layout.mode,expected);
+    assert.deepEqual(layout.stageScroll,[0,0],'Focus must not scroll the window coordinate stage');
     assert.ok(Math.abs(layout.root.height-layout.viewport)<1 && layout.noDocumentScroll, JSON.stringify(layout));
-    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' ? layout.controls?.height??0 : 0;
+    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' && layout.controls ? layout.controls.height+layout.dockClearance : 0;
     assert.ok(Math.abs(layout.primary.height-(layout.desktop.height-reserved))<1, JSON.stringify(layout));
     for(const win of layout.windows) {
       if(win.mode==='web-window-immersive')continue;
@@ -292,33 +295,73 @@ try {
   }
   // DOMRect can differ from a 44px computed target by a subpixel (observed 43.999984px).
   // A 0.02px tolerance covers that rounding without accepting smaller touch targets.
+  async function seedCompactWindows() {
+    for(const name of ['Arquivos','Studio','Internet']) {
+      await click('[aria-label="Abrir aplicativos"]');
+      await click('.web-launcher [title="Abrir '+name+'"]');await noDialog();
+      await click('[aria-label="Compactar '+name+'"]');
+    }
+    await paneLayout('expanded');
+  }
+  async function homeFits() {
+    const result=await evaluate("(()=>{const root=document.querySelector('.web-home'),page=document.querySelector('.web-page-home'),pages=document.querySelector('.web-pages'),b=root.getBoundingClientRect(),visible=n=>n.getClientRects().length>0&&getComputedStyle(n).visibility!=='hidden',nodes=[...root.querySelectorAll(':scope>header,:scope>section,:scope>nav,.oi-composer,.web-home-panel-heading,.web-home-project-preview button,.web-home-dashboard button,.web-home-summary button,.web-home-activity-list li,.web-home-devices-list li,.web-welcome button,.web-home-quick-actions button,.oi-home-expand')].filter(visible);return {root:[b.width,b.height],scrolls:[root,page,pages].map(n=>({class:n.className,scroll:[n.scrollWidth,n.scrollHeight],client:[n.clientWidth,n.clientHeight]})),noScroll:[root,page,pages].every(n=>n.scrollHeight<=n.clientHeight+1&&n.scrollWidth<=n.clientWidth+1)&&document.documentElement.scrollHeight<=innerHeight,inside:nodes.every(n=>{const r=n.getBoundingClientRect();return r.top>=b.top-1&&r.bottom<=b.bottom+1&&r.left>=b.left-1&&r.right<=b.right+1}),cards:nodes.map(n=>({class:n.className,height:n.getBoundingClientRect().height})),draft:root.querySelector('textarea').getBoundingClientRect().height>=42};})()");
+    assert.ok(result.noScroll&&result.inside&&result.draft,'Home fits its available pane: '+JSON.stringify(result));
+  }
   async function homeResponsiveProof(width,height) {
-    await click('[aria-label="Recolher janelas compactas"]');await paneLayout('collapsed');
-    const geometry=await evaluate("(()=>{const root=document.querySelector('.web-home'),grid=n=>getComputedStyle(n).gridTemplateColumns.split(' ').length,r=n=>{const b=n.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom};},cards=[...root.querySelectorAll('.web-home-overview>section,.web-featured,.web-home-continuity>section')];return {columns:grid(root.querySelector('.web-featured-apps')),overviewColumns:grid(root.querySelector('.web-home-overview')),order:cards.every((n,i)=>i===0||widthPlaceholder>1050||r(n).top>=r(cards[i-1]).bottom-1),inside:cards.every(n=>r(n).left>=0&&r(n).right<=innerWidth),touch:[...root.querySelectorAll('button,a')].filter(n=>n.getClientRects().length>0).every(n=>{const b=n.getBoundingClientRect();return b.width>=44-.02&&b.height>=44-.02}),shellMobile:getComputedStyle(document.querySelector('.web-mobile-bar')).display!=='none',search:[...document.querySelectorAll('[aria-label=\"Abrir launcher\"],.web-mobile-bar [aria-label=\"Abrir aplicativos\"]')].some(n=>n.getClientRects().length>0),singleScroll:getComputedStyle(document.querySelector('.web-page-home')).overflowY!=='auto'};})()".replace('widthPlaceholder',String(width)));
-    assert.equal(geometry.columns,width<=365?2:width<=1350?3:6,JSON.stringify({width,geometry}));
-    assert.equal(geometry.overviewColumns,width<=1050?1:2,JSON.stringify({width,geometry}));
-    assert.ok(geometry.inside&&geometry.order&&geometry.singleScroll,JSON.stringify({width,geometry}));
-    assert.equal(geometry.shellMobile,width<=820,'One shell breakpoint controls the touch navigation');
-    if(width<=820)assert.ok(geometry.touch&&geometry.search,JSON.stringify({width,geometry}));
+    assert.equal(await evaluate("document.querySelectorAll('.web-window').length"),0,'No app is pre-opened on Home');
+    await paneLayout('none');await homeFits();
+    const model=await evaluate("(()=>{const r=document.querySelector('.web-home');return {mode:r.dataset.homeMode,visibleLabel:[...r.querySelectorAll('button')].some(n=>n.textContent==='Dados de demonstração'&&n.getClientRects().length>0),projects:r.querySelectorAll('.web-home-project-preview button').length,activity:r.querySelectorAll('.web-home-activity-list li').length,devices:r.querySelectorAll('.web-home-devices-list li').length,favorites:r.querySelectorAll('.web-home-app-grid .web-app-tile').length};})()");
+    assert.deepEqual(model,{mode:'demo',visibleLabel:true,projects:4,activity:5,devices:3,favorites:6});
+    await click('.web-home-demo-toggle');
+    assert.equal(await evaluate("(()=>{const r=document.querySelector('.web-home');return r.dataset.homeMode==='unavailable'&&!r.querySelector('.web-home-project-card,.web-home-activity-list,.web-home-devices-list')&&!r.textContent.includes('MacBook Pro')&&r.textContent.includes('Nenhum dispositivo verificado disponível');})()"),true,'Fixture data disappears together without claiming a connected service');
+    await homeFits();await click('.web-home-demo-toggle');await homeFits();
+    const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(join(evidence,'home-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+    const projectEntry=await evaluate("document.querySelector('.web-home-summary').getClientRects().length>0")?'.web-home-summary button:first-child':'.web-home-recent .web-home-panel-heading button';
+    await click(projectEntry);
+    assert.equal(await evaluate("document.querySelector('.web-home-dialog').querySelectorAll('.web-home-project-card').length"),4,'All projects remain accessible beyond the preview');
+    assert.ok((await dialogChrome('.web-home-dialog')).inside);
+    for(let i=0;i<7;i++){
+      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
+      assert.equal(await evaluate("document.querySelector('.web-home-dialog').contains(document.activeElement)"),true,'Home details retain modal focus');
+    }
+    await click('.web-home-dialog .web-home-project-card:last-child');
+    assert.equal(await evaluate("document.querySelector('.web-home-project-dialog h2').textContent"),'Catálogo');
+    await click('.web-home-project-dialog .web-home-dialog-body button:last-child');
+    assert.equal(await evaluate("document.querySelector('.web-home-dialog').contains(document.activeElement)"),true,'Returning from a project restores list-entry focus');
+    await click('.web-home-dialog>[data-slot=dialog-close]');await noDialog();
+    assert.equal(await evaluate('document.activeElement===document.querySelector('+JSON.stringify(projectEntry)+')'),true,'Details restore entry focus');
+    if(await evaluate("document.querySelector('.web-home-summary').getClientRects().length>0")){
+      await click('.web-home-summary button:last-child');await sleep(150);
+      assert.equal(await evaluate("document.querySelector('.web-home-dialog-body').querySelectorAll('section').length"),4,'Mais exposes all dashboard sections');
+      if(width<=820) {
+        const before=await dialogChrome('.web-home-dialog');await touchScroll('.web-home-dialog-body');const after=await dialogChrome('.web-home-dialog');
+        assert.ok(after.closeVisible&&after.closeTarget&&Math.abs(before.titleTop-after.titleTop)<1,'Details scroll without moving title or close control: '+JSON.stringify({before,after}));
+        assert.equal(await evaluate("document.querySelector('.web-home-dialog-body').scrollTop>0"),true);
+      }
+      await click('.web-home-dialog>[data-slot=dialog-close]');await noDialog();
+    }
     const composer='.web-home [aria-label="Comando para OrdaX Intelligence"]';
     await click(composer);await client.send('Input.insertText',{text:'rascunho responsivo'});
     await evaluate("window.__homeDraft=document.querySelector('.web-home textarea');true");
-    await evaluate("document.querySelector('.web-pages').scrollTop=0;true");await sleep(100);
-    if(width===390){
-      await client.send('Emulation.setDeviceMetricsOverride',{width:820,height:650,deviceScaleFactor:1,mobile:true});await sleep(150);
-      assert.equal(await evaluate("window.__homeDraft===document.querySelector('.web-home textarea')&&window.__homeDraft.value==='rascunho responsivo'"),true,'Home draft survives responsive tablet reflow');
-      await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await sleep(150);await paneLayout('collapsed');
+    await seedCompactWindows();await homeFits();
+    assert.equal(await evaluate("window.__homeDraft===document.querySelector('.web-home textarea')&&window.__homeDraft.value==='rascunho responsivo'"),true,'Home keeps its shared draft and mounted composer in the split pane');
+    await click('[aria-label="Recolher janelas compactas"]');await paneLayout('collapsed');await homeFits();
+    await click('[aria-label="Expandir janelas compactas"]');await paneLayout('expanded');await homeFits();
+    assert.equal(await evaluate("window.__homeDraft===document.querySelector('.web-home textarea')&&window.__homeDraft.value==='rascunho responsivo'"),true);
+    if(width===390 || width===1440 || width===844) {
+      await click(composer);
+      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
+      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
+      await client.send('Input.insertText',{text:'Organize meus documentos por tipo'});
+      await click('.web-home [aria-label="Enviar comando de demonstração"]');
+      assert.equal(await evaluate("document.querySelector('.web-home .oi-home').classList.contains('oi-processing')"),true);
+      await homeFits();
+      const deadline=Date.now()+5000;
+      while(!await evaluate("document.querySelector('.web-home .oi-home').classList.contains('oi-result')")){if(Date.now()>deadline)throw Error('Home demo did not complete');await sleep(100);}
+      await homeFits();
+      assert.equal(await evaluate("document.querySelector('.web-home .oi-compact-note').textContent.includes('demonstração')"),true,'Home result remains explicitly simulated');
     }
-    const homeShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
-    await writeFile(join(evidence,'home-'+width+'x'+height+'.png'),Buffer.from(homeShot.data,'base64'));
-    if(width<=820){
-      await touchScroll('.web-pages');
-      assert.ok(await evaluate("document.querySelector('.web-pages').scrollTop>0"),'Home content scrolls inside the primary pane');
-      const scrolled=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
-      await writeFile(join(evidence,'home-scrolled-'+width+'x'+height+'.png'),Buffer.from(scrolled.data,'base64'));
-    }
-    await click('[aria-label="Expandir janelas compactas"]');await paneLayout('expanded');
-    assert.equal(await evaluate("window.__homeDraft===document.querySelector('.web-home textarea')&&window.__homeDraft.value==='rascunho responsivo'"),true,'Responsive Home keeps the shared Intelligence draft when the compact pane expands');
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
   }
 
@@ -439,17 +482,20 @@ try {
     await openingProof(width,height);
     await homeResponsiveProof(width,height);
     await launcherProof(width,height);
+    await seedCompactWindows();
     await mobileNavigationProof(width,height);
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
+    await seedCompactWindows();
     await splitProof(width,height);
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
     if(width>820){
-      await click('[aria-label="Abrir Studio pelo dock"]');await fullWindow('Studio');
-      assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);await paneLayout('expanded');
+      await click('[aria-label="Abrir aplicativos"]');await click('.web-launcher [title="Abrir Studio"]');await noDialog();await fullWindow('Studio');
+      assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);await paneLayout('none');
       await click('[aria-label="Minimizar Studio"]');await click('[aria-label="Abrir Studio pelo dock"]');
       assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);
-      await click('[aria-label="Fechar Studio"]');
+      await closeWindow('Studio');
       assert.equal(await evaluate('!document.querySelector(\'[aria-label="Janela Studio"]\')'),true);
-      await click('[aria-label="Abrir Studio pelo dock"]');
+      await click('[aria-label="Abrir aplicativos"]');await click('.web-launcher [title="Abrir Studio"]');await noDialog();
       assert.equal(await evaluate('document.querySelectorAll(\'[aria-label="Janela Studio"]\').length'),1);
     }
     const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});

@@ -192,32 +192,47 @@ This source/candidate improvement does not connect pending service ports,
 change Native or activate production.
 
 
-### Responsive Home structure — 2026-10-11
+### Viewport-bounded Home and explicit demonstration — 2026-10-11
 
-The user-provided `ordax_os_web_inicio_responsivo.html` is a structural
-reference, recorded by digest in the existing Web provenance ledger. Home uses
-one React composition: welcome/Space entry, the shared Intelligence card and
-environment shortcuts, application grid, project continuation and activity.
-Desktop uses two overview/continuation columns; narrow layouts use one, with
-three application columns and two at 365 px or below. The Web touch shell uses
-the 820 px boundary and safe-area padding; dragging follows CSS presentation
-instead of keeping a second JavaScript breakpoint. Existing Surface tokens,
-app catalog, action handlers and Intelligence session remain their owners.
-The HTML prototype scripts, simulated account/projects and alternate logo
-are not imported. Unconnected service states remain explicit.
+Owner: OrdaX OS Surface. Explicit user-requested refinement of Home using the
+attached desktop composition and demonstration data. One React composition uses
+the existing Surface tokens, app catalog, workspace favorites, local licensed
+assets and shared Intelligence session. Its pane is the sizing container, so
+compact expansion/collapse and short landscape views trigger the same layout.
+No scroll owner exists on Home. Large panes show Aura, four recent projects,
+six favorites, system activity and Spaces/devices. Smaller panes show fewer
+project previews and four summary entries; complete details remain in the shared
+accessible Dialog with its own scroll body, fixed header/close and restored focus.
+Very short split panes prioritize the composer and summary entries.
 
-The existing workspace grid still owns primary/compact tracks. Home has one
-scroll container in the primary pane and its Intelligence draft survives
-compact expansion/collapse; no window node is reparented or remounted. Search,
-notifications, identity, launcher, window overview and compact controls remain
-available. Source work is an explicitly requested functional-plan increment,
-not a new mobile app or a change to release/installation authority.
+The immutable homeDemo projection in the existing Web model owns all fixtures.
+The requested demonstration is enabled with a visible label and an off switch;
+turning it off removes all mock project/activity/device data together. Each
+project detail states that no repository or file is associated. Progress and
+online devices are illustrative; no account, sync, cloud task or authorization
+is created. Real capabilities still use the existing unavailable states/ports.
+Home quick actions reuse app opening and session draft events. Voice/attachments
+remain accurately disconnected. Opening Studio from a mock project does not
+register a project. Startup has no pre-opened app windows; explicit user opening
+retains the existing maximize/compact/restore/close lifecycle and mounted state.
 
-Risks: nested overflow, short heights, card reflow and touch-shell transitions.
-Acceptance: strict build/reference restoration, real Chromium at 320, 390,
-700, 820, 821, 844, 1024 and 1440 px, Home ordering/grids and native touch
-scrolling, accessible control sizes, 8 direct views, launcher/menu focus and
-shared app/draft retention through compact modes.
+Dependencies: existing Radix Dialog/Menu, local assets, container queries,
+Surface tokens and workspace/Intelligence reducers. The window coordinate stage
+uses overflow:clip so focus cannot scroll its geometry. Collapsed compact controls
+reserve the existing desktop dock height; page padding reserves it only when
+that pane actually reaches the dock. Mobile retains its outside navigation.
+No z-index override or duplicated geometry owner. No new package or service.
+Risks: clipping at short pane heights, detail navigation/focus, unavailable-mode
+reflow, touch targets, and startup assumptions in lifecycle checks. Acceptance:
+strict build and reference restoration for LF/CRLF; fixture isolation; real
+Chromium at desktop/tablet/mobile/landscape widths; no Home/document overflow,
+all preview controls inside bounds, all four projects reachable in a single dialog, dialog focus
+and dismissal, shared draft retained across split modes, busy/result geometry, eight direct views,
+launcher/sidebar/mobile interaction and app lifecycle. Source/candidate evidence
+is distinct from production activation or a verified connected service.
+[Recorded local acceptance](evidence/web-home-viewport-2026-10-11.json): 64 direct
+view/viewport combinations passed; the supplied desktop composition was also
+checked at 1672×941.
 
 ### Full workspace app opening — 2026-10-11
 
@@ -255,8 +270,8 @@ Risks: short-height navigation, dropdown focus, mobile menu dismissal, expanded
 workspace bounds and compact pane geometry. Acceptance: eight responsive viewports,
 64 direct routes, foreground/full workspace opening, compact restoration, mobile
 launcher/Menu/identity/notification reachability, safe-area offsets, no horizontal
-overflow and original app draft/node retention. Existing Home controls enforce
-44 px touch minimum at the shared tablet/mobile breakpoint.
+overflow and original app draft/node retention. Home uses its available pane for progressive disclosure; composer and summary
+controls remain reachable through the shared tablet/mobile shell.
 
 ### Full-height sidebar and floating dock — 2026-10-11
 

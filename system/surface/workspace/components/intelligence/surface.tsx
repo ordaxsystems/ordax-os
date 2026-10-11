@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Plus, Mic, ArrowUp, History, Settings2, X, RotateCcw, Paperclip, Maximize2, Copy, FileDown } from 'lucide-react';
+import { Plus, Mic, ArrowUp, History, Settings2, X, RotateCcw, Paperclip, Maximize2, Copy, FileDown, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { entryToText, exportEntryPdf } from '@/lib/intelligence/export';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,11 @@ import { ResultRenderer, DemoTag } from './results';
 import { useIntelligenceSession } from './session';
 import mark from '@ordax-brand/ordax-symbol.png';
 
-export type Presentation = 'page' | 'panel' | 'compact';
+export type Presentation = 'page' | 'panel' | 'compact' | 'home';
 
 /**
  * One Intelligence experience, rendered responsively per presentation.
- * page = expanded central area · panel = contextual side panel · compact = embedded card (Home, Studio).
+ * page = expanded central area · panel = contextual side panel · compact = embedded card (Studio) · home = viewport-bounded Home card.
  * State lives in IntelligenceSessionProvider, so all presentations show the same session.
  */
 export function IntelligenceSurface({ presentation = 'page', onOpenStudio, onExpand }: { presentation?: Presentation; onOpenStudio?: (() => void) | undefined; onExpand?: (() => void) | undefined }) {
@@ -24,19 +24,20 @@ export function IntelligenceSurface({ presentation = 'page', onOpenStudio, onExp
   const exportable = !!active && (active.kind !== 'unknown' || active.ai?.state === 'ready');
   const busy = state.stage !== null;
   const mode = busy ? 'processing' : active ? 'result' : 'rest';
-  const compact = presentation === 'compact';
+  const home = presentation === 'home';
+  const compact = presentation === 'compact' || home;
   const wasBusy = useRef(busy);
   useEffect(() => { if (wasBusy.current && !busy && presentation !== 'compact') input.current?.focus({ preventScroll: true }); wasBusy.current = busy; }, [busy, presentation]);
 
   const composer = <form className="oi-composer" onSubmit={e => { e.preventDefault(); submit(state.draft); }}>
     <Button type="button" variant="ghost" size="icon" disabled aria-label="Anexar arquivo — não conectado" title="Anexos não conectados"><Plus/></Button>
-    <textarea ref={input} rows={1} aria-label="Comando para OrdaX Intelligence" placeholder={active ? 'Continue a partir deste resultado…' : 'Pergunte, peça ou descreva um objetivo…'} value={state.draft} onChange={e => dispatch({ type: 'draft', value: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(state.draft); } }}/>
+    <textarea ref={input} rows={1} wrap={home ? 'off' : undefined} aria-label="Comando para OrdaX Intelligence" placeholder={active ? 'Continue a partir deste resultado…' : home ? 'Pergunte à Aura ou descreva uma tarefa…' : 'Pergunte, peça ou descreva um objetivo…'} value={state.draft} onChange={e => dispatch({ type: 'draft', value: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(state.draft); } }}/>
     <Button type="button" variant="ghost" size="icon" disabled aria-label="Voz — não conectada" title="Entrada por voz não conectada"><Mic/></Button>
     <Button type="submit" size="icon" className="oi-send" disabled={!state.draft.trim() || busy} aria-label="Enviar comando de demonstração"><ArrowUp/></Button>
   </form>;
 
   const historyMenu = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Histórico desta sessão" title="Histórico"><History/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="oi-history"><DropdownMenuLabel>Resultados desta sessão</DropdownMenuLabel>{state.entries.length === 0 ? <DropdownMenuItem disabled>Nenhum resultado ainda</DropdownMenuItem> : state.entries.map(e => <DropdownMenuItem key={e.id} onSelect={() => dispatch({ type: 'select', id: e.id })}>{e.title}{e.id === state.activeId ? ' · atual' : ''}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>;
-  const expand = onExpand && <Button variant="ghost" size="icon" aria-label="Abrir Intelligence expandido" title="Expandir" onClick={onExpand}><Maximize2/></Button>;
+  const expand = onExpand && <Button variant="ghost" size={home ? "sm" : "icon"} className={home ? "oi-home-expand" : undefined} aria-label="Abrir Intelligence expandido" title="Expandir" onClick={onExpand}>{home ? <><Sparkles/><span>{active && !busy ? 'Ver resultado' : 'Como posso ajudar hoje?'}</span></> : <Maximize2/>}</Button>;
 
   const processing = <div className="oi-processing" aria-live="polite">
     <span className="oi-sim-tag">Simulação</span>
@@ -45,9 +46,9 @@ export function IntelligenceSurface({ presentation = 'page', onOpenStudio, onExp
     {!compact && <small>Demonstração local · nenhum provedor de IA, arquivo ou GPT envolvido</small>}
   </div>;
 
-  if (compact) return <div className={`oi-surface oi-compact oi-${mode}`} aria-label="OrdaX Intelligence">
-    <header className="oi-compact-head"><img src={mark} alt="" width={36} height={36}/><div><span>OrdaX Intelligence</span><strong>{active ? active.title : 'O que você gostaria de realizar?'}</strong></div>{expand}</header>
-    {busy ? processing : active ? <p className="oi-compact-note">Resultado de demonstração pronto. <button type="button" onClick={onExpand}>Ver resultado</button></p> : null}
+  if (compact) return <div className={`oi-surface oi-compact ${home ? 'oi-home' : ''} oi-${mode}`} aria-label="OrdaX Intelligence">
+    <header className="oi-compact-head">{home ? <span className="oi-home-orb" aria-hidden="true"/> : <img src={mark} alt="" width={36} height={36}/>}<div>{home ? <><strong>Aura</strong><span>Seu assistente de IA no OrdaX.</span></> : <><span>OrdaX Intelligence</span><strong>{active ? active.title : 'O que você gostaria de realizar?'}</strong></>}</div>{expand}</header>
+    {busy ? home ? <p className="oi-compact-note" role="status">{stages.find(stage => stage.id === state.stage)?.label} · simulação</p> : processing : active ? <p className="oi-compact-note">Resultado de demonstração pronto. {!home && <button type="button" onClick={onExpand}>Ver resultado</button>}</p> : null}
     {composer}
     <p className="oi-foot"><Paperclip/>Simulação · IA não conectada</p>
   </div>;

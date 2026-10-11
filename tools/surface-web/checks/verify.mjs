@@ -34,9 +34,12 @@ for (const entry of provenance.files) {
   assert.ok(candidates.includes(entry.sha256), 'Reference drift: ' + entry.path);
   verified++;
 }
+assert.deepEqual(initialWindows, [], 'Home starts without opening demo app windows');
 const before = JSON.stringify(initialWindows);
 let windows = windowReducer(initialWindows, {type:'open', appId:'studio'});
-assert.equal(windows.length, initialWindows.length, 'Opening an existing app must not duplicate it');
+assert.equal(windows.length, 1, 'Opening the first app creates one window');
+windows = windowReducer(windows, {type:'open', appId:'studio'});
+assert.equal(windows.length, 1, 'Opening an existing app must not duplicate it');
 assert.equal(windows.find(w => w.appId === 'studio').mode, 'maximized', 'Detached app opens across the full workspace');
 windows = windowReducer(windows, {type:'minimize', appId:'studio'});
 windows = windowReducer(windows, {type:'restore', appId:'studio'});

@@ -3,7 +3,7 @@ import type { WebAppId } from './model';
 export type WindowMode = 'normal' | 'maximized' | 'compact' | 'minimized' | 'immersive';
 export type WindowState = { id: string; appId: WebAppId; x: number; y: number; width: number; height: number; mode: WindowMode; previousMode: Exclude<WindowMode, 'minimized' | 'immersive'>; layer: number };
 export type WindowAction = { type: 'open'; appId: WebAppId } | { type: 'focus' | 'close' | 'minimize' | 'maximize' | 'compact' | 'immersive' | 'restore'; appId: WebAppId } | { type: 'geometry'; appId: WebAppId; x: number; y: number; width?: number; height?: number } | { type: 'desktop' } | { type: 'arrange' } | { type: 'compact-all' };
-export const initialWindows: WindowState[] = (['files', 'studio', 'internet'] as const).map((appId, index) => ({ id: `web-${appId}`, appId, x: 8 + index * 4, y: 8 + index * 4, width: 66, height: 75, mode: 'compact', previousMode: 'normal', layer: index + 1 }));
+export const initialWindows: WindowState[] = [];
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 export function windowReducer(state: WindowState[], action: WindowAction): WindowState[] {
   const nextLayer = Math.max(0, ...state.map(win => win.layer)) + 1;
