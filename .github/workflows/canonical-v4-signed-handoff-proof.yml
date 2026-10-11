@@ -97,9 +97,9 @@ jobs:
           Download-Exact 'package' ([long]$env:PACKAGE_RUN_ID) ([long]$env:PACKAGE_ARTIFACT_ID) ('canonical-v4-signing-request-' + $sha) $package
           $manifest = Get-Content (Join-Path $package 'release-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
           if ($manifest.'$schema' -cne 'prototype-ordax.release-manifest/4' -or $manifest.source_commit -cne $sha) {throw 'Wrong manifest source'}
-          foreach ($pair in @(@('system','system.erofs'),@('surface','native-surface-runtime.erofs'),@('local-ai','local-ai-runtime.erofs'))) {
-            $kind = [string]$pair[0]
-            $fileName = [string]$pair[1]
+          foreach ($pair in @(@{kind='system';name='system.erofs'},@{kind='surface';name='native-surface-runtime.erofs'},@{kind='local-ai';name='local-ai-runtime.erofs'})) {
+            $kind = [string]$pair.kind
+            $fileName = [string]$pair.name
             $binding = $request.operator_artifacts.$kind
             $out = Join-Path $base $kind
             Download-Exact $kind ([long]$binding.run_id) ([long]$binding.artifact_id) ([string]$binding.artifact_name) $out
@@ -107,8 +107,11 @@ jobs:
             if ($files.Count -ne 1) {throw ('EROFS cardinality mismatch: ' + $fileName)}
             Copy-Item -LiteralPath $files[0].FullName -Destination (Join-Path $package $fileName)
           }
+          $blobPath = 'docs/evidence/canonical-v4-signed-envelope-' + $sha + '.json'
           $public = Join-Path 'docs/evidence' ('canonical-v4-signed-envelope-' + $sha + '.json')
           if (-not (Test-Path -LiteralPath $public -PathType Leaf)) {throw 'Signed envelope is not approved in source'}
+          git -c core.autocrlf=false checkout-index -f -- $blobPath
+          if ($LASTEXITCODE -ne 0) {throw 'Cannot restore exact signed Git blob without Windows newline conversion'}
           if ((Get-FileHash -Algorithm SHA256 -LiteralPath $public).Hash.ToLowerInvariant() -cne $env:ENVELOPE_SHA256) {throw 'Public envelope hash mismatch'}
           Copy-Item -LiteralPath $public -Destination (Join-Path $package 'release-envelope.json')
           Write-Output 'CANONICAL_SIGNED_PAYLOAD_STAGED_FOR_READ_ONLY_VERIFICATION=YES'
