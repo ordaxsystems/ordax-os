@@ -65,6 +65,22 @@ export function validateRegistrationPolicy(value) {
   });
 }
 
+// An OOBE acceptance applies only to the exact legal documents that were shown.
+export function sameRegistrationLegalPolicy(left, right) {
+  if (!left || !right || left.schema !== REGISTRATION_POLICY_SCHEMA || right.schema !== REGISTRATION_POLICY_SCHEMA) {
+    return false;
+  }
+  if (!left.privacy || !left.terms || !right.privacy || !right.terms) return false;
+  if (left.registrationEnabled !== true || right.registrationEnabled !== true || left.policyId !== right.policyId) {
+    return false;
+  }
+  return ["privacy", "terms"].every((document) =>
+    ["version", "effectiveDate", "sha256", "url"].every(
+      (field) => left[document]?.[field] === right[document]?.[field],
+    ),
+  );
+}
+
 export function validateIdentityCredentialInput(value) {
   if (!value || typeof value !== "object") {
     throw new TypeError("Identity credentials are required");

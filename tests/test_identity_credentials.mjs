@@ -7,6 +7,7 @@ import {
   validateIdentityCredentialInput,
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
+  sameRegistrationLegalPolicy,
 } from "../system/contracts/identity-credentials.mjs";
 import { createSameOriginIdentityCredentials } from "../system/adapters/web/identity-credentials.mjs";
 
@@ -163,4 +164,48 @@ test("registration policy is fetched read-only from the same-origin gateway", as
   assert.equal(calls[0].options.method, "GET");
   assert.equal(calls[0].options.credentials, "same-origin");
   assert.equal(calls[0].options.cache, "no-store");
+});
+
+test("OOBE must request fresh legal acceptance when any authoritative document changes", () => {
+  const data = {
+    $schema: "prototype-ordax.registration-legal-policy/1",
+    active: true,
+    registrationEnabled: true,
+    policyId: "11111111-1111-4111-8111-111111111111",
+    privacy: {
+      version: "2026-10-02",
+      effectiveDate: "2026-10-02",
+      sha256: "a".repeat(64),
+      url: "https://ordax.example/privacidade/",
+    },
+    terms: {
+      version: "2026-10-02",
+      effectiveDate: "2026-10-02",
+      sha256: "b".repeat(64),
+      url: "https://ordax.example/termos/",
+    },
+  };
+  const original = validateRegistrationPolicy(data);
+  const sameContent = validateRegistrationPolicy(structuredClone(data));
+  assert.equal(sameRegistrationLegalPolicy(original, sameContent), true);
+  assert.equal(sameRegistrationLegalPolicy(original, null), false);
+  assert.equal(sameRegistrationLegalPolicy(null, original), false);
+  assert.equal(sameRegistrationLegalPolicy(original, { schema: original.schema, policyId: original.policyId, registrationEnabled: true }), false);
+
+  for (const change of [
+    (draft) => { draft.policyId = "22222222-2222-4222-8222-222222222222"; },
+    (draft) => { draft.registrationEnabled = false; },
+    (draft) => { draft.privacy.sha256 = "c".repeat(64); },
+    (draft) => { draft.privacy.version = "2026-10-11"; },
+    (draft) => { draft.privacy.effectiveDate = "2026-10-11"; },
+    (draft) => { draft.privacy.url = "https://ordax.example/privacidade/nova/"; },
+    (draft) => { draft.terms.sha256 = "d".repeat(64); },
+    (draft) => { draft.terms.version = "2026-10-11"; },
+    (draft) => { draft.terms.effectiveDate = "2026-10-11"; },
+    (draft) => { draft.terms.url = "https://ordax.example/termos/novos/"; },
+  ]) {
+    const altered = structuredClone(data);
+    change(altered);
+    assert.equal(sameRegistrationLegalPolicy(original, validateRegistrationPolicy(altered)), false);
+  }
 });
