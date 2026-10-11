@@ -46,12 +46,7 @@ def validate_local(*, source_root: Path, bundle: Path, request: Path,
         raise AdmissionError("invalid frozen source SHA")
     if not agent.is_file() or agent.is_symlink():
         raise AdmissionError("release-agent binary not a regular file")
-    actual_pinned = command([
-        "git", "-C", str(source_root), "show",
-        source_commit + ":" + TRUST_PATH,
-    ])
-    # The git command text route would normalize trailing newline; compare the
-    # SHA against an exact Git blob, with hash-object via Git plumbing instead.
+    # The pinned trust must be read from the frozen source's Git object.
     pinned_blob_id = command([
         "git", "-C", str(source_root), "rev-parse",
         source_commit + ":" + TRUST_PATH,
@@ -115,10 +110,26 @@ def remote_release(tag: str) -> dict:
     return result
 
 
+def require_tag_absent(tag: str) -> None:
+    # Check GitHub's canonical tag ref, not a possibly unrelated local remote.
+    try:
+        proc = subprocess.run(
+            ["gh", "api", "--include", f"repos/{REPO}/git/ref/tags/{tag}"],
+            capture_output=True, text=True, encoding="utf-8",
+        )
+    except OSError as exc:
+        raise AdmissionError("GitHub tag preflight unavailable") from exc
+    statuses = re.findall(r"^HTTP/\\S+\\s+(\\d{3})\\b", proc.stdout, re.MULTILINE)
+    if proc.returncode != 0 and statuses == ["404"]:
+        return
+    raise AdmissionError("canonical release tag already exists or cannot be checked")
+
+
 def publish_reviewed(plan: dict, bundle: Path, *, confirmed_tag: str) -> dict:
     tag = plan["release_tag"]
     if confirmed_tag != tag:
         raise AdmissionError("explicit confirmation does not match frozen tag")
+    require_tag_absent(tag)
     args = [
         "gh", "release", "create", tag,
         *(str(bundle / name) for name in ASSET_NAMES),
