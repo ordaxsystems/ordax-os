@@ -55,6 +55,7 @@ jobs:
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_execution_owner_guard.py'
           python3 -m unittest discover -v -s tests -p 'test_canonical_v4_live_operator_artifacts.py'
           python3 -m unittest discover -v -s tests -p 'test_validate_v4_publication_staging.py'
+          python3 -m unittest discover -v -s tests -p 'test_publish_verified_v4_release.py'
       - name: Select current request without confusing historical provenance
         id: select
         run: |
