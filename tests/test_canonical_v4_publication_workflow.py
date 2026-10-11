@@ -8,6 +8,7 @@ import tempfile
 import os
 import textwrap
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/canonical-v4-verified-publication.yml"
@@ -62,7 +63,7 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("\n  push:", self.yaml)
         self.assertNotIn("\n  pull_request:", self.yaml)
         self.assertIn("CONFIRM_TAG: ${{ inputs.confirm_tag }}", self.yaml)
-        self.assertIn('os.environ["CONFIRM_TAG"] != tag', self.yaml)
+        self.assertIn('os.environ["OPERATION"] == "publish" and os.environ["CONFIRM_TAG"] != tag', self.yaml)
         self.assertIn("tools/release-operator/probe_active_operator_artifacts.py", self.yaml)
         self.assertIn("tools/release-operator/export_exact_signed_envelope.py", self.yaml)
         self.assertIn("tools/release-operator/publish_verified_v4_release.py", self.yaml)
@@ -164,6 +165,57 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
                     )
                     self.assertEqual(result.returncode == 0, accepted,
                                      result.stdout + result.stderr)
+
+    def test_real_admission_python_accepts_verify_without_tag_and_rejects_wrong_publish(self):
+        # Execute the literal Python admission script from the production YAML.
+        # GH metadata is mocked; no publish action, network or devices are used.
+        marker = "          python3 - <<'PY'"
+        body = self.yaml.split(marker, 1)[1].split("          PY", 1)[0]
+        script = textwrap.dedent(body)
+        tag = self.request["release_tag"]
+        by_id = {
+            item["artifact_id"]: (item, self.request[kind]["run_id"])
+            for kind, item in (
+                ("signing_request", self.request["signing_request"]),
+                ("signed_handoff", self.request["signed_handoff"]),
+            )
+        }
+
+        def fake_gh(args, **_kwargs):
+            route = args[-1]
+            if "/actions/artifacts/" in route:
+                aid = int(route.rsplit("/", 1)[1])
+                item, run_id = by_id[aid]
+                return json.dumps({
+                    "id": aid, "name": item["artifact_name"],
+                    "expired": False, "digest": "sha256:" + "a" * 64,
+                    "workflow_run": {"id": run_id},
+                }).encode()
+            if "/actions/runs/" in route:
+                rid = int(route.rsplit("/", 1)[1])
+                if rid not in (x[1] for x in by_id.values()):
+                    raise AssertionError("unexpected workflow run")
+                return json.dumps({
+                    "conclusion": "success", "status": "completed",
+                    "repository": {"full_name": REPO},
+                }).encode()
+            raise AssertionError("unexpected gh API invocation: " + route)
+
+        for operation, confirmed, allowed in (
+            ("verify", "", True),
+            ("publish", tag, True),
+            ("publish", "", False),
+            ("publish", "not-the-tag", False),
+        ):
+            with self.subTest(operation=operation, confirmed=confirmed):
+                with patch.dict(os.environ, {
+                    "OPERATION": operation, "CONFIRM_TAG": confirmed,
+                }), patch("subprocess.check_output", side_effect=fake_gh):
+                    if allowed:
+                        exec(compile(script, "<canonical-v4-publish-admission>", "exec"), {})
+                    else:
+                        with self.assertRaises(SystemExit):
+                            exec(compile(script, "<canonical-v4-publish-admission>", "exec"), {})
 
     def test_no_erofs_or_private_material_in_uploaded_receipt(self):
         self.assertIn("path: ${{ runner.temp }}/canonical-v4-publication-receipt.json", self.yaml)
