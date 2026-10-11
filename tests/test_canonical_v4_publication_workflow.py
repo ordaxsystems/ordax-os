@@ -3,7 +3,6 @@ from pathlib import Path
 import hashlib
 import json
 import subprocess
-import re
 import shutil
 import unittest
 
@@ -86,12 +85,12 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
         )
         # Exercise the exact predicate embedded in the workflow, not a copy
         # with subtly different fail-closed behavior.
-        result = re.search(
-            r"jq -e '\\n(?P<filter>.*?)\\n          ' \"\\$RUNNER_TEMP/operator-live-probe.json\"",
-            self.yaml, re.DOTALL,
-        )
-        self.assertIsNotNone(result)
-        expr = result.group("filter")
+        start_marker = "          jq -e \'\\n"
+        end_marker = "\\n          \' \"$RUNNER_TEMP/operator-live-probe.json\""
+        self.assertIn(start_marker, self.yaml)
+        start = self.yaml.index(start_marker) + len(start_marker)
+        end = self.yaml.index(end_marker, start)
+        expr = self.yaml[start:end]
         if shutil.which("jq") is None:
             self.skipTest("jq is required on the production Ubuntu runner")
         base = {
