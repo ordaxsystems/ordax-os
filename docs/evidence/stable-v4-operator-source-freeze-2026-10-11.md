@@ -35,6 +35,15 @@ GitHub**, não os bytes internos EROFS ou a verificação integral exigida
 pela montagem canônica. Surface e IA local continuam pendentes nesta
 observação.
 
+A execução **surface** `38126441063` também concluiu com
+`completed/success`. O GitHub publicou o artefato de operador
+`canonical-v4-operator-surface-03f88eeaf382a59aaefbcf4943d0639d2730741b`,
+ID `11696773362`, digest ZIP
+`sha256:bd7d2dddd81cb6e2a93f7060332412037d8376980d7aae291d27dc58ec128a46`,
+`expired=false` e expiração `2026-10-25T08:55:39Z`.
+Os dois registros são metadados de Actions; **o pedido v4 ainda depende da IA local
+e da validação dos bytes reais**.
+
 **Run ID não é artifact ID.** Só após três `completed/success`, e depois da comprovação do inventário, SHA-256, prazo, recibos e bytes dos arquivos reais, o builder canônico poderá criar um pedido de assinatura correspondente:
 
 `tools/release-operator/build_canonical_v4_request.py`
