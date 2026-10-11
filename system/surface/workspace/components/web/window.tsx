@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type Dispatch, type PointerEvent } from 'react';
+import { useRef, type CSSProperties, type Dispatch, type PointerEvent, type RefObject } from 'react';
 import { Minus, Maximize2, Minimize2, X, Grip, PanelsTopLeft, MoreHorizontal, MoveUpRight } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { WindowMenu } from './window-menu';
@@ -8,16 +8,16 @@ import type { WindowState, WindowAction } from '@/lib/web/windows';
 import { AppIcon } from './primitives';
 import { AppContent, type Appearance } from './app-content';
 
-type Props = { window: WindowState; compactIndex: number; compactVisible: boolean; active: boolean; dispatch: Dispatch<WindowAction>; appearance: Appearance; onAppearance: (value: Appearance) => void };
+type Props = { primaryPane: RefObject<HTMLDivElement | null>; window: WindowState; compactIndex: number; compactVisible: boolean; active: boolean; dispatch: Dispatch<WindowAction>; appearance: Appearance; onAppearance: (value: Appearance) => void };
 type Drag = { pointerId: number; startX: number; startY: number; x: number; y: number; width: number; height: number; containerWidth: number; containerHeight: number; resize: boolean };
-export function AppWindow({ window: win, compactIndex, compactVisible, active, dispatch, appearance, onAppearance }: Props) {
+export function AppWindow({ window: win, compactIndex, compactVisible, active, dispatch, appearance, onAppearance, primaryPane }: Props) {
   const app = getWebApp(win.appId);
   const root = useRef<HTMLElement>(null);
   const drag = useRef<Drag | null>(null);
   function start(e: PointerEvent<HTMLElement>, resize = false) {
     if (win.mode !== 'normal' || globalThis.matchMedia('(max-width: 760px)').matches || (!resize && (e.target as HTMLElement).closest('button'))) return;
-    const bounds = root.current?.parentElement?.getBoundingClientRect();
-    if (!bounds) return;
+    const bounds = primaryPane.current?.getBoundingClientRect();
+    if (!bounds || !bounds.width || !bounds.height) return;
     drag.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: win.x, y: win.y, width: win.width, height: win.height, containerWidth: bounds.width, containerHeight: bounds.height, resize };
     e.currentTarget.setPointerCapture(e.pointerId);
     dispatch({ type: 'focus', appId: win.appId });

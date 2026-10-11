@@ -46,8 +46,96 @@ try {
     await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
     await sleep(100);
   }
+
+  async function noDialog() {
+    const deadline=Date.now()+3000;
+    while(await evaluate("!!document.querySelector('[role=dialog]')")){if(Date.now()>deadline)throw Error('Dialog did not finish closing');await sleep(25);}
+  }
+  async function paneLayout(expected) {
+    const layout = await evaluate(`(() => {
+      const rect = node => { const b=node.getBoundingClientRect(); return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,width:b.width,height:b.height}; };
+      const desktop=document.querySelector('.web-desktop'), primary=document.querySelector('.web-primary-pane');
+      const visible=node=>node.getClientRects().length>0 && getComputedStyle(node).visibility==='visible';
+      return {mode:desktop.dataset.compactLayout, desktop:rect(desktop), primary:rect(primary),
+        root:rect(document.querySelector('.web-workspace')), viewport:innerHeight,
+        noDocumentScroll:document.documentElement.scrollHeight<=innerHeight,
+        windows:[...document.querySelectorAll('.web-window')].filter(visible).map(node=>({mode:[...node.classList].find(value=>/^web-window-(normal|maximized|compact|immersive)$/.test(value)),rect:rect(node)})),
+        controls:document.querySelector('.web-carousel-controls') ? rect(document.querySelector('.web-carousel-controls')) : null};
+    })()`);
+    if(expected) assert.equal(layout.mode,expected);
+    assert.ok(Math.abs(layout.root.height-layout.viewport)<1 && layout.noDocumentScroll, JSON.stringify(layout));
+    const reserved=layout.mode==='expanded' ? layout.desktop.height/2 : layout.mode==='collapsed' ? layout.controls.height : 0;
+    assert.ok(Math.abs(layout.primary.height-(layout.desktop.height-reserved))<1, JSON.stringify(layout));
+    for(const win of layout.windows) {
+      if(win.mode==='web-window-immersive')continue;
+      const bounds=win.mode==='web-window-compact' ? {top:layout.primary.bottom,bottom:layout.desktop.bottom} : layout.primary;
+      assert.ok(win.rect.top>=bounds.top-1 && win.rect.bottom<=bounds.bottom+1 && win.rect.left>=layout.desktop.left-1 && win.rect.right<=layout.desktop.right+1, JSON.stringify({layout,win}));
+    }
+    if(layout.controls) assert.ok(Math.abs(layout.controls.top-layout.primary.bottom)<1,JSON.stringify(layout));
+    return layout;
+  }
+  async function splitProof(width,height) {
+    await paneLayout('expanded');
+    await click('[aria-label="Abrir aplicativos"]');
+    await click('.web-launcher [title="Abrir Notas"]');await noDialog();
+    await paneLayout('expanded');
+    await click('[aria-label="Buscar em Notas"]');
+    await client.send('Input.insertText',{text:'continuidade compacta'});
+    await click('[aria-label="Janela Notas"] [role=tab]:last-child');
+    await evaluate("window.__paneProofInput=document.querySelector('[aria-label=\"Buscar em Notas\"]'); true");
+    const retained=async()=>assert.equal(await evaluate("window.__paneProofInput===document.querySelector('[aria-label=\"Buscar em Notas\"]') && window.__paneProofInput.value==='continuidade compacta' && document.querySelector('[aria-label=\"Janela Notas\"] [role=tab]:last-child').getAttribute('aria-selected')==='true'"),true,'Mode changes must preserve the same mounted app and its React state');
+    await click('[aria-label="Compactar Notas"]');
+    for(let attempt=0;attempt<4 && await evaluate("document.querySelector('[aria-label=\"Janela Notas\"]').classList.contains('web-compact-hidden')");attempt++)await click('[aria-label="Próximas janelas compactas"]');
+    assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Notas\"]').classList.contains('web-compact-hidden')"),false);
+    await paneLayout('expanded');await retained();
+    const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(join(evidence,'split-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+    await click('[aria-label="Recolher janelas compactas"]');
+    await paneLayout('collapsed');await retained();
+    assert.equal(await evaluate("document.querySelector('[aria-label=\"Expandir janelas compactas\"]').getAttribute('aria-expanded')"),'false');
+    await click('[aria-label="Expandir janelas compactas"]');
+    await paneLayout('expanded');await retained();
+    await click('[aria-label="Destacar Notas"]');
+    await paneLayout('expanded');await retained();
+
+    await click('[aria-label="Menu da janela Notas"]');
+    await click('.web-window-menu [role=menuitem]:nth-child(5)');
+    const full=await evaluate("(()=>{const w=document.querySelector('[aria-label=\"Janela Notas\"]'),b=w.getBoundingClientRect();return w.classList.contains('web-window-immersive') && b.top===0 && b.left===0 && b.height===innerHeight && b.width===innerWidth;})()");
+    assert.equal(full,true,'Immersive mode remains available for full-viewport use');
+    await retained();
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await sleep(150);await paneLayout('expanded');await retained();
+    if(width===390) {
+      await client.send('Emulation.setDeviceMetricsOverride',{width,height:430,deviceScaleFactor:1,mobile:true});
+      await sleep(150);await paneLayout('expanded');await retained();
+      await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+      await sleep(150);await paneLayout('expanded');await retained();
+    }
+    if(width>760 && height>600) {
+      const before=await evaluate("(()=>{const b=document.querySelector('[aria-label=\"Janela Notas\"]').getBoundingClientRect();return {top:b.top,left:b.left};})()");
+      const point=await evaluate("(()=>{const b=document.querySelector('[aria-label=\"Janela Notas\"] .web-window-titlebar strong').getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2};})()");
+      await client.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
+      await client.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:point.x+20,y:point.y-20,button:'left',buttons:1});
+      await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:point.x+20,y:point.y-20,button:'left',clickCount:1});
+      await sleep(100);
+      const after=await evaluate("(()=>{const b=document.querySelector('[aria-label=\"Janela Notas\"]').getBoundingClientRect();return {top:b.top,left:b.left};})()");
+      assert.ok(Math.abs(after.top-before.top+20)<1 && Math.abs(after.left-before.left-20)<1,'Dragging uses the primary pane geometry');
+      await paneLayout('expanded');
+    }
+    for(let attempt=0;attempt<3;attempt++) await click('.web-window-compact:not(.web-compact-hidden) [aria-label^="Minimizar "]');
+    await paneLayout('none');await retained();
+    assert.equal(await evaluate("!!document.querySelector('.web-carousel-controls')"),false,'Minimizing the last compact window releases the entire primary pane');
+    await click('[aria-label="Abrir aplicativos"]');
+    await click('.web-launcher [title="Abrir Arquivos"]');await noDialog();
+    await click('[aria-label="Compactar Arquivos"]');
+    await paneLayout('expanded');await retained();
+    await click('[aria-label="Fechar Arquivos"]');
+    await paneLayout('none');await retained();
+  }
+
   const reports=[];
-  for(const [width,height] of [[1440,900],[1024,768],[390,844],[320,568],[844,390]]){
+  for(const [width,height] of [[1440,900],[1024,768],[700,650],[390,844],[320,568],[844,390]]){
     await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});
     for(const view of ['home','assistant','projects','spaces','apps','files','internet','store']){
       await client.send('Page.navigate',{url:origin+'/?view='+view});await ready();
@@ -81,11 +169,12 @@ try {
     await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await sleep(100);
-    const dialogDeadline=Date.now()+3000;
-    while(await evaluate("!!document.querySelector('[role=dialog]')")){if(Date.now()>dialogDeadline)throw Error('Launcher did not close after Escape');await sleep(25);}
+    await noDialog();
+    await splitProof(width,height);
+    await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
     if(width>760){
       await click('[aria-label="Abrir Studio pelo dock"]');await click('[aria-label="Maximizar Studio"]');
-      assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);
+      assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);await paneLayout('expanded');
       await click('[aria-label="Minimizar Studio"]');await click('[aria-label="Abrir Studio pelo dock"]');
       assert.equal(await evaluate('!!document.querySelector(\'[aria-label="Janela Studio"].web-window-maximized\')'),true);
       await click('[aria-label="Fechar Studio"]');
@@ -95,7 +184,7 @@ try {
     }
     const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(join(evidence,'web-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
-    reports.push({width,height,views:8,storeModeIsolation:true,assets:true,noOverflow:true,launcher:true,windowLifecycle:width>760});
+    reports.push({width,height,views:8,storeModeIsolation:true,splitPanes:true,mountedStateRetention:true,assets:true,noOverflow:true,launcher:true,windowLifecycle:width>760});
   }
   return reports;
  });

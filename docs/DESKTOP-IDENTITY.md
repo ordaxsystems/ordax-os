@@ -122,3 +122,29 @@ The canonical workspace Store now projects the public OS catalog port and
 source-locked local AI candidate. It defaults to official mode, with an
 explicit demonstration inside the same renderer. No Web transport or lifecycle
 authority has been introduced. See [Store boundary and acceptance](STORE-WEB-CATALOG-PRESENTATION.md).
+
+
+## Responsive compact-window panes — 2026-10-11
+
+Owner: OrdaX OS Surface, within the functional workspace/window increment of
+`PLANO-FUNCIONAL-SURFACE-E-APPS.md`. The canonical Web composition divides the
+available desktop into a primary pane and a compact pane. Expanded compact
+windows receive half the height after the shared header/footer and mobile safe
+area are deducted. Collapsing the carousel leaves only its accessible control
+row; minimizing or closing the last compact window releases the whole primary
+pane. The existing immersive mode remains a full-viewport option.
+
+Geometry is owned by two CSS Grid tracks in `workspace/styles.css`. The layout
+state is derived from the existing window reducer and carousel flag; there is
+no second window manager or persisted geometry copy. Every AppWindow keeps its
+key and parent across compact, restored and minimized modes, preserving mounted
+React state. Pages and app content scroll independently. Normal/maximized
+windows stay within the primary track, and drag/resize measure that same pane.
+
+Dependencies: existing workspace reducer, ResizeObserver, shared appearance
+tokens and browser viewport/safe-area support. Risk: short viewports, narrow
+carousel capacity, absolute grid positioning and dialog transitions. Acceptance:
+strict compilation and reversible reference integrity; real Chromium proof at
+320, 390, 700, 844, 1024 and 1440 px, including short-height resizing, collapse,
+last-window minimization/closure, drag bounds and mounted text/filter retention.
+No App, Runtime, Intelligence, Identity or device-execution authority changes.
