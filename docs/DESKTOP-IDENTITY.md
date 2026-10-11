@@ -148,3 +148,31 @@ strict compilation and reversible reference integrity; real Chromium proof at
 320, 390, 700, 844, 1024 and 1440 px, including short-height resizing, collapse,
 last-window minimization/closure, drag bounds and mounted text/filter retention.
 No App, Runtime, Intelligence, Identity or device-execution authority changes.
+
+## Mobile workspace navigation — 2026-10-11
+
+Owner: OrdaX OS Surface, within the canonical Web workspace increment of
+`PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Mobile navigation uses the same
+`WorkspaceNavigation`, catalog and reducer as the desktop sidebar. The bottom
+bar derives selection from the actual page, launcher and window overview; it
+no longer highlights Apps permanently. A scrollable bottom Dialog exposes
+projects, applications, favorites and Settings with focus containment, Escape,
+outside dismissal and focus restoration. The shared Dialog owns its center or
+bottom placement; CSS does not counteract centered utility transforms.
+
+Mobile titlebars retain three direct actions with 44 px touch targets; closing,
+maximizing and immersive mode remain in the existing window menu. Compact
+controls show the visible app and ordinal. File locations scroll horizontally,
+and both grid/list controls remain visible. Search fields use 16 px type, text
+and spacing remain legible at 320 px, and primary/compact tracks keep their
+existing geometry and mounted app state. No separate mobile app or state store.
+
+Dependencies: existing Radix Dialog, workspace/window reducer, ResizeObserver,
+shared tokens and local assets. Risks: focus restoration, dialog positioning,
+CSS/container specificity, short viewports and mobile/desktop transitions.
+Acceptance: strict compilation and reversible reference verification; real
+Chromium checks at 320, 390, 700, 844, 1024 and 1440 px, including touch input,
+menu traversal, Escape/outside dismissal, breakpoint transition, grid/list
+selection, touch target sizes, split geometry and mounted text/filter retention.
+This source/candidate improvement does not connect pending service ports,
+change Native or activate production.

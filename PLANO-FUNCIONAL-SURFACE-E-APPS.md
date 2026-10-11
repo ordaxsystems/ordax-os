@@ -1382,3 +1382,12 @@ Recolher expande a área principal; minimizar/fechar a última compacta remove
 a reserva inferior. Uma composição, reducer existente e instâncias preservadas.
 Owner, dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
 Sem mudança de autoridade, contratos de serviço, Native ou ativação de produção.
+
+### Usabilidade mobile do workspace Web — 2026-10-11
+
+Incremento autorizado pelo pedido de melhorar o mobile: navegação compartilhada
+com o desktop, menu modal rolável, seleção correta na barra inferior, texto e
+alvos de toque maiores e controles de Arquivos disponíveis em telas estreitas.
+Divisão compacta e estado das janelas mantidos no reducer existente. Owner,
+dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
+Não cria outro source mobile, backend, contrato de execução ou estado global.
