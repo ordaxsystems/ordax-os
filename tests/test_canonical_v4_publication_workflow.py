@@ -3,6 +3,8 @@ from pathlib import Path
 import hashlib
 import json
 import subprocess
+import re
+import shutil
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +78,43 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
         self.assertNotIn(" gh release delete ", self.yaml)
         self.assertNotIn("gh release upload", self.yaml)
         self.assertNotIn("signing-private", self.yaml)
+
+    def test_live_operator_preflight_must_refuse_inactive_status(self):
+        self.assertLess(
+            self.yaml.index("operator-live-probe.json"),
+            self.yaml.index("name: Download signed proof"),
+        )
+        # Exercise the exact predicate embedded in the workflow, not a copy
+        # with subtly different fail-closed behavior.
+        result = re.search(
+            r"jq -e '\\n(?P<filter>.*?)\\n          ' \"\\$RUNNER_TEMP/operator-live-probe.json\"",
+            self.yaml, re.DOTALL,
+        )
+        self.assertIsNotNone(result)
+        expr = result.group("filter")
+        if shutil.which("jq") is None:
+            self.skipTest("jq is required on the production Ubuntu runner")
+        base = {
+            "status": "live-artifacts-verified", "active": True,
+            "signing_performed": False, "publication_performed": False,
+            "physical_write_performed": False,
+        }
+        for field, value, expected in (
+            ("active", True, True),
+            ("active", False, False),
+            ("status", "blocked", False),
+            ("signing_performed", True, False),
+            ("publication_performed", True, False),
+            ("physical_write_performed", True, False),
+        ):
+            with self.subTest(field=field, value=value):
+                input_doc = dict(base)
+                input_doc[field] = value
+                check = subprocess.run(
+                    ["jq", "-e", expr], input=json.dumps(input_doc),
+                    text=True, capture_output=True,
+                )
+                self.assertEqual(check.returncode == 0, expected, check.stderr)
 
     def test_no_erofs_or_private_material_in_uploaded_receipt(self):
         self.assertIn("path: ${{ runner.temp }}/canonical-v4-publication-receipt.json", self.yaml)
