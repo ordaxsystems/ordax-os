@@ -16,22 +16,22 @@ class PhysicalHandoffFreshnessTests(unittest.TestCase):
         cls.authorization = json.loads(AUTH_PATH.read_text(encoding="utf-8"))
         cls.handoff = HANDOFF_PATH.read_text(encoding="utf-8")
 
-    def test_current_proof_pending_state_is_explicit_and_fail_closed(self):
+    def test_current_proof_bound_but_owner_consent_still_fail_closed(self):
         auth = self.authorization
-        self.assertEqual(auth["status"], "blocked-canonical-v4-release-proof-pending")
+        self.assertEqual(auth["status"], "blocked-explicit-physical-authorization-pending")
         self.assertFalse(auth["physical_write_allowed"])
         self.assertFalse(auth["explicit_owner_authorization"])
         self.assertIsNone(auth["authorization_context_sha256"])
-        self.assertFalse(auth["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
 
         handoff = self.handoff
         self.assertIn(
-            "CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF=PENDING_POST_HARDENING_REPLACEMENT",
+            "CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF=PASS_SIGNED_HTTPS_MATERIALIZED",
             handoff,
         )
-        self.assertIn("CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF_BOUND=NO", handoff)
+        self.assertIn("CURRENT_MAIN_CANONICAL_V4_RELEASE_PROOF_BOUND=YES_VERIFIED", handoff)
         self.assertIn(
-            "PHYSICAL_WRITE_AUTHORIZATION=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING",
+            "PHYSICAL_WRITE_AUTHORIZATION=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING",
             handoff,
         )
         self.assertIn("EXPLICIT_OWNER_AUTHORIZATION=NO", handoff)
@@ -48,8 +48,8 @@ class PhysicalHandoffFreshnessTests(unittest.TestCase):
             "PRIOR_STABLE_MVP_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING",
             handoff,
         )
-        self.assertIn("same superseded source commit", handoff)
-        self.assertIn("replacement post-hardening v4 prerelease", handoff)
+        self.assertIn("source `b924ff8d74d1761232381ae3f9604bba17497cfd`", handoff)
+        self.assertIn("current release proof from `03f88eeaf382a59aaefbcf4943d0639d2730741b`", handoff)
 
     def test_handoff_does_not_claim_current_authorization_or_current_write(self):
         handoff = self.handoff
@@ -63,8 +63,8 @@ class PhysicalHandoffFreshnessTests(unittest.TestCase):
             self.assertNotIn(marker, handoff)
 
         self.assertIn("POST_HARDENING_PHYSICAL_WRITE_PERFORMED=NO", handoff)
-        self.assertIn("stage=canonical-v4-release-proof-pending", handoff)
-        self.assertIn("canonical_v4_release_proof_current=false", handoff)
+        self.assertIn("stage=explicit-owner-authorization-pending", handoff)
+        self.assertIn("canonical_v4_release_proof_current=true", handoff)
         self.assertIn("owner_authorization_recorded=false", handoff)
 
     def test_remaining_order_keeps_non_destructive_proof_before_consent(self):
