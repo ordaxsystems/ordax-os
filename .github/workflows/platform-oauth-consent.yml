@@ -7,6 +7,8 @@ on:
       - "vercel.json"
       - "infra/supabase/functions/_shared/account_email_confirmation.mjs"
       - "tests/test_platform_oauth_consent_vercel.mjs"
+      - "scripts/probe_public_oauth_consent.py"
+      - "tests/test_live_oauth_consent_probe.py"
       - ".github/workflows/platform-oauth-consent.yml"
   push:
     branches: [main]
@@ -14,6 +16,8 @@ on:
       - "api/oauth-consent.mjs"
       - "vercel.json"
       - "tests/test_platform_oauth_consent_vercel.mjs"
+      - "scripts/probe_public_oauth_consent.py"
+      - "tests/test_live_oauth_consent_probe.py"
       - ".github/workflows/platform-oauth-consent.yml"
   workflow_dispatch:
 
@@ -30,3 +34,10 @@ jobs:
           persist-credentials: false
       - name: Validate OAuth consent origin, server and request boundaries
         run: node --test tests/test_platform_oauth_consent_vercel.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate HTTP probe classification without contacting users
+        run: python -m unittest tests.test_live_oauth_consent_probe
+      - name: Probe official ordax.com.br OAuth consent presentation over real HTTPS
+        run: python -m scripts.probe_public_oauth_consent
