@@ -12,6 +12,12 @@ import (
 // seed-bounded write plan. The latter keeps TOCTOU protection by hashing the
 // same locked file handle later used for raw I/O.
 func openAuthorizedRawImageForApply(request RawDiskApplyRequest, report rawApplyProgressReporter) (*os.File, VerifiedRawImage, *creatorcore.PhysicalWritePlan, error) {
+	if request.StorageProfile != "" && request.StorageProfile != "owner-development" {
+		return nil, VerifiedRawImage{}, nil, fmt.Errorf("unknown authorized storage profile")
+	}
+	if request.StorageProfile == "owner-development" && request.BootstrapSeedBytes <= 0 {
+		return nil, VerifiedRawImage{}, nil, fmt.Errorf("owner-development requires a verified canonical seed")
+	}
 	if request.BootstrapSeedBytes <= 0 {
 		source, image, err := openVerifiedRawImageForApplyWithProgress(request.Image.Path, request.Image.SHA256, request.Image.SizeBytes, func(completedBytes, totalBytes int64) {
 			reportRawApplyProgress(report, "validating-image", completedBytes, totalBytes)
@@ -34,7 +40,12 @@ func openAuthorizedRawImageForApply(request RawDiskApplyRequest, report rawApply
 	if err != nil {
 		return nil, VerifiedRawImage{}, nil, err
 	}
-	plan, err := creatorcore.PlanPreparedPhysicalWrite(source, uint64(image.SizeBytes), uint64(request.BootstrapSeedBytes))
+	var plan creatorcore.PhysicalWritePlan
+	if request.StorageProfile == "owner-development" {
+		plan, err = creatorcore.PlanOwnerDevelopmentPreparedPhysicalWrite(source, uint64(image.SizeBytes), uint64(request.BootstrapSeedBytes))
+	} else {
+		plan, err = creatorcore.PlanPreparedPhysicalWrite(source, uint64(image.SizeBytes), uint64(request.BootstrapSeedBytes))
+	}
 	if err != nil {
 		_ = source.Close()
 		return nil, VerifiedRawImage{}, nil, fmt.Errorf("prepared storage-v2 image validation failed: %w", err)
