@@ -109,6 +109,12 @@ class LiveCanonicalV4OperatorArtifactsTests(unittest.TestCase):
         self.assertIn("if: steps.select.outputs.active == 'true'", source)
         self.assertIn("probe_active_operator_artifacts.py", source)
         self.assertIn("test_canonical_v4_live_operator_artifacts.py", source)
+        self.assertIn("Independently reconstruct exact request with canonical GitHub-backed builder", source)
+        self.assertIn("tools/release-operator/build_canonical_v4_request.py", source)
+        self.assertIn("ACTIVE_CANONICAL_V4_REQUEST=CANONICAL_BUILDER_MATCH", source)
+        self.assertIn("RELEASE_SIGNED=NO", source)
+        self.assertIn("PHYSICAL_WRITE_AUTHORIZED=NO", source)
+        self.assertIn("if rebuilt != doc:", source)
         self.assertNotIn("active: $" + "{{ steps.select.outputs.active }}", source)
 
     def test_missing_live_proof_writes_inactive_and_no_signature(self):
