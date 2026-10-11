@@ -28,3 +28,9 @@ As 14 verificações são executadas sem rede de identidade real e sem escrita n
 ## O que NÃO está comprovado
 
 Este teste não comprova boot do pendrive, persistência fsync/ext4/exFAT, acesso real ao Wi-Fi, login Supabase, implantação no host Linux nem renderização completa da Surface após fechar o assistente. Essas provas têm gates e responsáveis independentes. A falha neste smoke bloqueia a regressão de interface no CI; a aprovação não autoriza distribuição Stable/MVP nem gravação física.
+
+## Fronteira Native HTTP em Linux
+
+O teste tests/test_first_run_native_http.py exercita o **servidor Native verdadeiro**, em HTTP loopback, com FIRST_RUN_FILE redirecionado para um diret?rio tempor?rio. Verifica GET inicial, POST 204 ap?s escrita at?mica, GET de retorno, retry idempotente, bloqueio de mudan?a de modo/retrocesso, JSON inv?lido, Host/Origin estrangeiros e recibo corrompido que n?o pode ser sobrescrito. Executado pelo workflow Surface Web Candidate em Linux.
+
+A prova Chromium e a prova HTTP Linux s?o complementares: usam o adaptador real no navegador e o host real em Linux, mas **n?o** afirmam boot f?sico nem fsync na m?dia USB alvo. O ensaio de integra??o entre ambos na mesma sess?o de hardware continua gate separado.
