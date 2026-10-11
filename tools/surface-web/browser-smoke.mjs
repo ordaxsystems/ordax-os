@@ -75,6 +75,10 @@ try {
       await click('[aria-label="Ativar tema claro"]');
       await until("document.documentElement.dataset.theme==='light'");
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-sidebar')).overflowY"),'hidden','Sidebar does not scroll');
+      assert.equal(await evaluate("Math.abs(document.querySelector('.workspace-sidebar').getBoundingClientRect().bottom-innerHeight)<2"),true,'Sidebar reaches viewport bottom');
+      assert.equal(await evaluate("!!document.querySelector('.workspace-sidebar [data-workspace-switch]') && !!document.querySelector('.workspace-sidebar .desktop-start-button')"),true,'Start and view switch belong to the sidebar');
       await evaluate("(()=>{const n=document.querySelector('.aura-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await click('[aria-label="Enviar ao Aura"]');
       await until("!!document.querySelector('[aria-label=\"Janela Aura\"]')");
@@ -95,7 +99,7 @@ try {
       await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().toJSON()");
       await click('[data-workspace-switch]');
       assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');
-      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays beside Start in both views');
+      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays inside the full-height rail in both views');
       await until("!!document.querySelector('.classic-desktop')");
       await clickByText('.desktop-shortcuts button','Projetos');
       await click('[aria-label="Restaurar janela Projetos"]');

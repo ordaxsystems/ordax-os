@@ -41,15 +41,6 @@ export function Central() {
   return <div className="window-workspace" data-view={view} data-compact={compact ? (windows.compactCollapsed ? 'collapsed' : 'expanded') : 'none'} data-running={windows.windows.length > 0}>
     <div className="workspace-stage">
     <div className="central-presentation" hidden={view !== 'central'}><div className="os-shell">
-    <aside className="os-sidebar" aria-label="Navegação principal">
-      <Brand/>
-      <nav className="os-nav">{navigation.map(item => <Button key={item.name} variant="ghost" className="os-nav-item" data-active={item.name === 'Início'} onClick={() => openSection(item.name)}><item.icon/><span>{item.name}</span></Button>)}</nav>
-      <div className="os-sidebar-bottom"><div className="sidebar-divider"/>
-        <Button variant="ghost" className="os-nav-item" onClick={() => openPanel('Notificações')}><Bell/>Notificações<span className="notification-count">3</span></Button>
-        <Button variant="ghost" className="os-nav-item" onClick={() => openPanel('Configurações')}><Settings/>Configurações</Button>
-        <div className="account"><Button variant="ghost" className="h-auto w-full justify-start gap-2 p-0" onClick={() => setDialog('Espaço Pessoal')}><Avatar/><span className="min-w-0 flex-1 text-left"><span className="block text-[10px] font-semibold">Espaço Pessoal</span><span className="block text-[9px] text-muted-foreground">Plano Pro</span></span><ChevronRight className="size-3"/></Button><div className="storage-track"/><div className="flex items-center justify-between text-[9px]"><span><strong>128 GB</strong> de 500 GB</span><Settings className="size-3 text-muted-foreground"/></div></div>
-      </div>
-    </aside>
     <main className="os-main">
       <div className="central-content" inert={regular}><header className="mobile-header"><Brand/><div className="mobile-tools">{notificationControl}{themeControl}{profileControl}</div></header>
       <section className="os-hero" aria-label="Sua central OrdaX OS">

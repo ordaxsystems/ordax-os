@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Sidebar integral — 11/10/2026:** sidebar compartilhada até o rodapé, sem rolagem, com Iniciar/troca dentro dela; overflow em Mais, apps abertos no dock inferior. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#full-height-shared-sidebar--2026-10-11).
+
 > **Navegação inferior compartilhada — 11/10/2026:** botão Central/Área de trabalho ao lado de Iniciar, na mesma posição nas duas visualizações, seguido de todos os apps abertos. Um único componente e o mesmo estado de janelas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#shared-bottom-navigation--2026-10-11).
 
 > **Janelas da Central — 11/10/2026:** incremento explícito solicitado: controle compartilhado para minimizar, compactar, recolher, expandir e restaurar, com divisão mobile e instâncias estáveis. Owner Surface; sem backend novo e sem build/npm/testes locais. [Risco, escopo e aceite](docs/DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).

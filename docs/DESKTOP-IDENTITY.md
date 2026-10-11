@@ -365,3 +365,22 @@ Risk: launcher focus and viewport spacing. Acceptance: one navigation node,
 constant toggle position beside Start, reachable open apps in both views and no
 app remount on switching. Existing browser-check source is updated; build, npm
 and tests were not executed, according to the standing user restriction.
+
+## Full-height shared sidebar — 2026-10-11
+
+User-requested Surface revision: one sidebar spanning the entire viewport in
+Central and Desktop, including the area beside the bottom running-app dock.
+Start and the view toggle now belong to this sidebar; the dock lists running apps.
+The sidebar is mounted once outside either presentation and never scrolls.
+ResizeObserver measures its navigation slot; visible destinations fit 44px rows
+with 4px gaps, and a More button opens the existing launcher for remaining items.
+The narrow layout uses a 64px icon rail; short layouts leave utilities reachable
+through the launcher. Compact mode does not shorten the sidebar. Shared CSS
+rail width reserves the same space for the main area, apps and bottom dock.
+
+Owner: OS Surface. No new backend, execution or permission authority. Risks:
+small viewport spacing and hidden overflow controls. Acceptance: one full-height
+non-scrolling sidebar, Start/toggle inside it, destinations reachable via More,
+and running apps on the bottom dock without covering the rail. Existing browser
+check source updated; no build, npm or tests executed under the user restriction.
+This supersedes the location of Start/toggle in the previous bottom-nav notes.
