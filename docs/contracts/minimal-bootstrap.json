@@ -239,7 +239,7 @@
         {
           "source_path": "bootstrap/recovery/entrypoint",
           "target_path": "/ordax/bootstrap/recovery/entrypoint",
-          "sha256": "c2ec724432903723092bb755cda62526810a3659bb5edfefc4357b49ca883deb",
+          "sha256": "a06fd7dbaf624226d6d8cb4da4a2f2508cf98e30fd423fb6445f9420cdd47676",
           "mode": "0755",
           "logical_owner": "bootstrap-recovery",
           "reason": "Local read-only recovery shell without automatic networking or mutation"
