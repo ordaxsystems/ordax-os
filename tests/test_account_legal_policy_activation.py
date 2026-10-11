@@ -371,9 +371,9 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 "status": "ready",
                 "account_activation_ready": True,
                 "documents": {
-                    "privacy": {"route": "/privacidade/", "version": "p1",
+                    "privacy": {"route": "/privacidade/", "version": "2026.10.09",
                                 "effective_date": "2026-10-09", "final": True},
-                    "terms": {"route": "/termos/", "version": "t1",
+                    "terms": {"route": "/termos/", "version": "2026.10.09",
                               "effective_date": "2026-10-09", "final": True},
                 },
             }), encoding="utf-8")
@@ -388,12 +388,12 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             candidate = {
                 "origin": "https://ordax.com.br",
                 "privacy": {
-                    "version": "p1", "effective_date": "2026-10-09",
+                    "version": "2026.10.09", "effective_date": "2026-10-09",
                     "url": "https://ordax.com.br/privacidade/",
                     "sha256": hashlib.sha256(emitted["privacy"]).hexdigest(),
                 },
                 "terms": {
-                    "version": "t1", "effective_date": "2026-10-09",
+                    "version": "2026.10.09", "effective_date": "2026-10-09",
                     "url": "https://ordax.com.br/termos/",
                     "sha256": hashlib.sha256(emitted["terms"]).hexdigest(),
                 },
