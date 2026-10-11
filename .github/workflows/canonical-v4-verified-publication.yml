@@ -94,7 +94,16 @@ jobs:
               raise SystemExit("PUBLICATION=BLOCKED_BAD_ENVELOPE_DIGEST")
           print("CANONICAL_V4_PUBLICATION_ADMISSION=PASS_NO_WRITE")
           PY
-          python3 tools/release-operator/probe_active_operator_artifacts.py
+          # The canonical probe reports inactive as JSON with exit code zero
+          # because other workflows use it for optional discovery. Publication
+          # requires a positive live result, not merely a successful process.
+          python3 tools/release-operator/probe_active_operator_artifacts.py > "$RUNNER_TEMP/operator-live-probe.json"
+          jq -e '.status == "live-artifacts-verified" and
+                 .active == true and
+                 .signing_performed == false and
+                 .publication_performed == false and
+                 .physical_write_performed == false'                  "$RUNNER_TEMP/operator-live-probe.json" > /dev/null
+          echo 'CANONICAL_V4_OPERATOR_ARTIFACTS=LIVE_REQUIRED'
           echo 'PHYSICAL_WRITE_AUTHORIZED=NO'
 
       - name: Download signed proof and source-exact EROFS inputs
