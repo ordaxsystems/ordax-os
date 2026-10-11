@@ -721,10 +721,8 @@ def read_first_run_state() -> dict:
     directory = os.path.dirname(FIRST_RUN_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
     with _FIRST_RUN_WRITE_LOCK:
-        # The First Run POST is a one-way setup boundary. Once completed,
-        # settings/identity owners can change their own state, not this receipt.
-        # A failed/corrupted read must never be mistaken for a fresh device:
-        # otherwise a later POST could silently reset an already used USB.
+        # The one-time First Run receipt is not the owner of later settings.
+        # Corrupted state must not turn an already configured USB into a new one.
         try:
             if os.path.islink(FIRST_RUN_FILE):
                 raise ValueError("first-run receipt cannot be a symlink")
@@ -739,7 +737,7 @@ def read_first_run_state() -> dict:
                 raise ValueError("existing first-run receipt invalid")
             if previous["completed"]:
                 if previous == state_value:
-                    return  # An identical retry is safe and idempotent.
+                    return  # Idempotent retry after an uncertain HTTP response.
                 raise ValueError("completed first-run receipt cannot be overwritten")
 
         temporary = f"{FIRST_RUN_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
@@ -747,7 +745,7 @@ def read_first_run_state() -> dict:
             with open(temporary, "x", encoding="utf-8") as handle:
                 os.fchmod(handle.fileno(), 0o600)
                 json.dump(state_value, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
-                handle.write("\\n")
+                handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporary, FIRST_RUN_FILE)
@@ -756,19 +754,13 @@ def read_first_run_state() -> dict:
                 os.unlink(temporary)
             except FileNotFoundError:
                 pass
-        # Completion is acknowledged only after the directory entry has also
-        # reached stable storage. It is not enough to fsync the temporary file.
+        # Do not acknowledge setup completion before the directory entry is
+        # also durable. Failed fsync propagates to the UI instead of success.
         directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
             os.fsync(directory_fd)
         finally:
-            os.close(directory_fd)))
-    except OSError:
-        return
-    try:
-        os.fsync(directory_fd)
-    finally:
-        os.close(directory_fd)
+            os.close(directory_fd)
 
 
 def valid_device_display_name(value: object) -> bool:
