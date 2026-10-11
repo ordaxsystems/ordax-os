@@ -242,8 +242,9 @@ fill the shell content area, with compact, immersive and draft state retained.
 ### System utilities in navigation — 2026-10-11
 
 Owner: OS Surface. Explicit user-requested continuation of full workspace opening.
-The shared WorkspaceChrome component places brand/search in the desktop sidebar and account/notifications next to
-the footer clock through shared WorkspaceAccount. Mobile Menu keeps both utilities. There is no shell topbar or reserved header
+The shared WorkspaceChrome component places brand/search and account/notifications in the desktop sidebar through
+shared WorkspaceAccount. Mobile Menu keeps these utilities. The Web shell has no
+clock, clock state or refresh interval. There is no shell topbar or reserved header
 row: apps/pages own the top edge, bounded only by device safe area, sidebar and
 bottom navigation. Search remains available through Apps/Ctrl K and the Menu;
 Space switching remains in the existing desktop footer/mobile Space destination.

@@ -62,7 +62,7 @@ try {
   }
   async function navigationUtilitiesProof(width,height) {
     if(width<=820)await click('[aria-label="Menu do workspace"]');
-    else assert.equal(await evaluate("!!document.querySelector('.web-system-status [aria-label=\"Menu de identidade\"]') && !!document.querySelector('.web-system-status [aria-label=\"Abrir notificações\"]') && !!document.querySelector('.web-system-status time')"),true,'Profile and notifications share the clock status area');
+    else assert.equal(await evaluate("!!document.querySelector('.web-sidebar [aria-label=\"Menu de identidade\"]') && !!document.querySelector('.web-sidebar [aria-label=\"Abrir notificações\"]') && !document.querySelector('.web-system-status time')"),true,'Profile and notifications remain in the sidebar; the Web clock is absent');
     await click('[aria-label="Menu de identidade"]');
     assert.equal(await evaluate("[...document.querySelectorAll('[role=menuitem]')].some(n=>n.textContent.includes('Minha Conta')&&n.getAttribute('href')==='/conta/')"),true,'Account link remains in canonical identity menu');
     await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
@@ -70,7 +70,7 @@ try {
     await click('[aria-label="Abrir launcher"]');await sleep(250);
     assert.equal(await evaluate("!!document.querySelector('.web-launcher[role=dialog]')"),true,'Navigation search opens the shared launcher');
     await click('.web-launcher [title="Abrir Studio"]');await noDialog();await fullWindow('Studio');
-    if(width>820){await click('[aria-label="Recolher navegação"]');await fullWindow('Studio');assert.equal(await evaluate("[...document.querySelectorAll('.web-systembar [aria-label=\"Menu de identidade\"],.web-sidebar [aria-label=\"Abrir launcher\"],.web-systembar [aria-label=\"Abrir notificações\"]')].every(n=>n.getBoundingClientRect().width>=29&&n.getClientRects().length>0)"),true);await click('[aria-label="Expandir navegação"]');}
+    if(width>820){await click('[aria-label="Recolher navegação"]');await fullWindow('Studio');assert.equal(await evaluate("[...document.querySelectorAll('.web-sidebar [aria-label=\"Menu de identidade\"],.web-sidebar [aria-label=\"Abrir launcher\"],.web-sidebar [aria-label=\"Abrir notificações\"]')].every(n=>n.getBoundingClientRect().width>=29&&n.getClientRects().length>0)"),true);await click('[aria-label="Expandir navegação"]');}
     await client.send('Page.navigate',{url:origin+'/?view=home'});await ready();
   }
   async function openingProof(width,height) {
