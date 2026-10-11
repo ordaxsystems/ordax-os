@@ -15,7 +15,7 @@ export function AppWindow({ window: win, compactIndex, compactVisible, active, d
   const root = useRef<HTMLElement>(null);
   const drag = useRef<Drag | null>(null);
   function start(e: PointerEvent<HTMLElement>, resize = false) {
-    if (win.mode !== 'normal' || globalThis.matchMedia('(max-width: 760px)').matches || (!resize && (e.target as HTMLElement).closest('button'))) return;
+    if (win.mode !== 'normal' || (!resize && (getComputedStyle(e.currentTarget).cursor !== 'move' || (e.target as HTMLElement).closest('button')))) return;
     const bounds = primaryPane.current?.getBoundingClientRect();
     if (!bounds || !bounds.width || !bounds.height) return;
     drag.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: win.x, y: win.y, width: win.width, height: win.height, containerWidth: bounds.width, containerHeight: bounds.height, resize };

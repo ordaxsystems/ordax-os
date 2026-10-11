@@ -1388,6 +1388,17 @@ Sem mudança de autoridade, contratos de serviço, Native ou ativação de produ
 Incremento autorizado pelo pedido de melhorar o mobile: navegação compartilhada
 com o desktop, menu modal rolável, seleção correta na barra inferior, texto e
 alvos de toque maiores e controles de Arquivos disponíveis em telas estreitas.
+Menus/launcher mantêm título e fechar acessíveis durante rolagem; foco por
+capacidade de toque, busca limpa e estado dos filtros são verificados no browser.
 Divisão compacta e estado das janelas mantidos no reducer existente. Owner,
 dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
 Não cria outro source mobile, backend, contrato de execução ou estado global.
+
+Home adapta a estrutura do HTML responsivo fornecido pelo usuário: composição
+única, coluna móvel, grade de apps 3/2, atalhos do ambiente e continuação.
+Referência estrutural com digest na evidência existente; scripts simulados e
+dados ilustrativos não importados. Shell touch até 820 px e scroll restrito ao
+pane principal; reducer, modos compactos e rascunho Intelligence preservados.
+Barra inferior segue Início, Aura, Apps, Space e Menu. Aura usa a sessão
+Intelligence existente; a visão geral de janelas fica acessível no Menu.
+Verificação inclui os dois lados do breakpoint 820/821 px e os cinco destinos.

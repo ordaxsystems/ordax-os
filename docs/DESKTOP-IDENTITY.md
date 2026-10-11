@@ -154,10 +154,15 @@ No App, Runtime, Intelligence, Identity or device-execution authority changes.
 Owner: OrdaX OS Surface, within the canonical Web workspace increment of
 `PLANO-FUNCIONAL-SURFACE-E-APPS.md`. Mobile navigation uses the same
 `WorkspaceNavigation`, catalog and reducer as the desktop sidebar. The bottom
-bar derives selection from the actual page, launcher and window overview; it
-no longer highlights Apps permanently. A scrollable bottom Dialog exposes
+bar follows the reference order: Início, Aura, Apps, Space and Menu. Aura opens
+the existing Intelligence session and Space opens the existing Space picker.
+Selection derives from the actual page and open dialogs; it no longer highlights
+Apps permanently. Window overview is reached through the Menu footer without
+creating another window manager. A scrollable bottom Dialog exposes
 projects, applications, favorites and Settings with focus containment, Escape,
-outside dismissal and focus restoration. The shared Dialog owns its center or
+outside dismissal and focus restoration. Its header/close and window-action
+footer remain fixed while only navigation content scrolls. The shared close
+marker scopes touch-target styling to the close control instead of all buttons. The shared Dialog owns its center or
 bottom placement; CSS does not counteract centered utility transforms.
 
 Mobile titlebars retain three direct actions with 44 px touch targets; closing,
@@ -166,6 +171,11 @@ controls show the visible app and ordinal. File locations scroll horizontally,
 and both grid/list controls remain visible. Search fields use 16 px type, text
 and spacing remain legible at 320 px, and primary/compact tracks keep their
 existing geometry and mounted app state. No separate mobile app or state store.
+The launcher focuses its title on coarse-pointer devices, preserving desktop
+search focus; touching the search still permits typing. Clear-search restores
+input focus, category buttons expose their actual filter state, and an empty
+search is announced. The launcher app list scrolls separately from its header,
+search, categories and close control.
 
 Dependencies: existing Radix Dialog, workspace/window reducer, ResizeObserver,
 shared tokens and local assets. Risks: focus restoration, dialog positioning,
@@ -174,5 +184,36 @@ Acceptance: strict compilation and reversible reference verification; real
 Chromium checks at 320, 390, 700, 844, 1024 and 1440 px, including touch input,
 menu traversal, Escape/outside dismissal, breakpoint transition, grid/list
 selection, touch target sizes, split geometry and mounted text/filter retention.
+Launcher proof additionally covers touch/desktop focus, category/query filtering,
+no-results feedback, clear-query, native touch scrolling with a stationary
+header/close, and launch/reopen at short mobile heights.
 This source/candidate improvement does not connect pending service ports,
 change Native or activate production.
+
+
+### Responsive Home structure — 2026-10-11
+
+The user-provided `ordax_os_web_inicio_responsivo.html` is a structural
+reference, recorded by digest in the existing Web provenance ledger. Home uses
+one React composition: welcome/Space entry, the shared Intelligence card and
+environment shortcuts, application grid, project continuation and activity.
+Desktop uses two overview/continuation columns; narrow layouts use one, with
+three application columns and two at 365 px or below. The Web touch shell uses
+the 820 px boundary and safe-area padding; dragging follows CSS presentation
+instead of keeping a second JavaScript breakpoint. Existing Surface tokens,
+app catalog, action handlers and Intelligence session remain their owners.
+The HTML prototype scripts, simulated account/projects and alternate logo
+are not imported. Unconnected service states remain explicit.
+
+The existing workspace grid still owns primary/compact tracks. Home has one
+scroll container in the primary pane and its Intelligence draft survives
+compact expansion/collapse; no window node is reparented or remounted. Search,
+notifications, identity, launcher, window overview and compact controls remain
+available. Source work is an explicitly requested functional-plan increment,
+not a new mobile app or a change to release/installation authority.
+
+Risks: nested overflow, short heights, card reflow and touch-shell transitions.
+Acceptance: strict build/reference restoration, real Chromium at 320, 390,
+700, 820, 821, 844, 1024 and 1440 px, Home ordering/grids and native touch
+scrolling, accessible control sizes, 8 direct views, launcher/menu focus and
+shared app/draft retention through compact modes.
