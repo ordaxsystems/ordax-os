@@ -60,7 +60,7 @@ class ImmutableLegalSnapshotTests(unittest.TestCase):
             site, privacy, terms, ledger, ledger_path = self.fixture(root)
             builder.validate_immutable_legal_snapshots(site, ledger_path)
             privacy.write_bytes(privacy.read_bytes() + b"<!-- dynamic theme -->")
-            with self.assertRaisesRegex(builder.PublicSiteError, "bytes differ from reviewed digest"):
+            with self.assertRaisesRegex(builder.LegalSnapshotError, "bytes differ from reviewed digest"):
                 builder.validate_immutable_legal_snapshots(site, ledger_path)
 
     def test_unreviewed_extra_page_and_missing_document_are_rejected(self):
@@ -70,11 +70,11 @@ class ImmutableLegalSnapshotTests(unittest.TestCase):
             extra = site / "legal/2026.10.13/privacidade/index.html"
             extra.parent.mkdir(parents=True)
             extra.write_text("unreviewed", encoding="utf-8")
-            with self.assertRaisesRegex(builder.PublicSiteError, "unreviewed"):
+            with self.assertRaisesRegex(builder.LegalSnapshotError, "unreviewed"):
                 builder.validate_immutable_legal_snapshots(site, ledger_path)
             extra.unlink()
             terms.unlink()
-            with self.assertRaisesRegex(builder.PublicSiteError, "missing or linked"):
+            with self.assertRaisesRegex(builder.LegalSnapshotError, "missing or linked"):
                 builder.validate_immutable_legal_snapshots(site, ledger_path)
 
     def test_digest_and_ledger_state_cannot_be_invented(self):
@@ -83,12 +83,12 @@ class ImmutableLegalSnapshotTests(unittest.TestCase):
             site, privacy, terms, ledger, ledger_path = self.fixture(root)
             ledger["snapshots"][0]["sha256"] = "0" * 64
             ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
-            with self.assertRaisesRegex(builder.PublicSiteError, "bytes differ from reviewed digest"):
+            with self.assertRaisesRegex(builder.LegalSnapshotError, "bytes differ from reviewed digest"):
                 builder.validate_immutable_legal_snapshots(site, ledger_path)
             ledger["snapshots"][0]["sha256"] = hashlib.sha256(privacy.read_bytes()).hexdigest()
             ledger["status"] = "no-approved-snapshots"
             ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
-            with self.assertRaisesRegex(builder.PublicSiteError, "status mismatch"):
+            with self.assertRaisesRegex(builder.LegalSnapshotError, "status mismatch"):
                 builder.validate_immutable_legal_snapshots(site, ledger_path)
 
     def test_public_builder_never_rewrites_legal_snapshot_bytes(self):
