@@ -7,6 +7,7 @@ SUPERVISOR=$SYSTEM_ROOT/supervisor
 RECOVERY_ENTRYPOINT=/ordax/bootstrap/recovery/entrypoint
 UPDATE_RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
+SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 GIT_BIN=${ORDAX_GIT_BIN:-/usr/bin/git}
 DISTRIBUTION_PROFILE=${ORDAX_DISTRIBUTION_PROFILE:-owner-development}
@@ -56,6 +57,18 @@ epoch_now() {
 }
 
 state_epoch() {
+    # Prefer the current child's independent liveness marker. A completed
+    # update transition does not imply that a provisioning worker has stalled.
+    if [ -f "$SUPERVISOR_HEARTBEAT_FILE" ] && [ ! -L "$SUPERVISOR_HEARTBEAT_FILE" ]; then
+        beat_owner=$(/bin/busybox cat "$SUPERVISOR_HEARTBEAT_FILE" 2>/dev/null || true)
+        [ "$beat_owner" = "$SUPERVISOR_PID" ] || {
+            printf '1\n'
+            return 0
+        }
+        /bin/busybox stat -c %Y "$SUPERVISOR_HEARTBEAT_FILE" 2>/dev/null || printf '1\n'
+        return 0
+    fi
+    # Compatibility during the first start, before the child has sent a beat.
     [ -f "$UPDATE_STATE" ] || {
         printf '0\n'
         return 0
@@ -268,6 +281,7 @@ fail_closed() {
 start_supervisor() {
     [ -f "$SUPERVISOR" ] || return 1
     /bin/sh -n "$SUPERVISOR" >>"$GUARDIAN_LOG" 2>&1 || return 1
+    rm -f "$SUPERVISOR_HEARTBEAT_FILE"
     /bin/sh "$SUPERVISOR" >>"$GUARDIAN_LOG" 2>&1 &
     SUPERVISOR_PID=$!
     write_pid "$SUPERVISOR_PID_FILE" "$SUPERVISOR_PID"
