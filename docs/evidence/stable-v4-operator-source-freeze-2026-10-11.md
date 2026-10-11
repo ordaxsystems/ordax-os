@@ -22,6 +22,19 @@ Em 2026-10-11, os três workflows foram disparados com `workflow_dispatch` apont
 | `native-surface-runtime.erofs` | `surface-runtime-lock-discovery.yml` | [38126441063](https://github.com/ordaxsystems/ordax-os/actions/runs/38126441063) | em execução |
 | `local-ai-runtime.erofs` | `local-ai-runtime-candidate.yml` | [38126446991](https://github.com/ordaxsystems/ordax-os/actions/runs/38126446991) | em execução |
 
+### Primeira conclusão observada (somente metadados)
+
+A execução **system** `38126436379` concluiu com `status=completed`,
+`conclusion=success`. O inventário do GitHub registrou o artefato
+`canonical-v4-operator-system-03f88eeaf382a59aaefbcf4943d0639d2730741b`,
+ID `11697581939`, digest ZIP
+`sha256:2bbf4dbc06a10a391b78d3d2fb72ce53d6760b69e2335239f351da7d39fb4b40`,
+`expired=false` e expiração `2026-10-25T08:55:05Z`.
+Essa inspeção confirma apenas o **registro e a identidade do pacote no
+GitHub**, não os bytes internos EROFS ou a verificação integral exigida
+pela montagem canônica. Surface e IA local continuam pendentes nesta
+observação.
+
 **Run ID não é artifact ID.** Só após três `completed/success`, e depois da comprovação do inventário, SHA-256, prazo, recibos e bytes dos arquivos reais, o builder canônico poderá criar um pedido de assinatura correspondente:
 
 `tools/release-operator/build_canonical_v4_request.py`
