@@ -23,6 +23,7 @@ fi
 if git diff --quiet "$previous" "$current" -- \
   sites/public \
   api/account-proxy.mjs \
+  api/oauth-consent.mjs \
   infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs \
   infra/supabase/functions/_shared/bounded_body.mjs \
   infra/supabase/functions/_shared/account_email_confirmation.mjs \

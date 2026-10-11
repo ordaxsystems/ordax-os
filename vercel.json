@@ -5,6 +5,10 @@
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
   "rewrites": [
     {
+      "source": "/oauth/consent",
+      "destination": "/api/oauth-consent"
+    },
+    {
       "source": "/auth/:path*",
       "destination": "/api/account-proxy?ordax_path=/auth/:path*"
     },
@@ -208,6 +212,19 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=300"
+        }
+      ]
+    },
+    {
+      "source": "/oauth/consent",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
         }
       ]
     }
