@@ -715,7 +715,11 @@ def read_first_run_state() -> dict:
     except FileNotFoundError:
         return initial_first_run_state()
     except (OSError, json.JSONDecodeError):
-     def _fsync_first_run_directory(directory: str) -> None:
+        return initial_first_run_state()
+    return payload if valid_first_run_state(payload) else initial_first_run_state()
+
+
+def _fsync_first_run_directory(directory: str) -> None:
     fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     try:
         os.fsync(fd)
@@ -729,8 +733,8 @@ def write_first_run_state(state_value: dict) -> None:
     directory = os.path.dirname(FIRST_RUN_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
     with _FIRST_RUN_WRITE_LOCK:
-        # The one-time First Run receipt is not the owner of later settings.
-        # Corrupted state must not turn an already configured USB into a new one.
+        # A completed First Run receipt cannot be modified through OOBE:
+        # later settings and identity changes have their own system owners.
         try:
             if os.path.islink(FIRST_RUN_FILE):
                 raise ValueError("first-run receipt cannot be a symlink")
@@ -745,8 +749,7 @@ def write_first_run_state(state_value: dict) -> None:
                 raise ValueError("existing first-run receipt invalid")
             if previous["completed"]:
                 if previous == state_value:
-                    # Even an idempotent retry must not acknowledge a directory
-                    # entry whose fsync may have failed on the earlier request.
+                    # Reconfirm durability even after an earlier uncertain reply.
                     _fsync_first_run_directory(directory)
                     return
                 raise ValueError("completed first-run receipt cannot be overwritten")
@@ -765,8 +768,7 @@ def write_first_run_state(state_value: dict) -> None:
                 os.unlink(temporary)
             except FileNotFoundError:
                 pass
-        # Do not acknowledge setup completion before the directory entry is
-        # also durable. Failed fsync propagates to the UI instead of success.
+        # This must raise if durable directory flush cannot be completed.
         _fsync_first_run_directory(directory)
 
 
