@@ -169,8 +169,8 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
     def test_real_admission_python_accepts_verify_without_tag_and_rejects_wrong_publish(self):
         # Execute the literal Python admission script from the production YAML.
         # GH metadata is mocked; no publish action, network or devices are used.
-        marker = "          python3 - <<'PY'\\n"
-        body = self.yaml.split(marker, 1)[1].split("\\n          PY", 1)[0]
+        marker = "          python3 - <<'PY'"
+        body = self.yaml.split(marker, 1)[1].split("          PY", 1)[0]
         script = textwrap.dedent(body)
         tag = self.request["release_tag"]
         by_id = {
