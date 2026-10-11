@@ -4,6 +4,9 @@ import hashlib
 import json
 import subprocess
 import shutil
+import tempfile
+import os
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -111,6 +114,56 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
                     text=True, capture_output=True,
                 )
                 self.assertEqual(check.returncode == 0, expected, check.stderr)
+
+    def test_publish_requires_official_main_and_verify_mode_is_read_only(self):
+        self.assertIn("default: verify", self.yaml)
+        self.assertIn("if: ${{ inputs.mode == 'publish' }}", self.yaml)
+        self.assertIn('"$GITHUB_REF" != "refs/heads/main"', self.yaml)
+        self.assertIn("PUBLICATION=BLOCKED_MAIN_MOVED_BEFORE_UPLOAD", self.yaml)
+        self.assertIn("path: ${{ runner.temp }}/canonical-v4-readonly-plan.json", self.yaml)
+        # Execute the actual production Bash gate, with only the gh metadata
+        # query replaced by a deterministic local stub; no writes/network.
+        block = self.yaml.split(
+            "      - name: Prove official main owner and deliberate operation", 1
+        )[1].split("      - name: Configure frozen Go toolchain", 1)[0]
+        script = textwrap.dedent(block.split("        run: |", 1)[1])
+        self.assertIn("gh api", script)
+        self.assertIsNotNone(shutil.which("bash"), "production guard requires bash")
+        self.assertIsNotNone(shutil.which("jq"), "production guard requires jq")
+        local_sha = subprocess.check_output(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True
+        ).strip()
+        with tempfile.TemporaryDirectory() as directory:
+            fake_gh = Path(directory) / "gh"
+            fake_gh.write_text('#!/bin/sh\nprintf "%s\\n" "$FAKE_MAIN_SHA"\n',
+                               encoding="utf-8")
+            fake_gh.chmod(0o700)
+            base = dict(os.environ)
+            base.update({
+                "PATH": directory + os.pathsep + os.environ["PATH"],
+                "GITHUB_REPOSITORY": REPO, "REPO_SLUG": REPO,
+                "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": local_sha,
+                "FAKE_MAIN_SHA": local_sha, "OPERATION": "verify", "CONFIRM_TAG": "",
+            })
+            for overrides, accepted in [
+                ({}, True),
+                ({"GITHUB_REF": "refs/heads/feature"}, False),
+                ({"GITHUB_REPOSITORY": "untrusted/fork"}, False),
+                ({"FAKE_MAIN_SHA": "0" * 40}, False),
+                ({"GITHUB_SHA": "0" * 40}, False),
+                ({"OPERATION": "publish", "CONFIRM_TAG": ""}, False),
+                ({"OPERATION": "verify", "CONFIRM_TAG": self.request["release_tag"]}, False),
+                ({"OPERATION": "invalid"}, False),
+                ({"OPERATION": "publish", "CONFIRM_TAG": self.request["release_tag"]}, True),
+            ]:
+                with self.subTest(overrides=overrides):
+                    env = dict(base, **overrides)
+                    result = subprocess.run(
+                        ["bash", "-c", script], cwd=ROOT, env=env,
+                        text=True, capture_output=True,
+                    )
+                    self.assertEqual(result.returncode == 0, accepted,
+                                     result.stdout + result.stderr)
 
     def test_no_erofs_or_private_material_in_uploaded_receipt(self):
         self.assertIn("path: ${{ runner.temp }}/canonical-v4-publication-receipt.json", self.yaml)

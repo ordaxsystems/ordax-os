@@ -3,9 +3,17 @@ name: Canonical v4 Verified HTTPS Publication
 on:
   workflow_dispatch:
     inputs:
-      confirm_tag:
-        description: 'Confirm exact signed Stable v4 tag (prerelease only; no USB write)'
+      mode:
+        description: 'Verify exact signed release without publishing, or publish reviewed prerelease'
+        type: choice
         required: true
+        default: verify
+        options:
+          - verify
+          - publish
+      confirm_tag:
+        description: 'Required only to publish: exact signed Stable v4 tag'
+        required: false
         type: string
 
 permissions:
@@ -22,6 +30,7 @@ jobs:
       actions: read
     env:
       GH_TOKEN: ${{ github.token }}
+      OPERATION: ${{ inputs.mode }}
       CONFIRM_TAG: ${{ inputs.confirm_tag }}
       REPO_SLUG: ordaxsystems/ordax-os
     steps:
@@ -30,6 +39,43 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Prove official main owner and deliberate operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REPOSITORY" != "$REPO_SLUG" ||
+                "$GITHUB_REF" != "refs/heads/main" ||
+                "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]]; then
+            echo 'PUBLICATION=BLOCKED_NOT_OFFICIAL_MAIN' >&2
+            exit 2
+          fi
+          official="$(gh api "repos/$REPO_SLUG/branches/main" --jq '.commit.sha')"
+          if [[ "$official" != "$GITHUB_SHA" ]]; then
+            echo 'PUBLICATION=BLOCKED_MAIN_MOVED' >&2
+            exit 2
+          fi
+          case "$OPERATION" in
+            verify)
+              if [[ -n "$CONFIRM_TAG" ]]; then
+                echo 'PUBLICATION=BLOCKED_VERIFY_WITH_CONFIRM_TAG' >&2
+                exit 2
+              fi
+              echo 'CANONICAL_V4_OPERATION=VERIFY_ONLY'
+              ;;
+            publish)
+              expected="$(jq -r '.release_tag' docs/contracts/canonical-v4-publication-request.json)"
+              if [[ "$CONFIRM_TAG" != "$expected" ]]; then
+                echo 'PUBLICATION=BLOCKED_EXPLICIT_TAG_CONFIRMATION' >&2
+                exit 2
+              fi
+              echo 'CANONICAL_V4_OPERATION=PUBLISH_EXPLICITLY_CONFIRMED'
+              ;;
+            *)
+              echo 'PUBLICATION=BLOCKED_INVALID_OPERATION' >&2
+              exit 2
+              ;;
+          esac
 
       - name: Configure frozen Go toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -173,10 +219,24 @@ jobs:
             > "$RUNNER_TEMP/canonical-v4-readonly-plan.json"
           echo 'CANONICAL_V4_ED25519_AND_FIVE_HASHES=VERIFIED'
 
+      - name: Preserve exact read-only verification plan
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: canonical-v4-readonly-verification-${{ github.run_id }}
+          path: ${{ runner.temp }}/canonical-v4-readonly-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publish only remotely verified assets, never physical media
+        if: ${{ inputs.mode == 'publish' }}
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ||
+                "$(gh api "repos/$REPO_SLUG/branches/main" --jq '.commit.sha')" != "$GITHUB_SHA" ]]; then
+            echo 'PUBLICATION=BLOCKED_MAIN_MOVED_BEFORE_UPLOAD' >&2
+            exit 2
+          fi
           sha="$(jq -r '.source_commit' docs/contracts/canonical-v4-publication-request.json)"
           tag="$(jq -r '.release_tag' docs/contracts/canonical-v4-publication-request.json)"
           bundle="$RUNNER_TEMP/canonical-v4/bundle"
@@ -205,6 +265,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save only the public publication receipt
+        if: ${{ inputs.mode == 'publish' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: canonical-v4-https-publication-receipt
