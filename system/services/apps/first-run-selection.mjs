@@ -140,8 +140,17 @@ export function planFirstRunAppSelectionFromStore({
   return planFirstRunAppSelection({
     initialProvisioning,
     explicitlyRemovedAppIds: [...removed],
+    // A Store-projected installedVersion alone is never inventory. Require
+    // corroborating current-slot metadata from the Native activation owner,
+    // including an exact version match, before showing "already installed".
+    // A stale Store read must not resurrect a removed app or mask an update.
     installedAppIds: entries
-      .filter((entry) => entry.installedVersion !== null)
+      .filter((entry) => {
+        const current = observations.get(entry.appId);
+        return entry.installedVersion !== null
+          && current?.source === "slot"
+          && current.version === entry.installedVersion;
+      })
       .map((entry) => entry.appId),
     verifiedCandidateAppIds: entries
       .filter((entry) => entry.state === "available"
