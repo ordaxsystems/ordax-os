@@ -99,8 +99,8 @@ log() {
 supervisor_heartbeat() {
     # Liveness is independent from update-state transitions and Surface health.
     # The guardian verifies that this beat belongs to its current child PID.
-    temporary=$SUPERVISOR_HEARTBEAT_FILE.tmp.$
-    printf '%s\n' "$" >"$temporary" || return 1
+    temporary=$SUPERVISOR_HEARTBEAT_FILE.tmp.$$
+    printf '%s\n' "$$" >"$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$SUPERVISOR_HEARTBEAT_FILE"
 }
 
