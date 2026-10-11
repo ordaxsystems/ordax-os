@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type Dispatch } from 'react';
-import { Bell, Settings, Sun, Moon, Search, LayoutGrid, Monitor, MonitorSmartphone, MoreHorizontal, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties, type Dispatch } from 'react';
+import { Bell, Settings, Sun, Moon, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
-import { AppIcon, Avatar, Brand, Panel } from './primitives';
-import { activities, devices, favorites, navigation, projects, shortcuts } from './config';
+import { AccountCard, AppIcon, Avatar, Brand, Panel } from './primitives';
+import { activities, devices, favorites, navigation, presentationAccount, presentationStoragePercent, projects, shortcuts } from './config';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
 export type PresentationProps = { theme: 'light' | 'dark'; onTheme: () => void; onCentral: () => void };
@@ -27,7 +27,7 @@ export function DesktopContent({ title, theme, onTheme, open, onCentral, initial
   if (title === 'Aplicativos') return <Panel title="Aplicativos favoritos"><div className="favorite-grid">{favorites.map(item => <Button variant="ghost" className="favorite-tile" key={item.name} onClick={() => open(item.name)}><AppIcon icon={item.icon} tone={item.tone}/>{item.name}</Button>)}</div></Panel>;
   if (title === 'Notificações' || title === 'Atividades') return <Panel title="Atividades recentes"><div className="activity-list">{activities.map(a => <div className="activity-row" key={a.title}><AppIcon icon={a.icon} tone={a.tone}/><div><div className="project-name">{a.title}</div><div className="project-meta">{a.detail}</div></div><time className="activity-time">{a.time}</time></div>)}</div></Panel>;
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><div className="modal-list">{devices.map(d => <div className="device-item" key={d.name}><d.icon/><div><div className="device-name">{d.name}</div><div className="device-status"><span className="online-dot"/>Online · {d.platform}</div></div></div>)}</div></Panel>;
-  if (title === 'Espaços') return <Panel title="Espaço atual"><div className="space-switch"><AppIcon icon={WalletCards} tone="lime"/><span>Espaço Pessoal</span><span className="pro-badge">Pro</span></div><div className="storage-track"/><p className="project-meta">128 GB de 500 GB</p></Panel>;
+  if (title === 'Espaços') return <Panel title="Espaço atual"><div className="space-switch"><AppIcon icon={WalletCards} tone="lime"/><span>{presentationAccount.spaceName}</span><span className="pro-badge">Pro</span></div><div className="storage-track" style={{ '--storage-progress': `${presentationStoragePercent}%` } as CSSProperties}/><p className="project-meta">{presentationAccount.storageUsedGb} GB de {presentationAccount.storageLimitGb} GB</p></Panel>;
   if (title === 'Configurações') return <Panel title="Aparência"><div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={onTheme}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div><div className="desktop-settings-row"><span>Visualização</span><Button variant="secondary" onClick={onCentral}><LayoutGrid/>Voltar à central</Button></div></Panel>;
   if (title === 'Aura' || title === 'Inteligência') return <><div className="desktop-content-heading"><Sparkles/><h2>Aura</h2></div><form className="aura-search" onSubmit={e => { e.preventDefault(); if (prompt.trim()) setSent(true); }}><Sparkles className="aura-star"/><input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={e => { setPrompt(e.target.value); setSent(false); }}/><Button type="submit" className="send-button" aria-label="Enviar ao Aura"><Send/></Button></form>{sent && <p className="desktop-unconnected">Aura ainda não está conectada a um serviço de inteligência artificial.</p>}</>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
@@ -65,9 +65,10 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
       </nav>
       <div className="sidebar-launcher">
         <Button variant="ghost" className="desktop-start-button" data-window-home="true" aria-label="Menu Iniciar" title="Iniciar" aria-expanded={startOpen} onClick={() => { setStartOpen(!startOpen); setSearch(''); }}><span className="brand-mark" aria-hidden="true"><i/><i/><i/><i/></span><span>Iniciar</span></Button>
-        <Button variant="ghost" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><MonitorSmartphone/><span>{view === 'central' ? 'Área de trabalho' : 'Central'}</span></Button>
+        <Button variant="ghost" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button>
       </div>
-      <div className="sidebar-utilities"><Button variant="ghost" size="icon" aria-label="Notificações" title="Notificações" onClick={() => open('Notificações')}><Bell/></Button><Button variant="ghost" size="icon" aria-label="Perfil de João" title="Perfil" onClick={() => open('Espaços')}><Avatar/></Button></div>
+      <div className="sidebar-utilities"><Button variant="ghost" size="icon" aria-label="Notificações" title="Notificações" onClick={() => open('Notificações')}><Bell/></Button></div>
+      <AccountCard onOpen={() => open('Espaços')} onSettings={() => open('Configurações')}/>
     </aside>
     <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps">{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><LayoutGrid/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="show-desktop" aria-label="Mostrar área de trabalho" title="Minimizar todas" onClick={() => { dispatch({ type: 'show-desktop' }); setStartOpen(false); }}><Monitor/></Button></div></footer>
   </>;

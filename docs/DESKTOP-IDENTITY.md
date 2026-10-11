@@ -384,3 +384,21 @@ non-scrolling sidebar, Start/toggle inside it, destinations reachable via More,
 and running apps on the bottom dock without covering the rail. Existing browser
 check source updated; no build, npm or tests executed under the user restriction.
 This supersedes the location of Start/toggle in the previous bottom-nav notes.
+
+## Sidebar launcher row and account card — 2026-10-11
+
+User-requested presentation adjustment: restore the simple LayoutGrid four-square
+view switch beside Start in one horizontal row, and place the referenced account
+card at the sidebar bottom. `AccountCard` reuses Avatar, Button and theme tokens;
+its Space and settings actions use the existing shared window launcher.
+`presentationAccount` and the derived usage percent in Central config are the
+single demonstration fixture for this card and the Space panel. No live quota,
+subscription or identity backend is inferred from the sample 128/500 GB and Pro.
+The narrow rail keeps the launcher horizontal with compact 24x44px controls and
+an icon/usage card; small heights keep Space accessible while details remain in
+the Space panel. Measured More overflow still prevents sidebar scrolling.
+
+Owner: OS Surface. Risk: narrow-rail spacing and source provenance drift. Acceptance:
+four-square icon without toggle text, both launch controls on the same row, bottom
+card with avatar/plan/derived usage/settings, same state in both views. Source review
+and whitespace inspection only; build, npm and tests not run under user restriction.

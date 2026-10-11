@@ -132,7 +132,7 @@
 .account { margin-top: 27px; border: 1px solid var(--border); border-radius: var(--panel-radius); padding: 12px; background: var(--secondary); }
 .avatar { width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; background: var(--app-ink-soft); color: var(--app-ink); border: 2px solid var(--card); font-size: 10px; font-weight: 700; flex-shrink: 0; }
 .storage-track { height: 4px; background: var(--border); border-radius: 4px; margin: 15px 0 9px; overflow: hidden; }
-.storage-track::before { content: ''; display: block; width: 25.6%; height: 100%; background: var(--primary); border-radius: inherit; }
+.storage-track::before { content: ''; display: block; width: var(--storage-progress, 0%); height: 100%; background: var(--primary); border-radius: inherit; }
 .os-hero { position: relative; height: 264px; border-radius: 12px; overflow: hidden; color: var(--hero-foreground); }
 .hero-wallpaper { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 54%; }
 .hero-wallpaper-night { display: none; }
@@ -437,8 +437,8 @@
 .workspace-sidebar > .brand { flex-shrink: 0; min-height: 36px; }
 .workspace-sidebar .os-nav { flex: 1; min-height: 44px; margin: 0; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
 .workspace-sidebar .os-nav-item { min-height: 44px; height: 44px; flex-shrink: 0; }
-.sidebar-launcher { display: grid; gap: 4px; flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 8px; }
-.workspace-sidebar .sidebar-launcher > button { width: 100%; height: 44px; justify-content: flex-start; gap: 10px; font-size: 11px; }
+.sidebar-launcher { display: grid; grid-template-columns: minmax(0,1fr) 44px; gap: 8px; flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 8px; }
+.workspace-sidebar .sidebar-launcher > button { min-width: 0; width: 100%; height: 44px; justify-content: flex-start; gap: 10px; font-size: 11px; }
 .workspace-sidebar .workspace-view-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
 .sidebar-utilities { display: flex; justify-content: space-between; flex-shrink: 0; }
 .sidebar-utilities > button { width: 44px; height: 44px; }
@@ -449,7 +449,7 @@
   .workspace-sidebar .brand { justify-content: center; }
   .workspace-sidebar .brand-name, .workspace-sidebar .brand-sub, .workspace-sidebar .os-nav-item > span, .workspace-sidebar .sidebar-launcher > button > span { display: none; }
   .workspace-sidebar .sidebar-launcher .brand-mark { display: block; }
-  .workspace-sidebar .os-nav-item, .workspace-sidebar .sidebar-launcher > button { justify-content: center; width: 44px; padding: 0; }
+  .workspace-sidebar .os-nav-item, .workspace-sidebar .sidebar-launcher > button { justify-content: center; width: 100%; padding: 0; }
   .workspace-sidebar .sidebar-utilities { flex-direction: column; }
   .window-workspace .desktop-topbar { padding-inline: 8px; }
   .desktop-topbar .brand-name { display: none; }
@@ -460,3 +460,34 @@
 @media (max-height: 280px) { .workspace-sidebar > .brand { display: none; } .window-workspace .workspace-sidebar { gap: 4px; padding-block: 8px; } }
 
 @media (max-width: 760px) { .window-workspace .mobile-header .brand-name { font-size: 12px; } .window-workspace .mobile-header .brand-sub { font-size: 7px; } }
+
+/* Sidebar account card uses the shared presentation fixture, never real quota claims. */
+.sidebar-account { flex-shrink: 0; margin: 0; padding: 12px; }
+.account-open { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; min-height: 44px; padding: 0; text-align: left; }
+.account-open .avatar { width: 38px; height: 38px; border: 3px solid var(--card); flex-shrink: 0; }
+.account-identity { flex: 1; min-width: 0; display: grid; font-size: 12px; line-height: 1.4; }
+.account-identity > span { color: var(--muted-foreground); font-weight: 400; }
+.account-identity strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.account-chevron { width: 16px; height: 16px; flex-shrink: 0; }
+.sidebar-account .storage-track { margin: 14px 0 8px; height: 5px; }
+.account-storage-footer { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 10px; }
+.account-storage-footer > button { width: 28px; height: 28px; flex-shrink: 0; color: var(--muted-foreground); }
+.account-storage-footer svg { width: 16px; height: 16px; }
+.workspace-sidebar .sidebar-launcher .workspace-view-toggle { justify-content: center; padding: 0; }
+@media (max-width: 760px) {
+  .window-workspace .workspace-sidebar { padding-inline: 8px; }
+  .workspace-sidebar .sidebar-launcher { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; }
+  .workspace-sidebar .sidebar-launcher > button { width: 24px; min-width: 24px; height: 44px; }
+  .workspace-sidebar .sidebar-launcher .brand-mark { width: 26px; }
+  .sidebar-account { padding: 4px; }
+  .sidebar-account .account-identity, .sidebar-account .account-chevron, .sidebar-account .account-storage-total { display: none; }
+  .sidebar-account .account-open { justify-content: center; gap: 0; }
+  .sidebar-account .avatar { width: 32px; height: 32px; }
+  .sidebar-account .storage-track { margin-block: 8px 4px; }
+  .sidebar-account .account-storage-footer { flex-direction: column; gap: 0; font-size: 9px; }
+}
+@media (max-height: 420px) {
+  .sidebar-account .account-identity, .sidebar-account .account-chevron, .sidebar-account .storage-track, .sidebar-account .account-storage-footer { display: none; }
+  .sidebar-account { padding: 4px; }
+  .sidebar-account .account-open { justify-content: center; }
+}

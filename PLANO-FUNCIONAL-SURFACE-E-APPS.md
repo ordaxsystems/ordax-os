@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Controles e conta na sidebar — 11/10/2026:** Iniciar e troca por quatro quadrados na mesma linha; cartão inferior conforme imagem, com fixture única de plano/armazenamento e ações existentes. [Owner, limites e aceite](docs/DESKTOP-IDENTITY.md#sidebar-launcher-row-and-account-card--2026-10-11).
+
 > **Sidebar integral — 11/10/2026:** sidebar compartilhada até o rodapé, sem rolagem, com Iniciar/troca dentro dela; overflow em Mais, apps abertos no dock inferior. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#full-height-shared-sidebar--2026-10-11).
 
 > **Navegação inferior compartilhada — 11/10/2026:** botão Central/Área de trabalho ao lado de Iniciar, na mesma posição nas duas visualizações, seguido de todos os apps abertos. Um único componente e o mesmo estado de janelas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#shared-bottom-navigation--2026-10-11).

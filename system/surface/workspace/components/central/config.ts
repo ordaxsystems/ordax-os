@@ -32,3 +32,7 @@ export const activities = [
   { title: 'Novo comentário', detail: 'Catálogo STL', time: '07:55', icon: MessageSquare, tone: 'red' as const },
 ];
 export const devices = [ { name: 'MacBook Pro', platform: 'macOS', icon: Laptop }, { name: 'iPhone 15', platform: 'iOS', icon: Smartphone }, { name: 'OrdaX Hub', platform: 'Local', icon: Monitor } ];
+
+// Presentation-only account fixture shared by the sidebar and Space panel.
+export const presentationAccount = { spaceName: 'Espaço Pessoal', planName: 'Plano Pro', storageUsedGb: 128, storageLimitGb: 500 };
+export const presentationStoragePercent = Math.min(100, Math.max(0, presentationAccount.storageLimitGb > 0 ? presentationAccount.storageUsedGb / presentationAccount.storageLimitGb * 100 : 0));
