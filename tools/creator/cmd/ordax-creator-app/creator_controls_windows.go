@@ -19,6 +19,13 @@ const (
     odsSelected = 0x0001
     odsDisabled = 0x0004
     wmSetFont = 0x0030
+    wmMeasureItem = 0x002C
+    cbsOwnerDrawFixed = 0x0010
+    cbsHasStrings = 0x0200
+    odtComboBox = 3
+    cbGetLBText = 0x0148
+    cbGetLBTextLen = 0x0149
+    odsComboBoxEdit = 0x1000
 )
 
 type creatorDrawItem struct {
@@ -30,6 +37,15 @@ type creatorDrawItem struct {
     HwndItem uintptr
     HDC uintptr
     Bounds rect
+    ItemData uintptr
+}
+
+type creatorMeasureItem struct {
+    CtlType uint32
+    CtlID uint32
+    ItemID uint32
+    ItemWidth uint32
+    ItemHeight uint32
     ItemData uintptr
 }
 
@@ -48,6 +64,7 @@ var (
     procDestroyWindow = user32.NewProc("DestroyWindow")
     procCreateFontW = gdi32.NewProc("CreateFontW")
     procSetWindowTheme = syscall.NewLazyDLL("uxtheme.dll").NewProc("SetWindowTheme")
+    procSetBkColor = gdi32.NewProc("SetBkColor")
     creatorFontTitle uintptr
     creatorFontHeading uintptr
     creatorFontRegular uintptr
@@ -71,30 +88,14 @@ func initializeCreatorControls() {
     creatorFontRegular = creatorFont(-17, 400)
     creatorFontSmall = creatorFont(-14, 400)
     creatorUIBrush, _, _ = procCreateSolidBrush.Call(creatorColorFor("panel", colorBtnFace))
-    pairs := []struct{ hwnd, font uintptr }{
-        {headerTitleLabel, creatorFontTitle},
-        {headerSubtitleLabel, creatorFontRegular},
-        {languageLabel, creatorFontRegular},
-        {usbLabel, creatorFontRegular},
-        {localeCombo, creatorFontRegular},
-        {deviceCombo, creatorFontRegular},
-        {statusLabel, creatorFontHeading},
-        {hintLabel, creatorFontRegular},
-        {versionLabel, creatorFontSmall},
-        {updateButton, creatorFontRegular},
-        {refreshButton, creatorFontRegular},
-        {writeButton, creatorFontRegular},
-        {bootHelpButton, creatorFontRegular},
-    }
-    for _, pair := range pairs {
-        if pair.hwnd != 0 && pair.font != 0 {
-            send(pair.hwnd, wmSetFont, pair.font, 1)
+    for _, control := range []uintptr{localeCombo, deviceCombo, updateButton, refreshButton, writeButton, bootHelpButton} {
+        if control != 0 && creatorFontRegular != 0 {
+            send(control, wmSetFont, creatorFontRegular, 1)
         }
     }
     if visualColors != nil {
         procSetWindowTheme.Call(localeCombo, uintptr(unsafe.Pointer(utf16Ptr("DarkMode_Explorer"))), 0)
         procSetWindowTheme.Call(deviceCombo, uintptr(unsafe.Pointer(utf16Ptr("DarkMode_Explorer"))), 0)
-        procSetWindowTheme.Call(progressBar, uintptr(unsafe.Pointer(utf16Ptr("DarkMode_Explorer"))), 0)
     }
     client := creatorClientRect()
     layoutCreatorControls(client.Right, client.Bottom)
@@ -115,20 +116,14 @@ func placeCreatorControl(hwnd uintptr, x, y, w, h int32) {
 
 // Fixed readable minima, fluid content width and bottom actions on resize.
 func layoutCreatorControls(width, height int32) {
-    if headerTitleLabel == 0 || width < 950 || height < 590 { return }
+    if mainWindow == 0 || width < 950 || height < 590 { return }
     sidebar := width - 306
     mainRight := sidebar - 18
-    placeCreatorControl(headerTitleLabel, 137, 47, mainRight-155, 49)
-    placeCreatorControl(headerSubtitleLabel, 139, 101, mainRight-162, 42)
-    placeCreatorControl(languageLabel, 45, 193, 268, 26)
-    placeCreatorControl(usbLabel, 364, 193, mainRight-380, 26)
+    // Only interactive controls are native windows. Titles, body copy,
+    // progress and rail have one owner, the double-buffered parent painter.
     placeCreatorControl(localeCombo, 45, 224, 268, 216)
     placeCreatorControl(deviceCombo, 364, 224, mainRight-384, 216)
-    placeCreatorControl(statusLabel, 112, 335, mainRight-132, 35)
-    placeCreatorControl(hintLabel, 112, 379, mainRight-131, 97)
-    placeCreatorControl(progressBar, 46, 558, mainRight-69, 16)
     bottom := height - 53
-    placeCreatorControl(versionLabel, 47, bottom+8, 282, 22)
     placeCreatorControl(updateButton, mainRight-434, bottom, 128, 43)
     placeCreatorControl(refreshButton, mainRight-298, bottom, 138, 43)
     placeCreatorControl(writeButton, mainRight-151, bottom, 150, 43)
@@ -138,26 +133,46 @@ func layoutCreatorControls(width, height int32) {
 
 func creatorControlColor(message uint32, hdc, handle uintptr) uintptr {
     if creatorUIBrush == 0 { return 0 }
-    procSetBkMode.Call(hdc, transparent)
-    if message == wmCtlColorStatic {
-        color := creatorColorFor("text", colorWindowText)
-        switch handle {
-        case headerSubtitleLabel, languageLabel, usbLabel, versionLabel, hintLabel:
-            color = creatorColorFor("muted", colorGrayText)
-        case statusLabel:
-            view := currentGuidedExperience()
-            if view.Step == creatorStepBlocked { color = creatorColorFor("warning", colorWindowText) }
-            if view.Step == creatorStepReview || view.Step == creatorStepComplete {
-                color = creatorColorFor("success", colorWindowText)
-            }
-        }
-        procSetTextColor.Call(hdc, color)
-        // Transparent static labels paint over their canonical parent panel.
-        hollow, _, _ := procGetStockObject.Call(5)
-        return hollow
-    }
+    procSetBkMode.Call(hdc, 2) // OPAQUE: Win32 combo lists own their background.
     procSetTextColor.Call(hdc, creatorColorFor("text", colorWindowText))
+    procSetBkColor.Call(hdc, creatorColorFor("panel", colorBtnFace))
     return creatorUIBrush
+}
+
+func measureCreatorItem(lParam uintptr) uintptr {
+    if lParam == 0 { return 0 }
+    item := (*creatorMeasureItem)(unsafe.Pointer(lParam))
+    if item.CtlType != odtComboBox { return 0 }
+    item.ItemHeight = 29
+    return 1
+}
+
+func drawCreatorComboItem(data *creatorDrawItem) uintptr {
+    fill := "panel"
+    if data.ItemState&odsSelected != 0 { fill = "surface" }
+    drawCreatorPanel(data.HDC, data.Bounds, fill, fill, 0)
+    if data.ItemID == ^uint32(0) { return 1 }
+    length := send(data.HwndItem, cbGetLBTextLen, uintptr(data.ItemID), 0)
+    if length > 0 && length < 8192 {
+        buf := make([]uint16, length+1)
+        send(data.HwndItem, cbGetLBText, uintptr(data.ItemID), uintptr(unsafe.Pointer(&buf[0])))
+        label := syscall.UTF16ToString(buf)
+        textBox := data.Bounds
+        textBox.Left += 9
+        textBox.Right -= 7
+        drawTextWithFont(data.HDC, label, textBox,
+            dtSingleLine|dtVCenter|dtEndEllipsis, creatorColorFor("text", colorWindowText), creatorFontRegular)
+    }
+    return 1
+}
+
+func drawCreatorNativeItem(lParam uintptr) uintptr {
+    if lParam == 0 { return 0 }
+    data := (*creatorDrawItem)(unsafe.Pointer(lParam))
+    if data.CtlType == odtComboBox {
+        return drawCreatorComboItem(data)
+    }
+    return drawCreatorButton(lParam)
 }
 
 func creatorControlCaption(hwnd uintptr) string {
@@ -189,6 +204,6 @@ func drawCreatorButton(lParam uintptr) uintptr {
         border = "accent"
     }
     drawCreatorPanel(data.HDC, data.Bounds, fill, border, 13)
-    drawTextInRect(data.HDC, creatorControlCaption(data.HwndItem), data.Bounds, dtSingleLine|dtCenter|dtVCenter, fg)
+    drawTextWithFont(data.HDC, creatorControlCaption(data.HwndItem), data.Bounds, dtSingleLine|dtCenter|dtVCenter|dtEndEllipsis, fg, creatorFontRegular)
     return 1
 }
