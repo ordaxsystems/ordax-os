@@ -248,7 +248,7 @@ func renderUpdateDone() {
 	renderUpdateUI()
 
 	if state.Available && state.Error == "" {
-		setText(versionLabel, "OrdaX Creator • "+state.Version+" "+creatorT(msgVersionAvailable))
+		setCreatorVersion("OrdaX Creator • "+state.Version+" "+creatorT(msgVersionAvailable))
 		if state.Manual {
 			messageBox(creatorT(msgUpdateBundleManualBody), creatorT(msgUpdateAvailableTitle), mbOK|mbIconInformation)
 		}

@@ -256,3 +256,26 @@ The durable Native target geometry, target-identity binding, boot assets and non
 
 Native code remains in the same Creator Core so a later product promotion can activate it deliberately without creating a second installer or divergent storage policy.
 
+
+
+## Creator Windows — camada visual unificada (11/10/2026)
+
+O layout Windows passou a desenhar somente conteúdo **não interativo** no
+`WM_PAINT` da janela: título, descrição, status, progresso, versão e trilha.
+Os textos pertencem a um único modelo de apresentação atualizado pela própria
+thread UI. Não criar `STATIC` ou `msctls_progress32` sobre os cards: a mistura
+de controle nativo (fundo do Windows) com GDI customizado causava campos brancos,
+texto sem contraste e conteúdo sobreposto na máquina física.
+
+O desenho ocorre em bitmap/DC compatível, transferido em uma operação
+`BitBlt`; `InvalidateRect` não apaga o fundo na tela. Ações continuam usando
+`BUTTON` owner-drawn, e os dois `COMBOBOX` recebem `CBS_OWNERDRAWFIXED`
+com item mensurado, fonte e cores do tema exportado do SSOT da Surface.
+A autoridade de confirmação do destino e do backend elevado permanece
+independente do render visual; nenhum estado visual autoriza gravação USB.
+
+CI: `python -m unittest tests.test_creator_single_paint -v` e
+`Creator UX Baseline`, que também faz cross-build Go Windows. Aprovação do
+CI prova as âncoras e compilação; legibilidade real em várias escalas DPI
+exige captura física da nova build antes de classificar UX como homologada.
+

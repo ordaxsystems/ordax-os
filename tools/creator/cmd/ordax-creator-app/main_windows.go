@@ -96,23 +96,22 @@ var (
 	procInitCommonControlsEx = comctl32.NewProc("InitCommonControlsEx")
 
 	mainWindow          uintptr
-	headerTitleLabel    uintptr
-	headerSubtitleLabel uintptr
-	languageLabel       uintptr
-	usbLabel            uintptr
 	deviceCombo         uintptr
 	localeCombo         uintptr
 	refreshButton       uintptr
 	updateButton        uintptr
 	writeButton         uintptr
-	statusLabel         uintptr
-	versionLabel        uintptr
-	hintLabel           uintptr
-	progressBar         uintptr
 	bootHelpButton      uintptr
 
 	stateMu      sync.Mutex
 	refreshState appRefreshState
+
+	// Display-only copy has one owner: the buffered parent painter.
+	creatorStatusText = ""
+	creatorHintText = ""
+	creatorVersionText = ""
+	creatorProgressValue = 0
+	creatorProgressBusy = false
 )
 
 type point struct {
@@ -196,8 +195,14 @@ func loword(value uintptr) uint16 { return uint16(value & 0xffff) }
 func hiword(value uintptr) uint16 { return uint16((value >> 16) & 0xffff) }
 
 func setText(hwnd uintptr, text string) {
-	procSetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(utf16Ptr(text))))
+	if hwnd != 0 {
+		procSetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(utf16Ptr(text))))
+	}
 }
+
+func setCreatorStatus(text string) { creatorStatusText = text; invalidateGuidedVisual() }
+func setCreatorHint(text string) { creatorHintText = text; invalidateGuidedVisual() }
+func setCreatorVersion(text string) { creatorVersionText = text; invalidateGuidedVisual() }
 
 func enable(hwnd uintptr, enabled bool) {
 	value := uintptr(0)
@@ -232,27 +237,22 @@ func createControl(class, text string, style uint32, x, y, width, height int32, 
 	return hwnd
 }
 
+// Progress is painted by the same buffered parent surface as the rest of the
+// noninteractive UI. No native white-themed progress window or marquee timer.
 func setProgressIdle() {
-	if progressBar == 0 {
-		return
-	}
-	send(progressBar, pbmSetMarquee, 0, 0)
-	send(progressBar, pbmSetPos, 0, 0)
+	creatorProgressValue = 0
+	creatorProgressBusy = false
+	invalidateGuidedVisual()
 }
-
 func setProgressActive() {
-	if progressBar == 0 {
-		return
-	}
-	send(progressBar, pbmSetMarquee, 1, 35)
+	creatorProgressValue = 0
+	creatorProgressBusy = true
+	invalidateGuidedVisual()
 }
-
 func setProgressComplete() {
-	if progressBar == 0 {
-		return
-	}
-	send(progressBar, pbmSetMarquee, 0, 0)
-	send(progressBar, pbmSetPos, 100, 0)
+	creatorProgressValue = 100
+	creatorProgressBusy = false
+	invalidateGuidedVisual()
 }
 
 func formatBytes(value uint64) string {
@@ -367,8 +367,8 @@ func renderSelectionExperience(state appRefreshState) {
 	if view.Eyebrow != "" {
 		status = view.Eyebrow + " · " + status
 	}
-	setText(statusLabel, status)
-	setText(hintLabel, strings.TrimSpace(view.Body+" "+view.Detail))
+	setCreatorStatus(status)
+	setCreatorHint(strings.TrimSpace(view.Body+" "+view.Detail))
 
 	busy := writeInProgress()
 	enable(writeButton, !busy && view.Step == creatorStepReview && view.CanContinue)
@@ -411,7 +411,7 @@ func renderRefresh() {
 		if state.Updated {
 			version += " • " + creatorT(msgVersionUpdated)
 		}
-		setText(versionLabel, version)
+		setCreatorVersion(version)
 	}
 
 	if !writeInProgress() {
@@ -431,8 +431,8 @@ func beginRefresh() {
 		return
 	}
 	resetWriteResult()
-	setText(statusLabel, creatorT(msgRefreshSearching))
-	setText(hintLabel, creatorT(msgRefreshHint))
+	setCreatorStatus(creatorT(msgRefreshSearching))
+	setCreatorHint(creatorT(msgRefreshHint))
 	enable(refreshButton, false)
 	enable(writeButton, false)
 	enable(deviceCombo, false)
@@ -450,10 +450,6 @@ func selectedCreatorLocale() (creatorLocale, bool) {
 }
 
 func renderCreatorLocaleUI() {
-	setText(headerTitleLabel, creatorT(msgHeaderTitle))
-	setText(headerSubtitleLabel, creatorT(msgHeaderSubtitle))
-	setText(languageLabel, creatorT(msgFieldLanguage))
-	setText(usbLabel, creatorT(msgFieldUSB))
 	setText(refreshButton, creatorT(msgActionReloadUSB))
 	setText(bootHelpButton, creatorT(msgActionBootHelp))
 	stateMu.Lock()
@@ -464,9 +460,9 @@ func renderCreatorLocaleUI() {
 		if state.Updated {
 			version += " • " + creatorT(msgVersionUpdated)
 		}
-		setText(versionLabel, version)
+		setCreatorVersion(version)
 	} else {
-		setText(versionLabel, "OrdaX Creator • "+creatorT(msgVersionChecking))
+		setCreatorVersion("OrdaX Creator • "+creatorT(msgVersionChecking))
 	}
 	if !writeInProgress() {
 		renderSelectionExperience(state)
@@ -482,7 +478,9 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 	case wmEraseBkgnd:
 		return 1
 	case wmDrawItem:
-		return drawCreatorButton(lParam)
+		return drawCreatorNativeItem(lParam)
+	case wmMeasureItem:
+		return measureCreatorItem(lParam)
 	case wmCtlColorStatic, wmCtlColorEdit, wmCtlColorListBox:
 		if brush := creatorControlColor(message, wParam, lParam); brush != 0 {
 			return brush
@@ -593,11 +591,7 @@ func createMainWindow() {
 	mainWindow = hwnd
 	creatorEnableNativeDarkTitlebar(hwnd)
 
-	headerTitleLabel = createControl("STATIC", creatorT(msgHeaderTitle), 0, 137, 47, 640, 49, 0)
-	headerSubtitleLabel = createControl("STATIC", creatorT(msgHeaderSubtitle), 0, 139, 101, 638, 42, 0)
-	languageLabel = createControl("STATIC", creatorT(msgFieldLanguage), 0, 45, 193, 268, 26, 0)
-	usbLabel = createControl("STATIC", creatorT(msgFieldUSB), 0, 364, 193, 415, 26, 0)
-	localeCombo = createControl("COMBOBOX", "", wsTabStop|cbsDropDownList, 45, 224, 268, 216, idLocaleCombo)
+	localeCombo = createControl("COMBOBOX", "", wsTabStop|cbsDropDownList|cbsOwnerDrawFixed|cbsHasStrings, 45, 224, 268, 216, idLocaleCombo)
 	for index, locale := range creatorSupportedLocales() {
 		label := creatorLocaleDisplayName(locale)
 		send(localeCombo, cbAddString, 0, uintptr(unsafe.Pointer(utf16Ptr(label))))
@@ -605,16 +599,14 @@ func createMainWindow() {
 			send(localeCombo, cbSetCurSel, uintptr(index), 0)
 		}
 	}
-	deviceCombo = createControl("COMBOBOX", "", wsTabStop|wsVScroll|cbsDropDownList|wsDisabled, 364, 224, 415, 216, idDeviceCombo)
-	statusLabel = createControl("STATIC", creatorT(msgRefreshSearching), 0, 112, 335, 665, 35, idStatus)
-	hintLabel = createControl("STATIC", "", 0, 112, 379, 665, 97, idHint)
-	progressBar = createControl("msctls_progress32", "", pbsMarquee, 46, 558, 744, 16, idProgress)
-	versionLabel = createControl("STATIC", "OrdaX Creator • "+creatorT(msgVersionChecking), 0, 47, 644, 282, 22, idVersion)
+	deviceCombo = createControl("COMBOBOX", "", wsTabStop|wsVScroll|cbsDropDownList|cbsOwnerDrawFixed|cbsHasStrings|wsDisabled, 364, 224, 415, 216, idDeviceCombo)
 	updateButton = createControl("BUTTON", creatorT(msgUpdateControl), wsTabStop|bsOwnerDraw, 365, 630, 128, 43, idUpdate)
 	refreshButton = createControl("BUTTON", creatorT(msgActionReloadUSB), wsTabStop|bsOwnerDraw, 501, 630, 138, 43, idRefresh)
 	writeButton = createControl("BUTTON", creatorT(msgActionCreate), wsTabStop|bsOwnerDraw|wsDisabled, 648, 630, 150, 43, idWrite)
 	bootHelpButton = createControl("BUTTON", creatorT(msgActionBootHelp), wsTabStop|bsOwnerDraw, 855, 610, 255, 43, idBootHelp)
 	initializeCreatorControls()
+	setCreatorVersion("OrdaX Creator • "+creatorT(msgVersionChecking))
+	setCreatorStatus(creatorT(msgRefreshSearching))
 	setProgressIdle()
 
 	procShowWindow.Call(mainWindow, swShow)

@@ -44,6 +44,7 @@ jobs:
           pushd tools/creator >/dev/null
           go test -count=1 ./cmd/ordax-creator-app
           popd >/dev/null
+          python -m unittest tests.test_creator_single_paint -v
           echo 'CREATOR_GUIDED_EXPERIENCE_TESTS=PASS'
 
       - name: Compile split Windows owner boundaries
@@ -133,7 +134,7 @@ jobs:
                   'idLocaleCombo', 'creatorSupportedLocales()', 'saveCreatorLocalePreference(locale)',
                   'renderCreatorLocaleUI()', 'beginUpdateCheck(false)',
                   'len(state.Targets) == 1', 'cbSetCurSel', 'paintGuidedVisual(hwnd)',
-                  'creatorBootHelpText()', 'msgHeaderTitle', 'msgActionCreate',
+                  'creatorBootHelpText()', 'msgActionCreate',
               ],
               'experience': [
                   'ErrorMessageID', 'msgConnectDetail', 'msgReviewBody', 'msgCreatingTitle',
@@ -143,6 +144,7 @@ jobs:
                   'drawCreatorRail', 'drawCreatorUSBStatus', 'currentGuidedExperience',
                   'creatorStepReview', 'creatorStepComplete', 'creatorStepBlocked',
                   'procGetSysColor', 'procDrawTextW', 'procEllipse', 'procRoundRect',
+                  'msgHeaderTitle', 'procCreateCompatibleDC', 'procBitBlt', 'drawTextWithFont',
               ],
               'boot_help': ['creatorT(msgBootHelp)'],
               'physical': [
@@ -204,6 +206,19 @@ jobs:
           for name, anchors in required.items():
               for anchor in anchors:
                   assert anchor in files[name], f'missing Creator {name} anchor: {anchor}'
+
+          # Single painter contract: no native STATIC overlays or themed progress
+          # child competing with a dark GDI canvas on Windows.
+          controls = (base / 'creator_controls_windows.go').read_text(encoding='utf-8')
+          assert 'createControl("STATIC"' not in files['main']
+          assert 'createControl("msctls_progress32"' not in files['main']
+          assert 'procInvalidateRect.Call(mainWindow, 0, 0)' in files['visuals']
+          assert 'procBitBlt.Call(screen' in files['visuals']
+          assert 'drawCreatorNativeItem(lParam)' in files['main']
+          assert 'cbsOwnerDrawFixed|cbsHasStrings' in files['main']
+          assert 'drawCreatorComboItem' in controls
+          assert 'drawCreatorPanel(hdc, rect{22, 19' in files['visuals']
+          assert 'creatorStatusText' in files['visuals'] and 'creatorHintText' in files['visuals']
 
           # User-facing Portuguese copy belongs in the locale catalog, never in state/presentation owners.
           for forbidden in ['Etapa 1 de 4', 'Não remova o pendrive', 'Como iniciar pelo USB']:
