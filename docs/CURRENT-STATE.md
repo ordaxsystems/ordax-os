@@ -71,6 +71,26 @@ migration ledger 007. This is a source/candidate change, not production activati
 
 
 
+## Stable v4 — candidata 03f88eea assinada offline, sem publicação (2026-10-11)
+
+A nova candidata de lançamento foi congelada no SHA
+`03f88eeaf382a59aaefbcf4943d0639d2730741b`, em
+`release-candidate/<SHA40>`. Os três builds oficiais do mesmo commit
+concluíram com sucesso, o builder canônico reconstruiu o pedido ativo e a
+montagem não assinada [run 38127644552](https://github.com/ordaxsystems/ordax-os/actions/runs/38127644552)
+verificou os artefatos e produziu o pacote público pequeno. No computador
+autorizado, os 11 hashes do kit passaram, a assinatura Ed25519 foi gerada com
+a chave em custódia local, o verificador conferiu a confiança pública e o
+payload assinado corresponde aos bytes do manifesto v4.
+
+`CANONICAL_V4_OFFLINE_SIGNATURE=PASS_VERIFIED_NOT_PUBLISHED`.
+Faltam a conferência dos três EROFS do handoff, a publicação HTTPS
+controlada dos bytes exatos, materialização, prova física atual e o gate
+do Creator público. Nenhum USB foi selecionado, autorizado ou gravado.
+A evidência exata está em
+[canonical-v4-offline-signing-2026-10-11.md](evidence/canonical-v4-offline-signing-2026-10-11.md).
+A assinatura histórica abaixo continua válida somente para seu commit antigo.
+
 ## Canonical v4 — assinatura offline verificada, ainda não publicada (2026-10-10)
 
 O candidato v4 com origem congelada em `6128e2c` passou nos três builds de

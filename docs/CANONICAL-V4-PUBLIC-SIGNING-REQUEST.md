@@ -129,7 +129,7 @@ attempts when a job is re-run, so the request uses immutable artifact IDs to avo
 selecting an older same-name artifact.
 
 For each artifact the workflow retrieves the run metadata and artifact metadata through
-the GitHub API, requires `workflow_dispatch`, completed/success, `main`, the exact frozen
+the GitHub API, requires `workflow_dispatch`, completed/success, the validated `main` **or** `release-candidate/<SHA40>` ref, the exact frozen
 source commit and an unexpired artifact, then downloads that exact artifact ID. The ZIP
 SHA-256 is checked against the Actions artifact digest before extraction.
 
