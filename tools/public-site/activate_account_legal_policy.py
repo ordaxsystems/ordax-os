@@ -23,7 +23,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from legal_operator import operator_blockers
 from public_html_render import render_public_html
-from public_legal_integrity import canonical_legal_route
+from public_legal_integrity import canonical_legal_route, LAST_LEGACY_DOCUMENT_VERSION
+from legal_snapshots import LegalSnapshotError, validate_immutable_legal_snapshots
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +33,7 @@ CANONICAL_ACCOUNT_DESTINATION = ROOT / "infra" / "supabase" / "product" / "accou
 PUBLIC_AUTH_CONTRACT = ROOT / "docs" / "contracts" / "public-auth-provider-policy.json"
 MAX_PUBLIC_DOCUMENT_BYTES = 2 * 1024 * 1024
 SITE = ROOT / "sites" / "public"
+SNAPSHOT_LEDGER = ROOT / "docs" / "contracts" / "public-legal-snapshots.json"
 SCHEMA = "prototype-ordax.account-legal-policy-candidate/1"
 RECEIPT_SCHEMA = "prototype-ordax.account-legal-policy-activation-receipt/1"
 VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -89,6 +91,16 @@ def canonical_public_origin() -> str:
     return clean
 
 
+def validate_versioned_snapshot_authority(documents: dict) -> None:
+    """Prevent activation from bypassing the same byte-pinning used by build."""
+    if any(
+        isinstance(documents.get(name), dict)
+        and documents[name].get("version") != LAST_LEGACY_DOCUMENT_VERSION
+        for name in ("privacy", "terms")
+    ):
+        validate_immutable_legal_snapshots(SITE, SNAPSHOT_LEDGER)
+
+
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, msg, headers, newurl):
         return None
@@ -105,9 +117,10 @@ def verify_published_legal_documents(candidate: dict) -> None:
     try:
         contract = json.loads(LEGAL.read_text(encoding="utf-8"))
         documents = contract["documents"]
+        validate_versioned_snapshot_authority(documents)
         if contract.get("status") != "ready" or contract.get("account_activation_ready") is not True:
             fail("legal-document-policy-not-ready")
-    except (OSError, KeyError, TypeError, ValueError):
+    except (OSError, KeyError, TypeError, ValueError, LegalSnapshotError):
         fail("legal-document-contract-invalid")
 
     opener = urllib.request.build_opener(_NoRedirectHandler())
@@ -194,6 +207,7 @@ def build_candidate(origin: str) -> dict:
     documents = contract.get("documents")
     if not isinstance(documents, dict):
         raise ValueError("legal documents object required")
+    validate_versioned_snapshot_authority(documents)
 
     result: dict[str, object] = {
         "$schema": SCHEMA,
