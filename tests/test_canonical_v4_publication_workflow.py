@@ -85,12 +85,10 @@ class SignedPublicationWorkflowContractTests(unittest.TestCase):
         )
         # Exercise the exact predicate embedded in the workflow, not a copy
         # with subtly different fail-closed behavior.
-        start_marker = "          jq -e \'\\n"
-        end_marker = "\\n          \' \"$RUNNER_TEMP/operator-live-probe.json\""
-        self.assertIn(start_marker, self.yaml)
-        start = self.yaml.index(start_marker) + len(start_marker)
-        end = self.yaml.index(end_marker, start)
-        expr = self.yaml[start:end]
+        expr = self.yaml.split("          jq -e '", 1)[1].split(
+            "' \"$RUNNER_TEMP/operator-live-probe.json\"", 1
+        )[0]
+        self.assertIn('.active == true', expr)
         if shutil.which("jq") is None:
             self.skipTest("jq is required on the production Ubuntu runner")
         base = {
