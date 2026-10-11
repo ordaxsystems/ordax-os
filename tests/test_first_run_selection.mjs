@@ -143,6 +143,52 @@ test("Store-backed first-run selection uses only actual verified current-slot an
   assert.equal(plan.installedByThisPlan, false);
 });
 
+test("Store displayed installedVersion never substitutes Native current-slot proof", () => {
+  const ready = storeSnapshot([
+    storeEntry("notes", {
+      state: "installed", installedVersion: "0.4.3",
+      availableVersion: null, installable: false, removable: true,
+      artifactIdentityVerified: false, provenanceVerified: false,
+    }),
+  ]);
+  const base = {
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: ready,
+  };
+  const withoutNative = planFirstRunAppSelectionFromStore(base);
+  assert.deepEqual(withoutNative.alreadyInstalledAppIds, []);
+  assert.ok(withoutNative.unavailableAppIds.includes("notes"));
+  assert.ok(!withoutNative.eligibleCandidateAppIds.includes("notes"));
+  assert.equal(withoutNative.installedByThisPlan, false);
+
+  const matching = planFirstRunAppSelectionFromStore({
+    ...base, nativeCurrentMetadata: [nativeCurrent("notes", "slot")],
+  });
+  assert.deepEqual(matching.alreadyInstalledAppIds, ["notes"]);
+
+  const staleVersion = planFirstRunAppSelectionFromStore({
+    ...base,
+    nativeCurrentMetadata: [nativeCurrent("notes", "slot", { version: "0.5.0" })],
+  });
+  assert.deepEqual(staleVersion.alreadyInstalledAppIds, []);
+  assert.ok(staleVersion.unavailableAppIds.includes("notes"));
+  assert.equal(staleVersion.eligibleCandidateAppIds.includes("notes"), false);
+
+  const removed = planFirstRunAppSelectionFromStore({
+    ...base, nativeCurrentMetadata: [nativeCurrent("notes", "removed")],
+  });
+  assert.deepEqual(removed.alreadyInstalledAppIds, []);
+  assert.ok(removed.suppressedAppIds.includes("notes"), "verified removal wins over a stale Store entry");
+  assert.equal(removed.eligibleCandidateAppIds.includes("notes"), false);
+
+  const absent = planFirstRunAppSelectionFromStore({
+    ...base, nativeCurrentMetadata: [nativeCurrent("notes", "absent")],
+  });
+  assert.deepEqual(absent.alreadyInstalledAppIds, []);
+  assert.ok(absent.unavailableAppIds.includes("notes"), "Store installed claim is not a verified install candidate");
+});
+
 test("Store-backed selection cannot install when catalog is unavailable, candidate blocked, or provisioning ended", () => {
   const unavailable = storeSnapshot([], "unavailable");
   const noCatalog = planFirstRunAppSelectionFromStore({
