@@ -5,6 +5,7 @@ import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path'
 import {runBrowser} from '../browser-proof/chromium.mjs';
 const ROOT=resolve('.');
 const ENTRY='system/surface/ui/first-run.mjs';
+const NATIVE_STATE_ADAPTER='system/adapters/native/first-run-state.mjs';
 const RE=/\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
 const DYNAMIC=/\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const key=p=>'ordax-oobe/'+p.split('/').map(encodeURIComponent).join('/');
@@ -16,7 +17,7 @@ function dependency(path,sub) {
  return next;
 }
 async function sources() {
- const waiting=[ENTRY], found=new Map();
+ const waiting=[ENTRY,NATIVE_STATE_ADAPTER], found=new Map();
  while(waiting.length) {
   const p=waiting.pop();if(found.has(p))continue;
   const s=await readFile(join(ROOT,p),'utf8');found.set(p,s);
@@ -40,6 +41,7 @@ async function scenario(modules,css) {
  const script=document.createElement('script');script.type='importmap';
  script.textContent=JSON.stringify({imports:map});document.head.append(script);
  const {mountFirstRunExperience}=await import(urls['system/surface/ui/first-run.mjs']);
+ const {createNativeFirstRunStateStore}=await import(urls['system/adapters/native/first-run-state.mjs']);
  const root=document.querySelector('#proof-root');
  const delay=()=>new Promise(done=>setTimeout(done,0));
  const get=kind=>document.querySelector('[data-first-run-action="'+kind+'"]');
@@ -48,11 +50,33 @@ async function scenario(modules,css) {
   b.click();await delay();
  };
  const defaultState=()=>({schema:'ordax.first-run-state/1',completed:false,locale:'pt-BR',timeZone:'America/Bahia',accountMode:null});
- function fixture({identity=false,failSave=false}={}) {
+ async function fixture({identity=false,failSave=false}={}) {
   let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:{state:'unavailable'};
   let fail=failSave;let refreshSession=null;const writes=[],listeners=new Set();let prefs={};
-  const stateStore={schema:'ordax.first-run-state-store/1',load:()=>state,
-   async save(next) {if(fail)throw Error('proof-write-failure');writes.push(next);state=next;return next;}};
+  let reads=0,posts=0;
+  // Disposable HTTP semantics; the real native JS adapter owns GET/POST handling.
+  // Actual disk durability and native host authorization are tested separately.
+  const transport={
+   async fetch(path,options) {
+    if(path!=='/__ordax/native/first-run' || options.credentials!=='same-origin'
+       || options.cache!=='no-store') throw Error('Unexpected Native state transport');
+    if(options.method==='GET') {
+     reads+=1;
+     return new Response(JSON.stringify(state),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    if(options.method==='POST') {
+     posts+=1;
+     if(options.headers?.['Content-Type']!=='application/json')throw Error('Native JSON content-type missing');
+     if(fail)return new Response(null,{status:503});
+     const next=JSON.parse(options.body);
+     if(state.completed && JSON.stringify(state)!==JSON.stringify(next))return new Response(null,{status:409});
+     state=next;writes.push(next);
+     return new Response(null,{status:204});
+    }
+    throw Error('Unexpected Native HTTP method');
+   },
+  };
+  const stateStore=await createNativeFirstRunStateStore(transport);
   const preferences={schema:'ordax.preference-runtime/1',getSnapshot:()=>prefs,
    set(key,value){prefs={...prefs,[key]:value};},subscribe(){return ()=>{};}};
   const identitySession={schema:'ordax.identity-session/1',getSnapshot:()=>session,
@@ -62,6 +86,8 @@ async function scenario(modules,css) {
    subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(){throw Error('unavailable proof identity');}};
   return {ports:{stateStore,preferences,identitySession,identityActions},
    get state(){return state;},get writes(){return writes;},get prefs(){return prefs;},
+   get reads(){return reads;},get posts(){return posts;},
+   async freshStateStore(){return createNativeFirstRunStateStore(transport);},
    failSave(v){fail=v;},onRefresh(next){refreshSession=next;},session(next){session=next;for(const fn of listeners)fn(next);}};
  }
  async function reachAccount(){
@@ -72,7 +98,7 @@ async function scenario(modules,css) {
  }
  async function finishLocal(){await click('account-local');await click('next');await click('finish');}
  const checks={};
- const offline=fixture();
+ const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
  checks.modalAccessibility=document.querySelector('.ordax-first-run')?.getAttribute('aria-modal')==='true';
@@ -81,9 +107,11 @@ async function scenario(modules,css) {
  checks.onlyClosesAfterSave=offline.writes.length===1 && !document.querySelector('.ordax-first-run');
  checks.regionalPreference=offline.prefs['regional.locale']==='pt-BR';
  checks.restoredRoot=root.inert===false && root.getAttribute('aria-hidden')===null;
- checks.noOobeReplay=mountFirstRunExperience(root,offline.ports).shown===false;
+ checks.noOobeReplay=mountFirstRunExperience(root,{...offline.ports,
+  stateStore:await offline.freshStateStore()}).shown===false;
+ checks.adapterTransportRoundTrip=offline.reads===2 && offline.posts===1;
 
- const identity=fixture({identity:true});
+ const identity=await fixture({identity:true});
  mountFirstRunExperience(root,identity.ports);await reachAccount();
  await click('account-identity');await click('next');
  identity.session({state:'signed-out'});await delay();
@@ -91,14 +119,14 @@ async function scenario(modules,css) {
  await finishLocal();
  checks.localModeStillWorks=identity.state.completed && identity.state.accountMode==='local-only';
 
- const current=fixture({identity:true});
+ const current=await fixture({identity:true});
  mountFirstRunExperience(root,current.ports);await reachAccount();
  await click('account-identity');await click('next');await click('finish');
  checks.activeIdentityReceipt=current.state.completed && current.state.accountMode==='identity'
   && !Object.prototype.hasOwnProperty.call(current.state,'subjectId')
   && current.writes.length===1 && !document.querySelector('.ordax-first-run');
 
- const expired=fixture({identity:true});
+ const expired=await fixture({identity:true});
  mountFirstRunExperience(root,expired.ports);await reachAccount();
  await click('account-identity');await click('next');
  expired.onRefresh({state:'signed-in',subjectId:'owner-B',displayName:'Other Proof User'});
@@ -109,12 +137,14 @@ async function scenario(modules,css) {
  checks.refreshedIdentityAllowsLocalFallback=expired.state.completed
   && expired.state.accountMode==='local-only';
 
- const storage=fixture({failSave:true});
+ const storage=await fixture({failSave:true});
  mountFirstRunExperience(root,storage.ports);await reachAccount();await finishLocal();
  checks.failedSaveKeepsWizard=!!document.querySelector('.ordax-first-run-error') && !!get('finish')
   && storage.writes.length===0 && !storage.state.completed;
  storage.failSave(false);await click('finish');
  checks.retryIsDurable=storage.state.completed && storage.writes.length===1 && !document.querySelector('.ordax-first-run');
+ checks.failedWriteWasNotCached=storage.posts===2
+  && (await storage.freshStateStore()).load().completed===true;
  for(const url of Object.values(urls))URL.revokeObjectURL(url);
  const failed=Object.entries(checks).filter(([,pass])=>!pass).map(([name])=>name);
  return {passed:failed.length===0,assertions:Object.keys(checks).length,failed,checks};
