@@ -52,27 +52,27 @@ e não concede autoridade de assinatura, publicação ou gravação física.
 Após congelar um SHA na main canônica, executar manualmente os workflows
 `portable-release-image.yml`, `surface-runtime-lock-discovery.yml` e
 `local-ai-runtime-candidate.yml` na **mesma revisão exata**.
-Cada um gera um artifact de operador por `workflow_dispatch` com validade de 1 dia.
+Cada um gera um artifact de operador por `workflow_dispatch` com retenção configurada atualmente em **14 dias**. A expiração efetiva é conferida pelos metadados do GitHub na preparação do novo pedido; não inferir disponibilidade apenas do prazo configurado.
 Recolher os três IDs das execuções reais e executar:
 
 ```bash
 GH_TOKEN=<TOKEN-SOMENTE-LEITURA-ACTIONS> python3 tools/release-operator/build_canonical_v4_request.py \
-  --source-commit <SHA40-EXATO-DA-MAIN> \
+  --source-commit <SHA40-EXATO-DA-MAIN-OU-CANDIDATA> \
   --system-run <RUN_ID_DO_SISTEMA> \
   --surface-run <RUN_ID_DA_SURFACE> \
   --local-ai-run <RUN_ID_DA_IA_LOCAL> \
-  --out docs/contracts/canonical-v4-signing-request-active.json
+  --out out/canonical-v4-novo-request.json
 ```
 
 O builder verifica diretamente no GitHub nome canônico do proprietário,
-repositório ID `1371063347`, branch main, evento manual, workflow correto,
+repositório ID `1371063347`, ref canônico `main` **ou** `release-candidate/<SHA40>`, evento manual, workflow correto,
 ancestralidade Git verificável desde o merge de cutover `9eb4dbb` e
 permanência da revisão congelada no histórico atual da `main`,
 conclusão com sucesso, SHA de origem, inventário completo e único,
 artifact ID, SHA-256, expiração e vínculo ao mesmo run/repositório.
 Também rejeita quaisquer IDs, artefatos ou revisão histórica reutilizados.
 O token é usado somente para consulta e não é gravado no documento.
-O arquivo só é criado se toda a verificação passar; nunca é sobrescrito.
+O arquivo só é criado se toda a verificação passar; nunca é sobrescrito. **Crie antes o diretório `out/`, caso não exista.** Como o pedido ativo já existe, a ferramenta não o sobrescreve: o JSON gerado deve ser revisado e então substituir `docs/contracts/canonical-v4-signing-request-active.json` por uma PR com os testes canônicos. Não trocar o pedido ativo enquanto os builds ainda estiverem executando.
 
 A montagem pública posterior continua exigindo a validação integral dos
 bytes EROFS, recibos e manifests. Este builder **não baixa EROFS, não assina,
