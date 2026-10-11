@@ -22,6 +22,7 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 from public_html_render import render_public_html
+from legal_snapshots import validate_immutable_legal_snapshots, LegalSnapshotError
 
 # Load the brand compiler by an isolated module identity. Importing a generic
 # "build" module or prepending to sys.path shadows the component-package
@@ -48,7 +49,6 @@ CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
 ACCOUNT_LAYOUT_PROVENANCE = ROOT / "docs/evidence/public-account-layout-reference-2026-10-10.json"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
-LEGAL_SNAPSHOTS = ROOT / "docs" / "contracts" / "public-legal-snapshots.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
 PUBLIC_CATALOG_RELATIVE = Path("releases/catalog.json")
 MANIFEST_NAME = "public-site-manifest.json"
@@ -133,60 +133,12 @@ def source_files(root: Path = SOURCE) -> list[Path]:
     return files
 
 
-def validate_immutable_legal_snapshots(root: Path, ledger_path: Path = LEGAL_SNAPSHOTS) -> None:
-    """Require a reviewed SHA/size entry for every immutable consent artifact."""
-    try:
-        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise PublicSiteError("immutable legal snapshot ledger unavailable") from exc
-    if (not isinstance(ledger, dict)
-            or ledger.get("$schema") != "prototype-ordax.public-legal-snapshots/1"
-            or ledger.get("status") not in {"no-approved-snapshots", "approved-versioned-snapshots"}
-            or not isinstance(ledger.get("snapshots"), list)):
-        raise PublicSiteError("invalid immutable legal snapshot ledger")
-    seen = set()
-    items = ledger["snapshots"]
-    if bool(items) != (ledger["status"] == "approved-versioned-snapshots"):
-        raise PublicSiteError("immutable legal snapshot ledger status mismatch")
-    for entry in items:
-        if not isinstance(entry, dict):
-            raise PublicSiteError("invalid immutable legal snapshot entry")
-        version, kind = entry.get("version"), entry.get("kind")
-        if (not isinstance(version, str)
-                or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", version)
-                or kind not in ("privacy", "terms")):
-            raise PublicSiteError("invalid immutable legal snapshot identity")
-        slug = {"privacy": "privacidade", "terms": "termos"}[kind]
-        relative = f"legal/{version}/{slug}/index.html"
-        if relative in seen:
-            raise PublicSiteError("duplicate immutable legal snapshot entry")
-        seen.add(relative)
-        path = root / relative
-        if not path.is_file() or path.is_symlink():
-            raise PublicSiteError("approved immutable legal snapshot is missing or linked")
-        data = path.read_bytes()
-        if (len(data) == 0 or len(data) > 2 * 1024 * 1024
-                or type(entry.get("size")) is not int or entry["size"] != len(data)
-                or not isinstance(entry.get("sha256"), str)
-                or not re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])
-                or sha256_bytes(data) != entry["sha256"]):
-            raise PublicSiteError("immutable legal snapshot bytes differ from reviewed digest")
-        try:
-            data.decode("utf-8")
-        except UnicodeError as exc:
-            raise PublicSiteError("immutable legal snapshot is not UTF-8") from exc
-    found = {
-        p.relative_to(root).as_posix()
-        for p in (root / "legal").rglob("*")
-        if p.is_file() or p.is_symlink()
-    } if (root / "legal").exists() else set()
-    if found != seen:
-        raise PublicSiteError("unreviewed immutable legal snapshot source files present")
-
-
 def validate_source(root: Path = SOURCE) -> list[Path]:
     files = source_files(root)
-    validate_immutable_legal_snapshots(root)
+    try:
+        validate_immutable_legal_snapshots(root)
+    except LegalSnapshotError as exc:
+        raise PublicSiteError(str(exc)) from exc
     relative = {path.relative_to(root).as_posix() for path in files}
     missing = sorted(set(REQUIRED_FILES) - relative)
     if missing:
