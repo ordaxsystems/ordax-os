@@ -97,6 +97,48 @@ pré-instalada do helper de recuperação por meio do bridge de helpers após
 o supervisor se tornar operacional; a imagem física antiga não se altera
 automaticamente apenas porque o repositório recebeu a correção.
 
+## Dimensionamento do Creator Development — 11/10/2026
+
+O teste físico identificou `/dev/sdb2` com **1,9 GiB usados de 1,9 GiB
+(100%)**. `/`, `/state`, `/run` e `/tmp` compartilham essa partição
+ext4. Ao instalar a Surface (Cage/WebKit), o APK mostrou
+`No space left on device`, e a instalação parou antes de finalizar.
+Isso não é um problema resolvido aumentando o timeout ou o heartbeat.
+
+O Creator Owner/Development reserva **no mínimo 5 GiB para a partição ext4**
+em um dispositivo capaz de suportá-los, usando o máximo disponível até
+16 GiB e preservando pelo menos 1 GiB para `ORDAX-DATA`.
+Um USB de aproximadamente 8 GB recebe uma raiz ext4 de mais de 6 GiB.
+Dispositivos menores que o limite explícito são recusados antes de gravar.
+O perfil público/Stable continua usando `PlanPhysicalStorage` e sua própria
+política de distribuição sem modificação.
+
+O gerador da imagem, a validação da geometria GPT, o hash/readback do plano
+de escrita, o backend elevado do Creator e a formatação da `ORDAX-DATA`
+consomem **a mesma política Owner/Development**. Não basta mostrar uma
+capacidade maior na UI; os bytes e os limites de partição devem corresponder
+antes e depois da escrita.
+
+**Mídia já preparada não cresce pelo Git**: a tabela GPT antiga mantém a
+`ORDAX-DATA` imediatamente após `ORDAX`. Não tente alterar a tabela em uma
+partição montada nem mover dados com comandos ad hoc. Recriar a mídia com
+o Creator atualizado apaga o pendrive de destino e exige confirmação explícita
+do dispositivo correto e cópia externa de qualquer dado importante.
+Após regravar, o Development poderá baixar a `main` novamente.
+Não mexe no SSD interno. CI de imagem descartável não prova boot físico.
+
+Para diagnóstico sem mudança de estado:
+
+```sh
+df -h / /state /run /tmp
+lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS
+```
+
+O futuro agente de diagnóstico remoto deve iniciar no substrato Development,
+antes de Cage/WebKit, e reutilizar os contratos da Platform/Runtime; **não**
+deve ser instalado como dependência do runtime gráfico nem como um segundo
+executor ou autoridade de permissão.
+
 ## Daily loop
 
 After the development base has been flashed once and the notebook can boot it:
