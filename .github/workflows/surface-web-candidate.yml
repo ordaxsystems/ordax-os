@@ -652,6 +652,7 @@ jobs:
           node --test tests/test_web_store_catalog.mjs
           npm run verify --workspace tools/surface-web
           node tools/surface-native/browser-smoke.mjs
+          node tools/surface-native/first-run-browser-smoke.mjs
           node tools/surface-web/browser-smoke.mjs --bundle-dir out/web-client
 
       - name: Upload Web client candidate
