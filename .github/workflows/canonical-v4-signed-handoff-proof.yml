@@ -191,10 +191,36 @@ jobs:
           Write-Output 'RELEASE_PUBLISHED=NO'
           Write-Output 'PHYSICAL_WRITE_AUTHORIZED=NO'
 
+      - name: Validate canonical public staging against signed handoff
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Join-Path $env:RUNNER_TEMP 'signed-handoff/package'
+          $args = @(
+            'tools/release-operator/validate_v4_publication_staging.py',
+            '--bundle-dir', $package,
+            '--signing-request', 'docs/contracts/canonical-v4-signing-request-active.json',
+            '--signed-receipt', (Join-Path $package 'signed-handoff-verification.json'),
+            '--trust', (Join-Path $package 'release-ed25519.json'),
+            '--source-commit', $env:SOURCE_COMMIT
+          )
+          $lines = @(python @args)
+          if ($LASTEXITCODE -ne 0) {throw 'Canonical v4 publication staging rejected'}
+          $plan = ($lines -join [Environment]::NewLine) | ConvertFrom-Json
+          if ($plan.status -cne 'ready-for-explicit-publication-review' -or
+              $plan.release_publication_performed -ne $false -or
+              $plan.physical_write_authorized -ne $false -or
+              @($plan.assets).Count -ne 5) {throw 'Unsafe publication staging plan'}
+          $path = Join-Path $package 'canonical-v4-publication-staging.json'
+          [IO.File]::WriteAllText($path, (($lines -join [Environment]::NewLine) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
+          Write-Output 'CANONICAL_V4_PUBLICATION_STAGING=VERIFIED_NO_PUBLICATION'
+
       - name: Upload only the signed verification receipt (no EROFS)
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: canonical-v4-signed-handoff-proof-${{ inputs.source_commit }}
-          path: ${{ runner.temp }}/signed-handoff/package/signed-handoff-verification.json
+          path: |
+            ${{ runner.temp }}/signed-handoff/package/signed-handoff-verification.json
+            ${{ runner.temp }}/signed-handoff/package/canonical-v4-publication-staging.json
           if-no-files-found: error
           retention-days: 14
