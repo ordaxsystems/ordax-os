@@ -159,8 +159,25 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                               "version": "2026.10.12", "effective_date": "2026-10-12"},
                 },
             }), encoding="utf-8")
+            ledger = root / "snapshots.json"
+            import hashlib
+            ledger.write_text(json.dumps({
+                "$schema": "prototype-ordax.public-legal-snapshots/1",
+                "status": "approved-versioned-snapshots",
+                "snapshots": [
+                    {
+                        "kind": kind, "version": "2026.10.12",
+                        "size": path.stat().st_size,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+                    for kind, path in (("privacy", privacy / "index.html"),
+                                       ("terms", terms / "index.html"))
+                ],
+            }), encoding="utf-8")
             from unittest.mock import patch
-            with patch.object(activation, "LEGAL", legal), patch.object(activation, "SITE", site):
+            with (patch.object(activation, "LEGAL", legal),
+                  patch.object(activation, "SITE", site),
+                  patch.object(activation, "SNAPSHOT_LEDGER", ledger)):
                 candidate = activation.build_candidate("https://ordax.com.br")
                 previous = candidate["privacy"]["sha256"]
                 (site / "privacidade" / "index.html").write_text("<html>new layout</html>", encoding="utf-8")
