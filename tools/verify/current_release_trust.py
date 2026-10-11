@@ -83,13 +83,15 @@ def validate(root: Path) -> dict[str, Any]:
         authorization.get("$schema") == "prototype-ordax.physical-write-authorization/3",
         "physical authorization schema is not canonical",
     )
-    _require(
-        authorization.get("status") == "blocked-canonical-v4-release-proof-pending",
-        "physical authorization is not at the replacement v4 proof gate",
-    )
+    state = authorization.get("status")
+    pre_proof = "blocked-canonical-v4-release-proof-pending"
+    post_proof = "blocked-explicit-physical-authorization-pending"
+    _require(state in (pre_proof, post_proof),
+             "physical authorization is not in a safe pre-consent state")
+    current_bound = state == post_proof
     _require(
         authorization.get("explicit_owner_authorization") is False,
-        "owner authorization must remain false before replacement proof binding",
+        "owner authorization must remain explicitly ungranted",
     )
     _require(
         authorization.get("physical_write_allowed") is False,
@@ -102,8 +104,8 @@ def validate(root: Path) -> dict[str, Any]:
 
     requirements = authorization.get("requirements") or {}
     _require(
-        requirements.get("canonical_v4_release_proof_bound") is False,
-        "replacement canonical v4 proof must not be marked bound",
+        requirements.get("canonical_v4_release_proof_bound") is current_bound,
+        "replacement canonical v4 proof binding state mismatch",
     )
     _require(
         requirements.get("canonical_public_trust_pinned") is True,
@@ -120,13 +122,13 @@ def validate(root: Path) -> dict[str, Any]:
         "physical authorization trust binding does not match canonical trust bytes",
     )
 
-    # The pre-hardening proof is retained only to identify the superseded evidence
-    # that must never reopen authorization for the current candidate.
+    # Verify exact bytes for either the superseded historical receipt or the
+    # current bound post-hardening receipt. State changes do not imply consent.
     release_binding = authorization.get("release_binding") or {}
     proof_relative = release_binding.get("proof_path")
-    _require(isinstance(proof_relative, str) and proof_relative, "historical v4 proof path is missing")
+    _require(isinstance(proof_relative, str) and proof_relative, "canonical v4 proof path is missing")
     proof_path = root / proof_relative
-    _require(proof_path.is_file(), f"historical v4 proof evidence is missing: {proof_relative}")
+    _require(proof_path.is_file(), f"canonical v4 proof evidence is missing: {proof_relative}")
     proof_sha = _sha256(proof_path)
     _require(
         proof_sha == bindings.get("canonical_v4_release_proof_sha256"),
@@ -158,17 +160,55 @@ def validate(root: Path) -> dict[str, Any]:
         proof.get("canonical_trust_sha256") == trust_sha,
         "historical v4 proof was not verified by the current canonical trust anchor",
     )
-    _require(proof.get("physical_write_authorized") is False, "historical proof must not encode write authorization")
-    _require(proof.get("physical_write_performed") is False, "historical release proof must not encode a write result")
+    _require(proof.get("physical_write_authorized") is False, "v4 proof must not encode write authorization")
+    _require(proof.get("physical_write_performed") is False, "v4 proof must not encode a write result")
+    _require(proof.get("release_activated") is False, "v4 proof must not imply activation")
+    _require(proof.get("physical_target_selected") is False, "v4 proof must not select a target")
+    _require(proof.get("signed_handoff_verified") is True, "signed handoff proof is absent")
+    _require(proof.get("canonical_materialization_verified") is True, "HTTPS materialization proof is absent")
+    if current_bound:
+        publication = _json(root, "docs/contracts/canonical-v4-publication-request.json")
+        sha = publication.get("source_commit")
+        tag = publication.get("release_tag")
+        expected_url = (
+            "https://github.com/ordaxsystems/ordax-os/releases/download/"
+            + str(tag) + "/release-envelope.json"
+        )
+        _require(
+            proof.get("source_commit") == sha
+            and proof.get("canonical_envelope_url") == expected_url
+            and proof.get("release_envelope_sha256") == publication.get("release_envelope_sha256"),
+            "bound v4 proof is not the approved signed HTTPS candidate",
+        )
+        artifacts = proof.get("artifacts")
+        _require(
+            isinstance(artifacts, dict)
+            and set(artifacts) == {
+                "system.erofs", "native-surface-runtime.erofs", "local-ai-runtime.erofs"
+            }
+            and all(
+                isinstance(value, dict)
+                and isinstance(value.get("size"), int)
+                and not isinstance(value.get("size"), bool)
+                and value["size"] > 0
+                and isinstance(value.get("sha256"), str)
+                and len(value["sha256"]) == 64
+                and all(ch in "0123456789abcdef" for ch in value["sha256"])
+                for value in artifacts.values()
+            ),
+            "bound v4 artifact inventory is not exactly valid",
+        )
 
     return {
         "schema": "ordax.current-release-trust-verification/1",
         "status": "pass",
         "canonicalTrustSha256": trust_sha,
         "currentAuthorizationStatus": authorization["status"],
-        "replacementV4ProofBound": False,
-        "historicalV4ProofSha256": proof_sha,
-        "historicalV4SourceCommit": proof["source_commit"],
+        "replacementV4ProofBound": current_bound,
+        "historicalV4ProofSha256": proof_sha if not current_bound else None,
+        "historicalV4SourceCommit": proof["source_commit"] if not current_bound else None,
+        "currentV4ProofSha256": proof_sha if current_bound else None,
+        "currentV4SourceCommit": proof["source_commit"] if current_bound else None,
         "explicitOwnerAuthorization": False,
         "physicalWriteAllowed": False,
     }
