@@ -715,7 +715,15 @@ def read_first_run_state() -> dict:
     except FileNotFoundError:
         return initial_first_run_state()
     except (OSError, json.JSONDecodeError):
-     def write_first_run_state(state_value: dict) -> None:
+     def _fsync_first_run_directory(directory: str) -> None:
+    fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def write_first_run_state(state_value: dict) -> None:
     if not valid_first_run_state(state_value):
         raise ValueError("invalid first-run state")
     directory = os.path.dirname(FIRST_RUN_FILE)
@@ -737,7 +745,10 @@ def read_first_run_state() -> dict:
                 raise ValueError("existing first-run receipt invalid")
             if previous["completed"]:
                 if previous == state_value:
-                    return  # Idempotent retry after an uncertain HTTP response.
+                    # Even an idempotent retry must not acknowledge a directory
+                    # entry whose fsync may have failed on the earlier request.
+                    _fsync_first_run_directory(directory)
+                    return
                 raise ValueError("completed first-run receipt cannot be overwritten")
 
         temporary = f"{FIRST_RUN_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
@@ -756,11 +767,7 @@ def read_first_run_state() -> dict:
                 pass
         # Do not acknowledge setup completion before the directory entry is
         # also durable. Failed fsync propagates to the UI instead of success.
-        directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        _fsync_first_run_directory(directory)
 
 
 def valid_device_display_name(value: object) -> bool:
