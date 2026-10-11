@@ -139,6 +139,32 @@ antes de Cage/WebKit, e reutilizar os contratos da Platform/Runtime; **não**
 deve ser instalado como dependência do runtime gráfico nem como um segundo
 executor ou autoridade de permissão.
 
+## Diagnóstico sem Surface e sem conexão remota
+
+O Developer USB inclui `/usr/local/bin/ordax-diagnose`, um leitor local
+somente de consulta executável no shell de manutenção **antes do Cage/WebKit**:
+
+```sh
+/usr/local/bin/ordax-diagnose
+```
+
+Retorna `ordax.dev-boot-diagnostics/1`: commit Git local (quando disponível),
+versão do kernel, capacidade/uso/livre dos pontos fixos `/`, `/state`,
+`/run` e `/tmp`, existência dos marcadores de saúde e classificações
+binárias de erros conhecidos no Guardian/Surface. Não imprime logs brutos,
+credenciais, senhas Wi-Fi nem comandos arbitrários. Não instala pacotes,
+altera discos, busca código, abre rede ou envia nada para outro computador.
+Argumentos são recusados. Falta de dados é reportada como indisponível,
+não como sucesso.
+
+Este é o produtor **local** de observações, não um agente remoto completo.
+O plugin e o Runtime oficiais só poderão receber esse diagnóstico de um
+notebook depois de a Platform autorizar um dispositivo real e um grant
+específico; a mera observação por `ordax_targets` não autentica o Linux.
+Não criar um segundo transportador remoto nem ativar uma sessão de shell
+arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
+independente da Surface gráfica.
+
 ## Daily loop
 
 After the development base has been flashed once and the notebook can boot it:

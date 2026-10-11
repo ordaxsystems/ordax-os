@@ -508,7 +508,7 @@ def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
         archive.extractall(rootfs, members=selected_members, filter="data")
 
     copy_script(ROOT / "bootstrap/dev-base/ordax-dev-init", rootfs / "sbin/ordax-dev-init")
-    for name in ("ordax-network", "ordax-pull", "ordax-rollback", "ordax-run"):
+    for name in ("ordax-network", "ordax-pull", "ordax-rollback", "ordax-run", "ordax-diagnose"):
         copy_script(ROOT / f"bootstrap/dev-base/{name}", rootfs / f"usr/local/bin/{name}")
     copy_script(ROOT / "bootstrap/recovery/entrypoint", rootfs / "ordax/bootstrap/recovery/entrypoint")
 
@@ -559,6 +559,7 @@ def verify_rootfs(rootfs: Path) -> None:
         "usr/local/bin/ordax-pull",
         "usr/local/bin/ordax-rollback",
         "usr/local/bin/ordax-run",
+        "usr/local/bin/ordax-diagnose",
     ]
     for rel in required:
         path = rootfs / rel

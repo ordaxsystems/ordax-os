@@ -124,6 +124,7 @@ maintenance_shell() {
     printf 'Executar:     ordax-run\n'
     printf 'Voltar:       ordax-rollback\n'
     printf 'Rede:         ordax-network\n'
+    printf 'Diagnostico:  ordax-diagnose (somente leitura)\n'
     printf '\nMudancas normais do OrdaX nao exigem regravar o pendrive.\n\n'
 
     # switch_root leaves the development init attached to the console file
