@@ -180,19 +180,19 @@ de boot nem novo gate físico para a primeira prova Stable USB.
 ```text
 PRE_USB_NOVA_ORDAX_AUDIT=PASS_SOURCE
 CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_BOUND_VERSIONED_PRERELEASE_PRE_HARDENING
-CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PASS_POST_HARDENING_SIGNED_HTTPS_MATERIALIZED_AND_BOUND
 FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING
 FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING
 FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING
-CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=BLOCKED_REPLACEMENT_RELEASE_PROOF
+CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_EXPLICIT_OWNER_AUTHORIZATION_AND_LIVE_USB_PROOF
 ```
 
 ## 6. Gates do MVP público
 
 Bloqueiam lançamento:
 
-- replacement canonical v4 release proof para o candidato pós-hardening atual; o proof de `b924ff…` continua apenas como evidência histórica pré-hardening;
-- publicação/promocão da release Stable no canal `latest`, somente depois do proof e da prova física correntes;
+- prova v4 pós-hardening **obtida e vinculada** via HTTPS no candidato `03f88eea…`; resta autorização explícita e reteste físico do candidato atual; a prova de `b924ff…` continua apenas como histórico pré-hardening;
+- release v4 assinada e **publicada em prerelease HTTPS**, materializada e validada; ainda falta promoção ao canal Stable `latest`, somente após as provas físicas correntes;
 - Creator físico promovido e autorizado **para criação do USB**;
 - readback verificável da mídia física do candidato atual (o primeiro proof controlado já obteve 17/17 no candidato pré-hardening);
 - known-good/fallback suficientemente provados;
@@ -310,8 +310,8 @@ Estado atual do caminho v2:
 - writer físico Portable: implementado apenas no backend interno/tagged e continua inacessível ao Creator público;
 - boot físico Stable/MVP pré-hardening: **PASS UEFI em proof controlado**; o candidato pós-#588 continua `PENDING_PHYSICAL_RETEST`;
 - Secure Boot: não provado;
-- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado. O proof v4 agregado de `b924ff8d74d1761232381ae3f9604bba17497cfd` permanece **PASS como evidência histórica pré-hardening**, mas foi supersedido para a promoção da `main` atual. O candidato pós-hardening precisa de outro proof assinado/materializado e binding antes de qualquer autorização física fresca; o canal `latest` continua não promovido;
-- Native continua fora do MVP.
+- canonical release trust público: **PASS** — anchor Ed25519 canônico pinado. A prova v4 do candidato pós-hardening `03f88eeaf382a59aaefbcf4943d0639d2730741b` foi publicada em HTTPS, materializada no run `38180886646` e agregada pelo Step 7 real, com recibo atual vinculado ao Creator; **autorização física continua falsa**, e o canal `latest` não foi promovido. A prova de `b924ff…` permanece apenas como histórico pré-hardening;
+- Native integra o ciclo de desenvolvimento MVP, mas instalação em SSD/NVMe/HD continua **desativada no release público** até homologação específica de boot, gravação segura, rollback e recovery.
 
 A mídia transitória atual continua apenas como caminho de validação de hardware. O trust público canônico já está resolvido e o caminho Stable/MVP atual é v4. O primeiro proof físico governado não transforma o writer interno em capability pública nem autoriza novas gravações. Não habilitar o writer público antes de **prova canônica v4 assinada/materializável, binding do receipt, autorização física explícita válida para o contexto atual e prova física pós-hardening do USB Stable/MVP**.
 
