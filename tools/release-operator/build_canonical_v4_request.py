@@ -155,12 +155,14 @@ def build_request(source_commit: str, runs: dict, inventories: dict, historical:
     return request
 
 
-def verify_frozen_candidate_ref(source_commit: str, source_ref: str, token: str) -> None:
+def verify_frozen_candidate_ref(source_commit: str, source_ref: str, token: str, *, fetch=None) -> None:
     """Verify immutable candidate ref still points to the exact proven commit."""
     if source_ref == "main":
         return  # Ancestor-of-main proof intentionally permits main to advance.
     operator_ref_for_source(source_commit, source_ref)
-    meta = fetch_json(f"/git/ref/heads/{source_ref}", token)
+    # An injected fetcher lets the live probe use its exact same read-only
+    # GitHub metadata boundary; normal builder callers keep the existing API.
+    meta = (fetch or fetch_json)(f"/git/ref/heads/{source_ref}", token)
     obj = meta.get("object")
     if (
         meta.get("ref") != f"refs/heads/{source_ref}"
