@@ -43,6 +43,28 @@ test("every actual native service directory and every declared component is cove
   }
 });
 
+test("every component exposes dependency and restart impact from canonical manifests", () => {
+  const result = inventory();
+  for (const component of result.components) {
+    const canonical = listSystemComponents().find((entry) => entry.id === component.id);
+    assert.deepEqual(component.dependencies, canonical.dependencies);
+    assert.equal(component.restartScope, canonical.restartScope);
+    assert.equal(component.criticality, canonical.criticality);
+    assert.equal(component.healthMode, canonical.healthMode);
+    assert.deepEqual(
+      component.directlyAffectedConsumers,
+      listSystemComponents().filter((entry) => entry.dependencies.includes(component.id))
+        .map((entry) => entry.id).sort(),
+    );
+  }
+  const ai = result.components.find((component) => component.id === "local-ai-service");
+  assert.ok(ai.directlyAffectedConsumers.includes("ordax-intelligence"));
+  const intelligence = result.components.find((component) => component.id === "ordax-intelligence");
+  assert.ok(intelligence.dependencies.includes("local-ai-service"));
+  const base = result.components.find((component) => component.id === "ordax-base");
+  assert.equal(base.restartScope, "reboot");
+});
+
 test("the real Local AI, Intelligence and Spaces reflect current truth", () => {
   const result = inventory();
   for (const id of ["local-ai-service", "ordax-intelligence"]) {
