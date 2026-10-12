@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -84,7 +82,6 @@ func inspectActiveCompatibilityV2(
 	if !reflect.DeepEqual(initial, latest) {
 		return activationCompatibilitySnapshot{}, errors.New("activation compatibility state changed during inspection")
 	}
-	digest := sha256.Sum256(trustBytes)
 	return activationCompatibilitySnapshot{
 		Schema:        activationCompatibilitySnapshotSchema,
 		Authority:     "none",
@@ -93,7 +90,7 @@ func inspectActiveCompatibilityV2(
 		Revision:      initial.Revision,
 		PendingHealth: initial.PendingHealth,
 		TrustScope:    "caller-supplied-public-anchor",
-		TrustSHA256:   hex.EncodeToString(digest[:]),
+		TrustSHA256:   verified.TrustSHA256,
 		VerifiedSlot:  verified,
 	}, nil
 }
