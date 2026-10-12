@@ -668,3 +668,21 @@ late font callbacks. Window count/title changes also remeasure. Accessible names
 full title/state tooltips and active/minimized indicators remain intact.
 Acceptance: crowded dock shows icons, wider/less crowded dock restores names.
 No build, npm or tests executed under the standing user restriction.
+
+### Narrow Central uses vertical capacity — 2026-10-11
+
+Owner: OS Surface, continuation of the shared Central composition. The former
+width-only panel selection left tall, narrow areas with one oversized summary.
+Container queries now retain tabs below 680px of available height and stack
+Projects, Favorites and Activity above that threshold, reusing the same nodes.
+All summary items remain accessible in this tall mode; bounded cards can scroll
+internally when necessary while the main page remains within its work area.
+Lower Space/device summaries appear when vertical capacity permits; very narrow
+layouts reserve additional height for their stacked arrangement. Aura modes use
+the existing chips when width permits and the existing selector otherwise.
+Compact-window reservations and sidebar width still determine the single named
+container; no viewport observer, alternate page or duplicate product state added.
+Acceptance: tall narrow Central does not hide Apps/Activity merely because of
+width, and shorter compact work areas retain reachable panel selection.
+Only source/diff review performed. Visual verification remains pending.
+No build, npm or tests executed under the standing user restriction.
