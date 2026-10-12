@@ -11,6 +11,7 @@ on:
       - 'docs/contracts/app-data.json'
       - 'docs/contracts/native-app-data.json'
       - 'tests/test_native_app_data.py'
+      - 'tests/test_native_app_data_checkpoint.py'
       - 'tests/test_native_app_data_adapter.mjs'
       - '.github/workflows/native-app-data.yml'
   push:
@@ -24,6 +25,7 @@ on:
       - 'docs/contracts/app-data.json'
       - 'docs/contracts/native-app-data.json'
       - 'tests/test_native_app_data.py'
+      - 'tests/test_native_app_data_checkpoint.py'
       - 'tests/test_native_app_data_adapter.mjs'
       - '.github/workflows/native-app-data.yml'
 
@@ -48,6 +50,9 @@ jobs:
 
       - name: Prove filesystem owner crash CAS quota and isolation
         run: python3 -m unittest tests.test_native_app_data -v
+
+      - name: Prove owner-only durable checkpoint, retained blobs, rollback and crash recovery
+        run: python3 -m unittest tests.test_native_app_data_checkpoint -v
 
       - name: Prove async bound transport without identity self-claims
         run: node --test tests/test_native_app_data_adapter.mjs
