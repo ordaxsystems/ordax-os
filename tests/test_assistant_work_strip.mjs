@@ -151,7 +151,7 @@ test("Native Assistant reads the existing Personal runtime; UI never executes mi
     readFile(new URL("../system/apps/assistant/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(native, /personalOrdax,\s*identitySessionPort: identitySession/);
+  assert.match(native, /personalOrdax,\s*projectWorkCanvas: projectPersonalWorkCanvas,\s*identitySessionPort: identitySession/);
   assert.match(runtime, /personalOrdax,\s*identitySessionPort,/);
   assert.match(ui, /projectAssistantWorkStrip\(/);
   assert.match(ui, /personalOrdax\.getSnapshot\(\)/);
@@ -635,8 +635,8 @@ test("Activity review UI uses explicit click and only publishes navigation", asy
     readFile(new URL("../system/apps/assistant/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(native, /personalOrdax,\s*identitySessionPort: identitySession,[\s\S]*?appActivation,/);
-  assert.match(runtime, /appActivation,\s*\}\)/);
+  assert.match(native, /personalOrdax,\s*projectWorkCanvas: projectPersonalWorkCanvas,\s*identitySessionPort: identitySession,[\s\S]*?appActivation,/);
+  assert.match(runtime, /appActivation,\s*projectWorkCanvas,\s*\}\)/);
   assert.match(ui, /work\.state === "requires-action"/);
   assert.match(ui, /dataset\.assistantReviewWork = work\.workItemId/);
   assert.match(ui, /target\.dataset\.assistantReviewWork !== undefined/);
