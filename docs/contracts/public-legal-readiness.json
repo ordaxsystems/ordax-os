@@ -80,5 +80,5 @@
     "privacy_contact_verified": false,
     "business_registration": null
   },
-  "consent_experience_contract": "docs/contracts/user-consent-experience.json"
+  "user_consent_contract": "docs/contracts/user-consent-experience.json"
 }
