@@ -34,7 +34,7 @@ test("every actual native service directory and every declared component is cove
   assert.equal(new Set(result.domains.map((entry) => entry.path)).size, result.domains.length);
   assert.equal(new Set(result.components.map((entry) => entry.id)).size, result.components.length);
   for (const entry of result.domains) {
-    assert.equal(entry.independentlyReleasable, false);
+    assert.equal(entry.releaseReadiness, "not-assessed-by-this-projection");
     if (entry.componentIds.length === 0) {
       assert.equal(entry.state, "embedded-domain-without-independent-component");
     } else {
@@ -50,11 +50,11 @@ test("the real Local AI, Intelligence and Spaces reflect current truth", () => {
     assert.ok(component);
     assert.equal(component.releaseMode, "bundled");
     assert.equal(component.currentDelivery, "os-bundled");
-    assert.equal(component.productionIndependentReady, false);
+    assert.equal(component.releaseReadiness, "not-assessed-by-this-projection");
   }
   const spaces = result.domains.find((entry) => entry.path === "system/services/spaces");
   assert.ok(spaces);
-  assert.equal(spaces.independentlyReleasable, false);
+  assert.equal(spaces.releaseReadiness, "not-assessed-by-this-projection");
   // The existence of a source directory is not a standalone deployable artifact.
   assert.equal(spaces.componentIds.length, 0);
 });
@@ -68,11 +68,11 @@ test("independent slot declaration by itself never claims production readiness",
   const result = inventory(manifests);
   const localAi = result.components.find((entry) => entry.id === "local-ai-service");
   assert.equal(localAi.currentDelivery, "individual-declared-not-production-proven");
-  assert.equal(localAi.productionIndependentReady, false);
+  assert.equal(localAi.releaseReadiness, "not-assessed-by-this-projection");
   for (const entry of result.components) {
     if (entry.releaseMode === "git-app") {
       assert.equal(entry.currentDelivery, "development-git-only");
-      assert.equal(entry.productionIndependentReady, false);
+      assert.equal(entry.releaseReadiness, "not-assessed-by-this-projection");
     }
   }
 });
