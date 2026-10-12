@@ -815,8 +815,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "dc7969ccb0710ecbf35e8751ed10d770d76ef638d233f035645c2c2b4b4d8118",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. The redundant openCompactMenuId state has been retired; WindowLayer only dispatches typed window actions, while Radix owns local menu visibility."
+      "adaptedSha256": "370f27a2f703cd0c3f31e19772e1bee906451abce27a2be47f01d4bc3d87630f",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. The redundant openCompactMenuId state has been retired; WindowLayer only dispatches typed window actions, while Radix owns local menu visibility. The mobile pane selector now directly dispatches the existing focus action without referencing the retired menu state."
     },
     {
       "target": "system/composition/web/account-session.mjs",
