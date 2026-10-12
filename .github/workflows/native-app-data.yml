@@ -56,3 +56,24 @@ jobs:
 
       - name: Prove async bound transport without identity self-claims
         run: node --test tests/test_native_app_data_adapter.mjs
+
+  native-state-recovery-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go for canonical runtime component writer
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: tools/runtime-component-channel/go.mod
+          cache: false
+
+      - name: Ensure App Data diagnostic cannot silently authorize stateful activation or rollback
+        working-directory: tools/runtime-component-channel
+        run: |
+          set -euo pipefail
+          go test ./... -count=1 -timeout 3m -run '^(TestSignedUpgradeWithUnchangedStateFormatRequiresRecoveryProof|TestSignedUpgradeCannotIntroducePersistentStateWithoutRollbackProof|TestStatefulReleaseV2UpgradeCannotBecomeOneWayWithoutRecovery|TestReleaseV2RollbackReadabilityDoesNotAuthorizeRecovery)$'
