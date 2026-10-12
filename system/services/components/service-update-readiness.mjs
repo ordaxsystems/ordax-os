@@ -51,7 +51,9 @@ function validatePolicy(policy, components) {
       component,
     ]),
   );
-  for (const key of Object.keys(policy).filter((field) => field.endsWith("_release_mode"))) {
+  for (const key of Object.keys(policy).filter((field) =>
+    field.endsWith("_release_mode") && typeof policy[field] === "string"
+  )) {
     const component = modeFields.get(key);
     if (!component) {
       throw new TypeError("Package policy has orphaned component release mode: " + key);
