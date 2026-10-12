@@ -42,13 +42,15 @@ function validatePolicy(policy, components) {
       throw new TypeError("Package policy gate must be explicit boolean: " + field);
     }
   }
-  for (const [id, key] of [
-    ["local-ai-service", "local_ai_service_release_mode"],
-    ["ordax-intelligence", "ordax_intelligence_release_mode"],
-  ]) {
-    const manifest = components.find((component) => component.id === id);
-    if (manifest && policy[key] !== manifest.releaseMode) {
-      throw new TypeError("Canonical release mode mismatch between manifest and package policy: " + id);
+  // Where the canonical policy declares a release mode for a component,
+  // the manifest must agree. Derive the policy key from the component ID;
+  // never hand-maintain a second allowlist (Internet was previously omitted).
+  for (const component of components) {
+    const key = component.id.replaceAll("-", "_") + "_release_mode";
+    if (Object.hasOwn(policy, key) && policy[key] !== component.releaseMode) {
+      throw new TypeError(
+        "Canonical release mode mismatch between manifest and package policy: " + component.id,
+      );
     }
   }
   return { supported, packagingOnly };
@@ -84,7 +86,7 @@ export function deriveNativeServiceUpdateReadiness({ inventory, packagePolicy } 
       packagingCandidate,
       policyAssessment: blockers.length > 0 ? "blocked" : "proof-required",
       blockers: Object.freeze(blockers),
-      productionUpdateProven: false,
+      productionEvidence: "not-evaluated",
     });
   });
   const componentById = new Map(components.map((c) => [c.id, c]));
@@ -95,7 +97,7 @@ export function deriveNativeServiceUpdateReadiness({ inventory, packagePolicy } 
       ? "embedded-no-component"
       : domain.componentIds.some((id) => componentById.get(id)?.policyAssessment !== "blocked")
         ? "component-proof-required" : "bundle-or-development-only",
-    productionUpdateProven: false,
+    productionEvidence: "not-evaluated",
   }));
 
   return Object.freeze({
@@ -110,7 +112,7 @@ export function deriveNativeServiceUpdateReadiness({ inventory, packagePolicy } 
       packagingCandidates: components.filter((c) => c.packagingCandidate).length,
       blockedComponents: components.filter((c) => c.policyAssessment === "blocked").length,
       proofRequiredComponents: components.filter((c) => c.policyAssessment === "proof-required").length,
-      productionUpdateProven: 0,
+      productionEvidence: "not-evaluated",
     }),
   });
 }
