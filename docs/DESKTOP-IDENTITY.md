@@ -21,7 +21,7 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 ## Shared design-system ownership
 
-`system/surface/ui/tokens.css` is the single source of visual policy for semantic color, typography, spacing, radii, shadows, focus and motion. Surface and first-party application styles consume those semantic tokens instead of defining a separate palette per application.
+`system/surface/ui/tokens.css` owns the USB palette, typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
@@ -1241,3 +1241,35 @@ controls. Verified with 44 Node and 24 Python tests, TypeScript/build/reference
 verification and browser at 390x844; six computed color pairs match Native. The
 new profile remains local to the browser; no cloud continuity or physical USB boot
 is claimed by these presentation checks.
+
+## Shared color profiles and Native desktop — 2026-10-12
+
+Owner: OrdaX OS Surface, under PLANO-FUNCIONAL-SURFACE-E-APPS.md; explicitly
+requested USB integration. Shared profiles replace the Web-only color selector
+foundation above. color-palette.mjs owns surface.color-palette, derived scheme
+and three choices. The old module and ID have no runtime wrapper, redirect or
+second authority. Existing appearance.theme values/default are unchanged.
+
+The standard palette was moved out of the Web renderer into color-palettes.css;
+USB tokens stay in tokens.css. Both Web/Native compositions include these sources.
+Native's semantic aliases use standard colors for Claro/Escuro, and the original
+Midnight palette for OrdaX USB. Theme previews use the same tokens. Web layout,
+wallpapers and window behavior are preserved; no native service is replaced with
+a Web implementation.
+
+Native now has a dock toggle and desktop shortcuts alongside its existing Home.
+The existing Surface reducer owns the session presentation and window state.
+Switching views neither serializes a new workspace schema nor remounts apps;
+Home still minimizes through the original action. All app shortcuts use the same
+catalog, capability checks and activation path. Labels use the existing pt-BR/
+en-US catalog. Ports for files, accounts, network, energy and installed components
+are unchanged. No new dependency, grant, API endpoint or hardware authority.
+
+Acceptance: equivalent standard colors across renderers; three selectable profiles;
+existing native preference endpoint/atomic store; session-only view switching with
+window state intact; responsive desktop controls; unchanged Web layout/build.
+Verified: 56 Node and 44 Python tests, including the eight Native persistence tests
+on Ubuntu/WSL; TypeScript/build/34 reference assets; browser theme/reload/window
+behavior and 390x844 viewport. The local Native preview consumes canonical UI with
+browser preference persistence and unavailable host capabilities. Source readiness
+and this visual preview do not constitute a signed USB release or physical boot.

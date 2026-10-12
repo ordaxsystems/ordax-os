@@ -41,13 +41,20 @@ Changes are browser-local with explicit session-only fallback. The existing acco
 sync allowlist excludes this preference; no cloud sync is implied. Native's catalog
 recognizes the value, but this increment does not add a Native launcher editor.
 
-## Web color profile
+## Shared color profiles
 
-web-palette.mjs defines surface.web-palette (standard/native) and derives the
-three Web choices from appearancePreference plus OrdaX USB. This independent
-presentation axis preserves the portable appearance.theme light/dark contract.
-Native colors render with a dark scheme from the existing Native tokens, not
-copied values. Claro/Escuro select the standard palette and requested brightness.
-The same runtime and store persist this browser-local choice; the existing sync
-allowlist excludes it. Native's Surface recognizes the preference data but ignores
-this Web-specific rendering axis. No separate theme storage or native capability.
+color-palette.mjs owns surface.color-palette (standard/native), shared options
+Claro/Escuro/OrdaX USB and their projection to a color scheme. This presentation
+axis preserves the portable appearance.theme light/dark contract. USB resolves
+to dark while preserving that brightness record; Claro/Escuro select standard
+colors and requested brightness. Web and Native use the same semantics and
+their existing preference-store/1 adapters, without another theme store.
+
+The standard palette lives once in surface/ui/color-palettes.css; the original
+USB palette lives once in surface/ui/tokens.css. The shared stylesheet maps
+semantic variables in both renderers. Native Settings miniatures consume these
+same colors. Operational state colors and high contrast remain canonical.
+The sync allowlist excludes the palette choice; no account sync is implied.
+The former Web-only palette module and preference ID were removed rather than
+retained as alternate consumers. Unknown previous preference IDs are ignored by
+the existing record recovery and disappear on the next canonical store write.

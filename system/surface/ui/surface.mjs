@@ -14,7 +14,7 @@ import {
   ACCESSIBILITY_MOTION_PREFERENCE_ID,
   ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID,
 } from "../../services/preferences/accessibility.mjs";
-import { APPEARANCE_PREFERENCE_ID } from "../../services/preferences/appearance.mjs";
+import { resolveColorAppearance } from "../../services/preferences/color-palette.mjs";
 import {
   createDesktopShellMarkup,
   mountDesktopClock,
@@ -627,8 +627,9 @@ export function mountSurface(
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
     const homeButton = root.querySelector("[data-show-desktop]");
     if (homeButton) {
-      homeButton.dataset.active = String(activeWindow === null);
-      if (activeWindow === null) homeButton.setAttribute("aria-current", "page");
+      const homeActive = activeWindow === null && state.presentation === "central";
+      homeButton.dataset.active = String(homeActive);
+      if (homeActive) homeButton.setAttribute("aria-current", "page");
       else homeButton.removeAttribute("aria-current");
     }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
@@ -698,7 +699,18 @@ export function mountSurface(
   const render = () => {
     syncDocumentLocaleProfile(documentElement, localization);
     syncDesktopShellLocalization(root, localization);
-    root.dataset.ordaxTheme = state.preferences[APPEARANCE_PREFERENCE_ID];
+    const appearance = resolveColorAppearance(state.preferences);
+    root.dataset.ordaxTheme = appearance.scheme;
+    root.dataset.theme = appearance.colorTheme;
+    root.dataset.ordaxPalette = appearance.colorTheme === "native" ? "native" : "standard";
+    root.dataset.workspacePresentation = state.presentation;
+    root.querySelector("[data-central-presentation]").hidden = state.presentation !== "central";
+    root.querySelector("[data-desktop-presentation]").hidden = state.presentation !== "desktop";
+    const presentationToggle = root.querySelector("[data-presentation-toggle]");
+    presentationToggle.setAttribute("aria-pressed", String(state.presentation === "desktop"));
+    const presentationLabel = localization.translate(state.presentation === "desktop" ? "shell.presentation.central" : "shell.presentation.desktop");
+    presentationToggle.setAttribute("aria-label", presentationLabel);
+    presentationToggle.title = presentationLabel;
     root.dataset.ordaxContrast = state.preferences[ACCESSIBILITY_CONTRAST_PREFERENCE_ID];
     root.dataset.ordaxMotion = state.preferences[ACCESSIBILITY_MOTION_PREFERENCE_ID];
     documentElement.dataset.ordaxTextScale =
@@ -821,8 +833,15 @@ export function mountSurface(
       return;
     }
 
+    const presentationToggle = event.target.closest("[data-presentation-toggle]");
+    if (presentationToggle) {
+      dispatch({ type: "workspace.presentation", value: state.presentation === "central" ? "desktop" : "central" });
+      workspace.focus({ preventScroll: true });
+      return;
+    }
     const showDesktop = event.target.closest("[data-show-desktop]");
     if (showDesktop) {
+      dispatch({ type: "workspace.presentation", value: "central" });
       dispatch({ type: "workspace.show-desktop" });
       workspace.focus({ preventScroll: true });
       return;

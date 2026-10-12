@@ -1,5 +1,30 @@
 # Current State
 
+## Surface Web/USB — cores compartilhadas e desktop nativo — 2026-10-12
+
+Claro/Escuro do Web e OrdaX USB usam um único catálogo de perfis. As cores
+standard foram movidas do CSS Web para system/surface/ui/color-palettes.css;
+os tokens USB seguem em tokens.css. Os dois renderers consomem a mesma fonte
+por aliases sem duplicar paletas. color-palette.mjs e surface.color-palette
+substituem o owner Web-only anterior, sem wrapper ou ID alternativo ativo.
+appearance.theme permanece light/dark; a nova paleta continua device-local,
+fora da allowlist de sync. Web preserva layout e janela; Native Ajustes ganhou
+as três opções e miniaturas dos mesmos tokens.
+
+USB agora alterna Início/Central e Área de trabalho pelo botão de quatro quadrados
+no dock. Atalhos usam o mesmo catálogo e caminho de ativação; nenhum grant novo.
+A apresentação é da sessão; janelas, alvos, geometria e workspace-store/2 não
+são recriados nem copiados. Rede, energia, arquivos e composição Native mantêm
+seus ports. A prévia local usa stores de navegador e não opera hardware.
+
+56 testes Node e 44 Python passaram (100 distintos). Oito testes de estado
+Native foram executados em Ubuntu/WSL com fcntl real, após a incompatibilidade
+do Python Windows; sem shim. TypeScript/build e 34 arquivos/assets verificados.
+Browser: cinco pares de cores Web/Native, três opções, reload, desktop/retorno,
+janela preservada, viewport 390x844 sem overflow horizontal e toggle de 44px.
+JS inicial 485,41 kB (151,98 gzip). Boot físico e release assinada não são provas
+deste incremento. [Owner e aceite](DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
 ## Web — perfil de cores OrdaX USB — 2026-10-12
 
 Aparência oferece Claro, Escuro e OrdaX USB no mesmo seletor. O terceiro perfil

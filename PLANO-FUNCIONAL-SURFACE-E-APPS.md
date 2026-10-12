@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **USB — temas Web e área de trabalho — 12/10/2026:** incremento solicitado,
+> com um source de cores standard/USB e um seletor de três perfis nos dois
+> renderers. Native conserva seus ports e o gerenciador de janelas; alternância
+> de apresentação é da sessão. Owner Web-only de paletas removido. [Owners,
+> contratos, risco e provas](docs/DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
 > **Paleta USB no Web — 12/10/2026:** incremento visual solicitado pelo usuário,
 > sem mudança de layout. Claro/Escuro preservados; terceira opção reutiliza os
 > tokens Native por referência. Persistência pelo mesmo catálogo/runtime/store;

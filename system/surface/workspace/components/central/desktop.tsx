@@ -9,7 +9,7 @@ import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
 import { useWebPreferences } from './preferences-context';
-import { WEB_COLOR_THEME_OPTIONS } from '../../../../services/preferences/web-palette.mjs';
+import { COLOR_THEME_OPTIONS } from '../../../../services/preferences/color-palette.mjs';
 import { accessibilityContrastPreference, accessibilityMotionPreference, accessibilityTextScalePreference } from '../../../../services/preferences/accessibility.mjs';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
@@ -172,7 +172,7 @@ function AppearancePanel({ onCentral }: { onCentral: () => void }) {
   return <Panel title="Aparência">
     <div className="desktop-settings-row preference-setting">
       <label htmlFor="web-color-theme">Tema<small id="web-color-theme-description">OrdaX USB usa as cores oficiais do sistema, mantendo este layout.</small></label>
-      <select id="web-color-theme" aria-describedby="web-color-theme-description" value={colorTheme} onChange={event => setColorTheme(event.target.value)}>{WEB_COLOR_THEME_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+      <select id="web-color-theme" aria-describedby="web-color-theme-description" value={colorTheme} onChange={event => setColorTheme(event.target.value)}>{COLOR_THEME_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
     </div>
     {accessibilityPreferences.map(preference => <div className="desktop-settings-row preference-setting" key={preference.id}>
       <label htmlFor={preference.id}>{preference.title}<small id={preference.id + '-description'}>{preference.description}</small></label>

@@ -421,3 +421,20 @@ test("Web and Native v2 stores persist independently", () => {
   assert.equal(createNativeWorkspaceStore(windowRef).load().areas[0].windows.length, 1);
   assert.equal(typeof storage.raw("ordax.native.workspace.v2"), "string");
 });
+
+
+test("Central and desktop are session presentation without changing the workspace record", () => {
+  let state = baseline();
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "settings" });
+  const areaBefore = getActiveArea(state);
+  const persisted = createWorkspaceSnapshot(state);
+  state = reduceSurfaceState(state, { type: "workspace.presentation", value: "desktop" });
+  assert.equal(state.presentation, "desktop");
+  assert.deepEqual(getActiveArea(state), areaBefore);
+  assert.deepEqual(createWorkspaceSnapshot(state), persisted);
+  assert.equal(reduceSurfaceState(state, { type: "workspace.presentation", value: "invalid" }), state);
+  state = reduceSurfaceState(state, { type: "workspace.presentation", value: "central" });
+  assert.equal(state.presentation, "central");
+  assert.deepEqual(getActiveArea(state), areaBefore);
+  assert.equal(createSurfaceState({ capabilityIds: [], connectivity: "unknown" }, {}, persisted).presentation, "central");
+});

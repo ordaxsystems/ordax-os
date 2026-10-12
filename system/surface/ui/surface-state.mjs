@@ -163,6 +163,7 @@ export function createSurfaceState(snapshot, preferenceSeed = {}, workspaceSeed 
   const workspace = validateWorkspaceRecord(workspaceSeed);
   return freezeState({
     launcherOpen: false,
+    presentation: "central",
     connectivity: safeSnapshot.connectivity,
     capabilityIds: safeSnapshot.capabilityIds,
     activeAreaId: workspace.activeAreaId,
@@ -321,6 +322,10 @@ export function reduceSurfaceState(state, action, appCatalog = defaultAppRuntime
             area.activeWindowId === action.windowId ? activeFallback(windows) : area.activeWindowId,
         };
       });
+    case "workspace.presentation": {
+      if (!["central", "desktop"].includes(action.value) || state.presentation === action.value) return state;
+      return freezeState({ ...state, presentation: action.value, launcherOpen: false });
+    }
     case "workspace.show-desktop": {
       const area = getActiveArea(state);
       if (!area.windows.some((item) => !item.minimized) && !state.launcherOpen) return state;
