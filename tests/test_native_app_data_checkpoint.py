@@ -694,6 +694,49 @@ else:
                         worker.kill()
                     worker.communicate(timeout=12)
 
+    def test_abrupt_death_while_holding_maintenance_flock_keeps_recovery_available(self):
+        child = """
+import os
+import sys
+from tests.test_native_app_data import app_data, identity
+from tests.test_native_app_data_checkpoint import RELEASE
+with app_data.hold_app_data_maintenance(identity(), RELEASE, 1, sys.argv[1]) as held:
+    held.checkpoint(1)
+    os._exit(85)  # Simulate process death without context manager cleanup.
+raise AssertionError("the owner did not exit during maintenance")
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"recover-after-owner-crash", 0, str(root))
+            interrupted = subprocess.run(
+                [sys.executable, "-c", child, str(root)],
+                cwd=Path(__file__).resolve().parents[1],
+                capture_output=True, text=True, timeout=12, check=False,
+            )
+            self.assertEqual(interrupted.returncode, 85, interrupted.stderr)
+            pinned = only_partition(root) / app_data.APP_DATA_CHECKPOINT_NAME
+            self.assertTrue(pinned.exists(), "abrupt death lost durable checkpoint")
+            # Kernel releases the original LOCK_EX on death, and a second
+            # process can verify and recover without a shadow lock/owner.
+            recovered = subprocess.run(
+                [sys.executable, "-c", """
+import sys
+from tests.test_native_app_data import app_data, identity
+from tests.test_native_app_data_checkpoint import RELEASE
+with app_data.hold_app_data_maintenance(identity(), RELEASE, 1, sys.argv[1]) as held:
+    assert held.restore(1)["revision"] == 2
+    assert held.revision() == 2
+print("RECOVERED")
+""", str(root)],
+                cwd=Path(__file__).resolve().parents[1],
+                capture_output=True, text=True, timeout=12, check=False,
+            )
+            self.assertEqual(recovered.returncode, 0, recovered.stderr)
+            self.assertEqual(recovered.stdout.strip(), "RECOVERED")
+            self.assertEqual(app_data.read_app_data(identity(), "key", str(root))["value"],
+                             b"recover-after-owner-crash")
+            self.assertTrue(pinned.exists())
+
     def test_maintenance_unwind_preserves_checkpoint_for_separate_process_recovery(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "app-data"
