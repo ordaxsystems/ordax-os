@@ -259,7 +259,8 @@
   --desktop-hover: oklch(0.99 0.002 85 / 20%);
   --desktop-hover-border: oklch(0.99 0.002 85 / 35%);
   --desktop-shadow: 0 18px 70px oklch(0.1 0.01 175 / 24%);
-  --taskbar-height: 58px;
+  --taskbar-height: 40px;
+  --dock-control-height: 32px;
   --desktop-top-height: 68px;
 }
 [data-theme="dark"] { --desktop-surface: oklch(0.2 0.014 175 / 96%); --desktop-hover: oklch(0.99 0.002 85 / 10%); }
@@ -421,15 +422,15 @@
 /* One bottom navigation track in both presentations; launcher and toggle never move. */
 .window-workspace .workspace-navigation { grid-row: 3; position: relative; inset: auto; height: 100%; padding-bottom: env(safe-area-inset-bottom); z-index: 50; }
 .workspace-navigation .desktop-start-button { flex-shrink: 0; }
-.workspace-navigation .desktop-task { min-width: 44px; height: 44px; }
-.workspace-navigation .workspace-view-toggle { width: 44px; height: 44px; flex-shrink: 0; }
+.workspace-navigation .desktop-task { min-width: 44px; height: var(--dock-control-height); }
+.workspace-navigation .workspace-view-toggle { width: 44px; height: var(--dock-control-height); flex-shrink: 0; }
 .workspace-navigation .workspace-view-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
 .window-workspace .desktop-start-menu { z-index: 52; left: calc(var(--workspace-rail) + 10px); width: min(390px,calc(100% - var(--workspace-rail) - 20px)); bottom: calc(var(--running-track) + 10px); }
 .window-workspace .desktop-menu-dismiss { z-index: 48; }
 @media (max-width: 760px) {
   .workspace-navigation .desktop-tray time, .workspace-navigation .desktop-tray .tray-status { display: none; }
   .workspace-navigation .desktop-taskbar-left { gap: 2px; }
-  .workspace-navigation .desktop-start-button, .workspace-navigation .desktop-tray > button { width: 44px; height: 44px; }
+  .workspace-navigation .desktop-tray > button { width: 44px; height: var(--dock-control-height); }
 }
 
 /* Full-height shared rail. Available navigation space determines overflow destinations. */

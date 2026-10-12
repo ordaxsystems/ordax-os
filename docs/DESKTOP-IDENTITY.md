@@ -422,3 +422,11 @@ Home is the window-focus fallback. More retains overflow destination access.
 This supersedes the previous sidebar launcher-row placement. Owner: OS Surface;
 no backend changes. Existing browser checks were adapted, not executed. Build,
 npm and local tests remain unexecuted under the standing user restriction.
+
+### Compact bottom dock height — 2026-10-11
+
+Requested Surface density adjustment: shared dock height decreases from 58px to
+40px, with 32px-high controls and unchanged 44px minimum widths. CSS tokens own
+these dimensions; the workspace/compact tracks and menu clearance derive from
+the same dock height. Mobile retains additional safe-area clearance. Backend
+and window state unchanged; no build, npm or tests executed per user restriction.
