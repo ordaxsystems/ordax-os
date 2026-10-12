@@ -7,7 +7,7 @@ import { projectPersonalActivitySnapshot } from "../view-model.mjs";
 const EXTENSION_SELECTOR = '[data-app-extension="personal-activity"]';
 const TERMINAL_STATES = new Set(["completed", "failed", "cancelled"]);
 
-function requireRuntime(value) {
+function requireRuntime(value, projectWorkCanvas) {
   if (value === null) return null;
   if (!value || typeof value !== "object" || value.schema !== PERSONAL_ORDAX_RUNTIME_SCHEMA) {
     throw new TypeError("Compatible Personal OrdaX runtime is required");
@@ -26,7 +26,7 @@ function requireRuntime(value) {
       throw new TypeError(`Personal OrdaX runtime must implement ${method}()`);
     }
   }
-  projectPersonalActivitySnapshot(value.getSnapshot());
+  projectPersonalActivitySnapshot(value.getSnapshot(), projectWorkCanvas);
   return value;
 }
 
@@ -60,11 +60,12 @@ export function mountPersonalActivityControls(
   approvalConsentValue = null,
   activityExportValue = null,
   createExportDocument = null,
+  projectWorkCanvas = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Activity controls require a Surface root Element");
   }
-  const personalOrdax = requireRuntime(personalOrdaxValue);
+  const personalOrdax = requireRuntime(personalOrdaxValue, projectWorkCanvas);
   const approvalConsent = approvalConsentValue === null
     ? null
     : assertPersonalApprovalConsent(approvalConsentValue);
@@ -122,7 +123,7 @@ export function mountPersonalActivityControls(
       return;
     }
 
-    const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot());
+    const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot(), projectWorkCanvas);
     const currentProposalOwnerKey = view.ownerKind === "account"
       ? `account:${view.ownerId}`
       : "device";

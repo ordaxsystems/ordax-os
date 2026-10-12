@@ -1014,6 +1014,7 @@ async function start() {
       personalOrdax,
       activityExport: personalActivityExport,
       createExportDocument: createPersonalActivityExportDocument,
+      projectWorkCanvas: projectPersonalWorkCanvas,
     },
     onError(error) {
       reportClientDiagnostic("activity-runtime", error);

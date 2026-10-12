@@ -4,7 +4,9 @@ import { readFile } from "node:fs/promises";
 
 import { activityApp } from "../system/apps/activity/app.mjs";
 import { activityComponent } from "../system/apps/activity/component.mjs";
-import { projectPersonalActivitySnapshot } from "../system/apps/activity/view-model.mjs";
+import { projectPersonalActivitySnapshot as projectPersonalActivitySnapshotCore } from "../system/apps/activity/view-model.mjs";
+import { projectPersonalWorkCanvas } from "../system/services/intelligence/work-canvas.mjs";
+const projectPersonalActivitySnapshot = snapshot => projectPersonalActivitySnapshotCore(snapshot, projectPersonalWorkCanvas);
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import {
   INTELLIGENCE_PORT_SCHEMA,
@@ -143,5 +145,6 @@ test("Native composition passes the one mounted Personal OrdaX runtime into Acti
   assert.match(source, /createNativePersonalActivityExport\(fileSpace\)/);
   assert.match(source, /context:\s*\{[\s\S]*?personalOrdax,[\s\S]*?activityExport:\s*personalActivityExport,[\s\S]*?\}/);
   assert.match(source, /createExportDocument: createPersonalActivityExportDocument/);
+  assert.match(source, /projectWorkCanvas: projectPersonalWorkCanvas/);
   assert.match(source, /activityComponent\?\.destroy\(\)/);
 });
