@@ -76,8 +76,6 @@ export function createDesktopShellMarkup(localization) {
               <p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p>
               <h1 id="surface-home-title" class="ordax-home-title">OrdaX <span>OS</span></h1>
               <p class="ordax-home-tagline" data-home-tagline>${t("shell.home.tagline")}</p>
-              <div class="ordax-welcome-actions">
-              </div>
             </div>
             <div class="ordax-home-meta">
               <time class="ordax-clock" data-ordax-clock>--:--</time>
