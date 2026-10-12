@@ -119,6 +119,9 @@ try {
       assert.equal(moreVisible,true,'Short-height sidebar must expose a reachable overflow launcher');
       await click(more);
       await clickByText('.desktop-menu-apps button',title);
+      // Radix retains the closing dialog overlay for its exit animation.
+      // The target app is not pointer-reachable until that real layer unmounts.
+      await until("!document.querySelector('.desktop-start-menu')");
     }
     const results=[];
     for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
