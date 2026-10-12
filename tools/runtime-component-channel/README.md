@@ -244,13 +244,15 @@ or adding optional dependencies is allowed by this local guard, but is
 production-ready. The test fixtures sign both the before and after
 descriptors and verify state immutability for rejected candidates.
 
-Release/2 upgrades with the same state owner and write version are allowed
-when the candidate declares the current version readable; stateless
-upgrades remain allowed. Introducing a **new persistent state owner**
-is temporarily stricter than the source evaluator: it is refused until the
-Native rollback path can prove recovery of the previous stateless release.
-Removing the owner, changing its ID or write version, or crossing
-release/1 and release/2 formats is **rejected before any mutation**.
+Stateless release/2 upgrades remain allowed. **Stateful upgrades,
+including those preserving the same owner, schema and write version,
+are refused before pending activation** until the canonical State owner
+integrates crash-safe last-known-good restoration. Merely declaring a
+readable version is not recovery proof; allowing promotion without a
+working rollback path would create a one-way update. The signed schema
+and owner incompatibility checks still run first. Introducing a **new
+persistent state owner** remains refused, as do owner removal, owner ID
+or write-version changes, and crossing release/1 and release/2 formats.
 No migration plan is accepted until the Native owner can actually prove
 and execute a versioned data migration with last-known-good restoration.
 
