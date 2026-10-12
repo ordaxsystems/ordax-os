@@ -104,6 +104,15 @@ O relatório inclui também as dependências reais e os consumidores diretamente
 | Apps first-party removíveis | ownership `ordax-apps` e manifests de app | `git-app` é só desenvolvimento; `component-slot` apenas após cutover e trust real |
 | Conta, Ajustes, Sistema, Loja | componentes estruturais do OS | `bundled`, inicialmente |
 
+### Compatibilidade de candidatos — verificação transversal
+
+`system/services/components/service-upgrade-preflight.mjs` fornece **duas projeções sem autoridade**, sempre sobre os contratos existentes:
+
+- `deriveServiceCompatibilityCoverage` cruza todos os manifests canônicos com descritores de compatibilidade realmente declarados. Uma ausência aparece como **descriptor-not-declared**, nunca como contrato vazio/ficticiamente compatível. Versão divergente, dependência de provider não declarada e catálogo inconsistente são erros. Nem todo domínio embutido necessita descritor próprio.
+- `preflightServiceUpgrade` delega à autoridade **lógica** `evaluateComponentUpgrade`, já definida em `system/contracts/component-update-compatibility.mjs`, para checar avanço de versão, contratos fornecidos/requeridos pelos demais serviços e migração explícita de estado. Recusa lançamento como `component-slot` quando o manifesto oficial ainda diz `bundled`, `git-app` ou `base-ab`; exige descritores atuais dos consumidores diretos para não inferir compatibilidade a partir de ausência de dados.
+
+As verificações foram adicionadas ao relatório JSON emitido pelo CLI/CI e a testes negativos de nova major incompatível, consumer omitido, downgrade, divergência de versão, dependência ausente e migração inválida. O relatório **não conhece trust material, dispositivos ou a instalação ativa**: `compatibilityAllowed` significa apenas que a avaliação de contratos da amostra explícita passou. **Não concede instalação**, não opera o Component Manager e não substitui o verificador criptográfico de release/2, o coordenador nativo de probation ou o proprietário do estado. Antes da ativação real, o owner precisa fornecer descritores de slots assinados e atuais, conciliar o resultado com a identidade verificada, executar migração do domínio e provar health/rollback.
+
 ### Gates comuns — nunca pular diretamente para `component-slot`
 
 1. Cobrir todos os diretórios de serviço e todos os manifests no inventário automático, sem catálogos paralelos.
