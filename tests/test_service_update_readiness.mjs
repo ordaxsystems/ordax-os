@@ -115,6 +115,7 @@ test("stale, missing or contradictory source policy fails closed", () => {
     { ...packagePolicy, slot_activation_available: undefined },
     { ...packagePolicy, local_ai_service_release_mode: "component-slot" },
     { ...packagePolicy, internet_release_mode: "component-slot" },
+    { ...packagePolicy, retired_legacy_service_release_mode: "bundled" },
     { ...packagePolicy, $schema: "unknown" },
   ]) {
     assert.throws(() => deriveNativeServiceUpdateReadiness({
