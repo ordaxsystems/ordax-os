@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch } from 'react';
+import { useEffect, useRef, useState, type Dispatch } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, MoreHorizontal, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -13,6 +13,8 @@ type Props = PresentationProps & { state: DesktopState; dispatch: Dispatch<Deskt
 // One stable parent keeps each app mounted through view and window-mode changes.
 export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   const layer = useRef<HTMLDivElement>(null);
+  // One explicit close operation survives a compact-window layout transition.
+  const [openCompactMenuId, setOpenCompactMenuId] = useState<string | null>(null);
   const previousActive = useRef<string | null>(null);
   const panes = useRef(new Map<string, HTMLElement>());
   const compact = state.windows.filter(w => !w.minimized && w.mode === 'compact');
@@ -50,7 +52,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
           <span className="desktop-window-title"><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span></span>
           <div className="desktop-window-controls">
             <div className="window-secondary-actions">{controls.map(control => <Button key={control.label} variant="ghost" size="icon" aria-label={control.label} aria-expanded={control.expanded} title={control.title} onClick={() => dispatch(control.action)}><control.icon/></Button>)}</div>
-            {window.mode === 'compact' && <div className="compact-actions-overflow"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + window.title} title="Mais ações"><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={6} className="compact-actions-menu">{controls.map(control => <DropdownMenuItem key={control.label} onSelect={() => dispatch(control.action)}><control.icon/>{control.title}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>}
+            {window.mode === 'compact' && <div className="compact-actions-overflow"><DropdownMenu open={openCompactMenuId === window.title} onOpenChange={open => setOpenCompactMenuId(open ? window.title : null)}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + window.title} title="Mais ações"><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={6} className="compact-actions-menu">{controls.map(control => <DropdownMenuItem key={control.label} onSelect={() => { setOpenCompactMenuId(null); dispatch(control.action); }}><control.icon/>{control.title}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>}
             <Button variant="ghost" size="icon" className="window-close" aria-label={`Fechar ${window.title}`} title="Fechar" onClick={() => dispatch({ type: 'close', title: window.title })}><X/></Button>
           </div>
         </header>
