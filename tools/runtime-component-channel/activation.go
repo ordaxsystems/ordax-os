@@ -686,6 +686,25 @@ func promotePendingStateAtRevision(
 		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 			return activationState{}, err
 		}
+		// Pending health proves process liveness, not data or ABI safety.
+		// Recheck the exact current and pending signed release contracts
+		// under the shared graph lock immediately before promotion.
+		// This closes the window between arm-pending and healthy promotion,
+		// but does not claim full bundled-consumer or pinned-trust coverage.
+		if state.Current != nil {
+			precedence, err := compareRuntimeComponentVersions(identity.Version, state.Current.Version)
+			if err != nil {
+				return activationState{}, err
+			}
+			if precedence <= 0 {
+				return activationState{}, errors.New("runtime component promotion candidate is no longer newer than current")
+			}
+			if err := verifyArmPendingStateCompatibility(
+				root, componentID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		}
 		promoted := identity
 		state.Previous = state.Current
 		state.Current = &promoted
