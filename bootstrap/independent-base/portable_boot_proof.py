@@ -15,7 +15,7 @@ import sys
 
 from build import ROOT, BaseError, CANONICAL_HANDOFF, contracts, digest, verify
 
-SHA40 = re.compile(r"[0-9a-f]{40}\\Z")
+SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 
 
 def regular_file(path: Path, label: str) -> Path:
@@ -60,7 +60,7 @@ def command(argv: list[str]) -> None:
     result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             check=False, text=True)
     if result.returncode:
-        raise BaseError(f"official command exited {result.returncode}: {argv[0]}\\n"
+        raise BaseError(f"official command exited {result.returncode}: {argv[0]}\n"
                         + result.stdout[-6000:])
 
 
@@ -141,7 +141,7 @@ def prove(args: argparse.Namespace) -> dict:
         "portable_qemu_result": str(qemu_result),
         "physical_promotion_authorized": False,
     }
-    (out / "integration-result.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\\n")
+    (out / "integration-result.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     return result
 
 
