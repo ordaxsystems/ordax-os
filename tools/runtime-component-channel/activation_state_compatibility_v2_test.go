@@ -79,7 +79,7 @@ func TestSignedUpgradeFailClosedWithoutStateMigration(t *testing.T) {
 	}
 }
 
-func TestSignedUpgradeCanIntroduceNewStateOwnerWithoutRewritingExistingState(t *testing.T) {
+func TestSignedUpgradeCannotIntroducePersistentStateWithoutRollbackProof(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	previous := addActivationV2Candidate(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
@@ -89,14 +89,18 @@ func TestSignedUpgradeCanIntroduceNewStateOwnerWithoutRewritingExistingState(t *
 		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
 		&compatibilityState{ID: "ordax.internet.new", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
 	)
-	pending, err := armPendingStateAtRevision(
+	if _, err := armPendingStateAtRevision(
 		next.slot, fixture.trustPath, fixture.root, &active.Revision,
-	)
+	); err == nil || !strings.Contains(err.Error(), "without verified rollback") {
+		t.Fatalf("stateless-to-stateful update bypassed recovery gate: %v", err)
+	}
+	unchanged, err := readActivationState(fixture.root, "internet")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pending.Pending == nil || pending.Pending.Version != "1.1.0" {
-		t.Fatalf("new state owner did not reach pending while keeping current: %+v", pending)
+	if unchanged.Revision != active.Revision || !sameSlotIdentity(unchanged.Current, active.Current) ||
+		unchanged.Pending != nil || unchanged.Rejected != nil {
+		t.Fatalf("unrecoverable new state owner mutated activation SSOT: %+v", unchanged)
 	}
 }
 
