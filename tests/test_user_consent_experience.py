@@ -106,7 +106,7 @@ class HumanConsentExperienceTests(unittest.TestCase):
         self.assertTrue(policy["boundaries"]["plugin_login_is_not_unlimited_device_authorization"])
         self.assertTrue(policy["boundaries"]["account_receipt_is_not_device_write_permission"])
         self.assertFalse(policy["plugins"]["first_party_generic_terms_acceptance_on_every_plugin_connection"])
-        self.assertFalse(policy["plugins"]["installation_terms_acceptance_not_prerequisite_for_web_plugin_login"] is False)
+        self.assertTrue(policy["plugins"]["installation_terms_acceptance_not_prerequisite_for_web_plugin_login"])
         self.assertTrue(policy["plugins"]["oauth_or_provider_scopes_are_independent_from_terms"])
 
 
