@@ -509,7 +509,7 @@ export function mountFirstRunExperience(
         checkbox.disabled = identityPending !== null;
         acceptance.append(
           checkbox,
-          el(documentObject, "span", "", "Li e aceito os documentos vigentes indicados acima."),
+          el(documentObject, "span", "", "Li e aceito os Termos de Uso e li a Política de Privacidade indicados acima."),
         );
         legal.append(links, acceptance);
         form.append(legal);
