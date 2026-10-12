@@ -18,6 +18,8 @@ import {
   ACTIVATION_SLOT_COMPATIBILITY_SNAPSHOT_SCHEMA,
   validateActivationCompatibilitySnapshot,
   preflightServiceUpgradeWithActivationSnapshots,
+  ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA,
+  validateActiveSlotCompatibilityCatalog,
 } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const manifests = listSystemComponents();
@@ -304,4 +306,51 @@ test("activation snapshot shape, duplicate consumers and false trust claims are 
     ],
     expectedRevision: 5,
   }), /unique/);
+});
+
+const activeCatalog = (components = [activationSnapshot(localAiCompatibility)]) => ({
+  schema: ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA,
+  authority: "none",
+  scope: "signed-independent-current-slots-only",
+  completeForActivation: false,
+  trustScope: "caller-supplied-public-anchor",
+  components,
+});
+
+test("Native active catalog reports signed installed slots but never complete OS coverage", () => {
+  const result = validateActiveSlotCompatibilityCatalog(activeCatalog());
+  assert.equal(result.schema, ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA);
+  assert.equal(result.completeForActivation, false);
+  assert.equal(result.authority, "none");
+  assert.equal(result.components[0].target, "current");
+  assert.equal(validateActiveSlotCompatibilityCatalog(activeCatalog([])).components.length, 0);
+});
+
+test("active catalog rejects forged completeness, mixed keys and duplicate consumers", () => {
+  const source = activeCatalog();
+  for (const bad of [
+    { ...source, completeForActivation: true },
+    { ...source, authority: "native" },
+    { ...source, scope: "all-system-components" },
+    { ...source, trustScope: "system-pinned" },
+    { ...source, components: [activationSnapshot(localAiCompatibility, 5, "pending")] },
+    { ...source, components: [
+      activationSnapshot(localAiCompatibility),
+      activationSnapshot(localAiCompatibility, 6),
+    ] },
+    { ...source, components: [
+      activationSnapshot(intelligenceCompatibility, 4),
+      activationSnapshot(localAiCompatibility),
+    ] },
+    { ...source, components: [
+      activationSnapshot(localAiCompatibility),
+      activationSnapshot(intelligenceCompatibility, 3, "current", {
+        trustSHA256: "b".repeat(64),
+        verifiedSlot: inspection(intelligenceCompatibility, { fingerprint: "b".repeat(64) }),
+      }),
+    ] },
+    { ...source, unexpected: true },
+  ]) {
+    assert.throws(() => validateActiveSlotCompatibilityCatalog(bad));
+  }
 });
