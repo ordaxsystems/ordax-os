@@ -1075,3 +1075,43 @@ Local screenshot: ordax-accessibility-mobile-20261012.jpg. Initial JavaScript
 539.52 kB (170.34 gzip), CSS 81.04 kB; the >500 kB warning is not suppressed.
 Authenticated gateway, account sync, inference/device and release gates remain
 separate. Existing provenance evidence records source adaptations and local proof.
+
+
+### Lazy compact actions — 2026-10-12
+
+Owner: OS Surface. Requested Web continuation, bounded performance/reliability
+work on the shared window presentation rather than individual-app polishing.
+Existing React lazy/Suspense, shared DropdownMenu and desktopReducer are reused;
+no dependency, service, app identity, contract, grant or storage is introduced.
+CompactActions is extracted once from WindowLayer and consumes its existing
+control descriptors, open-menu ID and dispatch. It owns no window state.
+A stable lazy type prevents app-body remounts and avoids an eager dropdown import.
+
+Risk: loading or failure must not strand a narrow compact window without
+controls. Suspense and a boundary scoped to that menu retain an explicit Expand
+button; Close always remains outside the optional resource. Expanding returns
+the same app to its previous noncompact mode and reveals existing controls.
+Resource rejection remains cached by the browser; no automatic retry/reload or
+claim that changing window mode re-downloads a failed module. App draft/content
+and the single window manager remain mounted throughout.
+
+Acceptance and observed proof: production fixture requested no compact-actions
+asset on startup, then one HTTP 200 on first compact mode. Two equal mobile panes
+retained the same menu, Escape returned focus after closing, minimizing/restoring
+retained the unsent draft. A separate origin returned HTTP 503 for that one asset:
+two apps remained usable, Expand restored the same Aura to maximized, and its
+unsent draft survived minimize/restore. Only one failed asset request occurred.
+No backend commands were sent. Fixture was loopback-only, served the generated
+bundle and was stopped after checking its process identity. Both temporary tabs
+closed; original Central/dark theme/default viewport restored with no windows
+or returned warning/error logs on the user origin. Screenshot:
+ordax-compact-lazy-mobile-20261012.jpg, an external local visualization artifact.
+
+19 existing Node workspace regressions, seven Python builder checks,
+TypeScript/build and the 34-file provenance/window verifier passed. Before:
+539.52 kB initial JavaScript (170.34 gzip). After: 482.31 kB (151.17 gzip), a 10.60%
+initial-size reduction; CSS remained index-yPkoIz1_.css, 81.04 kB. Compact actions
+are 58.48 kB (19.27 gzip) on demand. No chunk threshold override; the >500 kB
+warning no longer appeared. Total code size and loading time were not claimed
+to improve by that percentage. Authenticated gateway/catalog, device/inference,
+signed delivery and production activation remain independent gates.

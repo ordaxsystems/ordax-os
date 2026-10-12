@@ -414,6 +414,86 @@
       },
       "react_review": "Stable canonical snapshot subscription; primitive effect dependencies; DOM writes confined to layout effect and reversible cleanup; native labels/selects; no new component-local preference state",
       "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "lazy_compact_actions": {
+      "date": "2026-10-12",
+      "source_base_commit": "b1c8353baa63238ff7a1632a2e51d3302c3dbc0d",
+      "owner": "OS Surface / WindowLayer and shared DropdownMenu",
+      "scope": "One extracted menu presentation; existing app nodes, state, dispatch, services and palette retained",
+      "node_tests": {
+        "command": "node --test tests/test_surface_workspace.mjs",
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_before_kb": 539.52,
+        "initial_after_kb": 482.31,
+        "initial_reduction_percent": 10.6,
+        "gzip_before_kb": 170.34,
+        "gzip_after_kb": 151.17,
+        "compact_javascript_kb": 58.48,
+        "compact_gzip_kb": 19.27,
+        "css_identical": "index-yPkoIz1_.css",
+        "css_kb": 81.04,
+        "warning": "No >500 kB chunk warning reported; threshold unchanged; not a loading-time benchmark."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "result": "passed-observed-local-flows",
+        "viewport": {
+          "width": 390,
+          "height": 600
+        },
+        "checks": [
+          "Two compact apps retained existing actions",
+          "Escape returned focus to menu trigger",
+          "Menu minimization/dock restore retained unsent local draft",
+          "User document remained 390 x 600 without page overflow"
+        ],
+        "production_resource_proof": {
+          "fixture": "Two loopback origins serving generated production bundle; failure origin returns HTTP 503 only for compact-actions asset",
+          "initial_compact_requests": 0,
+          "healthy_compact_requests": [
+            {
+              "path": "/assets/compact-actions-BEW4bw1G.js",
+              "status": 200
+            }
+          ],
+          "failed_compact_requests": [
+            {
+              "path": "/assets/compact-actions-BEW4bw1G.js",
+              "status": 503
+            }
+          ],
+          "result": "Menu failure isolated; expand restored same Aura maximized; draft survived minimize/dock restore; Settings stayed visible",
+          "automatic_retry": false,
+          "cleanup": "Both temporary tabs closed; fixture process identity verified and stopped"
+        },
+        "user_origin_cleanup": "Temporary Aura/Settings closed; original dark Central and default viewport restored; user tabs kept; error/warning logs empty",
+        "screenshot": {
+          "filename": "ordax-compact-lazy-mobile-20261012.jpg",
+          "sha256": "4c32096857f5caf6b5d32d6fa420422af37d0bc4a6930be0f198f975ca7760dc",
+          "width": 390,
+          "height": 600,
+          "scope": "Local visualization artifact outside repository; not published CI evidence"
+        }
+      },
+      "react_review": "Stable lazy component declared outside render; menu only is suspended/caught; WindowContent remains sibling and mounted; original controlled menu state and descriptors reused; no subscription/service changes",
+      "limits": [
+        "No real backend commands submitted",
+        "No authenticated gateway, account sync, device/inference, signed install or production activation proof"
+      ],
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
     }
   },
   "files": [
@@ -456,8 +536,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "3aee19c3dbedcf9295e69a1196be25f3536f9c9e868c5e44bd397ef29b3102a2",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Compact panels now use one accessible overflow action menu regardless of viewport width/height, preserving the direct Close control; signed-off change tested by the Chromium UI proof (#1703)."
+      "adaptedSha256": "9f139826b4c897cb236f5dfc2147f47fe5baec303971655c25e9c208947e8d6c",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -539,8 +619,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "d2cd7c1ca7f604188a705a58107be6259c511d8ece50ee6db249a88ca548cfa5",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved."
+      "adaptedSha256": "62595b21e9558504527e3d4281567c8ddb2a71d73f3258fcd49d950fc3c04d11",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted."
     },
     {
       "target": "system/composition/web/account-session.mjs",
@@ -641,6 +721,11 @@
       "owner": "OrdaX OS Surface",
       "purpose": "Typed diagnostic distinguishes a failed UI resource from rendering errors without guessing browser error messages",
       "sha256": "1cb90b6989ace2a8b4c54ce079759831e61d861ade3143236637b3a6929bf3f3"
+    },
+    {
+      "target": "system/surface/workspace/components/central/compact-actions.tsx",
+      "sha256": "2f681892823122a3f210c0d84a0edab5f47394bad687c8040cda956218785221",
+      "purpose": "Canonical lazy compact-menu presentation; consumes existing shared DropdownMenu and WindowLayer controls, without local window state or authority."
     }
   ]
 }

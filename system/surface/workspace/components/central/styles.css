@@ -792,12 +792,11 @@
 .workspace-window[data-mode="compact"] .desktop-window-controls button { width: 28px; min-width: 28px; height: 28px; padding: 0; border-radius: 5px; }
 .workspace-window[data-mode="compact"] .desktop-window-controls svg { width: 14px; height: 14px; }
 .workspace-window[data-mode="compact"] .window-close { margin-left: 2px; }
-/* Compact panes have little vertical room irrespective of viewport width.
-   Present one reliably hit-testable action menu, keeping Close directly
-   accessible. No overlapping duplicate controls and no height-specific hack. */
-.workspace-window[data-mode="compact"] .window-secondary-actions { display: none; }
-.workspace-window[data-mode="compact"] .compact-actions-overflow { display: flex; }
-.workspace-window[data-mode="compact"] .desktop-window-controls { gap: 8px; }
+@container (max-width: 260px) {
+  .workspace-window[data-mode="compact"] .window-secondary-actions { display: none; }
+  .workspace-window[data-mode="compact"] .compact-actions-overflow { display: flex; }
+  .workspace-window[data-mode="compact"] .desktop-window-controls { gap: 8px; }
+}
 .workspace-window .desktop-window-body { container-type: inline-size; }
 @container (max-width: 280px) {
   .desktop-window-body .favorite-grid, .desktop-window-body .device-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }

@@ -1,13 +1,25 @@
-import { useEffect, useRef, useState, type Dispatch } from 'react';
-import { ChevronDown, ChevronUp, Copy, Minus, MoreHorizontal, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
+import { Component, lazy, Suspense, useEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Copy, Minus, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { PresentationProps } from './desktop';
 import { WindowContent } from './window-content';
 import type { DesktopAction, DesktopState } from './desktop-state';
 import { WindowAppIcon } from './primitives';
 
-type WindowControl = { label: string; title: string; icon: LucideIcon; action: DesktopAction; expanded?: boolean };
+export type WindowControl = { label: string; title: string; icon: LucideIcon; action: DesktopAction; expanded?: boolean };
+
+// Stable module identity. No dropdown code is loaded before the first compact app.
+const CompactActions = lazy(() => import('./compact-actions').then(module => ({ default: module.CompactActions })));
+
+class CompactActionsBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? this.props.fallback : this.props.children; }
+}
+
+function ExpandCompactAction({ title, dispatch, failed = false }: { title: string; dispatch: Dispatch<DesktopAction>; failed?: boolean }) {
+  return <><Button variant="ghost" size="icon" aria-label={'Expandir janela ' + title} title={failed ? 'Ações indisponíveis. Expandir janela' : 'Carregando ações. Expandir janela'} onClick={() => dispatch({ type: 'restore', title })}><Copy/></Button>{failed && <span className="sr-only" role="status">Não foi possível carregar as ações. Expanda a janela para usar seus controles.</span>}</>;
+}
 
 type Props = PresentationProps & { state: DesktopState; dispatch: Dispatch<DesktopAction> };
 
@@ -53,7 +65,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
           <span className="desktop-window-title"><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span></span>
           <div className="desktop-window-controls">
             <div className="window-secondary-actions">{controls.map(control => <Button key={control.label} variant="ghost" size="icon" aria-label={control.label} aria-expanded={control.expanded} title={control.title} onClick={() => dispatch(control.action)}><control.icon/></Button>)}</div>
-            {window.mode === 'compact' && <div className="compact-actions-overflow"><DropdownMenu modal={false} open={openCompactMenuId === window.title} onOpenChange={open => setOpenCompactMenuId(open ? window.title : null)}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + window.title} title="Mais ações" onClick={() => setOpenCompactMenuId(window.title)}><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={6} className="compact-actions-menu">{controls.map(control => <DropdownMenuItem key={control.label} onClick={() => { setOpenCompactMenuId(null); dispatch(control.action); }}><control.icon/>{control.title}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>}
+            {window.mode === 'compact' && <div className="compact-actions-overflow"><CompactActionsBoundary fallback={<ExpandCompactAction title={window.title} dispatch={dispatch} failed/>}><Suspense fallback={<ExpandCompactAction title={window.title} dispatch={dispatch}/>}><CompactActions title={window.title} controls={controls} open={openCompactMenuId === window.title} onOpenChange={open => setOpenCompactMenuId(open ? window.title : null)} onAction={action => { setOpenCompactMenuId(null); dispatch(action); }}/></Suspense></CompactActionsBoundary></div>}
             <Button variant="ghost" size="icon" className="window-close" aria-label={`Fechar ${window.title}`} title="Fechar" onClick={() => dispatch({ type: 'close', title: window.title })}><X/></Button>
           </div>
         </header>
