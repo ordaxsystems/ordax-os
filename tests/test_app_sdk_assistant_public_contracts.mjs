@@ -61,7 +61,7 @@ test("Assistant and Personal OrdaX schemas are published only as versioned App S
     assert.match(entry.source_path, /^system\/contracts\//);
     const sourcePath = fileURLToPath(new URL("../" + entry.source_path, import.meta.url));
     const source = readFileSync(sourcePath);
-    const gitBlob = createHash("sha1").update("blob " + source.length + "\\0").update(source).digest("hex");
+    const gitBlob = createHash("sha1").update("blob " + source.length + "\0").update(source).digest("hex");
     assert.equal(entry.source_git_blob, gitBlob, expected.name + " must pin the exact owner blob");
   }
 });
@@ -77,6 +77,6 @@ test("portable Assistant SDK closure is public and exposes no native execution a
   ];
   for (const file of closure) assert.ok(byPath.has("system/contracts/" + file), file);
   const store = readFileSync(new URL("../system/contracts/personal-ordax-store.mjs", import.meta.url), "utf8");
-  assert.match(store, /from "\\.\/personal-ordax\\.mjs"/);
+  assert.match(store, /from "\.\/personal-ordax\.mjs"/);
   assert.equal(bundle.authority, "none");
 });
