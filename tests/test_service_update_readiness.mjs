@@ -1,0 +1,123 @@
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+
+import { listSystemComponents } from "../system/apps/component-catalog.mjs";
+import { deriveNativeServiceUpdateInventory } from "../system/services/components/service-update-inventory.mjs";
+import {
+  SERVICE_UPDATE_READINESS_SCHEMA,
+  deriveNativeServiceUpdateReadiness,
+} from "../system/services/components/service-update-readiness.mjs";
+
+const packagePolicy = JSON.parse(readFileSync(
+  new URL("../docs/contracts/runtime-component-package.json", import.meta.url), "utf8",
+));
+
+function inventory(manifests = listSystemComponents()) {
+  return deriveNativeServiceUpdateInventory({
+    manifests,
+    servicePaths: readdirSync(new URL("../system/services/", import.meta.url),
+      { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => "system/services/" + entry.name),
+  });
+}
+
+test("all canonical services are assessed without an update authority", () => {
+  const inv = inventory();
+  const result = deriveNativeServiceUpdateReadiness({ inventory: inv, packagePolicy });
+  assert.equal(result.schema, SERVICE_UPDATE_READINESS_SCHEMA);
+  assert.equal(result.authority, "none");
+  assert.deepEqual(
+    result.components.map((c) => c.id).sort(),
+    inv.components.map((c) => c.id).sort(),
+  );
+  assert.deepEqual(
+    result.domains.map((d) => d.path).sort(),
+    inv.domains.map((d) => d.path).sort(),
+  );
+  assert.equal(result.summary.productionUpdateProven, 0);
+  assert.ok(result.components.every((c) => c.productionUpdateProven === false));
+  assert.ok(result.domains.every((d) => d.productionUpdateProven === false));
+  assert.equal(result.summary.packagingCandidates, packagePolicy.supported_components.length);
+});
+
+test("current Local AI and Intelligence packaging does not mean live individual update", () => {
+  const result = deriveNativeServiceUpdateReadiness({ inventory: inventory(), packagePolicy });
+  for (const id of ["local-ai-service", "ordax-intelligence"]) {
+    const c = result.components.find((entry) => entry.id === id);
+    assert.equal(c.releaseMode, "bundled");
+    assert.equal(c.packagingCandidate, true);
+    assert.equal(c.policyAssessment, "blocked");
+    assert.ok(c.blockers.includes("not-component-slot"));
+    assert.ok(c.blockers.includes("packaging-proof-only"));
+  }
+  const spaces = result.domains.find((entry) => entry.path === "system/services/spaces");
+  assert.equal(spaces.policyAssessment, "embedded-no-component");
+});
+
+test("a slot declaration without trust, health and rollback remains blocked", () => {
+  const manifests = listSystemComponents().map((entry) => entry.id === "local-ai-service"
+    ? { ...entry, releaseMode: "component-slot" } : entry);
+  const candidatePolicy = { ...packagePolicy, local_ai_service_release_mode: "component-slot" };
+  const result = deriveNativeServiceUpdateReadiness({
+    inventory: inventory(manifests), packagePolicy: candidatePolicy,
+  });
+  const local = result.components.find((entry) => entry.id === "local-ai-service");
+  assert.equal(local.policyAssessment, "blocked");
+  assert.ok(local.blockers.includes("release-gate-closed:canonical_component_trust_anchor_pinned"));
+  assert.ok(local.blockers.includes("release-gate-closed:rollback_slot_activation_available"));
+  assert.equal(local.productionUpdateProven, false);
+});
+
+test("even all declared policy gates do not provide real production proof", () => {
+  const manifests = listSystemComponents().map((entry) => entry.id === "local-ai-service"
+    ? { ...entry, releaseMode: "component-slot" } : entry);
+  const candidatePolicy = {
+    ...packagePolicy,
+    local_ai_service_release_mode: "component-slot",
+    packaging_only_components: ["ordax-intelligence"],
+    canonical_component_trust_anchor_pinned: true,
+    slot_activation_available: true,
+    native_slot_serving_available: true,
+    pending_health_promotion_available: true,
+    rollback_slot_activation_available: true,
+    publish_allowed: true,
+  };
+  const result = deriveNativeServiceUpdateReadiness({
+    inventory: inventory(manifests), packagePolicy: candidatePolicy,
+  });
+  const local = result.components.find((entry) => entry.id === "local-ai-service");
+  assert.equal(local.policyAssessment, "proof-required");
+  assert.deepEqual(local.blockers, []);
+  assert.equal(local.productionUpdateProven, false);
+});
+
+test("stale, missing or contradictory source policy fails closed", () => {
+  const inv = inventory();
+  for (const policy of [
+    { ...packagePolicy, supported_components: ["nonexistent"] },
+    { ...packagePolicy, supported_components: ["internet", "internet"] },
+    { ...packagePolicy, packaging_only_components: ["nonexistent"] },
+    { ...packagePolicy, slot_activation_available: undefined },
+    { ...packagePolicy, local_ai_service_release_mode: "component-slot" },
+    { ...packagePolicy, $schema: "unknown" },
+  ]) {
+    assert.throws(() => deriveNativeServiceUpdateReadiness({
+      inventory: inv, packagePolicy: policy,
+    }));
+  }
+});
+
+test("machine-readable CLI output contains every component and domain", () => {
+  const run = spawnSync(process.execPath, [
+    fileURLToPath(new URL("../tools/service-update-inventory.mjs", import.meta.url)),
+  ], { encoding: "utf8", timeout: 20000 });
+  assert.equal(run.status, 0, run.stderr);
+  const report = JSON.parse(run.stdout);
+  assert.equal(report.inventory.summary.domainCount, report.readiness.summary.serviceDomainCount);
+  assert.equal(report.inventory.summary.componentCount, report.readiness.summary.componentCount);
+  assert.equal(report.readiness.summary.productionUpdateProven, 0);
+});
