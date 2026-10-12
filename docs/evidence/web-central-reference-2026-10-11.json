@@ -732,8 +732,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "8c841a269c043a31f33a40d327de85c9203831261fc170ab4a0cbb9c35540174",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "6bed57fe44201214a1baf06cb9402489574bd37a620346ff15c79536b9c83637",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. Compact window controls use one reachable menu independently of viewport, with Close separate, avoiding hidden duplicate action paths."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -921,7 +921,9 @@
     {
       "target": "system/surface/workspace/components/central/compact-actions.tsx",
       "sha256": "2f681892823122a3f210c0d84a0edab5f47394bad687c8040cda956218785221",
-      "purpose": "Canonical lazy compact-menu presentation; consumes existing shared DropdownMenu and WindowLayer controls, without local window state or authority."
+      "purpose": "Canonical lazy compact-menu presentation; consumes existing shared DropdownMenu and WindowLayer controls, without local window state or authority.",
+      "adaptedSha256": "34fb93fe986735ae10cdb4114183bf769ef64fc908f9722d4500b299e4a9ca00",
+      "adaptation": "The Radix DropdownMenuTrigger alone controls opening/closing; no duplicate onClick forcing open. Existing shared WindowLayer onOpenChange and action dispatch remain authoritative."
     },
     {
       "target": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
