@@ -66,6 +66,22 @@ func addActivationV2CandidateWithState(
 	sourceCommit string,
 	state *compatibilityState,
 ) activationV2Candidate {
+	return addActivationV2CandidateWithContracts(
+		t, fixture, version, sourceCommit, state,
+		[]providedCompatibilityContract{{ID: "ordax.internet", Major: 1}},
+	)
+}
+
+// Contract alterations in these fixtures must be separately signed, not
+// injected into already verified JSON or the activation state.
+func addActivationV2CandidateWithContracts(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+) activationV2Candidate {
 	t.Helper()
 
 	runtimePath := "system/apps/internet/runtime.mjs"
@@ -142,13 +158,17 @@ func addActivationV2CandidateWithState(
 			"readableThrough": state.ReadableThrough,
 		}
 	}
+	signedProvided := make([]any, 0, len(provided))
+	for _, contract := range provided {
+		signedProvided = append(signedProvided, map[string]any{
+			"id": contract.ID, "major": contract.Major,
+		})
+	}
 	compatibility := map[string]any{
 		"schema":           compatibilitySchemaV1,
 		"componentId":      "internet",
 		"componentVersion": version,
-		"provides": []any{
-			map[string]any{"id": "ordax.internet", "major": 1},
-		},
+		"provides":         signedProvided,
 		"requires":  []any{},
 		"state":     signedState,
 		"authority": "none",
