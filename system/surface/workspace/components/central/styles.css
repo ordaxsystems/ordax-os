@@ -32,7 +32,7 @@
   --radius-lg: 8px;
 }
 :root {
-  --sidebar-width: 216px;
+  --sidebar-width: var(--ordax-sidebar-expanded-width);
   --layout-gap: 16px;
   --panel-radius: 8px;
 }
@@ -181,11 +181,10 @@
 
 /* Classic desktop — shares the original theme and application tokens. */
 :root {
-  --taskbar-height: 40px;
-  --dock-control-height: 32px;
+  --taskbar-height: var(--ordax-navigation-height);
+  --dock-control-height: var(--ordax-navigation-control-height);
   --desktop-top-height: 68px;
 }
-
 
 .classic-desktop { position: relative; height: 100svh; min-height: 440px; overflow: hidden; isolation: isolate; }
 .desktop-wallpaper { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
@@ -272,10 +271,10 @@
 .window-workspace {
   --sidebar-expanded: 1;
   --desktop-top-height: 0px;
-  --sidebar-top-gap: 16px;
-  --sidebar-row-gap: 12px;
+  --sidebar-top-gap: var(--ordax-sidebar-padding-top);
+  --sidebar-row-gap: var(--ordax-sidebar-row-gap);
   --sidebar-home-height: 44px;
-  --sidebar-logo-height: 36px;
+  --sidebar-logo-height: var(--ordax-sidebar-logo-height);
   --workspace-rail: var(--sidebar-width);
   --compact-track: 0px;
   --running-track: calc(var(--taskbar-height) + env(safe-area-inset-bottom));
@@ -354,7 +353,7 @@
 }
 
 /* One bottom navigation track in both presentations; launcher and toggle never move. */
-.window-workspace .workspace-navigation { grid-row: 3; position: relative; inset: auto; height: 100%; padding-bottom: env(safe-area-inset-bottom); z-index: 50; }
+.window-workspace .workspace-navigation { grid-row: 3; position: relative; inset: auto; height: 100%; padding-bottom: env(safe-area-inset-bottom); z-index: 50; border: 0; background: var(--card); backdrop-filter: none; box-shadow: none; }
 .workspace-navigation .desktop-start-button { flex-shrink: 0; }
 .workspace-navigation .desktop-task { min-width: 44px; height: var(--dock-control-height); }
 .workspace-navigation .workspace-view-toggle { width: 44px; height: var(--dock-control-height); flex-shrink: 0; }
@@ -372,9 +371,11 @@
 .workspace-sidebar .os-nav-item { min-height: 44px; height: 44px; flex-shrink: 0; }
 .workspace-navigation .desktop-running-apps { flex: 1; }
 @media (max-width: 760px) {
-  .window-workspace { --workspace-rail: 64px; --sidebar-expanded: 0; }
+  .window-workspace { --workspace-rail: var(--ordax-sidebar-collapsed-width); --sidebar-expanded: 0; }
   .window-workspace { --sidebar-row-gap: 8px; } .window-workspace .workspace-sidebar { padding-inline: 10px; }
-  .workspace-sidebar .brand { justify-content: center; }
+  .window-workspace:not([data-sidebar="expanded"]) .workspace-sidebar .brand { justify-content: center; gap: 0; width: 100%; }
+  .window-workspace:not([data-sidebar="expanded"]) .workspace-sidebar .brand > div { display: none; }
+  .window-workspace:not([data-sidebar="expanded"]) .sidebar-header { align-items: center; justify-content: center; }
   .workspace-sidebar .brand-name, .workspace-sidebar .brand-sub, .workspace-sidebar .os-nav-item > span { display: none; }
   .workspace-sidebar .os-nav-item { justify-content: center; width: 100%; padding: 0; }
   .window-workspace .desktop-topbar { padding-inline: 8px; }
@@ -387,33 +388,6 @@
 
 @media (max-width: 760px) { .window-workspace .mobile-header .brand-name { font-size: 0.75rem; } .window-workspace .mobile-header .brand-sub { font-size: 0.4375rem; } }
 
-/* Sidebar account card uses the shared presentation fixture, never real quota claims. */
-.sidebar-account { flex-shrink: 0; margin: 0; padding: 12px; }
-.account-open { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; min-height: 44px; padding: 0; text-align: left; }
-.account-open .avatar { width: 38px; height: 38px; border: 3px solid var(--card); flex-shrink: 0; }
-.account-identity { flex: 1; min-width: 0; display: grid; font-size: 0.75rem; line-height: 1.4; }
-.account-identity > span { color: var(--muted-foreground); font-weight: 400; }
-.account-identity strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.account-chevron { width: 16px; height: 16px; flex-shrink: 0; }
-.sidebar-account .storage-track { margin: 14px 0 8px; height: 5px; }
-.account-storage-footer { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 0.625rem; }
-.account-actions > button { width: 28px; height: 28px; flex-shrink: 0; color: var(--muted-foreground); }
-.account-storage-footer svg { width: 16px; height: 16px; }
-@media (max-width: 760px) {
-  .window-workspace .workspace-sidebar { padding-inline: 8px; }
-  .sidebar-account { padding: 4px; }
-  .sidebar-account .account-identity, .sidebar-account .account-chevron, .sidebar-account .account-storage-total { display: none; }
-  .sidebar-account .account-open { justify-content: center; gap: 0; }
-  .sidebar-account .avatar { width: 32px; height: 32px; }
-  .sidebar-account .storage-track { margin-block: 8px 4px; }
-  .sidebar-account .account-storage-footer { flex-direction: column; gap: 0; font-size: 0.5625rem; }
-}
-@media (max-height: 420px) {
-  .sidebar-account .account-identity, .sidebar-account .account-chevron, .sidebar-account .storage-track, .sidebar-account .account-storage-footer > span { display: none; }
-  .sidebar-account { padding: 4px; }
-  .sidebar-account .account-open { justify-content: center; }
-}
-
 .sidebar-home-row { display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; gap: 4px; flex-shrink: 0; }
 .sidebar-home-row > button { min-width: 0; height: var(--sidebar-home-height); }
 .sidebar-home-row .sidebar-notifications { width: 44px; }
@@ -421,7 +395,7 @@
   .sidebar-home-row { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; }
   .sidebar-home-row > button, .sidebar-home-row .sidebar-notifications { width: 24px; min-width: 24px; padding: 0; justify-content: center; }
 }
-@media (max-height: 240px) { .workspace-sidebar .sidebar-account { display: none; } }
+@media (max-height: 240px) { }
 
 /* Central fits its actual workspace container, including compact split mode. */
 .central-presentation { container: central-viewport / size; }
@@ -551,52 +525,32 @@
   .quick-item .app-icon { display: none; }
 }
 
-
 /* One presentation state controls rail geometry; responsive auto remains the default. */
-.window-workspace[data-sidebar="collapsed"] { --workspace-rail: 64px; --sidebar-expanded: 0; }
+.window-workspace[data-sidebar="collapsed"] { --workspace-rail: var(--ordax-sidebar-collapsed-width); --sidebar-expanded: 0; }
 .window-workspace[data-sidebar="expanded"] { --workspace-rail: var(--sidebar-width); --sidebar-expanded: 1; }
 .sidebar-header { height: var(--sidebar-logo-height); min-height: var(--sidebar-logo-height); display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
 .sidebar-collapse { position: absolute; left: calc(var(--sidebar-visual-width,var(--workspace-rail)) - 12px); top: calc(var(--sidebar-top-gap) + var(--sidebar-logo-height) + var(--sidebar-row-gap) + var(--sidebar-home-height) / 2); transform: translateY(-50%); width: 24px; height: 32px; padding: 0; border-radius: 6px; border: 1px solid color-mix(in oklch, var(--foreground) 28%, var(--border)); background: var(--sidebar-surface); color: var(--foreground); box-shadow: 0 2px 8px oklch(0 0 0 / 14%); z-index: 53; }
 .sidebar-collapse:hover, .sidebar-collapse:focus-visible { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary-foreground); }
 .sidebar-collapse svg { width: 16px; height: 16px; stroke-width: 2.25; }
 .sidebar-home-row { grid-template-columns: minmax(0,1fr); }
-.account-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.account-actions > button { width: 28px; height: 28px; padding: 0; color: var(--muted-foreground); }
-.window-workspace[data-sidebar="collapsed"] .sidebar-header { flex-direction: column; }
+.window-workspace[data-sidebar="collapsed"] .sidebar-header { flex-direction: column; align-items: center; justify-content: center; }
+.window-workspace[data-sidebar="collapsed"] .sidebar-header .brand { justify-content: center; gap: 0; width: 100%; }
+.window-workspace[data-sidebar="collapsed"] .sidebar-header .brand > div { display: none; }
 .window-workspace[data-sidebar="collapsed"] { --sidebar-row-gap: 8px; } .window-workspace[data-sidebar="collapsed"] .workspace-sidebar { padding-inline: 8px; }
 .window-workspace[data-sidebar="collapsed"] .workspace-sidebar .brand-name,
 .window-workspace[data-sidebar="collapsed"] .workspace-sidebar .brand-sub,
-.window-workspace[data-sidebar="collapsed"] .os-nav-item > span,
-.window-workspace[data-sidebar="collapsed"] .account-identity,
-.window-workspace[data-sidebar="collapsed"] .account-chevron,
-.window-workspace[data-sidebar="collapsed"] .account-storage-total { display: none; }
+.window-workspace[data-sidebar="collapsed"] .os-nav-item > span { display: none; }
 .window-workspace[data-sidebar="collapsed"] .os-nav-item { justify-content: center; padding: 0; }
-.window-workspace[data-sidebar="collapsed"] .sidebar-account { padding: 0; border: 0; background: transparent; }
-.window-workspace[data-sidebar="collapsed"] .account-open { justify-content: center; gap: 0; }
-.window-workspace[data-sidebar="collapsed"] .account-storage-footer { flex-direction: column; }
-.window-workspace[data-sidebar="collapsed"] .account-actions { gap: 0; }
-.window-workspace[data-sidebar="collapsed"] .account-actions > button { width: 24px; height: 28px; }
 @media (max-width: 760px) {
   .sidebar-header { flex-direction: column; }
   .sidebar-home-row { grid-template-columns: minmax(0,1fr); }
   .sidebar-home-row > button { width: 100%; }
-  .sidebar-account { padding: 0; border: 0; background: transparent; }
-  .account-actions { gap: 0; }
-  .account-actions > button { width: 24px; height: 28px; }
-  .window-workspace[data-sidebar="expanded"] { --workspace-rail: 64px; --sidebar-visual-width: var(--sidebar-width); }
+  .window-workspace[data-sidebar="expanded"] { --workspace-rail: var(--ordax-sidebar-collapsed-width); --sidebar-visual-width: var(--sidebar-width); }
   .window-workspace[data-sidebar="expanded"] .sidebar-header { flex-direction: row; }
   .window-workspace[data-sidebar="expanded"] .workspace-sidebar .brand-name,
   .window-workspace[data-sidebar="expanded"] .workspace-sidebar .brand-sub { display: block; }
-  .window-workspace[data-sidebar="expanded"] .os-nav-item > span,
-  .window-workspace[data-sidebar="expanded"] .account-storage-total { display: inline; }
-  .window-workspace[data-sidebar="expanded"] .account-identity { display: grid; }
-  .window-workspace[data-sidebar="expanded"] .account-chevron { display: block; }
+  .window-workspace[data-sidebar="expanded"] .os-nav-item > span { display: inline; }
   .window-workspace[data-sidebar="expanded"] .os-nav-item { justify-content: flex-start; padding-inline: 12px; }
-  .window-workspace[data-sidebar="expanded"] .sidebar-account { padding: 12px; border: 1px solid var(--border); background: var(--secondary); }
-  .window-workspace[data-sidebar="expanded"] .account-open { justify-content: flex-start; gap: 10px; }
-  .window-workspace[data-sidebar="expanded"] .account-storage-footer { flex-direction: row; }
-  .window-workspace[data-sidebar="expanded"] .account-actions { gap: 4px; }
-  .window-workspace[data-sidebar="expanded"] .account-actions > button { width: 28px; }
 }
 
 .workspace-sidebar .sidebar-home-row > button { width: 100%; }
@@ -676,17 +630,7 @@
 @container central-viewport (max-width: 479px) and (min-height: 960px) {
   .central-content { grid-template-rows: 140px 48px minmax(0,1fr) 160px 28px; }
 }
-
-/* Storage stays readable on one line; compact rail shows usage with full tooltip. */
-.account-storage-value { white-space: nowrap; font-variant-numeric: tabular-nums; flex-shrink: 0; }
-.account-storage-compact { display: none; }
-.window-workspace[data-sidebar="collapsed"] .account-storage-summary { display: none; }
-.window-workspace[data-sidebar="collapsed"] .account-storage-compact { display: inline; }
 @media (max-width: 760px) {
-  .account-storage-summary { display: none; }
-  .account-storage-compact { display: inline; }
-  .window-workspace[data-sidebar="expanded"] .account-storage-summary { display: inline; }
-  .window-workspace[data-sidebar="expanded"] .account-storage-compact { display: none; }
 }
 
 /* Compact chrome stays on one row; narrow panes use the shared actions menu. */

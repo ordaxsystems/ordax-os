@@ -1,3 +1,5 @@
+import { mountNativeSidebarFit, sidebarIsExpanded } from "./sidebar-layout.mjs";
+import { mountSidebarHints } from "./sidebar-hints.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
@@ -434,6 +436,14 @@ export function mountSurface(
   root.innerHTML = createDesktopShellMarkup(localization);
 
   const desktopClock = mountDesktopClock(root, preferences, localization);
+  const sidebarHints = mountSidebarHints(root, root.querySelector(".ordax-rail"));
+  function syncSidebarToggle() {
+    const toggle = root.querySelector("[data-sidebar-toggle]");
+    const expanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.setAttribute("aria-label", localization.translate(expanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+  }
+  const sidebarFit = mountNativeSidebarFit(root.querySelector('[data-sidebar-slot="navigation"]'), syncSidebarToggle);
 
   const workspace = root.querySelector("[data-workspace]");
   const launcher = root.querySelector("[data-launcher]");
@@ -706,7 +716,7 @@ export function mountSurface(
     root.dataset.workspacePresentation = state.presentation;
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
-    const sidebarExpanded = state.sidebarMode !== "collapsed";
+    const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
     sidebarToggle.hidden = state.presentation === "desktop";
     sidebarToggle.setAttribute("aria-expanded", String(sidebarExpanded));
     sidebarToggle.setAttribute("aria-label", localization.translate(sidebarExpanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
@@ -722,7 +732,7 @@ export function mountSurface(
     documentElement.dataset.ordaxTextScale =
       state.preferences[ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID];
     launcher.hidden = !state.launcherOpen;
-    launcherToggle.setAttribute("aria-expanded", String(state.launcherOpen));
+    root.querySelectorAll("[data-launcher-toggle]").forEach(button => button.setAttribute("aria-expanded", String(state.launcherOpen)));
 
     const connectivityMessage =
       CONNECTIVITY_MESSAGE_IDS[state.connectivity] ?? CONNECTIVITY_MESSAGE_IDS.unknown;
@@ -841,7 +851,7 @@ export function mountSurface(
 
     const sidebarToggle = event.target.closest("[data-sidebar-toggle]");
     if (sidebarToggle) {
-      dispatch({ type: "workspace.sidebar", value: state.sidebarMode === "collapsed" ? "expanded" : "collapsed" });
+      dispatch({ type: "workspace.sidebar", value: sidebarIsExpanded(root.querySelector(".ordax-rail")) ? "collapsed" : "expanded" });
       return;
     }
     const presentationToggle = event.target.closest("[data-presentation-toggle]");
@@ -1084,6 +1094,8 @@ export function mountSurface(
     },
     destroy() {
       if (workspacePort) workspacePort.save(createWorkspaceSnapshot(state));
+      sidebarFit.destroy();
+      sidebarHints.destroy();
       desktopClock.destroy();
       localization.dispose();
       if (dragSession) {

@@ -1,5 +1,6 @@
+import { projectSidebarAccount, sidebarAccountMarkup } from "../../../ui/sidebar-account.mjs";
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Bell, ChevronRight, UserRound, type LucideIcon } from 'lucide-react';
+import { ChevronRight, UserRound, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getWindowIcon, unavailableServices, type IconTone } from './config';
 import { useWebAccount } from './account-context';
@@ -16,15 +17,13 @@ export function Panel({ title, action, actionControl, onAction, children, classN
 }
 
 export function AccountCard({ onOpen, onNotifications }: { onOpen: () => void; onNotifications: () => void }) {
-  const { displayName, identity, offline } = useWebAccount();
-  const label = offline ? 'Sem conexão' : identity.state === 'signed-in' ? 'Sessão verificada' : 'Conectar conta';
-  return <section className="account sidebar-account" aria-label={displayName}>
-    <Button variant="ghost" className="account-open" onClick={onOpen} aria-label="Abrir minha conta" title={displayName}>
-      <Avatar/><span className="account-identity"><strong title={displayName}>{displayName}</strong><span>{label}</span></span><ChevronRight className="account-chevron"/>
-    </Button>
-    <div className="storage-track storage-unavailable" aria-label={unavailableServices.storage}/>
-    <div className="account-storage-footer"><span className="account-storage-value" title={unavailableServices.storage}><span className="account-storage-summary">Uso indisponível</span><span className="account-storage-compact">—</span></span><div className="account-actions"><Button variant="ghost" size="icon" aria-label="Notificações" title="Notificações" onClick={onNotifications}><Bell/></Button></div></div>
-  </section>;
+  const { identity, offline } = useWebAccount();
+  const view = projectSidebarAccount(identity, offline);
+  return <div onClick={event => {
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-sidebar-account-open]')) onOpen();
+    else if (target.closest('[data-sidebar-notifications]')) onNotifications();
+  }} dangerouslySetInnerHTML={{ __html: sidebarAccountMarkup(view) }}/>;
 }
 
 // Commands delegate to the existing identity-actions port; no local authentication.

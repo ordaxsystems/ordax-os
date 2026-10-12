@@ -1301,3 +1301,34 @@ Central expansion/profile shortcut. Verified with 49 Node and 36 Python tests,
 TypeScript/build/reference verification and local Web/Native browser flows.
 Authenticated account, device execution, physical boot and signed release remain
 outside the local visual preview's evidence.
+
+## Shared sidebar geometry and immediate hints — 2026-10-12
+
+Owner: OS Surface, explicit user request for one Web/USB sidebar structure.
+sidebar-layout.mjs/css defines brand, home, navigation, account and auxiliary
+slots once. Tokens own 192/64px rail widths, 36px brand and 40px navigation.
+Native removes the top header and uses the sidebar brand as its existing launcher.
+Native and React retain their canonical window managers and capability-bound apps.
+
+sidebar-account.mjs shares escaped account markup and a validated Identity
+projection. Native subscribes to its existing session/host/localization ports;
+React consumes its existing context. Logout or lost capability removes stale
+public identity. Storage has an explicit unavailable state, with no invented plan
+or usage. Notifications move the original Native control into the common slot;
+Space switcher and power remain bound to their existing Native owners.
+
+Sidebar reaches the footer; app/nav tracks remain adjacent and never overlap.
+Navigation is opaque, borderless and uses app surface colors. Presentation toggle
+is on the right. Collapsed brand is centered; immediate hints are shared through
+sidebar-hints.mjs/css, with keyboard/Escape and complete cleanup. Navigation
+capacity measures button pitch and row gaps, preserving a launcher for overflow.
+Desktop stays collapsed; Central can expand. No new domain, grants or persistence.
+
+Risks: CSS inheritance, capability/session changes, focus, viewport and teardown.
+Acceptance: no duplicated header/profile owner, consistent slots/card/geometry,
+no horizontal page overflow, safe text, recovered shortcuts after resize, existing
+launcher and account destinations, preserved app/window state. 69 Node + 40 Python
+tests passed, with TypeScript/build/reference verification and local Web/Native
+browser flows. Pointer behavior is unit-tested; connected browser does not expose
+pointer movement. Local Native preview does not prove hardware execution, physical
+USB boot or signed release.

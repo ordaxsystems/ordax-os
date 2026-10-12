@@ -713,6 +713,32 @@
         "Native preview exposes no authenticated identity or hardware capabilities",
         "No physical USB boot, media rewrite or signed release"
       ]
+    },
+    "sidebar_navigation_refinement_2026_10_12": {
+      "owner": "OS Surface",
+      "base_commit": "c79e6d4",
+      "node_tests": 69,
+      "python_tests": 40,
+      "browser": [
+        "Native header removed; brand/launcher in sidebar",
+        "Sidebar reaches viewport bottom; nav only content column and 40px high",
+        "Narrow Native 480x844 viewport has 44px sidebar controls and no horizontal overflow",
+        "Existing launcher opens and all toggle aria states agree",
+        "Account shortcut opens canonical account with explicit preview host unavailability",
+        "Desktop stays collapsed; Web card consumes existing identity context"
+      ],
+      "pointer_validation": "four synchronous event/lifecycle tests; connected browser exposes no pointer movement",
+      "limits": [
+        "Visual Native preview only, no authenticated host capabilities",
+        "No physical USB rewrite/boot or signed release"
+      ],
+      "structure": "Single shared sidebar slots, account markup/Identity projection and geometry; Native header removed",
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 489.54,
+        "initial_gzip_kb": 153.59,
+        "css_kb": 102.12
+      }
     }
   },
   "files": [
@@ -734,14 +760,14 @@
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "b698afdb5add4b35244542126781b3b94f5a2f75423f504c00b82b306c86ed96",
+      "adaptedSha256": "7224aea796e80545360098973abb44e655b57777759d3f357dd4121583ea555d",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
     },
     {
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "a68a1e4d4702ae04059425ca61553d69ebf2d74234b1beb93713d0b3e982903f",
+      "adaptedSha256": "700bde6cea98d4304034a6724984115df7ea3076435a08acacab8780b8abbe84",
       "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
     },
     {
@@ -755,7 +781,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "76b485fae6b83580b4c80ac8107c215550f45102b2de1c73f5ee6004b835e787",
+      "adaptedSha256": "edb545a872236bda2a6ef543ef09548228b4f315bfd9863825211eaaa5f6e1a4",
       "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
     },
     {
@@ -852,7 +878,7 @@
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "2115708b47d1e7f246d09b9462c0d5a3068ae49503ec3783815417be36893c0a",
+      "adaptedSha256": "250216ac5958882b2cf6209057c73f97ad98fc6bb3d53e25043c7de6fec98e1c",
       "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
     },
     {
@@ -880,7 +906,7 @@
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
-      "adaptedSha256": "77c78453b260c76f4184c4ea1960ce4fd869f48a4fced28780dedde1ae912dcb",
+      "adaptedSha256": "fb4578dc5894a3199c766bb19cca5c700d75bf21e1558216e4f2a732f46ed291",
       "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
     },
     {

@@ -20,6 +20,8 @@ const CSS_FILES = [
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
   'system/surface/ui/identity.css',
+  'system/surface/ui/sidebar-hints.css',
+  'system/surface/ui/sidebar-layout.css',
   'system/surface/ui/brand/symbol.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
