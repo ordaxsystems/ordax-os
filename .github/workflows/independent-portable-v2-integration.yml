@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest tests.test_independent_base_experiment tests.test_independent_portable_boot_integration -v
-          python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/portable_boot_proof.py
+          python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/portable_boot_proof.py bootstrap/independent-base/signed_release_failure_qemu.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/stable-base/ordax-stable-init
           sh -n bootstrap/initramfs/portable_init.sh
