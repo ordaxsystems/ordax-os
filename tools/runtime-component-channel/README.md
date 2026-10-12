@@ -165,6 +165,31 @@ implementation, or certify that an application truly migrates data
 correctly: actual storage copy-on-write and end-to-end recovery are
 still required before public component-slot updates are enabled.
 
+### Coverage of the real active graph (read-only)
+
+The same Native runtime component channel exposes:
+
+```text
+ordax-runtime-component-channel inspect-active-compatibility-catalog-v2 \
+  --root <canonical-component-root> \
+  --trust <public-component-trust-file>
+```
+
+This command derives its result **only** from existing per-component
+`activation-state.json` files. Each current release/2 slot must pass
+signature and exact identity verification. Staged-only releases, cached
+signed versions and explicitly uninstalled apps are not counted as active.
+The reader checks the complete root and state records again before returning,
+and rejects unsafe entries, corrupt state or mismatched trust.
+
+The `ordax.active-slot-compatibility-catalog/1` report is always labeled
+`authority: none`, `scope: signed-independent-current-slots-only`
+and `completeForActivation: false`. It does **not** represent all
+bundled OS services, unsigned components or a transactionally frozen
+snapshot. It must therefore **never** be used alone to approve an
+upgrade or to bypass missing active-consumer compatibility information.
+The only authority for installed state remains the activation writer.
+
 **Remaining blocker:** `arm-pending` does not yet consume a verified
 compatibility verdict across all active consumers. A correct fail-closed
 integration must run before any activation-state mutation and invalidate
