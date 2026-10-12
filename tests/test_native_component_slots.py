@@ -121,7 +121,7 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIs(slots.HEALTH_MUTATION_COMPONENTS, NATIVE_HEALTH_MUTATION_COMPONENT_IDS)
         self.assertEqual(
             slots.SUPPORTED_COMPONENTS,
-            frozenset({"calculator", "internet", "notes", "studio"}),
+            frozenset({"calculator", "internet", "network", "notes", "projects", "studio"}),
         )
         self.assertEqual(slots.HEALTH_MUTATION_COMPONENTS, frozenset({"internet", "notes"}))
         self.assertTrue(slots.HEALTH_MUTATION_COMPONENTS < slots.SUPPORTED_COMPONENTS)

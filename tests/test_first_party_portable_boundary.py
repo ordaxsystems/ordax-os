@@ -23,7 +23,10 @@ class PortableSourceBoundaryTests(unittest.TestCase):
         )
         external_owners = policy["canonical_package_source_repository_by_component"]
         self.assertEqual(external_owners.get("projects"), "ordaxsystems/ordax-apps")
-        self.assertNotIn("projects", policy["native_loopback_broker_supported_components"])
+        self.assertIn("projects", policy["native_loopback_broker_supported_components"])
+        self.assertIn("network", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("projects", policy["native_loopback_broker_health_mutation_components"])
+        self.assertNotIn("network", policy["native_loopback_broker_health_mutation_components"])
         self.assertNotIn("projects", policy["runtime_health_bridge_supported_components"])
         pending = policy.get("prelaunch_remove_first_pending", {})
         self.assertIsInstance(pending, dict)
