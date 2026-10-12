@@ -25,6 +25,107 @@ func verifySignedNativeConsumerContinuityUnderGraphLock(
 	return checkSignedNativeConsumerContinuity(graph, componentID, replacement)
 }
 
+// Called only while the canonical graph lock is held by the Native
+// activation writer. Reuse the same authenticated current-slot graph used
+// for uninstall and rollback; there is no caller-controlled provider list.
+// This checks requirements of the *incoming* signed release, not just the
+// continuity of consumers of an outgoing provider.
+func verifySignedNativeCandidateGraphUnderLock(
+	root, componentID string,
+	descriptor componentCompatibilityDescriptor,
+	trustBytes []byte,
+	replacingCurrent bool,
+) error {
+	absolute, err := secureExistingDirectory(root)
+	if err != nil {
+		return err
+	}
+	graph, err := inspectActiveCompatibilityCatalogV2UnderGraphLock(absolute, trustBytes)
+	if err != nil {
+		return err
+	}
+	if replacingCurrent {
+		if err := checkSignedNativeConsumerContinuity(
+			graph, componentID, descriptor.Provides,
+		); err != nil {
+			return err
+		}
+	}
+	return checkSignedNativeCandidateRequirements(graph, componentID, descriptor.Requires)
+}
+
+// A required provider is acceptable only when another currently installed
+// release/2 slot actually signs a matching provided contract. A bundled
+// fallback and release/1 have no equivalent attestation: neither may be
+// silently counted as an available provider. Optional requires do not block.
+func checkSignedNativeCandidateRequirements(
+	graph activeCompatibilityCatalog,
+	componentID string,
+	requires []requiredCompatibilityContract,
+) error {
+	for _, required := range requires {
+		if required.Optional {
+			continue
+		}
+		available := false
+		for _, peer := range graph.Components {
+			if peer.ComponentID == componentID {
+				// An incoming candidate cannot satisfy its own external requires.
+				continue
+			}
+			if signedInterfaceSatisfiesRequirement(
+				peer.VerifiedSlot.Descriptor.Provides, required,
+			) {
+				available = true
+				break
+			}
+		}
+		if !available {
+			return fmt.Errorf(
+				"component %s requires unavailable signed native provider %s@%d-%d",
+				componentID, required.ID, required.MinMajor, required.MaxMajor,
+			)
+		}
+	}
+	return nil
+}
+
+// At first installation no current signed slot exists to compare. The
+// candidate still needs signed provider checks at BOTH arm and promotion;
+// otherwise a mandatory dependency can bypass every forward-upgrade gate.
+// release/1 is a separate development-only protocol, never public proof.
+func verifyFirstInstallNativeRequirementsUnderGraphLock(
+	root, componentID string,
+	candidate slotIdentity,
+	trustBytes []byte,
+) error {
+	slot, err := canonicalSlotPath(root, componentID, candidate)
+	if err != nil {
+		return err
+	}
+	schema, err := signedActivationSlotSchema(slot, trustBytes)
+	if err != nil {
+		return err
+	}
+	if schema == releaseSchema {
+		return nil
+	}
+	if schema != releaseSchemaV2 {
+		return errors.New("runtime component first-install signed schema is unsupported")
+	}
+	report, err := inspectVerifiedSlotCompatibilityV2(slot, trustBytes)
+	if err != nil {
+		return err
+	}
+	if report.ComponentID != componentID || report.Version != candidate.Version ||
+		report.SourceCommit != candidate.SourceCommit {
+		return errors.New("runtime component first-install signed compatibility identity changed")
+	}
+	return verifySignedNativeCandidateGraphUnderLock(
+		root, componentID, report.Descriptor, trustBytes, false,
+	)
+}
+
 // This decision examines ONLY already installed, signed release/2 current
 // slots. Bundled services and unaudited filesystem writers remain out of
 // scope: the result never authorizes public release or bypasses system trust.
