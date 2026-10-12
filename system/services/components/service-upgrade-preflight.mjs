@@ -297,3 +297,46 @@ export function preflightServiceUpgradeWithActivationSnapshots({
     migrationPlan,
   });
 }
+
+export const ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA =
+  "ordax.active-slot-compatibility-catalog/1";
+
+const ACTIVE_CATALOG_FIELDS = Object.freeze([
+  "schema", "authority", "scope", "completeForActivation",
+  "trustScope", "components",
+]);
+
+// Validates the existing Native projection WITHOUT upgrading it into a
+// trusted activation grant. The catalog deliberately excludes bundled
+// consumers, so its "completeForActivation" property MUST remain false.
+export function validateActiveSlotCompatibilityCatalog(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).sort().join(",") !== [...ACTIVE_CATALOG_FIELDS].sort().join(",")) {
+    throw new TypeError("Active slot compatibility catalog shape is invalid");
+  }
+  if (value.schema !== ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA
+    || value.authority !== "none"
+    || value.scope !== "signed-independent-current-slots-only"
+    || value.completeForActivation !== false
+    || value.trustScope !== "caller-supplied-public-anchor"
+    || !Array.isArray(value.components) || value.components.length > 128) {
+    throw new TypeError("Active slot compatibility catalog cannot grant full activation coverage");
+  }
+  const components = value.components.map(validateActivationCompatibilitySnapshot);
+  const ids = components.map((entry) => entry.componentId);
+  if (new Set(ids).size !== ids.length
+    || ids.some((id, index) => index > 0 && ids[index - 1] >= id)
+    || components.some((entry) => entry.target !== "current")
+    || (components.length > 0
+      && components.some((entry) => entry.trustSHA256 !== components[0].trustSHA256))) {
+    throw new TypeError("Active slot compatibility catalog contains inconsistent current snapshots");
+  }
+  return Object.freeze({
+    schema: ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA,
+    authority: "none",
+    scope: "signed-independent-current-slots-only",
+    completeForActivation: false,
+    trustScope: "caller-supplied-public-anchor",
+    components: Object.freeze(components),
+  });
+}
