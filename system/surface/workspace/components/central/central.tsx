@@ -1,10 +1,10 @@
 import { useEffect, useReducer, useState, type FormEvent } from 'react';
-import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, MoreHorizontal, Sparkles, WalletCards } from 'lucide-react';
+import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
-import { navigation, shortcuts, modes, favorites, projects, activities, devices } from './config';
+import { shortcuts, modes, favorites, projects, activities, devices } from './config';
 import { AppIcon, Avatar, Brand, Panel } from './primitives';
 import { Desktop, WorkspaceNavigation } from './desktop';
 import { desktopReducer, initialDesktopState } from './desktop-state';
@@ -32,7 +32,7 @@ export function Central() {
   function toggleTheme() { const next = theme === 'light' ? 'dark' : 'light'; setTheme(next); localStorage.setItem('ordax-theme', next); }
   function changeView(next: 'central' | 'desktop') { setView(next); localStorage.setItem('ordax-view', next); setDialog(null); }
   function openPanel(title: string) {
-    if (['Mais', 'Adicionar aplicativo', 'Adicionar dispositivo', 'Entrada por voz', 'Espaço Pessoal'].includes(title)) setDialog(title);
+    if (['Adicionar aplicativo', 'Adicionar dispositivo', 'Entrada por voz', 'Espaço Pessoal'].includes(title)) setDialog(title);
     else { setDialog(null); dispatch({ type: 'open', title }); }
   }
   function submitPrompt(event: FormEvent) { event.preventDefault(); if (prompt.trim()) { setDialog(null); dispatch({ type: 'open', title: 'Aura', prompt: prompt.trim() }); } }
@@ -66,12 +66,12 @@ export function Central() {
         <Panel title="Espaço atual"><Button variant="ghost" className="space-switch" onClick={() => openPanel('Espaços')}><AppIcon icon={WalletCards} tone="lime"/><span>Espaço Pessoal</span><span className="pro-badge">Pro</span><ChevronDown className="ml-auto size-3"/></Button></Panel>
         <Panel title="Dispositivos conectados"><div className="device-grid">{devices.map(item => <div className="device-item" key={item.name}><item.icon/><div className="min-w-0"><div className="device-name truncate">{item.name}</div><div className="device-status"><span className="online-dot"/>Online · {item.platform}</div></div></div>)}<Button variant="outline" className="add-device" onClick={() => setDialog('Adicionar dispositivo')}><Plus/>Adicionar</Button></div></Panel>
       </div>
-      <footer className="os-footer home-footer"><select className="home-mode-select" aria-label="Modo da Aura" value={mode} onChange={event => setMode(event.target.value)}>{modes.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select><Button variant="ghost" className="home-overflow" aria-label="Mais opções da Central" title="Mais opções da Central" onClick={() => setDialog('Mais')}><MoreHorizontal/></Button></footer>
+      <footer className="os-footer home-footer"><select className="home-mode-select" aria-label="Modo da Aura" value={mode} onChange={event => setMode(event.target.value)}>{modes.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select></footer>
       </div>
     </main>
     <Dialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialog}</DialogTitle><DialogDescription>{dialog === 'Entrada por voz' ? 'Aura ainda não está conectada a um serviço de inteligência artificial.' : 'Espaço de apresentação · OrdaX OS Web'}</DialogDescription></DialogHeader>
       {dialog === 'Adicionar aplicativo' && <div className="favorite-grid">{favorites.map(item => <Button variant="ghost" className="favorite-tile" key={item.name} onClick={() => { if (dialog === 'Adicionar aplicativo') { setAddedApps(previous => previous.filter(a => a !== `hidden:${item.name}`)); setDialog(null); } else openPanel(item.name); }}><AppIcon icon={item.icon} tone={item.tone}/>{item.name}</Button>)}</div>}
-      {(dialog === 'Mais' || dialog === 'Espaço Pessoal') && <div className="modal-list">{(dialog === 'Mais' ? navigation.filter(n => n.name !== 'Início').map(n => n.name).concat('Atividades', 'Adicionar aplicativo', 'Adicionar dispositivo', 'Configurações') : ['Espaço Pessoal']).map(name => <Button variant="secondary" className="justify-between" key={name} onClick={() => openPanel(name)}>{name}<ChevronRight/></Button>)}</div>}
+      {dialog === 'Espaço Pessoal' && <div className="modal-list"><Button variant="secondary" className="justify-between" onClick={() => openPanel('Espaços')}>Espaço Pessoal<ChevronRight/></Button></div>}
       {dialog === 'Adicionar dispositivo' && <div className="modal-list">{devices.map(item => <div className="device-item" key={item.name}><item.icon/><span>{item.name}</span></div>)}</div>}
     </DialogContent></Dialog>
   </div></div>

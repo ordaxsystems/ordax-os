@@ -480,3 +480,11 @@ Acceptance: no visible footer labels, one sidebar bell next to settings, operabl
 collapse/expand in both views, available overflow/actions and stable app instances.
 Existing browser-check source updated; no build, npm, typecheck or tests executed
 under the user's standing restriction. No backend authority or real quota change.
+
+### Remove Home ellipsis modal entry — 2026-10-11
+
+Explicit user revision: remove the Home-footer ellipsis button and its More-modal
+branch. The footer only reserves height when the responsive Aura mode selector is
+needed. Sidebar navigation and measured overflow remain available independently.
+Owner: OS Surface; no backend/window-state change. Existing check source updated;
+no build, npm or tests run under the standing restriction.

@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "d16f1d7c97480f528e4f4b0ebb66b3f878bf4e6b834864b499df565676bed275",
+      "adaptedSha256": "6ef31b96d1d21a1aaedfb4f3c6f2cbbc752e9d9b0811306020e3fd9c759040f3",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "43ef7a78577926e50505661be99e89ccef8ce2612dbfe9d5913e1942263e3748",
+      "adaptedSha256": "50ef86a752668f43f199c005dff7c3c3734699c00dfddda3c03f7dcceed303b5",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -98,7 +98,8 @@
     "Shared dock reduced to 40px; control height and workspace clearance derived from canonical CSS tokens",
     "Maximized app uses the complete shared work-area track without outer margins or desktop header clearance",
     "Central container-sized grid without page scrolling; responsive panel selection, bounded summaries and existing actions through overflow",
-    "Collapsible responsive sidebar, account bell beside settings, and icon-only Home overflow without visible footer labels"
+    "Collapsible responsive sidebar, account bell beside settings, and icon-only Home overflow without visible footer labels",
+    "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control"
   ],
   "native_files": [
     {
