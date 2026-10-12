@@ -30,7 +30,7 @@
     "click_create_ordax_usb",
     "revalidate_exact_removable_target",
     "confirm_destructive_target",
-    "request_windows_elevation_if_required",
+    "approve_windows_uac",
     "create_portable_two_partition_gpt",
     "format_ordax_esp_fat32_and_ordax_data_exfat",
     "materialize_exact_17_artifacts",
@@ -131,8 +131,5 @@
     "target_changes_during_prepare": "abort",
     "uac_denied": "abort_without_write",
     "write_or_readback_failure": "report_failure_and_never_claim_success"
-  },
-  "consent_experience_contract": "docs/contracts/user-consent-experience.json",
-  "visible_product_destructive_confirmation_count": 1,
-  "windows_elevation_is_os_managed": true
+  }
 }
