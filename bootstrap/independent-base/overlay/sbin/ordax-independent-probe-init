@@ -24,6 +24,17 @@ if touch /proof/base/.ordax-unexpected-write 2>/dev/null; then
     rescue erofs-write-accepted
 fi
 echo ORDAX_INDEPENDENT_EROFS=READ_ONLY
+# Phase 3 runtime proof: exercise native service primitives in the guest,
+# rather than claiming equivalence based only on build/contract inspection.
+[ -s /etc/ssl/certs/ca-certificates.crt ] || rescue ca-trust
+if ! ip -V >/dev/null 2>&1; then rescue iproute2; fi
+if ! /bin/busybox date +%s | /bin/busybox grep -qE "^[0-9]+$"; then
+    rescue guardian-time
+fi
+if ! /bin/busybox timeout -k 1 2 /bin/busybox true; then
+    rescue guardian-timeout
+fi
+echo ORDAX_INDEPENDENT_SERVICE_PRIMITIVES=PASS
 mount -t ext4 -o rw /dev/sdb /proof/state || rescue state
 if test -e /proof/state/ordax-independent-marker; then
     grep -q '^PERSISTENT$' /proof/state/ordax-independent-marker || rescue persistence
@@ -34,7 +45,10 @@ else
     echo ORDAX_INDEPENDENT_STATE=CREATED
 fi
 if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/network/bring-up; then
+    # iproute2 is diagnostic only; bootstrap/network/bring-up owns DHCP.
+    if ! ip -4 addr show dev eth0 | grep -q "inet "; then rescue iproute2-address; fi
     echo ORDAX_INDEPENDENT_NETWORK=DHCP
+    echo ORDAX_INDEPENDENT_IPROUTE2=PASS
 else
     rescue dhcp
 fi

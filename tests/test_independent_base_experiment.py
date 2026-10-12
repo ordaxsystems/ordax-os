@@ -52,6 +52,21 @@ class IndependentBaseTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("ERROR", result.stderr)
 
+    def test_phase3_primitives_not_a_parallel_services_stack(self):
+        config = (BASE / "configs/ordax_minimal_defconfig").read_text()
+        for marker in ("BR2_PACKAGE_IPROUTE2=y", "BR2_PACKAGE_CA_CERTIFICATES=y",
+                       "BR2_INIT_NONE=y"):
+            self.assertIn(marker, config)
+        self.assertNotIn("BR2_PACKAGE_SYSTEMD=y", config)
+        self.assertNotIn("BR2_PACKAGE_NETWORK_MANAGER=y", config)
+        probe = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text()
+        self.assertIn("ORDAX_INDEPENDENT_SERVICE_PRIMITIVES=PASS", probe)
+        self.assertIn("ORDAX_INDEPENDENT_IPROUTE2=PASS", probe)
+        self.assertNotIn("exec /system/entrypoint", probe)
+        handoff = (BASE / "post-build.sh").read_text()
+        self.assertIn('cp "$ROOT/bootstrap/stable-base/ordax-stable-init"', handoff)
+        self.assertIn('cp "$ROOT/bootstrap/network/bring-up"', handoff)
+
     def test_no_second_kernel_version(self):
         profile = (BASE / "configs/ordax_minimal_defconfig").read_text()
         self.assertNotIn("BR2_DEFAULT_KERNEL_VERSION=", profile)

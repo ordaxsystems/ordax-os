@@ -24,7 +24,9 @@ BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
-BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y")
+BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y",
+                           "CONFIG_DATE=y", "CONFIG_MV=y", "CONFIG_READLINK=y",
+                           "CONFIG_SHA256SUM=y", "CONFIG_OD=y", "CONFIG_TR=y", "CONFIG_SLEEP=y")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -175,12 +177,26 @@ def verify_target(target: Path) -> None:
     for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
         if (target / name).exists():
             raise BaseError(f"Alpine/APK dependency found: {name}")
+    # Buildroot native networking/trust primitives are mandatory for Phase 3.
+    # These do not replace the canonical OrdaX DHCP policy or release verifier.
+    ip = target / "sbin/ip"
+    if not ip.is_file():
+        ip = target / "usr/sbin/ip"
+    if not ip.is_file():
+        raise BaseError("candidate missing native iproute2 networking diagnostics")
+    ip_version = run(str(ip), "-V")
+    if "ip utility" not in ip_version.lower():
+        raise BaseError("iproute2 executable cannot report its version")
+    trust = target / "etc/ssl/certs/ca-certificates.crt"
+    if not trust.is_file() or trust.stat().st_size == 0:
+        raise BaseError("candidate missing non-empty standard CA trust bundle")
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
     missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
                "poweroff", "grep", "sync", "modprobe", "timeout",
                "od", "tr", "stat", "uname", "sleep", "true",
-               "cat", "mkdir", "chmod"} - applets
+               "cat", "mkdir", "chmod", "date", "mv", "readlink",
+               "sha256sum", "kill", "ps"} - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     # Presence in the applet list is not enough: the official handoff uses
@@ -194,6 +210,9 @@ def verify_target(target: Path) -> None:
             raise BaseError("BusyBox stat -c cannot enforce canonical key permission")
     if run(busybox, "timeout", "-k", "1", "2", busybox, "true").strip():
         raise BaseError("BusyBox timeout emitted unexpected output")
+    guardian_epoch = run(busybox, "date", "+%s").strip()
+    if not guardian_epoch.isdecimal():
+        raise BaseError("canonical guardian date +%s unsupported")
 
 
 def build(out: Path, cache: Path, jobs: int) -> dict:
@@ -260,6 +279,11 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
             "busybox_handoff_runtime_features_verified": True,
+            "phase3_service_primitives_verified": True,
+            "phase3_iproute2_verified": True,
+            "phase3_ca_trust_verified": True,
+            "phase3_wifi_hardware_proven": False,
+            "phase3_graphical_runtime_proven": False,
             "canonical_portable_handoff_source": str(CANONICAL_HANDOFF.relative_to(ROOT)),
             "canonical_portable_handoff_sha256": digest(CANONICAL_HANDOFF),
             "canonical_portable_pid1_unchanged": True,
@@ -288,6 +312,12 @@ def verify(out: Path) -> dict:
         raise BaseError("BusyBox handoff config fragment SHA-256 drift")
     if report.get("busybox_handoff_runtime_features_verified") is not True:
         raise BaseError("BusyBox applet feature proof absent from provenance")
+    for key in ("phase3_service_primitives_verified", "phase3_iproute2_verified", "phase3_ca_trust_verified"):
+        if report.get(key) is not True:
+            raise BaseError(f"Phase 3 build validation evidence missing: {key}")
+    for key in ("phase3_wifi_hardware_proven", "phase3_graphical_runtime_proven"):
+        if report.get(key) is not False:
+            raise BaseError(f"Phase 3 must not assert unproven equivalence: {key}")
     if report.get("canonical_portable_handoff_source") != str(CANONICAL_HANDOFF.relative_to(ROOT)):
         raise BaseError("canonical handoff source path drift")
     if report.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):

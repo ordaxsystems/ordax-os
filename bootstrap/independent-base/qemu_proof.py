@@ -53,6 +53,7 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
     expected = (["ORDAX_INDEPENDENT_RECOVERY=erofs", "ORDAX_INDEPENDENT_PROMOTABLE=NO"]
                 if label == "corrupt-base" else
                 ["ORDAX_INDEPENDENT_EROFS=READ_ONLY", "ORDAX_INDEPENDENT_NETWORK=DHCP",
+                 "ORDAX_INDEPENDENT_SERVICE_PRIMITIVES=PASS", "ORDAX_INDEPENDENT_IPROUTE2=PASS",
                  f"ORDAX_INDEPENDENT_STATE={'CREATED' if label == 'first' else 'RETAINED'}",
                  "ORDAX_INDEPENDENT_BOOT=PASS"])
     missing = [marker for marker in expected if marker not in log]
@@ -145,6 +146,10 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         "erofs_immutable": True,
         "invalid_base_recovery_fail_closed": True,
         "network_qemu_user_nat_dhcp": True,
+        "phase3_service_primitives_qemu_verified": True,
+        "phase3_native_iproute2_qemu_verified": True,
+        "phase3_wifi_hardware_proven": False,
+        "phase3_graphics_proven": False,
         "erofs_disposable_qemu_cow": True,
         "direct_kernel_boot_only": True,
         "official_portable_v2_equivalence": False,

@@ -5,3 +5,12 @@
 CONFIG_STAT=y
 CONFIG_FEATURE_STAT_FORMAT=y
 CONFIG_TIMEOUT=y
+# Phase 3: applets exercised by the existing system/entrypoint guardian.
+# These are BusyBox feature requirements, not a second service supervisor.
+CONFIG_DATE=y
+CONFIG_MV=y
+CONFIG_READLINK=y
+CONFIG_SHA256SUM=y
+CONFIG_OD=y
+CONFIG_TR=y
+CONFIG_SLEEP=y
