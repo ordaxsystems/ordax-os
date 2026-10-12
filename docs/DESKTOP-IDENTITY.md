@@ -686,3 +686,32 @@ Acceptance: tall narrow Central does not hide Apps/Activity merely because of
 width, and shorter compact work areas retain reachable panel selection.
 Only source/diff review performed. Visual verification remains pending.
 No build, npm or tests executed under the standing user restriction.
+
+### Web Central account and Spaces binding — 2026-10-12
+
+Owner: OS composition/Surface, explicit backend-alignment request under the
+Surface functional plan. Existing public ordax.identity-session/1,
+ordax.identity-actions/1 and ordax.spaces/1 adapters now feed one React context
+for the sidebar, greeting and account/Spaces windows. Same-origin auth/session,
+auth/logout and account/spaces remain owned by the existing gateway; no new
+authentication service, credential cache, device transport or access grants.
+Identity refresh is coalesced and runs on focus/visibility/online. Subject
+changes reset/abort the old catalog, and the session workspace key clears local
+drafts/windows while unchanged-subject refresh preserves mounted apps.
+Spaces is read-only; Web still lacks the selected-Space context port.
+
+The approved responsive geometry, landscape, themes, compact/minimized windows,
+shared sidebar and adaptive dock remain intact. Demo account/Pro/quota,
+projects/activity and online-device records no longer represent this page.
+Their cards/destinations remain, showing unavailable transport/service state.
+Favorites remain client launcher shortcuts, not an installed-app assertion.
+Account commands are guarded against concurrent submission and stale UI writes.
+
+Source input graph and provenance include the reused adapters/contracts and
+new composition/context. Regression source covers authentication gating,
+request coalescing, logout, subject replacement/late response and disposal.
+Acceptance: one verified session drives the UI; unavailable origin does not
+invent user data; old-subject catalog cannot survive account replacement.
+Static diff/source review only; no build, npm, tests or browser validation ran.
+A standalone Vite/static host without the same-origin gateway remains
+unavailable. No deployment, production activation or authenticated E2E claim.

@@ -1,5 +1,22 @@
 # Current State
 
+## Web Central — integração de conta e Spaces no source — 2026-10-12
+
+A composição Web reutiliza os adapters existentes de sessão, comandos de
+identidade e consulta de Spaces no mesmo contexto da Central/sidebar.
+Nome e ações vêm da sessão validada; Spaces só é consultado com conta
+autenticada. Logout/troca de sujeito limpa catálogo e contexto local anterior.
+Geometria responsiva, temas, dock e janelas permanecem no owner existente.
+Dados fictícios de plano/cota, projetos, atividade e dispositivos foram
+substituídos por estados honestos nos mesmos cards/destinos. Os transports
+desses serviços e a seleção de Space no Web continuam pendentes.
+
+Fonte conectada aos contratos não comprova gateway ativo, implantação nem
+E2E autenticado. No preview Vite sem rotas same-origin de conta, a interface
+permanece indisponível. Testes adicionados/ajustados apenas no source;
+build, npm, testes e browser não executados por restrição explícita do usuário.
+[Owner, contratos, risco e aceite](DESKTOP-IDENTITY.md#web-central-account-and-spaces-binding--2026-10-12).
+
 ## Web Central principal — 2026-10-11
 
 Incremento de janelas: Central e Desktop agora compartilham o lifecycle ativo de minimizar, compacto, recolher, expandir, maximizar/restaurar e fechar. Instâncias e rascunhos permanecem montados durante essas transições; no mobile, compacto reserva a metade inferior do viewport. Backend e validação automatizada continuam pendentes. [Owner, risco e aceite](DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).

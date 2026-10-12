@@ -17,28 +17,28 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "e54233441094ce2af1287bc67b07a885def1130c926378e156a19ddd41bf6726",
+      "adaptedSha256": "508393a976d01532fd2f8bee6321918a5e19f086210b3cfc4c1b5b259e1880ca",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "cc7472edb97915f1982105e793ac6f7d080ef810ab5ba44b68632677289542cb",
+      "adaptedSha256": "c224d80d97dd7b8f0f73b0b0853082bda138fef0a2e81539ce6909b277204837",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "8b5779da653054ce5ee6fa92f655d01ca207252933043025e9c4ff21e7db3aa5",
+      "adaptedSha256": "aeeb49639e55add5d6513e46b046b0ef9cf4feac5cc823947fb260172dc4215c",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "65910aba7115421bd50e98111f7868609d24603c78e4b06b36c97dde881aee67",
+      "adaptedSha256": "169f7471520de76cea2ed179697aa8aacd92eb655f3d88edef3b46c0eed38045",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "610c8ee296cb1d0ca6c87c04fa855d6a80e36a94c78f4fb52df29e251a1135e2",
+      "adaptedSha256": "af2ca5502857c0c78cb788afecb466e0f5019dda192a58972c10cd6a83ef80f1",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -118,7 +118,9 @@
     "Window layer uses shared upper/lower grid tracks: regular app spans all columns above compact panes; panel collapse/expand/minimize reallocates height automatically without absolute app sizing",
     "Shared window icon resolver consumes existing app/project metadata in dock and titlebar; dock minimized marker and current-window semantics derive from reducer state",
     "Running-app labels hide only when measured natural widths exceed the dock; ResizeObserver/font readiness restore labels when space permits, accessible names and tooltips remain",
-    "Central narrow layouts consider available container height: tall areas stack all three existing summaries, short areas keep tabs; lower summaries and Aura modes depend on actual capacity, without a duplicate layout or page scrolling"
+    "Central narrow layouts consider available container height: tall areas stack all three existing summaries, short areas keep tabs; lower summaries and Aura modes depend on actual capacity, without a duplicate layout or page scrolling",
+    "Canonical Web identity/session/actions and read-only Spaces adapters feed one context; subject changes abort/reset catalogs and remount local session workspace, while same-subject refresh preserves app nodes",
+    "Removed demo user/subscription/storage/projects/activity/online devices from active Central; existing cards and destinations show explicit unavailable transports without removing future features or changing responsive geometry"
   ],
   "native_files": [
     {
@@ -126,6 +128,18 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls"
+    },
+    {
+      "target": "system/composition/web/account-session.mjs",
+      "sha256": "fb7dc47cfa58adeff0eb388cd989a42afd2f258282573bd5deeb9a6e6028f7e6",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle"
+    },
+    {
+      "target": "system/surface/workspace/components/central/account-context.tsx",
+      "sha256": "65dd98da5eb285a5d735d1dcc3b2fe3a56b443e8ff9f9e0619c3e989ede14e6f",
+      "owner": "OrdaX OS Surface",
+      "purpose": "React subscription context projecting existing account and Spaces ports without a second store"
     }
   ]
 }

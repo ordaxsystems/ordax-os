@@ -2,7 +2,7 @@
 
 Presentation: system/surface/workspace/components/central. Thin entry: system/composition/web/main.tsx.
 Approved reference: ordaxsystems/lovable-core-ui@89438133b322e3ef87e862c80af3a3dbe18251f5.
-Central and classic desktop share the same presentation data and themes; they are views of one page.
+Central and classic desktop share one account session, navigation metadata and themes; they are views of one page.
 Root package.json/package-lock.json own dependencies.
 
 From repository root:
@@ -23,8 +23,8 @@ executable. Evidence is generated under out/web-viewport-proof.
 
 Framework, assets and font are locally bundled. Candidate receipts contain
 source-input and emitted-file digests; they are not signed releases.
-Service connections are the next stage. Pending controls and unavailable states
-remain in their existing sources; labeled demonstrations grant no authority. Native/Account browser proofs
+Account session and read-only Spaces use the existing same-origin adapters. Pending controls and unavailable states
+remain in their existing sources and grant no authority. Native/Account browser proofs
 share only test infrastructure under tools/browser-proof.
 
 Window controls are owned by the shared Central reducer and WindowLayer. Both
@@ -33,3 +33,16 @@ changes. Compact mode reserves a lower viewport track; collapse/minimize return
 space to the upper area. Close/reload do not retain local drafts. This is still
 a presentation increment; automated viewport/lifecycle checks were updated,
 not executed locally. See the shared lifecycle record in Desktop Identity.
+
+Account/Spaces wiring is source-ready, not a production activation claim.
+The host origin must serve the existing /auth/session, /auth/logout,
+ /account/spaces and /login/ routes. /conta/ is the public account destination.
+A standalone Vite/static origin without this gateway stays unavailable; no
+cookie extraction, cross-origin proxy, credentials or second backend is added.
+The current Web adapter does not provide selected-Space context, projects,
+activity, devices, subscription/usage or inference. These cards retain their
+layout and destinations with explicit availability states instead of demo data.
+Identity changes remount only the session workspace to clear local account
+drafts/windows; refresh of the same subject preserves its app instances.
+Account tests and browser assertions were updated as source only, not executed
+locally under the standing user restriction.

@@ -5,6 +5,8 @@ import { Toaster } from 'sonner';
 import { createUnavailableAppStoreCatalogPort } from '../../contracts/app-store.mjs';
 import { StoreCatalogProvider } from '../../surface/workspace/components/store/catalog-context';
 import { Central } from '../../surface/workspace/components/central/central';
+import { WebAccountProvider, useWebAccount } from '../../surface/workspace/components/central/account-context';
+import { createWebAccountSession } from './account-session.mjs';
 import { createSurfaceBootScreen } from '../../surface/ui/boot-screen.mjs';
 import { translateSurfaceMessage } from '../../services/i18n/surface.mjs';
 import '../../surface/ui/tokens.css';
@@ -17,15 +19,24 @@ const root = document.querySelector('#ordax-root');
 if (!root) throw new Error('OrdaX composition root is missing #ordax-root');
 const route = createRootRoute();
 const storeCatalog = createUnavailableAppStoreCatalogPort('web-store-transport-unavailable');
+const accountSession = createWebAccountSession(window);
+void accountSession.refresh();
+const onPageHide = (event: PageTransitionEvent) => { if (!event.persisted) accountSession.dispose(); };
+window.addEventListener('pagehide', onPageHide);
+import.meta.hot?.dispose(() => { window.removeEventListener('pagehide', onPageHide); accountSession.dispose(); });
 class WorkspaceBoundary extends Component<{children: ReactNode}, {failed: boolean}> {
   state = {failed: false};
   static getDerivedStateFromError() { return {failed: true}; }
   componentDidCatch() { boot.fail(text('surface.boot.failed')); }
   render() { return this.state.failed ? <p role="alert">{text('surface.boot.failed')}</p> : this.props.children; }
 }
+function SessionWorkspace() {
+  const { identity } = useWebAccount();
+  return <Central key={identity.state === 'signed-in' ? 'account:' + identity.subjectId : 'no-account'}/>;
+}
 function Workspace() {
   useEffect(() => { boot.ready(); }, []);
-  return <><StoreCatalogProvider port={storeCatalog}><Central/></StoreCatalogProvider><Toaster/></>;
+  return <><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><SessionWorkspace/></StoreCatalogProvider></WebAccountProvider><Toaster/></>;
 }
 const web = createRoute({
   getParentRoute: () => route, path: '/',

@@ -1,5 +1,12 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Integração solicitada — 12/10/2026:** Central usa as portas canônicas de
+> sessão/comandos e consulta dos Spaces autorizados no source, preservando o
+> layout aprovado e o lifecycle de janelas. Dados de demonstração cedem a
+> estados reais de disponibilidade. Seleção de Space, demais transports e
+> E2E continuam pendentes; sem build, npm ou testes locais por restrição do
+> usuário. [Owner e aceite](docs/DESKTOP-IDENTITY.md#web-central-account-and-spaces-binding--2026-10-12).
+
 > **Sidebar recolhível — 11/10/2026:** estado de apresentação único, controles acessíveis, sino junto aos ajustes do cartão e rodapé sem os textos solicitados; overflow permanece acessível. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#collapsible-sidebar-and-lower-account-utilities--2026-10-11).
 
 > **Central sem rolagem — 11/10/2026:** estrutura por container e viewport disponível, com seleção de painéis em larguras menores, resumos por altura e acesso ao restante em Mais opções; sem escala da página ou backend novo. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#central-viewport-layout-without-page-scrolling--2026-10-11).

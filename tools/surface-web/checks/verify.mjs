@@ -34,7 +34,7 @@ for (const entry of centralReference.native_files ?? []) {
   assert.equal(createHash('sha256').update(source).digest('hex'), entry.sha256, 'Native Central source drift: ' + entry.target);
 }
 const composition = await readFile(new URL('system/composition/web/main.tsx', root), 'utf8');
-assert.ok(composition.includes('<Central/>'), 'The approved Central is the primary Web page');
+assert.ok(composition.includes('<Central key='), 'The approved Central is the primary Web page');
 assert.ok(!composition.includes('WebShell'), 'Previous Web presentation must not be mounted');
 const initialDesktopSnapshot = JSON.stringify(initialDesktopState);
 let desktop = desktopReducer(initialDesktopState, {type: 'open', title: 'Projetos'});

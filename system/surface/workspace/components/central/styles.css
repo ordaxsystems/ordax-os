@@ -815,3 +815,12 @@
 /* Collapse task labels only when their measured row would exceed available width. */
 .workspace-navigation .desktop-running-apps[data-labels="hidden"] .desktop-task { width: 44px; justify-content: center; }
 .workspace-navigation .desktop-running-apps[data-labels="hidden"] .desktop-task > span { display: none; }
+
+/* Service state uses the same bounded cards and theme tokens as the layout. */
+.service-state { margin: 8px 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.storage-unavailable { --storage-progress: 0%; }
+.account-service-content { display: grid; gap: 12px; min-width: 0; }
+.account-service-profile { display: flex; align-items: center; gap: 12px; min-width: 0; overflow-wrap: anywhere; }
+.account-service-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.account-service-actions > button, .account-service-actions > a { min-width: 0; font-size: 11px; white-space: normal; height: auto; min-height: 36px; }
+.central-presentation .hero-heading { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
