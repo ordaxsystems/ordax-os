@@ -179,3 +179,21 @@ test("shared Surface is wired to localization instead of hardcoded locale render
   assert.match(shell, /shell\.launcher\.search/);
   assert.match(shell, /surface\.launcher\.open/);
 });
+
+test("thin Web boot catalog remains identical to the full localization owner", async () => {
+  const { SURFACE_BOOT_SOURCE_MESSAGES, SURFACE_BOOT_ENGLISH_MESSAGES } =
+    await import("../system/services/i18n/catalog/boot.mjs");
+  const { translateSurfaceMessage } = await import("../system/services/i18n/surface.mjs");
+  assert.deepEqual(Object.keys(SURFACE_BOOT_SOURCE_MESSAGES), Object.keys(SURFACE_BOOT_ENGLISH_MESSAGES));
+  assert.ok(Object.isFrozen(SURFACE_BOOT_SOURCE_MESSAGES));
+  for (const [id, message] of Object.entries(SURFACE_BOOT_SOURCE_MESSAGES)) {
+    assert.equal(translateSurfaceMessage("pt-BR", id), message);
+    assert.equal(translateSurfaceMessage("en-US", id), SURFACE_BOOT_ENGLISH_MESSAGES[id]);
+    assert.equal(translateSurfaceMessage("es-ES", id), message, "Existing source-locale fallback is preserved");
+  }
+  const main = await readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8");
+  assert.ok(main.includes("services/i18n/catalog/boot.mjs"));
+  assert.ok(!main.includes("services/i18n/surface.mjs"), "Boot cannot eagerly import every application catalog");
+  const bootSource = await readFile(new URL("../system/services/i18n/catalog/boot.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(bootSource, /^import\s/m, "Boot catalog is data only");
+});

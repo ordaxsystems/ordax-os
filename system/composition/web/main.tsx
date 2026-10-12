@@ -11,12 +11,13 @@ import { createWebPreferenceStore } from '../../adapters/web/preferences.mjs';
 import { createPreferenceRuntime } from '../../services/preferences/runtime.mjs';
 import { WebPreferencesProvider } from '../../surface/workspace/components/central/preferences-context';
 import { createSurfaceBootScreen } from '../../surface/ui/boot-screen.mjs';
-import { translateSurfaceMessage } from '../../services/i18n/surface.mjs';
+import { SURFACE_BOOT_SOURCE_MESSAGES } from '../../services/i18n/catalog/boot.mjs';
 import '../../surface/ui/tokens.css';
 import '../../surface/workspace/components/central/styles.css';
 import '../../surface/ui/boot-screen.css';
 const boot = createSurfaceBootScreen(document);
-const text = (id: string) => translateSurfaceMessage('pt-BR', id);
+// This composition currently uses pt-BR; boot text still has one canonical catalog.
+const text = (id: keyof typeof SURFACE_BOOT_SOURCE_MESSAGES) => SURFACE_BOOT_SOURCE_MESSAGES[id];
 boot.setStage(text('surface.boot.loadingSurface'));
 const root = document.querySelector('#ordax-root');
 if (!root) throw new Error('OrdaX composition root is missing #ordax-root');

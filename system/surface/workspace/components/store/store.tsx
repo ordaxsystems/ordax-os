@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
+import './styles.css';
 import { Search, Compass, LayoutGrid, Brain, Puzzle, Plug, Palette, Library, RefreshCw, Heart, ArrowLeft, ShieldCheck, Cpu, Cloud, Bot, Info, AlertTriangle, CheckCircle2, Loader2, XCircle, Ban, Wifi, HardDrive, Monitor, Globe2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { catalog, kindMeta, platformLabel, evaluateModel, type Kind, type StoreItem, type ModelItem, type Platform } from '@/lib/store/catalog';

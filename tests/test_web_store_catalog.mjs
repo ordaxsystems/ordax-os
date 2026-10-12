@@ -116,5 +116,34 @@ test('one Store renderer displays ready host entries and defaults to official mo
     assert.match(html, /Operação indisponível/);
     assert.ok(!html.includes('Llama 3.1'), 'Demo models cannot leak into the official catalog');
     assert.ok(!html.includes('OrdaX Studio'), 'Demo installed apps cannot leak into the host catalog');
+    // Exercise the active Central route, not only the standalone Store renderer.
+    const { DesktopContent } = await server.ssrLoadModule('/@fs/' + new URL('../system/surface/workspace/components/central/desktop.tsx', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+    const { renderToReadableStream } = await import('react-dom/server');
+    let opens = 0;
+    const stream = await renderToReadableStream(createElement(StoreCatalogProvider, { port },
+      createElement(DesktopContent, { title: 'Loja', open: () => { opens++; }, onCentral: () => {} })));
+    await stream.allReady;
+    const centralHtml = await new Response(stream).text();
+    assert.match(centralHtml, /data-store-mode="official"/);
+    assert.match(centralHtml, /APP DO HOST/);
+    assert.match(centralHtml, /Operação indisponível/);
+    assert.ok(!centralHtml.includes('Este aplicativo ainda não está conectado.'), 'Central mounts the real Store');
+    assert.equal(opens, 0, 'Reading the Store cannot execute or open a simulated app');
+
   } finally { await server.close(); }
+});
+
+
+test('Store styles have one owner and compact panes use their container width', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const [shared, store, css] = await Promise.all([
+    readFile(new URL('../system/surface/workspace/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../system/surface/workspace/components/store/store.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../system/surface/workspace/components/store/styles.css', import.meta.url), 'utf8'),
+  ]);
+  assert.ok(!shared.includes('.st-root{'), 'Store rules cannot remain duplicated in the old shell stylesheet');
+  assert.match(store, /import '\.\/styles\.css'/);
+  assert.match(css, /@container \(max-width:860px\)/);
+  assert.ok(!css.includes(':root{--st-'), 'The Store cannot own a global palette');
+  assert.match(css, /--web-glass:var\(--card\)/);
 });

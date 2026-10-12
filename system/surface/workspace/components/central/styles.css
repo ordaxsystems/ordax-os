@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @source ".";
 @source "../ui";
+@source "../store";
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* SSOT — OrdaX OS. Components never own palette, typography or elevation. */

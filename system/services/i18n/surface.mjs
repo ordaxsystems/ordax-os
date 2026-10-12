@@ -1,3 +1,4 @@
+import { SURFACE_BOOT_SOURCE_MESSAGES, SURFACE_BOOT_ENGLISH_MESSAGES } from "./catalog/boot.mjs";
 import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../contracts/localization.mjs";
 import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
@@ -57,10 +58,7 @@ const SOURCE = Object.freeze({
   "shell.quick.dateTimeClose": "Fechar data e hora",
   "shell.quick.timeZone": "Fuso horário",
   "shell.clock.timeZone": "Fuso horário: {timeZone}",
-  "surface.boot.loadingSurface": "Carregando superfície…",
-  "surface.boot.loadingApps": "Carregando aplicativos…",
-  "surface.boot.preparingFirstRun": "Preparando primeiro uso…",
-  "surface.boot.failed": "Não foi possível iniciar a interface",
+  ...SURFACE_BOOT_SOURCE_MESSAGES,
   "home.continuation.heading": "Continuar trabalho",
   "home.continuation.activityUnknown": "atividade desconhecida",
   "home.continuation.sessionSuffix": " · somente nesta sessão",
@@ -210,10 +208,7 @@ const ENGLISH = Object.freeze({
   "shell.quick.dateTimeClose": "Close date and time",
   "shell.quick.timeZone": "Time zone",
   "shell.clock.timeZone": "Time zone: {timeZone}",
-  "surface.boot.loadingSurface": "Loading Surface…",
-  "surface.boot.loadingApps": "Loading applications…",
-  "surface.boot.preparingFirstRun": "Preparing first use…",
-  "surface.boot.failed": "The interface could not be started",
+  ...SURFACE_BOOT_ENGLISH_MESSAGES,
   "home.continuation.heading": "Continue working",
   "home.continuation.activityUnknown": "unknown activity",
   "home.continuation.sessionSuffix": " · this session only",

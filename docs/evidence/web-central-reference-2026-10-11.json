@@ -8,9 +8,112 @@
   "authorization": "User explicitly requested this reference as the primary Web interface",
   "license_review": "User-supplied OrdaX repository; no upstream LICENSE found; distribution review pending",
   "validation": {
-    "local_build_executed": false,
-    "local_tests_executed": false,
-    "npm_executed": false
+    "local_build_executed": true,
+    "local_tests_executed": true,
+    "npm_executed": true,
+    "validated_on": "2026-10-12",
+    "source_commit": "73b409a78909061c58247947ed8ebf11049bb571",
+    "node_version": "v26.7.0",
+    "unit_tests": {
+      "command": "node --test tests/test_identity_session.mjs tests/test_identity_actions.mjs tests/test_web_json_read.mjs tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs tests/test_preference_runtime.mjs tests/test_web_store_catalog.mjs tests/test_account_runtime.mjs",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    "surface_build": {
+      "command": "npm.cmd run build --workspace tools/surface-web",
+      "result": "passed-including-typescript",
+      "warning": "Initial JavaScript chunk is 776.99 kB (220.94 kB gzip); startup code splitting remains a performance follow-up."
+    },
+    "surface_structure": {
+      "command": "npm.cmd run verify --workspace tools/surface-web",
+      "result": "passed",
+      "reference_files_and_assets": 34
+    },
+    "browser": {
+      "origin": "http://127.0.0.1:4201/",
+      "viewports": [
+        {
+          "width": 390,
+          "height": 844
+        },
+        {
+          "width": 768,
+          "height": 600
+        },
+        {
+          "width": 1366,
+          "height": 768
+        }
+      ],
+      "result": "passed-for-observed-local-flows",
+      "checks": [
+        "Central document matches viewport dimensions without page scrolling",
+        "Hero landscape loads in light and dark themes",
+        "Account reports unavailable instead of inventing authentication",
+        "Maximized app occupies upper track above a compact app",
+        "Two compact apps divide available width equally without horizontal overflow",
+        "Compact action menu is hittable and minimizes its app",
+        "Dock explicitly restores the minimized app",
+        "Theme controls set the document color scheme through canonical preferences",
+        "No warning/error entries returned by browser dev logs at start and finish",
+        "Temporary windows closed, original dark theme and default viewport restored"
+      ],
+      "authenticated_gateway_e2e": "pending-not-configured-on-this-local-vite-origin",
+      "scope_excludes": [
+        "production activation",
+        "device grants",
+        "real device execution",
+        "signed catalog installation"
+      ]
+    },
+    "boot_catalog_optimization": {
+      "date": "2026-10-12",
+      "source_state": "local-working-tree-based-on-73b409a",
+      "build": {
+        "command": "npm.cmd run build --workspace tools/surface-web",
+        "result": "passed-including-typescript",
+        "initial_javascript_before_kb": 776.99,
+        "initial_javascript_after_kb": 533.4,
+        "gzip_before_kb": 220.94,
+        "gzip_after_kb": 167.96,
+        "javascript_reduction_percent": 31.35,
+        "css_asset_unchanged": "index-C9eGjKFp.css",
+        "warning": "Initial JavaScript remains above 500 kB. No threshold override or transfer/time guarantee.",
+        "note": "Build duration comparison is not a controlled performance benchmark."
+      },
+      "localization": {
+        "command": "node --test tests/test_surface_localization.mjs tests/test_surface_app_localization.mjs",
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "builder": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0,
+        "runtime": "bundled Python on Windows"
+      },
+      "structure": {
+        "command": "npm.cmd run verify --workspace tools/surface-web",
+        "result": "passed-after-correcting-recorded-main-checksum-to-LF",
+        "initial_failure": "Recorded main checksum incorrectly included Windows line endings; verifier caught drift. Historical source digest retained, adapted digest corrected.",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "boot_reload": "Central rendered with the same layout and services after reload",
+        "dev_logs": "No warning/error entries returned after reload",
+        "authenticated_gateway_e2e": "still-pending"
+      },
+      "react_review": "One canonical data-only catalog replaces an eager application-catalog import. Stable mounted providers, cleanup, hooks, window nodes and presentation unchanged; TypeScript restricts boot message IDs.",
+      "vercel": {
+        "deployment_triggered": false,
+        "configuration_read": "vercel.json uses tools/public-site/should_skip_vercel_build.sh; uncertain history builds",
+        "configuration_changed": false
+      },
+      "publication": "Commit/push deferred: automatic approval review returned usage-limit failure; local work saved, no approval bypass."
+    }
   },
   "files": [
     {
@@ -38,8 +141,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "5f33d6665ff328b8d9804098cd878397c19f33cb67bf9e6c032096b83bce46e7",
-      "adaptation": "Preserves latest offline-safe Space selection and service rendering; minimized taskbar windows now use explicit open instead of generic focus."
+      "adaptedSha256": "9e815ca6e956f44f5e7e2c12a7d8a68625a8c5ed2bca186f8eca8012168468b0",
+      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window."
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -52,8 +155,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "4d1d2c74da15e5365eae37dc74fae77b1382c812b3c86befa773a38104a204b1",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
+      "adaptedSha256": "07a4839fe203167b49d76243ce64c1eb6fe9911787aeda697c220317d8571413",
+      "adaptation": "Approved Central styles register the same canonical Store component for utility compilation; layout/palette/geometry unchanged."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -124,7 +227,9 @@
     "Explicit active-Space choice and clear action reuse the Native domain selection service; session-only Web adapter holds a validated subject-bound record, while the service owns invalidation instead of duplicated composition reset",
     "Central/Desktop and Appearance consume one mounted canonical preference-runtime/catalog and existing Web preference-store; direct localStorage/theme state and duplicate window theme callbacks removed, saved versus session-only persistence remains honest, approved palette/geometry retained",
     "Central subscribes to the existing Surface host connectivity; offline guards account actions and read lifecycle, canonical Spaces reset aborts/invalidates catalog and context, reconnect revalidates without replaying commands; approved geometry unchanged",
-    "Canonical identity/Spaces adapters share one bounded cancellable same-origin JSON GET transport; offline/disposal release stalled reads without replaying commands or creating auth/domain state; stable no-op snapshots and disposed action guards preserve approved UI"
+    "Canonical identity/Spaces adapters share one bounded cancellable same-origin JSON GET transport; offline/disposal release stalled reads without replaying commands or creating auth/domain state; stable no-op snapshots and disposed action guards preserve approved UI",
+    "Thin Web boot consumes a data-only canonical boot message catalog also spread into the full Surface localization owner; no duplicate translations, dependencies or presentation change",
+    "Central Loja reuses StoreExperience/catalog context through an on-demand import; one extracted Store stylesheet consumes Surface tokens/container geometry; per-window content boundary supports explicit retry without resetting other windows or executing commands"
   ],
   "native_files": [
     {
@@ -132,8 +237,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "ffb41d0dcba0d7d1fabf083b9cbdb812fea385a10f491a27b496cb14b3602404",
-      "adaptation": "Compact actions use the native interactive menu item click, compatible with mouse and keyboard activation, and close the one non-modal menu before dispatching its canonical window action. Historical source checksum is preserved."
+      "adaptedSha256": "eec4d5a8be2cd0fbad0a84773b2bab0be8fb497809e176e355f8a66fbdfa4785",
+      "adaptation": "Reuse the canonical Store renderer on demand and isolate content failures in one mounted window boundary; preserve history, contracts, providers and other app nodes."
     },
     {
       "target": "system/composition/web/account-session.mjs",
@@ -171,7 +276,9 @@
       "target": "system/composition/web/main.tsx",
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
-      "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240"
+      "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
+      "adaptedSha256": "e27ff67995954289ec3da4fc64507212ff75bcdd7dcac3ef1d11e1d208e4e625",
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged."
     },
     {
       "target": "system/adapters/web/runtime.mjs",
@@ -202,6 +309,32 @@
       "owner": "OrdaX OS Web adapter",
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
       "sha256": "90244c1c0a1f7d68d4a2ed5bfcc9654545ce3077f49e1c6bd239eac48066ee33"
+    },
+    {
+      "target": "system/services/i18n/catalog/boot.mjs",
+      "owner": "OrdaX OS localization",
+      "purpose": "Single data-only boot catalog shared by full Surface localization and thin pt-BR Web startup",
+      "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9"
+    },
+    {
+      "target": "system/surface/workspace/components/central/window-content.tsx",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
+      "sha256": "8b23ed58a8c8ab15dd04d6142e5d8ec27e80d548eeec464693d063c79508a31a",
+      "adaptedSha256": "dbd4b44d072471728a9b5445ea755321dfb77a2f30fbb12c431bd25b42cce731",
+      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window."
+    },
+    {
+      "target": "system/surface/workspace/components/store/styles.css",
+      "owner": "OrdaX OS Store presentation",
+      "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
+      "sha256": "128c7ac686b647635b0d4ab795066c123f14e999de853d46f621f39ccff3c551"
+    },
+    {
+      "target": "system/surface/workspace/components/central/window-resource-error.mjs",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Typed diagnostic distinguishes a failed UI resource from rendering errors without guessing browser error messages",
+      "sha256": "1cb90b6989ace2a8b4c54ce079759831e61d861ade3143236637b3a6929bf3f3"
     }
   ]
 }

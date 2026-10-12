@@ -1,5 +1,45 @@
 # Current State
 
+## Web Central — Loja canônica e recuperação por janela — 2026-10-12
+
+A janela Loja monta o StoreExperience existente, pelo mesmo catálogo público
+ordax.app-store-catalog-port/2. A importação é sob demanda; a composição mantém
+o port indisponível quando o host não oferece catálogo. Demonstração continua
+explícita e isolada; não representa instalação, grants ou sessão real.
+O CSS da Loja foi movido para um único arquivo no componente, com tokens da
+Surface e responsividade pela largura da janela. O shell anterior não guarda
+uma segunda cópia dos estilos.
+
+Boundary de conteúdo mantém erros dentro da janela. Falhas de recursos têm
+diagnóstico tipado e recarga de página somente por ação explícita, com aviso
+de perda de rascunhos. Outros erros oferecem reinício apenas do conteúdo local.
+A prova de falha constatou que o browser guarda imports rejeitados; não se
+promete nova descarga por simplesmente recriar o componente React.
+Validação final e reconciliação com a main em andamento; não implica ativação.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-store-window--2026-10-12).
+
+## Web Central — catálogo de boot compartilhado e carregamento inicial — 2026-10-12
+
+Owner: catálogo canônico de localização do OS e composição Web. As quatro
+mensagens de boot foram extraídas para system/services/i18n/catalog/boot.mjs;
+o catálogo completo importa esses mesmos textos, sem duplicação de português
+ou inglês. A composição atual pt-BR importa apenas esse catálogo de dados.
+Portas, serviços, idioma atual, rotas, temas e geometria permanecem preservados.
+
+Build local com TypeScript passou: JavaScript inicial de 776,99 para 533,40 kB
+(redução de 31,35%); gzip de 220,94 para 167,96 kB. O CSS emitido é idêntico.
+Ainda existe aviso acima de 500 kB; não foi elevado o limite nem alegada uma
+medição de tempo de carregamento. Mais 18 testes de tradução e sete de builder
+passaram. Verificador de 34 arquivos/assets passou após corrigir o checksum
+registrado com quebra de linha Windows para o formato LF canônico.
+Browser recarregado: Central preservada, sem entradas de erro/aviso nos logs.
+A validação autenticada com gateway real continua pendente.
+
+Testes/builds foram locais, sem deploy Vercel. A configuração existente para
+ignorar builds públicos não afetados foi apenas consultada. Uma revisão automática falhou por limite de uso; a janela de retomada
+passou e o envio agrupado será revalidado com a main. Nenhum gate foi contornado.
+[Evidência e comparação](evidence/web-central-reference-2026-10-11.json).
+
 ## Web Central — consultas de conta canceláveis e limitadas — 2026-10-12
 
 Identidade e catálogo de Spaces reutilizam um único transporte JSON GET nos
@@ -12,8 +52,15 @@ Ordinais e validações dos adapters continuam sendo a autoridade de publicaçã
 Timeout real mantém os estados indisponível/erro, sem simular logout.
 Snapshots de identidade/comandos permanecem estáveis quando não mudam; portas
 descartadas não retêm novos assinantes nem iniciam comandos/consultas.
-Layout e serviços pendentes permanecem preservados. Regressões incluídas no
-source/CI, sem build, npm, testes, typecheck ou browser locais.
+Layout e serviços pendentes permanecem preservados. Validação local autorizada
+em 2026-10-12: 64 testes passaram; build com TypeScript e verificação de 34
+arquivos/assets passaram. Browser conferido em 390 x 844, 768 x 600 e
+1366 x 768, incluindo temas, viewport, compacto, minimizar e restaurar pelo dock.
+Não houve mudança de source funcional nesta rodada de validação.
+Gateway autenticado não está configurado neste Vite local: o fluxo com conta,
+Spaces e dispositivos reais permanece pendente. Bundle inicial de 776,99 kB
+(220,94 kB gzip) gerou aviso de desempenho; testes não provam prontidão de release.
+[Evidência datada](evidence/web-central-reference-2026-10-11.json).
 [Owner, risco e aceite](DESKTOP-IDENTITY.md#web-account-bounded-read-lifecycle--2026-10-12).
 
 
