@@ -595,3 +595,13 @@ interval and window focus has effect cleanup; accessible time carries ISO value.
 No separate identity source or backend inference. Acceptance: greeting matches
 local hour across themes; date updates after midnight and resume.
 No build, npm or tests executed under the standing user restriction.
+
+### Current destination from window SSOT — 2026-10-11
+
+Owner: OS Surface. Sidebar current destination derives from the existing window
+state, with project windows grouped under Projects and Intelligence under Aura.
+Home highlights only Central without an active visible window. Navigation and
+overflow entries expose aria-current; More indicates a current hidden destination.
+No second navigation state or execution authority added. Acceptance: open,
+focus, minimize and close update the indicated destination from the same reducer.
+No build, npm or tests executed under the standing user restriction.

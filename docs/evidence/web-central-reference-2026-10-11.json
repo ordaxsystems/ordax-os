@@ -38,7 +38,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "ad459dc0bce3ca8c45673535240446f38b676899385372a7ce1fadb3e328dd56",
+      "adaptedSha256": "16b499e14d896e06dc413ff58ce9901679bb42bffcac438bd0ef365a1a546ca8",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "b27407eab073e744e78afceb82ca0898d4ed0489d24360f9abeeecd77307865b",
+      "adaptedSha256": "569459b906b2c3eebd7bb7c7f12b0cb92c7e6233639535929a345e2a2b652ff6",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -111,7 +111,8 @@
     "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero",
     "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track",
     "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding",
-    "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme"
+    "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme",
+    "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination"
   ],
   "native_files": [
     {
