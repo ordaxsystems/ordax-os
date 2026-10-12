@@ -80,10 +80,19 @@ jobs:
       - name: Prove Browser public ports do not grant privileged engine authority
         run: node --test tests/test_app_sdk_browser_ports.mjs
 
-      - name: Prove Internet application imports only published transitive SDK contracts
-        run: |
-          python3 -m unittest tests.test_internet_sdk_readiness -v
-          python3 tools/verify/internet_sdk_readiness.py --require-public
+      - name: Prove Internet is not silently reintroduced into OS source
+        run: python3 -m unittest tests.test_internet_sdk_readiness -v
+
+      - name: Checkout pinned Internet source for public App SDK proof
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ordaxsystems/ordax-os
+          ref: 9362b61f8b2107ae6c1d8a239922d5483e988299
+          path: .ordax-internet-source
+          persist-credentials: false
+
+      - name: Validate original Internet public boundary, never the removed OS source
+        run: python3 .ordax-internet-source/tools/verify/internet_sdk_readiness.py --require-public
 
       - name: Prove Network Draft SDK preserves canonical Space-boundary contract
         run: node --test tests/test_app_sdk_network_draft.mjs
