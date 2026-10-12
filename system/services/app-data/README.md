@@ -58,8 +58,10 @@ bloqueiam mutações, sem descarte preventivo de dados.
 **Inspeção privada, somente de leitura:** `inspect_app_data_checkpoint`
 consulta a identidade vinculada, exige a revisão CAS esperada, verifica
 todos os blobs da geração ativa **e** da geração retida sob `flock`
-compartilhado e retorna o SHA-256 dos bytes efetivos de `checkpoint.json`,
-além das revisões e da referência de release. Não retorna valores/chaves
+compartilhado e retorna os SHA-256 dos bytes efetivos de `manifest.json` (geração atual)
+e `checkpoint.json` (geração retida), além das revisões e da referência
+de release. Sob `flock`, os dois digests vinculam os conteúdos observados
+na mesma inspeção e mudam quando o manifesto atual é confirmado. Não retorna valores/chaves
 de aplicativos; o resultado declara explicitamente `authority: none`.
 A inspeção não é ação do endpoint e não modifica dados. Sua validade é
 pontual: quando o lock é liberado, a geração pode mudar. SHA-256 e
