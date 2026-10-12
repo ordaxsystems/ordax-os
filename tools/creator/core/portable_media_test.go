@@ -63,6 +63,77 @@ func TestPlanPortableMediaRejectsInvalidBindings(t *testing.T) {
 	if _, err := PlanPortableMedia(8<<30, "not-a-commit", portableBindingsFixture()); err == nil { t.Fatal("invalid source commit accepted") }
 }
 
+func TestPlanPortableMediaRejectsOvercommittedPartitionsBeforeWrite(t *testing.T) {
+	const commit = "0123456789abcdef0123456789abcdef01234567"
+	const target = uint64(8053063680) // exact physical Lidermix capacity
+	layout, err := PlanPortableTargetStorage(target)
+	if err != nil { t.Fatal(err) }
+	for _, tc := range []struct{ id string; size uint64 }{
+		{"kernel", layout.ESPBytes},
+		{"surface-runtime-image", layout.PayloadBytes},
+	} {
+		bindings := portableBindingsFixture()
+		for i := range bindings.Artifacts {
+			if bindings.Artifacts[i].ID == tc.id { bindings.Artifacts[i].SizeBytes = tc.size }
+		}
+		if _, err := PlanPortableMedia(target, commit, bindings); err == nil {
+			t.Fatalf("oversized artifact %q was admitted", tc.id)
+		}
+	}
+}
+
+func TestPlanPortableMediaPreservesExactConservativeBoundary(t *testing.T) {
+	const commit = "0123456789abcdef0123456789abcdef01234567"
+	const target = uint64(8053063680)
+	layout, err := PlanPortableTargetStorage(target)
+	if err != nil { t.Fatal(err) }
+	reserveData := layout.PayloadBytes / portableMediaDataReserveDivisor
+	if reserveData < portableMediaDataMinReserveBytes { reserveData = portableMediaDataMinReserveBytes }
+	for _, tc := range []struct { partition, artifactID string; budget uint64 }{
+		{"ORDAX-ESP", "kernel", layout.ESPBytes - portableMediaESPReserveBytes},
+		{"ORDAX-DATA", "surface-runtime-image", layout.PayloadBytes - reserveData},
+	} {
+		bindings := portableBindingsFixture()
+		var otherSize uint64
+		for _, artifact := range bindings.Artifacts {
+			if portableMediaTargets[artifact.ID].partition == tc.partition && artifact.ID != tc.artifactID {
+				otherSize += artifact.SizeBytes
+			}
+		}
+		var index int
+		for i := range bindings.Artifacts {
+			if bindings.Artifacts[i].ID == tc.artifactID {
+				index = i
+				bindings.Artifacts[i].SizeBytes = tc.budget - otherSize
+			}
+		}
+		if _, err := PlanPortableMedia(target, commit, bindings); err != nil {
+			t.Fatalf("%s conservative boundary rejected: %v", tc.partition, err)
+		}
+		bindings.Artifacts[index].SizeBytes++
+		if _, err := PlanPortableMedia(target, commit, bindings); err == nil {
+			t.Fatalf("%s was overcommitted by one byte", tc.partition)
+		}
+	}
+}
+
+func TestPlanPortableApplicationRejectsOvercommittedMediaAfterParse(t *testing.T) {
+	const commit = "0123456789abcdef0123456789abcdef01234567"
+	const target = uint64(8053063680)
+	media, err := PlanPortableMedia(target, commit, portableBindingsFixture())
+	if err != nil { t.Fatal(err) }
+	layout, err := PlanPortableTargetStorage(target)
+	if err != nil { t.Fatal(err) }
+	for i := range media.Artifacts {
+		if media.Artifacts[i].ID == "surface-runtime-image" {
+			media.Artifacts[i].SizeBytes = layout.PayloadBytes
+		}
+	}
+	if _, err := PlanPortableApplication(media); err == nil {
+		t.Fatal("application planner accepted oversized parsed media plan")
+	}
+}
+
 func TestParsePortableMediaBindingsIsStrict(t *testing.T) {
 	payload, err := json.Marshal(portableBindingsFixture())
 	if err != nil { t.Fatal(err) }
