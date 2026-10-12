@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.16.0",
+  "bundle_version": "1.17.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -297,6 +297,13 @@
       "schema": "ordax.memory/1",
       "source_git_blob": "3b6e0b344379dd599fa7e0b77eba51020153610d",
       "source_path": "system/contracts/memory.mjs"
+    },
+    {
+      "major": 1,
+      "name": "network-draft",
+      "schema": "ordax.network-draft/1",
+      "source_git_blob": "a609b342fa07d2a257b9750899ab6a2ed5c0d67d",
+      "source_path": "system/contracts/network-draft.mjs"
     },
     {
       "major": 1,
