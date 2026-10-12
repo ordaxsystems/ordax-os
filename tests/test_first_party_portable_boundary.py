@@ -22,7 +22,6 @@ class PortableSourceBoundaryTests(unittest.TestCase):
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )
         external_owners = policy["canonical_package_source_repository_by_component"]
-        count = 0
         for app_id in CANDIDATES:
             owner = APP_ROOT / app_id
             external = external_owners.get(app_id)
@@ -43,7 +42,6 @@ class PortableSourceBoundaryTests(unittest.TestCase):
             files = sorted(owner.rglob("*.mjs"))
             self.assertTrue(files, f"Missing executable source for {app_id}")
             for source in files:
-                count += 1
                 contents = source.read_text(encoding="utf-8")
                 for match in STATIC_IMPORT.finditer(contents):
                     imported = (source.parent / match.group(2)).resolve()
@@ -54,9 +52,6 @@ class PortableSourceBoundaryTests(unittest.TestCase):
                     )
                 self.assertNotIn("node:child_process", contents)
                 self.assertNotIn("node:fs", contents)
-        # Once all six cut over this count may legitimately be zero; validation
-        # follows the canonical owner map instead of blocking migration.
-        self.assertGreaterEqual(count, 0)
 
 
 if __name__ == "__main__":
