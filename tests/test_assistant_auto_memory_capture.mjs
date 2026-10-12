@@ -288,34 +288,17 @@ test("extractor is bounded to four candidates and exact schema", async () => {
 });
 
 
-test("Native composition creates Assistant Memory capture only after Surface preferences exist", () => {
+test("Gate A removes Assistant composition but retains platform Memory security service", () => {
   const native = readFileSync(
     new URL("../system/composition/native/main.mjs", import.meta.url),
     "utf8",
   );
-  const surfaceIndex = native.indexOf("const surface = mountSurface(");
-  const captureIndex = native.indexOf("const assistantMemoryCapture =");
-  const assistantIndex = native.indexOf('componentId: "assistant"');
-  assert.ok(surfaceIndex >= 0);
-  assert.ok(captureIndex > surfaceIndex);
-  assert.ok(assistantIndex > captureIndex);
-  const assistantMount = native.slice(assistantIndex, native.indexOf("onError(error)", assistantIndex));
-  assert.match(assistantMount, /identitySessionPort:\s*identitySession/);
-  assert.match(assistantMount, /spaceSelectionPort:\s*spaceSelection/);
-  assert.match(assistantMount, /profileActivationStatePort:\s*profileActivationState/);
-  const assistantRuntime = readFileSync(
-    new URL("../system/apps/assistant/runtime.mjs", import.meta.url),
-    "utf8",
-  );
-  assert.match(assistantRuntime, /createAssistantConversationRuntime\(\{/);
-  assert.match(assistantRuntime, /identitySessionPort/);
-  assert.match(assistantRuntime, /spaceSelectionPort/);
-  assert.match(
-    native.slice(captureIndex, assistantIndex),
-    /surface\.preferences/,
-  );
+  assert.doesNotMatch(native, /componentId:\\s*"assistant"/);
+  assert.doesNotMatch(native, /assistantMemoryCapture/);
+  assert.doesNotMatch(native, /createAssistantAutoCaptureRuntime/);
+  // These contracts remain on the OS side and do not imply a mounted client.
+  assert.equal(typeof createAssistantAutoCaptureRuntime, "function");
 });
-
 
 test("automatic Memory extraction never sends Assistant-generated text to the extractor", async () => {
   const ai = intelligence('{"memories":[]}');
