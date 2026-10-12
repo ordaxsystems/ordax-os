@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { deriveNativeServiceUpdateReadiness } from "../system/services/components/service-update-readiness.mjs";
 import { fileURLToPath } from "node:url";
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
 import { deriveNativeServiceUpdateInventory } from "../system/services/components/service-update-inventory.mjs";
@@ -8,7 +9,7 @@ const servicesUrl = new URL("../system/services/", import.meta.url);
 const base = fileURLToPath(servicesUrl);
 
 const servicePaths = readdirSync(base, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && /^[a-z][a-z0-9-]*$/.test(entry.name))
+  .filter((entry) => entry.isDirectory())
   .map((entry) => "system/services/" + entry.name);
 
 const inventory = deriveNativeServiceUpdateInventory({
@@ -16,16 +17,12 @@ const inventory = deriveNativeServiceUpdateInventory({
   servicePaths,
 });
 
-const essential = [
-  "account", "components", "diagnostics", "intelligence", "local-ai",
-  "memory", "notifications", "personal-ordax", "preferences", "profile-packs",
-  "scheduler", "spaces", "state", "sync", "system-foundation", "update",
-];
-const available = new Set(inventory.domains.map((domain) => domain.path));
-const missing = essential.filter((name) => !available.has("system/services/" + name));
-if (missing.length > 0) {
-  throw new Error("Canonical service directories missing: " + missing.join(", "));
-}
+// A single source policy, read from the repository: no duplicate list of services
+// or manually-maintained release gates in the audit.
+const packagePolicy = JSON.parse(readFileSync(
+  new URL("../docs/contracts/runtime-component-package.json", import.meta.url), "utf8",
+));
+const readiness = deriveNativeServiceUpdateReadiness({ inventory, packagePolicy });
 
 if (process.argv.includes("--check")) {
   process.stdout.write(
@@ -34,5 +31,5 @@ if (process.argv.includes("--check")) {
     + inventory.summary.embeddedDomainCount + " embedded domains; no independent release claimed.\n"
   );
 } else {
-  process.stdout.write(JSON.stringify(inventory, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({ inventory, readiness }, null, 2) + "\n");
 }
