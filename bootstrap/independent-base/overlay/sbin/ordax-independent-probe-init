@@ -19,6 +19,10 @@ rescue() {
 mount -t erofs -o ro /dev/sda /proof/base || rescue erofs
 test -r /proof/base/etc/ordax/independent-base || rescue base-identity
 grep -q 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL' /proof/base/etc/ordax/independent-base || rescue base-identity
+grep -q " /proof/base erofs ro," /proc/mounts || rescue erofs-not-readonly
+if touch /proof/base/.ordax-unexpected-write 2>/dev/null; then
+    rescue erofs-write-accepted
+fi
 echo ORDAX_INDEPENDENT_EROFS=READ_ONLY
 mount -t ext4 -o rw /dev/sdb /proof/state || rescue state
 if test -e /proof/state/ordax-independent-marker; then
