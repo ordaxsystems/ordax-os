@@ -120,7 +120,7 @@ test("canonical compatibility report accounts for all components without inventi
   assert.equal(result.summary.total, manifests.length);
   assert.equal(result.summary.declared, coreRuntimeCompatibility.length);
   assert.equal(result.summary.missing, manifests.length - coreRuntimeCompatibility.length);
-  assert.equal(result.components.find((item) => item.id === "internet").status, "descriptor-not-declared");
+  assert.equal(result.components.some((item) => item.id === "internet"), false, "removed product cannot be a native manifest");
   assert.equal(result.components.find((item) => item.id === "local-ai-service").status,
     "declared-and-catalog-validated");
 });
@@ -443,10 +443,7 @@ test("signed active graph gaps are derived across every canonical manifest", () 
     result.components.find((entry) => entry.id === "ordax-intelligence").contractEvidence,
     "source-descriptor-only",
   );
-  assert.equal(
-    result.components.find((entry) => entry.id === "internet").contractEvidence,
-    "not-declared",
-  );
+  assert.equal(result.components.some((entry) => entry.id === "internet"), false);
 });
 
 test("signed slot may be observed while canonical releaseMode is still not promoted", () => {
