@@ -6,6 +6,10 @@ on:
       - 'system/services/**'
       - 'system/apps/**'
       - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'system/contracts/component-manifest.mjs'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'tools/runtime-component-channel/check_production_readiness.py'
       - 'tools/service-update-inventory.mjs'
       - 'tools/component-package/compatibility.mjs'
       - 'tests/test_service_update_inventory.mjs'
@@ -17,6 +21,10 @@ on:
       - 'system/services/**'
       - 'system/apps/**'
       - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'system/contracts/component-manifest.mjs'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'tools/runtime-component-channel/check_production_readiness.py'
       - 'tools/service-update-inventory.mjs'
       - 'tools/component-package/compatibility.mjs'
       - 'tests/test_service_update_inventory.mjs'
@@ -37,6 +45,10 @@ jobs:
           node-version: '22'
       - name: Validate canonical service inventory
         run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs
+      - name: Validate canonical trust and package policy together
+        # Reuse the real production gate checker; do not reimplement trust policy
+        # or key-custody rules in the read-only service inventory.
+        run: python3 tools/runtime-component-channel/check_production_readiness.py
       - name: Produce derived update-readiness audit
         run: |
           node tools/service-update-inventory.mjs --check
