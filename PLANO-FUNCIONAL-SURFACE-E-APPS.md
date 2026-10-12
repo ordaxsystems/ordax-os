@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Ajustes e sidebar Web/USB — 12/10/2026:** incremento solicitado com CSS e
+> catálogo de Ajustes compartilhados, preferências Web existentes preservadas e
+> política única de manter sidebar recolhida no desktop. Perfil no rodapé USB usa Conta
+> canônica; sem nova autoridade ou persistência de workspace. [Owner, contratos,
+> risco e aceite](docs/DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
 > **USB — temas Web e área de trabalho — 12/10/2026:** incremento solicitado,
 > com um source de cores standard/USB e um seletor de três perfis nos dois
 > renderers. Native conserva seus ports e o gerenciador de janelas; alternância

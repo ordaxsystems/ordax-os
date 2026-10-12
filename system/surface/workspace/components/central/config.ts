@@ -2,11 +2,12 @@ import { HOME_SHORTCUTS } from '../../../../services/preferences/home-shortcuts.
 import { House, Bell, Settings, Sparkles, Folder, FolderOpen, LayoutGrid, Globe, WalletCards, MonitorSmartphone, BriefcaseBusiness, CirclePlus, ListTodo, Compass, Workflow, ShoppingBag, Box, Terminal, FileBox, UserRound, type LucideIcon } from 'lucide-react';
 export type IconTone = 'orange' | 'violet' | 'blue' | 'green' | 'red' | 'lime' | 'ink';
 export type AppItem = { name: string; icon: LucideIcon; tone: IconTone; caption?: string };
-export const navigation = [
+export const navigation: { name: string; icon: LucideIcon; target?: string }[] = [
   { name: 'Início', icon: House }, { name: 'Aura', icon: Sparkles },
   { name: 'Projetos', icon: Folder }, { name: 'Aplicativos', icon: LayoutGrid },
   { name: 'Arquivos', icon: FolderOpen }, { name: 'Internet', icon: Globe },
   { name: 'Espaços', icon: WalletCards }, { name: 'Dispositivos', icon: MonitorSmartphone },
+  { name: 'Ajustes', icon: Settings, target: 'Configurações' },
 ];
 export const shortcuts: AppItem[] = [
   { name: 'Projetos', icon: Folder, tone: 'orange', caption: 'Continue seus projetos' },

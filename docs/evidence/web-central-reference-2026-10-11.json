@@ -690,6 +690,29 @@
         "web_source_delta": "git diff --exit-code HEAD origin/main -- system/composition/web system/surface/workspace system/services/preferences package.json package-lock.json tools/surface-web returned 0 before merge",
         "note": "No Web build inputs changed in concurrent main update."
       }
+    },
+    "settings_sidebar_2026_10_12": {
+      "owner": "OrdaX OS Surface",
+      "source_base": "9a387a4",
+      "node_tests": 49,
+      "python_tests": 36,
+      "build": "passed-including-typescript",
+      "reference_files": 34,
+      "initial_js_kb": 484.26,
+      "initial_js_gzip_kb": 151.75,
+      "browser": [
+        "Shared Native Settings styling in Web; appearance and accessibility use existing preference ports",
+        "Contrast persists after reload; three color profiles selectable",
+        "Desktop sidebar fixed at 64px in Web and Native; expansion control absent",
+        "Central returns to automatic layout; manual expansion remains available there",
+        "Native profile icon is inside sidebar footer, intact after localization, opens canonical account overview",
+        "390x844 Web settings and compact panel have no horizontal overflow; narrow section controls have 44px targets",
+        "Native sidebar icon names carry localized hover titles; profile duplicates removed"
+      ],
+      "limits": [
+        "Native preview exposes no authenticated identity or hardware capabilities",
+        "No physical USB boot, media rewrite or signed release"
+      ]
     }
   },
   "files": [
@@ -697,28 +720,28 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "0c436562f844436a02126c21ffce8144ab0f458c2b26e5950ae30bd4086b1bf1",
+      "adaptedSha256": "c000e5b75a9c6946c674953b9a547a1e580f36ca437f36b9652c267cd81a82fd",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
     },
     {
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "cf80069ba5e81fe3fbc67b79d7e8f33292d9fec6f2ed072752235db3141f8ec9",
+      "adaptedSha256": "262ff42f2892bf0f09425f1df1b8ddbf369f837f42ccbd19f57088b2470b05d0",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
     },
     {
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "0519716e133d7fc92304002694c536ad7554f6dff8fc3957d791836305af558a",
+      "adaptedSha256": "b698afdb5add4b35244542126781b3b94f5a2f75423f504c00b82b306c86ed96",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
     },
     {
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "b3d96144729e2c8a453749a71a289ca57d8e67db70d000e783c515c44c583a12",
+      "adaptedSha256": "a68a1e4d4702ae04059425ca61553d69ebf2d74234b1beb93713d0b3e982903f",
       "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
     },
     {
@@ -857,7 +880,7 @@
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
-      "adaptedSha256": "cccde8bcbbcc45c9370c9a28a07a87168e1cdd8768538d7195ab0bc6e698d942",
+      "adaptedSha256": "77c78453b260c76f4184c4ea1960ce4fd869f48a4fced28780dedde1ae912dcb",
       "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
     },
     {

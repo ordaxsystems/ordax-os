@@ -14,6 +14,7 @@ import { createSurfaceBootScreen } from '../../surface/ui/boot-screen.mjs';
 import { SURFACE_BOOT_SOURCE_MESSAGES } from '../../services/i18n/catalog/boot.mjs';
 import '../../surface/ui/tokens.css';
 import '../../surface/ui/color-palettes.css';
+import '../../surface/ui/settings.css';
 import '../../surface/workspace/components/central/styles.css';
 import '../../surface/ui/boot-screen.css';
 const boot = createSurfaceBootScreen(document);

@@ -31,7 +31,7 @@ const ICONS = Object.freeze({
 
 function railButton(appId, label, icon, t, className = "ordax-rail-button") {
   return `
-    <button type="button" class="${className}" data-sidebar-app="${appId}" data-launch-app="${appId}" aria-label="${t("surface.launcher.open", { app: label })}">
+    <button type="button" class="${className}" data-sidebar-app="${appId}" data-launch-app="${appId}" title="${label}" aria-label="${t("surface.launcher.open", { app: label })}">
       <span class="ordax-rail-icon">${icon}</span>
       <span>${label}</span>
     </button>`;
@@ -71,19 +71,19 @@ export function createDesktopShellMarkup(localization) {
           </button>
           <div class="ordax-space-switcher-slot" data-space-switcher-slot></div>
         </header>
-      <aside class="ordax-rail" aria-label="${t("shell.rail.aria")}">
+      <aside id="ordax-native-sidebar" class="ordax-rail" aria-label="${t("shell.rail.aria")}">
         <nav class="ordax-rail-nav">
-          <button type="button" class="ordax-rail-button" data-show-desktop><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button>
+          <button type="button" class="ordax-rail-button" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button>
           ${railButton("files", t("app.files.title"), ICONS.files, t)}
           ${railButton("studio", t("app.studio.title"), ICONS.studio, t)}
           ${railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)}
           ${railButton("internet", t("app.internet.title"), ICONS.internet, t)}
           ${railButton("settings", t("app.settings.title"), ICONS.settings, t)}
-          ${railButton("account", t("app.account.title"), ICONS.account, t)}
           ${railButton("system", t("app.system.title"), ICONS.system, t)}
         </nav>
-        <div class="ordax-power-slot" data-power-slot></div>
+        <div class="ordax-rail-footer"><button type="button" class="ordax-profile-shortcut" data-sidebar-app="account" data-launch-app="account" data-app-target="overview" aria-label="${t("shell.profile.open")}" title="${t("shell.profile.open")}"><span class="ordax-rail-icon">${ICONS.account}</span></button><div class="ordax-power-slot" data-power-slot></div></div>
       </aside>
+      <button type="button" class="ordax-sidebar-toggle" data-sidebar-toggle aria-controls="ordax-native-sidebar" aria-expanded="true" aria-label="${t("shell.sidebar.collapse")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
 
       <main class="ordax-workspace" tabindex="-1" data-workspace>
         <section class="ordax-desktop" aria-labelledby="surface-home-title">
@@ -223,15 +223,20 @@ export function syncDesktopShellLocalization(root, localization) {
   };
 
   aria(".ordax-rail", "shell.rail.aria");
-  for (const appId of ["files", "notes", "assistant", "internet", "settings", "account", "system"]) {
+  for (const appId of ["files", "studio", "notes", "assistant", "internet", "settings", "account", "system"]) {
     const label = t(`app.${appId}.title`);
     for (const button of root.querySelectorAll(`[data-sidebar-app="${appId}"]`)) {
+      if (button.classList.contains("ordax-profile-shortcut")) continue;
+      button.setAttribute("title", label);
       const labelNode = button.querySelector("span:last-child");
       if (labelNode) labelNode.textContent = label;
       button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
     }
   }
   text("[data-home-nav-label]", "shell.home.title");
+  root.querySelector("[data-show-desktop]")?.setAttribute("title", t("shell.home.title"));
+  root.querySelector(".ordax-profile-shortcut")?.setAttribute("aria-label", t("shell.profile.open"));
+  root.querySelector(".ordax-profile-shortcut")?.setAttribute("title", t("shell.profile.open"));
   text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
   root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
   text("[data-home-tagline]", "shell.home.tagline");

@@ -1,3 +1,4 @@
+import { defaultSidebarForPresentation, resolveSidebarMode } from '../../presentation.mjs';
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { useEffect, useReducer, useState, type FormEvent } from 'react';
 import { ChevronRight, ChevronDown, Mic, Send, Sparkles, WalletCards } from 'lucide-react';
@@ -36,7 +37,7 @@ export function Central() {
   const [dialog, setDialog] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   // Central/Desktop is session presentation state, not an account preference.
-  function changeView(next: 'central' | 'desktop') { setView(next); setDialog(null); }
+  function changeView(next: 'central' | 'desktop') { if (next !== view) { setView(next); setSidebarMode(defaultSidebarForPresentation(next)); } setDialog(null); }
   function openPanel(title: string) {
     if (['Adicionar dispositivo', 'Entrada por voz', 'Espaço Pessoal'].includes(title)) setDialog(title);
     else { setDialog(null); dispatch({ type: 'open', title }); }
@@ -77,7 +78,7 @@ export function Central() {
     <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onCentral={() => changeView('central')} dispatch={dispatch}/></div>
     </div>
     <div className="compact-reservation" aria-hidden="true"/>
-    <WorkspaceNavigation onSidebarChange={setSidebarMode} state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
+    <WorkspaceNavigation onSidebarChange={next => setSidebarMode(resolveSidebarMode(view, next))} state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
     <WindowLayer state={windows} dispatch={dispatch} onCentral={() => { dispatch({ type: 'show-desktop' }); changeView('central'); }}/>
   </div>;
 }
