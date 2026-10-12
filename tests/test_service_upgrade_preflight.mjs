@@ -9,6 +9,8 @@ import {
 } from "../system/services/components/compatibility/core.mjs";
 import {
   SERVICE_COMPATIBILITY_COVERAGE_SCHEMA,
+  SERVICE_CONSUMER_IMPACT_SCHEMA,
+  deriveServiceConsumerImpact,
   SERVICE_UPGRADE_PREFLIGHT_SCHEMA,
   deriveServiceCompatibilityCoverage,
   preflightServiceUpgrade,
@@ -34,13 +36,67 @@ const futureAI = (major = 1, extra = {}) => ({
   provides: [{ id: "ordax.local-ai", major }],
   ...extra,
 });
+// Synthetic contract exists ONLY inside the fixture: production Assistant
+// currently has no independently proven compatibility descriptor.
+const assistantCompatibility = {
+  schema: "ordax.component-compatibility/1",
+  componentId: "assistant",
+  componentVersion: manifests.find((item) => item.id === "assistant").version,
+  provides: [],
+  requires: [{ id: "ordax.intelligence", minMajor: 1, maxMajor: 1, optional: false }],
+  state: null,
+  authority: "none",
+};
+const completeFixtureConsumers = [intelligenceCompatibility, assistantCompatibility];
+
 const inspect = (extra = {}) => preflightServiceUpgrade({
   manifests: independentManifests,
   componentId: "local-ai-service",
   current: localAiCompatibility,
   candidate: futureAI(),
-  active: [intelligenceCompatibility],
+  active: completeFixtureConsumers,
   ...extra,
+});
+
+test("impact graph follows both direct and transitive canonical consumers", () => {
+  const result = deriveServiceConsumerImpact({
+    manifests, componentId: "local-ai-service", descriptors: coreRuntimeCompatibility,
+  });
+  assert.equal(result.schema, SERVICE_CONSUMER_IMPACT_SCHEMA);
+  assert.equal(result.authority, "none");
+  assert.equal(result.productionActivationAllowed, false);
+  assert.equal(result.summary.direct, 1);
+  assert.equal(result.summary.transitive, 1);
+  assert.equal(result.summary.sourceDescriptors, 1);
+  assert.equal(result.summary.missingDescriptors, 1);
+  assert.deepEqual(result.consumers.map((item) => item.id), ["assistant", "ordax-intelligence"]);
+  assert.deepEqual(result.consumers.find((item) => item.id === "assistant").dependencyPath,
+    ["local-ai-service", "ordax-intelligence", "assistant"]);
+  assert.equal(result.consumers.find((item) => item.id === "assistant").contractEvidence,
+    "descriptor-not-declared");
+});
+
+test("transitive Assistant lacking a live contract blocks an otherwise compatible Local AI upgrade", () => {
+  const result = inspect({ active: [intelligenceCompatibility] });
+  assert.equal(result.compatibilityAllowed, false);
+  assert.equal(result.reasonCode, "active-consumer-descriptor-unavailable");
+  const complete = inspect();
+  assert.equal(complete.compatibilityAllowed, true);
+  assert.equal(complete.authority, "none");
+});
+
+test("manifest changes cannot hide deeper consumers from the dependency closure", () => {
+  const newCatalog = manifests.map((component) => component.id === "assistant"
+    ? { ...component, dependencies: ["surface-shell", "ordax-intelligence"] }
+    : component);
+  const result = deriveServiceConsumerImpact({
+    manifests: newCatalog, componentId: "local-ai-service",
+    descriptors: coreRuntimeCompatibility,
+  });
+  assert.equal(result.summary.transitive, 1);
+  assert.throws(() => deriveServiceConsumerImpact({
+    manifests, componentId: "not-a-component", descriptors: coreRuntimeCompatibility,
+  }), /no canonical manifest/);
 });
 
 test("canonical compatibility report accounts for all components without inventing contracts", () => {
@@ -171,7 +227,7 @@ test("same-trust signed-slot inspection reports feed canonical diagnostic prefli
     componentId: "local-ai-service",
     currentInspection: inspection(localAiCompatibility),
     candidateInspection: inspection(futureAI(), { commit: "2".repeat(40) }),
-    activeInspections: [inspection(intelligenceCompatibility, { commit: "3".repeat(40) })],
+    activeInspections: [inspection(intelligenceCompatibility, { commit: "3".repeat(40) }), inspection(assistantCompatibility)],
   });
   assert.equal(report.compatibilityAllowed, true);
   assert.equal(report.reasonCode, "compatible-stateless");
@@ -186,7 +242,7 @@ test("different supplied trust or incompatible active consumers fail closed", ()
     componentId: "local-ai-service",
     currentInspection: inspection(localAiCompatibility),
     candidateInspection: inspection(futureAI()),
-    activeInspections: [inspection(intelligenceCompatibility)],
+    activeInspections: [inspection(intelligenceCompatibility), inspection(assistantCompatibility)],
   };
   const wrongTrust = preflightServiceUpgradeInspections({
     ...shared,
@@ -244,7 +300,7 @@ test("official activation revision and verified slot reports can be checked with
     componentId: "local-ai-service",
     currentSnapshot: activationSnapshot(localAiCompatibility),
     candidateInspection: inspection(futureAI(), { commit: "2".repeat(40) }),
-    activeSnapshots: [activationSnapshot(intelligenceCompatibility, 3)],
+    activeSnapshots: [activationSnapshot(intelligenceCompatibility, 3), activationSnapshot(assistantCompatibility, 4)],
     expectedRevision: 5,
   });
   assert.equal(report.compatibilityAllowed, true);
@@ -259,7 +315,7 @@ test("outdated state revision, mistaken slot role or wrong trust blocks diagnost
     componentId: "local-ai-service",
     currentSnapshot: activationSnapshot(localAiCompatibility),
     candidateInspection: inspection(futureAI()),
-    activeSnapshots: [activationSnapshot(intelligenceCompatibility)],
+    activeSnapshots: [activationSnapshot(intelligenceCompatibility), activationSnapshot(assistantCompatibility, 4)],
     expectedRevision: 5,
   };
   const stale = preflightServiceUpgradeWithActivationSnapshots({
