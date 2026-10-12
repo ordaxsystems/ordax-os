@@ -24,14 +24,14 @@
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "d151ba7991a8f263f40e6e23bd043c9db9fb832c508cff6975db8bdef9476afb",
+      "adaptedSha256": "72bb22a1fe1ee06551f0cdcc481fef69c7bd2118291978f4742f913a834b74ec",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "e61a915108048030e16904292350576b3435e1a112cb0291423f3fc295acbc61",
+      "adaptedSha256": "9ce6cb014b6b6f80688c077ac884ea12fd8c5e4ac78cbf43e4e9fa3314140b28",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -101,7 +101,8 @@
     "Collapsible responsive sidebar, account bell beside settings, and icon-only Home overflow without visible footer labels",
     "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control",
     "Collapse control moved out of sidebar content flow to a directional chevron on the divider edge",
-    "Single-line used/limit GB caption; compact rail shows derived usage percentage with full quota tooltip"
+    "Single-line used/limit GB caption; compact rail shows derived usage percentage with full quota tooltip",
+    "Account card and Avatar consume shared demo user display identity; account title remains single-line with full-name tooltip"
   ],
   "native_files": [
     {

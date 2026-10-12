@@ -508,3 +508,12 @@ in the tooltip and accessible progress metadata. No smaller illegible font,
 ellipsis hiding units or wrapped quota sentence. Actions stay beside each other.
 Owner: OS Surface; presentation-only quota, no backend change. No build, npm or
 tests executed under the standing user restriction.
+
+### User name in sidebar account card — 2026-10-11
+
+Requested presentation change: the account card title now uses the shared demo
+user display name instead of the Space name. Avatar name/initials consume the
+same presentation fixture; the existing single-line truncation is retained with
+full-name tooltip/accessible labels. Space labels elsewhere retain their own
+meaning. The account action/real identity backend is unchanged and remains
+pending. Owner: OS Surface. No build, npm or tests run under user restriction.

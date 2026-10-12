@@ -36,3 +36,6 @@ export const devices = [ { name: 'MacBook Pro', platform: 'macOS', icon: Laptop 
 // Presentation-only account fixture shared by the sidebar and Space panel.
 export const presentationAccount = { spaceName: 'Espaço Pessoal', planName: 'Plano Pro', storageUsedGb: 128, storageLimitGb: 500 };
 export const presentationStoragePercent = Math.min(100, Math.max(0, presentationAccount.storageLimitGb > 0 ? presentationAccount.storageUsedGb / presentationAccount.storageLimitGb * 100 : 0));
+
+// Display fixture only; real signed-in profile integration remains deferred.
+export const presentationUser = { displayName: 'João', avatarInitials: 'JO' };
