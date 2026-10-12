@@ -16,15 +16,15 @@ const activationCompatibilitySnapshotSchema = "ordax.activation-slot-compatibili
 // This is a read-only projection of the EXISTING activation-state.json.
 // No second installed-component registry or activation authority is created.
 type activationCompatibilitySnapshot struct {
-	Schema          string                        `json:"schema"`
-	Authority       string                        `json:"authority"`
-	ComponentID     string                        `json:"componentId"`
-	Target          string                        `json:"target"`
-	Revision        int64                         `json:"revision"`
-	PendingHealth   string                        `json:"pendingHealth"`
-	TrustScope      string                        `json:"trustScope"`
-	TrustSHA256     string                        `json:"trustSHA256"`
-	VerifiedSlot    verifiedSlotCompatibility     `json:"verifiedSlot"`
+	Schema        string                    `json:"schema"`
+	Authority     string                    `json:"authority"`
+	ComponentID   string                    `json:"componentId"`
+	Target        string                    `json:"target"`
+	Revision      int64                     `json:"revision"`
+	PendingHealth string                    `json:"pendingHealth"`
+	TrustScope    string                    `json:"trustScope"`
+	TrustSHA256   string                    `json:"trustSHA256"`
+	VerifiedSlot  verifiedSlotCompatibility `json:"verifiedSlot"`
 }
 
 // inspectActiveCompatibilityV2 binds a cryptographically verified release/2
