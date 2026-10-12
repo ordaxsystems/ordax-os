@@ -92,7 +92,7 @@ const FIRST_RUN_LEGAL_ENGLISH = Object.freeze({
   "Privacidade": "Privacy",
   "Termos": "Terms",
   "Li e aceito os Termos de Uso e li a Política de Privacidade indicados acima.":
-    "I have read and accept the current documents listed above.",
+    "I accept the Terms of Use and have read the Privacy Policy listed above.",
   "Criando conta…": "Creating account…",
 });
 
