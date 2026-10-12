@@ -266,7 +266,7 @@ func TestArmPendingRevisionCASRejectsNegativeExpectedRevision(t *testing.T) {
 	if _, err := armPendingStateAtRevision(first.slot, fixture.trustPath, fixture.root, &negative); err == nil {
 		t.Fatal("negative expected revision accepted")
 	}
-	if _, err := armPendingCommand([]string{"--slot", first.slot, "--trust", fixture.trustPath, "--root", fixture.root, "--expected-revision=-2"}); err == nil {
+	if err := armPendingCommand([]string{"--slot", first.slot, "--trust", fixture.trustPath, "--root", fixture.root, "--expected-revision=-2"}); err == nil {
 		t.Fatal("arm CLI accepted illegal revision")
 	}
 }
