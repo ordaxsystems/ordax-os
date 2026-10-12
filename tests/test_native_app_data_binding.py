@@ -345,7 +345,7 @@ class NativeAppDataBindingTest(unittest.TestCase):
             with registry.suspend_verified_receipt_for_maintenance(other):
                 pass
         self.assertIs(registry.resolve(binding.endpoint), binding)
-        with self.assertRaises(NativeAppDataBindingNotFoundError):
+        with self.assertRaises(VerifiedAppInstallIdentityError):
             with registry.suspend_verified_receipt_for_maintenance("0" * 64):
                 pass
 
