@@ -61,7 +61,7 @@ try {
       await sleep(100);
     }
     async function clickByText(selector,text){
-      const marker=await evaluate("(()=>{const nodes=[...document.querySelectorAll("+JSON.stringify(selector)+")];const node=nodes.find(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+");if(!node)throw Error('Missing text control');node.dataset.proofClick='current';return '[data-proof-click=current]';})()");
+      const marker=await evaluate("(()=>{const nodes=[...document.querySelectorAll("+JSON.stringify(selector)+")];const node=nodes.find(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+");if(!node)throw Error('Missing text control: selector='+JSON.stringify(selector)+' text='+JSON.stringify(text)+' candidates='+nodes.map(n=>n.textContent.trim()).slice(0,16).join('|'));node.dataset.proofClick='current';return '[data-proof-click=current]';})()");
       await click(marker);
       await evaluate("document.querySelector('[data-proof-click=current]')?.removeAttribute('data-proof-click')");
     }
