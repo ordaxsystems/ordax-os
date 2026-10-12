@@ -13,7 +13,7 @@ import {
 const serviceDirectories = () => readdirSync(
   new URL("../system/services/", import.meta.url), { withFileTypes: true },
 )
-  .filter((entry) => entry.isDirectory() && /^[a-z][a-z0-9-]*$/.test(entry.name))
+  .filter((entry) => entry.isDirectory())
   .map((entry) => "system/services/" + entry.name);
 
 const inventory = (manifests = listSystemComponents(), paths = serviceDirectories()) =>
@@ -95,5 +95,5 @@ test("the executable audit runs against actual repo source", () => {
   ], { encoding: "utf8", timeout: 20000 });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /Service update inventory:/);
-  assert.match(run.stdout, /no independent release claimed/);
+  assert.match(run.stdout, /0 independent releases proven/);
 });
