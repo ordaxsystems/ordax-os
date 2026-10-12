@@ -89,6 +89,8 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertNotIn("inputs.envelope_url", source)
         self.assertNotIn("b924ff8d74d1761232381ae3f9604bba17497cfd", source)
         self.assertIn("id: canonical", source)
+        self.assertIn("python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready", source)
+        self.assertLess(source.index("OFFICIAL_PHYSICAL_PROMOTION=READY"), source.index("id: canonical"))
         self.assertIn("steps.canonical.outputs.release_source_commit", source)
         self.assertIn("operator/docs/contracts/physical-write-authorization.json", source)
         self.assertIn("operator/docs/evidence/canonical-v4-release-proof.json", source)
