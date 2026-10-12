@@ -3,10 +3,6 @@ name: First Physical USB Payload
 on:
   workflow_dispatch:
     inputs:
-      writer_source_commit:
-        description: Exact source commit of the published creator-physical writer.
-        required: true
-        type: string
       target_bytes:
         description: Exact capacity in bytes of the selected removable USB.
         required: true
@@ -22,7 +18,7 @@ jobs:
     timeout-minutes: 180
     env:
       ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-      WRITER_SOURCE_COMMIT: ${{ inputs.writer_source_commit }}
+      WRITER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       TARGET_BYTES: ${{ inputs.target_bytes }}
 
     steps:
@@ -126,13 +122,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Checkout exact published writer source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ inputs.writer_source_commit }}
-          path: writer-source
-          persist-credentials: false
-
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -232,7 +221,6 @@ jobs:
           PY
 
           test "$(git -C release-source rev-parse HEAD)" = "$RELEASE_SOURCE_COMMIT"
-          test "$(git -C writer-source rev-parse HEAD)" = "$WRITER_SOURCE_COMMIT"
           test "$(git -C operator rev-parse HEAD)" = "$ORDAX_SOURCE_COMMIT"
 
       - name: Resolve exact release kernel ABI through canonical owner
@@ -462,7 +450,7 @@ jobs:
 
       - name: Generate exact target-specific media and application plans
         shell: bash
-        working-directory: writer-source/tools/creator
+        working-directory: operator/tools/creator
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/first-physical-payload/out"
