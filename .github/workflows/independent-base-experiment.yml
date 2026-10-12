@@ -1,0 +1,80 @@
+name: Independent Base Experiment
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/independent-base/**'
+      - 'tests/test_independent_base_experiment.py'
+      - '.github/workflows/independent-base-experiment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  buildroot-qemu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Python for pinned build and QEMU proof
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install Linux build, EROFS and QEMU tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
+            libelf-dev dwarves kmod xz-utils pkg-config \
+            gawk cpio unzip rsync file wget curl patch git \
+            erofs-utils e2fsprogs util-linux qemu-system-x86
+      - name: Verify isolated contract and regressions
+        run: |
+          python3 -m unittest tests.test_independent_base_experiment -v
+          python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
+          sh -n bootstrap/independent-base/post-build.sh
+          sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
+      - name: Build rootfs from official Buildroot source
+        run: |
+          python3 bootstrap/independent-base/build.py build \
+            --out "$RUNNER_TEMP/ordax-independent" \
+            --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
+          python3 bootstrap/independent-base/build.py verify --out "$RUNNER_TEMP/ordax-independent"
+      - name: Build canonical OrdaX kernel without modifying kernel source
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 bootstrap/kernel/build.py build \
+            --work-dir "$RUNNER_TEMP/ordax-kernel-work" \
+            --out-dir "$RUNNER_TEMP/ordax-kernel" --jobs 4
+          python3 bootstrap/kernel/verify.py "$RUNNER_TEMP/ordax-kernel"
+      - name: QEMU real kernel, EROFS and ext4 persistence/recovery
+        run: |
+          python3 bootstrap/independent-base/qemu_proof.py \
+            --out "$RUNNER_TEMP/ordax-independent" \
+            --kernel-dir "$RUNNER_TEMP/ordax-kernel" \
+            --result "$RUNNER_TEMP/ordax-independent-qemu-result.json"
+      - name: Upload candidate/provenance and observed QEMU result
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-independent-base-experiment-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/ordax-independent/provenance.json
+            ${{ runner.temp }}/ordax-independent/independent-base.erofs
+            ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
+            ${{ runner.temp }}/ordax-kernel/kernel-provenance.json
+            ${{ runner.temp }}/ordax-independent-qemu-result.json
+            ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log
+          if-no-files-found: warn
+          retention-days: 7
