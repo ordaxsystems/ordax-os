@@ -207,7 +207,7 @@ func TestRollbackRetainsRequiredAPIForSignedNativePeer(t *testing.T) {
 	}
 }
 
-func TestUninstallFailsClosedOnCorruptSignedNativePeerSlot(t *testing.T) {
+func TestUninstallFailsClosedOnCorruptSignedNativePeerState(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	provider := addActivationV2Candidate(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
@@ -219,15 +219,11 @@ func TestUninstallFailsClosedOnCorruptSignedNativePeerSlot(t *testing.T) {
 		[]requiredCompatibilityContract{{ID: "ordax.internet", MinMajor: 1, MaxMajor: 1}},
 	)
 	healthyPromoteSignedPeer(t, fixture, "notes", consumer)
-	// A removed/tampered signed compatibility sidecar cannot turn a
-	// mandatory peer into an absent peer or waive its requirement.
-	if err := os.Remove(consumer.compatibilityPath); err != nil {
-		t.Fatal(err)
-	}
-	// Stage keeps an immutable copy in the canonical slot; tamper only the
-	// slot sidecar to simulate damaged installed evidence.
-	canonicalSidecar := filepath.Join(consumer.slot, "notes.compatibility.json")
-	if err := os.Remove(canonicalSidecar); err != nil {
+	// Installed signed slots are immutable by design. Simulate a damaged
+	// mutable activation-state.json instead: an unreadable peer cannot be
+	// silently omitted from the cross-component continuity check.
+	peerStatePath := filepath.Join(fixture.root, "notes", activationStateName)
+	if err := os.WriteFile(peerStatePath, []byte("{invalid"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := uninstallCurrentStateAtRevision(
