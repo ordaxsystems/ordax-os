@@ -10,6 +10,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 
@@ -94,6 +95,13 @@ def prove(args: argparse.Namespace) -> dict:
             raise BaseError("QEMU candidate inputs must be staged outside source repository")
 
     out.mkdir(parents=True, exist_ok=True)
+    # The canonical QEMU harness works with disposable images. Never allow an
+    # external caller's ext4 source file to become an implicit write target.
+    source_state_sha256 = digest(state)
+    staged_state = out / "persistent-state-for-proof.img"
+    shutil.copyfile(state, staged_state)
+    if digest(staged_state) != source_state_sha256:
+        raise BaseError("ext4 staging copy differs from source")
     initramfs_work = out / "initramfs-work"
     initramfs_out = out / "initramfs"
     builder = ROOT / "bootstrap/initramfs/build.py"
@@ -106,6 +114,8 @@ def prove(args: argparse.Namespace) -> dict:
     pin = provenance.get("portable_stable_base_pin", {})
     if pin.get("sha256") != digest(candidate) or pin.get("provided") is not True:
         raise BaseError("canonical initramfs did not pin the independent base")
+    if provenance.get("source_commit") != args.source_commit:
+        raise BaseError("official initramfs does not match candidate source commit")
 
     qemu_result = out / "portable-qemu-result.json"
     argv = [sys.executable, str(ROOT / "bootstrap/portable-v2/qemu_boot.py"),
@@ -114,7 +124,7 @@ def prove(args: argparse.Namespace) -> dict:
             "--initramfs-provenance", str(initramfs_out / "initramfs-provenance.json"),
             "--capsule", str(capsule),
             "--stable-base", str(candidate),
-            "--state-image", str(state),
+            "--state-image", str(staged_state),
             "--portable-root", str(portable),
             "--trust", str(trust),
             "--source-commit", args.source_commit,
@@ -133,9 +143,13 @@ def prove(args: argparse.Namespace) -> dict:
         raise BaseError("official QEMU handoff checks failed")
     if args.previous_commit and not proof.get("armed_candidate_one_shot_proven"):
         raise BaseError("official one-shot rollback has not been proved")
+    if digest(state) != source_state_sha256:
+        raise BaseError("original ext4 source unexpectedly changed during QEMU proof")
     result = {
         "status": "pass",
         "independent_base_sha256": digest(candidate),
+        "original_ext4_image_sha256": source_state_sha256,
+        "original_ext4_image_unchanged": True,
         "canonical_entrypoint_sha256": digest(CANONICAL_HANDOFF),
         "initramfs_sha256": digest(initramfs_out / "initramfs.cpio.gz"),
         "portable_qemu_result": str(qemu_result),
