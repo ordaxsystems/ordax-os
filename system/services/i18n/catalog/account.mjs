@@ -52,7 +52,7 @@ export const ACCOUNT_SOURCE_MESSAGES = Object.freeze({
   "account.registration.legal.detail": "Leia os documentos canônicos antes de criar a conta.",
   "account.registration.legal.privacy": "Privacidade",
   "account.registration.legal.terms": "Termos",
-  "account.registration.legal.accept": "Li e aceito os documentos vigentes indicados acima.",
+  "account.registration.legal.accept": "Li e aceito os Termos de Uso e li a Política de Privacidade indicados acima.",
 
   "account.spaces.eyebrow": "Conta e contexto",
   "account.spaces.title": "Seus Spaces",
