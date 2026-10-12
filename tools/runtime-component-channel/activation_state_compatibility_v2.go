@@ -30,6 +30,28 @@ func validateForwardStateCompatibility(
 	return nil
 }
 
+// With bundled consumers not yet independently attested, a signed upgrade
+// must retain every previously offered contract at its prior major version.
+// This is a conservative native floor, not an invented declaration of
+// complete consumer compatibility or an alternate contract catalog.
+func validateForwardProvidedContracts(
+	current, candidate []providedCompatibilityContract,
+) error {
+	for _, existing := range current {
+		preserved := false
+		for _, next := range candidate {
+			if next.ID == existing.ID && next.Major == existing.Major {
+				preserved = true
+				break
+			}
+		}
+		if !preserved {
+			return errors.New("runtime component candidate drops an existing signed provided contract")
+		}
+	}
+	return nil
+}
+
 // Called only from the existing activation-state mutation lock. The current
 // and candidate slots must both be signed with the caller's public trust.
 // Crossing signed schema generations is not silently compatible.
@@ -78,6 +100,11 @@ func verifyArmPendingStateCompatibility(
 		before.Version != current.Version || before.SourceCommit != current.SourceCommit ||
 		after.Version != candidate.Version || after.SourceCommit != candidate.SourceCommit {
 		return errors.New("runtime component activation signed state contract identity changed")
+	}
+	if err := validateForwardProvidedContracts(
+		before.Descriptor.Provides, after.Descriptor.Provides,
+	); err != nil {
+		return err
 	}
 	return validateForwardStateCompatibility(before.Descriptor.State, after.Descriptor.State)
 }
