@@ -1,6 +1,5 @@
 import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
-import { activityApp } from "../../activity/app.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
 import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../../../contracts/personal-ordax.mjs";
@@ -110,7 +109,8 @@ export function openAssistantWorkInActivity(
     );
     if (!view.cards.some((item) =>
       item.workItemId === workItemId && item.state === "requires-action")) return false;
-    channel.publish({ appId: activityApp.id });
+    // A cross-app activation requests the public app identity, not its source module.
+    channel.publish({ appId: "activity" });
     return true;
   } catch {
     return false; // Context or navigation changed: no cross-owner action.

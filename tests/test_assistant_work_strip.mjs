@@ -633,6 +633,7 @@ test("Activity review UI uses explicit click and only publishes navigation", asy
   assert.match(ui, /work\.state === "requires-action"/);
   assert.match(ui, /dataset\.assistantReviewWork = work\.workItemId/);
   assert.match(ui, /target\.dataset\.assistantReviewWork !== undefined/);
-  assert.match(ui, /channel\.publish\(\{ appId: activityApp\.id \}\)/);
+  assert.match(ui, /channel\.publish\(\{ appId: "activity" \}\)/);
+  assert.doesNotMatch(ui, /activity\/app\.mjs/);
   assert.doesNotMatch(ui, /approvalConsent\.approve\(|executeApprovedAction\(|resolveApproval\(/);
 });
