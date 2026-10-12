@@ -148,7 +148,11 @@ try {
       await evaluate("window.proofUpperHeight=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height");
       assert.equal(await evaluate("(()=>{const upper=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();const lower=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();return upper.bottom<=lower.top+1;})()"),true,'New app fits above compact panels without overlap');
       await compactAction('Aura','Recolher painel Aura','Recolher painel');
-      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height>window.proofUpperHeight"),true,'Upper app grows when compact track collapses');
+      await until("document.querySelector('.window-workspace').dataset.compact==='collapsed'");
+      // Re-rendering the compact track is asynchronous after the click.
+      // The actual height MUST grow within the existing bounded wait;
+      // this is not a substitute for or relaxation of the geometry proof.
+      await until("document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height>window.proofUpperHeight");
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'collapsed');
       await compactAction('Aura','Expandir painel Aura','Expandir painel');
       await until("document.querySelector('.window-workspace').dataset.compact==='expanded'");
