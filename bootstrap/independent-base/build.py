@@ -179,7 +179,8 @@ def verify_target(target: Path) -> None:
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
     missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
                "poweroff", "grep", "sync", "modprobe", "timeout",
-               "od", "tr", "stat", "uname"} - applets
+               "od", "tr", "stat", "uname", "sleep", "true",
+               "cat", "mkdir", "chmod"} - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     # Presence in the applet list is not enough: the official handoff uses
