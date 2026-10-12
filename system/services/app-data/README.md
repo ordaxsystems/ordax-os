@@ -91,6 +91,36 @@ o rollback de componentes com estado persiste bloqueado no writer Native.
 A fronteira `/ordax/home` continua separada; isto não é backup de
 arquivos pessoais.
 
+## Barreira de manutenção do owner (pré-requisito para ativação transacional)
+
+A função privada `hold_app_data_maintenance(identity, source_release,
+expected_revision)` mantém o **mesmo `flock(LOCK_EX)` canônico** que
+protege gravações e exclusões durante todo o escopo do coordenador.
+Também bloqueia as rotas públicas `get` e `list`, pois `list_app_data`
+agora adquire `flock(LOCK_SH)`, como já fazia `get`.
+O escopo valida identidade, revisão CAS, integridade dos blobs atuais e
+checkpoint retido **antes** de permitir a operação e expõe somente métodos
+privados `checkpoint`, `restore`, `retire` e `revision`.
+São os mesmos algoritmos do owner usados pelas operações individuais,
+extraídos para helpers internos: não se tenta adquirir novamente um flock
+por descritor diferente durante o escopo, evitando deadlock.
+
+A manutenção termina e libera o lock mesmo em exceção. Checkpoints
+permanecem armazenados se houver falha: **não são apagados nem
+restaurados automaticamente**, porque a decisão de rollback depende da
+assinatura e do resultado da ativação oficial. Testes com **outros processos**
+verificam que `get`/`list`/`put` ficam bloqueados durante o escopo
+e que um escritor com CAS antigo é rejeitado depois de uma recuperação;
+outro processo consegue restaurar após uma falha do coordenador.
+
+**Limites:** esta barreira não pausa processos fora do App Data,
+arquivos em `/ordax/home`, outras fontes de dados nem os efeitos colaterais
+de um app. Também não verifica a assinatura da versão nem assume o lock
+do grafo de ativação Go. É um mecanismo que a orquestração confiável deverá
+usar **depois de** comprovar a identidade do release e a quiescência real
+do aplicativo e **enquanto** mantém a transação canônica do atualizador.
+Não liberar os gates de upgrade/rollback stateful só por este escopo.
+
 ## Transport
 
 `native_app_data_endpoint.py` defines the typed JSON boundary, but it deliberately accepts the app identity as a trusted host argument rather than from JSON. Request bodies contain only `action`, keys, bytes and revisions.
