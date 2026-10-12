@@ -60,6 +60,18 @@ try {
       await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
       await sleep(100);
     }
+    async function selectColorThemeWithKeyboard(key) {
+      // Change the visible native <select> with trusted Chromium keyboard input.
+      // The Surface owns the preference; the proof does not mutate its store.
+      const selector = '#web-color-theme';
+      assert.equal(await evaluate("(()=>{const n=document.querySelector('#web-color-theme');return n?.tagName==='SELECT'&&n.getClientRects().length>0})()"),true,'Canonical color-theme select must be visible');
+      await click(selector);
+      const code = key === 'ArrowDown' ? 40 : key === 'ArrowUp' ? 38 : 36;
+      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:code});
+      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:code});
+      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+    }
     async function clickByText(selector,text){
       // Radix popup items are mounted asynchronously after the pointer event.
       // Observe their actual visible state instead of relying on a fixed delay.
@@ -109,13 +121,19 @@ try {
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
-      await click('[aria-label="Ajustes do espaço"]'); await click('.desktop-settings-row button');
+      await click('[aria-label="Ajustes do espaço"]');
+      assert.equal(await evaluate("document.documentElement.dataset.theme"),'light','Clean profile starts with official light palette');
+      await selectColorThemeWithKeyboard('ArrowDown');
       await until("document.documentElement.dataset.theme==='dark'");
+      assert.equal(await evaluate("document.querySelector('#web-color-theme').value"),'dark','User-selected theme must be reflected in visible control');
       assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),before);
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("document.documentElement.dataset.theme==='dark'");
-      await click('[aria-label="Ajustes do espaço"]'); await click('.desktop-settings-row button');
+      await click('[aria-label="Ajustes do espaço"]');
+      assert.equal(await evaluate("document.querySelector('#web-color-theme').value"),'dark','Persisted dark theme matches visible preference');
+      await selectColorThemeWithKeyboard('ArrowUp');
       await until("document.documentElement.dataset.theme==='light'");
+      assert.equal(await evaluate("document.querySelector('#web-color-theme').value"),'light','Light theme returns through the same public control');
       await click('[aria-label="Fechar Configurações"]');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
