@@ -66,6 +66,15 @@ try {
       await evaluate("document.querySelector('[data-proof-click=current]')?.removeAttribute('data-proof-click')");
     }
     await client.send('Page.navigate',{url:origin+'/'});await ready();
+    async function compactAction(title,label,menuTitle){
+      const selector='[aria-label='+JSON.stringify(label)+']';
+      const visible=await evaluate('[...document.querySelectorAll('+JSON.stringify(selector)+')].some(node=>node.getClientRects().length>0)');
+      if(visible) await click(selector);
+      else {
+        await click('[aria-label='+JSON.stringify('Mais ações de '+title)+']');
+        await clickByText('[role="menuitem"]',menuTitle);
+      }
+    }
     const results=[];
     for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
       await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
@@ -114,14 +123,14 @@ try {
       assert.equal(await evaluate("(()=>{const strip=document.querySelector('.compact-window-strip');const panes=[...strip.querySelectorAll('[data-mode="compact"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,'Compact panels share available width equally without strip overflow');
       assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label="Janela Aura"]')"),true,'Adding a neighbor keeps the existing app node');
       await click('[aria-label="Fechar Projetos"]');
-      await click('[aria-label="Recolher painel Aura"]');
+      await compactAction('Aura','Recolher painel Aura','Recolher painel');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'collapsed');
-      await click('[aria-label="Expandir painel Aura"]');
-      await click('[aria-label="Minimizar Aura"]');
+      await compactAction('Aura','Expandir painel Aura','Expandir painel');
+      await compactAction('Aura','Minimizar Aura','Minimizar');
       assert.equal(await evaluate('window.proofAura.hidden'),true);
       await click('[aria-label="Restaurar janela Aura"]');
       assert.equal(await evaluate("window.proofAura.querySelector('input').value"),'Apenas demonstração','Minimize keeps the draft');
-      await click('[aria-label="Expandir janela Aura"]');
+      await compactAction('Aura','Expandir janela Aura','Expandir janela');
       await click('[aria-label="Fechar Aura"]');
       await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().toJSON()");
       await click('[data-workspace-switch]');

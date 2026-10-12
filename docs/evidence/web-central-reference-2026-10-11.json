@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "0718bdf05689a4ef0eaa093ff0fa17f6057ecf26db587e91015a604e37ce5464",
+      "adaptedSha256": "4729f510e5d07e5de903f0710f701150d64501dbe7cec9f92638dccc3594bedb",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -113,12 +113,13 @@
     "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding",
     "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme",
     "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination",
-    "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained"
+    "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained",
+    "Compact titlebar reduced to a single 40px row with spaced 28px controls; below 260px secondary actions use shared accessible dropdown, driven by the same action descriptors"
   ],
   "native_files": [
     {
       "target": "system/surface/workspace/components/central/window-layer.tsx",
-      "sha256": "b144673ee7d812daaa64b2bf8388f4f400b8830fa7737d4d5c5aae985ee0d7b6",
+      "sha256": "864fa5c1c08ba2c800453e18a3d9955927a5d8fe6a03593c5d78c154bdfa8950",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls"
     }

@@ -1,8 +1,11 @@
 import { useEffect, useRef, type Dispatch } from 'react';
-import { ChevronDown, ChevronUp, Copy, LayoutGrid, Minus, PanelBottom, Square, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, LayoutGrid, Minus, MoreHorizontal, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DesktopContent, type PresentationProps } from './desktop';
 import type { DesktopAction, DesktopState } from './desktop-state';
+
+type WindowControl = { label: string; title: string; icon: LucideIcon; action: DesktopAction; expanded?: boolean };
 
 type Props = PresentationProps & { state: DesktopState; dispatch: Dispatch<DesktopAction> };
 
@@ -31,18 +34,22 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
     {state.windows.map(window => {
       const selected = window.mode === 'compact' || window.title === regular?.title;
       const collapsed = window.mode === 'compact' && state.compactCollapsed;
+      const controls: WindowControl[] = [
+        ...(window.mode === 'compact' ? [{ label: (collapsed ? 'Expandir' : 'Recolher') + ' painel ' + window.title, title: collapsed ? 'Expandir painel' : 'Recolher painel', icon: collapsed ? ChevronUp : ChevronDown, action: { type: 'toggle-compact' as const, collapsed: !collapsed }, expanded: !collapsed }] : []),
+        { label: 'Minimizar ' + window.title, title: 'Minimizar', icon: Minus, action: { type: 'minimize', title: window.title } },
+        { label: (window.mode === 'compact' ? 'Expandir janela' : 'Compactar') + ' ' + window.title, title: window.mode === 'compact' ? 'Expandir janela' : 'Modo compacto', icon: window.mode === 'compact' ? Copy : PanelBottom, action: { type: window.mode === 'compact' ? 'restore' : 'compact', title: window.title } },
+        ...(window.mode !== 'compact' ? [{ label: (window.mode === 'maximized' ? 'Restaurar' : 'Maximizar') + ' ' + window.title, title: window.mode === 'maximized' ? 'Restaurar tamanho' : 'Maximizar', icon: window.mode === 'maximized' ? Copy : Square, action: { type: 'maximize' as const, title: window.title } }] : []),
+      ];
       return <section key={window.title} ref={node => { if (node) panes.current.set(window.title, node); else panes.current.delete(window.title); }} role="region" tabIndex={-1}
         aria-label={`Janela ${window.title}`} className="desktop-window workspace-window" hidden={window.minimized || !selected}
         data-mode={window.mode} data-active={state.active === window.title} data-maximized={window.mode === 'maximized'} data-collapsed={collapsed}
         onFocus={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}
         onPointerDown={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}>
         <header className="desktop-titlebar">
-          <span className="desktop-window-title"><LayoutGrid/><span>{window.title}</span></span>
+          <span className="desktop-window-title"><LayoutGrid/><span title={window.title}>{window.title}</span></span>
           <div className="desktop-window-controls">
-            {window.mode === 'compact' && <Button variant="ghost" size="icon" aria-label={`${collapsed ? 'Expandir' : 'Recolher'} painel ${window.title}`} aria-expanded={!collapsed} title={collapsed ? 'Expandir painel' : 'Recolher painel'} onClick={() => dispatch({ type: 'toggle-compact', collapsed: !collapsed })}>{collapsed ? <ChevronUp/> : <ChevronDown/>}</Button>}
-            <Button variant="ghost" size="icon" aria-label={`Minimizar ${window.title}`} title="Minimizar" onClick={() => dispatch({ type: 'minimize', title: window.title })}><Minus/></Button>
-            <Button variant="ghost" size="icon" aria-label={`${window.mode === 'compact' ? 'Expandir janela' : 'Compactar'} ${window.title}`} title={window.mode === 'compact' ? 'Expandir janela' : 'Modo compacto'} onClick={() => dispatch({ type: window.mode === 'compact' ? 'restore' : 'compact', title: window.title })}>{window.mode === 'compact' ? <Copy/> : <PanelBottom/>}</Button>
-            {window.mode !== 'compact' && <Button variant="ghost" size="icon" aria-label={`${window.mode === 'maximized' ? 'Restaurar' : 'Maximizar'} ${window.title}`} title={window.mode === 'maximized' ? 'Restaurar tamanho' : 'Maximizar'} onClick={() => dispatch({ type: 'maximize', title: window.title })}>{window.mode === 'maximized' ? <Copy/> : <Square/>}</Button>}
+            <div className="window-secondary-actions">{controls.map(control => <Button key={control.label} variant="ghost" size="icon" aria-label={control.label} aria-expanded={control.expanded} title={control.title} onClick={() => dispatch(control.action)}><control.icon/></Button>)}</div>
+            {window.mode === 'compact' && <div className="compact-actions-overflow"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + window.title} title="Mais ações"><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={6} className="compact-actions-menu">{controls.map(control => <DropdownMenuItem key={control.label} onSelect={() => dispatch(control.action)}><control.icon/>{control.title}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>}
             <Button variant="ghost" size="icon" className="window-close" aria-label={`Fechar ${window.title}`} title="Fechar" onClick={() => dispatch({ type: 'close', title: window.title })}><X/></Button>
           </div>
         </header>

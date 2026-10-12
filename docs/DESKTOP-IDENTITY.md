@@ -620,3 +620,14 @@ preservation, but was not run. Acceptance: N panels share the available width
 equally, without hidden offscreen panels or duplicate instances; drafts and
 independent window actions remain intact. Runtime/backend unchanged.
 No build, npm or tests executed under the standing user restriction.
+
+### Compact titlebar density — 2026-10-11
+
+Owner: OS Surface. Compact headers use a single 40px row instead of a 76px
+stack. Controls are 28px with 6px gaps; close gets additional separation.
+Below 260px, close remains visible and secondary actions use the existing
+accessible dropdown component. One typed action list feeds buttons and menu,
+preserving reducer authority and equal pane geometry. Full app title is
+available on hover. Existing browser-check source follows either control mode.
+Acceptance: shorter header with distinct controls and all actions reachable.
+No build, npm or tests executed under the standing user restriction.
