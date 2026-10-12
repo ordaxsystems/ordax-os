@@ -944,27 +944,6 @@ async function start() {
 
   bootScreen.setStage(surface.localization.translate("surface.boot.loadingApps"));
 
-  const assistantComponent = await loadOptionalComponentRuntime({
-    componentId: "assistant",
-    importer: () => import("../../apps/assistant/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      surfaceLifecycle: surface,
-      intelligence: selectedSpaceIntelligence,
-      memoryCapture: assistantMemoryCapture,
-      personalOrdax,
-      projectWorkCanvas: projectPersonalWorkCanvas,
-      identitySessionPort: identitySession,
-      spaceSelectionPort: spaceSelection,
-      profileActivationStatePort: profileActivationState,
-      appActivation,
-    },
-    onError(error) {
-      reportClientDiagnostic("assistant-runtime", error);
-    },
-  });
-
   const activityComponent = await loadOptionalComponentRuntime({
     componentId: "activity",
     importer: () => import("../../apps/activity/runtime.mjs"),
@@ -1107,7 +1086,6 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
-      assistantComponent?.destroy();
       activityComponent?.destroy();
       internetComponent?.destroy();
       externalAppMounts?.destroy();
