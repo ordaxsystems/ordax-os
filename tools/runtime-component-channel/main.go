@@ -1241,7 +1241,7 @@ func verifySlotCommand(args []string) error {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ordax-runtime-component-channel <generate-key|derive-trust|sign|verify-envelope|stage|verify-slot|sign-v2|verify-envelope-v2|stage-v2|verify-slot-v2|sign-store-catalog|verify-store-catalog|arm-pending|record-health|promote-state|reject-pending|rollback-state|uninstall-state|resolve-current|resolve-pending|read-runtime-file|status> [options]")
+	fmt.Fprintln(os.Stderr, "usage: ordax-runtime-component-channel <generate-key|derive-trust|sign|verify-envelope|stage|verify-slot|sign-v2|verify-envelope-v2|stage-v2|verify-slot-v2|inspect-slot-compatibility-v2|sign-store-catalog|verify-store-catalog|arm-pending|record-health|promote-state|reject-pending|rollback-state|uninstall-state|resolve-current|resolve-pending|read-runtime-file|status> [options]")
 }
 
 func main() {
@@ -1271,6 +1271,8 @@ func main() {
 		err = stageV2Command(os.Args[2:])
 	case "verify-slot-v2":
 		err = verifySlotV2Command(os.Args[2:])
+	case "inspect-slot-compatibility-v2":
+		err = inspectSlotCompatibilityV2Command(os.Args[2:])
 	case "sign-store-catalog":
 		err = signStoreCatalogCommand(os.Args[2:])
 	case "verify-store-catalog":
