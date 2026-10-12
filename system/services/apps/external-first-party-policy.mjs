@@ -31,7 +31,9 @@ export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
 // scope. Store catalog presence alone does not grant executable-read support.
 export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
   "calculator",
+  "network",
   "notes",
+  "projects",
   "studio",
 ]);
 export const EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([

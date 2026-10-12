@@ -70,7 +70,11 @@ import {
 } from "./verified-installed-apps.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
-import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
+import {
+  installTrustedComponentContextProvider,
+  loadOptionalComponentRuntime,
+} from "../../services/components/runtime-loader.mjs";
+import { createVerifiedProjectsContextProvider } from "./verified-projects-context.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
@@ -383,6 +387,11 @@ async function start() {
   const projectCloudLinksReader = projectCloudLinks === null
     ? null
     : createProjectCloudLinksReader(projectCloudLinks);
+  // Verified Projects receives only platform-owned read-only catalog projections.
+  installTrustedComponentContextProvider(createVerifiedProjectsContextProvider({
+    projects,
+    projectCloudLinks: projectCloudLinksReader,
+  }));
   const projectReferences = projects === null ? null : createProjectWebReferenceRuntime({
     store: createNativeProjectWebReferenceStore(window),
     projects,

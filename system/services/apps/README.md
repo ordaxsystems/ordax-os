@@ -103,6 +103,9 @@ A adição da Calculadora **não** altera o conjunto de health mutation (Interne
 
 **Gates seguintes:** caminho de saúde/probation validado para apps externos com runtime real, assinatura/publicação oficial do catálogo, pré-instalação transacional e E2E de instalação/remover/reiniciar/reinstalar. Sem esses gates, não apresentar a Calculadora como pré-instalada em produção.
 
+**Rede e Projetos (Gate de leitura Native):** o escopo de leitura de módulos verificados inclui `network` e `projects`, derivado diretamente do SSOT `docs/contracts/runtime-component-package.json`. Isso permite somente ler slots `current` autenticados, sem aumentar o escopo de saúde, probation, instalação, promoção, rollback ou autoridade da Store. Projetos recebe apenas leitores de catálogo e vínculos cloud validados; nunca os serviços de mutação. Ausência de slot assinado ou de App Data bloqueia a montagem. Rede ainda exige porta operacional autorizada para completar seu fluxo funcional.
+
+
 ## Surface da Loja: experiência e contrato
 
 A Loja estrutural permanece sob `system/apps/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.

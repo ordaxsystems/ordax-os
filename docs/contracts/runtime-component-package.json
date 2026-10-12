@@ -51,7 +51,9 @@
   "native_loopback_broker_supported_components": [
     "calculator",
     "internet",
+    "network",
     "notes",
+    "projects",
     "studio"
   ],
   "failed_pending_runtime_read_allowed": false,
