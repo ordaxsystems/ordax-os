@@ -192,6 +192,19 @@ func TestSignedUpgradeCannotIntroduceOrTightenMandatoryRequirements(t *testing.T
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := makeActivationV2Fixture(t)
+			// A signed first install requiring a provider must include an
+			// actually installed signed provider. These upgrade regression
+			// fixtures may not pre-install an already broken required graph.
+			for _, required := range tc.current {
+				if required.Optional {
+					continue
+				}
+				provider := addSignedPeer(
+					t, fixture, "network", "4444444444444444444444444444444444444444",
+					[]providedCompatibilityContract{{ID: required.ID, Major: required.MaxMajor}}, nil,
+				)
+				healthyPromoteSignedPeer(t, fixture, "network", provider)
+			}
 			existing := addActivationV2CandidateWithFullContracts(
 				t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
 				nil, []providedCompatibilityContract{{ID: "ordax.internet", Major: 1}}, tc.current,
