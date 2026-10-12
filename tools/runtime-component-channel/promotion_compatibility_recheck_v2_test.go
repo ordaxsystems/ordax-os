@@ -102,18 +102,12 @@ func TestPromotionRejectsNewSignedStateOwnerAfterPendingHealth(t *testing.T) {
 
 func TestPromotionContinuesWithSignedCompatibleCurrentUnderLock(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
-	current := addActivationV2CandidateWithState(
+	current := addActivationV2Candidate(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
-		&compatibilityState{
-			ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1,
-		},
 	)
 	healthyPromoteV2(t, fixture, current)
-	candidate := addActivationV2CandidateWithState(
+	candidate := addActivationV2Candidate(
 		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
-		&compatibilityState{
-			ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 2,
-		},
 	)
 	healthy := healthyPendingV2(t, fixture, candidate)
 	promoted, err := promotePendingStateAtRevision(
@@ -126,7 +120,7 @@ func TestPromotionContinuesWithSignedCompatibleCurrentUnderLock(t *testing.T) {
 		promoted.Pending != nil ||
 		!sameSlotIdentity(promoted.Previous, healthy.Current) ||
 		promoted.Current == nil || promoted.Current.Version != "1.1.0" {
-		t.Fatalf("compatible release failed atomic healthy promotion: %+v", promoted)
+		t.Fatalf("compatible stateless release failed atomic healthy promotion: %+v", promoted)
 	}
 }
 

@@ -34,7 +34,12 @@ func validateForwardStateCompatibility(
 		current.WriteVersion > candidate.ReadableThrough {
 		return errors.New("runtime component candidate cannot read current signed state version")
 	}
-	return nil
+	// A readable schema range is not a crash-safe rollback strategy. Since
+	// the canonical state owner cannot yet prove or restore the persisted
+	// generation, even same-schema upgrades are unsafe to arm: otherwise a
+	// healthy promotion could become a one-way migration. Revisit only
+	// when system/services/state integrates verified last-known-good.
+	return errors.New("runtime component stateful upgrade requires verified device-state recovery checkpoint")
 }
 
 // With bundled consumers not yet independently attested, a signed upgrade
