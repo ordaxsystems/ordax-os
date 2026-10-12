@@ -40,6 +40,7 @@ from native_app_data_port_bootstrap import (
     consume_app_data_port_bootstrap,
 )
 from native_component_probation import (
+    SUPPORTED_COMPONENTS as SUPPORTED_NATIVE_PROBATION_COMPONENTS,
     ComponentProbationReceiptError,
     record_system_component_probation,
 )
@@ -62,7 +63,9 @@ MAX_PAGE_FIND_MATCHES = 1000
 PAGE_SELECTION_MAX_CHARS = 4096
 PAGE_SELECTION_REQUEST_RE = re.compile(r"^selection-[1-9][0-9]{0,8}$")
 MAX_URI_LENGTH = 8192
-SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")
+# Keep the privileged browser probe scope identical to the Native probation
+# adapter; that adapter consumes the component package SSOT.
+SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))
 MAX_VIEWPORT_DIMENSION = 16384
 TOP_LEVEL_NETWORK_SCHEMES = frozenset({"http", "https"})
 RESOURCE_NETWORK_SCHEMES = frozenset({"http", "https", "ws", "wss"})
