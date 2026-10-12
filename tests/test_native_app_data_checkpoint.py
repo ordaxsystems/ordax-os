@@ -128,6 +128,43 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 app_data.restore_app_data_checkpoint(identity(), RELEASE, 0, root)
             self.assertEqual(app_data.read_app_data(identity(), "key", root)["value"], b"a")
 
+    def test_recovery_checkpoint_is_partition_scoped_across_publishers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = str(Path(temporary) / "app-data")
+            owner = identity("notes", "ordax.first-party")
+            other_publisher = identity("notes", "unrelated.publisher")
+            app_data.put_app_data(owner, "secret", b"private-owner", 0, root)
+            app_data.put_app_data(other_publisher, "secret", b"private-other", 0, root)
+            app_data.create_app_data_checkpoint(owner, RELEASE, 1, root)
+            app_data.put_app_data(owner, "secret", b"modified-owner", 1, root)
+
+            # A signed component identifier alone does not identify the data
+            # partition. Even with matching appId and source release, a
+            # different publisher must not borrow the owner's checkpoint.
+            with self.assertRaisesRegex(ValueError, "checkpoint for source release is unavailable"):
+                app_data.restore_app_data_checkpoint(
+                    other_publisher, RELEASE, 1, root,
+                )
+            with self.assertRaisesRegex(ValueError, "checkpoint for source release is unavailable"):
+                app_data.retire_app_data_checkpoint(
+                    other_publisher, RELEASE, 1, root,
+                )
+            self.assertEqual(
+                app_data.read_app_data(other_publisher, "secret", root)["value"],
+                b"private-other",
+            )
+            self.assertEqual(app_data.restore_app_data_checkpoint(
+                owner, RELEASE, 2, root,
+            )["revision"], 3)
+            self.assertEqual(
+                app_data.read_app_data(owner, "secret", root)["value"],
+                b"private-owner",
+            )
+            self.assertEqual(
+                app_data.read_app_data(other_publisher, "secret", root)["value"],
+                b"private-other",
+            )
+
     def test_checkpoint_source_release_cannot_switch_partition_or_self_claim(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = str(Path(temporary) / "app-data")
