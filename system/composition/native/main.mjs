@@ -21,7 +21,6 @@ import { createNativeProjectWebReferenceStore } from "../../adapters/native/proj
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
 import { createPersonalActivityExportDocument } from "../../services/personal-ordax/export.mjs";
 import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
-import { createNetworkDraftRuntime } from "../../services/professional-network/draft.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -961,28 +960,6 @@ async function start() {
     },
   });
 
-  // Native owns the draft state and connects it to the signed/bundled app
-  // only as a scoped runtime port; component teardown must not own OS services.
-  let networkDraftPort = null;
-  try {
-    networkDraftPort = createNetworkDraftRuntime({ identitySession, spaceSelection });
-  } catch (error) {
-    reportClientDiagnostic("network-draft-runtime", error);
-  }
-  const networkComponent = await loadOptionalComponentRuntime({
-    componentId: "network",
-    importer: () => import("../../apps/network/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      surfaceLifecycle: surface,
-      networkDraftPort,
-    },
-    onError(error) {
-      reportClientDiagnostic("network-app-runtime", error);
-    },
-  });
-
   const assistantComponent = await loadOptionalComponentRuntime({
     componentId: "assistant",
     importer: () => import("../../apps/assistant/runtime.mjs"),
@@ -1147,8 +1124,6 @@ async function start() {
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
-      networkComponent?.destroy();
-      networkDraftPort?.dispose();
       assistantComponent?.destroy();
       activityComponent?.destroy();
       internetComponent?.destroy();
