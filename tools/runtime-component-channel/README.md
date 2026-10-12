@@ -164,6 +164,24 @@ This is an additional necessary guard, **not** an activation grant or a
 replacement for signed active-consumer compatibility and pinned production
 trust. `arm-pending` is still not enabled for public independent updates.
 
+### Compatibility must survive pending health and promotion
+
+`arm-pending` checks signed state, provided interfaces, required provider
+contracts and forward-only version ordering. A passing preflight at that
+earlier step **cannot** be reused as an authorization to promote after
+probation. `promote-state` now re-runs the *same signed release/2
+local-compatibility validator* and forward-only version comparison between
+the actual current and pending identities while holding the canonical
+activation graph and component lock, immediately before switching current.
+If either signed identity, current state owner or contract has changed, it
+refuses to promote without changing revision, current or pending. Healthy
+status alone is not a compatibility receipt.
+
+This closes a local time-of-check/time-of-use gap for official Native
+activation state, but does **not** verify bundled consumers, externally
+modified filesystem state or a production-pinned trust anchor. The global
+provider/consumer graph and verified recovery remain release blockers.
+
 ### Signed state-local compatibility before pending activation
 
 When a `current` signed slot exists, the original `arm-pending` writer

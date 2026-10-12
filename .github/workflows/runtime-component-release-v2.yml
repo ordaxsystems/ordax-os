@@ -28,6 +28,7 @@ on:
       - 'tools/runtime-component-channel/activation_state_compatibility_v2.go'
       - 'tools/runtime-component-channel/activation_state_compatibility_v2_test.go'
       - 'tools/runtime-component-channel/activation_graph_lock_test.go'
+      - 'tools/runtime-component-channel/promotion_compatibility_recheck_v2_test.go'
       - 'tools/runtime-component-channel/main.go'
       - 'tools/runtime-component-channel/main_test.go'
       - 'system/contracts/component-update-compatibility.mjs'
@@ -62,6 +63,7 @@ on:
       - 'tools/runtime-component-channel/activation_state_compatibility_v2.go'
       - 'tools/runtime-component-channel/activation_state_compatibility_v2_test.go'
       - 'tools/runtime-component-channel/activation_graph_lock_test.go'
+      - 'tools/runtime-component-channel/promotion_compatibility_recheck_v2_test.go'
       - 'tools/runtime-component-channel/main.go'
       - 'tools/runtime-component-channel/main_test.go'
       - 'system/contracts/component-update-compatibility.mjs'
@@ -121,7 +123,8 @@ jobs:
             tools/runtime-component-channel/version_order_test.go \
             tools/runtime-component-channel/activation_state_compatibility_v2.go \
             tools/runtime-component-channel/activation_state_compatibility_v2_test.go \
-            tools/runtime-component-channel/activation_graph_lock_test.go
+            tools/runtime-component-channel/activation_graph_lock_test.go \
+            tools/runtime-component-channel/promotion_compatibility_recheck_v2_test.go
           test -z "$(gofmt -l \
             tools/runtime-component-channel/activation.go \
             tools/runtime-component-channel/activation_slot.go \
@@ -144,7 +147,8 @@ jobs:
             tools/runtime-component-channel/version_order_test.go \
             tools/runtime-component-channel/activation_state_compatibility_v2.go \
             tools/runtime-component-channel/activation_state_compatibility_v2_test.go \
-            tools/runtime-component-channel/activation_graph_lock_test.go)"
+            tools/runtime-component-channel/activation_graph_lock_test.go \
+            tools/runtime-component-channel/promotion_compatibility_recheck_v2_test.go)"
 
       - name: Prove compatibility-bound release v2 generator
         run: |
