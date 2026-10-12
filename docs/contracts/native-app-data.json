@@ -113,6 +113,8 @@
     "read_only_owner_inspection_available": true,
     "read_only_inspection_verifies_active_and_pinned_blobs": true,
     "read_only_inspection_exposes_user_values": false,
-    "read_only_inspection_activation_authority": "none"
+    "read_only_inspection_activation_authority": "none",
+    "read_only_inspection_sha256_for_active_manifest": true,
+    "read_only_inspection_holds_shared_lock_through_blob_verification": true
   }
 }
