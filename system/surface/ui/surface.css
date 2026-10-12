@@ -1643,13 +1643,7 @@ button.ordax-tray-item:focus-visible {
   }
 }
 
-[data-ordax-motion="reduced"] *,
-[data-ordax-motion="reduced"] *::before,
-[data-ordax-motion="reduced"] *::after {
-  animation: none !important;
-  transition: none !important;
-  scroll-behavior: auto !important;
-}
+/* Shared motion preference policy lives in tokens.css for every Surface host. */
 
 @media (prefers-reduced-motion: no-preference) {
   [data-ordax-motion="standard"] .ordax-window,

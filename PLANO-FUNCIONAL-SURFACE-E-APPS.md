@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Acessibilidade Web — 12/10/2026:** Configurações expõe contraste, movimento
+> e tamanho do texto pelo mesmo catálogo/runtime/store, com tokens compartilhados
+> e tipografia relativa. Prova local inclui persistência, dois temas e janelas
+> compactas; sync/gateway e Native físico continuam fora do aceite. [Owner,
+> risco e evidência](docs/DESKTOP-IDENTITY.md#canonical-web-accessibility--2026-10-12).
+
 > **Lifecycle de consultas Web — 12/10/2026:** continuação solicitada da
 > integração. Identidade/Spaces usam o mesmo transporte GET cancelável,
 > limitado a 10 segundos até o JSON. Offline/descarte liberam consultas

@@ -188,3 +188,22 @@ html[data-ordax-text-scale="extra-large"] {
     --ordax-motion-slow: 0ms;
   }
 }
+
+/* Shared accessibility policy; explicit reduction also applies to portaled UI. */
+[data-ordax-motion="reduced"] *,
+[data-ordax-motion="reduced"] *::before,
+[data-ordax-motion="reduced"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ordax-motion] *,
+  [data-ordax-motion] *::before,
+  [data-ordax-motion] *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

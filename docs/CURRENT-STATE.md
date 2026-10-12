@@ -1,5 +1,23 @@
 # Current State
 
+## Web Central — acessibilidade canônica — 2026-10-12
+
+Configurações do Web agora expõe Contraste, Movimento e Tamanho do texto do
+catálogo existente. O mesmo runtime/store valida e salva as escolhas; a UI
+não cria IDs ou armazenamento novos. A aplicação usa atributos/tokens comuns,
+com restauração no teardown. Tipografia relativa mantém os tamanhos padrão e
+responde à escala canônica de 100%/112,5%/125%. Política de movimento reduzido
+fica em tokens.css, compartilhada com a Surface Native, respeitando também a
+preferência do ambiente. Contraste reforçado é opt-in; temas padrão preservados.
+
+15 testes Node e sete de builder Python passaram. TypeScript/build e verificador
+de 34 arquivos/assets passaram. Browser comprovou persistência após recarga,
+os dois temas, texto ampliado e controles em 390 x 844/480. Duas janelas compactas
+mantiveram Configurações sem overflow horizontal (144 px de conteúdo). As escolhas
+originais e viewport foram restaurados. JS inicial 539,52 kB (170,34 kB gzip),
+com aviso >500 kB preservado. Isso é preferência local, não sync de conta ou
+prova de gateway autenticado. [Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-web-accessibility--2026-10-12).
+
 ## Web Central — menu e foco compartilhados — 2026-10-12
 
 Menu de destinos reutiliza o Dialog existente para semântica modal e foco;

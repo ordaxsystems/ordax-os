@@ -8,6 +8,7 @@ import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
 import { useWebPreferences } from './preferences-context';
+import { accessibilityContrastPreference, accessibilityMotionPreference, accessibilityTextScalePreference } from '../../../../services/preferences/accessibility.mjs';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
@@ -162,11 +163,17 @@ function SpacesPanel() {
   </Panel>;
 }
 
+const accessibilityPreferences = [accessibilityContrastPreference, accessibilityMotionPreference, accessibilityTextScalePreference];
+
 function AppearancePanel({ onCentral }: { onCentral: () => void }) {
-  const { theme, toggleTheme, persistence } = useWebPreferences();
+  const { theme, toggleTheme, persistence, snapshot, setPreference } = useWebPreferences();
   return <Panel title="Aparência">
     <div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={toggleTheme} aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div>
-    <p className="service-state" role="status">{persistence === 'session-only' ? 'O navegador não permitiu salvar. O tema será mantido apenas nesta sessão.' : 'Tema deste navegador. Sincronização entre dispositivos ainda não está conectada.'}</p>
+    {accessibilityPreferences.map(preference => <div className="desktop-settings-row preference-setting" key={preference.id}>
+      <label htmlFor={preference.id}>{preference.title}<small id={preference.id + '-description'}>{preference.description}</small></label>
+      <select id={preference.id} aria-describedby={preference.id + '-description'} value={String(snapshot[preference.id])} onChange={event => setPreference(preference.id, event.target.value)}>{preference.options.map((option: { value: string; label: string }) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+    </div>)}
+    <p className="service-state" role="status">{persistence === 'session-only' ? 'O navegador não permitiu salvar. Suas preferências serão mantidas apenas nesta sessão.' : 'Preferências deste navegador. Sincronização entre dispositivos ainda não está conectada.'}</p>
     <div className="desktop-settings-row"><span>Visualização</span><Button variant="secondary" onClick={onCentral}><LayoutGrid/>Voltar à central</Button></div>
   </Panel>;
 }

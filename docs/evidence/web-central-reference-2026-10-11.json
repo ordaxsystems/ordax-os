@@ -345,6 +345,75 @@
           "note": "No frontend build inputs changed; no additional full build required solely for this Runtime merge."
         }
       }
+    },
+    "accessibility_integration": {
+      "date": "2026-10-12",
+      "source_base_commit": "31c973c041d04b8c01ac97b97fa4af1c0926f89a",
+      "owner": "OS Surface / canonical preference catalog and runtime",
+      "contracts": [
+        "ordax.preference-runtime/1",
+        "ordax.preference-store/1"
+      ],
+      "scope": "Local browser preferences; no new IDs, storage keys, authority or account synchronization",
+      "node_tests": {
+        "command": "node --test tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 539.52,
+        "initial_gzip_kb": 170.34,
+        "initial_css_kb": 81.04,
+        "warning": "Initial JavaScript remains above 500 kB; no threshold override."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "result": "passed-observed-local-preference-flows",
+        "viewports": [
+          {
+            "width": 390,
+            "height": 844
+          },
+          {
+            "width": 390,
+            "height": 480
+          }
+        ],
+        "checks": [
+          "High contrast uses existing tokens in light and dark themes",
+          "Reduced motion observed with computed transitionDuration 0s",
+          "Extra-large text observed: root 20px and body 16.25px",
+          "Reload retained high/reduced/extra-large without reading browser storage",
+          "Narrow settings selects measured 44px height and stayed inside window",
+          "Two compact apps: Settings clientWidth/scrollWidth both 144px after narrow-row correction",
+          "Original standard preferences and dark theme restored via real controls; temporary windows closed; viewport reset",
+          "No error/warning entries returned by browser dev logs"
+        ],
+        "screenshot": {
+          "filename": "ordax-accessibility-mobile-20261012.jpg",
+          "sha256": "6c6ccb3205a777a2e770b5a2fffbf3a0edfbc084ad39545ceed31e5f9e05b520",
+          "width": 390,
+          "height": 844,
+          "scope": "Local visualization artifact outside repository; not publicly published"
+        },
+        "limits": [
+          "No authenticated gateway or account synchronization proof",
+          "No Native hardware, inference, device action, signed installation or production activation proof"
+        ]
+      },
+      "react_review": "Stable canonical snapshot subscription; primitive effect dependencies; DOM writes confined to layout effect and reversible cleanup; native labels/selects; no new component-local preference state",
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
     }
   },
   "files": [
@@ -373,8 +442,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "ea077651acb46752f26ff23cf14ff2cc9bef66ffb26d20807197c105bb47766b",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette."
+      "adaptedSha256": "033e6f2f3761450ac0daa9302011e08465bd08192a8927d595a7f6ef5406f588",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority."
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -387,8 +456,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "2b0de2d2fe6546b7728c0d28353e62321aae1630de24db6bc450f6b38c82a73d",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette."
+      "adaptedSha256": "9f139826b4c897cb236f5dfc2147f47fe5baec303971655c25e9c208947e8d6c",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -503,7 +572,9 @@
       "target": "system/surface/workspace/components/central/preferences-context.tsx",
       "owner": "OrdaX OS Surface",
       "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
-      "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74"
+      "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74",
+      "adaptedSha256": "e1fa2dcf0add1fde220a1aaf5c3dca3b09dce5b7939dad8944ba9c23094ed7cb",
+      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority."
     },
     {
       "target": "system/composition/web/main.tsx",

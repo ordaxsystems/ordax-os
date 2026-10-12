@@ -1037,3 +1037,41 @@ Final TypeScript/build and verification of 34 reference files/assets passed.
 Initial JavaScript: 538.76 kB (170.06 kB gzip); CSS: 79.17 kB. The >500 kB warning
 remains. Authenticated gateway/catalog, inference, device execution, signed
 installation and production activation are not proven by these local UI checks.
+
+
+### Canonical Web accessibility — 2026-10-12
+
+Owner: OS Surface, continuing the explicitly requested Web integration. This
+bounded shared-capability increment does not polish an individual App or change
+Apps cutover, package, grants, install or production gates. Dependencies remain
+ordax.preference-runtime/1, ordax.preference-store/1 and the existing definition
+catalog/Web adapter. No new IDs, providers, transport, database or storage keys.
+
+Settings renders the three existing accessibility descriptors and options.
+The provider consumes the same snapshot, applies shared DOM attributes before
+paint and restores previous attributes/color scheme on cleanup. Typography and
+line heights use rem equivalents with identical standard-scale sizes. Existing
+contrast tokens are aliased only for opt-in high contrast; the normal palette
+and approved layout remain unchanged. Reduced-motion policy was moved from the
+Native-only stylesheet to shared tokens; host reduction also wins over the
+explicit standard setting. Labels/selects remain associated and have described
+help. Narrow rows stack by window container width, including Theme/Visualization.
+
+Risk: larger text must not clip window controls or create horizontal overflow;
+shared token policy affects all Surface consumers. Acceptance: choices persist
+through the existing store, apply immediately, remain reversible, and survive
+reload. App content may scroll vertically; workspace stays within the viewport.
+No claim of universal accessibility certification or a Native hardware proof.
+
+Validation: 15 existing Node preference/runtime tests and seven Python Web-builder
+checks passed. TypeScript/build and the 34-file provenance verifier passed.
+Mobile 390 x 844/480, high contrast in light/dark, 125% root typography (20px)
+and reduced transitions (0s) were observed. Reload retained choices. A compact
+pair initially overflowed Settings; stacking all narrow settings rows corrected
+it: body clientWidth and scrollWidth both 144px, with controls inside the panel.
+Original standard accessibility values, dark theme, Central and default viewport
+were restored; temporary windows were closed. No browser error/warning logs.
+Local screenshot: ordax-accessibility-mobile-20261012.jpg. Initial JavaScript
+539.52 kB (170.34 gzip), CSS 81.04 kB; the >500 kB warning is not suppressed.
+Authenticated gateway, account sync, inference/device and release gates remain
+separate. Existing provenance evidence records source adaptations and local proof.
