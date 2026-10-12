@@ -78,7 +78,7 @@ try {
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-sidebar')).overflowY"),'hidden','Sidebar does not scroll');
       assert.equal(await evaluate("Math.abs(document.querySelector('.workspace-sidebar').getBoundingClientRect().bottom-innerHeight)<2"),true,'Sidebar reaches viewport bottom');
-      assert.equal(await evaluate("!!document.querySelector('.workspace-sidebar [data-workspace-switch]') && !!document.querySelector('.workspace-sidebar .desktop-start-button')"),true,'Start and view switch belong to the sidebar');
+      assert.equal(await evaluate("!!document.querySelector('.workspace-navigation [data-workspace-switch]') && !document.querySelector('.desktop-start-button')"),true,'View switch belongs to the dock; Start button is absent');
       await evaluate("(()=>{const n=document.querySelector('.aura-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await click('[aria-label="Enviar ao Aura"]');
       await until("!!document.querySelector('[aria-label=\"Janela Aura\"]')");
@@ -99,7 +99,7 @@ try {
       await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().toJSON()");
       await click('[data-workspace-switch]');
       assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');
-      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays inside the full-height rail in both views');
+      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays at the dock edge in both views');
       await until("!!document.querySelector('.classic-desktop')");
       await clickByText('.desktop-shortcuts button','Projetos');
       await click('[aria-label="Restaurar janela Projetos"]');
@@ -111,7 +111,7 @@ try {
       assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').hidden"),true);
       await click('[aria-label="Restaurar janela Projetos"]');
       assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').dataset.maximized"),'true');
-      await click('[aria-label="Mostrar área de trabalho"]');
+      await click('[aria-label="Minimizar Projetos"]');
       assert.equal(await evaluate("document.querySelectorAll('.desktop-window:not([hidden])').length"),0);
       await click('[aria-label="Restaurar janela Projetos"]');
       await click('[aria-label="Fechar Projetos"]');

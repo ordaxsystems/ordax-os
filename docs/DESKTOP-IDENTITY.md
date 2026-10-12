@@ -411,3 +411,14 @@ previous lower standalone notification control is removed. Both actions remain
 separate keyboard-accessible buttons and use the existing launcher/state. The
 narrow rail preserves the same horizontal row. Very short layouts retain access
 to Space via Start. No backend changes; no build, npm or tests executed.
+
+### Dock-edge view switch — 2026-10-11
+
+User-requested revision: remove Start from the sidebar and move the existing
+four-square Central/Desktop switch to the bottom dock's right edge, replacing
+the Minimize All button. The switch retains one shared instance, accessible target
+labels and current view state; it does not close/minimize apps on switching.
+Home is the window-focus fallback. More retains overflow destination access.
+This supersedes the previous sidebar launcher-row placement. Owner: OS Surface;
+no backend changes. Existing browser checks were adapted, not executed. Build,
+npm and local tests remain unexecuted under the standing user restriction.
