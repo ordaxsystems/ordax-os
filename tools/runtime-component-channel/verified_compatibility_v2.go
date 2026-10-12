@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -18,6 +20,7 @@ type verifiedSlotCompatibility struct {
 	Schema           string                           `json:"schema"`
 	Authority        string                           `json:"authority"`
 	TrustScope       string                           `json:"trustScope"`
+	TrustSHA256      string                           `json:"trustSHA256"`
 	ActivationStatus string                           `json:"activationStatus"`
 	ComponentID      string                           `json:"componentId"`
 	Version          string                           `json:"version"`
@@ -60,10 +63,12 @@ func inspectVerifiedSlotCompatibilityV2(
 	if err := decodeStrict(bytes, int(maxCompatibilityBytes), &descriptor); err != nil {
 		return verifiedSlotCompatibility{}, err
 	}
+	trustDigest := sha256.Sum256(trustBytes)
 	return verifiedSlotCompatibility{
 		Schema:           verifiedSlotCompatibilitySchema,
 		Authority:        "none",
 		TrustScope:       "caller-supplied-public-anchor",
+		TrustSHA256:      hex.EncodeToString(trustDigest[:]),
 		ActivationStatus: "not-evaluated",
 		ComponentID:      release.Component.ID,
 		Version:          release.Component.Version,
