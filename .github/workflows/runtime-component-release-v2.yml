@@ -53,7 +53,11 @@ jobs:
             tools/component-package/release_v2.py \
             tests/test_runtime_component_release_v2_bounds.py \
             tests/test_runtime_component_release_v2_cli_e2e.py
-          test -z "$(gofmt -l tools/runtime-component-channel/*.go)"
+          unformatted="$(gofmt -l tools/runtime-component-channel/*.go)"
+          if [ -n "$unformatted" ]; then
+            printf 'Arquivos Go sem gofmt:\\n%s\\n' "$unformatted"
+            exit 1
+          fi
 
       - name: Prove compatibility-bound release v2 generator
         run: |
