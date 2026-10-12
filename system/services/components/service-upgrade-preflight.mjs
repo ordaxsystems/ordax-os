@@ -73,6 +73,68 @@ export function deriveServiceCompatibilityCoverage({
   });
 }
 
+export const SERVICE_CONSUMER_IMPACT_SCHEMA = "ordax.service-consumer-impact/1";
+
+// Derive the FULL reverse dependency closure from canonical manifests.
+// For example Local AI -> Intelligence -> Assistant. A direct-only check
+// would silently overlook Assistant when Local AI changes.
+function affectedConsumerPaths(catalog, componentId) {
+  const visited = new Set([componentId]);
+  const queue = [[componentId]];
+  const affected = [];
+  for (let index = 0; index < queue.length; index += 1) {
+    const path = queue[index];
+    const provider = path[path.length - 1];
+    for (const consumer of catalog
+      .filter((entry) => entry.dependencies.includes(provider))
+      .sort((left, right) => left.id.localeCompare(right.id))) {
+      if (visited.has(consumer.id)) continue;
+      visited.add(consumer.id);
+      const nextPath = [...path, consumer.id];
+      queue.push(nextPath);
+      affected.push(Object.freeze({
+        id: consumer.id,
+        depth: nextPath.length - 1,
+        dependencyPath: Object.freeze(nextPath),
+      }));
+    }
+  }
+  return affected.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+// Explicit source evidence for EVERY affected consumer, including transitive
+// consumers. Source declarations are NOT equivalent to installed-slot proof.
+export function deriveServiceConsumerImpact({
+  manifests, componentId, descriptors = [],
+} = {}) {
+  const id = validateComponentId(componentId);
+  const { components, byContract } = checkedCatalog(manifests, descriptors);
+  if (!components.some((entry) => entry.id === id)) {
+    throw new TypeError("Consumer impact target has no canonical manifest");
+  }
+  const consumers = affectedConsumerPaths(components, id).map((entry) =>
+    Object.freeze({
+      ...entry,
+      contractEvidence: byContract.has(entry.id)
+        ? "source-descriptor-only" : "descriptor-not-declared",
+    }));
+  return Object.freeze({
+    schema: SERVICE_CONSUMER_IMPACT_SCHEMA,
+    authority: "none",
+    componentId: id,
+    productionActivationAllowed: false,
+    consumers: Object.freeze(consumers),
+    summary: Object.freeze({
+      direct: consumers.filter((entry) => entry.depth === 1).length,
+      transitive: consumers.filter((entry) => entry.depth > 1).length,
+      sourceDescriptors: consumers.filter((entry) =>
+        entry.contractEvidence === "source-descriptor-only").length,
+      missingDescriptors: consumers.filter((entry) =>
+        entry.contractEvidence === "descriptor-not-declared").length,
+    }),
+  });
+}
+
 function preflightDecision(componentId, allowed, reasonCode, migrationRequired = false) {
   return Object.freeze({
     schema: SERVICE_UPGRADE_PREFLIGHT_SCHEMA,
@@ -137,8 +199,10 @@ export function preflightServiceUpgrade({
     return preflightDecision(id, false, "active-contract-snapshot-invalid");
   }
   const activeById = new Map(otherDescriptors.map((entry) => [entry.componentId, entry]));
-  for (const consumer of catalog) {
-    if (consumer.dependencies.includes(id) && !activeById.has(consumer.id)) {
+  // Manifest relationships are transitive. A consumer absent from the
+  // supplied active contract graph is UNKNOWN, not compatible.
+  for (const consumer of affectedConsumerPaths(catalog, id)) {
+    if (!activeById.has(consumer.id)) {
       return preflightDecision(id, false, "active-consumer-descriptor-unavailable");
     }
   }
