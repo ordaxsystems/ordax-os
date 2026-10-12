@@ -16,6 +16,8 @@ on:
       - 'tools/component-package/compatibility.mjs'
       - 'tests/test_service_update_inventory.mjs'
       - 'tests/test_service_update_readiness.mjs'
+      - 'tests/test_service_upgrade_preflight.mjs'
+      - 'system/services/components/service-upgrade-preflight.mjs'
       - '.github/workflows/service-update-inventory.yml'
   push:
     branches: [main]
@@ -33,6 +35,8 @@ on:
       - 'tools/component-package/compatibility.mjs'
       - 'tests/test_service_update_inventory.mjs'
       - 'tests/test_service_update_readiness.mjs'
+      - 'tests/test_service_upgrade_preflight.mjs'
+      - 'system/services/components/service-upgrade-preflight.mjs'
       - '.github/workflows/service-update-inventory.yml'
 
 permissions:
@@ -48,7 +52,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate canonical service inventory
-        run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs
+        run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs tests/test_service_upgrade_preflight.mjs
       - name: Validate canonical trust and package policy together
         # Reuse the real production gate checker; do not reimplement trust policy
         # or key-custody rules in the read-only service inventory.
