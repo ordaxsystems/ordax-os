@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -145,7 +146,7 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
             # empty revision-0 dataset after interrupted/corrupted storage.
             with self.assertRaisesRegex(ValueError, "partition lock is missing"):
                 app_data.read_app_data(identity(), "secret", str(root))
-            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+            with self.assertRaisesRegex(ValueError, "partition lock is missing"):
                 app_data.list_app_data(identity(), str(root))
             for action in ({"action": "get", "key": "secret"}, {"action": "list"}):
                 with self.subTest(action=action), self.assertRaises(
@@ -660,9 +661,9 @@ else:
                         for _ in range(150):
                             if ready.exists() or worker.poll() is not None:
                                 break
-                            __import__("time").sleep(0.01)
+                            time.sleep(0.01)
                         self.assertTrue(ready.exists(), f"{operation} did not reach endpoint")
-                        __import__("time").sleep(0.08)
+                        time.sleep(0.08)
                         self.assertIsNone(worker.poll(), f"{operation} bypassed App Data maintenance")
                     # No app writes can race this restore. Its revision grows,
                     # so the pending writer must subsequently fail its CAS.
