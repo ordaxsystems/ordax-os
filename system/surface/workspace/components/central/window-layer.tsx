@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useRef, useState, type Dispatch, type ReactNode, type CSSProperties } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, type Dispatch, type ReactNode, type CSSProperties } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PresentationProps } from './desktop';
@@ -26,8 +26,7 @@ type Props = PresentationProps & { state: DesktopState; dispatch: Dispatch<Deskt
 // One stable parent keeps each app mounted through view and window-mode changes.
 export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   const layer = useRef<HTMLDivElement>(null);
-  // One explicit close operation survives a compact-window layout transition.
-  const [openCompactMenuId, setOpenCompactMenuId] = useState<string | null>(null);
+  // The Radix menu owns its own presentation-open state.
   const previousActive = useRef<string | null>(null);
   const panes = useRef(new Map<string, HTMLElement>());
   const compact = state.windows.filter(w => !w.minimized && w.mode === 'compact');
@@ -65,7 +64,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
           <span className="desktop-window-title" data-switchable={window.mode === 'compact' && compact.length > 1 && window.title === state.compactActive}><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span>{window.mode === 'compact' && compact.length > 1 && window.title === state.compactActive && <select className="compact-window-switcher" aria-label="Aplicativo no painel compacto" value={window.title} onChange={event => { setOpenCompactMenuId(null); dispatch({ type: 'focus', title: event.target.value }); }}>{compact.map(pane => <option key={pane.title} value={pane.title}>{pane.title}</option>)}</select>}</span>
           <div className="desktop-window-controls">
             <div className="window-secondary-actions">{controls.map(control => <Button key={control.label} variant="ghost" size="icon" aria-label={control.label} aria-expanded={control.expanded} title={control.title} onClick={() => dispatch(control.action)}><control.icon/></Button>)}</div>
-            {window.mode === 'compact' && <div className="compact-actions-overflow"><CompactActionsBoundary fallback={<ExpandCompactAction title={window.title} dispatch={dispatch} failed/>}><Suspense fallback={<ExpandCompactAction title={window.title} dispatch={dispatch}/>}><CompactActions title={window.title} controls={controls} open={openCompactMenuId === window.title} onOpenChange={open => setOpenCompactMenuId(open ? window.title : null)} onAction={action => { setOpenCompactMenuId(null); dispatch(action); }}/></Suspense></CompactActionsBoundary></div>}
+            {window.mode === 'compact' && <div className="compact-actions-overflow"><CompactActionsBoundary fallback={<ExpandCompactAction title={window.title} dispatch={dispatch} failed/>}><Suspense fallback={<ExpandCompactAction title={window.title} dispatch={dispatch}/>}><CompactActions title={window.title} controls={controls} onAction={action => dispatch(action)}/></Suspense></CompactActionsBoundary></div>}
             <Button variant="ghost" size="icon" className="window-close" aria-label={`Fechar ${window.title}`} title="Fechar" onClick={() => dispatch({ type: 'close', title: window.title })}><X/></Button>
           </div>
         </header>
