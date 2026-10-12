@@ -95,7 +95,17 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         for app in ("studio", "files", "internet", "image-viewer", "notes",
                     "projects", "assistant", "spaces", "settings", "store", "activity"):
             self.assertIn(f"id: '{app}'", model)
-        self.assertIn("WebShell", main)
+        self.assertIn("RouterProvider", main)
+        self.assertIn("<Central/>", main)
+        self.assertNotIn("WebShell", main)
+        self.assertIn("createUnavailableAppStoreCatalogPort", main)
+        central = (ROOT / "system/surface/workspace/components/central/central.tsx").read_text(encoding="utf-8")
+        # Only harmless presentation preferences, never identity or app authority,
+        # are allowed in the new canonical Web entry's local storage.
+        for key in ("ordax-theme", "ordax-view"):
+            self.assertIn(f"localStorage.getItem('{key}')", central)
+            self.assertIn(f"localStorage.setItem('{key}'", central)
+        self.assertNotIn("localStorage", main)
         self.assertIn('href="/conta/"', shell)
         self.assertIn('href="/"', shell)
         self.assertIn("Spaces não conectados", shell)
@@ -106,10 +116,12 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                 if source.suffix not in (".ts", ".tsx", ".mjs"):
                     continue
                 text = source.read_text(encoding="utf-8")
-                for forbidden in ("adapters/native", "/__ordax/native/", "localStorage",
+                for forbidden in ("adapters/native", "/__ordax/native/",
                                   "sessionStorage", "/auth/logout", "process.env",
                                   "node:child_process", "node:fs"):
                     self.assertNotIn(forbidden, text, str(source))
+                if source.name != "central.tsx" or source.parent.name != "central":
+                    self.assertNotIn("localStorage", text, str(source))
 
 
 if __name__ == "__main__":
