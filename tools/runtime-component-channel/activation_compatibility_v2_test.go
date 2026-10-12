@@ -133,8 +133,8 @@ func TestInspectActivationCompatibilityV2RejectsWrongTargetAndMissingRevision(t 
 		t.Fatal(err)
 	}
 	for _, choice := range []struct {
-		id string
-		target string
+		id       string
+		target   string
 		revision int64
 	}{
 		{"internet", "previous", 1},
