@@ -77,8 +77,10 @@ try {
     await client.send('Page.navigate',{url:origin+'/'});await ready();
     async function compactAction(title,label,menuTitle){
       const selector='[aria-label='+JSON.stringify(label)+']';
-      const visible=await evaluate('[...document.querySelectorAll('+JSON.stringify(selector)+')].some(node=>node.getClientRects().length>0)');
-      if(visible) await click(selector);
+      // A CSS-visible button can still be covered by a sibling window.
+      // Only direct-click a control when its center is genuinely hit-testable.
+      const reachable=await evaluate("([...document.querySelectorAll("+JSON.stringify(selector)+")].some(node=>{const r=node.getBoundingClientRect();if(!r.width||!r.height)return false;const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return top===node||node.contains(top)}))");
+      if(reachable) await click(selector);
       else {
         await click('[aria-label='+JSON.stringify('Mais ações de '+title)+']');
         await clickByText('[role="menuitem"]',menuTitle);
