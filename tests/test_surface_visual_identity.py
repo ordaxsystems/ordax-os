@@ -247,7 +247,9 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         docs = DESKTOP_IDENTITY.read_text(encoding="utf-8")
         self.assertIn("aesthetic reference only", docs)
         self.assertIn("must not be imported into `system/`", docs)
-        self.assertIn("single source of visual policy", docs)
+        self.assertIn("`system/surface/ui/tokens.css` owns the USB palette", docs)
+        self.assertIn("`system/surface/ui/color-palettes.css` owns standard light/dark colors", docs)
+        self.assertIn("`system/surface/ui/identity.css` is the shared component/composition layer", docs)
 
 
 if __name__ == "__main__":
