@@ -111,7 +111,7 @@ test("canonical Work → Activity/Result becomes bounded plain-text canvas with 
   assert.equal(projected.completionPercent, null);
   assert.equal(projected.authority, "none");
   assert.equal(projected.toolExecution, false);
-  const activity = projectPersonalActivitySnapshot(fixture());
+  const activity = projectPersonalActivitySnapshot(fixture(), projectPersonalWorkCanvas);
   assert.equal(activity.work[0].canvas.resultId, "result-a");
   assert.equal(activity.work[0].canvas.blocks[0].text, "Resposta real do modelo");
   assert.equal(Object.isFrozen(projected), true);

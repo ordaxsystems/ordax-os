@@ -127,7 +127,7 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.doesNotMatch(source, /personalOrdax\.executeApplicationAction\(/);
 
   assert.equal(source.includes("file-space:"), false);
-  assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\)\)/);
+  assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\), projectWorkCanvas\)/);
   assert.doesNotMatch(
     source,
     /localStorage|sessionStorage|createPersonalOrdaxRuntime|conversation\.send|grantIssuer|\.issue\(/,
