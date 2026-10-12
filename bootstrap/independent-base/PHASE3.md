@@ -23,6 +23,12 @@ Esta etapa reutiliza `bootstrap/stable-base/ordax-stable-init`, `system/entrypoi
 3. O PID1 de **prova QEMU descartável**, não o PID1 portátil oficial, verifica dentro do guest relógio/timeout, confiança CA e iproute2 com endereço realmente entregue pelo DHCP. O gate QEMU exige os marcadores correspondentes em dois boots; a imagem EROFS corrompida continua fail-closed.
 4. Testes de contrato impedem adicionar gerenciadores concorrentes ou religar o caminho físico. Os workflows de QEMU existentes devem executar o build e a prova real; **nenhum PASS é declarado antes de CI verde**.
 
+## Teste funcional adversarial (prova da base, não release assinado)
+
+A Buildroot incorpora **somente na área experimental de prova** cópias bit-a-bit dos dois executáveis canônicos `system/entrypoint` e `system/supervisor`, conferidas por SHA-256 contra a fonte. O probe QEMU os executa com identidade sintética explicitamente restrita ao experimento e **sem Surface**: o Supervisor deve rejeitar o runtime ausente, o Guardian deve reiniciar o filho até o orçamento oficial de três falhas, encerrar sem arquivos PID residuais e tratar TERM com limpeza. Essa prova **não** declara inicialização bem-sucedida do produto, renderização gráfica ou autenticação do release; a integração assinada continua com o owner portátil oficial.
+
+A mesma prova valida estado ext4 persistido em dois boots com modo 0600, recusa symlink/permissão insegura, observa rota DHCP, o arquivo DNS e uma consulta real via resolver do QEMU. O boot com EROFS corrompido continua fail-closed antes desses serviços.
+
 ## Bloqueios de equivalência restantes
 
 - **Serviços fundamentais:** validar em QEMU o lifecycle real de guardian/supervisor/diagnósticos com release `system.erofs` assinada e Surface saudável; presença de applets não é equivalência funcional.

@@ -90,6 +90,20 @@ class IndependentBaseTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("ERROR", result.stderr)
 
+    def test_canonical_guardian_supervisor_and_adversarial_qemu_contract(self):
+        post = (BASE / "post-build.sh").read_text()
+        self.assertIn('cp "$ROOT/system/$source" "$PROOF_SYSTEM/$source"', post)
+        proof = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text()
+        self.assertIn("ORDAX_INDEPENDENT_GUARDIAN_RESTART_FAIL_CLOSED=PASS", proof)
+        self.assertIn("ORDAX_INDEPENDENT_GUARDIAN_TERMINATION=PASS", proof)
+        self.assertIn("ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS", proof)
+        self.assertIn("ORDAX_INDEPENDENT_STATE_SECURITY=PASS", proof)
+        self.assertIn("rescue guardian-accepted-unverified-surface", proof)
+        self.assertNotIn("exec /system/entrypoint", proof)
+        self.assertNotIn('ORDAX_STABLE_LAYOUT=legacy-tree', proof)
+        for service in ("entrypoint", "supervisor"):
+            self.assertTrue((ROOT / "system" / service).is_file())
+
     def test_phase3_primitives_not_a_parallel_services_stack(self):
         config = (BASE / "configs/ordax_minimal_defconfig").read_text()
         for marker in ("BR2_PACKAGE_IPROUTE2=y", "BR2_PACKAGE_CA_CERTIFICATES=y",

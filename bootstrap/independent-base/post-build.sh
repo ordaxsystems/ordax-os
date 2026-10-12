@@ -24,6 +24,16 @@ chmod 0755 "$TARGET_DIR/ordax/bootstrap/network/bin/netbox"
 test -f "$ROOT/bootstrap/stable-base/ordax-stable-init"
 cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stable-init"
 chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
+# Install the real product Guardian and Supervisor verbatim for isolated
+# *adversarial* QEMU execution. This proof-only directory is never the release
+# /system mount, never a PID1, and cannot stand in for a signed product release.
+PROOF_SYSTEM="$TARGET_DIR/usr/lib/ordax-phase3-proof/system"
+mkdir -p "$PROOF_SYSTEM"
+for source in entrypoint supervisor; do
+    test -f "$ROOT/system/$source"
+    cp "$ROOT/system/$source" "$PROOF_SYSTEM/$source"
+    chmod 0755 "$PROOF_SYSTEM/$source"
+done
 test -x "$TARGET_DIR/sbin/modprobe"
 printf 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL\n' > "$TARGET_DIR/etc/ordax/independent-base"
 if test -e "$TARGET_DIR/etc/alpine-release" || test -e "$TARGET_DIR/sbin/apk" || test -e "$TARGET_DIR/lib/apk"; then

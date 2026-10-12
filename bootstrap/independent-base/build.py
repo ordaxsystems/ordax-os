@@ -25,10 +25,14 @@ STABLE = ROOT / "bootstrap/stable-base/source.json"
 BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
+CANONICAL_SYSTEM = ROOT / "system"
+PHASE3_PROOF_SYSTEM = "usr/lib/ordax-phase3-proof/system"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y",
                            "CONFIG_DATE=y", "CONFIG_MV=y", "CONFIG_READLINK=y",
-                           "CONFIG_SHA256SUM=y", "CONFIG_OD=y", "CONFIG_TR=y", "CONFIG_SLEEP=y")
+                           "CONFIG_SHA256SUM=y", "CONFIG_OD=y", "CONFIG_TR=y", "CONFIG_SLEEP=y",
+                           "CONFIG_SED=y", "CONFIG_HEAD=y", "CONFIG_CUT=y",
+                           "CONFIG_RM=y", "CONFIG_TOUCH=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -241,6 +245,13 @@ def verify_target(target: Path) -> None:
     probe = target / PROBE_INIT
     if probe.is_symlink() or not probe.is_file() or stat.S_IMODE(probe.stat().st_mode) != 0o755:
         raise BaseError("Buildroot target probe-init must be a regular 0755 executable")
+    for service in ("entrypoint", "supervisor"):
+        artifact = target / PHASE3_PROOF_SYSTEM / service
+        if (artifact.is_symlink() or not artifact.is_file()
+                or stat.S_IMODE(artifact.stat().st_mode) != 0o755):
+            raise BaseError(f"Phase 3 proof {service} missing or not executable")
+        if digest(artifact) != digest(CANONICAL_SYSTEM / service):
+            raise BaseError(f"Phase 3 proof {service} differs from canonical system")
     if digest(target / "sbin/ordax-stable-init") != digest(CANONICAL_HANDOFF):
         raise BaseError("portable handoff entrypoint differs from canonical source")
     for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
@@ -265,7 +276,8 @@ def verify_target(target: Path) -> None:
                "poweroff", "grep", "sync", "modprobe", "timeout",
                "od", "tr", "stat", "uname", "sleep", "true",
                "cat", "mkdir", "chmod", "date", "mv", "readlink",
-               "sha256sum", "kill", "ps"} - applets
+               "sha256sum", "kill", "ps", "sed", "head", "cut", "rm",
+               "touch", "nslookup", "wget"} - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     # Presence in the applet list is not enough: the official handoff uses
@@ -352,6 +364,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
             "busybox_handoff_runtime_features_verified": True,
             "probe_initramfs_executable_mode_verified": True,
+            "phase3_guardian_supervisor_sources_authenticated": True,
             "phase3_service_primitives_verified": True,
             "phase3_iproute2_verified": True,
             "phase3_ca_trust_verified": True,
@@ -389,6 +402,8 @@ def verify(out: Path) -> dict:
         raise BaseError("initramfs executable mode evidence absent from provenance")
     verify_executable_mode(out / "rootfs.cpio.gz", "cpio")
     verify_executable_mode(out / "rootfs.tar", "tar")
+    if report.get("phase3_guardian_supervisor_sources_authenticated") is not True:
+        raise BaseError("canonical Guardian/Supervisor proof source evidence missing")
     for key in ("phase3_service_primitives_verified", "phase3_iproute2_verified", "phase3_ca_trust_verified"):
         if report.get(key) is not True:
             raise BaseError(f"Phase 3 build validation evidence missing: {key}")

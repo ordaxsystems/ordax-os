@@ -54,6 +54,11 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
                 if label == "corrupt-base" else
                 ["ORDAX_INDEPENDENT_EROFS=READ_ONLY", "ORDAX_INDEPENDENT_NETWORK=DHCP",
                  "ORDAX_INDEPENDENT_SERVICE_PRIMITIVES=PASS", "ORDAX_INDEPENDENT_IPROUTE2=PASS",
+                 "ORDAX_INDEPENDENT_STATE_SECURITY=PASS",
+                 "ORDAX_INDEPENDENT_NETWORK_ROUTE_DNS_CONFIG=PASS",
+                 "ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS",
+                 "ORDAX_INDEPENDENT_GUARDIAN_RESTART_FAIL_CLOSED=PASS",
+                 "ORDAX_INDEPENDENT_GUARDIAN_TERMINATION=PASS",
                  f"ORDAX_INDEPENDENT_STATE={'CREATED' if label == 'first' else 'RETAINED'}",
                  "ORDAX_INDEPENDENT_BOOT=PASS"])
     missing = [marker for marker in expected if marker not in log]
@@ -146,6 +151,11 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         "erofs_immutable": True,
         "invalid_base_recovery_fail_closed": True,
         "network_qemu_user_nat_dhcp": True,
+        "phase3_guardian_supervisor_failure_qemu_verified": True,
+        "phase3_guardian_termination_qemu_verified": True,
+        "phase3_state_permissions_qemu_verified": True,
+        "phase3_dhcp_ipv4_gateway_dns_qemu_verified": True,
+        "phase3_product_surface_health_qemu_verified": False,
         "phase3_service_primitives_qemu_verified": True,
         "phase3_native_iproute2_qemu_verified": True,
         "phase3_wifi_hardware_proven": False,
