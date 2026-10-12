@@ -7,7 +7,9 @@ const MVP_BASELINE = ["pt-BR", "en-US"];
 
 test("every first-party app declares an explicit component-scoped localization baseline", () => {
   const apps = listFirstPartyApps();
-  assert.ok(apps.length >= 10);
+  assert.ok(apps.length > 0, "bundled app catalog cannot be empty");
+  assert.equal(apps.some((app) => app.id === "projects"), false,
+    "removed Projects app must be localized by its verified package, not OS");
   for (const app of apps) {
     assert.equal(app.localization.sourceLocale, "pt-BR", `${app.id}: unexpected source locale`);
     assert.equal(app.localization.packPolicy, "component-scoped", `${app.id}: pack policy drifted`);

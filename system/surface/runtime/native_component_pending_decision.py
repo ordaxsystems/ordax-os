@@ -11,6 +11,8 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from native_store_metadata_policy import NATIVE_HEALTH_MUTATION_COMPONENT_IDS
+
 MAX_OUTPUT_BYTES = 16 * 1024
 DEFAULT_TIMEOUT_SECONDS = 3.0
 
@@ -19,7 +21,9 @@ _SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 _SEMVER_RE = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"
 )
-SUPPORTED_COMPONENTS = frozenset({"internet", "notes"})
+# Privileged pending decisions must never exceed the generated Native health
+# scope. The OS component-package policy is the only owner of these IDs.
+SUPPORTED_COMPONENTS = NATIVE_HEALTH_MUTATION_COMPONENT_IDS
 
 
 class ComponentPendingDecisionError(RuntimeError):

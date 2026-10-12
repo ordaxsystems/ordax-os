@@ -1,0 +1,12 @@
+BR2_x86_64=y
+BR2_TOOLCHAIN_BUILDROOT_MUSL=y
+BR2_STATIC_LIBS=y
+BR2_INIT_NONE=y
+BR2_PACKAGE_BUSYBOX=y
+BR2_TARGET_ROOTFS_TAR=y
+BR2_TARGET_ROOTFS_CPIO=y
+BR2_TARGET_ROOTFS_CPIO_GZIP=y
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/overlay"
+BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/post-build.sh"
+# The kernel-headers release is generated from bootstrap/kernel/source.json.
+# Never pin a second kernel identity in this defconfig.

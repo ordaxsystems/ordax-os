@@ -1,3 +1,4 @@
+import { hasNativeExternalFirstPartyProbation } from "../../services/apps/external-first-party-policy.mjs";
 import {
   validateAppLifecyclePlan,
 } from "../../contracts/app-lifecycle-plan.mjs";
@@ -17,14 +18,13 @@ const REQUEST_OPTIONS = Object.freeze({
   redirect: "error",
 });
 
-const PROBATION_COMPONENT_IDS = new Set(["internet", "notes"]);
 const BROWSER_BRIDGE_HANDLER = "ordaxBrowser";
 
 function requestPostLifecycleProbation(windowRef, plan, result) {
   if (
     result.state !== "accepted"
     || !["install", "update"].includes(plan.request.operation)
-    || !PROBATION_COMPONENT_IDS.has(plan.request.appId)
+    || !hasNativeExternalFirstPartyProbation(plan.request.appId)
   ) {
     return false;
   }

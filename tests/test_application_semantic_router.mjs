@@ -26,7 +26,6 @@ test("bundled first-party semantics cover internal apps without duplicating exte
     "assistant",
     "files",
     "internet",
-    "projects",
     "settings",
     "system",
   ]);
@@ -60,10 +59,13 @@ test("semantic router exposes Wi-Fi settings but cannot invent an uninstalled Ne
   assert.equal(selected.some((entry) => entry.appId === "network"), false);
 });
 
-test("semantic router recognizes file and project workflows from local examples", () => {
+test("semantic router retains Files but cannot invent an absent Projects app", () => {
   const { router } = runtime();
   assert.equal(router.select("Encontre imagens do catálogo")[0].appId, "files");
-  assert.equal(router.select("Abra o projeto Bay of All Saints")[0].appId, "projects");
+  assert.equal(
+    router.select("Abra o projeto Bay of All Saints").some((candidate) => candidate.appId === "projects"),
+    false,
+  );
 });
 
 test("unrelated questions do not inject arbitrary app details", () => {

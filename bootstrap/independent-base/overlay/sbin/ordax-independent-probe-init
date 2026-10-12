@@ -1,0 +1,47 @@
+#!/bin/sh
+# Disposable QEMU probe PID1 only. Never used by official portable initramfs.
+set -eu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+echo ORDAX_INDEPENDENT_PROBE=START
+mkdir -p /proc /sys /dev /run /proof/base /proof/state
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+rescue() {
+    echo "ORDAX_INDEPENDENT_RECOVERY=$1"
+    echo "ORDAX_INDEPENDENT_PROMOTABLE=NO"
+    sync
+    poweroff -f
+    sleep 3
+    exit 1
+}
+mount -t erofs -o ro /dev/sda /proof/base || rescue erofs
+test -r /proof/base/etc/ordax/independent-base || rescue base-identity
+grep -q 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL' /proof/base/etc/ordax/independent-base || rescue base-identity
+grep -q " /proof/base erofs ro," /proc/mounts || rescue erofs-not-readonly
+if touch /proof/base/.ordax-unexpected-write 2>/dev/null; then
+    rescue erofs-write-accepted
+fi
+echo ORDAX_INDEPENDENT_EROFS=READ_ONLY
+mount -t ext4 -o rw /dev/sdb /proof/state || rescue state
+if test -e /proof/state/ordax-independent-marker; then
+    grep -q '^PERSISTENT$' /proof/state/ordax-independent-marker || rescue persistence
+    echo ORDAX_INDEPENDENT_STATE=RETAINED
+else
+    echo PERSISTENT > /proof/state/ordax-independent-marker || rescue persistence-write
+    sync
+    echo ORDAX_INDEPENDENT_STATE=CREATED
+fi
+if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/network/bring-up; then
+    echo ORDAX_INDEPENDENT_NETWORK=DHCP
+else
+    rescue dhcp
+fi
+echo ORDAX_INDEPENDENT_BOOT=PASS
+umount /proof/state || rescue state-unmount
+umount /proof/base || rescue base-unmount
+sync
+poweroff -f
+sleep 3
+exit 1
