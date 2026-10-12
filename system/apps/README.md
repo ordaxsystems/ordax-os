@@ -10,7 +10,6 @@ Each first-party app has one explicit owner:
 
 ```text
 system/apps/files/app.mjs
-system/apps/projects/app.mjs
 system/apps/internet/app.mjs
 system/apps/settings/app.mjs
 system/apps/account/app.mjs
@@ -22,7 +21,6 @@ system/apps/system/app.mjs
 The initial owners are:
 
 - Arquivos;
-- Projetos;
 - Internet;
 - Ajustes;
 - Conta;
@@ -60,7 +58,7 @@ Current release modes are intentionally mixed while the MVP hardens:
 
 `system/services/components/update-presentation.mjs` derives two update scopes for Sistema: **system** and **applications**. Base, Surface/services and the Sistema app belong to `system`; the other first-party apps belong to `applications`, even when a current app still arrives bundled with the OrdaX delivery.
 
-**Projetos reuses the neutral project domain.** Its stable app id is `projects`; it consumes the existing `ordax.project-catalog/1` and optional cloud-link overlay instead of owning a second project database. Local projects remain usable without account or network.\n\n**Notas is an external/on-demand app identity, not a Surface/system subsystem.** Its stable app id is `notes`; during the pre-launch remove-first gate its payload is intentionally absent from `system/apps/` and will be sourced from `ordax-apps`.
+**Projetos is a remove-first externalization target.** The OS keeps the neutral `ordax.project-catalog/1` domain, read-only cloud link ports and Native project adapters; the app payload, its UI and locale are not platform-owned after Gate A. Until an independently verified signed current slot is installed, no bundled Projects window is presented. Source provenance is pinned in `ordax-apps/migrations/projects.source-snapshot.json`.\n\n**Notas is an external/on-demand app identity, not a Surface/system subsystem.** Its stable app id is `notes`; during the pre-launch remove-first gate its payload is intentionally absent from `system/apps/` and will be sourced from `ordax-apps`.
 
 **Internet follows the same app boundary.** Its stable app id is `internet`. The shared app owns browser chrome, workspace/tab organization and project context; Native/USB provide the optional browser engine capability through an isolated host, while Web fails closed instead of pretending arbitrary sites can be safely embedded.
 

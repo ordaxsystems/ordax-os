@@ -9,7 +9,6 @@ import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.m
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
 import { SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES, SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES } from "./catalog/system-diagnostics.mjs";
 import { INTERNET_SOURCE_MESSAGES, INTERNET_ENGLISH_MESSAGES } from "./catalog/internet.mjs";
-import { PROJECTS_SOURCE_MESSAGES, PROJECTS_ENGLISH_MESSAGES } from "./catalog/projects.mjs";
 import { ACCOUNT_SOURCE_MESSAGES, ACCOUNT_ENGLISH_MESSAGES } from "./catalog/account.mjs";
 import { ASSISTANT_SOURCE_MESSAGES, ASSISTANT_ENGLISH_MESSAGES } from "./catalog/assistant.mjs";
 import { ACTIVITY_SOURCE_MESSAGES, ACTIVITY_ENGLISH_MESSAGES } from "./catalog/activity.mjs";
@@ -113,11 +112,6 @@ const SOURCE = Object.freeze({
   "app.files.panel.0.label": "Espaço do usuário",
   "app.files.panel.0.title": "Arquivos",
   "app.files.panel.0.body": "Este host não expõe um espaço local de arquivos para esta Surface.",
-  "app.projects.title": "Projetos",
-  "app.projects.description": "Organize projetos locais, conexões e continuidade entre dispositivos.",
-  "app.projects.panel.0.label": "Projetos",
-  "app.projects.panel.0.title": "Seu trabalho",
-  "app.projects.panel.0.body": "O catálogo de projetos não está disponível nesta composição.",
   "app.studio.title": "ORDAX Studio",
   "app.studio.description": "Acesse seus projetos e confira a integração do Studio com este host.",
   "app.studio.panel.0.label": "Studio",
@@ -162,7 +156,6 @@ const SOURCE = Object.freeze({
   ...ASSISTANT_SOURCE_MESSAGES,
   ...ACTIVITY_SOURCE_MESSAGES,
   ...INTERNET_SOURCE_MESSAGES,
-  ...PROJECTS_SOURCE_MESSAGES,
   ...NETWORK_SOURCE_MESSAGES,
   ...POWER_SOURCE_MESSAGES,
   ...NOTIFICATIONS_SOURCE_MESSAGES,
@@ -260,11 +253,6 @@ const ENGLISH = Object.freeze({
   "app.files.panel.0.label": "User space",
   "app.files.panel.0.title": "Files",
   "app.files.panel.0.body": "This host does not expose local file storage to this Surface.",
-  "app.projects.title": "Projects",
-  "app.projects.description": "Organize local projects, connections, and continuity across devices.",
-  "app.projects.panel.0.label": "Projects",
-  "app.projects.panel.0.title": "Your work",
-  "app.projects.panel.0.body": "The project catalog is unavailable in this composition.",
   "app.studio.title": "ORDAX Studio",
   "app.studio.description": "Access your projects and check Studio integration with this host.",
   "app.studio.panel.0.label": "Studio",
@@ -309,7 +297,6 @@ const ENGLISH = Object.freeze({
   ...ASSISTANT_ENGLISH_MESSAGES,
   ...ACTIVITY_ENGLISH_MESSAGES,
   ...INTERNET_ENGLISH_MESSAGES,
-  ...PROJECTS_ENGLISH_MESSAGES,
   ...NETWORK_ENGLISH_MESSAGES,
   ...POWER_ENGLISH_MESSAGES,
   ...NOTIFICATIONS_ENGLISH_MESSAGES,

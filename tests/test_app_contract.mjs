@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { FIRST_PARTY_APP_SCHEMA, defineFirstPartyApp } from "../system/contracts/first-party-app.mjs";
 import { internetApp } from "../system/apps/internet/app.mjs";
-import { projectsApp } from "../system/apps/projects/app.mjs";
+import { getFirstPartyApp } from "../system/apps/catalog.mjs";
 import { COMPONENT_LOCALIZATION_SCHEMA } from "../system/contracts/localization-pack.mjs";
 import { validateFileListing } from "../system/contracts/file-space.mjs";
 
@@ -189,15 +189,8 @@ test("app owner exposes validated component identity", () => {
   assert.equal(Object.isFrozen(app.component), true);
 });
 
-test("Projects stays a first-party app with independent development delivery", () => {
-  assert.equal(projectsApp.id, "projects");
-  assert.deepEqual(projectsApp.requiredCapabilities, []);
-  assert.deepEqual(projectsApp.optionalCapabilities, []);
-  assert.equal(projectsApp.panels[0].extensionId, "projects-workspace");
-  assert.equal(projectsApp.component.owner, "system/apps/projects");
-  assert.equal(projectsApp.component.releaseMode, "git-app");
-  assert.equal(projectsApp.component.restartScope, "component");
-  assert.deepEqual(projectsApp.localization.bundledLocales, ["pt-BR", "en-US"]);
+test("Projects has no bundled fallback after remove-first Gate A", () => {
+  assert.equal(getFirstPartyApp("projects"), null);
 });
 
 
