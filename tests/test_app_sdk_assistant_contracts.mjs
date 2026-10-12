@@ -47,11 +47,16 @@ test("conversation projection never grants execution or implies remote provider"
   assert.equal(view.provider, "unavailable");
 });
 
-test("Personal runtime validator rejects forged authority instead of becoming a host port", () => {
-  assert.throws(() => validatePersonalOrdaxRuntimeSnapshot({
+test("Personal runtime validator never carries caller-supplied authority into the validated value", () => {
+  const snapshot = validatePersonalOrdaxRuntimeSnapshot({
     schema: PERSONAL_ORDAX_RUNTIME_SCHEMA, persistence: "device",
     ownerKind: "device", ownerId: null, nextOrdinal: 1,
     workItems: [], activities: [], results: [], approvals: [], decisions: [], attempts: [],
-    authority: "grant", grantRef: "fake",
-  }), /personal|runtime|owner|store/i);
+    authority: "grant", grantRef: "fake", create: () => true,
+  });
+  assert.equal(snapshot.schema, PERSONAL_ORDAX_RUNTIME_SCHEMA);
+  assert.equal(snapshot.authority, undefined);
+  assert.equal(snapshot.grantRef, undefined);
+  assert.equal(snapshot.create, undefined);
+  assert.ok(Object.isFrozen(snapshot));
 });
