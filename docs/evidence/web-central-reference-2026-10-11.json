@@ -123,7 +123,8 @@
     "Removed demo user/subscription/storage/projects/activity/online devices from active Central; existing cards and destinations show explicit unavailable transports without removing future features or changing responsive geometry",
     "Explicit active-Space choice and clear action reuse the Native domain selection service; session-only Web adapter holds a validated subject-bound record, while the service owns invalidation instead of duplicated composition reset",
     "Central/Desktop and Appearance consume one mounted canonical preference-runtime/catalog and existing Web preference-store; direct localStorage/theme state and duplicate window theme callbacks removed, saved versus session-only persistence remains honest, approved palette/geometry retained",
-    "Central subscribes to the existing Surface host connectivity; offline guards account actions and read lifecycle, canonical Spaces reset aborts/invalidates catalog and context, reconnect revalidates without replaying commands; approved geometry unchanged"
+    "Central subscribes to the existing Surface host connectivity; offline guards account actions and read lifecycle, canonical Spaces reset aborts/invalidates catalog and context, reconnect revalidates without replaying commands; approved geometry unchanged",
+    "Canonical identity/Spaces adapters share one bounded cancellable same-origin JSON GET transport; offline/disposal release stalled reads without replaying commands or creating auth/domain state; stable no-op snapshots and disposed action guards preserve approved UI"
   ],
   "native_files": [
     {
@@ -134,7 +135,7 @@
     },
     {
       "target": "system/composition/web/account-session.mjs",
-      "sha256": "3c731e2d4ff9458490cd6168292b0ef504ccfff8dbdd56339d86bfe7ea5541a6",
+      "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
       "owner": "OrdaX OS Surface",
       "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle"
     },
@@ -173,6 +174,30 @@
       "owner": "OrdaX OS Web adapter",
       "purpose": "Stable canonical Surface snapshots for browser connectivity and advertised capabilities; no network probing or duplicate store",
       "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894"
+    },
+    {
+      "target": "system/adapters/web/json-read.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "69500fca30658ed33d32bb29a8615ca42be9e329916369110a647033c9daeff0"
+    },
+    {
+      "target": "system/adapters/web/identity.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c"
+    },
+    {
+      "target": "system/adapters/web/identity-actions.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133"
+    },
+    {
+      "target": "system/adapters/web/spaces.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "90244c1c0a1f7d68d4a2ed5bfcc9654545ce3077f49e1c6bd239eac48066ee33"
     }
   ]
 }

@@ -296,3 +296,55 @@ test('disposed account composition ignores subsequent connectivity events', asyn
   await f.session.refresh();
   assert.equal(f.requests.length, count);
 });
+
+test('offline releases a stalled identity read so online can start a fresh account pass', async () => {
+  const f = fixture(signedIn('account-a'));
+  const fetch = f.windowRef.fetch;
+  let first = true;
+  f.windowRef.fetch = (path, options) => {
+    if (first && path === '/auth/session') { first = false; return new Promise(() => {}); }
+    return fetch(path, options);
+  };
+  try {
+    const pending = f.session.refresh();
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    await pending;
+    assert.equal(f.session.identity.getSnapshot().state, 'unavailable');
+    f.windowRef.navigator.onLine = true;
+    f.windowRef.dispatchEvent(new Event('online'));
+    await f.session.refresh();
+    assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
+    assert.equal(f.session.spaces.getSnapshot().state, 'ready');
+    assert.deepEqual(f.requests.map(request => request.path), ['/auth/session', '/account/spaces']);
+  } finally { f.session.dispose(); }
+});
+
+test('late cancelled identity body cannot replace the subject verified after reconnect', async () => {
+  const f = fixture(signedIn('account-a'));
+  const fetch = f.windowRef.fetch;
+  const lateBody = deferred();
+  let first = true;
+  f.windowRef.fetch = (path, options) => {
+    if (first && path === '/auth/session') {
+      first = false;
+      return Promise.resolve({ ok: true, status: 200, json: () => lateBody.promise });
+    }
+    return fetch(path, options);
+  };
+  try {
+    const pending = f.session.refresh();
+    await Promise.resolve();
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    await pending;
+    f.windowRef.navigator.onLine = true;
+    f.windowRef.dispatchEvent(new Event('online'));
+    await f.session.refresh();
+    lateBody.resolve(signedIn('stale-account'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
+    assert.equal(f.session.spaces.getSnapshot().spaces[0].ownerId, 'account-a');
+  } finally { f.session.dispose(); }
+});

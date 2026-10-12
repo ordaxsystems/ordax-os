@@ -1,5 +1,22 @@
 # Current State
 
+## Web Central — consultas de conta canceláveis e limitadas — 2026-10-12
+
+Identidade e catálogo de Spaces reutilizam um único transporte JSON GET nos
+adapters Web, com credenciais same-origin, no-store, redirects recusados e
+prazo de 10 segundos incluindo a leitura do corpo. Reset, supersessão e
+descarte encerram a espera mesmo se o transporte não respeitar AbortSignal.
+Desconexão cancela a consulta de identidade sem alterar a última sessão
+conhecida; reconexão pode iniciar nova leitura sem aguardar a resposta antiga.
+Ordinais e validações dos adapters continuam sendo a autoridade de publicação.
+Timeout real mantém os estados indisponível/erro, sem simular logout.
+Snapshots de identidade/comandos permanecem estáveis quando não mudam; portas
+descartadas não retêm novos assinantes nem iniciam comandos/consultas.
+Layout e serviços pendentes permanecem preservados. Regressões incluídas no
+source/CI, sem build, npm, testes, typecheck ou browser locais.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-account-bounded-read-lifecycle--2026-10-12).
+
+
 ## Web Central — conectividade pelo host canônico — 2026-10-12
 
 A UI assina ordax.surface-host/1, com snapshots estáveis e sem store paralelo.

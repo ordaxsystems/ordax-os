@@ -30,3 +30,13 @@ replays commands. The UI labels cached identity as potentially stale.
 Unknown browser connectivity stays unknown. Online hints are not evidence of
 gateway/device access. Layout and appearance are unchanged; transition
 regression source/CI were updated without local test/build/npm/browser runs.
+
+Identity/Spaces GET transports now share json-read.mjs with a single 10-second
+deadline including JSON body reads, same-origin/no-store and redirect:error.
+Cancellation, supersession and disposal settle pending reads independently of
+late fetch/body completion. Domain validation and refresh ordinals remain in
+their existing adapters. Composition cancels identity reads on offline without
+asserting logout, then revalidates on reconnect. Commands remain outside this
+transport and are never replayed. Disposed adapters accept no new work/listeners;
+unchanged identity/action snapshots keep their reference identity for React.
+Regression source/CI updated without local execution; layout remains unchanged.

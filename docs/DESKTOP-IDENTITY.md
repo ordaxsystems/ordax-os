@@ -820,3 +820,47 @@ hook order, readable offline status, guarded actions and existing cleanup.
 No approved CSS geometry/theme, shared app nodes or window reducer changed.
 No build, npm, typecheck, tests or browser executed. Authenticated E2E and
 production activation remain pending.
+
+### Web account bounded read lifecycle — 2026-10-12
+
+Owner: existing OS Web identity/Spaces adapters and Web composition, continuing
+the requested backend alignment. Reuses ordax.identity-session/1,
+ordax.identity-actions/1 and Spaces/selection contracts. No new backend,
+provider coupling, credentials store, authorization, domain snapshot or route.
+The earlier connectivity increment's wait-for-old-read limitation is superseded
+by adapter cancellation and a shared bounded GET transport.
+
+system/adapters/web/json-read.mjs owns only same-origin GET plumbing: no-store,
+redirect:error, JSON parsing, supersession, abort cleanup and a single 10-second
+deadline covering headers/body. Identity/Spaces still validate their own
+responses and own state/ordinals. A bounded read settles on cancellation even
+when an injected/noncooperative fetch or JSON body does not settle; attached
+handlers consume late results/errors. This is not a command transport or retry
+service. Bodies from fetches already cancelled are not parsed.
+
+The identity adapter's cancelRefresh extension belongs to its concrete lifecycle,
+not the provider-neutral session contract. Composition calls it on offline;
+the refresh ordinal advances before abort so cancellation preserves the last
+known snapshot. Actual request timeout/failure remains unavailable, not
+signed-out. Spaces reset/disposal use this same transport while retaining their
+own invalidation rules. Overlapping reconnects continue through the existing
+deduplicated read loop. No account command is retried or timed out by this helper.
+
+Identity and command snapshots preserve reference identity on semantic no-ops.
+Disposed session/action adapters reject new work or ignore refresh/subscription
+as appropriate; disposal cannot leave a new command active. An account command
+already sent to the gateway is not claimed to be undone by browser disposal.
+
+Risk: the 10-second read deadline may expose slow gateways as unavailable/error;
+the user can request a new read, and reconnect/focus use the existing lifecycle.
+No automatic authenticated state is inferred from cancellation or network hints.
+Source regression cases cover stalled headers/body, supersession, denied HTTP,
+unsupported paths, cleanup, unchanged identity, disposed commands, offline
+cancellation, fresh reconnect and suppression of late identity bodies.
+Existing CI includes these sources; no local build/npm/test/typecheck/browser run.
+
+Acceptance: account/Spaces read promises cannot keep UI refresh pending beyond
+the deadline; offline/disposal release them promptly, no old identity/catalog
+bytes replace a newer session, and post-disposal commands cause no network work.
+Preserve approved frontend geometry, themes, sidebar/dock/compact app behavior
+and canonical domain boundaries. Authenticated E2E remains pending.

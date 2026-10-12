@@ -195,6 +195,7 @@ on:
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
+      - 'tests/test_web_json_read.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
       - 'tests/test_account_lifecycle.mjs'
@@ -417,6 +418,7 @@ on:
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
+      - 'tests/test_web_json_read.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
       - 'tests/test_account_lifecycle.mjs'
@@ -550,7 +552,7 @@ jobs:
           node --test tests/test_component_probation_orchestrator.mjs
           node --test tests/test_native_component_probation_composition.mjs
           node --test tests/test_component_promotion_policy.mjs
-          node --test tests/test_identity_session.mjs
+          node --test tests/test_identity_session.mjs tests/test_web_json_read.mjs
           node --test tests/test_identity_actions.mjs
           node --test tests/test_identity_credentials.mjs
           node --test tests/test_account_lifecycle.mjs

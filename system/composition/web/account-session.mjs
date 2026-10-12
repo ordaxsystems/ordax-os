@@ -27,7 +27,10 @@ export function createWebAccountSession(windowRef = globalThis.window) {
     connectivity = snapshot.connectivity;
     connectivityRevision += 1;
     // Canonical reset aborts the read and invalidates selection until revalidation.
-    if (connectivity === "offline") spaces.reset();
+    if (connectivity === "offline") {
+      identity.cancelRefresh();
+      spaces.reset();
+    }
   });
   function refresh() {
     if (disposed || surface.getSnapshot().connectivity === "offline") return Promise.resolve();
