@@ -719,6 +719,10 @@
   .workspace-window[data-mode="compact"] .window-secondary-actions { display: none; }
   .workspace-window[data-mode="compact"] .compact-actions-overflow { display: flex; }
   .workspace-window[data-mode="compact"] .desktop-window-controls { gap: 8px; }
+  /* Collapsed compact panels must always expose their primary recovery action.
+     Keeping Expand visible avoids trapping the user behind a narrow overflow menu. */
+  .workspace-window[data-mode="compact"][data-collapsed="true"] .window-secondary-actions { display: flex; }
+  .workspace-window[data-mode="compact"][data-collapsed="true"] .window-secondary-actions > button:not(:first-child) { display: none; }
 }
 .workspace-window .desktop-window-body { container-type: inline-size; }
 @container (max-width: 280px) {
