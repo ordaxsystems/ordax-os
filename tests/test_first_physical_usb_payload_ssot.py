@@ -45,7 +45,7 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             envfile = base / "github-env"
             env = dict(os.environ, GITHUB_OUTPUT=str(out), GITHUB_ENV=str(envfile))
 
-            def exercise(status, *, tamper_proof=False, wrong_url=False):
+            def exercise(status, *, event_name='workflow_dispatch', tamper_proof=False, wrong_url=False):
                 fixture = json.loads(json.dumps(auth))
                 fixture["status"] = status
                 fixture["physical_write_allowed"] = status == "authorized"
@@ -58,13 +58,37 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
                 envfile.write_text("", encoding="utf-8")
                 result = subprocess.run(
                     [sys.executable, "-c", self._resolver()],
-                    cwd=base, env=env, text=True, capture_output=True, timeout=10,
+                    cwd=base, env=dict(env, GITHUB_EVENT_NAME=event_name), text=True, capture_output=True, timeout=10,
                     check=False,
                 )
                 return result, out.read_text(encoding="utf-8"), envfile.read_text(encoding="utf-8")
 
             blocked, output, variables = exercise("blocked-explicit-physical-authorization-pending")
             self.assertNotEqual(blocked.returncode, 0)
+            self.assertEqual((output, variables), ("", ""))
+
+            proof_only, output, variables = exercise(
+                "blocked-explicit-physical-authorization-pending",
+                event_name="pull_request",
+            )
+            self.assertEqual(proof_only.returncode, 0, proof_only.stderr)
+            self.assertEqual(output, f"release_source_commit={expected_commit}\n")
+            self.assertEqual(
+                variables,
+                f"RELEASE_SOURCE_COMMIT={expected_commit}\nENVELOPE_URL={expected_url}\n",
+            )
+
+            wrong_mode, output, variables = exercise(
+                "authorized", event_name="pull_request"
+            )
+            self.assertNotEqual(wrong_mode.returncode, 0)
+            self.assertEqual((output, variables), ("", ""))
+
+            tampered_proof_only, output, variables = exercise(
+                "blocked-explicit-physical-authorization-pending",
+                event_name="pull_request", tamper_proof=True,
+            )
+            self.assertNotEqual(tampered_proof_only.returncode, 0)
             self.assertEqual((output, variables), ("", ""))
 
             tampered, output, variables = exercise("authorized", tamper_proof=True)
@@ -119,6 +143,37 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             source,
         )
 
+    def test_pre_authorization_real_sources_are_proved_but_never_uploaded(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("pull_request:", source)
+        self.assertIn("push:", source)
+        self.assertIn("if: ${{ github.event_name != 'workflow_dispatch' }}", source)
+        self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' }}", source)
+        self.assertIn("pre_authorization_ready", source)
+        self.assertIn("authorized_candidate_materialization_allowed", source)
+        self.assertIn("verify-portable-sources", source)
+        self.assertIn("PORTABLE_SOURCE_COUNT=17", source)
+        self.assertIn("REAL_V4_17_SOURCE_PREFLIGHT=PASS_NON_DESTRUCTIVE", source)
+        self.assertIn("'application_operations_planned': 39", source)
+        self.assertIn("'artifact_readbacks_on_physical_media': 0", source)
+        self.assertIn("'physical_target_selected': False", source)
+        self.assertIn("'physical_write_authorized': False", source)
+        self.assertIn("'physical_write_performed': False", source)
+        self.assertIn("name: Materialize real 17 signed sources on disposable FAT32 and exFAT twin", source)
+        self.assertIn("operator/tools/creator/proof/portable_prepared_media.py", source)
+        self.assertIn("REAL_V4_DISPOSABLE_TWIN=17_OF_17_READBACK_PASS", source)
+        self.assertIn("'disposable_twin_artifacts_readback'] = 17", source)
+        self.assertIn("'disposable_twin_raw_image_deleted'] = True", source)
+        self.assertIn("sudo rm -f \"$work/portable-v4-disposable-twin.raw\"", source)
+        self.assertIn("name: Upload proof metadata only (never physical source bytes)", source)
+        self.assertIn(
+            "path: ${{ runner.temp }}/first-physical-payload/out/preauthorization-proof.json",
+            source,
+        )
+        self.assertIn("name: Upload first physical USB operator payload\n"
+                      "        if: ${{ github.event_name == 'workflow_dispatch' }}", source)
+        self.assertIn("name: Destroy temporary signed release and 17 source files", source)
+
     def test_release_identity_comes_only_from_authorization(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("inputs.release_source_commit", source)
@@ -132,7 +187,8 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("operator/docs/evidence/canonical-v4-release-proof.json", source)
         self.assertIn("canonical_v4_release_proof_sha256", source)
         self.assertIn("CANONICAL_RELEASE_FROM_AUTHORIZATION_SSOT=PASS", source)
-        self.assertIn("if auth.get('status') != 'authorized':", source)
+        self.assertIn("'blocked-explicit-physical-authorization-pending'", source)
+        self.assertIn("auth.get('physical_write_allowed') is not physical_mode", source)
 
 
 if __name__ == "__main__":
