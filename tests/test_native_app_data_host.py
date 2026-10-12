@@ -196,7 +196,7 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
             self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
             status, _headers, body = self.json_post(original, {"action": "list"})
             self.assertEqual(status, 404)
-            self.assertIsNone(body)
+            self.assertEqual(body["error"], "Native App Data capability is unknown")
             self.assertEqual(maintenance.restore(1)["revision"], 2)
         self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
         status, _headers, _body = self.json_post(original, {"action": "list"})
