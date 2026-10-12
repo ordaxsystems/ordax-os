@@ -1,5 +1,21 @@
 # Current State
 
+## Web Central — menu e foco compartilhados — 2026-10-12
+
+Menu de destinos reutiliza o Dialog existente para semântica modal e foco;
+overlay e listener global próprios foram removidos. Busca informa resultado
+vazio. Central volta ao início, mantendo os apps minimizados e montados. O
+gerenciador de janelas existente trata também reabertura do mesmo app; fechar
+o menu retorna ao botão de origem ou ao Início se o botão saiu do viewport.
+Sem novo serviço, catálogo, store de identidade ou autoridade de execução.
+
+36 regressões de workspace/sessão e sete de localização passaram; build com
+TypeScript e verificação de 34 arquivos/assets passaram. Validação visual e
+de teclado permanece pendente: a ferramenta de navegador não respondeu.
+Catálogo/gateway autenticado e serviços de dispositivos continuam separados.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#destination-menu-focus--2026-10-12).
+
+
 ## Web Central — Loja canônica e recuperação por janela — 2026-10-12
 
 A janela Loja monta o StoreExperience existente, pelo mesmo catálogo público

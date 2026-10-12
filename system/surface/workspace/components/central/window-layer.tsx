@@ -20,7 +20,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   const panes = useRef(new Map<string, HTMLElement>());
   const compact = state.windows.filter(w => !w.minimized && w.mode === 'compact');
   const regular = state.windows.filter(w => !w.minimized && w.mode !== 'compact').at(-1);
-  const activeMode = state.windows.find(w => w.title === state.active)?.mode;
+  const activeWindow = state.windows.find(w => w.title === state.active);
   useEffect(() => {
     if (state.active) {
       const pane = panes.current.get(state.active);
@@ -33,7 +33,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
       (task ?? home)?.focus({ preventScroll: true });
     }
     previousActive.current = state.active;
-  }, [state.active, activeMode]);
+  }, [state.active, activeWindow]);
   return <div ref={layer} className="workspace-windows" role="group" aria-label="Janelas de apps" data-compact-count={compact.length} style={{ gridTemplateColumns: 'repeat(' + Math.max(1, compact.length) + ', minmax(0, 1fr))' }}>
     {state.windows.map(window => {
       const selected = window.mode === 'compact' || window.title === regular?.title;
