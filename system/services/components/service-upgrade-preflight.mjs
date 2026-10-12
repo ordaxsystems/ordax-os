@@ -340,3 +340,51 @@ export function validateActiveSlotCompatibilityCatalog(value) {
     components: Object.freeze(components),
   });
 }
+
+export const SERVICE_ACTIVE_GRAPH_COVERAGE_SCHEMA =
+  "ordax.service-active-graph-coverage/1";
+
+// An evidence projection, never a release approval. Every component comes
+// from the official manifest catalog; no service allowlist or installed-state
+// shadow copy is maintained here.
+export function assessServiceActiveGraphCoverage({
+  manifests, descriptors, activeCatalog,
+} = {}) {
+  const { components, byContract, byManifest } = checkedCatalog(manifests, descriptors);
+  const catalog = validateActiveSlotCompatibilityCatalog(activeCatalog);
+  const signedById = new Map(catalog.components.map((item) => [item.componentId, item]));
+  for (const id of signedById.keys()) {
+    if (!byManifest.has(id)) {
+      throw new TypeError("Signed active slot has no canonical component manifest: " + id);
+    }
+  }
+  const entries = components.map((component) => {
+    const signed = signedById.get(component.id);
+    const declared = byContract.has(component.id);
+    return Object.freeze({
+      id: component.id,
+      releaseMode: component.releaseMode,
+      descriptorDeclared: declared,
+      signedCurrentObserved: Boolean(signed),
+      sourcePolicyMatchesObservedSlot: !signed || component.releaseMode === "component-slot",
+      contractEvidence: signed
+        ? "verified-by-native-readout-not-pinned"
+        : declared ? "source-descriptor-only" : "not-declared",
+      productionCompatibilityProven: false,
+    });
+  }).sort((left, right) => left.id.localeCompare(right.id));
+  return Object.freeze({
+    schema: SERVICE_ACTIVE_GRAPH_COVERAGE_SCHEMA,
+    authority: "none",
+    completeForActivation: false,
+    components: Object.freeze(entries),
+    summary: Object.freeze({
+      total: entries.length,
+      signedCurrentObserved: entries.filter((entry) => entry.signedCurrentObserved).length,
+      sourceDescriptorsDeclared: entries.filter((entry) => entry.descriptorDeclared).length,
+      missingSourceDescriptors: entries.filter((entry) => !entry.descriptorDeclared).length,
+      sourceModeMismatches: entries.filter((entry) => !entry.sourcePolicyMatchesObservedSlot).length,
+      productionCompatibilityProven: 0,
+    }),
+  });
+}
