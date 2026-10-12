@@ -550,6 +550,14 @@ func armPendingStateAtRevision(
 			if precedence <= 0 {
 				return activationState{}, errors.New("runtime component candidate must have a newer semantic version; use explicit rollback for older versions")
 			}
+			// No unsigned compatibility JSON or invented migration plan:
+			// read both signed release/2 state contracts inside the only
+			// activation writer lock, before recording pending.
+			if err := verifyArmPendingStateCompatibility(
+				root, release.Component.ID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
 		}
 		candidate := identity
 		state.Pending = &candidate
