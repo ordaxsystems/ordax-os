@@ -22,6 +22,9 @@ class PortableSourceBoundaryTests(unittest.TestCase):
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )
         external_owners = policy["canonical_package_source_repository_by_component"]
+        self.assertEqual(external_owners.get("projects"), "ordaxsystems/ordax-apps")
+        self.assertNotIn("projects", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("projects", policy["runtime_health_bridge_supported_components"])
         pending = policy.get("prelaunch_remove_first_pending", {})
         self.assertIsInstance(pending, dict)
         self.assertTrue(set(pending).issubset(CANDIDATES))
