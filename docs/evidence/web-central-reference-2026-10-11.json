@@ -568,6 +568,38 @@
         "No new account, device, inference, grant, installation or production proof"
       ],
       "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "footer_mode_removal": {
+      "date": "2026-10-12",
+      "source_base_commit": "001420d28a46401893ef5a8497ecf4157f2b9a91",
+      "owner": "OS Surface",
+      "scope": "Explicit footer selector removal; related CSS/tracks and existing smoke assertion cleaned; other controls unchanged",
+      "typecheck": "passed",
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "full_build_repeated": false,
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "viewports": [
+          {
+            "width": 390,
+            "height": 600
+          },
+          {
+            "width": 1366,
+            "height": 768
+          }
+        ],
+        "result": "Footer/selector absent; matching client/scroll dimensions; no error/warning logs; viewport restored",
+        "screenshot": {
+          "filename": "ordax-home-no-footer-mode-20261012.jpg",
+          "sha256": "c638c3e68b034325310af99ea0b00df133cdbef6a3443ad36d76c891de9de583",
+          "scope": "Local visualization artifact outside Git"
+        }
+      },
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
     }
   },
   "files": [
@@ -575,8 +607,8 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "d95f942425ba0f0c9ebc48837387a90ea9d4f669d4fc29d0612a6830c13cee31",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
+      "adaptedSha256": "745686b8883ef8607b2cc1bd399359cc123bf31e61995dce1493177ea0e03c5c",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved."
     },
     {
       "source": "src/components/central/config.ts",
@@ -610,8 +642,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "819aee793a2a25a4e687b6b8c816539be83a2305f9259d87fe836213bd863b7a",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
+      "adaptedSha256": "1b3d7329d3a8c4202fedc18c499e1d7ce0d573ad09934a598407b9fb343e9d0b",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved."
     },
     {
       "source": "src/assets/alpine-day.jpg",

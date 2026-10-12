@@ -1,5 +1,13 @@
 # Current State
 
+## Web Central — seletor do rodapé removido — 2026-10-12
+
+Remoção explicitamente solicitada: seletor inferior de modos da Aura, CSS próprio
+e tracks reservados ao footer retirados. Demais controles e serviços preservados.
+TypeScript e verificador dos 34 arquivos/assets passaram. Browser em 390 x 600 e
+1366 x 768 confirmou ausência do seletor/footer e documento sem overflow; logs
+sem erros/avisos. Viewport restaurado. Sem build completo repetido nesta remoção.
+
 ## Web Central — compacto com seleção mobile — 2026-10-12
 
 Até 760 px de viewport, o painel compacto apresenta um app por vez, usando toda

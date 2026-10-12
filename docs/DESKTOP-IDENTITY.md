@@ -1158,3 +1158,16 @@ validation windows closed and browser error/warning logs empty. Screenshot:
 ordax-compact-single-mobile-20261012.jpg, local visualization artifact outside Git.
 Initial JS 483.08 kB (151.32 gzip), CSS 82.46 kB; advanced menu remains a separate
 58.48 kB chunk. No threshold override, new dependency or production activation.
+
+
+### Footer mode selector removal — 2026-10-12
+
+Owner: OS Surface; explicit removal of the lower Aura mode selector. Only its
+footer markup, unused styling and reserved responsive grid tracks were removed;
+other controls, state and service contracts remain. Existing browser-smoke check
+now asserts footer absence rather than dereferencing a removed node. Historical
+provenance retained with adapted digests. Risk/acceptance: no empty reserved row
+or page overflow. TypeScript and 34-file structural verification passed. Live
+390 x 600 and 1366 x 768 both had matching client/scroll dimensions, no footer or
+selector, and no browser error/warning entries; viewport restored. No full build
+repeated for this small removal, no backend operation or production activation.
