@@ -52,8 +52,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "76a175b67be6eecf0bc9e06ef8043022bcdd4b6fd9a7b44c4cbd49f97bd65281",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
+      "adaptedSha256": "6ed6252ffa62b37c67e9ba93e6246c78dc720c467b5f350d766f887cab0e8f12",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture; compact collapsed panels at <=260px now expose the primary Expand action without requiring the overflow menu. Backend integrations remain deferred."
     },
     {
       "source": "src/assets/alpine-day.jpg",
