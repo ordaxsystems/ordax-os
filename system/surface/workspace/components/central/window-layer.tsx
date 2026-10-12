@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, useState, type Dispatch, type ReactNode, type CSSProperties } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PresentationProps } from './desktop';
@@ -36,7 +36,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   useEffect(() => {
     if (state.active) {
       const pane = panes.current.get(state.active);
-      pane?.focus({ preventScroll: true });
+      if (pane && !pane.contains(document.activeElement)) pane.focus({ preventScroll: true });
     }
     else if (previousActive.current) {
       const tasks = layer.current?.parentElement?.querySelectorAll<HTMLButtonElement>('[data-window-restore]');
@@ -46,7 +46,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
     }
     previousActive.current = state.active;
   }, [state.active, activeWindow]);
-  return <div ref={layer} className="workspace-windows" role="group" aria-label="Janelas de apps" data-compact-count={compact.length} style={{ gridTemplateColumns: 'repeat(' + Math.max(1, compact.length) + ', minmax(0, 1fr))' }}>
+  return <div ref={layer} className="workspace-windows" role="group" aria-label="Janelas de apps" data-compact-count={compact.length} style={{ '--compact-columns': Math.max(1, compact.length) } as CSSProperties}>
     {state.windows.map(window => {
       const selected = window.mode === 'compact' || window.title === regular?.title;
       const collapsed = window.mode === 'compact' && state.compactCollapsed;
@@ -58,11 +58,11 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
       ];
       return <section key={window.title} ref={node => { if (node) panes.current.set(window.title, node); else panes.current.delete(window.title); }} role="region" tabIndex={-1}
         aria-label={`Janela ${window.title}`} className="desktop-window workspace-window" hidden={window.minimized || !selected}
-        style={window.mode === 'compact' ? { gridColumn: compact.findIndex(pane => pane.title === window.title) + 1 } : undefined} data-mode={window.mode} data-active={state.active === window.title} data-maximized={window.mode === 'maximized'} data-collapsed={collapsed}
+        style={window.mode === 'compact' ? { '--compact-column': compact.findIndex(pane => pane.title === window.title) + 1 } as CSSProperties : undefined} data-compact-selected={window.title === state.compactActive} data-mode={window.mode} data-active={state.active === window.title} data-maximized={window.mode === 'maximized'} data-collapsed={collapsed}
         onFocus={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}
         onPointerDown={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}>
         <header className="desktop-titlebar">
-          <span className="desktop-window-title"><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span></span>
+          <span className="desktop-window-title" data-switchable={window.mode === 'compact' && compact.length > 1 && window.title === state.compactActive}><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span>{window.mode === 'compact' && compact.length > 1 && window.title === state.compactActive && <select className="compact-window-switcher" aria-label="Aplicativo no painel compacto" value={window.title} onChange={event => { setOpenCompactMenuId(null); dispatch({ type: 'focus', title: event.target.value }); }}>{compact.map(pane => <option key={pane.title} value={pane.title}>{pane.title}</option>)}</select>}</span>
           <div className="desktop-window-controls">
             <div className="window-secondary-actions">{controls.map(control => <Button key={control.label} variant="ghost" size="icon" aria-label={control.label} aria-expanded={control.expanded} title={control.title} onClick={() => dispatch(control.action)}><control.icon/></Button>)}</div>
             {window.mode === 'compact' && <div className="compact-actions-overflow"><CompactActionsBoundary fallback={<ExpandCompactAction title={window.title} dispatch={dispatch} failed/>}><Suspense fallback={<ExpandCompactAction title={window.title} dispatch={dispatch}/>}><CompactActions title={window.title} controls={controls} open={openCompactMenuId === window.title} onOpenChange={open => setOpenCompactMenuId(open ? window.title : null)} onAction={action => { setOpenCompactMenuId(null); dispatch(action); }}/></Suspense></CompactActionsBoundary></div>}

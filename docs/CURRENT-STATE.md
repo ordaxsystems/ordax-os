@@ -1,5 +1,22 @@
 # Current State
 
+## Web Central — compacto com seleção mobile — 2026-10-12
+
+Até 760 px de viewport, o painel compacto apresenta um app por vez, usando toda
+a largura disponível. Se há mais de um, o cabeçalho oferece seletor nativo; dock
+continua mostrando os apps abertos. Em telas maiores, os mesmos apps continuam
+lado a lado, com larguras iguais. A seleção pertence ao desktopReducer existente,
+permanece ao abrir um app superior e recupera um app disponível após fechar ou
+minimizar o selecionado. Apps ocultos continuam montados, preservando drafts.
+
+Conteúdo compacto usa menos padding e grids pela largura do painel; controles
+mobile têm 44 x 44 px. Trocar um painel recolhido preserva esse estado. Browser
+comprovou 320 x 568/390 x 844 sem overflow, texto ampliado, três apps desktop com
+378 px cada em 1366 x 768, e retenção de draft ao trocar/minimizar/restaurar.
+23 testes Node e sete de builder passaram; TypeScript/build e 34 arquivos/assets
+verificados. JS inicial 483,08 kB (151,32 gzip); menu avançado permanece sob demanda.
+Nenhuma mudança de backend, grants, conta ou execução. [Owner, risco e aceite](DESKTOP-IDENTITY.md#single-mobile-compact-pane--2026-10-12).
+
 ## Web Central — menu compacto sob demanda — 2026-10-12
 
 O menu avançado das janelas compactas carrega no primeiro uso de modo compacto,

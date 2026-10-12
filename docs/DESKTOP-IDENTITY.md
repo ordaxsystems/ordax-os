@@ -1115,3 +1115,46 @@ are 58.48 kB (19.27 gzip) on demand. No chunk threshold override; the >500 kB
 warning no longer appeared. Total code size and loading time were not claimed
 to improve by that percentage. Authenticated gateway/catalog, device/inference,
 signed delivery and production activation remain independent gates.
+
+
+### Single mobile compact pane — 2026-10-12
+
+Owner: OS Surface. Explicit requested responsive UX revision; supersedes earlier
+mobile equal-tiling acceptance, preserving desktop tiles and service boundaries.
+Selection is session presentation state in the same desktopReducer, not a second
+window manager or persisted account setting. CSS uses the existing 760px mobile
+breakpoint. Grid columns derive from canonical window data through CSS variables;
+mobile shows only the selected compact pane, while larger screens show all panes.
+Only the selected header renders the native switcher when multiple apps exist.
+Hidden app bodies remain mounted; changing a pane never sends a backend command.
+
+The reducer remembers compact selection while a regular app opens above it;
+closing that upper app returns focus to the visible selected compact pane.
+Minimize/close/restore reconcile selection to available windows. Focus within a
+pane is respected so clicking an input or native selector does not lose focus to
+its wrapper. Compact-body padding/cards are simplified; grids respond to actual
+pane width. Mobile actions use shared overflow menu and separate Close, both with
+44px targets. Collapsing the strip remains independent of selection.
+
+Risk and acceptance: no inaccessible hidden pane, orphaned selection, lost draft,
+focus theft or horizontal clipping; resize must reveal desktop tiles without
+remounting content. New four behavior tests cover selection across upper-window
+lifecycle, minimize/close/restore, collapsed switching and explicit dock recovery.
+Together with 19 existing workspace regressions and seven builder checks: 30
+passed. TypeScript/build and the 34-file provenance verifier passed.
+
+Observed mobile 390 x 844: one 326px compact pane, one switcher for three apps;
+upper Projects and selected lower app split available height. Closing Projects
+returned focus to Aura. Unsent draft survived switching, minimization, dock
+restore and resizing. At 320 x 568 with 125% text, Settings body clientWidth and
+scrollWidth both 239px, controls stayed inside, and visible actions measured
+44 x 44px. Applications also fit at 320px: two adaptive tile columns, no overflow.
+At desktop 1366 x 768 three panes measured 378px each; switcher hidden. A collapsed
+mobile pane measured 48px and allowed selection before expansion. Apps unavailable
+from host remain explicit; this does not implement their backend.
+
+Original standard text scale/dark theme and default viewport restored; all
+validation windows closed and browser error/warning logs empty. Screenshot:
+ordax-compact-single-mobile-20261012.jpg, local visualization artifact outside Git.
+Initial JS 483.08 kB (151.32 gzip), CSS 82.46 kB; advanced menu remains a separate
+58.48 kB chunk. No threshold override, new dependency or production activation.

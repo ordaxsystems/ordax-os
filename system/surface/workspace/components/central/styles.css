@@ -382,6 +382,7 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr) var(--compact-track);
   column-gap: 8px;
+  grid-template-columns: repeat(var(--compact-columns,1), minmax(0,1fr));
   pointer-events: none;
   z-index: 35;
   min-height: 0;
@@ -402,7 +403,7 @@
 .workspace-window[data-mode="normal"] { width: min(690px, calc(100% - 40px)); height: min(470px, calc(100% - 88px)); }
 .window-workspace[data-view="desktop"] .workspace-window { margin: calc(var(--desktop-top-height) + 12px) 20px 12px; }
 .window-workspace[data-view="desktop"] .workspace-window[data-mode="normal"] { width: min(690px, calc(100% - 40px)); height: min(470px, calc(100% - var(--desktop-top-height) - 24px)); }
-.window-workspace .workspace-window[data-mode="compact"] { grid-row: 2; grid-column-end: auto; position: relative; inset: auto; min-width: 0; margin: 8px 0; width: auto; height: auto; container-type: inline-size; }
+.window-workspace .workspace-window[data-mode="compact"] { grid-row: 2; grid-column: var(--compact-column,1); position: relative; inset: auto; min-width: 0; margin: 8px 0; width: auto; height: auto; container-type: inline-size; }
 
 .workspace-window .desktop-titlebar { height: 48px; min-height: 48px; padding-inline: 12px 4px; }
 .workspace-window .desktop-window-title { overflow: hidden; }
@@ -852,4 +853,22 @@
   .desktop-window-body .desktop-settings-row { grid-template-columns: minmax(0,1fr); gap: 8px; }
   .desktop-settings-row > button { max-width: 100%; min-width: 0; white-space: normal; height: auto; min-height: 44px; }
   .preference-setting select { width: 100%; }
+}
+
+/* One selected compact app on phones; the same mounted panes tile on wider screens. */
+.compact-window-switcher { display: none; }
+.workspace-window[data-mode="compact"] .desktop-window-body { padding: 12px; }
+.workspace-window[data-mode="compact"] .desktop-window-body > .os-panel { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.workspace-window[data-mode="compact"] .desktop-settings-row { padding-block: 10px; }
+.workspace-window[data-mode="compact"] .favorite-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,72px),1fr)); }
+@media (max-width: 760px) {
+  .workspace-windows { grid-template-columns: minmax(0,1fr); }
+  .window-workspace .workspace-window[data-mode="compact"] { grid-column: 1; }
+  .window-workspace .workspace-window[data-mode="compact"][data-compact-selected="false"] { display: none; }
+  .workspace-window[data-mode="compact"] .desktop-titlebar { height: 48px; min-height: 48px; padding: 2px 8px; }
+  .workspace-window[data-mode="compact"] .window-secondary-actions { display: none; }
+  .workspace-window[data-mode="compact"] .compact-actions-overflow { display: flex; }
+  .workspace-window[data-mode="compact"] .desktop-window-controls button { width: 44px; min-width: 44px; height: 44px; }
+  .workspace-window[data-mode="compact"] .desktop-window-title[data-switchable="true"] > span { display: none; }
+  .compact-window-switcher { display: block; width: 100%; min-width: 0; max-width: 100%; height: 44px; padding: 0 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--foreground); font: inherit; }
 }

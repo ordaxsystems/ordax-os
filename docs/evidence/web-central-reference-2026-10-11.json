@@ -494,6 +494,80 @@
         "No authenticated gateway, account sync, device/inference, signed install or production activation proof"
       ],
       "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "single_mobile_compact_pane": {
+      "date": "2026-10-12",
+      "source_base_commit": "0dc2b82beb64593dfe3925ea53b8e99f370347c7",
+      "owner": "OS Surface / existing desktopReducer and WindowLayer",
+      "scope": "Explicit mobile UX revision; single selected compact pane below 761px, same mounted app bodies and desktop equal tiles",
+      "supersedes": "Earlier equal side-by-side mobile compact layout; historical test evidence retained",
+      "node_tests": {
+        "command": "node --experimental-strip-types --test tests/test_web_central_windows.mjs tests/test_surface_workspace.mjs",
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "new_behavior_tests": 4
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 483.08,
+        "initial_gzip_kb": 151.32,
+        "css_kb": 82.46,
+        "compact_chunk_kb": 58.48,
+        "note": "Advanced menu stays lazy; no chunk threshold override."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "result": "passed-observed-responsive-flows",
+        "viewports": [
+          {
+            "width": 320,
+            "height": 568
+          },
+          {
+            "width": 390,
+            "height": 844
+          },
+          {
+            "width": 1366,
+            "height": 768
+          }
+        ],
+        "checks": [
+          "Mobile showed one compact pane using all 326px available width at 390px viewport",
+          "One native selector exposed all three compact apps; others remained mounted and inaccessible through CSS display:none",
+          "Switch/minimize/dock restore retained unsent Aura draft",
+          "Opening Projects above preserved selection; closing returned focus to selected Aura",
+          "Collapsed panel stayed 48px and allowed switching before expansion",
+          "320px with 125% text: body clientWidth/scrollWidth both 239px, controls inside panel, visible actions 44 x 44px",
+          "Applications at 320px used two adaptive columns without horizontal overflow",
+          "Desktop three panes all 378px; resizing revealed the same app nodes",
+          "No page overflow in tested dimensions"
+        ],
+        "cleanup": "Validation apps closed; standard text scale, original dark Central and default viewport restored; user tabs retained; no error/warning logs",
+        "screenshot": {
+          "filename": "ordax-compact-single-mobile-20261012.jpg",
+          "width": 390,
+          "height": 844,
+          "sha256": "e89514c998b55fc01018045b1b5df13ee9b226aefff5b393b05905bf959f5e41",
+          "scope": "Local visualization artifact outside repository; not public CI evidence"
+        }
+      },
+      "react_review": "Existing state owner only; CSS handles responsive visibility; stable keyed app siblings preserve bodies; focus effect respects active descendants; selector uses canonical compact list and native semantics",
+      "limits": [
+        "No backend command sent",
+        "No new account, device, inference, grant, installation or production proof"
+      ],
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
     }
   },
   "files": [
@@ -529,15 +603,15 @@
       "source": "src/components/central/desktop-state.ts",
       "target": "system/surface/workspace/components/central/desktop-state.ts",
       "sha256": "29495a38b755ce63ab6938a605edb2eb0f6a7e6e4e10ede7dabdf25a85c08728",
-      "adaptedSha256": "46b2217f79ed02fe4c4623798f820df7ec5ac400729ffa13a982025420145cbd",
-      "adaptation": "The desktop reducer distinguishes focus from explicit open: popup focus return cannot revive a minimized app, while the dock restores via open. Preserve previous window mode and canonical single reducer."
+      "adaptedSha256": "3ed5b00d9a7a707b3e5a5bee5d2e49ee0e9b3fd6538f0ed4bc65b98d2aae9c5e",
+      "adaptation": "The desktop reducer distinguishes focus from explicit open: popup focus return cannot revive a minimized app, while the dock restores via open. Preserve previous window mode and canonical single reducer. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
     },
     {
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "9f139826b4c897cb236f5dfc2147f47fe5baec303971655c25e9c208947e8d6c",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority."
+      "adaptedSha256": "819aee793a2a25a4e687b6b8c816539be83a2305f9259d87fe836213bd863b7a",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -619,8 +693,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "62595b21e9558504527e3d4281567c8ddb2a71d73f3258fcd49d950fc3c04d11",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted."
+      "adaptedSha256": "4257638b094fd117eb866da33540ecac7bd29abb6018c17fa0bc90c22ba8a48a",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
     },
     {
       "target": "system/composition/web/account-session.mjs",

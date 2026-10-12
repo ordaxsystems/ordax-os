@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Compacto mobile — 12/10/2026:** revisão explícita substitui lado a lado no
+> mobile por um app selecionado com largura completa e troca no cabeçalho. O
+> mesmo reducer mantém seleção/drafts; desktop continua com tiles iguais. Conteúdo
+> adapta à largura real, com menos padding e ações mobile de 44px. [Owner, risco
+> e prova](docs/DESKTOP-IDENTITY.md#single-mobile-compact-pane--2026-10-12).
+
 > **Carregamento Web — 12/10/2026:** menu compacto extraído uma vez e carregado
 > sob demanda pelo mesmo WindowLayer; expansão/fechamento preservados após falha
 > de recurso. JS inicial 539,52 → 482,31 kB, CSS idêntico; prova local do bundle
