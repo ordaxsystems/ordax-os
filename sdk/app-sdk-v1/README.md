@@ -2,6 +2,17 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.18.0
+
+Publicação **somente de contratos** necessários para a futura migração do Assistente:
+`ordax.intelligence-conversation-capabilities/1`, validação do Personal Work
+(`ordax.personal-runtime/1` e schemas relacionados) com proveniência exata dos
+módulos canônicos do OS. O SDK publica **formatos e validadores**, não instâncias
+de serviços, snapshots pessoais, credenciais, APIs mutáveis, permissões nem
+ativação de componentes. O app externo não pode receber diretamente o owner
+privado Personal OrdaX: a projeção host-scoped e uma porta tipada de solicitação
+explícita precisam ser aprovadas antes do Gate A de remoção do Assistente.
+
 ## Bundle 1.17.0
 
 Publicação aditiva de `ordax.network-draft/1` diretamente de

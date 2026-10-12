@@ -13,6 +13,7 @@ on:
       - "tests/test_app_sdk_studio_ports.mjs"
       - "tests/test_app_sdk_browser_ports.mjs"
       - "tests/test_app_sdk_network_draft.mjs"
+      - "tests/test_app_sdk_assistant_contracts.mjs"
       - "tests/test_app_sdk_files_ports.mjs"
       - "tools/verify/internet_sdk_readiness.py"
       - "tests/test_internet_sdk_readiness.py"
@@ -31,6 +32,7 @@ on:
       - "tests/test_app_sdk_studio_ports.mjs"
       - "tests/test_app_sdk_browser_ports.mjs"
       - "tests/test_app_sdk_network_draft.mjs"
+      - "tests/test_app_sdk_assistant_contracts.mjs"
       - "tests/test_app_sdk_files_ports.mjs"
       - "tools/verify/internet_sdk_readiness.py"
       - "tests/test_internet_sdk_readiness.py"
@@ -84,6 +86,9 @@ jobs:
         run: |
           python3 -m unittest tests.test_internet_sdk_readiness -v
           python3 tools/verify/internet_sdk_readiness.py --require-public
+
+      - name: Prove public Assistant contracts without runtime or personal authority
+        run: node --test tests/test_app_sdk_assistant_contracts.mjs
 
       - name: Prove Network Draft SDK preserves canonical Space-boundary contract
         run: node --test tests/test_app_sdk_network_draft.mjs
