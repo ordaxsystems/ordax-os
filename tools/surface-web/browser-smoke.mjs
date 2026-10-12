@@ -60,17 +60,14 @@ try {
       await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
       await sleep(100);
     }
-    async function selectColorThemeWithKeyboard(key) {
-      // Change the visible native <select> with trusted Chromium keyboard input.
-      // The Surface owns the preference; the proof does not mutate its store.
-      const selector = '#web-color-theme';
-      assert.equal(await evaluate("(()=>{const n=document.querySelector('#web-color-theme');return n?.tagName==='SELECT'&&n.getClientRects().length>0})()"),true,'Canonical color-theme select must be visible');
+    async function chooseColorTheme(theme) {
+      // Use the real shared Settings application and its accessible buttons.
+      // Never write preference storage or DOM theme attributes from the proof.
+      const selector='[aria-label="Janela Configurações"] [data-color-theme='+JSON.stringify(theme)+']';
+      await until("([...document.querySelectorAll("+JSON.stringify(selector)+")].some(n=>n.getClientRects().length>0))");
       await click(selector);
-      const code = key === 'ArrowDown' ? 40 : key === 'ArrowUp' ? 38 : 36;
-      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:code});
-      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:code});
-      await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
-      await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+      await until("document.documentElement.dataset.theme==="+JSON.stringify(theme));
+      await until("document.querySelector("+JSON.stringify(selector)+")?.getAttribute('aria-pressed')==='true'");
     }
     async function clickByText(selector,text){
       // Radix popup items are mounted asynchronously after the pointer event.
@@ -136,19 +133,21 @@ try {
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
-      await click('[aria-label="Ajustes do espaço"]');
       assert.equal(await evaluate("document.documentElement.dataset.theme"),'light','Clean profile starts with official light palette');
-      await selectColorThemeWithKeyboard('ArrowDown');
-      await until("document.documentElement.dataset.theme==='dark'");
-      assert.equal(await evaluate("document.querySelector('#web-color-theme').value"),'dark','User-selected theme must be reflected in visible control');
+      await openSidebarDestination('Configurações');
+      await chooseColorTheme('dark');
       assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),before);
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("document.documentElement.dataset.theme==='dark'");
-      await click('[aria-label="Ajustes do espaço"]');
-      assert.equal(await evaluate("document.querySelector('#web-color-theme').value"),'dark','Persisted dark theme matches visible preference');
-      await selectColorThemeWithKeyboard('ArrowUp');
-      await until("document.documentElement.dataset.theme==='light'");
-      assert.equal(await evaluate("document.querySelector('#web-color-theme').value"),'light','Light theme returns through the same public control');
+      await openSidebarDestination('Configurações');
+      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Configurações\"] [data-color-theme=\"dark\"]')?.getAttribute('aria-pressed')"),'true','Persisted dark scheme is selected in shared Settings');
+      await chooseColorTheme('native');
+      assert.equal(await evaluate("document.documentElement.dataset.ordaxTheme"),'dark','USB palette remains a dark accessible color scheme');
+      assert.equal(await evaluate("document.documentElement.dataset.ordaxPalette"),'native','USB palette is the canonical native palette, not a fourth app theme');
+      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await until("document.documentElement.dataset.theme==='native'");
+      await openSidebarDestination('Configurações');
+      await chooseColorTheme('light');
       await click('[aria-label="Fechar Configurações"]');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
