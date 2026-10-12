@@ -82,6 +82,20 @@ func addActivationV2CandidateWithContracts(
 	state *compatibilityState,
 	provided []providedCompatibilityContract,
 ) activationV2Candidate {
+	return addActivationV2CandidateWithFullContracts(
+		t, fixture, version, sourceCommit, state, provided, nil,
+	)
+}
+
+func addActivationV2CandidateWithFullContracts(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+	requires []requiredCompatibilityContract,
+) activationV2Candidate {
 	t.Helper()
 
 	runtimePath := "system/apps/internet/runtime.mjs"
@@ -164,12 +178,21 @@ func addActivationV2CandidateWithContracts(
 			"id": contract.ID, "major": contract.Major,
 		})
 	}
+	signedRequirements := make([]any, 0, len(requires))
+	for _, contract := range requires {
+		signedRequirements = append(signedRequirements, map[string]any{
+			"id":       contract.ID,
+			"minMajor": contract.MinMajor,
+			"maxMajor": contract.MaxMajor,
+			"optional": contract.Optional,
+		})
+	}
 	compatibility := map[string]any{
 		"schema":           compatibilitySchemaV1,
 		"componentId":      "internet",
 		"componentVersion": version,
 		"provides":         signedProvided,
-		"requires":         []any{},
+		"requires":         signedRequirements,
 		"state":            signedState,
 		"authority":        "none",
 	}
