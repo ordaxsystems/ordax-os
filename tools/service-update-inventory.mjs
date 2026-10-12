@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { deriveNativeServiceUpdateReadiness } from "../system/services/components/service-update-readiness.mjs";
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
 import { deriveNativeServiceUpdateInventory } from "../system/services/components/service-update-inventory.mjs";
+import { coreRuntimeCompatibility } from "../system/services/components/compatibility/core.mjs";
+import { deriveServiceCompatibilityCoverage } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const servicesUrl = new URL("../system/services/", import.meta.url);
 const base = fileURLToPath(servicesUrl);
@@ -23,6 +25,10 @@ const packagePolicy = JSON.parse(readFileSync(
   new URL("../docs/contracts/runtime-component-package.json", import.meta.url), "utf8",
 ));
 const readiness = deriveNativeServiceUpdateReadiness({ inventory, packagePolicy });
+const compatibility = deriveServiceCompatibilityCoverage({
+  manifests: listSystemComponents(),
+  descriptors: coreRuntimeCompatibility,
+});
 
 if (process.argv.includes("--check")) {
   process.stdout.write(
@@ -30,8 +36,9 @@ if (process.argv.includes("--check")) {
     + inventory.summary.componentCount + " declared components, "
     + inventory.summary.embeddedDomainCount + " embedded domains; "
     + readiness.summary.packagingCandidates + " package-policy candidates; "
+    + compatibility.summary.declared + " validated compatibility descriptors; "
     + "production evidence " + readiness.summary.productionEvidence + ".\n"
   );
 } else {
-  process.stdout.write(JSON.stringify({ inventory, readiness }, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({ inventory, readiness, compatibility }, null, 2) + "\n");
 }
