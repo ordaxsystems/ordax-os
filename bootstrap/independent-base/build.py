@@ -22,6 +22,7 @@ KERNEL = ROOT / "bootstrap/kernel/source.json"
 STABLE = ROOT / "bootstrap/stable-base/source.json"
 BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
+CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -155,18 +156,22 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
 
 
 def verify_target(target: Path) -> None:
-    for name in ("bin/busybox", "sbin/ordax-independent-probe-init",
+    for name in ("bin/busybox", "sbin/ordax-stable-init", "sbin/modprobe",
+                 "sbin/ordax-independent-probe-init",
                  "etc/ordax/independent-base", "ordax/bootstrap/network/bring-up",
                  "ordax/bootstrap/network/udhcpc.script"):
         if not (target / name).is_file():
             raise BaseError(f"candidate userspace is missing {name}")
+    if digest(target / "sbin/ordax-stable-init") != digest(CANONICAL_HANDOFF):
+        raise BaseError("portable handoff entrypoint differs from canonical source")
     for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
         if (target / name).exists():
             raise BaseError(f"Alpine/APK dependency found: {name}")
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
     missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
-               "poweroff", "grep", "sync"} - applets
+               "poweroff", "grep", "sync", "modprobe", "timeout",
+               "od", "tr", "stat", "uname"} - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
 
@@ -231,6 +236,9 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
+            "canonical_portable_handoff_source": str(CANONICAL_HANDOFF.relative_to(ROOT)),
+            "canonical_portable_handoff_sha256": digest(CANONICAL_HANDOFF),
+            "canonical_portable_pid1_unchanged": True,
             "artifacts": {name: digest(out / name) for name in
                           ("rootfs.cpio.gz", "rootfs.tar", "independent-base.erofs")},
             "physical_artifact_authorized": False,
@@ -250,6 +258,12 @@ def verify(out: Path) -> dict:
         raise BaseError("invalid provenance schema")
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("unsafe artifact promotion flag")
+    if report.get("canonical_portable_handoff_source") != str(CANONICAL_HANDOFF.relative_to(ROOT)):
+        raise BaseError("canonical handoff source path drift")
+    if report.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
+        raise BaseError("canonical handoff source hash drift")
+    if report.get("canonical_portable_pid1_unchanged") is not True:
+        raise BaseError("candidate has no canonical PID1 provenance")
     for name, expected in report["artifacts"].items():
         if not HASH.fullmatch(expected) or digest(out / name) != expected:
             raise BaseError(f"artifact hash mismatch: {name}")
