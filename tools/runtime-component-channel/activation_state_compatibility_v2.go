@@ -11,7 +11,14 @@ func validateForwardStateCompatibility(
 	current, candidate *compatibilityState,
 ) error {
 	if current == nil {
-		// New state ownership is allowed by the canonical source contract.
+		if candidate != nil {
+			// The source compatibility evaluator permits a new owner, but
+			// our actual rollback writer cannot yet restore an earlier
+			// stateless current from a newly stateful release. Until the
+			// Native state owner proves last-known-good recovery, do not
+			// stage an upgrade that creates persistent state.
+			return errors.New("runtime component candidate introduces persistent state without verified rollback")
+		}
 		return nil
 	}
 	if candidate == nil {
