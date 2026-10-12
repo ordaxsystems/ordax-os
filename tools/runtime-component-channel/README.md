@@ -65,6 +65,40 @@ The fixed first key id is `ordax-runtime-components-v1`. Only the reviewed publi
 Do not reuse or silently alias the whole-OS release key as component trust. Public-anchor pinning alone does not authorize publication or production activation.
 
 
+## Signed release/2 compatibility inspection (read-only)
+
+A staged immutable release/2 slot now exposes its **actual signature-bound** compatibility
+descriptor through the **same** runtime component channel:
+
+```text
+ordax-runtime-component-channel inspect-slot-compatibility-v2 \
+  --slot <verified-slot-directory> \
+  --trust <reviewed-public-trust-file>
+```
+
+The output schema is `ordax.verified-slot-compatibility/1`, containing the exact
+`componentId`, version, source commit and `ordax.component-compatibility/1` descriptor
+whose bytes are bound by SHA-256 to the signed release. This command **reuses**
+`verifySlotV2WithTrustBytes` and `validateCompatibilityBytes`, checking the signed
+envelope and every slot file. It does not maintain its own parser, app allowlist
+or installed-state database.
+
+**Security boundary:** `trustScope: caller-supplied-public-anchor` is deliberately
+not equivalent to a production-pinned anchor. `authority: none` and
+`activationStatus: not-evaluated` mean the result does **not** activate,
+promote, grant, mark health, or assert that the inspected slot is current or
+pending. A trusted Native owner must select the exact slot from the canonical
+activation state, pin trust from the OrdaX OS trust policy, and bind the
+report to the same active revision before using its descriptor with
+`preflightServiceUpgrade`. The compatibility evaluator is source-only:
+it cannot verify Ed25519 or decide state authority by reading its JSON input.
+
+**Remaining blocker:** `arm-pending` does not yet consume a verified
+compatibility verdict across all active consumers. A correct fail-closed
+integration must run before any activation-state mutation and invalidate
+stale current/revision snapshots; until then, production component activation
+remains disabled. The existing release/1 compatibility semantics are unchanged.
+
 ## Read-only Native slot exposure
 
 The Native Surface host may expose verified slot bytes only through the runtime-component verifier.
