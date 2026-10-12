@@ -1,9 +1,23 @@
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react';
-import type { validateSpace } from '../../../../contracts/spaces.mjs';
-import type { createWebAccountSession } from '../../../../composition/web/account-session.mjs';
+import type { validateSpace, validateSpacesSnapshot } from '../../../../contracts/spaces.mjs';
+import type { validateIdentitySessionSnapshot } from '../../../../contracts/identity-session.mjs';
+import type { validateIdentityActionsSnapshot } from '../../../../contracts/identity-actions.mjs';
 import { deriveAuthorizedSpaces } from '../../../../services/spaces/authorized-view.mjs';
 
-type AccountSession = ReturnType<typeof createWebAccountSession>;
+// The Surface depends on neutral ports, never on the Web composition that
+// creates and owns their concrete adapters. Types confer no runtime authority.
+type SnapshotPort<T> = {
+  getSnapshot: () => T;
+  subscribe: (notify: () => void) => () => void;
+};
+type AccountSession = {
+  identity: SnapshotPort<ReturnType<typeof validateIdentitySessionSnapshot>>;
+  actions: SnapshotPort<ReturnType<typeof validateIdentityActionsSnapshot>> & {
+    execute: (action: 'sign-in' | 'sign-out') => Promise<unknown>;
+  };
+  spaces: SnapshotPort<ReturnType<typeof validateSpacesSnapshot>>;
+  refresh: () => Promise<unknown>;
+};
 const AccountSessionContext = createContext<AccountSession | null>(null);
 
 export function WebAccountProvider({ session, children }: { session: AccountSession; children: ReactNode }) {
