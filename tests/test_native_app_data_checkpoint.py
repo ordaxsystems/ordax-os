@@ -211,6 +211,73 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
             )["revision"], 1)
             self.assertEqual(app_data.list_app_data(identity(), str(root))["keys"], [])
 
+    def test_read_only_owner_inspection_verifies_current_and_pinned_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"pinned-value", 0, str(root))
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            app_data.put_app_data(identity(), "key", b"current-value", 1, str(root))
+            checkpoint = only_partition(root) / app_data.APP_DATA_CHECKPOINT_NAME
+            manifest = only_partition(root) / "manifest.json"
+            initial_manifest = manifest.read_bytes()
+            initial_pin = checkpoint.read_bytes()
+            proof = app_data.inspect_app_data_checkpoint(
+                identity(), RELEASE, 2, str(root),
+            )
+            self.assertEqual(proof, {
+                "authority": "none",
+                "identity": identity(),
+                "sourceRelease": RELEASE,
+                "pinnedRevision": 1,
+                "currentRevision": 2,
+                "checkpointSHA256": hashlib.sha256(initial_pin).hexdigest(),
+            })
+            self.assertEqual(manifest.read_bytes(), initial_manifest)
+            self.assertEqual(checkpoint.read_bytes(), initial_pin)
+            self.assertEqual(
+                app_data.read_app_data(identity(), "key", str(root))["value"],
+                b"current-value",
+            )
+            with self.assertRaises(app_data.AppDataConflictError):
+                app_data.inspect_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            with self.assertRaisesRegex(ValueError, "source release is unavailable"):
+                app_data.inspect_app_data_checkpoint(identity(), OTHER_RELEASE, 2, str(root))
+            self.assertEqual(checkpoint.read_bytes(), initial_pin)
+            # Read-only diagnostics never become a public application action.
+            with self.assertRaisesRegex(endpoint.AppDataEndpointRequestError, "action or request"):
+                endpoint.handle_app_data_request(
+                    json.dumps({"action": "inspect-checkpoint"}).encode(),
+                    identity=identity(), root=str(root),
+                )
+
+    def test_owner_inspection_fails_closed_on_corrupt_pinned_or_current_blob(self):
+        for which in ("pinned", "current"):
+            with self.subTest(which=which), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary) / "app-data"
+                app_data.put_app_data(identity(), "key", b"pinned-value", 0, str(root))
+                app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+                app_data.put_app_data(identity(), "key", b"current-value", 1, str(root))
+                victim = blob(root, b"pinned-value" if which == "pinned" else b"current-value")
+                victim.write_bytes(b"tampered")
+                os.chmod(victim, 0o600)
+                manifest = only_partition(root) / "manifest.json"
+                before = manifest.read_bytes()
+                with self.assertRaisesRegex(ValueError, "blob integrity"):
+                    app_data.inspect_app_data_checkpoint(identity(), RELEASE, 2, str(root))
+                self.assertEqual(manifest.read_bytes(), before)
+
+    def test_owner_inspection_rejects_genesis_pin_of_other_publisher(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = str(Path(temporary) / "app-data")
+            different = identity("notes", "another.publisher")
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 0, root)
+            proof = app_data.inspect_app_data_checkpoint(identity(), RELEASE, 0, root)
+            self.assertEqual(proof["pinnedRevision"], 0)
+            self.assertEqual(proof["currentRevision"], 0)
+            with self.assertRaises(ValueError):
+                app_data.inspect_app_data_checkpoint(different, RELEASE, 0, root)
+            self.assertEqual(app_data.list_app_data(identity(), root)["keys"], [])
+
     def test_pin_creation_rejects_mismatched_revision_and_duplicate_pin(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = str(Path(temporary) / "app-data")
