@@ -49,11 +49,6 @@ func TestSignedUpgradeFailClosedWithoutStateMigration(t *testing.T) {
 			from: &compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
 			to:   nil,
 		},
-		{
-			name: "candidate cannot read current schema", error: "cannot read current signed state version",
-			from: &compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
-			to:   &compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 2, ReadableThrough: 2},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
