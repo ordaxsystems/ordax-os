@@ -47,6 +47,22 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('sbin/modprobe', build)
         self.assertTrue((ROOT / "bootstrap/stable-base/ordax-stable-init").is_file())
 
+    def test_official_qemu_workflow_single_source_and_stable_default(self):
+        official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
+        experimental = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
+        self.assertIn("workflow_call:", official)
+        self.assertIn("default: stable", official)
+        self.assertIn('ORDAX_BASE_PROOF_SOURCE:', official)
+        self.assertIn('case "$ORDAX_BASE_PROOF_SOURCE" in', official)
+        self.assertIn('stable)', official)
+        self.assertIn('independent)', official)
+        self.assertIn('bootstrap/stable-base/build.py build', official)
+        self.assertIn('bootstrap/independent-base/build.py build', official)
+        self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
+                      experimental)
+        self.assertIn("base_source: independent", experimental)
+        self.assertNotIn("rdinit=/sbin/ordax-independent-probe-init", experimental)
+
     def test_fail_closed_with_invalid_commit_and_missing_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             candidate = Path(tmp) / "new-base"
