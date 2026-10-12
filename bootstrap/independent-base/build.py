@@ -117,17 +117,28 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
             if not parts or parts[0] != expected or ".." in parts or member.name.startswith("/"):
                 raise BaseError("unsafe Buildroot tar path")
             if member.issym() or member.islnk():
-                # The official Buildroot archive has legitimate relative links
-                # with '..'. Resolve them within its named top-level directory.
+                # Buildroot's upstream source ships absolute symlinks inside
+                # filesystem *templates*. Their link text must be preserved as
+                # data; applying Python's data-filter would corrupt this source.
                 import posixpath
                 link = member.linkname
-                resolved = posixpath.normpath(
-                    posixpath.join(posixpath.dirname(member.name), link)
-                    if member.issym() else link
-                )
-                if not (resolved == expected or resolved.startswith(expected + "/")):
-                    raise BaseError(f"unsafe Buildroot tar link: {member.name} -> {link}")
-        tf.extractall(work, filter="data")
+                if member.islnk():
+                    resolved = posixpath.normpath(link)
+                    if not (resolved == expected or resolved.startswith(expected + "/")):
+                        raise BaseError(f"unsafe Buildroot hardlink: {member.name} -> {link}")
+                elif not link.startswith("/"):
+                    resolved = posixpath.normpath(posixpath.join(
+                        posixpath.dirname(member.name), link))
+                    if not (resolved == expected or resolved.startswith(expected + "/")):
+                        raise BaseError(f"unsafe Buildroot relative symlink: {member.name} -> {link}")
+        # Archive content is authenticated against source.json before unpacking.
+        # Reject all extraction of child entries below symlink member names, so
+        # upstream template links cannot redirect writes outside this worktree.
+        symlinks = {m.name for m in tf.getmembers() if m.issym()}
+        for member in tf.getmembers():
+            if any(member.name.startswith(link + "/") for link in symlinks):
+                raise BaseError(f"tar traversal via symlink: {member.name}")
+        tf.extractall(work, filter="fully_trusted")
     dest = work / expected
     if not (dest / "Makefile").is_file():
         raise BaseError("Buildroot source tree incomplete")
