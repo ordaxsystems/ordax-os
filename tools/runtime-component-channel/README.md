@@ -78,7 +78,7 @@ ordax-runtime-component-channel inspect-slot-compatibility-v2 \
 
 The output schema is `ordax.verified-slot-compatibility/1`, containing the exact
 `componentId`, version, source commit and `ordax.component-compatibility/1` descriptor
-whose bytes are bound by SHA-256 to the signed release. This command **reuses**
+whose bytes are bound by SHA-256 to the signed release. The `trustSHA256` field fingerprints the **caller-supplied trust file**, allowing diagnostic consumers to reject mixed anchors; it is not proof that this anchor is the canonical system key. The JavaScript `preflightServiceUpgradeInspections` only validates read-only report shape, requires the same trust file fingerprint across candidate/current/active reports, and delegates compatibility to the existing evaluator. Raw JSON from an untrusted caller can be forged and **must never authorize activation**. This command **reuses**
 `verifySlotV2WithTrustBytes` and `validateCompatibilityBytes`, checking the signed
 envelope and every slot file. It does not maintain its own parser, app allowlist
 or installed-state database.
