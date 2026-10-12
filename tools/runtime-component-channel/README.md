@@ -147,6 +147,24 @@ revision accepted, attempted concurrent writer lock, and rejection of
 different pending identities. The activation and health/promotion/rollback
 state machine and release/1 format were not replaced.
 
+### Rollback and persistent state compatibility
+
+The same original `rollback-state` writer now checks the **signed
+compatibility descriptors of the current and previous release/2 slots**
+inside the activation-state mutation lock, before replacing `current`.
+Restoring older code is denied if its declared readable state-version
+range excludes the current release's write version or its state owner
+has changed. A stateful release/2 without a previous signed version
+cannot silently downgrade to an undocumented bundled state format.
+
+An unchanged stateless release/2 rollback remains supported. Release/1 to
+release/1 behavior is preserved without inventing a compatibility sidecar
+for that legacy format; cross-schema rollback without explicit evidence
+is refused. The guard does not modify stored data, invent a migration
+implementation, or certify that an application truly migrates data
+correctly: actual storage copy-on-write and end-to-end recovery are
+still required before public component-slot updates are enabled.
+
 **Remaining blocker:** `arm-pending` does not yet consume a verified
 compatibility verdict across all active consumers. A correct fail-closed
 integration must run before any activation-state mutation and invalidate
