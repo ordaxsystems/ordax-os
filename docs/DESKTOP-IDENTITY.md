@@ -526,3 +526,12 @@ viewport midpoint. The header and arrow consume the same CSS geometry in expande
 collapsed and narrow modes; short layouts retain the logo row with a smaller inset.
 Owner: OS Surface. State, app layout and backend unchanged. No build, npm or tests
 executed under the standing user restriction.
+
+### Visible sidebar edge control — 2026-10-11
+
+Requested visibility revision: the existing logo-aligned chevron now has an
+opaque theme surface, contrasting border, subtle elevation and a larger, heavier
+icon. Hover/keyboard focus use shared accent tokens. The same control remains
+outside sidebar flow in both themes and responsive states. Owner: OS Surface.
+Acceptance: visible resting control with unchanged sidebar behavior and geometry.
+No build, npm or tests executed under the standing user restriction.
