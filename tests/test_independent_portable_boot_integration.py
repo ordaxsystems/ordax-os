@@ -52,10 +52,15 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         fragment = BASE / "configs/portable-handoff.busybox.fragment"
         self.assertEqual(profile.count("BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="), 1)
         self.assertIn('BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"', profile)
-        self.assertEqual(
-            [line for line in fragment.read_text().splitlines() if line.startswith("CONFIG_")],
-            ["CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y"],
-        )
+        required = [
+            "CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y",
+            "CONFIG_DATE=y", "CONFIG_MV=y", "CONFIG_READLINK=y",
+            "CONFIG_SHA256SUM=y", "CONFIG_OD=y", "CONFIG_TR=y", "CONFIG_SLEEP=y",
+        ]
+        configured = [line for line in fragment.read_text().splitlines()
+                      if line.startswith("CONFIG_")]
+        self.assertEqual(configured, required)
+        self.assertEqual(len(configured), len(set(configured)))
         build = (BASE / "build.py").read_text()
         self.assertIn("BUSYBOX_HANDOFF_SYMBOLS =", build)
         self.assertIn('run(busybox, "stat", "-c", "%a", str(marker))', build)
