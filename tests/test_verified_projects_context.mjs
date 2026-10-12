@@ -77,7 +77,7 @@ test("host mutation methods do not escape and invalid streamed snapshots fail cl
   const unsubscribe = projectReader.subscribe(() => { throw new Error("must not receive invalid data"); });
   assert.throws(
     () => host.notify({ persistence: "device", projects: [{ id: "wrong" }] }),
-    /Project/,
+    /File-space path must be an absolute logical path/,
   );
   unsubscribe();
 });
