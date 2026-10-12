@@ -124,6 +124,8 @@ on:
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
       - 'tests/test_preference_runtime.mjs'
+      - 'tests/test_web_account_session.mjs'
+      - 'tests/test_web_identity_capability_refresh.mjs'
       - 'tests/test_surface_localization.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
@@ -346,6 +348,8 @@ on:
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
       - 'tests/test_preference_runtime.mjs'
+      - 'tests/test_web_account_session.mjs'
+      - 'tests/test_web_identity_capability_refresh.mjs'
       - 'tests/test_surface_localization.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
@@ -654,7 +658,7 @@ jobs:
       - name: Run real Chromium Surface smoke
         run: |
           set -euo pipefail
-          node --test tests/test_web_store_catalog.mjs tests/test_web_account_session.mjs
+          node --test tests/test_web_store_catalog.mjs tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs
           npm run verify --workspace tools/surface-web
           node tools/surface-native/browser-smoke.mjs
           node tools/surface-native/first-run-browser-smoke.mjs

@@ -31,15 +31,15 @@
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "aeeb49639e55add5d6513e46b046b0ef9cf4feac5cc823947fb260172dc4215c",
+      "adaptedSha256": "9a6249c405d39f530f88a8fe1ff77345f0b3047375a1b8311127072a174baa7d",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
     },
     {
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "6824e42c132db0615f264de3436d7690be0bde4b4ff1325e6234924694268c32",
-      "adaptation": "Preserve the existing session-bound desktop and Space selection, but make the running-apps dock explicitly open minimized windows rather than using generic focus. Focus events from Radix popup closure must not implicitly restore a minimized window."
+      "adaptedSha256": "5f33d6665ff328b8d9804098cd878397c19f33cb67bf9e6c032096b83bce46e7",
+      "adaptation": "Preserves latest offline-safe Space selection and service rendering; minimized taskbar windows now use explicit open instead of generic focus."
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -122,7 +122,8 @@
     "Canonical Web identity/session/actions and read-only Spaces adapters feed one context; subject changes abort/reset catalogs and remount local session workspace, while same-subject refresh preserves app nodes",
     "Removed demo user/subscription/storage/projects/activity/online devices from active Central; existing cards and destinations show explicit unavailable transports without removing future features or changing responsive geometry",
     "Explicit active-Space choice and clear action reuse the Native domain selection service; session-only Web adapter holds a validated subject-bound record, while the service owns invalidation instead of duplicated composition reset",
-    "Central/Desktop and Appearance consume one mounted canonical preference-runtime/catalog and existing Web preference-store; direct localStorage/theme state and duplicate window theme callbacks removed, saved versus session-only persistence remains honest, approved palette/geometry retained"
+    "Central/Desktop and Appearance consume one mounted canonical preference-runtime/catalog and existing Web preference-store; direct localStorage/theme state and duplicate window theme callbacks removed, saved versus session-only persistence remains honest, approved palette/geometry retained",
+    "Central subscribes to the existing Surface host connectivity; offline guards account actions and read lifecycle, canonical Spaces reset aborts/invalidates catalog and context, reconnect revalidates without replaying commands; approved geometry unchanged"
   ],
   "native_files": [
     {
@@ -135,17 +136,17 @@
     },
     {
       "target": "system/composition/web/account-session.mjs",
-      "sha256": "14a6505e24cd08ca3c711ddb6abd16e09969277b1da175dca90da9e0022d2e2d",
+      "sha256": "3c731e2d4ff9458490cd6168292b0ef504ccfff8dbdd56339d86bfe7ea5541a6",
       "owner": "OrdaX OS Surface",
       "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle"
     },
     {
       "target": "system/surface/workspace/components/central/account-context.tsx",
-      "sha256": "2eec458e96f2c56ff07ed56bf934f904c512a36fd625162190085e9f6f9831b2",
+      "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "a6c7fa021dc870c7c65cc3a4a498e6f7315001a2714d1b0a6ec00df7db8f8dda",
-      "adaptation": "OrdaX OS Surface retains session-only Space selection and uses public Identity, Actions, Spaces and Space Selection port contracts rather than importing Web composition; original Native source digest preserved."
+      "adaptedSha256": "2115708b47d1e7f246d09b9462c0d5a3068ae49503ec3783815417be36893c0a",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
     },
     {
       "target": "system/adapters/web/space-selection.mjs",
@@ -170,6 +171,12 @@
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240"
+    },
+    {
+      "target": "system/adapters/web/runtime.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Stable canonical Surface snapshots for browser connectivity and advertised capabilities; no network probing or duplicate store",
+      "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894"
     }
   ]
 }

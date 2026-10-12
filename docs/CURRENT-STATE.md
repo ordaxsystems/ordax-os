@@ -1,5 +1,22 @@
 # Current State
 
+## Web Central — conectividade pelo host canônico — 2026-10-12
+
+A UI assina ordax.surface-host/1, com snapshots estáveis e sem store paralelo.
+O sinal offline do navegador bloqueia ações de conta e novas consultas, aborta
+o catálogo de Spaces pela porta existente e invalida o contexto até revalidar.
+Reconexão retoma somente consultas; comandos não são repetidos. Uma reconexão
+durante uma consulta anterior solicita nova leitura ao terminar essa consulta,
+suprimindo resultados antigos pelo ordinal canônico do catálogo. A última
+identidade conhecida permanece identificada como possivelmente desatualizada.
+Conectividade desconhecida não é apresentada como offline. O sinal online
+não comprova acesso ao gateway, computador ou serviço remoto.
+Layout, temas, sidebar, dock e lifecycle de janelas foram preservados.
+Casos de regressão foram atualizados no source/CI; sem build, npm, testes,
+typecheck ou browser locais.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-central-canonical-connectivity--2026-10-12).
+
+
 ## Web Central — preferências canônicas de aparência no source — 2026-10-12
 
 Tema da Central/Desktop e Ajustes usa ordax.preference-runtime/1 com o catálogo

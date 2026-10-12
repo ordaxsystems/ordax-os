@@ -59,3 +59,12 @@ failed saves keep session appearance and surface a notice in Ajustes. View mode
 is session-only UI state. No account sync or backend preference endpoint added.
 Preference regression source is included in existing CI, not run locally under
 the standing restriction.
+
+Central also consumes the existing ordax.surface-host/1 connectivity snapshot.
+Snapshots are stable across unchanged reads and subscriptions stop on disposal.
+Offline hints suppress account actions/refresh and abort/invalidate Spaces
+using the existing catalog; reconnect revalidates session/context and never
+replays commands. The UI labels cached identity as potentially stale.
+Unknown browser connectivity stays unknown. Online hints are not evidence of
+gateway/device access. Layout and appearance are unchanged; transition
+regression source/CI were updated without local test/build/npm/browser runs.

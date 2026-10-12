@@ -1,5 +1,14 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Conectividade da Central — 12/10/2026:** continuação solicitada do
+> alinhamento ao backend. UI assina o host canônico, pausa consultas e ações
+> de conta offline e revalida Spaces ao reconectar, sem repetir comandos.
+> Nenhum novo serviço, grant ou store de conectividade. Layout preservado;
+> online no navegador não representa dispositivo/serviço disponível.
+> Source/CI atualizado; sem build/npm/testes.
+> [Owner e aceite](docs/DESKTOP-IDENTITY.md#web-central-canonical-connectivity--2026-10-12).
+
+
 > **Preferências da Central — 12/10/2026:** tema usa catálogo, runtime e store
 > canônicos no Web, sem chave de tema/estado duplicado na UI; mantém o layout
 > aprovado e avisa quando só consegue manter a escolha nesta sessão.
