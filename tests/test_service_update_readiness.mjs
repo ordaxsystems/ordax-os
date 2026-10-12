@@ -26,6 +26,16 @@ function inventory(manifests = listSystemComponents()) {
   });
 }
 
+test("portable SDK package-policy snapshot stays identical to the canonical OS policy", () => {
+  // SDK consumers need a local distributable policy snapshot, not a second
+  // authority. CI refuses a manually edited or stale SDK mirror.
+  const sdkPolicy = JSON.parse(readFileSync(
+    new URL("../sdk/app-sdk-v1/runtime-component-package-policy.json", import.meta.url),
+    "utf8",
+  ));
+  assert.deepEqual(sdkPolicy, packagePolicy);
+});
+
 test("all canonical services are assessed without an update authority", () => {
   const inv = inventory();
   const result = deriveNativeServiceUpdateReadiness({ inventory: inv, packagePolicy });
