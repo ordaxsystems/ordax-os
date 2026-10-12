@@ -82,7 +82,8 @@
     "store_ui_has_data_capability": false,
     "existing_partition_without_authoritative_manifest_fails_closed": true,
     "existing_partition_without_lock_fails_closed": true,
-    "existing_partition_without_blob_directory_fails_closed": true
+    "existing_partition_without_blob_directory_fails_closed": true,
+    "existing_partition_without_lock_rejects_read_and_list": true
   },
   "lifecycle": {
     "uninstall_deletes_data": false,
