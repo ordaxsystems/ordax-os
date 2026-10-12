@@ -152,32 +152,32 @@ func TestSignedUpgradeCannotIntroduceOrTightenMandatoryRequirements(t *testing.T
 		blocked bool
 	}{
 		{
-			name: "new mandatory provider",
+			name:    "new mandatory provider",
 			current: nil,
-			next: []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 1}},
+			next:    []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 1}},
 			blocked: true,
 		},
 		{
-			name: "optional made mandatory",
+			name:    "optional made mandatory",
 			current: []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 2, Optional: true}},
-			next: []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 2}},
+			next:    []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 2}},
 			blocked: true,
 		},
 		{
-			name: "range narrowed",
+			name:    "range narrowed",
 			current: []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 2}},
-			next: []requiredCompatibilityContract{{ID: provider, MinMajor: 2, MaxMajor: 2}},
+			next:    []requiredCompatibilityContract{{ID: provider, MinMajor: 2, MaxMajor: 2}},
 			blocked: true,
 		},
 		{
-			name: "existing mandatory range widened",
+			name:    "existing mandatory range widened",
 			current: []requiredCompatibilityContract{{ID: provider, MinMajor: 2, MaxMajor: 2}},
-			next: []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 3}},
+			next:    []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 3}},
 		},
 		{
-			name: "new optional dependency",
+			name:    "new optional dependency",
 			current: nil,
-			next: []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 2, Optional: true}},
+			next:    []requiredCompatibilityContract{{ID: provider, MinMajor: 1, MaxMajor: 2, Optional: true}},
 		},
 	}
 	for _, tc := range cases {
