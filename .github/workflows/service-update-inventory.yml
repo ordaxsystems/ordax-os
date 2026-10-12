@@ -5,16 +5,20 @@ on:
     paths:
       - 'system/services/**'
       - 'system/apps/**'
+      - 'docs/contracts/runtime-component-package.json'
       - 'tools/service-update-inventory.mjs'
       - 'tests/test_service_update_inventory.mjs'
+      - 'tests/test_service_update_readiness.mjs'
       - '.github/workflows/service-update-inventory.yml'
   push:
     branches: [main]
     paths:
       - 'system/services/**'
       - 'system/apps/**'
+      - 'docs/contracts/runtime-component-package.json'
       - 'tools/service-update-inventory.mjs'
       - 'tests/test_service_update_inventory.mjs'
+      - 'tests/test_service_update_readiness.mjs'
       - '.github/workflows/service-update-inventory.yml'
 
 permissions:
@@ -30,6 +34,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate canonical service inventory
-        run: node --test tests/test_service_update_inventory.mjs
+        run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs
       - name: Produce derived update-readiness audit
         run: node tools/service-update-inventory.mjs --check
