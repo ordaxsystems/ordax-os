@@ -28,12 +28,16 @@ class UserConsentContractConsumersTests(unittest.TestCase):
     def test_links_never_promote_legal_registration_or_native_write(self):
         legal = json.loads((ROOT / "docs/contracts/public-legal-readiness.json").read_text(encoding="utf-8"))
         native = json.loads((ROOT / "docs/contracts/native-installation.json").read_text(encoding="utf-8"))
-        self.assertFalse(legal["account_activation_ready"])
-        self.assertFalse(legal["registration_binding"]["registration_activation_allowed"])
-        self.assertFalse(native["mvp_availability"]["available"])
-        self.assertFalse(native["mvp_availability"]["destructive_operations_allowed"])
-        self.assertFalse(native["mvp_availability"]["internal_disk_write_allowed"])
+        # Legal activation and destructive installation have separate owners;
+        # this UX reference must not hardcode today's release state forever.
+        self.assertTrue(legal["build_gate"]["public_registration_requires_server_authoritative_policy"])
+        self.assertFalse(legal["build_gate"]["placeholder_legal_acceptance_allowed"])
         self.assertTrue(native["post_mvp_activation_scope"]["explicit_destructive_confirmation_required"])
+        self.assertTrue(native["target_identity"]["source_boot_media_forbidden"])
+        self.assertTrue(native["target_identity"]["stable_identity_required"])
+        if not native["mvp_availability"]["available"]:
+            self.assertFalse(native["mvp_availability"]["destructive_operations_allowed"])
+            self.assertFalse(native["mvp_availability"]["internal_disk_write_allowed"])
 
 
 if __name__ == "__main__":
