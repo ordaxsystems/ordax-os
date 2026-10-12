@@ -535,3 +535,13 @@ icon. Hover/keyboard focus use shared accent tokens. The same control remains
 outside sidebar flow in both themes and responsive states. Owner: OS Surface.
 Acceptance: visible resting control with unchanged sidebar behavior and geometry.
 No build, npm or tests executed under the standing user restriction.
+
+### Neutral app frame and Home-aligned chevron — 2026-10-11
+
+Owner: OS Surface. Active windows use the same neutral border token as the
+resting shell, without the lime active-frame highlight. Automatic region focus
+does not paint the frame; keyboard focus retains an inset visible indicator.
+The divider chevron aligns with Home using shared header, gap and Home-height
+tokens across responsive sidebar modes. Window lifecycle and app contracts
+remain unchanged. Acceptance: neutral resting app edges and Home-centered arrow.
+No build, npm or tests executed under the standing user restriction.
