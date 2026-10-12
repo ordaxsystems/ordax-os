@@ -77,6 +77,16 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
                       experimental)
         self.assertIn("base_source: independent", experimental)
+        # Both real QEMU scenarios must actually invoke the bridge in CI,
+        # not only inspect its Python source through contract tests.
+        self.assertEqual(official.count("proof_runner=bootstrap/independent-base/portable_boot_proof.py"), 2)
+        self.assertEqual(official.count('sudo -E python3 "$proof_runner"'), 2)
+        self.assertIn("ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING", official)
+        adapter = (BASE / "portable_boot_proof.py").read_text()
+        self.assertIn('"--out", str(qemu_result)', adapter)
+        self.assertIn('command(argv)  # official portable PID1 QEMU harness', adapter)
+        self.assertIn('"--initramfs", str(initramfs_out / "initramfs.cpio.gz")', adapter)
+
         self.assertNotIn("rdinit=/sbin/ordax-independent-probe-init", experimental)
 
     def test_fail_closed_with_invalid_commit_and_missing_inputs(self):
