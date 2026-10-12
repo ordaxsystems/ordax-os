@@ -49,7 +49,9 @@ class HumanConsentExperienceTests(unittest.TestCase):
         body = source.split("func beginPhysicalWrite()", 1)[1].split(
             "func executeLegacyPhysicalWrite(", 1
         )[0]
-        self.assertEqual(body.count("messageBox("), 1)
+        # Invalid target produces an error alert; it is not a second consent.
+        self.assertEqual(body.count("messageBox(warning,"), 1)
+        self.assertEqual(body.count("mbYesNo|mbIconWarning|mbDefButton2"), 1)
         self.assertIn("mbYesNo|mbIconWarning|mbDefButton2", body)
         self.assertIn("creatorTValues(msgWriteConfirmBody", body)
         for field in ('"device"', '"name"', '"disk"', '"size"', '"serial"'):
