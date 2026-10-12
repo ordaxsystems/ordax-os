@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 
 from build import contracts, digest, BaseError, ROOT
@@ -98,6 +99,26 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         raise BaseError("kernel config fragment does not match current SSOT")
     if provenance.get("artifacts", {}).get(kernel.name) != digest(kernel):
         raise BaseError("kernel bytes not authenticated by kernel builder provenance")
+    # The canonical kernel owner already builds and attests the *same* module
+    # package. Validate its ABI and archive integrity here without redefining
+    # the device/firmware selection policy or claiming physical Wi-Fi.
+    modules = regular(kernel_dir / f"kernel-modules-{version}.tar", "OrdaX kernel modules")
+    if provenance.get("artifacts", {}).get(modules.name) != digest(modules):
+        raise BaseError("canonical kernel module archive digest mismatch")
+    with tarfile.open(modules, "r:") as handle:
+        entries = handle.getmembers()
+        root = f"lib/modules/{version}/"
+        paths = [entry.name.removeprefix("./") for entry in entries]
+        if not entries or any(
+            name.startswith("/") or ".." in Path(name).parts or
+            (name not in ("lib", "lib/modules", f"lib/modules/{version}") and not name.startswith(root))
+            for name in paths
+        ):
+            raise BaseError("canonical kernel module archive escapes pinned release ABI")
+        module_names = {Path(name).name for name, entry in zip(paths, entries)
+                        if entry.isfile() and name.endswith(".ko")}
+        if not module_names or module_names != set(provenance.get("observed_module_basenames", [])):
+            raise BaseError("module archive does not match canonical kernel module inventory")
     result_path = result_path.resolve()
     if result_path.exists() or result_path.is_symlink():
         raise BaseError("proof result output must be new")
@@ -144,6 +165,8 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         "status": "pass",
         "kernel_version": version,
         "kernel_sha256": digest(kernel),
+        "kernel_modules_sha256": digest(modules),
+        "phase3_kernel_module_abi_archive_authenticated": True,
         "base_sha256": base_before,
         "boots": receipts,
         "serial_log_directory": serial_dir.name,
