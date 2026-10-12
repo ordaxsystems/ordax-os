@@ -143,7 +143,7 @@ try {
       await until("Math.abs(document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height-window.proofUpperHeight)<2");
       await click('[aria-label="Fechar Arquivos"]');
       await compactAction('Aura','Minimizar Aura','Minimizar');
-      assert.equal(await evaluate('window.proofAura.hidden'),true);
+      await until("window.proofAura.hidden===true");
       await click('[aria-label="Restaurar janela Aura"]');
       assert.equal(await evaluate("window.proofAura.querySelector('input').value"),'Apenas demonstração','Minimize keeps the draft');
       await compactAction('Aura','Expandir janela Aura','Expandir janela');
