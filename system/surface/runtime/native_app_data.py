@@ -18,6 +18,8 @@ import secrets
 import stat
 
 APP_DATA_PARTITION_SCHEMA = "ordax.native-app-data-partition/2"
+APP_DATA_CHECKPOINT_SCHEMA = "ordax.native-app-data-checkpoint/1"
+APP_DATA_CHECKPOINT_NAME = "checkpoint.json"
 APP_DATA_OWNER_SCOPE = "device"
 DEFAULT_APP_DATA_ROOT = "/var/lib/ordax/app-data/v1"
 DEFAULT_APP_DATA_QUOTA_BYTES = 8 * 1024 * 1024
@@ -26,6 +28,7 @@ MAX_APP_DATA_VALUE_BYTES = 1024 * 1024
 MAX_APP_DATA_PARTITION_BYTES = 64 * 1024 * 1024
 MAX_APP_DATA_PARTITION_KEYS = 4096
 MAX_APP_DATA_MANIFEST_BYTES = 2 * 1024 * 1024
+MAX_APP_DATA_CHECKPOINT_BYTES = MAX_APP_DATA_MANIFEST_BYTES + 4096
 MAX_APP_DATA_KEY_CHARS = 128
 MAX_SAFE_REVISION = 9007199254740991
 
@@ -320,6 +323,190 @@ def _ensure_blob(blobs: str, payload: bytes) -> dict:
     return record
 
 
+def _source_release(value: object, identity: dict) -> dict:
+    # Only the trusted Native activation owner may supply this reference.
+    # Its shape is NOT cryptographic proof or activation authority.
+    if not isinstance(value, dict) or set(value) != {"componentId", "version", "sourceCommit"}:
+        raise ValueError("App Data checkpoint source release shape is invalid")
+    if value["componentId"] != identity["appId"]:
+        raise ValueError("App Data checkpoint release does not match partition identity")
+    version = value["version"]
+    if (
+        not isinstance(version, str)
+        or len(version) > 128
+        or not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.+-]+)?", version)
+    ):
+        raise ValueError("App Data checkpoint source version is invalid")
+    source_commit = value["sourceCommit"]
+    if not isinstance(source_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", source_commit):
+        raise ValueError("App Data checkpoint source commit is invalid")
+    return {"componentId": identity["appId"], "version": version, "sourceCommit": source_commit}
+
+
+def _checkpoint_path(root: str, identity: dict) -> str:
+    return os.path.join(_partition_paths(root, identity)[0], APP_DATA_CHECKPOINT_NAME)
+
+
+def _read_checkpoint(identity: dict, root: str) -> dict | None:
+    paths = _existing_partition_paths(root, identity)
+    if paths is None:
+        return None
+    partition, _, _, _ = paths
+    target = os.path.join(partition, APP_DATA_CHECKPOINT_NAME)
+    if not os.path.lexists(target):
+        return None
+    raw = _read_regular_file(target, "App Data checkpoint", MAX_APP_DATA_CHECKPOINT_BYTES)
+    try:
+        document = json.loads(raw.decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("App Data checkpoint is corrupt") from exc
+    if (
+        not isinstance(document, dict)
+        or set(document) != {"$schema", "identity", "sourceRelease", "manifest"}
+        or document["$schema"] != APP_DATA_CHECKPOINT_SCHEMA
+        or _identity(document["identity"]) != identity
+    ):
+        raise ValueError("App Data checkpoint identity or schema is invalid")
+    release = _source_release(document["sourceRelease"], identity)
+    manifest, _ = _validate_manifest(document["manifest"], identity)
+    # Revision zero is the canonical empty pre-first-write generation.
+    # A forged zero-revision pin containing data is never a valid genesis.
+    if manifest["revision"] == 0 and manifest["entries"]:
+        raise ValueError("App Data checkpoint zero revision has unexpected entries")
+    return {
+        "$schema": APP_DATA_CHECKPOINT_SCHEMA,
+        "identity": dict(identity),
+        "sourceRelease": release,
+        "manifest": manifest,
+    }
+
+
+def _verify_checkpoint_blobs(root: str, checkpoint: dict) -> None:
+    paths = _existing_partition_paths(root, checkpoint["identity"])
+    if paths is None:
+        raise ValueError("App Data checkpoint partition is unavailable")
+    _, _, _, blobs = paths
+    if not _validate_private_directory(blobs, "App Data blob directory"):
+        raise ValueError("App Data checkpoint blobs are unavailable")
+    # Validate all retained bytes before committing a restore or pin.
+    for entry in checkpoint["manifest"]["entries"].values():
+        _verify_blob(blobs, entry)
+
+
+def create_app_data_checkpoint(
+    identity: object,
+    source_release: object,
+    expected_revision: object,
+    root: str = DEFAULT_APP_DATA_ROOT,
+) -> dict:
+    """Trusted-owner-only checkpoint, never part of the application API."""
+    bound = _identity(identity)
+    release = _source_release(source_release, bound)
+    expected = _revision(expected_revision)
+    with _exclusive_partition_lock(bound, root):
+        current, _ = _read_manifest(bound, root)
+        if current["revision"] != expected:
+            raise AppDataConflictError(expected, current["revision"])
+        # A new partition has a real recoverable empty generation (rev 0).
+        # The lock creates its private directory before this read; pinning
+        # genesis lets a first stateful update recover without invented data.
+        if current["revision"] == 0 and current["entries"]:
+            raise ValueError("App Data empty generation contains unexpected entries")
+        if _read_checkpoint(bound, root) is not None:
+            raise ValueError("App Data already has a retained recovery checkpoint")
+        checkpoint = {
+            "$schema": APP_DATA_CHECKPOINT_SCHEMA,
+            "identity": dict(bound),
+            "sourceRelease": release,
+            "manifest": current,
+        }
+        _verify_checkpoint_blobs(root, checkpoint)
+        raw = json.dumps(checkpoint, separators=(",", ":"), sort_keys=True, ensure_ascii=False).encode("utf-8")
+        if len(raw) > MAX_APP_DATA_CHECKPOINT_BYTES:
+            raise ValueError("App Data checkpoint exceeds hard bound")
+        partition, _, _, _ = _ensure_partition_directories(root, bound)
+        _atomic_replace_bytes(
+            os.path.join(partition, APP_DATA_CHECKPOINT_NAME),
+            partition, raw, label="App Data checkpoint",
+        )
+        # Reopen the durable record, including its owner and release binding.
+        saved = _read_checkpoint(bound, root)
+        if saved != checkpoint:
+            raise ValueError("App Data checkpoint failed durable readback")
+        return {"pinnedRevision": current["revision"], "sourceRelease": release}
+
+
+def restore_app_data_checkpoint(
+    identity: object,
+    source_release: object,
+    expected_revision: object,
+    root: str = DEFAULT_APP_DATA_ROOT,
+) -> dict:
+    """Rewind bytes only through explicit trusted-owner recovery and CAS.
+
+    The authoritative manifest revision remains monotonic; a restore does
+    not silently rewrite user data or grant permission to switch releases.
+    """
+    bound = _identity(identity)
+    release = _source_release(source_release, bound)
+    expected = _revision(expected_revision)
+    with _exclusive_partition_lock(bound, root):
+        current, _ = _read_manifest(bound, root)
+        if current["revision"] != expected:
+            raise AppDataConflictError(expected, current["revision"])
+        checkpoint = _read_checkpoint(bound, root)
+        if checkpoint is None or checkpoint["sourceRelease"] != release:
+            raise ValueError("App Data verified checkpoint for source release is unavailable")
+        if checkpoint["manifest"]["revision"] > current["revision"]:
+            raise ValueError("App Data checkpoint revision exceeds current generation")
+        if current["revision"] >= MAX_SAFE_REVISION:
+            raise ValueError("App Data partition revision is exhausted")
+        _verify_checkpoint_blobs(root, checkpoint)
+        restored = dict(checkpoint["manifest"])
+        restored["revision"] = current["revision"] + 1
+        # Blobs are immutable, already fully verified and kept by the pin.
+        # Atomic manifest replacement is the only authoritative switch.
+        _write_manifest(restored, root)
+        _cleanup_unreferenced_blobs(restored, root)
+        return {
+            "revision": restored["revision"],
+            "restoredFromRevision": checkpoint["manifest"]["revision"],
+            "restored": True,
+        }
+
+
+def retire_app_data_checkpoint(
+    identity: object,
+    source_release: object,
+    expected_revision: object,
+    root: str = DEFAULT_APP_DATA_ROOT,
+) -> dict:
+    """Explicit trusted-owner retention decision, not an app data action."""
+    bound = _identity(identity)
+    release = _source_release(source_release, bound)
+    expected = _revision(expected_revision)
+    with _exclusive_partition_lock(bound, root):
+        current, _ = _read_manifest(bound, root)
+        if current["revision"] != expected:
+            raise AppDataConflictError(expected, current["revision"])
+        checkpoint = _read_checkpoint(bound, root)
+        if checkpoint is None or checkpoint["sourceRelease"] != release:
+            raise ValueError("App Data verified checkpoint for source release is unavailable")
+        partition, _, _, _ = _ensure_partition_directories(root, bound)
+        os.unlink(os.path.join(partition, APP_DATA_CHECKPOINT_NAME))
+        descriptor = os.open(
+            partition, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+        )
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        # Garbage collection happens only *after* durable retirement.
+        _cleanup_unreferenced_blobs(current, root)
+        return {"revision": current["revision"], "retired": True}
+
+
 def _write_manifest(manifest: dict, root: str) -> None:
     partition, manifest_path, _, _ = _ensure_partition_directories(root, manifest["identity"])
     _atomic_replace_bytes(manifest_path, partition, _encode_manifest(manifest), label="App Data manifest")
@@ -333,6 +520,9 @@ def _cleanup_unreferenced_blobs(manifest: dict, root: str) -> None:
     if not _validate_private_directory(blobs, "App Data blob directory"):
         return
     referenced = {record["blob"] for record in manifest["entries"].values()}
+    checkpoint = _read_checkpoint(manifest["identity"], root)
+    if checkpoint is not None:
+        referenced.update(record["blob"] for record in checkpoint["manifest"]["entries"].values())
     changed = False
     with os.scandir(blobs) as iterator:
         for entry in iterator:
@@ -462,6 +652,8 @@ def put_app_data(
     payload = _value(value)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
+        # A damaged recovery pin may never be bypassed by a new mutation.
+        _read_checkpoint(bound, root)
         manifest, bytes_used = _read_manifest(bound, root)
         actual = manifest["revision"]
         if actual != expected:
@@ -497,6 +689,8 @@ def delete_app_data(
     validated_key = _key(key)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
+        # Keep the rollback horizon intact even during ordinary deletion.
+        _read_checkpoint(bound, root)
         manifest, _ = _read_manifest(bound, root)
         actual = manifest["revision"]
         if actual != expected:
