@@ -74,6 +74,7 @@ jobs:
             tools/runtime-component-channel/signed_native_consumer_continuity.go \
             tools/runtime-component-channel/signed_native_consumer_continuity_test.go \
             tools/runtime-component-channel/signed_native_forward_upgrade_test.go \
+            tools/runtime-component-channel/signed_native_first_install_test.go \
             tools/runtime-component-channel/stage_v2.go \
             tools/runtime-component-channel/stage_v2_test.go \
             tools/runtime-component-channel/verified_compatibility_v2.go \

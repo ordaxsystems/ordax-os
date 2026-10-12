@@ -44,7 +44,7 @@ func TestReleaseV2RollbackRejectsUnreadableMigratedStateWithoutMutation(t *testi
 	}
 }
 
-func TestReleaseV2RollbackContractAllowsPreviousReadRangeWithoutGrantingMigration(t *testing.T) {
+func TestReleaseV2RollbackReadabilityDoesNotAuthorizeRecovery(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	previous := addActivationV2CandidateWithState(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
@@ -62,13 +62,66 @@ func TestReleaseV2RollbackContractAllowsPreviousReadRangeWithoutGrantingMigratio
 	if err := verifyRollbackStateReadable(
 		fixture.root, "internet", identityFromRelease(sharedReleaseFromV2(future.release)),
 		state.Current, trust,
-	); err != nil {
-		t.Fatalf("previous signed release declares support for state version 2: %v", err)
+	); err == nil || !strings.Contains(err.Error(), "requires verified device-state recovery checkpoint") {
+		t.Fatalf("signed readable range was mistaken for a verified data checkpoint: %v", err)
 	}
-	// State readability is only one prerequisite: it does not authorize
-	// transitioning to a new writer without a proven migration.
+	// A signed readable range cannot prove a live state generation. It also
+	// cannot authorize transitioning to a new writer without migration.
 	if _, err := armPendingState(future.slot, fixture.trustPath, fixture.root); err == nil {
 		t.Fatal("backward-readable state accidentally granted an unproven forward migration")
+	}
+}
+
+func TestStatefulReleaseV2UpgradeCannotBecomeOneWayWithoutRecovery(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	first := addActivationV2CandidateWithState(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
+	)
+	original := healthyPromoteV2(t, fixture, first)
+	candidate := addActivationV2CandidateWithState(
+		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
+		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
+	)
+	if _, err := armPendingStateAtRevision(
+		candidate.slot, fixture.trustPath, fixture.root, &original.Revision,
+	); err == nil || !strings.Contains(err.Error(), "requires verified device-state recovery checkpoint") {
+		t.Fatalf("unrecoverable stateful upgrade was accepted: %v", err)
+	}
+	after, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Revision != original.Revision ||
+		!sameSlotIdentity(after.Current, original.Current) ||
+		!sameSlotIdentity(after.Previous, original.Previous) ||
+		after.Pending != nil || after.Rejected != nil {
+		t.Fatalf("unproven state recovery modified canonical activation state: %+v", after)
+	}
+}
+
+func TestRollbackReceiptUsesActualSourceResolution(t *testing.T) {
+	cases := []struct {
+		componentID string
+		want        string
+	}{
+		{componentID: "internet", want: "bundled"},
+		{componentID: "notes", want: "absent"},
+		{componentID: "studio", want: "absent"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.componentID, func(t *testing.T) {
+			state := emptyActivationState(tc.componentID)
+			if got := rollbackResolutionTarget(state); got != tc.want {
+				t.Fatalf("rollback receipt target = %q, want %q", got, tc.want)
+			}
+			state.Current = &slotIdentity{
+				Version: "1.0.0", SourceCommit: "1111111111111111111111111111111111111111",
+			}
+			if got := rollbackResolutionTarget(state); got != "slot" {
+				t.Fatalf("installed slot receipt target = %q", got)
+			}
+		})
 	}
 }
 

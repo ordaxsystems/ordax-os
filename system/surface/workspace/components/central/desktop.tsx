@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
 import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
 import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon } from './primitives';
@@ -48,7 +49,11 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
   const { displayName } = useWebAccount();
   const [startOpen, setStartOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const menuNavigation = useRef(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const navigationHost = useRef<HTMLElement>(null);
+  const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => { setMenuContainer(navigationHost.current?.closest<HTMLElement>('.window-workspace') ?? null); }, []);
   const dockHost = useRef<HTMLDivElement>(null);
   const [dockLabelsVisible, setDockLabelsVisible] = useState(true);
   useLayoutEffect(() => {
@@ -102,11 +107,18 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
   const homeActive = view === 'central' && activeWindow === undefined;
   const destinations = navigation.filter(item => item.name !== 'Início');
   const visibleNavigation = destinations.slice(0, visibleCount >= destinations.length ? destinations.length : Math.max(0, visibleCount - 1));
-  const open = (title: string) => { dispatch({ type: 'open', title }); setStartOpen(false); };
-  const returnToCentral = () => { setStartOpen(false); onCentral(); };
-  useEffect(() => { const handler = (event: KeyboardEvent) => { if (event.key === 'Escape') setStartOpen(false); }; document.addEventListener('keydown', handler); return () => document.removeEventListener('keydown', handler); }, []);
-  return <>
-    {startOpen && <><div className="desktop-menu-dismiss" onClick={() => setStartOpen(false)}/><section className="desktop-start-menu" aria-label="Menu de destinos"><div className="desktop-menu-search"><Search className="size-4"/><input autoFocus aria-label="Pesquisar destinos" placeholder="Pesquisar aplicativos e painéis" value={search} onChange={e => setSearch(e.target.value)}/></div><div className="desktop-menu-heading">Aplicativos e painéis</div><div className="desktop-menu-apps">{[...navigation, { name: 'Notificações', icon: Bell }].filter(item => item.name !== 'Início' && item.name.toLowerCase().includes(search.toLowerCase())).map(item => <Button variant="ghost" key={item.name} className="desktop-menu-item" data-active={item.name === activeDestination} aria-current={item.name === activeDestination ? 'page' : undefined} onClick={() => open(item.name)}><item.icon/>{item.name}<ChevronRight className="ml-auto"/></Button>)}{'central'.includes(search.toLowerCase()) && <Button variant="ghost" className="desktop-menu-item" onClick={returnToCentral}><LayoutGrid/>Central<ChevronRight className="ml-auto"/></Button>}</div><div className="desktop-menu-footer"><Avatar/><span>{displayName}<small>Minha conta OrdaX</small></span><Button variant="ghost" size="icon" className="ml-auto" aria-label="Configurações" title="Configurações" onClick={() => open('Configurações')}><Settings/></Button></div></section></>}
+  const menuDestinations = [...navigation, { name: 'Notificações', icon: Bell }].filter(item => item.name !== 'Início' && item.name.toLowerCase().includes(search.toLowerCase().trim()));
+  const centralMatch = 'central'.includes(search.toLowerCase().trim());
+  const open = (title: string) => { menuNavigation.current = startOpen; dispatch({ type: 'open', title }); setStartOpen(false); };
+  const returnToCentral = () => { menuNavigation.current = startOpen && state.active !== null; setStartOpen(false); onCentral(); };
+  return <Dialog open={startOpen} onOpenChange={open => { if (open) menuNavigation.current = false; setStartOpen(open); }}>
+    <DialogContent placement="custom" portalContainer={menuContainer} className="desktop-start-menu" onCloseAutoFocus={event => {
+      if (menuNavigation.current) { event.preventDefault(); return; }
+      if (!menuTrigger.current?.getClientRects().length) {
+        event.preventDefault();
+        navigationHost.current?.closest<HTMLElement>('.window-workspace')?.querySelector<HTMLButtonElement>('[data-window-home]')?.focus({ preventScroll: true });
+      }
+    }}><label className="desktop-menu-search"><Search className="size-4"/><input aria-label="Pesquisar destinos" placeholder="Pesquisar aplicativos e painéis" value={search} onChange={e => setSearch(e.target.value)}/></label><DialogTitle className="desktop-menu-heading">Aplicativos e painéis</DialogTitle><DialogDescription className="sr-only">Pesquise um destino e abra seu painel. Escape fecha este menu.</DialogDescription><div className="desktop-menu-apps">{menuDestinations.map(item => <Button variant="ghost" key={item.name} className="desktop-menu-item" data-active={item.name === activeDestination} aria-current={item.name === activeDestination ? 'page' : undefined} onClick={() => open(item.name)}><item.icon/>{item.name}<ChevronRight className="ml-auto"/></Button>)}{centralMatch && <Button variant="ghost" className="desktop-menu-item" onClick={() => { dispatch({ type: 'show-desktop' }); returnToCentral(); }}><LayoutGrid/>Central<ChevronRight className="ml-auto"/></Button>}</div><div role="status">{menuDestinations.length === 0 && !centralMatch ? <p className="service-state">Nenhum destino encontrado.</p> : null}</div><div className="desktop-menu-footer"><Avatar/><span>{displayName}<small>Minha conta OrdaX</small></span><Button variant="ghost" size="icon" className="ml-auto" aria-label="Configurações" title="Configurações" onClick={() => open('Configurações')}><Settings/></Button></div></DialogContent>
     <aside id="workspace-sidebar" className="os-sidebar workspace-sidebar" aria-label="Navegação principal">
       <div className="sidebar-header"><Brand/></div>
       <div className="sidebar-home-row">
@@ -114,13 +126,13 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
       </div>
       <nav className="os-nav" ref={navigationHost} aria-label="Destinos">
         {visibleNavigation.map(item => <Button key={item.name} variant="ghost" className="os-nav-item" title={item.name} aria-label={item.name} data-active={item.name === activeDestination} aria-current={item.name === activeDestination ? 'page' : undefined} onClick={() => open(item.name)}><item.icon/><span>{item.name}</span></Button>)}
-        {visibleNavigation.length < destinations.length && <Button variant="ghost" className="os-nav-item" aria-label="Mais destinos" title="Mais destinos" data-active={destinations.some(item => item.name === activeDestination) && !visibleNavigation.some(item => item.name === activeDestination)} onClick={() => { setStartOpen(true); setSearch(''); }}><MoreHorizontal/><span>Mais</span></Button>}
+        {visibleNavigation.length < destinations.length && <DialogTrigger asChild><Button ref={menuTrigger} variant="ghost" className="os-nav-item" aria-label="Mais destinos" title="Mais destinos" data-active={destinations.some(item => item.name === activeDestination) && !visibleNavigation.some(item => item.name === activeDestination)} onClick={() => setSearch('')}><MoreHorizontal/><span>Mais</span></Button></DialogTrigger>}
       </nav>
       <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Minha conta')} onSettings={() => open('Configurações')}/>
     </aside>
     <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>
     <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: w.minimized ? 'open' : 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
-  </>;
+  </Dialog>;
 }
 
 function SpacesPanel() {

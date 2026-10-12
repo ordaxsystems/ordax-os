@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSignedUpgradeWithUnchangedStateFormatRemainsEligibleForPending(t *testing.T) {
+func TestSignedUpgradeWithUnchangedStateFormatRequiresRecoveryProof(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	current := addActivationV2CandidateWithState(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
@@ -16,14 +16,19 @@ func TestSignedUpgradeWithUnchangedStateFormatRemainsEligibleForPending(t *testi
 		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
 		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 2},
 	)
-	revision := active.Revision
-	pending, err := armPendingStateAtRevision(candidate.slot, fixture.trustPath, fixture.root, &revision)
+	if _, err := armPendingStateAtRevision(
+		candidate.slot, fixture.trustPath, fixture.root, &active.Revision,
+	); err == nil || !strings.Contains(err.Error(), "requires verified device-state recovery checkpoint") {
+		t.Fatalf("same-state signed upgrade bypassed the missing recovery proof: %v", err)
+	}
+	unchanged, err := readActivationState(fixture.root, "internet")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pending.Pending == nil || pending.Pending.Version != "1.1.0" ||
-		!sameSlotIdentity(pending.Current, active.Current) || pending.Revision != revision+1 {
-		t.Fatalf("stable state upgrade lost activation SSOT: %+v", pending)
+	if unchanged.Revision != active.Revision ||
+		!sameSlotIdentity(unchanged.Current, active.Current) ||
+		unchanged.Pending != nil || unchanged.Rejected != nil {
+		t.Fatalf("blocked stateful upgrade mutated activation SSOT: %+v", unchanged)
 	}
 }
 
@@ -187,6 +192,19 @@ func TestSignedUpgradeCannotIntroduceOrTightenMandatoryRequirements(t *testing.T
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := makeActivationV2Fixture(t)
+			// A signed first install requiring a provider must include an
+			// actually installed signed provider. These upgrade regression
+			// fixtures may not pre-install an already broken required graph.
+			for _, required := range tc.current {
+				if required.Optional {
+					continue
+				}
+				provider := addSignedPeer(
+					t, fixture, "network", "4444444444444444444444444444444444444444",
+					[]providedCompatibilityContract{{ID: required.ID, Major: required.MaxMajor}}, nil,
+				)
+				healthyPromoteSignedPeer(t, fixture, "network", provider)
+			}
 			existing := addActivationV2CandidateWithFullContracts(
 				t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
 				nil, []providedCompatibilityContract{{ID: "ordax.internet", Major: 1}}, tc.current,

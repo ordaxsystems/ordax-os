@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -590,6 +591,14 @@ func armPendingStateAtRevision(
 			); err != nil {
 				return activationState{}, err
 			}
+		} else {
+			// A first install must not skip signed dependency verification.
+			// Bundled providers are not authenticated by this Native graph.
+			if err := verifyFirstInstallNativeRequirementsUnderGraphLock(
+				root, release.Component.ID, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
 		}
 		candidate := identity
 		state.Pending = &candidate
@@ -701,6 +710,14 @@ func promotePendingStateAtRevision(
 			}
 			if err := verifyArmPendingStateCompatibility(
 				root, componentID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		} else {
+			// Installed providers might have been removed after probation.
+			// Revalidate first-install requirements under the graph lock.
+			if err := verifyFirstInstallNativeRequirementsUnderGraphLock(
+				root, componentID, identity, trustBytes,
 			); err != nil {
 				return activationState{}, err
 			}
@@ -1053,6 +1070,14 @@ func rejectPendingCommand(args []string) error {
 	return nil
 }
 
+// Project the same canonical current resolution used by resolve-current into
+// the existing lowercase rollback CLI contract. An external app with no
+// previous slot is ABSENT, never a fabricated bundled fallback.
+func rollbackResolutionTarget(state activationState) string {
+	bundled := canonicalSourceRepository(state.ComponentID) == sourceRepository
+	return strings.ToLower(currentResolutionSource(state, bundled))
+}
+
 func rollbackStateCommand(args []string) error {
 	flags := flag.NewFlagSet("rollback-state", flag.ContinueOnError)
 	component := flags.String("component", "", "runtime component id")
@@ -1077,11 +1102,10 @@ func rollbackStateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	target := "bundled"
+	target := rollbackResolutionTarget(state)
 	versionOut := ""
 	commitOut := ""
 	if state.Current != nil {
-		target = "slot"
 		versionOut = state.Current.Version
 		commitOut = state.Current.SourceCommit
 	}

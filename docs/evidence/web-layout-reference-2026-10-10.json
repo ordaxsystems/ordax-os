@@ -762,15 +762,19 @@
       },
       {
         "from": "React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>\n>(({ className, children, ...props }, ref) => (",
-        "to": "React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { placement?: \"center\" | \"bottom\" }\n>(({ className, children, placement = \"center\", ...props }, ref) => ("
+        "to": "React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { placement?: \"center\" | \"bottom\" | \"custom\"; portalContainer?: HTMLElement | null }\n>(({ className, children, placement = \"center\", portalContainer, ...props }, ref) => ("
       },
       {
         "from": "\"fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg\",",
-        "to": "\"fixed z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-lg\",\n        placement === \"bottom\"\n          ? \"inset-x-0 bottom-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4\"\n          : \"left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95\","
+        "to": "\"fixed z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-lg\",\n        placement === \"bottom\"\n          ? \"inset-x-0 bottom-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4\"\n          : placement === \"center\" ? \"left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95\" : undefined,"
       },
       {
         "from": "<DialogPrimitive.Close className=",
         "to": "<DialogPrimitive.Close data-slot=\"dialog-close\" className="
+      },
+      {
+        "from": "<DialogPortal>",
+        "to": "<DialogPortal container={portalContainer ?? undefined}>"
       }
     ],
     "src/components/web/launcher.tsx": [

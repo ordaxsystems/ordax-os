@@ -971,3 +971,69 @@ and recovery after explicit warned page reload. The fixture server/tab were
 closed and the user viewport/theme restored; main-page logs returned no errors
 or warnings. Authenticated gateway/catalog, signed installation, native/device
 execution and production activation remain outside this local proof.
+
+
+### Destination menu focus — 2026-10-12
+
+Owner: OS Surface; bounded continuation of the requested Web integration and
+robustness work. This structural accessibility correction is an exception to
+individual-app polishing; it does not change Apps ownership, versions, package
+eligibility, service contracts or activation gates.
+
+The existing destination menu now consumes the shared Dialog primitive. Its
+portal remains inside the workspace so the existing container geometry and
+Surface tokens apply. Modal semantics, focus trapping, Escape/backdrop and close
+controls belong to that one primitive; the custom overlay and global Escape
+listener were removed. Search uses the existing navigation descriptors, trims
+its query and announces an empty result. Central explicitly shows Home while
+retaining mounted, minimized app bodies.
+
+Selecting an app defers focus to the existing WindowLayer, which observes the
+immutable active-window record, including explicit reopening of the same app.
+Unrelated-window/context updates do not change this record or steal focus.
+Closing without navigation returns to the Dialog trigger; if responsive resizing
+removed it, the same navigation restores Home. No second window manager,
+provider, backend, inference, auth state or command retry was introduced.
+
+Risk: portaled geometry and keyboard focus require a live-browser proof.
+Acceptance includes Tab/Shift-Tab containment, Escape/backdrop return, same-app
+reopening, Home return, mobile clipping and retention of existing drafts.
+Code validation: 36 existing workspace/account-session regressions and seven
+residual-localization tests passed; TypeScript/build and verification of 34
+reference files/assets passed. Manual React review checked stable hooks/refs,
+active-window dependency identity, reuse of Dialog cleanup and shared tokens.
+Initial JavaScript is 538.76 kB (170.05 kB gzip); the >500 kB warning remains.
+The browser-control tool timed out even for a basic runtime probe, so no live
+keyboard/visual proof or screenshot was captured in this increment. This is
+not authenticated gateway, device-control, install or production validation.
+
+Local preview recovery: Vite restarted in a hidden process; its startup log
+reported ready and HTTP GET / returned 200 on 127.0.0.1:4201. This is server
+availability evidence, not the pending live keyboard/visual or gateway proof.
+
+
+#### Completed navigation browser proof — 2026-10-12
+
+This local proof supersedes the pending browser attempt above. Owner remains
+OS Surface and the same shared Dialog/WindowLayer; no contracts, dependencies,
+services or authority changed. The native search label focuses its input when
+tapped in its padding. Search and close have 44-pixel touch height; the close
+button has a 44 x 44 target, keeping the existing glyph and Surface tokens.
+
+Observed at 390 x 480, 390 x 600, 390 x 844 and 1366 x 480: document stayed within
+the viewport and menu controls stayed inside their panel. Tab/Shift-Tab remained
+in the menu; Escape, close and backdrop restored the trigger. Resizing to remove
+the overflow trigger then closing returned focus to Home. Empty search announced
+its result, reopening cleared the query, and backdrop did not open an app.
+Selecting/reopening Aura focused the canonical pane; its unsent local draft
+survived the return to Central, minimization and dock restore. Central's focus
+on the restore control follows the existing window policy.
+
+Temporary Aura and its unsent validation draft were closed; original dark theme,
+Central and default viewport were restored. Browser error/warning logs returned
+no entries. Screenshot: ordax-navigation-mobile-20261012.jpg, stored as a local
+visualization artifact (390 x 600), not a published CI artifact.
+Final TypeScript/build and verification of 34 reference files/assets passed.
+Initial JavaScript: 538.76 kB (170.06 kB gzip); CSS: 79.17 kB. The >500 kB warning
+remains. Authenticated gateway/catalog, inference, device execution, signed
+installation and production activation are not proven by these local UI checks.

@@ -218,8 +218,24 @@ interrompe a operação **antes** de alterar a revisão ou o slot ativo.
 
 A prova inclui regressões de corrupção antes de armar e depois da saúde
 positiva, além de uma promoção legítima preservando um consumidor assinado.
+
+**Primeira instalação e dependências da versão nova:** `arm-pending` e
+`promote-state` agora também exigem que cada dependência `requires` não
+opcional de um release/2 tenha outro provedor **current assinado e
+criptograficamente verificado** com a interface/major necessária, mesmo
+quando o componente ainda não tem `current`. O verificador lê o mesmo
+grafo Native de `activation-state.json` sob o lock canônico, sem inventar
+instalações nem aceitar um subconjunto de peers escolhido pelo chamador.
+Dependências opcionais podem estar ausentes. Se o provedor sair entre
+`arm` e `promote`, a promoção é recusada e o `pending` não é alterado.
+O mesmo conjunto é usado para avaliar **consumidores existentes** e
+**dependências do candidato** em upgrades, evitando scans separados.
+
 A cobertura **continua incompleta para serviços `bundled`, releases/1,
-primeira instalação sem `current`, confiança de produção e migração de dados**.
+confiança de produção e migração de dados**: uma dependência apenas bundled
+não é considerada provada por este grafo e, portanto, não libera a
+instalação individual. Release/1 mantém a semântica de desenvolvimento
+anterior, sem servir como evidência para release público.
 Nenhuma dessas provas liga a publicação de atualizações individuais ao usuário.
 
 ### Signed state-local compatibility before pending activation
@@ -244,13 +260,15 @@ or adding optional dependencies is allowed by this local guard, but is
 production-ready. The test fixtures sign both the before and after
 descriptors and verify state immutability for rejected candidates.
 
-Release/2 upgrades with the same state owner and write version are allowed
-when the candidate declares the current version readable; stateless
-upgrades remain allowed. Introducing a **new persistent state owner**
-is temporarily stricter than the source evaluator: it is refused until the
-Native rollback path can prove recovery of the previous stateless release.
-Removing the owner, changing its ID or write version, or crossing
-release/1 and release/2 formats is **rejected before any mutation**.
+Stateless release/2 upgrades remain allowed. **Stateful upgrades,
+including those preserving the same owner, schema and write version,
+are refused before pending activation** until the canonical State owner
+integrates crash-safe last-known-good restoration. Merely declaring a
+readable version is not recovery proof; allowing promotion without a
+working rollback path would create a one-way update. The signed schema
+and owner incompatibility checks still run first. Introducing a **new
+persistent state owner** remains refused, as do owner removal, owner ID
+or write-version changes, and crossing release/1 and release/2 formats.
 No migration plan is accepted until the Native owner can actually prove
 and execute a versioned data migration with last-known-good restoration.
 
@@ -271,13 +289,25 @@ range excludes the current release's write version or its state owner
 has changed. A stateful release/2 without a previous signed version
 cannot silently downgrade to an undocumented bundled state format.
 
-An unchanged stateless release/2 rollback remains supported. Release/1 to
-release/1 behavior is preserved without inventing a compatibility sidecar
-for that legacy format; cross-schema rollback without explicit evidence
-is refused. The guard does not modify stored data, invent a migration
-implementation, or certify that an application truly migrates data
-correctly: actual storage copy-on-write and end-to-end recovery are
-still required before public component-slot updates are enabled.
+**Signed readable ranges alone are not recoverability evidence.** Even if
+both signed descriptors declare the same state owner and a compatible
+readable range, the activation writer has not verified the actual mutable
+state generation, a crash-safe checkpoint, or last-known-good restoration.
+Until the canonical `system/services/state` owner provides and integrates
+that transactional proof, **all stateful release/2 rollbacks fail closed
+before any activation-state mutation**. The previous signed slot remains
+retained for an explicit owner-controlled recovery; callers cannot bypass
+this gate by supplying a compatibility plan or a health receipt.
+
+Stateless release/2 rollback remains supported. Release/1 to release/1
+development behavior is preserved without fabricating a compatibility
+sidecar; cross-schema rollback remains blocked. This is a safety boundary,
+not completed copy-on-write, migration, or public update readiness.
+
+The rollback CLI's `TARGET` field now uses the existing canonical source
+resolution: `slot`, `bundled` or `absent`. A removable external app with
+no previous slot must report `absent`; it cannot pretend to have a bundled
+fallback. No additional installed-state registry is introduced.
 
 ### Coverage of the real active graph (read-only)
 

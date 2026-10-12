@@ -204,6 +204,147 @@
           "reference_files_and_assets": 34
         }
       }
+    },
+    "destination_navigation": {
+      "date": "2026-10-12",
+      "source_base_commit": "256a3dd",
+      "owner": "OS Surface shared Dialog / WindowLayer",
+      "scope": "Structural navigation and focus; existing service boundaries preserved",
+      "node_tests": {
+        "command": "node --test tests/test_surface_workspace.mjs tests/test_web_account_session.mjs",
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_residual_localization -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 538.76,
+        "initial_gzip_kb": 170.05,
+        "warning": "Initial JavaScript remains above 500 kB; plugin timing warning also reported. No threshold override or loading-time benchmark."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "react_review": [
+        "Existing Dialog owns modality, focus trap and listener cleanup",
+        "Portal uses workspace container and existing tokens",
+        "WindowLayer observes immutable active-window identity",
+        "No app body remount through mode/view transitions",
+        "No new service, provider, dependency, credentials or grant",
+        "Workspace portal container is bound after DOM commit; rendering does not read mutable DOM refs."
+      ],
+      "browser": {
+        "result": "pending-tool-unavailable",
+        "reason": "Browser control setup and a minimal runtime probe timed out; kernel reset automatically. No browser UI actions completed.",
+        "required_checks": [
+          "Tab/Shift-Tab remain in menu",
+          "Escape/backdrop/close restore trigger or Home",
+          "Selecting/reopening app transfers focus to canonical active pane",
+          "Central shows Home and retains drafts",
+          "Mobile viewport and menu controls fit"
+        ],
+        "superseded_by": "touch_target_validation.browser"
+      },
+      "publication_policy": "One grouped source push; no direct deployment or production activation.",
+      "preview": {
+        "origin": "http://127.0.0.1:4201/",
+        "initial_state": "connection-refused",
+        "recovery": "Existing Vite restarted hidden, without npm install or production deployment",
+        "startup": "VITE v8.1.5 ready",
+        "http_status": 200,
+        "ui_e2e": "passed-local-navigation; authenticated-gateway-still-pending"
+      },
+      "remote_reconciliation": {
+        "main_commit": "a22b441c875f1b250ca6643fdda14fd124a84bfd",
+        "merge_commit": "b133547e8034ed134ca74dcbff64411b64a2a0e3",
+        "conflicts": false,
+        "web_source_delta": "git diff --exit-code cff2a39 HEAD -- system/composition/web system/surface/workspace returned 0",
+        "portable_boundary_regression": {
+          "command": "python -m unittest tests.test_first_party_portable_boundary -v",
+          "passed": 1,
+          "failed": 0
+        },
+        "note": "Concurrent Runtime/Projects changes retained; frontend build inputs under composition/Surface unchanged."
+      },
+      "touch_target_validation": {
+        "date": "2026-10-12",
+        "source_base_commit": "2f224d7c4e3c22c483652edca2a9f5def920a1fb",
+        "owner": "OS Surface shared Dialog / WindowLayer",
+        "change": "Native search label and scoped 44 x 44 close target; existing descriptors, tokens and window state retained",
+        "browser": {
+          "result": "passed-for-observed-local-flows",
+          "origin": "http://127.0.0.1:4201/",
+          "viewports": [
+            {
+              "width": 390,
+              "height": 480
+            },
+            {
+              "width": 390,
+              "height": 600
+            },
+            {
+              "width": 390,
+              "height": 844
+            },
+            {
+              "width": 1366,
+              "height": 480
+            }
+          ],
+          "checks": [
+            "Tab/Shift-Tab contained in shared menu",
+            "Escape, close and backdrop restored trigger; backdrop opened no app",
+            "Search label padding tap focused input; close target measured 44 x 44 px",
+            "Trimmed empty search announced result; reopening cleared query",
+            "Selected and explicitly reopened Aura focused canonical active pane",
+            "Unsent local draft survived Central/minimize/dock restore",
+            "Resizing removed trigger; closing focused Home",
+            "Document stayed within tested viewport dimensions; no controls horizontally outside menu"
+          ],
+          "cleanup": "Temporary Aura closed without submitting; original dark theme, Central and default viewport restored; user tabs retained",
+          "dev_logs": "No warning/error entries returned",
+          "screenshot": {
+            "filename": "ordax-navigation-mobile-20261012.jpg",
+            "format": "JPEG",
+            "width": 390,
+            "height": 600,
+            "sha256": "b58b03198afd827abbb11dbccb997b11ba825ed54fc5060ac2f4f6a14c852e5d",
+            "scope": "local visualization artifact outside repository; not publicly published"
+          },
+          "authenticated_gateway_e2e": "pending-not-configured-on-local-Vite"
+        },
+        "build": {
+          "command": "npm.cmd run build --workspace tools/surface-web",
+          "result": "passed-including-typescript",
+          "initial_javascript_kb": 538.76,
+          "initial_gzip_kb": 170.06,
+          "initial_css_kb": 79.17,
+          "warning": "Initial JavaScript remains above 500 kB; no threshold override or loading-time benchmark."
+        },
+        "structure": {
+          "command": "npm.cmd run verify --workspace tools/surface-web",
+          "result": "passed",
+          "reference_files_and_assets": 34
+        },
+        "limits": [
+          "Local UI proof only; no inference or backend commands submitted",
+          "No authenticated catalog, device execution, signed install or production activation proof"
+        ],
+        "publication_policy": "One grouped source push; no direct deployment or production activation",
+        "remote_reconciliation": {
+          "main_commit": "7c0b97e",
+          "scope": "Concurrent signed native provider validation retained; seven Runtime/release files",
+          "web_source_delta": "git diff HEAD origin/main -- system/surface/workspace system/composition/web tools/surface-web package.json package-lock.json was empty before merge",
+          "note": "No frontend build inputs changed; no additional full build required solely for this Runtime merge."
+        }
+      }
     }
   },
   "files": [
@@ -232,8 +373,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "9e815ca6e956f44f5e7e2c12a7d8a68625a8c5ed2bca186f8eca8012168468b0",
-      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window."
+      "adaptedSha256": "ea077651acb46752f26ff23cf14ff2cc9bef66ffb26d20807197c105bb47766b",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette."
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -246,8 +387,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "07a4839fe203167b49d76243ce64c1eb6fe9911787aeda697c220317d8571413",
-      "adaptation": "Approved Central styles register the same canonical Store component for utility compilation; layout/palette/geometry unchanged."
+      "adaptedSha256": "2b0de2d2fe6546b7728c0d28353e62321aae1630de24db6bc450f6b38c82a73d",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -320,7 +461,8 @@
     "Central subscribes to the existing Surface host connectivity; offline guards account actions and read lifecycle, canonical Spaces reset aborts/invalidates catalog and context, reconnect revalidates without replaying commands; approved geometry unchanged",
     "Canonical identity/Spaces adapters share one bounded cancellable same-origin JSON GET transport; offline/disposal release stalled reads without replaying commands or creating auth/domain state; stable no-op snapshots and disposed action guards preserve approved UI",
     "Thin Web boot consumes a data-only canonical boot message catalog also spread into the full Surface localization owner; no duplicate translations, dependencies or presentation change",
-    "Central Loja reuses StoreExperience/catalog context through an on-demand import; one extracted Store stylesheet consumes Surface tokens/container geometry; per-window content boundary supports explicit retry without resetting other windows or executing commands"
+    "Central Loja reuses StoreExperience/catalog context through an on-demand import; one extracted Store stylesheet consumes Surface tokens/container geometry; per-window content boundary supports explicit retry without resetting other windows or executing commands",
+    "Destination menu reuses the shared Dialog in the existing workspace container; canonical active-window changes restore app focus, while Escape/backdrop return to the menu trigger or Home. No second focus trap, listener or navigation catalog."
   ],
   "native_files": [
     {
@@ -328,8 +470,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "eec4d5a8be2cd0fbad0a84773b2bab0be8fb497809e176e355f8a66fbdfa4785",
-      "adaptation": "Reuse the canonical Store renderer on demand and isolate content failures in one mounted window boundary; preserve history, contracts, providers and other app nodes."
+      "adaptedSha256": "d2cd7c1ca7f604188a705a58107be6259c511d8ece50ee6db249a88ca548cfa5",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved."
     },
     {
       "target": "system/composition/web/account-session.mjs",

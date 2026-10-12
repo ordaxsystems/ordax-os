@@ -1,45 +1,42 @@
-# Fase 2 — ligação experimental da Independent Base ao boot portátil oficial
+# Independent Base — Fase 2, boot portátil oficial (experimental)
 
-**Status: código do adaptador implementado, prova QEMU portátil ainda pendente.**
-Não ativar em Stable, Creator, Surface, Wine, apps ou mídia física.
+**Status: integração de boot comprovada em QEMU; candidata não promovível a produção.**
+A PR #1685 (fase mínima Buildroot) foi integrada. A PR #1693 adiciona a integração opcional ao boot portátil, mantendo Alpine, Stable oficial, Creator, Surface, Wine, aplicativos e dispositivos físicos inalterados.
 
-## Autoridade única reutilizada
+## Autoridades únicas reutilizadas
 
-- Base mínima produzida por `bootstrap/independent-base/build.py` em `independent-base.erofs`.
-- Kernel e módulos: `bootstrap/kernel/source.json` e `bootstrap/kernel/build.py`.
-- Código do primeiro handoff pós-`switch_root`: `bootstrap/stable-base/ordax-stable-init`, copiado **sem alterações** para `/sbin/ordax-stable-init` dentro da nova imagem; hash SHA-256 de origem/cópia validado no build e registrado na proveniência. Isso não instala Alpine nem seu APK; o módulo `modprobe` e applets da BusyBox são obrigatórios e verificados. A política atual de módulos Wi-Fi ainda não tem equivalência comprovada na base mínima.
-- PID1 oficial: `bootstrap/initramfs/portable_init.sh`; não é embutido um segundo PID1 permanente.
-- Pin da imagem: builder/verifier oficial `bootstrap/initramfs/build.py` + `portable_base_verify.sh`.
-- Montagem e estado: `bootstrap/initramfs/portable_mount.c` + `portable_state.c` (EROFS ro, ext4 rw, OverlayFS e `candidate/current/known-good`), sem fork.
-- Assinatura e release: cápsula existente `bootstrap/portable-v2/capsule/build.py`, `bootstrap/release-acquisition`, `tools/release-signing` e o harness **oficial** `bootstrap/portable-v2/qemu_boot.py`.
+- **Base Buildroot 2026.08:** `bootstrap/independent-base/build.py`; kernel e ABI definidos em `bootstrap/kernel/source.json`. Configuração nativa e reproduzível de BusyBox em `configs/ordax_minimal_defconfig` + `configs/portable-handoff.busybox.fragment`, com `stat -c` e `timeout -k` realmente executados durante o build e SHA-256 do fragmento na proveniência.
+- **PID1:** `bootstrap/initramfs/portable_init.sh`, criado/pinado/verificado por `bootstrap/initramfs/build.py`; mantém verificação da cápsula e SHA-256 fixo da imagem EROFS. Não existe PID1 paralelo para uso portátil.
+- **Handoff:** `bootstrap/stable-base/ordax-stable-init` copiado sem alterações para a imagem independente, com comparação de SHA-256; `/system/entrypoint` continua sendo do release assinado oficial.
+- **Boot/montagem/estado:** `bootstrap/initramfs/portable_mount.c` e `portable_state.c` (EROFS read-only, ext4 persistente, OverlayFS, `candidate/current/known-good/rejected`), sem fork de seletor ou atualizador.
+- **Verificação de releases:** agentes oficiais `bootstrap/release-acquisition`, assinaturas Ed25519 e trust anchor do build de testes; as chaves efêmeras do CI não são credenciais de publicação.
+- **Harness:** `bootstrap/portable-v2/qemu_boot.py`, `uefi_boot.py` e seu workflow reutilizável `.github/workflows/portable-v2-qemu-boot-proof.yml`. O parâmetro `base_source: independent` é usado somente pelo workflow experimental; **o padrão permanece `stable`**.
+- **Adaptadores experimentais:** `portable_boot_proof.py` valida a proveniência/pin da imagem Buildroot e chama o QEMU oficial usando somente discos descartáveis. `signed_release_failure_qemu.py` injeta assinatura Ed25519 inválida apenas na cópia do release no disco virtual e reutiliza montagem do disco, seleção, verificação e inspeção de estado oficiais.
 
-O arquivo `bootstrap/independent-base/portable_boot_proof.py` **não implementa** boot, assinatura ou rollback: ele checa artefatos/proveniências, invoca o builder oficial do initramfs com o SHA-256 da candidata, inspeciona o pin gerado e chama a prova QEMU oficial. É um adaptador isolado para testar candidatos; o ext4 externo é copiado com SHA-256 para um arquivo descartável, nunca montado/alterado como entrada.
+## Provas reais auditadas — commit `13dc3b4edef565938e684b862e61a21bde192e54`
 
-## Execução com artefatos reais já preparados
+As provas abaixo foram concluídas **neste SHA**. Qualquer reconciliação posterior exige checks próprios antes do merge.
 
-O adaptador exige kernel canônico, cápsula assinada/verificada, release exato assinado com `surface-runtime` e possível `local-ai`, estado ext4 e trust produzidos pelos **builders oficiais**. Não aceita substituir tais evidências por manifests simulados. Execute somente num runner Linux descartável com QEMU, utilitários de loop/partição e privilégios necessários.
+| Verificação | GitHub Actions / evidência | Resultado |
+| --- | --- | --- |
+| Foundation e contratos | [#38282272694](https://github.com/ordaxsystems/ordax-os/actions/runs/38282272694) | PASS |
+| Buildroot 2026.08, BusyBox, EROFS e 3 boots QEMU mínimos | [#38282273033](https://github.com/ordaxsystems/ordax-os/actions/runs/38282273033) | PASS |
+| Stable original, boot direto, one-shot e UEFI/OVMF | [#38282272873](https://github.com/ordaxsystems/ordax-os/actions/runs/38282272873) | PASS |
+| Base independente com PID1 canônico, release v4 assinado, EROFS/ext4/OverlayFS, persistência e UEFI/OVMF | [#38282273164](https://github.com/ordaxsystems/ordax-os/actions/runs/38282273164), artifact `11764274216` | PASS |
+| Rollback de candidata v4 não confirmada para current v3, 2 inicializações, rejected persistido | [#38282273164](https://github.com/ordaxsystems/ordax-os/actions/runs/38282273164), `qemu-one-shot-proof/proof.json` | PASS |
+| Assinatura Ed25519 da candidata corrompida, seleção do release anterior por 2 boots, persistência no ext4 | mesmo artifact, `qemu-signed-fault-proof/proof.json` | PASS |
+| Ambas assinaturas inválidas: sem handoff, resgate local; `ordax.mode=recovery` read-only e disco sem alterações | mesmo artifact, quatro logs seriais com SHA-256 no receipt | PASS |
 
-```sh
-python3 bootstrap/independent-base/portable_boot_proof.py \
-  --base-out /tmp/independent-buildroot \
-  --kernel /tmp/portable-v2/kernel/vmlinuz-6.6.158 \
-  --capsule /tmp/portable-v2/capsule/bootstrap.erofs \
-  --state-image /tmp/portable-v2/persistent-state.img \
-  --portable-root /tmp/portable-v2/portable/.ordax \
-  --trust /tmp/portable-v2/release-trust.json \
-  --source-commit <SHA40_DO_COMMIT_CANDIDATO> \
-  --output-dir /tmp/independent-portable-proof
-```
+**Identidades confirmadas pelos recibos:** Buildroot EROFS `39cfd04708d5a42b3a34db8891d6b4b22e3f0d32c7e8923e204f5ef947d3cbc8`; initramfs `bb600aa7f765fe63cab5a7384eef95c5a2b4445fef37a0e1c1951042c595a32e`; handoff oficial `5b848b4cd0d3ca8bfb0a90a1544fb13be059e62c474abdb052bac70ff48a4ae6`; fragmento BusyBox `d197f42ba877c69e5cb67b65a83b6380c89da798973edfbdf7404b92492bda07`.
 
-Para exigir prova do **rollback one-shot real**, fornecer também `--previous-commit <SHA40_ANTERIOR>` e uma imagem de estado explicitamente armada com o helper `ordax-portable-state prepare` oficial. A prova é abortada quando o receipt não comprova `armed_candidate_one_shot_proven=true`.
+**Integridade dos artifacts GitHub:** independente `11764274216`, ZIP SHA-256 `307565bee9352e02dd790c951ec1b5d1be5a9414929c9d13777f040175961993`; Stable `11762742948`, ZIP `a98579f8902776fc74ef0e4767e4d1bd1d19e2c6f8b563344a5a6218415e437e`; prova mínima Buildroot `11762154806`. Os quatro hashes das séries foram conferidos contra os bytes dos logs.
 
-## Gates ainda abertos — não inventar PASS
+## Limites técnicos, de segurança e promoção
 
-- Compilar a nova imagem com `/sbin/ordax-stable-init` idêntico ao canônico e verificar dependências do runtime.
-- Produzir todos os artefatos de release assinado por builders oficiais, sem alterar release/Surface/Wine.
-- Executar `qemu_boot.py` via adaptador, em QEMU com `rdinit=/sbin/ordax-portable-init`, e obter recibo normal + one-shot rollback.
-- Injetar falhas de assinatura/release corrupto e demonstrar fallback/recuperação, incluindo evidências seriais, imagens e hashes.
-- Provar paridade de comandos, módulos/firmware, serviços e estado antes de qualquer promoção; nenhum desses gates é substituído pela prova de PID1 mínimo da Fase 1.
-- QEMU não prova UEFI, Secure Boot, hardware, firmware Wi-Fi nem uso físico.
+**Confirmado:** compatibilidade do caminho portátil oficial na arquitetura QEMU x86_64; boot direto e UEFI com OVMF; SHA-256 fixo do EROFS; releases de teste assinados; selection/fallback `candidate/current/known-good`; ext4/OverlayFS; resgate em caso de falha de assinatura; recuperação explícita sem escrita na imagem e sem rede.
 
-**Isolamento:** todas as mudanças desta fase permanecem em `feat/independent-base-portable-v2-integration-20261012`; base Alpine corrente, Creator, Stable e os caminhos de boot publicados não foram alterados. A branch foi inicialmente criada a partir de `7d21fb470895fe5328d4cd6cc6d2ef683ff671d1` (candidata reconciliada da PR #1685). Após o merge da #1685, reconciliar e reexecutar checks, sem reescrever históricos alheios.
+**Não confirmado:** Secure Boot, assinatura de produção/cerimônia de chaves reais, USB e hardware físico, saúde fria do Stable pós-reboot para promoção, carregamento real de drivers/firmware Wi-Fi, paridade de serviços de sistema, persistência de sessões reais de apps, integração gráfica/Wayland/Wine e migração completa das dependências Alpine. O relatório Buildroot continua deliberadamente com `qemu_boot_proven=false` e `signed_release_equivalence_proven=false`, porque essa proveniência descreve **somente o build**, enquanto os recibos QEMU independentes comprovam a integração posterior. **Não falsificar ou ativar flags de promoção.**
+
+A integração é uma capacidade de teste isolada. O Stable continua padrão; a migração do produto/serviços e a eventual retirada de Alpine exigem projeto e provas separados. Nenhuma gravação de pendrive físico, mudança na Surface, nas aplicações, no Creator ou no Vercel é autorizada por esta Fase 2.
+
+**Gate de merge:** checks obrigatórios e de regressão verdes **no SHA final reconciliado**, revisão de isolamento e compatibilidade com `main`; não forçar merge e não contornar falhas de publicação externa.

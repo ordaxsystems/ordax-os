@@ -34,7 +34,12 @@ func validateForwardStateCompatibility(
 		current.WriteVersion > candidate.ReadableThrough {
 		return errors.New("runtime component candidate cannot read current signed state version")
 	}
-	return nil
+	// A readable schema range is not a crash-safe rollback strategy. Since
+	// the canonical state owner cannot yet prove or restore the persisted
+	// generation, even same-schema upgrades are unsafe to arm: otherwise a
+	// healthy promotion could become a one-way migration. Revisit only
+	// when system/services/state integrates verified last-known-good.
+	return errors.New("runtime component stateful upgrade requires verified device-state recovery checkpoint")
 }
 
 // With bundled consumers not yet independently attested, a signed upgrade
@@ -151,11 +156,11 @@ func verifyArmPendingStateCompatibility(
 	); err != nil {
 		return err
 	}
-	// A locally compatible replacement still cannot assume that the
-	// installed native graph stayed valid since an earlier preflight.
-	// Re-read every signed current peer under the activation graph lock.
-	// This does not attest bundled consumers or grant public activation.
-	return verifySignedNativeConsumerContinuityUnderGraphLock(
-		root, componentID, after.Descriptor.Provides, trustBytes,
+	// Re-read the canonical signed current graph while still locked.
+	// A replacement must preserve its active consumers AND prove each
+	// mandatory requirement of the incoming candidate has an installed,
+	// signed release/2 provider. This cannot attest bundled components.
+	return verifySignedNativeCandidateGraphUnderLock(
+		root, componentID, after.Descriptor, trustBytes, true,
 	)
 }
