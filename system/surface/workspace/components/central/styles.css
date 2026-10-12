@@ -640,8 +640,9 @@
 .window-workspace[data-sidebar="collapsed"] { --workspace-rail: 64px; --sidebar-expanded: 0; }
 .window-workspace[data-sidebar="expanded"] { --workspace-rail: var(--sidebar-width); --sidebar-expanded: 1; }
 .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0; }
-.sidebar-collapse { width: 28px; height: 32px; flex-shrink: 0; }
-.sidebar-collapse svg { width: 18px; height: 18px; }
+.sidebar-collapse { position: absolute; left: calc(var(--sidebar-visual-width,var(--workspace-rail)) - 12px); top: 50%; transform: translateY(-50%); width: 24px; height: 44px; padding: 0; border-radius: 4px; background: transparent; color: var(--muted-foreground); z-index: 53; }
+.sidebar-collapse:hover, .sidebar-collapse:focus-visible { background: var(--sidebar-surface); color: var(--foreground); }
+.sidebar-collapse svg { width: 16px; height: 16px; }
 .sidebar-home-row { grid-template-columns: minmax(0,1fr); }
 .account-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .account-actions > button { width: 28px; height: 28px; padding: 0; color: var(--muted-foreground); }

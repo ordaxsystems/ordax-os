@@ -488,3 +488,13 @@ branch. The footer only reserves height when the responsive Aura mode selector i
 needed. Sidebar navigation and measured overflow remain available independently.
 Owner: OS Surface; no backend/window-state change. Existing check source updated;
 no build, npm or tests run under the standing restriction.
+
+### Sidebar edge chevron — 2026-10-11
+
+Explicit Surface styling request: move the existing collapse control outside the
+sidebar header flow to the divider edge, centered vertically. A left/right chevron
+shows collapse/expand direction. It has no persistent button frame and uses shared
+theme hover/focus feedback; its 24x44px target and accessible labels are retained.
+The CSS rail/visual-width variables position it for desktop and mobile overlay
+modes. One state/control remains; no window remount or backend change. No build,
+npm or tests executed under the standing user restriction.

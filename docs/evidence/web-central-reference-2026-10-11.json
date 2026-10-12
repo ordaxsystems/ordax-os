@@ -38,7 +38,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "358d76c4ba798ee2fab11e9aade1da695f31632145a83bb0e49c7f239a604891",
+      "adaptedSha256": "333b13f73b37eddcfc911e3923d29cb1dda382de84af28484a93fa5cf5cee708",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "50ef86a752668f43f199c005dff7c3c3734699c00dfddda3c03f7dcceed303b5",
+      "adaptedSha256": "60adc046e0c688209504be17897e91b67951600cdeb584dd7bf126d58869e2e4",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -99,7 +99,8 @@
     "Maximized app uses the complete shared work-area track without outer margins or desktop header clearance",
     "Central container-sized grid without page scrolling; responsive panel selection, bounded summaries and existing actions through overflow",
     "Collapsible responsive sidebar, account bell beside settings, and icon-only Home overflow without visible footer labels",
-    "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control"
+    "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control",
+    "Collapse control moved out of sidebar content flow to a directional chevron on the divider edge"
   ],
   "native_files": [
     {

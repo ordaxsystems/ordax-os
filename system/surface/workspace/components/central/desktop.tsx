@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type Dispatch } from 'react';
-import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, PanelLeftClose, PanelLeftOpen, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
+import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
@@ -62,7 +62,7 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
   return <>
     {startOpen && <><div className="desktop-menu-dismiss" onClick={() => setStartOpen(false)}/><section className="desktop-start-menu" aria-label="Menu de destinos"><div className="desktop-menu-search"><Search className="size-4"/><input autoFocus aria-label="Pesquisar destinos" placeholder="Pesquisar aplicativos e painéis" value={search} onChange={e => setSearch(e.target.value)}/></div><div className="desktop-menu-heading">Aplicativos e painéis</div><div className="desktop-menu-apps">{[...navigation, { name: 'Notificações', icon: Bell }].filter(item => item.name !== 'Início' && item.name.toLowerCase().includes(search.toLowerCase())).map(item => <Button variant="ghost" key={item.name} className="desktop-menu-item" onClick={() => open(item.name)}><item.icon/>{item.name}<ChevronRight className="ml-auto"/></Button>)}{'central'.includes(search.toLowerCase()) && <Button variant="ghost" className="desktop-menu-item" onClick={returnToCentral}><LayoutGrid/>Central<ChevronRight className="ml-auto"/></Button>}</div><div className="desktop-menu-footer"><Avatar/><span>João <small>Espaço Pessoal</small></span><Button variant="ghost" size="icon" className="ml-auto" aria-label="Configurações" title="Configurações" onClick={() => open('Configurações')}><Settings/></Button></div></section></>}
     <aside id="workspace-sidebar" className="os-sidebar workspace-sidebar" aria-label="Navegação principal">
-      <div className="sidebar-header"><Brand/><Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <PanelLeftClose/> : <PanelLeftOpen/>}</Button></div>
+      <div className="sidebar-header"><Brand/></div>
       <div className="sidebar-home-row">
         {navigation.filter(item => item.name === 'Início').map(item => <Button key={item.name} variant="ghost" className="os-nav-item" title={item.name} aria-label={item.name} data-window-home="true" data-active={view === 'central'} onClick={() => { dispatch({ type: 'show-desktop' }); returnToCentral(); }}><item.icon/><span>{item.name}</span></Button>)}
       </div>
@@ -72,6 +72,7 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
       </nav>
       <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Espaços')} onSettings={() => open('Configurações')}/>
     </aside>
+    <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>
     <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps">{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><LayoutGrid/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
   </>;
 }
