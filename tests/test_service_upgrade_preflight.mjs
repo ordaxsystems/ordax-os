@@ -98,16 +98,31 @@ test("refuses missing or duplicated active consumer descriptions, cannot assume 
   assert.throws(() => inspect({ active: null }), /explicit current active descriptors/);
 });
 
-test("mismatched current identity or version blocks candidate", () => {
-  const wrongCurrent = inspect({ current: { ...localAiCompatibility, componentVersion: "0.0.9" } });
-  assert.equal(wrongCurrent.compatibilityAllowed, false);
-  assert.equal(wrongCurrent.reasonCode, "current-manifest-version-mismatch");
+test("uses verified active slot version rather than bundled manifest for subsequent upgrades", () => {
+  const existing = { ...localAiCompatibility, componentVersion: "0.15.0" };
+  const future = { ...futureAI(), componentVersion: "0.16.0" };
+  const decision = inspect({ current: existing, candidate: future });
+  assert.equal(decision.compatibilityAllowed, true);
+  assert.equal(decision.reasonCode, "compatible-stateless");
+  assert.equal(decision.activationEvidence, "not-evaluated");
+});
+
+test("mismatched identity, downgrade and incoherent active contracts fail closed", () => {
   const wrongCandidate = inspect({ candidate: { ...futureAI(), componentId: "ordax-intelligence" } });
   assert.equal(wrongCandidate.compatibilityAllowed, false);
   assert.equal(wrongCandidate.reasonCode, "component-identity-mismatch");
   const downgrade = inspect({ candidate: { ...futureAI(), componentVersion: "0.0.9" } });
   assert.equal(downgrade.compatibilityAllowed, false);
   assert.equal(downgrade.reasonCode, "candidate-not-newer");
+  const incoherent = inspect({ active: [{
+    ...intelligenceCompatibility,
+    requires: [{ id: "ordax.missing", minMajor: 1, maxMajor: 1, optional: false }],
+  }] });
+  assert.equal(incoherent.compatibilityAllowed, false);
+  assert.equal(incoherent.reasonCode, "active-contract-snapshot-invalid");
+  assert.throws(() => inspect({ active: [{
+    ...intelligenceCompatibility, componentId: "ghost-component",
+  }] }), /no canonical manifest/);
 });
 
 test("persistent state change is blocked unless separately planned and verified by owner", () => {
