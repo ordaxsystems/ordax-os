@@ -90,7 +90,10 @@ test("Native shell uses real ports; canonical Web preserves the Spaces interface
   }
   assert.match(native, /spaces,\s*spaceSelection,\s*appActivation/);
   assert.match(component, /assertSpaceSelectionPort/);
-  assert.match(web, /WebShell/);
+  assert.match(web, /RouterProvider/);
+  assert.match(web, /StoreCatalogProvider/);
+  assert.match(web, /<Central\/>/);
+  assert.doesNotMatch(web, /WebShell/);
   assert.doesNotMatch(web, /adapters\/native/);
   assert.match(component, /selectionPort\.select\(match\.id\)/);
   assert.match(component, /activationPort\.publish\(\{ appId: "account", target: "spaces" \}\)/);

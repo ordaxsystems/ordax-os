@@ -9,7 +9,7 @@ import {
   assertIdentitySessionPort,
   validateIdentitySessionSnapshot,
 } from "../../contracts/identity-session.mjs";
-import { assertIdentityCredentialsPort } from "../../contracts/identity-credentials.mjs";
+import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
 import {
   assertAccountLifecyclePort,
   isAccountLifecycleActionSupported,
@@ -208,6 +208,8 @@ export function mountAccountOverviewControls(
   let credentialPasswordDraft = "";
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
+  // Reusing a session never requests another legal acceptance.
+  let credentialMode = "sign-in";
   let registrationPolicyPending = false;
   let closePasswordDraft = "";
   let closeConfirmationChecked = false;
@@ -392,7 +394,7 @@ export function mountAccountOverviewControls(
       passwordLabel.append(node(documentObject, "span", "", t("account.credentials.password")));
       const passwordInput = documentObject.createElement("input");
       passwordInput.type = "password";
-      passwordInput.autocomplete = "current-password";
+      passwordInput.autocomplete = credentialMode === "register" ? "new-password" : "current-password";
       passwordInput.maxLength = 1024;
       passwordInput.value = credentialPasswordDraft;
       passwordInput.dataset.accountCredentialPassword = "";
@@ -402,7 +404,8 @@ export function mountAccountOverviewControls(
       form.append(emailLabel, passwordLabel);
 
       if (
-        registrationPolicy
+        credentialMode === "register"
+        && registrationPolicy
         && isIdentityActionSupported(actionsSnapshot, "register")
       ) {
         const legal = node(documentObject, "div", "ordax-account-registration-legal");
@@ -448,7 +451,12 @@ export function mountAccountOverviewControls(
       );
       signIn.type = "button";
       signIn.dataset.accountIdentityAction = "sign-in";
-      signIn.disabled = pendingAction !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
+      signIn.disabled = pendingAction !== null || (credentialMode !== "register" && !isIdentityActionSupported(actionsSnapshot, "sign-in"));
+      if (credentialMode === "register") {
+        signIn.dataset.accountCredentialMode = "sign-in";
+        signIn.className = "ordax-account-action";
+        delete signIn.dataset.accountIdentityAction;
+      }
       actions.append(signIn);
 
       const register = node(
@@ -458,14 +466,23 @@ export function mountAccountOverviewControls(
         pendingAction === "register" ? t("account.action.registering") : t("account.action.register"),
       );
       register.type = "button";
-      register.dataset.accountIdentityAction = "register";
-      register.disabled = (
-        pendingAction !== null
-        || registrationPolicyPending
-        || !registrationPolicy
-        || !registrationLegalAccepted
-        || !isIdentityActionSupported(actionsSnapshot, "register")
-      );
+      if (credentialMode === "register") {
+        register.dataset.accountIdentityAction = "register";
+        register.className = "ordax-account-action ordax-account-action-primary";
+        register.disabled = (
+          pendingAction !== null
+          || registrationPolicyPending
+          || !registrationPolicy
+          || !registrationLegalAccepted
+          || !isIdentityActionSupported(actionsSnapshot, "register")
+        );
+      } else {
+        register.dataset.accountCredentialMode = "register";
+        register.disabled = (
+          pendingAction !== null
+          || !isIdentityActionSupported(actionsSnapshot, "register")
+        );
+      }
       actions.append(register);
     } else if (action) {
       const label = pendingAction === action
@@ -1208,8 +1225,11 @@ export function mountAccountOverviewControls(
     try {
       const policy = await credentialsPort.registrationPolicy();
       if (destroyed) return;
-      registrationPolicy = policy.registrationEnabled === true ? policy : null;
-      if (registrationPolicy === null) registrationLegalAccepted = false;
+      const nextPolicy = policy.registrationEnabled === true ? policy : null;
+      if (!sameRegistrationLegalPolicy(registrationPolicy, nextPolicy)) {
+        registrationLegalAccepted = false;
+      }
+      registrationPolicy = nextPolicy;
     } catch {
       if (!destroyed) {
         registrationPolicy = null;
@@ -1228,6 +1248,9 @@ export function mountAccountOverviewControls(
     ) {
       return;
     }
+    if (action === "register" && (
+      credentialMode !== "register" || !registrationPolicy || !registrationLegalAccepted
+    )) return;
     const credentialInput = (
       credentialsPort
       && sessionSnapshot.state === "signed-out"
@@ -1519,6 +1542,18 @@ export function mountAccountOverviewControls(
       return;
     }
 
+    const modeButton = event.target.closest("[data-account-credential-mode]");
+    if (modeButton && root.contains(modeButton) && pendingAction === null) {
+      const nextMode = modeButton.dataset.accountCredentialMode;
+      if (nextMode === "register" || nextMode === "sign-in") {
+        credentialMode = nextMode;
+        if (nextMode === "sign-in") registrationLegalAccepted = false;
+        actionMessage = "";
+        replaceView();
+      }
+      return;
+    }
+
     const button = event.target.closest("[data-account-identity-action]");
     if (button && root.contains(button)) {
       void invoke(button.dataset.accountIdentityAction);
@@ -1572,6 +1607,7 @@ export function mountAccountOverviewControls(
     } else {
       registrationPolicy = null;
       registrationLegalAccepted = false;
+      credentialMode = "sign-in";
     }
     actionMessage = "";
     replaceView();

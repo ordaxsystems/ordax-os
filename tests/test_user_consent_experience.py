@@ -68,6 +68,38 @@ class UserConsentExperienceTests(unittest.TestCase):
         self.assertIn("sameRegistrationLegalPolicy", credentials)
         self.assertIn("value.legalAccepted !== true", credentials)
 
+    def test_os_account_and_first_run_only_show_acceptance_during_registration(self):
+        for path, marker in (
+            ("system/surface/ui/account-overview-controls.mjs", "data-account-credential-mode"),
+            ("system/surface/ui/first-run.mjs", "account-show-register"),
+        ):
+            with self.subTest(path=path):
+                source = (ROOT / path).read_text(encoding="utf-8")
+                self.assertIn('let credentialMode = "sign-in";', source)
+                self.assertIn('credentialMode === "register"', source)
+                self.assertIn('credentialMode !== "register"', source)
+                self.assertIn("registrationLegalAccepted = false;", source)
+                self.assertIn('credentialMode === "register" ? "new-password" : "current-password"', source)
+                self.assertIn(marker, source)
+                self.assertIn('...(kind === "register" ? { legalAccepted: registrationLegalAccepted } : {})'
+                              if path.endswith("first-run.mjs") else
+                              '...(action === "register" ? { legalAccepted: registrationLegalAccepted } : {})', source)
+                self.assertEqual(source.count("dataset.firstRunRegistrationLegalAcceptance = \"\";")
+                                 if path.endswith("first-run.mjs") else
+                                 source.count("dataset.accountRegistrationLegalAcceptance = \"\";"), 1)
+
+    def test_account_registration_resets_acceptance_on_policy_change(self):
+        account = (ROOT / "system/surface/ui/account-overview-controls.mjs").read_text(encoding="utf-8")
+        first_run = (ROOT / "system/surface/ui/first-run.mjs").read_text(encoding="utf-8")
+        for source in (account, first_run):
+            self.assertIn("sameRegistrationLegalPolicy(registrationPolicy, nextPolicy)", source)
+            self.assertIn("registrationLegalAccepted = false;", source)
+            self.assertIn("|| !registrationPolicy", source)
+            self.assertIn("|| !registrationLegalAccepted", source)
+        self.assertIn('register.dataset.accountIdentityAction = "register"', account)
+        self.assertIn('register.dataset.accountCredentialMode = "register"', account)
+        self.assertIn('signIn.dataset.accountCredentialMode = "sign-in"', account)
+
     def test_plugin_reuses_login_without_a_new_terms_receipt(self):
         plugin = self.policy["plugin"]
         self.assertEqual(plugin["legal_acceptance_control_count"], 0)

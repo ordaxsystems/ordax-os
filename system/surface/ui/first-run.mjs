@@ -158,6 +158,8 @@ export function mountFirstRunExperience(
   let selectedIdentitySubjectId = null;
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
+  // Login is the default. The legal checkbox belongs only to registration.
+  let credentialMode = "sign-in";
   let registrationPolicyPending = false;
   let localSessionSnapshot = localSessionPort === null
     ? null
@@ -472,7 +474,7 @@ export function mountFirstRunExperience(
       passwordField.append(el(documentObject, "span", "", "Senha"));
       const password = documentObject.createElement("input");
       password.type = "password";
-      password.autocomplete = "current-password";
+      password.autocomplete = credentialMode === "register" ? "new-password" : "current-password";
       password.maxLength = 1024;
       password.value = identityPasswordDraft;
       password.dataset.firstRunIdentityPassword = "";
@@ -481,7 +483,8 @@ export function mountFirstRunExperience(
       form.append(emailField, passwordField);
 
       if (
-        registrationPolicy
+        credentialMode === "register"
+        && registrationPolicy
         && isIdentityActionSupported(actionsSnapshot, "register")
       ) {
         const legal = el(documentObject, "div", "ordax-first-run-legal");
@@ -522,17 +525,25 @@ export function mountFirstRunExperience(
     if (sessionSnapshot.state === "signed-in") {
       buttons.append(action(documentObject, "Usar esta conta", "account-identity", true));
     } else {
-      const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
-      signIn.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
-      const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
-      register.disabled = (
-        identityPending !== null
-        || registrationPolicyPending
-        || !registrationPolicy
-        || !registrationLegalAccepted
-        || !isIdentityActionSupported(actionsSnapshot, "register")
-      );
-      buttons.append(signIn, register);
+      if (credentialMode === "register") {
+        const backToLogin = action(documentObject, "Entrar", "account-show-sign-in");
+        backToLogin.disabled = identityPending !== null;
+        const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register", true);
+        register.disabled = (
+          identityPending !== null
+          || registrationPolicyPending
+          || !registrationPolicy
+          || !registrationLegalAccepted
+          || !isIdentityActionSupported(actionsSnapshot, "register")
+        );
+        buttons.append(register, backToLogin);
+      } else {
+        const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
+        signIn.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
+        const showRegister = action(documentObject, "Criar conta", "account-show-register");
+        showRegister.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "register");
+        buttons.append(signIn, showRegister);
+      }
     }
     const local = action(documentObject, "Continuar sem conta", "account-local");
     local.disabled = identityPending !== null;
@@ -792,6 +803,9 @@ export function mountFirstRunExperience(
 
   const runIdentity = async (kind) => {
     if (destroyed || identityPending || !isIdentityActionSupported(actionsSnapshot, kind)) return;
+    if (kind === "register" && (
+      credentialMode !== "register" || !registrationPolicy || !registrationLegalAccepted
+    )) return;
     const credentialInput = credentialsPort && (kind === "sign-in" || kind === "register")
       ? {
           email: identityEmailDraft,
@@ -895,6 +909,15 @@ export function mountFirstRunExperience(
       } else {
         void connectNetwork(ssid, password);
       }
+    } else if (kind === "account-show-register") {
+      credentialMode = "register";
+      identityMessage = "";
+      render();
+    } else if (kind === "account-show-sign-in") {
+      credentialMode = "sign-in";
+      registrationLegalAccepted = false;
+      identityMessage = "";
+      render();
     } else if (kind === "account-sign-in") void runIdentity("sign-in");
     else if (kind === "account-register") void runIdentity("register");
     else if (kind === "account-identity") {
@@ -952,7 +975,11 @@ export function mountFirstRunExperience(
       overlay.querySelector('[data-first-run-action="network-connect"]')?.click();
     } else if (input.matches("[data-first-run-identity-email], [data-first-run-identity-password]")) {
       event.preventDefault();
-      overlay.querySelector('[data-first-run-action="account-sign-in"]')?.click();
+      overlay.querySelector(
+        credentialMode === "register"
+          ? '[data-first-run-action="account-register"]'
+          : '[data-first-run-action="account-sign-in"]'
+      )?.click();
     } else if (
       input.matches("[data-first-run-local-session-secret], [data-first-run-local-session-confirm]")
     ) {
