@@ -93,6 +93,39 @@ report to the same active revision before using its descriptor with
 `preflightServiceUpgrade`. The compatibility evaluator is source-only:
 it cannot verify Ed25519 or decide state authority by reading its JSON input.
 
+### Canonical activation-state readback (no second SSOT)
+
+The same binary can inspect **the exact current or pending signed slot referenced
+by** the existing `activation-state.json`, without mutating that file:
+
+```text
+ordax-runtime-component-channel inspect-activation-compatibility-v2 \
+  --root <canonical-component-root> \
+  --component <component-id> \
+  --target current \
+  --expected-revision <activation-state-revision> \
+  --trust <public-component-trust-file>
+```
+
+This returns `ordax.activation-slot-compatibility-snapshot/1`: it binds
+the selected `current` or `pending` identity, component ID, revision,
+health status and signature-verified release/2 compatibility descriptor.
+It reads the canonical activation state again after verifying the signed slot
+and rejects a changed state. Missing, removed, stale, or malformed state
+fails closed; stage-only slots cannot masquerade as installed.
+
+The JavaScript `preflightServiceUpgradeWithActivationSnapshots` checks a
+**current** snapshot, a separately signature-verified **staged (unarmed)**
+candidate, active consumer snapshots, and the expected activation revision,
+then delegates to the existing `evaluateComponentUpgrade` logic. This is
+**diagnostic and not the transactional activation gate**: even a verified
+snapshot becomes stale after a later state change, and an untrusted caller
+may forge JSON. The Native owner must supply these reports from trusted
+verification, use the system-pinned trust key and revalidate the precise
+revision/identity under the existing mutation lock before `arm-pending`.
+Do not send a "compatible" diagnostic as an activation grant or edit the
+activation state from JavaScript.
+
 **Remaining blocker:** `arm-pending` does not yet consume a verified
 compatibility verdict across all active consumers. A correct fail-closed
 integration must run before any activation-state mutation and invalidate
