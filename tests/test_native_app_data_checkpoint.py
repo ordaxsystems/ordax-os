@@ -230,6 +230,7 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 "sourceRelease": RELEASE,
                 "pinnedRevision": 1,
                 "currentRevision": 2,
+                "currentManifestSHA256": hashlib.sha256(initial_manifest).hexdigest(),
                 "checkpointSHA256": hashlib.sha256(initial_pin).hexdigest(),
             })
             self.assertEqual(manifest.read_bytes(), initial_manifest)
@@ -265,6 +266,70 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "blob integrity"):
                     app_data.inspect_app_data_checkpoint(identity(), RELEASE, 2, str(root))
                 self.assertEqual(manifest.read_bytes(), before)
+
+    def test_inspection_digests_bind_both_generations_and_change_on_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"before", 0, str(root))
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            first = app_data.inspect_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            app_data.put_app_data(identity(), "key", b"after", 1, str(root))
+            second = app_data.inspect_app_data_checkpoint(identity(), RELEASE, 2, str(root))
+            self.assertEqual(first["authority"], "none")
+            self.assertEqual(second["authority"], "none")
+            self.assertEqual(first["checkpointSHA256"], second["checkpointSHA256"])
+            self.assertNotEqual(first["currentManifestSHA256"], second["currentManifestSHA256"])
+            self.assertEqual(first["currentRevision"], 1)
+            self.assertEqual(second["currentRevision"], 2)
+            partition = only_partition(root)
+            self.assertEqual(
+                second["currentManifestSHA256"],
+                hashlib.sha256((partition / "manifest.json").read_bytes()).hexdigest(),
+            )
+            self.assertEqual(
+                second["checkpointSHA256"],
+                hashlib.sha256((partition / app_data.APP_DATA_CHECKPOINT_NAME).read_bytes()).hexdigest(),
+            )
+            app_data.restore_app_data_checkpoint(identity(), RELEASE, 2, str(root))
+            restored = app_data.inspect_app_data_checkpoint(identity(), RELEASE, 3, str(root))
+            self.assertEqual(restored["checkpointSHA256"], second["checkpointSHA256"])
+            self.assertNotEqual(restored["currentManifestSHA256"], second["currentManifestSHA256"])
+            self.assertEqual(
+                app_data.read_app_data(identity(), "key", str(root))["value"], b"before",
+            )
+
+    def test_owner_inspection_holds_shared_lock_through_all_integrity_checks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"before", 0, str(root))
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            app_data.put_app_data(identity(), "key", b"after", 1, str(root))
+            lock = only_partition(root) / "lock"
+            original_verify = app_data._verify_blob
+            observed = []
+
+            def verify_under_lock(blobs, record):
+                descriptor = os.open(lock, os.O_RDWR)
+                try:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    observed.append(record["blob"])
+                finally:
+                    os.close(descriptor)
+                return original_verify(blobs, record)
+
+            with mock.patch.object(app_data, "_verify_blob", side_effect=verify_under_lock):
+                inspected = app_data.inspect_app_data_checkpoint(
+                    identity(), RELEASE, 2, str(root),
+                )
+            self.assertEqual(inspected["currentRevision"], 2)
+            self.assertEqual(len(observed), 2, "both generations were not verified under flock")
+            descriptor = os.open(lock, os.O_RDWR)
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
     def test_owner_inspection_rejects_genesis_pin_of_other_publisher(self):
         with tempfile.TemporaryDirectory() as temporary:
