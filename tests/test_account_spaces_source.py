@@ -36,7 +36,9 @@ class AccountSpacesSourceTests(unittest.TestCase):
     def test_surface_and_native_use_only_ordax_account_boundary(self):
         adapter = WEB_ADAPTER.read_text(encoding="utf-8")
         native = NATIVE_HOST.read_text(encoding="utf-8")
-        self.assertIn('windowRef.fetch("/account/spaces"', adapter)
+        self.assertIn('const reader = createWebJsonReader(windowRef);', adapter)
+        self.assertIn('reader.read("/account/spaces")', adapter)
+        self.assertNotIn('windowRef.fetch("/account/spaces"', adapter)
         self.assertNotIn("supabase", adapter.lower())
         self.assertIn('ACCOUNT_SPACES_PATH = "/account/spaces"', native)
         self.assertIn("self.server.account_gateway.spaces()", native)

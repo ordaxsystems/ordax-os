@@ -101,7 +101,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn("RouterProvider", source)
         self.assertIn("StoreCatalogProvider", source)
         self.assertIn("createUnavailableAppStoreCatalogPort", source)
-        self.assertIn("<Central/>", source)
+        self.assertRegex(source, r"<Central(?:\s|/>)")
         self.assertNotIn("WebShell", source)
 
     def test_kernel_keeps_framebuffer_capability_for_future_early_graphics(self):

@@ -13,13 +13,13 @@ const catalog = subject => ({
   spaces: [{ id: 'space-' + subject, name: 'Space ' + subject, kind: 'personal', state: 'active', ownerId: subject }],
 });
 const response = value => ({ ok: true, status: 200, json: async () => structuredClone(value) });
-function fixture(sessionValue = signedOut) {
+function fixture(sessionValue = signedOut, { online = true } = {}) {
   const windowRef = new EventTarget();
   const document = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   const requests = [];
   const server = { session: sessionValue, readSpaces: () => response(catalog(server.session.subject)) };
   Object.assign(windowRef, {
-    navigator: { onLine: true }, document,
+    navigator: { onLine: online }, document,
     fetch: async (path, options) => {
       requests.push({ path, options });
       if (path === '/auth/session') return response(server.session);
@@ -202,4 +202,149 @@ test('a new Web composition does not inherit session-only selection after dispos
     await next.refresh();
     assert.equal(next.selection.getSnapshot().state, 'unselected');
   } finally { next.dispose(); }
+});
+
+test('offline initialization and visibility/focus refreshes perform no network reads', async () => {
+  const f = fixture(signedIn('account-a'), { online: false });
+  try {
+    await f.session.refresh();
+    f.windowRef.dispatchEvent(new Event('focus'));
+    f.windowRef.document.dispatchEvent(new Event('visibilitychange'));
+    await f.session.refresh();
+    assert.equal(f.requests.length, 0);
+    assert.equal(f.session.surface.getSnapshot().connectivity, 'offline');
+    assert.equal(f.session.identity.getSnapshot().state, 'unavailable');
+  } finally { f.session.dispose(); }
+});
+
+test('offline invalidates catalog and selected context; reconnect revalidates the same record', async () => {
+  const f = fixture(signedIn('account-a'));
+  try {
+    await f.session.refresh();
+    f.session.selection.select('space-account-a');
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
+    assert.equal(f.session.spaces.getSnapshot().state, 'unavailable');
+    assert.equal(f.session.selection.getSnapshot().state, 'unavailable');
+    const count = f.requests.length;
+    await f.session.refresh();
+    assert.equal(f.requests.length, count);
+    f.windowRef.navigator.onLine = true;
+    f.windowRef.dispatchEvent(new Event('online'));
+    await f.session.refresh();
+    assert.equal(f.requests.length, count + 2);
+    assert.equal(f.session.selection.getSnapshot().state, 'selected');
+    assert.equal(f.session.selection.getSnapshot().selectedSpace.id, 'space-account-a');
+  } finally { f.session.dispose(); }
+});
+
+test('offline between identity response and catalog read suppresses Spaces request', async () => {
+  const f = fixture(signedIn('account-a'));
+  const originalFetch = f.windowRef.fetch;
+  const lateSession = deferred();
+  f.windowRef.fetch = async (path, options) => path === '/auth/session'
+    ? lateSession.promise : originalFetch(path, options);
+  try {
+    const pending = f.session.refresh();
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    lateSession.resolve(response(signedIn('account-a')));
+    await pending;
+    assert.equal(f.requests.some(request => request.path === '/account/spaces'), false);
+    assert.equal(f.session.spaces.getSnapshot().state, 'unavailable');
+  } finally { f.session.dispose(); }
+});
+
+test('reconnect during an old catalog read aborts and suppresses late data before one fresh pass', async () => {
+  const f = fixture(signedIn('account-a'));
+  const lateCatalog = deferred();
+  const started = deferred();
+  let signal;
+  f.server.readSpaces = options => {
+    signal = options.signal; started.resolve(); return lateCatalog.promise;
+  };
+  try {
+    const pending = f.session.refresh();
+    await started.promise;
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    assert.equal(signal.aborted, true);
+    f.windowRef.navigator.onLine = true;
+    f.windowRef.dispatchEvent(new Event('online'));
+    assert.equal(f.session.refresh(), pending);
+    f.server.readSpaces = () => response(catalog('account-a'));
+    lateCatalog.resolve(response(catalog('stale-account')));
+    await pending;
+    assert.deepEqual(f.requests.map(request => request.path), [
+      '/auth/session', '/account/spaces', '/auth/session', '/account/spaces',
+    ]);
+    assert.equal(f.session.spaces.getSnapshot().spaces[0].ownerId, 'account-a');
+    assert.equal(f.requests.some(request => request.options.method === 'POST'), false);
+  } finally { f.session.dispose(); }
+});
+
+test('disposed account composition ignores subsequent connectivity events', async () => {
+  const f = fixture(signedIn('account-a'));
+  await f.session.refresh();
+  f.session.dispose();
+  const count = f.requests.length;
+  f.windowRef.navigator.onLine = false;
+  f.windowRef.dispatchEvent(new Event('offline'));
+  f.windowRef.navigator.onLine = true;
+  f.windowRef.dispatchEvent(new Event('online'));
+  await f.session.refresh();
+  assert.equal(f.requests.length, count);
+});
+
+test('offline releases a stalled identity read so online can start a fresh account pass', async () => {
+  const f = fixture(signedIn('account-a'));
+  const fetch = f.windowRef.fetch;
+  let first = true;
+  f.windowRef.fetch = (path, options) => {
+    if (first && path === '/auth/session') { first = false; return new Promise(() => {}); }
+    return fetch(path, options);
+  };
+  try {
+    const pending = f.session.refresh();
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    await pending;
+    assert.equal(f.session.identity.getSnapshot().state, 'unavailable');
+    f.windowRef.navigator.onLine = true;
+    f.windowRef.dispatchEvent(new Event('online'));
+    await f.session.refresh();
+    assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
+    assert.equal(f.session.spaces.getSnapshot().state, 'ready');
+    assert.deepEqual(f.requests.map(request => request.path), ['/auth/session', '/account/spaces']);
+  } finally { f.session.dispose(); }
+});
+
+test('late cancelled identity body cannot replace the subject verified after reconnect', async () => {
+  const f = fixture(signedIn('account-a'));
+  const fetch = f.windowRef.fetch;
+  const lateBody = deferred();
+  let first = true;
+  f.windowRef.fetch = (path, options) => {
+    if (first && path === '/auth/session') {
+      first = false;
+      return Promise.resolve({ ok: true, status: 200, json: () => lateBody.promise });
+    }
+    return fetch(path, options);
+  };
+  try {
+    const pending = f.session.refresh();
+    await Promise.resolve();
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    await pending;
+    f.windowRef.navigator.onLine = true;
+    f.windowRef.dispatchEvent(new Event('online'));
+    await f.session.refresh();
+    lateBody.resolve(signedIn('stale-account'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
+    assert.equal(f.session.spaces.getSnapshot().spaces[0].ownerId, 'account-a');
+  } finally { f.session.dispose(); }
 });

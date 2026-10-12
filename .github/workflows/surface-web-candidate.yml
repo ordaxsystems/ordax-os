@@ -123,6 +123,9 @@ on:
       - 'tests/test_surface_boot_screen.py'
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
+      - 'tests/test_preference_runtime.mjs'
+      - 'tests/test_web_account_session.mjs'
+      - 'tests/test_web_identity_capability_refresh.mjs'
       - 'tests/test_surface_localization.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
@@ -192,6 +195,7 @@ on:
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
+      - 'tests/test_web_json_read.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
       - 'tests/test_account_lifecycle.mjs'
@@ -344,6 +348,9 @@ on:
       - 'tests/test_surface_boot_screen.py'
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
+      - 'tests/test_preference_runtime.mjs'
+      - 'tests/test_web_account_session.mjs'
+      - 'tests/test_web_identity_capability_refresh.mjs'
       - 'tests/test_surface_localization.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
@@ -411,6 +418,7 @@ on:
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
+      - 'tests/test_web_json_read.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
       - 'tests/test_account_lifecycle.mjs'
@@ -503,7 +511,7 @@ jobs:
             -type f -name '*.mjs' -print0 \
             | sort -z \
             | xargs -0 -n1 node --check
-          node --test tests/test_surface_preferences.mjs
+          node --test tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs
           node --test tests/test_surface_localization.mjs
           node --test tests/test_surface_app_localization.mjs
           node --test tests/test_surface_workspace.mjs
@@ -544,7 +552,7 @@ jobs:
           node --test tests/test_component_probation_orchestrator.mjs
           node --test tests/test_native_component_probation_composition.mjs
           node --test tests/test_component_promotion_policy.mjs
-          node --test tests/test_identity_session.mjs
+          node --test tests/test_identity_session.mjs tests/test_web_json_read.mjs
           node --test tests/test_identity_actions.mjs
           node --test tests/test_identity_credentials.mjs
           node --test tests/test_account_lifecycle.mjs
@@ -652,7 +660,7 @@ jobs:
       - name: Run real Chromium Surface smoke
         run: |
           set -euo pipefail
-          node --test tests/test_web_store_catalog.mjs tests/test_web_account_session.mjs
+          node --test tests/test_web_store_catalog.mjs tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs
           npm run verify --workspace tools/surface-web
           node tools/surface-native/browser-smoke.mjs
           node tools/surface-native/first-run-browser-smoke.mjs

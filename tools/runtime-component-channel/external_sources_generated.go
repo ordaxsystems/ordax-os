@@ -12,6 +12,7 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"converter": appsSourceRepository,
 	"image-viewer": appsSourceRepository,
 	"media-player": appsSourceRepository,
+	"network": appsSourceRepository,
 	"notes": appsSourceRepository,
 	"paint": appsSourceRepository,
 	"pdf-viewer": appsSourceRepository,

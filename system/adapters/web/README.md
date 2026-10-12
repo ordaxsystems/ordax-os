@@ -21,3 +21,22 @@ This adapter deliberately does **not** claim that account or sync services are i
 `system/composition/web/` is responsible for wiring Web adapters to the shared Surface. Adapter modules never import the Surface.
 
 The Web account composition now binds these same adapters to Central. Spaces is a read-only catalog from /account/spaces, refreshed only with an authenticated session and reset on subject changes. Explicit selection now composes the same ordax.space-selection/1 domain runtime used by Native with createWebSpaceSelectionStore. This adapter holds only a validated subject/Space record in session memory; it never grants access to devices/files, activates storage or enables inference. The unavailable port remains the fail-closed contract for hosts without this composition.
+
+Central also consumes the existing ordax.surface-host/1 connectivity snapshot.
+Snapshots are stable across unchanged reads and subscriptions stop on disposal.
+Offline hints suppress account actions/refresh and abort/invalidate Spaces
+using the existing catalog; reconnect revalidates session/context and never
+replays commands. The UI labels cached identity as potentially stale.
+Unknown browser connectivity stays unknown. Online hints are not evidence of
+gateway/device access. Layout and appearance are unchanged; transition
+regression source/CI were updated without local test/build/npm/browser runs.
+
+Identity/Spaces GET transports now share json-read.mjs with a single 10-second
+deadline including JSON body reads, same-origin/no-store and redirect:error.
+Cancellation, supersession and disposal settle pending reads independently of
+late fetch/body completion. Domain validation and refresh ordinals remain in
+their existing adapters. Composition cancels identity reads on offline without
+asserting logout, then revalidates on reconnect. Commands remain outside this
+transport and are never replayed. Disposed adapters accept no new work/listeners;
+unchanged identity/action snapshots keep their reference identity for React.
+Regression source/CI updated without local execution; layout remains unchanged.

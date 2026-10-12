@@ -4,7 +4,9 @@ import { readFile } from "node:fs/promises";
 
 import { activityApp } from "../system/apps/activity/app.mjs";
 import { activityComponent } from "../system/apps/activity/component.mjs";
-import { projectPersonalActivitySnapshot } from "../system/apps/activity/view-model.mjs";
+import { projectPersonalActivitySnapshot as projectPersonalActivitySnapshotCore } from "../system/apps/activity/view-model.mjs";
+import { projectPersonalWorkCanvas } from "../system/services/intelligence/work-canvas.mjs";
+const projectPersonalActivitySnapshot = snapshot => projectPersonalActivitySnapshotCore(snapshot, projectPersonalWorkCanvas);
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import {
   INTELLIGENCE_PORT_SCHEMA,
@@ -108,7 +110,8 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /dataset\.personalRecoveryFind/);
   assert.match(source, /personalOrdax\.recoverWorkForRequest\(request\)/);
   assert.match(source, /personalOrdax\.acceptRecoveredWork\(recoveryState\.value\)/);
-  assert.match(source, /createPersonalActivityExportDocument\(personalOrdax\.getSnapshot\(\)\)/);
+  assert.match(source, /createExportDocument\(personalOrdax\.getSnapshot\(\)\)/);
+  assert.doesNotMatch(source, /services\/personal-ordax\/export\.mjs/);
   assert.match(source, /activityExport\.save\(document\)/);
   assert.match(source, /dataset\.personalProposalSuggest/);
   assert.match(source, /personalOrdax\.proposeActionForWork\(workItemId\)/);
@@ -124,7 +127,7 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.doesNotMatch(source, /personalOrdax\.executeApplicationAction\(/);
 
   assert.equal(source.includes("file-space:"), false);
-  assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\)\)/);
+  assert.match(source, /projectPersonalActivitySnapshot\(personalOrdax\.getSnapshot\(\), projectWorkCanvas\)/);
   assert.doesNotMatch(
     source,
     /localStorage|sessionStorage|createPersonalOrdaxRuntime|conversation\.send|grantIssuer|\.issue\(/,
@@ -141,5 +144,7 @@ test("Native composition passes the one mounted Personal OrdaX runtime into Acti
   assert.match(source, /import\("\.\.\/\.\.\/apps\/activity\/runtime\.mjs"\)/);
   assert.match(source, /createNativePersonalActivityExport\(fileSpace\)/);
   assert.match(source, /context:\s*\{[\s\S]*?personalOrdax,[\s\S]*?activityExport:\s*personalActivityExport,[\s\S]*?\}/);
+  assert.match(source, /createExportDocument: createPersonalActivityExportDocument/);
+  assert.match(source, /projectWorkCanvas: projectPersonalWorkCanvas/);
   assert.match(source, /activityComponent\?\.destroy\(\)/);
 });

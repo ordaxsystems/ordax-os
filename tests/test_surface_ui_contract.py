@@ -11,7 +11,6 @@ APP_OWNERS = {
     "files": APPS / "files" / "app.mjs",
     "projects": APPS / "projects" / "app.mjs",
     "internet": APPS / "internet" / "app.mjs",
-    "network": APPS / "network" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
     "account": APPS / "account" / "app.mjs",
     "assistant": APPS / "assistant" / "app.mjs",
@@ -212,11 +211,13 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"assistant", "files", "internet", "network", "projects"}:
+            if app_id in {"assistant", "files", "internet", "projects"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)
             self.assertIn(f'./{app_id}/app.mjs', catalog)
+        self.assertNotIn('./network/app.mjs', catalog)
+        self.assertFalse((APPS / "network").exists())
         self.assertIn("listFirstPartyApps", catalog)
         self.assertIn("getFirstPartyApp", catalog)
         self.assertLess(len(catalog.splitlines()), 40, "catalog should stay composition-only")
@@ -618,7 +619,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("RouterProvider", main)
         self.assertIn("StoreCatalogProvider", main)
         self.assertIn("createUnavailableAppStoreCatalogPort", main)
-        self.assertIn("<Central/>", main)
+        self.assertRegex(main, r"<Central(?:\s|/>)")
         self.assertNotIn("WebShell", main)
         self.assertIn("../../surface/ui/tokens.css", main)
         self.assertIn("../../surface/ui/boot-screen.css", main)

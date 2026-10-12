@@ -160,3 +160,50 @@ test("pending identity refresh cannot resurrect a disposed session", async () =>
   assert.equal(port.getSnapshot().state, "unavailable");
   assert.deepEqual(observations, ["unavailable"]);
 });
+
+test("unchanged verified identity retains the same snapshot for external-store subscriptions", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  try {
+    const initial = port.refresh();
+    gateway.requests[0].resolve(gateway.reply({ subject: "same-account" }));
+    await initial;
+    const snapshot = port.getSnapshot();
+    const observed = [];
+    const release = port.subscribe(value => observed.push(value));
+    const refreshed = port.refresh();
+    gateway.requests[1].resolve(gateway.reply({ subject: "same-account" }));
+    await refreshed;
+    assert.equal(port.getSnapshot(), snapshot);
+    assert.deepEqual(observed, [snapshot]);
+    release();
+  } finally { port.dispose(); }
+});
+
+test("cancellation releases a pending identity read and preserves last-known identity", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  try {
+    const initial = port.refresh();
+    gateway.requests[0].resolve(gateway.reply({ subject: "known-account" }));
+    await initial;
+    const known = port.getSnapshot();
+    const pending = port.refresh();
+    port.cancelRefresh();
+    await pending;
+    assert.equal(port.getSnapshot(), known);
+    gateway.requests[1].resolve(gateway.reply({ subject: "stale-account" }));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(port.getSnapshot(), known);
+  } finally { port.dispose(); }
+});
+
+test("disposed identity does not retain new subscribers or start network work", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  port.dispose();
+  port.subscribe(() => { throw Error("Disposed identity subscriber called"); });
+  await port.refresh();
+  assert.equal(gateway.requests.length, 0);
+});

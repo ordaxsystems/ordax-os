@@ -13,6 +13,7 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
     "image-viewer",
     "internet",
     "media-player",
+    "network",
     "notes",
     "paint",
     "pdf-viewer",

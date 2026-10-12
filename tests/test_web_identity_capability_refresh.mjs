@@ -98,3 +98,50 @@ test("Web host rejects non-boolean dynamic availability", () => {
   );
   host.dispose();
 });
+
+test("Web Surface snapshots stay stable until capabilities or connectivity change", () => {
+  const windowRef = createWindowStub();
+  const host = createWebSurfaceHost(windowRef);
+  try {
+    const first = host.getSnapshot();
+    assert.equal(host.getSnapshot(), first);
+    assert.equal(host.refresh(), first);
+    const observed = [];
+    host.subscribe(snapshot => observed.push(snapshot));
+    windowRef.emit("online");
+    assert.equal(observed.length, 0);
+    windowRef.navigator.onLine = false;
+    windowRef.emit("offline");
+    const offline = host.getSnapshot();
+    assert.notEqual(offline, first);
+    assert.equal(offline.connectivity, "offline");
+    assert.equal(host.getSnapshot(), offline);
+    windowRef.emit("offline");
+    assert.equal(observed.length, 1);
+  } finally { host.dispose(); }
+});
+
+test("Absent browser connectivity is unknown, not offline or proof of a reachable host", () => {
+  const windowRef = createWindowStub();
+  delete windowRef.navigator.onLine;
+  const host = createWebSurfaceHost(windowRef);
+  try { assert.equal(host.getSnapshot().connectivity, "unknown"); }
+  finally { host.dispose(); }
+});
+
+test("Disposed Surface host retains the last snapshot without reading capabilities or subscribing", () => {
+  const windowRef = createWindowStub();
+  let reads = 0;
+  const host = createWebSurfaceHost(windowRef, { readAccountIdentityAvailable: () => { reads++; return false; } });
+  const last = host.getSnapshot();
+  host.dispose();
+  const count = reads;
+  host.subscribe(() => { throw Error("Disposed subscriber called"); });
+  windowRef.navigator.onLine = false;
+  windowRef.emit("offline");
+  assert.equal(host.refresh(), last);
+  assert.equal(host.getSnapshot(), last);
+  assert.equal(reads, count);
+  assert.equal(windowRef.listenerCount("online"), 0);
+  assert.equal(windowRef.listenerCount("offline"), 0);
+});

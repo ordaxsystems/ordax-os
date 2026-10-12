@@ -6,6 +6,7 @@ import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
 import { shortcuts, modes, favorites, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
+import { useWebPreferences } from './preferences-context';
 import { AppIcon, Panel } from './primitives';
 import { Desktop, WorkspaceNavigation } from './desktop';
 import { desktopReducer, initialDesktopState } from './desktop-state';
@@ -26,7 +27,7 @@ export function Central() {
     window.addEventListener('focus', refresh);
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, []);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { theme } = useWebPreferences();
   const [view, setView] = useState<'central' | 'desktop'>('central');
   const [sidebarMode, setSidebarMode] = useState<'auto' | 'collapsed' | 'expanded'>('auto');
   const [mode, setMode] = useState('Trabalhar');
@@ -35,14 +36,8 @@ export function Central() {
   const [prompt, setPrompt] = useState('');
   const [editing, setEditing] = useState(false);
   const [addedApps, setAddedApps] = useState<string[]>([]);
-  useEffect(() => {
-    const saved = localStorage.getItem('ordax-theme');
-    if (saved === 'dark') setTheme('dark');
-    if (localStorage.getItem('ordax-view') === 'desktop') setView('desktop');
-  }, []);
-  useEffect(() => { document.documentElement.dataset['theme'] = theme; }, [theme]);
-  function toggleTheme() { const next = theme === 'light' ? 'dark' : 'light'; setTheme(next); localStorage.setItem('ordax-theme', next); }
-  function changeView(next: 'central' | 'desktop') { setView(next); localStorage.setItem('ordax-view', next); setDialog(null); }
+  // Central/Desktop is session presentation state, not an account preference.
+  function changeView(next: 'central' | 'desktop') { setView(next); setDialog(null); }
   function openPanel(title: string) {
     if (['Adicionar aplicativo', 'Adicionar dispositivo', 'Entrada por voz', 'Espaço Pessoal'].includes(title)) setDialog(title);
     else { setDialog(null); dispatch({ type: 'open', title }); }
@@ -82,10 +77,10 @@ export function Central() {
       {dialog === 'Adicionar dispositivo' && <p className="service-state">{unavailableServices.devices}</p>}
     </DialogContent></Dialog>
   </div></div>
-    <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onTheme={toggleTheme} onCentral={() => changeView('central')} dispatch={dispatch}/></div>
+    <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onCentral={() => changeView('central')} dispatch={dispatch}/></div>
     </div>
     <div className="compact-reservation" aria-hidden="true"/>
     <WorkspaceNavigation onSidebarChange={setSidebarMode} state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
-    <WindowLayer state={windows} dispatch={dispatch} theme={theme} onTheme={toggleTheme} onCentral={() => { dispatch({ type: 'show-desktop' }); changeView('central'); }}/>
+    <WindowLayer state={windows} dispatch={dispatch} onCentral={() => { dispatch({ type: 'show-desktop' }); changeView('central'); }}/>
   </div>;
 }

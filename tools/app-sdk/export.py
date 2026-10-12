@@ -306,6 +306,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "network-draft",
+        "path": "system/contracts/network-draft.mjs",
+        "constant": "NETWORK_DRAFT_SCHEMA",
+        "schema": "ordax.network-draft/1",
+        "major": 1,
+    },
+    {
         "name": "profile-activation-state",
         "path": "system/contracts/profile-activation-state.mjs",
         "constant": "PROFILE_ACTIVATION_STATE_SCHEMA",
@@ -426,7 +433,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.16.0"
+BUNDLE_VERSION = "1.17.0"
 
 
 def git_blob(path: Path) -> str:

@@ -1,5 +1,52 @@
 # Current State
 
+## Web Central — consultas de conta canceláveis e limitadas — 2026-10-12
+
+Identidade e catálogo de Spaces reutilizam um único transporte JSON GET nos
+adapters Web, com credenciais same-origin, no-store, redirects recusados e
+prazo de 10 segundos incluindo a leitura do corpo. Reset, supersessão e
+descarte encerram a espera mesmo se o transporte não respeitar AbortSignal.
+Desconexão cancela a consulta de identidade sem alterar a última sessão
+conhecida; reconexão pode iniciar nova leitura sem aguardar a resposta antiga.
+Ordinais e validações dos adapters continuam sendo a autoridade de publicação.
+Timeout real mantém os estados indisponível/erro, sem simular logout.
+Snapshots de identidade/comandos permanecem estáveis quando não mudam; portas
+descartadas não retêm novos assinantes nem iniciam comandos/consultas.
+Layout e serviços pendentes permanecem preservados. Regressões incluídas no
+source/CI, sem build, npm, testes, typecheck ou browser locais.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-account-bounded-read-lifecycle--2026-10-12).
+
+
+## Web Central — conectividade pelo host canônico — 2026-10-12
+
+A UI assina ordax.surface-host/1, com snapshots estáveis e sem store paralelo.
+O sinal offline do navegador bloqueia ações de conta e novas consultas, aborta
+o catálogo de Spaces pela porta existente e invalida o contexto até revalidar.
+Reconexão retoma somente consultas; comandos não são repetidos. Uma reconexão
+durante uma consulta anterior solicita nova leitura ao terminar essa consulta,
+suprimindo resultados antigos pelo ordinal canônico do catálogo. A última
+identidade conhecida permanece identificada como possivelmente desatualizada.
+Conectividade desconhecida não é apresentada como offline. O sinal online
+não comprova acesso ao gateway, computador ou serviço remoto.
+Layout, temas, sidebar, dock e lifecycle de janelas foram preservados.
+Casos de regressão foram atualizados no source/CI; sem build, npm, testes,
+typecheck ou browser locais.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-central-canonical-connectivity--2026-10-12).
+
+
+## Web Central — preferências canônicas de aparência no source — 2026-10-12
+
+Tema da Central/Desktop e Ajustes usa ordax.preference-runtime/1 com o catálogo
+existente e o adapter ordax.preference-store/1. A UI não lê/grava localStorage
+nem mantém uma segunda escolha de tema. Inicialização recupera valores válidos;
+falha de persistência mantém a escolha na sessão com aviso em Ajustes. Temas,
+paisagens, cores e geometria aprovados foram preservados. Central/Desktop
+continua sendo estado de apresentação da sessão, separado das preferências
+da conta. Persistência é local ao navegador; sync cloud e E2E não foram ativados.
+Casos de regressão foram acrescentados no source, sem execução de build, npm,
+testes ou browser por restrição do usuário.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-central-canonical-appearance-preferences--2026-10-12).
+
 ## Web Central — integração de conta e Spaces no source — 2026-10-12
 
 A composição Web reutiliza os adapters existentes de sessão, comandos de
@@ -337,7 +384,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,PROJECTS,STUDIO,NETWORK,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=FILES,PROJECTS,STUDIO,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE

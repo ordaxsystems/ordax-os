@@ -205,3 +205,34 @@ test("older registration policy reply cannot re-enable or disable a newer decisi
   assert.deepEqual(snapshots, ["sign-in", "sign-in,register"]);
   session.dispose();
 });
+
+test("disposed identity actions reject commands and do not query registration policy", async () => {
+  const requests = [], assigned = [];
+  const windowRef = {
+    location: { assign: path => assigned.push(path) },
+    fetch: async path => {
+      requests.push(path);
+      return { ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        provider: "supabase", authenticated: true, status: "authenticated",
+        subject: "account-a", email: "person@example.invalid",
+      }) };
+    },
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  let policies = 0;
+  const actions = createWebIdentityActions(windowRef, session, {
+    registrationPolicy: async () => { policies++; return { registrationEnabled: true }; },
+  });
+  actions.dispose();
+  actions.dispose();
+  actions.subscribe(() => { throw Error("Disposed actions subscriber called"); });
+  await actions.refresh();
+  await assert.rejects(actions.execute("sign-out"), /disposed/);
+  await assert.rejects(actions.execute("sign-in"), /disposed/);
+  assert.equal(policies, 0);
+  assert.deepEqual(assigned, []);
+  assert.deepEqual(requests, ["/auth/session"]);
+  session.dispose();
+});

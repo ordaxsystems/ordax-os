@@ -4,7 +4,6 @@ import {
   PERSONAL_ORDAX_RUNTIME_SCHEMA,
   validatePersonalOrdaxRuntimeSnapshot,
 } from "../../../contracts/personal-ordax-store.mjs";
-import { projectPersonalWorkCanvas } from "../../../services/intelligence/work-canvas.mjs";
 
 // Pure read-only projection of the *existing* Personal OrdaX owner. It never
 // converts a conversational prompt into a task, step, approval or action.
@@ -39,7 +38,10 @@ export function resolveAssistantWorkScope(personalSnapshot, identityValue, selec
   });
 }
 
-export function projectAssistantWorkStrip(personalSnapshot, identityValue, selectionValue) {
+export function projectAssistantWorkStrip(personalSnapshot, identityValue, selectionValue, projectWorkCanvas) {
+  if (typeof projectWorkCanvas !== "function") {
+    throw new TypeError("Assistant Work Canvas requires the canonical platform projection port");
+  }
   const unavailable = Object.freeze({
     schema: ASSISTANT_WORK_STRIP_SCHEMA, cards: Object.freeze([]), remainingCount: 0,
   });
@@ -55,7 +57,7 @@ export function projectAssistantWorkStrip(personalSnapshot, identityValue, selec
   );
   const scopedCanvases = scoped.map((item) => Object.freeze({
     item,
-    canvas: projectPersonalWorkCanvas(personal, {
+    canvas: projectWorkCanvas(personal, {
       ownerKind: personal.ownerKind,
       ownerId: personal.ownerId,
       spaceId: item.spaceId,

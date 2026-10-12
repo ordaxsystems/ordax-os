@@ -79,5 +79,6 @@
     "identity_reviewed": false,
     "privacy_contact_verified": false,
     "business_registration": null
-  }
+  },
+  "user_consent_contract": "docs/contracts/user-consent-experience.json"
 }

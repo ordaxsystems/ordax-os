@@ -6,10 +6,11 @@ import nightWallpaper from '@/assets/alpine-night.jpg';
 import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon } from './primitives';
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
+import { useWebPreferences } from './preferences-context';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
-export type PresentationProps = { theme: 'light' | 'dark'; onTheme: () => void; onCentral: () => void };
-type Props = PresentationProps & { dispatch: Dispatch<DesktopAction> };
+export type PresentationProps = { onCentral: () => void };
+type Props = PresentationProps & { theme: 'light' | 'dark'; dispatch: Dispatch<DesktopAction> };
 export function Desktop({ theme, onCentral, dispatch }: Props) {
 
   const open = (title: string) => dispatch({ type: 'open', title });
@@ -19,7 +20,7 @@ export function Desktop({ theme, onCentral, dispatch }: Props) {
     <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Do seu jeito.</span><small>OrdaX OS Web</small></div>
   </main>;
 }
-export function DesktopContent({ title, theme, onTheme, open, onCentral, initialPrompt }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
+export function DesktopContent({ title, open, onCentral, initialPrompt }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   const [prompt, setPrompt] = useState('');
   const [sent, setSent] = useState(false);
   useEffect(() => { if (initialPrompt !== undefined) { setPrompt(initialPrompt.text); setSent(true); } }, [initialPrompt]);
@@ -29,7 +30,7 @@ export function DesktopContent({ title, theme, onTheme, open, onCentral, initial
   if (title === 'Notificações' || title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p></Panel>;
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>;
   if (title === 'Espaços') return <SpacesPanel/>;
-  if (title === 'Configurações') return <Panel title="Aparência"><div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={onTheme}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div><div className="desktop-settings-row"><span>Visualização</span><Button variant="secondary" onClick={onCentral}><LayoutGrid/>Voltar à central</Button></div></Panel>;
+  if (title === 'Configurações') return <AppearancePanel onCentral={onCentral}/>;
   if (title === 'Aura' || title === 'Inteligência') return <><div className="desktop-content-heading"><Sparkles/><h2>Aura</h2></div><form className="aura-search" onSubmit={e => { e.preventDefault(); if (prompt.trim()) setSent(true); }}><Sparkles className="aura-star"/><input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={e => { setPrompt(e.target.value); setSent(false); }}/><Button type="submit" className="send-button" aria-label="Enviar ao Aura"><Send/></Button></form>{sent && <p className="desktop-unconnected">{unavailableServices.intelligence}</p>}</>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
 }
@@ -112,29 +113,42 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
       <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Minha conta')} onSettings={() => open('Configurações')}/>
     </aside>
     <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>
-    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
+    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: w.minimized ? 'open' : 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
   </>;
 }
 
 function SpacesPanel() {
-  const { session, identity, catalog, selection, authorized } = useWebAccount();
+  const { session, identity, catalog, selection, authorized, offline } = useWebAccount();
   const [error, setError] = useState<string | null>(null);
-  const message = catalog.state === 'loading' ? 'Carregando seus Spaces…'
+  const message = offline ? 'Sem conexão. Seus Spaces serão consultados quando a conexão voltar.' : catalog.state === 'loading' ? 'Carregando seus Spaces…'
     : identity.state !== 'signed-in' ? 'Entre na conta para consultar seus Spaces.'
     : catalog.state === 'error' ? 'Não foi possível consultar seus Spaces. Tente atualizar a conexão.'
     : authorized.ready ? 'Nenhum Space está disponível para esta conta.' : 'A consulta de Spaces não está disponível.';
   function selectSpace(id: string) {
     setError(null);
+    if (session.surface.getSnapshot().connectivity === 'offline') {
+      setError('Reconecte antes de escolher um Space.');
+      return;
+    }
     try { session.selection.select(id); }
     catch { setError('Este Space não está disponível. Atualize a conexão e escolha novamente.'); }
   }
   return <Panel title="Seus Spaces" action="Atualizar" onAction={() => { setError(null); void session.refresh().catch(() => {}); }}>
     {authorized.ready && authorized.visibleSpaces.length > 0
-      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <Button variant="ghost" className="space-switch space-choice" key={space.id} disabled={space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} title={space.name} onClick={() => selectSpace(space.id)}><AppIcon icon={WalletCards} tone="lime"/><span className="space-choice-name">{space.name}</span><span className="project-meta">{space.state !== 'active' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Escolher'}</span></Button>)}</div>
+      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <Button variant="ghost" className="space-switch space-choice" key={space.id} disabled={offline || space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} title={space.name} onClick={() => selectSpace(space.id)}><AppIcon icon={WalletCards} tone="lime"/><span className="space-choice-name">{space.name}</span><span className="project-meta">{space.state !== 'active' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Escolher'}</span></Button>)}</div>
       : <p className="service-state" role="status">{message}</p>}
     {selection.state === 'selected' && <div className="account-service-actions"><Button variant="outline" onClick={() => { session.selection.clear(); setError(null); }}>Limpar seleção</Button></div>}
     {error && <p className="service-state" role="alert">{error}</p>}
     <p className="service-state" role="status">{authorized.activeSpace ? 'Space atual: ' + authorized.activeSpace.name : authorized.ready ? 'Escolha um Space para definir o contexto desta sessão.' : 'Nenhum contexto de Space está disponível.'}</p>
     <p className="service-state">A escolha vale nesta sessão e não concede acesso a arquivos, dispositivos ou IA.</p>
+  </Panel>;
+}
+
+function AppearancePanel({ onCentral }: { onCentral: () => void }) {
+  const { theme, toggleTheme, persistence } = useWebPreferences();
+  return <Panel title="Aparência">
+    <div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={toggleTheme} aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div>
+    <p className="service-state" role="status">{persistence === 'session-only' ? 'O navegador não permitiu salvar. O tema será mantido apenas nesta sessão.' : 'Tema deste navegador. Sincronização entre dispositivos ainda não está conectada.'}</p>
+    <div className="desktop-settings-row"><span>Visualização</span><Button variant="secondary" onClick={onCentral}><LayoutGrid/>Voltar à central</Button></div>
   </Panel>;
 }

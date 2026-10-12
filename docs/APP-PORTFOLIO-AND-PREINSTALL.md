@@ -10,7 +10,7 @@ Status: **política de seleção implementada; pré-instalação física e publi
 - `ordaxsystems/ordax-runtime`: host Windows e execução de capacidades do dispositivo.
 - `ordaxsystems/ordax-platform`: Product MCP, Control Plane e conectores de provedores (ChatGPT/Grok etc.). Plugin é conector, não outro Studio.
 
-**Loja não é owner de código nem de instalação.** Todos os aplicativos removíveis do catálogo verificado devem ser encontráveis na Loja: se instalados, mostrar Abrir/Atualizar/Desinstalar; se ausentes com pacote elegível e verificado, Instalar; senão, indisponibilidade verdadeira. Componentes estruturais (Conta, Ajustes, Sistema, Loja) são integrados e não removíveis. A Loja precisa de projeção real para componentes bundled e component-slot; hoje o `verified-store-projection.mjs` cobre somente o caminho de componentes externos verificados. Isso é um gap de integração, não motivo para duplicar inventário.
+**Loja não é owner de código nem de instalação.** Todos os aplicativos removíveis do catálogo verificado devem ser encontráveis na Loja: se instalados, mostrar Abrir/Atualizar/Desinstalar; se ausentes com pacote elegível e verificado, Instalar; senão, indisponibilidade verdadeira. Componentes estruturais (Conta, Ajustes, Sistema, Loja) são integrados e não removíveis. A Loja precisa de projeção real para componentes bundled e component-slot; hoje o `verified-store-projection.mjs` cobre somente o caminho de componentes externos verificados. Isso é um gap de integração, não motivo para duplicar inventário. A composição de aplicações agora rejeita conflito entre IDs bundled e slots assinados: nunca silenciar uma segunda fonte e fingir que o primeiro owner venceu.
 
 ## Defaults do primeiro perfil/instalação
 
@@ -29,7 +29,7 @@ A lista executável de **intenção de seleção** fica exclusivamente em `listF
 | --- | --- | --- |
 | **Intelligence** | Serviço de IA, modelo e memória autorizada | Uma fonte sistêmica. **Assistant** é uma interface; **Brain** não vira memória/roteador paralelo. |
 | **Studio** | IDE, projetos, chat e preview técnico | **Projetos** mantém domínio geral de projetos; App Forge é modo do Studio, não clone de IDE. |
-| **Rede (Network)** | Comunidades, mensagens e colaboração | Não confundir com infraestrutura de conectividade ou pares/dispositivos. |
+| **Rede (Network)** | Comunidades, mensagens e colaboração | Fonte removida do OS pelo gate remove-first e destinada a `ordax-apps`. A Rede só estará instalada quando houver pacote assinado com slot saudável; conectividade/Wi-Fi continua no OS. |
 | **Connect** | Nome do roadmap para pareamento/conexões | Não usar como segundo app de comunidades; revisar junto às capabilities de rede/dispositivos. |
 | **Relay** | Ideia de laboratório de IA central para múltiplos PCs | Não criado nem absorvido pelo Studio. Experimentação separada, se aprovada. |
 | **Activity** | Timeline/progresso e receipts reais de trabalho | Timeline é apresentação; não criar outro event store. |

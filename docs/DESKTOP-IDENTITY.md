@@ -747,3 +747,120 @@ Regression source now covers these cases plus temporary catalog failure and
 session-only lifecycle. Static source/diff review only: no tests, build, npm,
 typecheck or browser validation executed under the standing user restriction.
 Authenticated gateway/deployment/E2E remains a separate pending proof.
+
+### Web Central canonical appearance preferences — 2026-10-12
+
+Owner: OS preferences domain + Web composition/Surface, continuation of the
+requested backend alignment. Reuses ordax.preference-store/1,
+ordax.preference-runtime/1 and existing appearance.theme semantics/validators
+from system/services/preferences/catalog.mjs. A portable observable binding
+delegates recovery and updates to this catalog and persistence to the Web adapter;
+Native's Surface reducer continues to use the same canonical definitions.
+No new preference ID, palette, backend, account sync, entitlement or grant.
+
+The mounted preferences provider survives subject workspace remounts because
+these preferences are local to this browser, not credentials/account data.
+Central/Desktop wallpaper and Appearance controls consume that one port.
+Theme is applied before paint, also setting the browser control color scheme.
+The previous direct browser-storage/theme state has been removed from Central,
+and redundant theme callbacks through app windows have been removed. Switching
+Central/Desktop remains session presentation state without another persisted
+preference key. No legacy-key migration introduced in this pre-user increment.
+
+Storage denial, corrupt option values or failed writes retain a safe session
+choice; Appearance reports session-only persistence after a failed save.
+Unchanged/unknown preferences do not write; invalid known values are rejected.
+Disposal clears subscriptions and prevents later writes. The existing build
+input graph records the adapter/domain binding, and provenance covers the UI.
+Regression source covers persistence/reload, denied access, invalid/corrupt
+values, failed writes, no-op updates and disposal. React review checked stable
+external snapshots, centralized DOM effect cleanup, hook order and accessible
+theme control. No build, npm, typecheck, tests or browser executed.
+
+Acceptance: one catalog/store binding drives both existing presentations;
+reload restores valid saved appearance; storage errors never break theme
+selection or claim cloud synchronization. UI/viewport and authenticated E2E
+proof remain pending. Existing shared window nodes/drafts are preserved during
+theme changes; no desktop/window geometry or CSS palette changed.
+
+### Web Central canonical connectivity — 2026-10-12
+
+Owner: OS Web adapter + composition/Surface. Explicit continuation of backend
+alignment; no first-party app source or platform/Runtime authority changes.
+Contracts: existing ordax.surface-host/1, identity-session/actions,
+Spaces catalog and ordax.space-selection/1. Browser connectivity remains an
+adapter hint, never a probe or proof of gateway/device/inference availability.
+
+The Web host keeps a stable snapshot until connectivity/capabilities change,
+notifies only changes and removes subscriptions/events on disposal. Undefined
+browser connectivity maps to the contract's unknown state. React consumes this
+existing port with useSyncExternalStore, without a shadow connectivity store.
+Offline account commands are disabled and guarded again at activation.
+Identity remains the last known session and the UI explicitly warns about
+staleness. Composition skips offline focus/visibility reads, uses catalog reset
+to abort/invalidate Spaces, and lets the shared selection domain revalidate its
+session-only record on reconnect. The in-flight refresh remains deduplicated;
+a connectivity revision schedules a fresh read after an overlapping reconnect.
+Only reads are replayed, never sign-in/sign-out or other commands.
+
+Risk: online hints may be inaccurate and an identity read already in flight
+may finish after disconnect. Canonical session sequencing still validates that
+read, the UI continues to show offline, and composition cannot start Spaces
+while offline. Existing Spaces ordinals suppress responses after reset.
+Reconnection waits for an existing identity read to settle; this increment does
+not add deadlines or replace the gateway's authentication lifecycle.
+
+Acceptance: offline refresh performs no network reads; disconnect invalidates
+catalog/selection, late catalog bytes do not restore context, reconnect
+revalidates the same subject/Space, and disposal prevents new event work.
+Regression source covers these transitions, overlapping reconnection,
+unknown connectivity, stable snapshots and subscription cleanup. Included in
+existing CI, not run locally. React review covered stable external snapshots,
+hook order, readable offline status, guarded actions and existing cleanup.
+No approved CSS geometry/theme, shared app nodes or window reducer changed.
+No build, npm, typecheck, tests or browser executed. Authenticated E2E and
+production activation remain pending.
+
+### Web account bounded read lifecycle — 2026-10-12
+
+Owner: existing OS Web identity/Spaces adapters and Web composition, continuing
+the requested backend alignment. Reuses ordax.identity-session/1,
+ordax.identity-actions/1 and Spaces/selection contracts. No new backend,
+provider coupling, credentials store, authorization, domain snapshot or route.
+The earlier connectivity increment's wait-for-old-read limitation is superseded
+by adapter cancellation and a shared bounded GET transport.
+
+system/adapters/web/json-read.mjs owns only same-origin GET plumbing: no-store,
+redirect:error, JSON parsing, supersession, abort cleanup and a single 10-second
+deadline covering headers/body. Identity/Spaces still validate their own
+responses and own state/ordinals. A bounded read settles on cancellation even
+when an injected/noncooperative fetch or JSON body does not settle; attached
+handlers consume late results/errors. This is not a command transport or retry
+service. Bodies from fetches already cancelled are not parsed.
+
+The identity adapter's cancelRefresh extension belongs to its concrete lifecycle,
+not the provider-neutral session contract. Composition calls it on offline;
+the refresh ordinal advances before abort so cancellation preserves the last
+known snapshot. Actual request timeout/failure remains unavailable, not
+signed-out. Spaces reset/disposal use this same transport while retaining their
+own invalidation rules. Overlapping reconnects continue through the existing
+deduplicated read loop. No account command is retried or timed out by this helper.
+
+Identity and command snapshots preserve reference identity on semantic no-ops.
+Disposed session/action adapters reject new work or ignore refresh/subscription
+as appropriate; disposal cannot leave a new command active. An account command
+already sent to the gateway is not claimed to be undone by browser disposal.
+
+Risk: the 10-second read deadline may expose slow gateways as unavailable/error;
+the user can request a new read, and reconnect/focus use the existing lifecycle.
+No automatic authenticated state is inferred from cancellation or network hints.
+Source regression cases cover stalled headers/body, supersession, denied HTTP,
+unsupported paths, cleanup, unchanged identity, disposed commands, offline
+cancellation, fresh reconnect and suppression of late identity bodies.
+Existing CI includes these sources; no local build/npm/test/typecheck/browser run.
+
+Acceptance: account/Spaces read promises cannot keep UI refresh pending beyond
+the deadline; offline/disposal release them promptly, no old identity/catalog
+bytes replace a newer session, and post-disposal commands cause no network work.
+Preserve approved frontend geometry, themes, sidebar/dock/compact app behavior
+and canonical domain boundaries. Authenticated E2E remains pending.

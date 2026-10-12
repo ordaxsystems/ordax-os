@@ -24,8 +24,9 @@ function validateEntry(value, source) {
   return value;
 }
 
-// Built-ins always win ID collisions. No package, runtime or permission is
-// activated by this read-only catalog; mounting remains a separate verified gate.
+// Duplicate IDs across bundled and signed-slot apps indicate two source owners.
+// Reject the entire inconsistent catalog instead of silently hiding one owner.
+// This read-only catalog never grants package, runtime or permission authority.
 export function createAppRuntimeCatalog({
   builtIns = listFirstPartyApps(),
   external = [],
@@ -48,7 +49,7 @@ export function createAppRuntimeCatalog({
     const app = validateEntry(value, "external");
     if (externalIds.has(app.id)) throw new TypeError(`Duplicate external app id: ${app.id}`);
     externalIds.add(app.id);
-    if (byId.has(app.id)) continue; // Reserved built-in identity cannot be replaced.
+    if (byId.has(app.id)) throw new TypeError(`Duplicate bundled and external app source: ${app.id}`);
     byId.set(app.id, app);
     externalApps.push(app);
   }

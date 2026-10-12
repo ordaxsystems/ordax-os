@@ -50,3 +50,31 @@ Identity changes remount only the session workspace to clear local account
 drafts/windows; refresh of the same subject preserves its app instances.
 Account tests and browser assertions were updated as source only, not executed
 locally under the standing user restriction.
+
+Appearance uses the existing Web preference-store adapter and canonical
+preference-runtime/catalog. The one mounted provider feeds Central/Desktop and
+Ajustes, including wallpaper and native control color scheme. No direct storage
+calls remain in Central. Theme persists locally where the browser permits;
+failed saves keep session appearance and surface a notice in Ajustes. View mode
+is session-only UI state. No account sync or backend preference endpoint added.
+Preference regression source is included in existing CI, not run locally under
+the standing restriction.
+
+Central also consumes the existing ordax.surface-host/1 connectivity snapshot.
+Snapshots are stable across unchanged reads and subscriptions stop on disposal.
+Offline hints suppress account actions/refresh and abort/invalidate Spaces
+using the existing catalog; reconnect revalidates session/context and never
+replays commands. The UI labels cached identity as potentially stale.
+Unknown browser connectivity stays unknown. Online hints are not evidence of
+gateway/device access. Layout and appearance are unchanged; transition
+regression source/CI were updated without local test/build/npm/browser runs.
+
+Identity/Spaces GET transports now share json-read.mjs with a single 10-second
+deadline including JSON body reads, same-origin/no-store and redirect:error.
+Cancellation, supersession and disposal settle pending reads independently of
+late fetch/body completion. Domain validation and refresh ordinals remain in
+their existing adapters. Composition cancels identity reads on offline without
+asserting logout, then revalidates on reconnect. Commands remain outside this
+transport and are never replayed. Disposed adapters accept no new work/listeners;
+unchanged identity/action snapshots keep their reference identity for React.
+Regression source/CI updated without local execution; layout remains unchanged.
