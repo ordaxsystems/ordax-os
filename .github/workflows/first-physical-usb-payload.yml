@@ -273,7 +273,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            binutils bison bzip2 cmake curl dwarves e2fsprogs erofs-utils flex \
+            binutils bison bzip2 cmake curl dwarves dosfstools e2fsprogs erofs-utils exfat-fuse exfatprogs flex gdisk \
             g++ gcc gcc-13 git gperf kmod libblkid-dev libcap-dev libelf-dev \
             liblz4-dev libmount-dev libpcre2-dev libssl-dev liblzma-dev \
             libzstd-dev make meson musl-tools ninja-build openssl perl pkg-config \
@@ -584,6 +584,67 @@ jobs:
           output.write_text(json.dumps(proof, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           print('REAL_V4_17_SOURCE_PREFLIGHT=PASS_NON_DESTRUCTIVE')
           PY
+
+      - name: Materialize real 17 signed sources on disposable FAT32 and exFAT twin
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/first-physical-payload"
+          out="$work/out"
+          # All IDs are obtained from the same canonical bindings.json generated
+          # and verified by Creator Core; never introduce a second artifact list.
+          mapfile -t ids < <(python3 - "$out/bindings.json" <<'PY'
+          import json, pathlib, sys
+          bindings = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          ids = [item['id'] for item in bindings['artifacts']]
+          if len(ids) != 17 or len(set(ids)) != 17:
+              raise SystemExit('canonical binding identities must be 17 unique artifacts')
+          for value in ids:
+              print(value)
+          PY
+          )
+          args=()
+          for id in "${ids[@]}"; do
+            args+=(--source "$id=$out/sources/$id")
+          done
+          # Dispose of unnecessary compilation intermediates before the sparse
+          # disk proof; signed source and plan files remain intact.
+          rm -rf "$work/kernel-work" "$work/initramfs-work" "$work/stable-base-cache"
+          sudo -E python3 operator/tools/creator/proof/portable_prepared_media.py \
+            --plan "$out/portable-media-plan.json" \
+            "${args[@]}" \
+            --out "$work/portable-v4-disposable-twin.raw" \
+            --proof "$out/portable-twin-proof.json"
+          sudo chown "$(id -u):$(id -g)" "$out/portable-twin-proof.json"
+          python3 - "$out/portable-twin-proof.json" <<'PY'
+          import json, pathlib, sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          if (
+              proof['status'] != 'pass'
+              or proof['artifact_count'] != 17
+              or proof['partitions'] != ['ORDAX-ESP', 'ORDAX-DATA']
+              or proof['physical_target_device_touched'] is not False
+              or proof['physical_write_authorized'] is not False
+              or proof['public_physical_promotion_allowed'] is not False
+              or not all(proof['checks'].values())
+          ):
+              raise SystemExit('real v4 disposable FAT32/exFAT readback proof failed')
+          print('REAL_V4_DISPOSABLE_TWIN=17_OF_17_READBACK_PASS')
+          PY
+          sudo rm -f "$work/portable-v4-disposable-twin.raw"
+          test ! -e "$work/portable-v4-disposable-twin.raw"
+          python3 - "$out/preauthorization-proof.json" "$out/portable-twin-proof.json" <<'PY'
+          import hashlib, json, pathlib, sys
+          summary_path, twin_path = map(pathlib.Path, sys.argv[1:])
+          summary = json.loads(summary_path.read_text(encoding='utf-8'))
+          summary['disposable_twin_artifacts_readback'] = 17
+          summary['disposable_twin_filesystems'] = ['FAT32', 'exFAT']
+          summary['disposable_twin_proof_sha256'] = hashlib.sha256(twin_path.read_bytes()).hexdigest()
+          summary['disposable_twin_raw_image_deleted'] = True
+          summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+          echo 'PHYSICAL_USB_DEVICE_TOUCHED=NO'
 
       - name: Upload proof metadata only (never physical source bytes)
         if: ${{ github.event_name != 'workflow_dispatch' }}
