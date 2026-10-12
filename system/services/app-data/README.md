@@ -55,6 +55,20 @@ chamada interna explícita e sincronizada; após fsync da remoção, o GC
 pode liberar os blobs antigos. Pin inválido, symlink ou corrupção
 bloqueiam mutações, sem descarte preventivo de dados.
 
+**Inspeção privada, somente de leitura:** `inspect_app_data_checkpoint`
+consulta a identidade vinculada, exige a revisão CAS esperada, verifica
+todos os blobs da geração ativa **e** da geração retida sob `flock`
+compartilhado e retorna o SHA-256 dos bytes efetivos de `checkpoint.json`,
+além das revisões e da referência de release. Não retorna valores/chaves
+de aplicativos; o resultado declara explicitamente `authority: none`.
+A inspeção não é ação do endpoint e não modifica dados. Sua validade é
+pontual: quando o lock é liberado, a geração pode mudar. SHA-256 e
+`sourceRelease` **não constituem assinatura Ed25519, autorização
+do State owner ou lease de atualização**. A futura integração com o
+writer Go deverá fazer verificação de confiança, travar sua transação,
+vincular o owner da instalação e revalidar todos os dados imediatamente
+antes de qualquer mudança de ativação.
+
 **Limites importantes:** o valor `sourceRelease` armazenado é uma
 referência de correlação recebida pelo owner, **não uma assinatura
 verificada nem autorização de instalação**. A ativação do componente Go,
