@@ -136,9 +136,9 @@ func addActivationV2CandidateWithState(
 	var signedState any
 	if state != nil {
 		signedState = map[string]any{
-			"id": state.ID,
-			"writeVersion": state.WriteVersion,
-			"readableFrom": state.ReadableFrom,
+			"id":              state.ID,
+			"writeVersion":    state.WriteVersion,
+			"readableFrom":    state.ReadableFrom,
 			"readableThrough": state.ReadableThrough,
 		}
 	}
