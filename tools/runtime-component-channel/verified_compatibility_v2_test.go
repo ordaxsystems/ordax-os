@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +21,10 @@ func TestInspectVerifiedSlotCompatibilityV2IsSignedAndReadOnly(t *testing.T) {
 	result, err := inspectVerifiedSlotCompatibilityV2(candidate.slot, trust)
 	if err != nil {
 		t.Fatal(err)
+	}
+	digest := sha256.Sum256(trust)
+	if result.TrustSHA256 != hex.EncodeToString(digest[:]) {
+		t.Fatalf("inspection trust digest differs from supplied trust file: %q", result.TrustSHA256)
 	}
 	if result.Schema != verifiedSlotCompatibilitySchema ||
 		result.Authority != "none" ||
