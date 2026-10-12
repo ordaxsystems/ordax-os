@@ -1,9 +1,10 @@
 import { useEffect, useRef, type Dispatch } from 'react';
-import { ChevronDown, ChevronUp, Copy, LayoutGrid, Minus, MoreHorizontal, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Minus, MoreHorizontal, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DesktopContent, type PresentationProps } from './desktop';
 import type { DesktopAction, DesktopState } from './desktop-state';
+import { WindowAppIcon } from './primitives';
 
 type WindowControl = { label: string; title: string; icon: LucideIcon; action: DesktopAction; expanded?: boolean };
 
@@ -46,7 +47,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
         onFocus={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}
         onPointerDown={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}>
         <header className="desktop-titlebar">
-          <span className="desktop-window-title"><LayoutGrid/><span title={window.title}>{window.title}</span></span>
+          <span className="desktop-window-title"><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span></span>
           <div className="desktop-window-controls">
             <div className="window-secondary-actions">{controls.map(control => <Button key={control.label} variant="ghost" size="icon" aria-label={control.label} aria-expanded={control.expanded} title={control.title} onClick={() => dispatch(control.action)}><control.icon/></Button>)}</div>
             {window.mode === 'compact' && <div className="compact-actions-overflow"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + window.title} title="Mais ações"><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={6} className="compact-actions-menu">{controls.map(control => <DropdownMenuItem key={control.label} onSelect={() => dispatch(control.action)}><control.icon/>{control.title}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>}

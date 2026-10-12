@@ -1,4 +1,4 @@
-import { House, Sparkles, Folder, FolderOpen, LayoutGrid, Globe, WalletCards, MonitorSmartphone, BriefcaseBusiness, CirclePlus, ListTodo, Compass, Workflow, ShoppingBag, Box, Terminal, Laptop, Smartphone, Monitor, Cloud, RefreshCw, MessageSquare, FileBox, Shield, type LucideIcon } from 'lucide-react';
+import { House, Bell, Settings, Sparkles, Folder, FolderOpen, LayoutGrid, Globe, WalletCards, MonitorSmartphone, BriefcaseBusiness, CirclePlus, ListTodo, Compass, Workflow, ShoppingBag, Box, Terminal, Laptop, Smartphone, Monitor, Cloud, RefreshCw, MessageSquare, FileBox, Shield, type LucideIcon } from 'lucide-react';
 export type IconTone = 'orange' | 'violet' | 'blue' | 'green' | 'red' | 'lime' | 'ink';
 export type AppItem = { name: string; icon: LucideIcon; tone: IconTone; caption?: string };
 export const navigation = [
@@ -39,3 +39,13 @@ export const presentationStoragePercent = Math.min(100, Math.max(0, presentation
 
 // Display fixture only; real signed-in profile integration remains deferred.
 export const presentationUser = { displayName: 'João', avatarInitials: 'JO' };
+
+// Window chrome reuses app metadata instead of a second icon catalog.
+const panelIcons: Record<string, LucideIcon> = { 'Configurações': Settings, 'Notificações': Bell, 'Atividades': ListTodo };
+export function getWindowIcon(title: string): LucideIcon {
+  return navigation.find(app => app.name === title)?.icon
+    ?? favorites.find(app => app.name === title)?.icon
+    ?? projects.find(project => project.name === title)?.icon
+    ?? panelIcons[title]
+    ?? LayoutGrid;
+}

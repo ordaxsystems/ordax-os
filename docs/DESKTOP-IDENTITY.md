@@ -646,3 +646,13 @@ growth/restoration on compact collapse/expand, but was not executed.
 Acceptance: upper app fits the available track, expands when the lower track
 shrinks/disappears, and retains content and controls. Backend unchanged.
 No build, npm or tests executed under the standing user restriction.
+
+### Running-app identification — 2026-10-11
+
+Owner: OS Surface. Window headers and dock use one icon primitive resolving
+existing navigation/favorite/project metadata with a generic unknown-app fallback.
+Dock exposes active-window aria-current, descriptive state tooltip and a distinct
+minimized marker while preserving readable labels and restore actions. No new
+window or service state. Acceptance: recognizable icons agree across surfaces;
+minimized/active indications follow the shared reducer. Backend unchanged.
+No build, npm or tests executed under the standing user restriction.

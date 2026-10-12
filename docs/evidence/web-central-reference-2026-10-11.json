@@ -24,21 +24,21 @@
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "72bb22a1fe1ee06551f0cdcc481fef69c7bd2118291978f4742f913a834b74ec",
+      "adaptedSha256": "cc7472edb97915f1982105e793ac6f7d080ef810ab5ba44b68632677289542cb",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "9ce6cb014b6b6f80688c077ac884ea12fd8c5e4ac78cbf43e4e9fa3314140b28",
+      "adaptedSha256": "8b5779da653054ce5ee6fa92f655d01ca207252933043025e9c4ff21e7db3aa5",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "16b499e14d896e06dc413ff58ce9901679bb42bffcac438bd0ef365a1a546ca8",
+      "adaptedSha256": "ee97fd58a8d3c56acb4b6e47c90558b62d38f23a935e7da7426f23bb6695deec",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "ae797de5b2e20b0054e21c975921703fd0985289e7326c5f232afbb569a34367",
+      "adaptedSha256": "df1172238b903a384b125e00e25db27ef59ed9412db4a87c3e7ef9304cca00b2",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -115,12 +115,13 @@
     "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination",
     "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained",
     "Compact titlebar reduced to a single 40px row with spaced 28px controls; below 260px secondary actions use shared accessible dropdown, driven by the same action descriptors",
-    "Window layer uses shared upper/lower grid tracks: regular app spans all columns above compact panes; panel collapse/expand/minimize reallocates height automatically without absolute app sizing"
+    "Window layer uses shared upper/lower grid tracks: regular app spans all columns above compact panes; panel collapse/expand/minimize reallocates height automatically without absolute app sizing",
+    "Shared window icon resolver consumes existing app/project metadata in dock and titlebar; dock minimized marker and current-window semantics derive from reducer state"
   ],
   "native_files": [
     {
       "target": "system/surface/workspace/components/central/window-layer.tsx",
-      "sha256": "87905e6c0ffc9013aa63ede871308dc5291364ef7d02c1fca65e158b4e51be19",
+      "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls"
     }

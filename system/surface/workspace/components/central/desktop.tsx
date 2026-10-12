@@ -3,7 +3,7 @@ import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronL
 import { Button } from '@/components/ui/button';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
-import { AccountCard, AppIcon, Avatar, Brand, Panel } from './primitives';
+import { AccountCard, AppIcon, Avatar, Brand, Panel, WindowAppIcon } from './primitives';
 import { activities, devices, favorites, navigation, presentationAccount, presentationStoragePercent, projects, shortcuts } from './config';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
@@ -75,6 +75,6 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
       <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Espaços')} onSettings={() => open('Configurações')}/>
     </aside>
     <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>
-    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps">{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><LayoutGrid/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
+    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps">{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
   </>;
 }
