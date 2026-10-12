@@ -23,6 +23,8 @@ STABLE = ROOT / "bootstrap/stable-base/source.json"
 BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
+BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
+BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -156,6 +158,12 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
 
 
 def verify_target(target: Path) -> None:
+    if not BUSYBOX_FRAGMENT.is_file() or BUSYBOX_FRAGMENT.is_symlink():
+        raise BaseError("canonical BusyBox handoff config fragment is missing or unsafe")
+    fragment_lines = BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
+    for symbol in BUSYBOX_HANDOFF_SYMBOLS:
+        if fragment_lines.count(symbol) != 1:
+            raise BaseError(f"canonical BusyBox fragment lacks exact symbol: {symbol}")
     for name in ("bin/busybox", "sbin/ordax-stable-init", "sbin/modprobe",
                  "sbin/ordax-independent-probe-init",
                  "etc/ordax/independent-base", "ordax/bootstrap/network/bring-up",
@@ -174,6 +182,17 @@ def verify_target(target: Path) -> None:
                "od", "tr", "stat", "uname"} - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
+    # Presence in the applet list is not enough: the official handoff uses
+    # stat -c and timeout -k, so exercise those exact feature interfaces.
+    busybox = str(target / "bin/busybox")
+    with tempfile.TemporaryDirectory(prefix="ordax-busybox-handoff-") as temp_dir:
+        marker = Path(temp_dir) / "local-ai-key-mode"
+        marker.write_text("test\n", encoding="ascii")
+        marker.chmod(0o600)
+        if run(busybox, "stat", "-c", "%a", str(marker)).strip() != "600":
+            raise BaseError("BusyBox stat -c cannot enforce canonical key permission")
+    if run(busybox, "timeout", "-k", "1", "2", busybox, "true").strip():
+        raise BaseError("BusyBox timeout emitted unexpected output")
 
 
 def build(out: Path, cache: Path, jobs: int) -> dict:
@@ -205,7 +224,8 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         run(*cmd, "defconfig")
         config = (build_dir / ".config").read_text(encoding="utf-8")
         for key in ('BR2_KERNEL_HEADERS_VERSION=y', f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
-                    'BR2_TOOLCHAIN_BUILDROOT_MUSL=y', 'BR2_STATIC_LIBS=y', 'BR2_INIT_NONE=y'):
+                    'BR2_TOOLCHAIN_BUILDROOT_MUSL=y', 'BR2_STATIC_LIBS=y', 'BR2_INIT_NONE=y',
+                    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"'):
             if key not in config:
                 raise BaseError(f"Buildroot rejected required configuration {key}")
         run(*cmd[:-1], f"-j{max(1, jobs)}")
@@ -236,6 +256,9 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
+            "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
+            "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
+            "busybox_handoff_runtime_features_verified": True,
             "canonical_portable_handoff_source": str(CANONICAL_HANDOFF.relative_to(ROOT)),
             "canonical_portable_handoff_sha256": digest(CANONICAL_HANDOFF),
             "canonical_portable_pid1_unchanged": True,
@@ -258,6 +281,12 @@ def verify(out: Path) -> dict:
         raise BaseError("invalid provenance schema")
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("unsafe artifact promotion flag")
+    if report.get("busybox_handoff_config_fragment") != str(BUSYBOX_FRAGMENT.relative_to(ROOT)):
+        raise BaseError("BusyBox handoff config fragment provenance drift")
+    if report.get("busybox_handoff_config_sha256") != digest(BUSYBOX_FRAGMENT):
+        raise BaseError("BusyBox handoff config fragment SHA-256 drift")
+    if report.get("busybox_handoff_runtime_features_verified") is not True:
+        raise BaseError("BusyBox applet feature proof absent from provenance")
     if report.get("canonical_portable_handoff_source") != str(CANONICAL_HANDOFF.relative_to(ROOT)):
         raise BaseError("canonical handoff source path drift")
     if report.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
