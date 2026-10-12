@@ -155,7 +155,7 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
                     self.send_error(404)
                     return
                 requests.append(self.path)
-                payload = b"ORDAX_NETWORK_HTTP=PASS\\n"
+                payload = b"ORDAX_NETWORK_HTTP=PASS\n"
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain")
                 self.send_header("Content-Length", str(len(payload)))
