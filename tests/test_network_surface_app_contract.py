@@ -21,14 +21,19 @@ class NetworkSourceCutoverTests(unittest.TestCase):
         self.assertNotIn('railButton("network"', self.text("system/surface/ui/desktop-shell.mjs"))
         self.assertNotIn("system/apps/network/network.css", self.text("tools/surface-native/browser-smoke.mjs"))
 
-    def test_network_is_not_falsely_executable_until_native_trust_gate(self):
+    def test_network_verified_read_does_not_grant_install_or_probation(self):
         policy = json.loads(POLICY.read_text(encoding="utf-8"))
-        self.assertNotIn("network", policy["native_loopback_broker_supported_components"])
+        self.assertIn("network", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("network", policy["native_loopback_broker_health_mutation_components"])
+        self.assertFalse(policy["publish_allowed"])
+        self.assertFalse(policy["slot_activation_available"])
         self.assertNotIn("network", policy["runtime_health_bridge_supported_components"])
         generated = self.text("system/services/apps/external-first-party-policy.mjs")
         self.assertIn('"network": "ordaxsystems/ordax-apps"', generated)
         module_read_block = generated.split("EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([", 1)[1].split("]);", 1)[0]
-        self.assertNotIn('"network"', module_read_block)
+        self.assertIn('"network"', module_read_block)
+        probation = generated.split("EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([", 1)[1].split("]);", 1)[0]
+        self.assertNotIn('"network"', probation)
 
     def test_network_service_and_wifi_infrastructure_stay_on_os(self):
         for path in ["system/services/professional-network/draft.mjs", "system/contracts/network-draft.mjs", "system/surface/ui/network-quick-panel.mjs", "system/surface/ui/network-tray-controls.mjs"]:
