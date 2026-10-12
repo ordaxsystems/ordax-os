@@ -30,7 +30,7 @@ if (process.argv.includes("--check")) {
     + inventory.summary.componentCount + " declared components, "
     + inventory.summary.embeddedDomainCount + " embedded domains; "
     + readiness.summary.packagingCandidates + " package-policy candidates; "
-    + readiness.summary.productionUpdateProven + " independent releases proven.\n"
+    + "production evidence " + readiness.summary.productionEvidence + ".\n"
   );
 } else {
   process.stdout.write(JSON.stringify({ inventory, readiness }, null, 2) + "\n");
