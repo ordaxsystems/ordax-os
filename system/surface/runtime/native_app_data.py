@@ -476,10 +476,22 @@ def inspect_app_data_checkpoint(
         paths = _existing_partition_paths(root, bound)
         if paths is None:
             raise ValueError("App Data checkpoint partition disappeared")
-        _, _, _, blobs = paths
+        _, manifest_path, _, blobs = paths
         for entry in current["entries"].values():
             _verify_blob(blobs, entry)
         _verify_checkpoint_blobs(root, checkpoint)
+        # Both digests come from the actual disk bytes while holding flock,
+        # not a reserialized/reconstructed JSON snapshot. The current
+        # manifest must still decode as the version validated above.
+        current_bytes = _read_regular_file(
+            manifest_path, "App Data manifest", MAX_APP_DATA_MANIFEST_BYTES,
+        )
+        try:
+            current_on_disk = json.loads(current_bytes.decode("utf-8", errors="strict"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("App Data manifest is corrupt") from exc
+        if _validate_manifest(current_on_disk, bound)[0] != current:
+            raise ValueError("App Data current manifest changed during inspection")
         persisted = _read_regular_file(
             _checkpoint_path(root, bound),
             "App Data checkpoint", MAX_APP_DATA_CHECKPOINT_BYTES,
@@ -490,6 +502,7 @@ def inspect_app_data_checkpoint(
             "sourceRelease": release,
             "pinnedRevision": pinned_revision,
             "currentRevision": current["revision"],
+            "currentManifestSHA256": hashlib.sha256(current_bytes).hexdigest(),
             "checkpointSHA256": hashlib.sha256(persisted).hexdigest(),
         }
 
