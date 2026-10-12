@@ -610,7 +610,7 @@ jobs:
           done
           # Dispose of unnecessary compilation intermediates before the sparse
           # disk proof; signed source and plan files remain intact.
-          rm -rf "$work/kernel-work" "$work/initramfs-work" "$work/stable-base-cache"
+          sudo rm -rf -- "$work/kernel-work" "$work/initramfs-work" "$work/stable-base-cache"
           sudo -E python3 operator/tools/creator/proof/portable_prepared_media.py \
             --plan "$out/portable-media-plan.json" \
             "${args[@]}" \
@@ -726,5 +726,8 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: |
-          rm -rf "$RUNNER_TEMP/first-physical-payload"
+          if [ -n "${RUNNER_TEMP:-}" ] && [ -d "$RUNNER_TEMP/first-physical-payload" ]; then
+            sudo rm -rf -- "$RUNNER_TEMP/first-physical-payload"
+          fi
+          test ! -e "$RUNNER_TEMP/first-physical-payload"
           echo 'TEMPORARY_V4_SOURCE_BYTES_DESTROYED=YES'
