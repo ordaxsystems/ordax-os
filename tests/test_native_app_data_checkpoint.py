@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -223,6 +225,92 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 identity(), RELEASE, 2, str(root),
             )["revision"], 3)
             self.assertEqual(app_data.read_app_data(identity(), "key", str(root))["value"], b"old")
+
+    def test_abrupt_process_termination_at_manifest_commit_boundaries(self):
+        # A separate interpreter exits with os._exit without running cleanups,
+        # finally blocks or mock exception handlers. The parent reopens the
+        # bytes and recovers through the actual storage owner after that exit.
+        child = """
+import os
+import sys
+from tests.test_native_app_data import app_data, identity
+root, phase = sys.argv[1:3]
+original = app_data._atomic_replace_bytes
+
+def abruptly_terminate(path, parent, payload, *, label):
+    if label == "App Data manifest" and phase == "before":
+        os._exit(71)
+    original(path, parent, payload, label=label)
+    if label == "App Data manifest" and phase == "after":
+        os._exit(72)
+
+app_data._atomic_replace_bytes = abruptly_terminate
+app_data.put_app_data(identity(), "key", b"after-crash", 1, root)
+sys.exit(73)  # Must never reach normal process completion.
+"""
+        for phase, exit_code in (("before", 71), ("after", 72)):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary) / "app-data"
+                app_data.put_app_data(identity(), "key", b"original", 0, str(root))
+                app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+                interrupted = subprocess.run(
+                    [sys.executable, "-c", child, str(root), phase],
+                    cwd=Path(__file__).resolve().parents[1],
+                    capture_output=True, text=True, check=False, timeout=15,
+                )
+                self.assertEqual(
+                    interrupted.returncode, exit_code,
+                    f"unexpected child exit: {interrupted.stderr}",
+                )
+                # Observe the committed state from a different process.
+                expected = b"original" if phase == "before" else b"after-crash"
+                revision = 1 if phase == "before" else 2
+                self.assertEqual(
+                    app_data.read_app_data(identity(), "key", str(root))["value"],
+                    expected,
+                )
+                self.assertEqual(app_data.list_app_data(identity(), str(root))["revision"], revision)
+                self.assertTrue(blob(root, b"original").exists())
+                result = app_data.restore_app_data_checkpoint(
+                    identity(), RELEASE, revision, str(root),
+                )
+                self.assertEqual(result["revision"], revision + 1)
+                self.assertEqual(
+                    app_data.read_app_data(identity(), "key", str(root))["value"],
+                    b"original",
+                )
+                self.assertFalse(blob(root, b"after-crash").exists())
+
+    def test_abrupt_process_death_during_first_write_preserves_genesis_pin(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 0, str(root))
+            child = """
+import os
+import sys
+from tests.test_native_app_data import app_data, identity
+original = app_data._atomic_replace_bytes
+
+def exit_before_manifest(path, parent, payload, *, label):
+    if label == "App Data manifest":
+        os._exit(74)
+    original(path, parent, payload, label=label)
+
+app_data._atomic_replace_bytes = exit_before_manifest
+app_data.put_app_data(identity(), "first-key", b"never-committed", 0, sys.argv[1])
+"""
+            interrupted = subprocess.run(
+                [sys.executable, "-c", child, str(root)],
+                cwd=Path(__file__).resolve().parents[1],
+                capture_output=True, text=True, check=False, timeout=15,
+            )
+            self.assertEqual(interrupted.returncode, 74, interrupted.stderr)
+            self.assertEqual(app_data.list_app_data(identity(), str(root))["keys"], [])
+            self.assertEqual(app_data.list_app_data(identity(), str(root))["revision"], 0)
+            restored = app_data.restore_app_data_checkpoint(identity(), RELEASE, 0, str(root))
+            self.assertEqual(restored["revision"], 1)
+            self.assertFalse(blob(root, b"never-committed").exists())
+            self.assertEqual(app_data.list_app_data(identity(), str(root))["keys"], [])
 
     def test_explicit_retirement_releases_pin_and_garbage_collects_only_orphans(self):
         with tempfile.TemporaryDirectory() as temporary:
