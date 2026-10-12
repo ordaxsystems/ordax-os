@@ -70,7 +70,7 @@ export function Central() {
         <Panel title="Atividades recentes" action="Ver todas" onAction={() => openPanel('Atividades')} className="activity-panel"><p className="service-state">{unavailableServices.activity}</p></Panel>
       </div>
       <div className="lower-grid">
-        <Panel title="Seus Spaces"><Button variant="ghost" className="space-switch" onClick={() => openPanel(identity.state === 'signed-in' ? 'Espaços' : 'Minha conta')}><AppIcon icon={WalletCards} tone="lime"/><span>{authorized.ready ? authorized.visibleSpaces.length + ' Spaces disponíveis' : 'Consultar meus Spaces'}</span><ChevronDown className="ml-auto size-3"/></Button></Panel>
+        <Panel title={authorized.activeSpace ? "Space atual" : "Seus Spaces"}><Button variant="ghost" className="space-switch" onClick={() => openPanel(identity.state === 'signed-in' ? 'Espaços' : 'Minha conta')}><AppIcon icon={WalletCards} tone="lime"/><span>{authorized.activeSpace?.name ?? (authorized.ready ? 'Escolher um Space' : 'Consultar meus Spaces')}</span><ChevronDown className="ml-auto size-3"/></Button></Panel>
         <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>
       </div>
       <footer className="os-footer home-footer"><select className="home-mode-select" aria-label="Modo da Aura" value={mode} onChange={event => setMode(event.target.value)}>{modes.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select></footer>

@@ -9,7 +9,11 @@ autenticada. Logout/troca de sujeito limpa catálogo e contexto local anterior.
 Geometria responsiva, temas, dock e janelas permanecem no owner existente.
 Dados fictícios de plano/cota, projetos, atividade e dispositivos foram
 substituídos por estados honestos nos mesmos cards/destinos. Os transports
-desses serviços e a seleção de Space no Web continuam pendentes.
+desses serviços continuam pendentes. A seleção explícita de Space agora usa
+ordax.space-selection/1 e o mesmo serviço de domínio do Native, com registro
+somente em memória da sessão Web. A escolha é revalidada pelo catálogo,
+limpa em logout/troca de conta e removida se o Space desaparecer/for arquivado;
+não é persistência cloud, grant ou ativação de serviço.
 
 Fonte conectada aos contratos não comprova gateway ativo, implantação nem
 E2E autenticado. No preview Vite sem rotas same-origin de conta, a interface

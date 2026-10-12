@@ -715,3 +715,35 @@ invent user data; old-subject catalog cannot survive account replacement.
 Static diff/source review only; no build, npm, tests or browser validation ran.
 A standalone Vite/static host without the same-origin gateway remains
 unavailable. No deployment, production activation or authenticated E2E claim.
+
+### Web Central explicit Space selection — 2026-10-12
+
+Owner: OS Surface/composition; requested continuation of backend alignment under
+the Surface functional plan. Reuses ordax.space-selection/1,
+ordax.space-selection-store/1 and createSpaceSelectionRuntime, the same domain
+service composed by Native. The existing Web selection adapter now supplies
+a validated session-only record; no localStorage, credentials, second catalog,
+backend endpoint, sync or new authority. The unavailable adapter stays for hosts
+that have no configured selection composition.
+
+The canonical service now owns subject-change catalog reset instead of the
+previous composition-side reset, removing duplicate responsibility. Only an
+explicitly clicked active Space in the authenticated catalog can be selected.
+Catalog refresh hides unavailable context until revalidation, while preserving
+a valid same-account selection in memory. Removal/archiving clears the record;
+logout/account replacement clears it permanently. A new page/composition starts
+unselected. Disposal releases the canonical service's subscriptions.
+
+Central shows the selected Space in the existing lower summary. The Spaces
+window uses the same theme/row geometry, accessible pressed buttons, disabled
+archived entries, and a clear-selection control. Other app instances/windows,
+compact geometry, sidebar and dock remain unchanged; this choice does not
+activate files/device access or inference and is not a grant.
+
+Risk: stale/unauthorized context and accidental selection during refresh.
+Acceptance: explicit selection only; subject/catalog revalidation; no mutation
+requests; no inherited context after logout, account replacement or disposal.
+Regression source now covers these cases plus temporary catalog failure and
+session-only lifecycle. Static source/diff review only: no tests, build, npm,
+typecheck or browser validation executed under the standing user restriction.
+Authenticated gateway/deployment/E2E remains a separate pending proof.

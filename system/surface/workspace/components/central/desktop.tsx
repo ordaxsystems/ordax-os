@@ -117,15 +117,24 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
 }
 
 function SpacesPanel() {
-  const { session, identity, catalog, authorized } = useWebAccount();
+  const { session, identity, catalog, selection, authorized } = useWebAccount();
+  const [error, setError] = useState<string | null>(null);
   const message = catalog.state === 'loading' ? 'Carregando seus Spaces…'
     : identity.state !== 'signed-in' ? 'Entre na conta para consultar seus Spaces.'
     : catalog.state === 'error' ? 'Não foi possível consultar seus Spaces. Tente atualizar a conexão.'
     : authorized.ready ? 'Nenhum Space está disponível para esta conta.' : 'A consulta de Spaces não está disponível.';
-  return <Panel title="Seus Spaces" action="Atualizar" onAction={() => void session.refresh()}>
+  function selectSpace(id: string) {
+    setError(null);
+    try { session.selection.select(id); }
+    catch { setError('Este Space não está disponível. Atualize a conexão e escolha novamente.'); }
+  }
+  return <Panel title="Seus Spaces" action="Atualizar" onAction={() => { setError(null); void session.refresh().catch(() => {}); }}>
     {authorized.ready && authorized.visibleSpaces.length > 0
-      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <div className="space-switch" key={space.id}><AppIcon icon={WalletCards} tone="lime"/><span>{space.name}</span><span className="project-meta">{space.state === 'active' ? 'Ativo' : 'Arquivado'}</span></div>)}</div>
+      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <Button variant="ghost" className="space-switch space-choice" key={space.id} disabled={space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} title={space.name} onClick={() => selectSpace(space.id)}><AppIcon icon={WalletCards} tone="lime"/><span className="space-choice-name">{space.name}</span><span className="project-meta">{space.state !== 'active' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Escolher'}</span></Button>)}</div>
       : <p className="service-state" role="status">{message}</p>}
-    <p className="service-state">Consulta autorizada da conta. A seleção do contexto de trabalho ainda não está disponível no Web.</p>
+    {selection.state === 'selected' && <div className="account-service-actions"><Button variant="outline" onClick={() => { session.selection.clear(); setError(null); }}>Limpar seleção</Button></div>}
+    {error && <p className="service-state" role="alert">{error}</p>}
+    <p className="service-state" role="status">{authorized.activeSpace ? 'Space atual: ' + authorized.activeSpace.name : authorized.ready ? 'Escolha um Space para definir o contexto desta sessão.' : 'Nenhum contexto de Space está disponível.'}</p>
+    <p className="service-state">A escolha vale nesta sessão e não concede acesso a arquivos, dispositivos ou IA.</p>
   </Panel>;
 }

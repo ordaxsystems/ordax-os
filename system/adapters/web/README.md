@@ -20,4 +20,4 @@ This adapter deliberately does **not** claim that account or sync services are i
 
 `system/composition/web/` is responsible for wiring Web adapters to the shared Surface. Adapter modules never import the Surface.
 
-The Web account composition now binds these same adapters to Central. Spaces is a read-only catalog from /account/spaces, refreshed only with an authenticated session and reset on subject changes. This does not select a Space, grant access to devices/files, activate storage or enable inference.
+The Web account composition now binds these same adapters to Central. Spaces is a read-only catalog from /account/spaces, refreshed only with an authenticated session and reset on subject changes. Explicit selection now composes the same ordax.space-selection/1 domain runtime used by Native with createWebSpaceSelectionStore. This adapter holds only a validated subject/Space record in session memory; it never grants access to devices/files, activates storage or enables inference. The unavailable port remains the fail-closed contract for hosts without this composition.
