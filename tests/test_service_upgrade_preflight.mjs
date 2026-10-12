@@ -15,6 +15,9 @@ import {
   validateSlotCompatibilityInspection,
   preflightServiceUpgradeInspections,
   VERIFIED_SLOT_COMPATIBILITY_SCHEMA,
+  ACTIVATION_SLOT_COMPATIBILITY_SNAPSHOT_SCHEMA,
+  validateActivationCompatibilitySnapshot,
+  preflightServiceUpgradeWithActivationSnapshots,
 } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const manifests = listSystemComponents();
@@ -216,4 +219,89 @@ test("slot readout rejects forged pinned-trust claim, incomplete binding and wro
     candidateInspection: inspection(futureAI()),
     activeInspections: null,
   }), /Explicit bounded/);
+});
+
+const activationSnapshot = (descriptor, revision = 5, target = "current", other = {}) => ({
+  schema: ACTIVATION_SLOT_COMPATIBILITY_SNAPSHOT_SCHEMA,
+  authority: "none",
+  componentId: descriptor.componentId,
+  target,
+  revision,
+  pendingHealth: "unknown",
+  trustScope: "caller-supplied-public-anchor",
+  trustSHA256: "a".repeat(64),
+  verifiedSlot: inspection(descriptor),
+  ...other,
+});
+
+test("official activation revision and verified slot reports can be checked without mutation", () => {
+  const report = preflightServiceUpgradeWithActivationSnapshots({
+    manifests: independentManifests,
+    componentId: "local-ai-service",
+    currentSnapshot: activationSnapshot(localAiCompatibility),
+    candidateInspection: inspection(futureAI(), { commit: "2".repeat(40) }),
+    activeSnapshots: [activationSnapshot(intelligenceCompatibility, 3)],
+    expectedRevision: 5,
+  });
+  assert.equal(report.compatibilityAllowed, true);
+  assert.equal(report.reasonCode, "compatible-stateless");
+  assert.equal(report.authority, "none");
+  assert.equal(report.activationEvidence, "not-evaluated");
+});
+
+test("outdated state revision, mistaken slot role or wrong trust blocks diagnostic preflight", () => {
+  const input = {
+    manifests: independentManifests,
+    componentId: "local-ai-service",
+    currentSnapshot: activationSnapshot(localAiCompatibility),
+    candidateInspection: inspection(futureAI()),
+    activeSnapshots: [activationSnapshot(intelligenceCompatibility)],
+    expectedRevision: 5,
+  };
+  const stale = preflightServiceUpgradeWithActivationSnapshots({
+    ...input, expectedRevision: 4,
+  });
+  assert.equal(stale.compatibilityAllowed, false);
+  assert.equal(stale.reasonCode, "activation-revision-stale");
+  const badRole = preflightServiceUpgradeWithActivationSnapshots({
+    ...input, currentSnapshot: activationSnapshot(localAiCompatibility, 5, "pending"),
+  });
+  assert.equal(badRole.compatibilityAllowed, false);
+  assert.equal(badRole.reasonCode, "activation-snapshot-identity-mismatch");
+  const pendingConsumer = preflightServiceUpgradeWithActivationSnapshots({
+    ...input, activeSnapshots: [activationSnapshot(intelligenceCompatibility, 3, "pending")],
+  });
+  assert.equal(pendingConsumer.compatibilityAllowed, false);
+  assert.equal(pendingConsumer.reasonCode, "active-consumer-not-current");
+  const wrongTrust = preflightServiceUpgradeWithActivationSnapshots({
+    ...input, candidateInspection: inspection(futureAI(), { fingerprint: "b".repeat(64) }),
+  });
+  assert.equal(wrongTrust.compatibilityAllowed, false);
+  assert.equal(wrongTrust.reasonCode, "public-trust-source-mismatch");
+});
+
+test("activation snapshot shape, duplicate consumers and false trust claims are rejected", () => {
+  const initial = activationSnapshot(localAiCompatibility);
+  for (const spoofed of [
+    { ...initial, authority: "activate" },
+    { ...initial, trustScope: "production-pinned" },
+    { ...initial, trustSHA256: "b".repeat(64) },
+    { ...initial, target: "previous" },
+    { ...initial, revision: 0 },
+    { ...initial, verifiedSlot: inspection(intelligenceCompatibility) },
+    { ...initial, extra: true },
+  ]) {
+    assert.throws(() => validateActivationCompatibilitySnapshot(spoofed));
+  }
+  assert.throws(() => preflightServiceUpgradeWithActivationSnapshots({
+    manifests: independentManifests,
+    componentId: "local-ai-service",
+    currentSnapshot: initial,
+    candidateInspection: inspection(futureAI()),
+    activeSnapshots: [
+      activationSnapshot(intelligenceCompatibility),
+      activationSnapshot(intelligenceCompatibility, 4),
+    ],
+    expectedRevision: 5,
+  }), /unique/);
 });
