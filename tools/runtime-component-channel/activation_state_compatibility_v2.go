@@ -156,11 +156,11 @@ func verifyArmPendingStateCompatibility(
 	); err != nil {
 		return err
 	}
-	// A locally compatible replacement still cannot assume that the
-	// installed native graph stayed valid since an earlier preflight.
-	// Re-read every signed current peer under the activation graph lock.
-	// This does not attest bundled consumers or grant public activation.
-	return verifySignedNativeConsumerContinuityUnderGraphLock(
-		root, componentID, after.Descriptor.Provides, trustBytes,
+	// Re-read the canonical signed current graph while still locked.
+	// A replacement must preserve its active consumers AND prove each
+	// mandatory requirement of the incoming candidate has an installed,
+	// signed release/2 provider. This cannot attest bundled components.
+	return verifySignedNativeCandidateGraphUnderLock(
+		root, componentID, after.Descriptor, trustBytes, true,
 	)
 }

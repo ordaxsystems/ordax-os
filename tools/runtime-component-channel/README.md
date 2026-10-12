@@ -218,8 +218,24 @@ interrompe a operação **antes** de alterar a revisão ou o slot ativo.
 
 A prova inclui regressões de corrupção antes de armar e depois da saúde
 positiva, além de uma promoção legítima preservando um consumidor assinado.
+
+**Primeira instalação e dependências da versão nova:** `arm-pending` e
+`promote-state` agora também exigem que cada dependência `requires` não
+opcional de um release/2 tenha outro provedor **current assinado e
+criptograficamente verificado** com a interface/major necessária, mesmo
+quando o componente ainda não tem `current`. O verificador lê o mesmo
+grafo Native de `activation-state.json` sob o lock canônico, sem inventar
+instalações nem aceitar um subconjunto de peers escolhido pelo chamador.
+Dependências opcionais podem estar ausentes. Se o provedor sair entre
+`arm` e `promote`, a promoção é recusada e o `pending` não é alterado.
+O mesmo conjunto é usado para avaliar **consumidores existentes** e
+**dependências do candidato** em upgrades, evitando scans separados.
+
 A cobertura **continua incompleta para serviços `bundled`, releases/1,
-primeira instalação sem `current`, confiança de produção e migração de dados**.
+confiança de produção e migração de dados**: uma dependência apenas bundled
+não é considerada provada por este grafo e, portanto, não libera a
+instalação individual. Release/1 mantém a semântica de desenvolvimento
+anterior, sem servir como evidência para release público.
 Nenhuma dessas provas liga a publicação de atualizações individuais ao usuário.
 
 ### Signed state-local compatibility before pending activation
