@@ -89,6 +89,24 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
 
         self.assertNotIn("rdinit=/sbin/ordax-independent-probe-init", experimental)
 
+    def test_signed_release_fault_qemu_is_real_and_separate_from_product_boot(self):
+        official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
+        fault = (BASE / "signed_release_failure_qemu.py").read_text()
+        self.assertIn("name: Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU", official)
+        self.assertIn("if: ${{ inputs.base_source == 'independent' }}", official)
+        self.assertIn("sudo -E python3 bootstrap/independent-base/signed_release_failure_qemu.py", official)
+        self.assertIn("qemu-signed-fault-proof/proof.json", official)
+        self.assertIn("import qemu_boot as qemu", fault)
+        self.assertIn("qemu.stage_disk(args, inputs, work)", fault)
+        self.assertIn('decoded[0] ^= 0x01', fault)
+        self.assertEqual(fault.count("qemu.boot_qemu_expected("), 2)
+        self.assertIn("qemu.inspect_one_shot_state(", fault)
+        self.assertIn('"ordax.mode=recovery"', fault)
+        self.assertIn("no candidate/current/known-good release is safely selectable", fault)
+        self.assertIn("before != after", fault)
+        self.assertIn('"physical_promotion_authorized": False', fault)
+        self.assertIn("disk.unlink()", fault)
+
     def test_fail_closed_with_invalid_commit_and_missing_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             candidate = Path(tmp) / "new-base"
