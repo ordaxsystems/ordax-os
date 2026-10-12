@@ -672,8 +672,14 @@ class SurfaceUiContractTests(unittest.TestCase):
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
         css = (SURFACE / "surface.css").read_text(encoding="utf-8")
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
-        for app_id in ("files", "internet", "settings", "account", "system"):
+        for app_id in ("files", "internet", "settings", "system"):
             self.assertIn(f'railButton("{app_id}"', shell)
+        # Account now owns one dedicated sidebar-footer profile launcher,
+        # not a duplicated entry in the app rail.
+        self.assertNotIn('railButton("account"', shell)
+        self.assertIn('class="ordax-profile-shortcut"', shell)
+        self.assertIn('data-sidebar-app="account" data-launch-app="account"', shell)
+        self.assertIn('data-app-target="overview"', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
         self.assertIn("data-ordax-clock", shell)
