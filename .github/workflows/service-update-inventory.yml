@@ -36,4 +36,13 @@ jobs:
       - name: Validate canonical service inventory
         run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs
       - name: Produce derived update-readiness audit
-        run: node tools/service-update-inventory.mjs --check
+        run: |
+          node tools/service-update-inventory.mjs --check
+          node tools/service-update-inventory.mjs > native-service-update-audit.json
+      - name: Retain evidence for other service owners
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-service-update-audit
+          path: native-service-update-audit.json
+          retention-days: 14
+          if-no-files-found: error
