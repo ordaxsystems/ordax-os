@@ -91,7 +91,7 @@ const FIRST_RUN_LEGAL_ENGLISH = Object.freeze({
     "Read the canonical documents before creating your OrdaX Account.",
   "Privacidade": "Privacy",
   "Termos": "Terms",
-  "Li e aceito os documentos vigentes indicados acima.":
+  "Li e aceito os Termos de Uso e li a Política de Privacidade indicados acima.":
     "I have read and accept the current documents listed above.",
   "Criando conta…": "Creating account…",
 });
