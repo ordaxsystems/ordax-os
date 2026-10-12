@@ -83,6 +83,36 @@ The currently published signed `prototype-ordax.runtime-component-release/1` kee
 
 This lets Local AI, OrdaX Intelligence, Studio runtimes and later services evolve independently without turning the component manager into a plugin system with implicit authority or allowing an update to reinterpret user state in place.
 
+## Inventário transversal das atualizações dos serviços
+
+**Programa de implementação:** [Issue #1680](https://github.com/ordaxsystems/ordax-os/issues/1680). O primeiro corte é **para todos os serviços de uma vez**, não para um único serviço: `node tools/service-update-inventory.mjs --check` descobre cada diretório `system/services/<nome>` no repositório e deriva todos os componentes de `system/apps/component-catalog.mjs`. O teste `tests/test_service_update_inventory.mjs` e o workflow `service-update-inventory.yml` conferem essa projeção em mudanças de serviços/apps.
+
+A projeção `ordax.service-update-inventory/1` é **somente leitura e sem autoridade**. Não mantém outra tabela de versões, installed state, permissões, donos de projetos ou updater. Versões e `releaseMode` permanecem exclusivamente nos manifests. Diretório sem componente próprio aparece explicitamente como domínio embutido: existência de código **não prova** serviço executável ou atualização independente. Um `component-slot` declarado também **não prova** distribuição pública.
+
+### Regra de atualização por família
+
+| Família | Origem da decisão | Entrega até aprovação real |
+| --- | --- | --- |
+| Base/kernel/boot/recovery | release OrdaX + `base-ab` | Geral/A-B; reboot quando necessário |
+| Supervisor/atualizador/segurança e estado crítico | manifestos e contrato de sistema | Geral; jamais updater dentro do updater |
+| Shell, rede, energia e relógio | manifests atuais | `bundled`; isolamento futuro apenas com provas |
+| Local AI / Intelligence | manifests + compatibilidade `ordax.local-ai/1` e `ordax.intelligence/1` | `bundled` agora; candidatos a `component-slot` com saúde/rollback |
+| Spaces, Memory, Sync, Personal OrdaX, Scheduler, Background, notificações | serviços donos dos domínios; fonte descoberta no inventário | Embutidos no OS até existir pacote standalone, versão/ABI/dependências verificadas e migração segura |
+| Profile/Knowledge/Skill/idiomas | manifests versionados e políticas de pacotes existentes | Conteúdo/versionamento próprio quando assinados e ativáveis; não confundir com processo runtime |
+| Apps first-party removíveis | ownership `ordax-apps` e manifests de app | `git-app` é só desenvolvimento; `component-slot` apenas após cutover e trust real |
+| Conta, Ajustes, Sistema, Loja | componentes estruturais do OS | `bundled`, inicialmente |
+
+### Gates comuns — nunca pular diretamente para `component-slot`
+
+1. Cobrir todos os diretórios de serviço e todos os manifests no inventário automático, sem catálogos paralelos.
+2. Para cada **unidade realmente instalável**, declarar dependências de contratos (fornece/requer), versão, ownership de estado, necessidade de restart e `releaseMode` no **manifesto canônico**, não na projeção de auditoria.
+3. Usar uma única cadeia `artifact -> assinatura e trust pinado -> compatibilidade -> staging -> pending-health -> promoção -> receipt -> rollback`. Não inventar segunda Store/updater.
+4. Para dados persistentes, migrar cópia separada e verificar antes de alternar; manter known-good e negar downgrade incompatível. Um serviço desativado não apaga projetos, Spaces, Memory ou arquivos.
+5. Executar provas negativas: assinatura adulterada, API/ABI incompatível, dependência ausente, interrupção da instalação, health falho, rollback, troca de usuário e preservação dos dados.
+6. Só alterar `releaseMode`/publicação com CI, assinatura de produção, recuperação e prova de hardware quando aplicável. **Nenhuma mudança desta primeira etapa altera o modo de release nem ativa instalação.**
+
+**Trabalho paralelo:** a mudança transversal evita arquivos de Creator/kernel, HTML/CSS da Surface, local-AI runtime funcional, migrations de apps e backend Platform. PRs nessas áreas pertencem a seus respectivos owners e devem ser reconciliadas antes do merge. Próximo corte após a cobertura completa: provar um componente isolado contra o **mesmo** canal assinado e replicar o gate validado, sem reimplementar o mecanismo para cada serviço.
+
 ## Memory for years of use
 
 The current native prototype persists `ordax.memory-snapshot/1` with a bounded item/byte ceiling. That remains a safe compatibility boundary, but it is not the final long-term storage design.
