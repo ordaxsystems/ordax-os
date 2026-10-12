@@ -73,8 +73,8 @@ fi
 GUARDIAN=/usr/lib/ordax-phase3-proof/system/entrypoint
 [ -x "$GUARDIAN" ] || rescue guardian-absent
 [ -x /usr/lib/ordax-phase3-proof/system/supervisor ] || rescue supervisor-absent
-if ORDAX_DISTRIBUTION_PROFILE=stable-mvp ORDAX_PRODUCT_MODE=usb \\
-    ORDAX_STABLE_LAYOUT=portable-v2 ORDAX_SOURCE_SHA=0000000000000000000000000000000000000000 \\
+if ORDAX_DISTRIBUTION_PROFILE=stable-mvp ORDAX_PRODUCT_MODE=usb \
+    ORDAX_STABLE_LAYOUT=portable-v2 ORDAX_SOURCE_SHA=0000000000000000000000000000000000000000 \
     "$GUARDIAN" >/run/ordax-guardian-proof.log 2>&1; then
     rescue guardian-accepted-unverified-surface
 fi
@@ -93,8 +93,8 @@ starts=$(grep -c 'started supervisor pid' /run/ordax-update/guardian.log)
     rescue guardian-boot-id-mode
 echo ORDAX_INDEPENDENT_GUARDIAN_RESTART_FAIL_CLOSED=PASS
 # Exercise TERM cleanup on the original Guardian, not a test replacement.
-ORDAX_DISTRIBUTION_PROFILE=stable-mvp ORDAX_PRODUCT_MODE=usb \\
-    ORDAX_STABLE_LAYOUT=portable-v2 ORDAX_SOURCE_SHA=0000000000000000000000000000000000000000 \\
+ORDAX_DISTRIBUTION_PROFILE=stable-mvp ORDAX_PRODUCT_MODE=usb \
+    ORDAX_STABLE_LAYOUT=portable-v2 ORDAX_SOURCE_SHA=0000000000000000000000000000000000000000 \
     "$GUARDIAN" >/run/ordax-guardian-stop.log 2>&1 &
 guardian_pid=$!
 sleep 1
