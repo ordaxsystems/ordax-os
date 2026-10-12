@@ -20,6 +20,8 @@ import {
   preflightServiceUpgradeWithActivationSnapshots,
   ACTIVE_SLOT_COMPATIBILITY_CATALOG_SCHEMA,
   validateActiveSlotCompatibilityCatalog,
+  SERVICE_ACTIVE_GRAPH_COVERAGE_SCHEMA,
+  assessServiceActiveGraphCoverage,
 } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const manifests = listSystemComponents();
@@ -353,4 +355,55 @@ test("active catalog rejects forged completeness, mixed keys and duplicate consu
   ]) {
     assert.throws(() => validateActiveSlotCompatibilityCatalog(bad));
   }
+});
+
+test("signed active graph gaps are derived across every canonical manifest", () => {
+  const result = assessServiceActiveGraphCoverage({
+    manifests,
+    descriptors: coreRuntimeCompatibility,
+    activeCatalog: activeCatalog([]),
+  });
+  assert.equal(result.schema, SERVICE_ACTIVE_GRAPH_COVERAGE_SCHEMA);
+  assert.equal(result.authority, "none");
+  assert.equal(result.completeForActivation, false);
+  assert.equal(result.summary.total, manifests.length);
+  assert.equal(result.summary.sourceDescriptorsDeclared, coreRuntimeCompatibility.length);
+  assert.equal(result.summary.missingSourceDescriptors, manifests.length - coreRuntimeCompatibility.length);
+  assert.equal(result.summary.signedCurrentObserved, 0);
+  assert.equal(result.summary.productionCompatibilityProven, 0);
+  assert.equal(
+    result.components.find((entry) => entry.id === "ordax-intelligence").contractEvidence,
+    "source-descriptor-only",
+  );
+  assert.equal(
+    result.components.find((entry) => entry.id === "internet").contractEvidence,
+    "not-declared",
+  );
+});
+
+test("signed slot may be observed while canonical releaseMode is still not promoted", () => {
+  const result = assessServiceActiveGraphCoverage({
+    manifests,
+    descriptors: coreRuntimeCompatibility,
+    activeCatalog: activeCatalog([activationSnapshot(localAiCompatibility)]),
+  });
+  const local = result.components.find((entry) => entry.id === "local-ai-service");
+  assert.equal(local.signedCurrentObserved, true);
+  assert.equal(local.sourcePolicyMatchesObservedSlot, false);
+  assert.equal(local.contractEvidence, "verified-by-native-readout-not-pinned");
+  assert.equal(local.productionCompatibilityProven, false);
+  assert.equal(result.summary.sourceModeMismatches, 1);
+  assert.equal(result.completeForActivation, false);
+});
+
+test("signed current references cannot invent a new component outside SSOT", () => {
+  const ghost = {
+    ...localAiCompatibility,
+    componentId: "ghost-service",
+  };
+  assert.throws(() => assessServiceActiveGraphCoverage({
+    manifests,
+    descriptors: coreRuntimeCompatibility,
+    activeCatalog: activeCatalog([activationSnapshot(ghost)]),
+  }), /no canonical component manifest/);
 });
