@@ -7,6 +7,7 @@ Never accepts host block devices or writes USB media.
 from __future__ import annotations
 
 import argparse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import re
@@ -15,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 
 from build import contracts, digest, BaseError, ROOT
 
@@ -27,12 +29,12 @@ def regular(path: Path, label: str) -> Path:
     return path.resolve()
 
 
-def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_dir: Path) -> dict:
+def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_dir: Path, http_port: int) -> dict:
     argv = [
         "qemu-system-x86_64", "-machine", "pc", "-m", "384M", "-smp", "1",
         "-nographic", "-monitor", "none", "-no-reboot", "-serial", "stdio",
         "-kernel", str(kernel), "-initrd", str(initrd),
-        "-append", "console=ttyS0 loglevel=4 rdinit=/sbin/ordax-independent-probe-init",
+        "-append", f"console=ttyS0 loglevel=4 rdinit=/sbin/ordax-independent-probe-init ordax.proof_http_port={http_port}",
         # IDE emulation requires a writable block backend. QEMU snapshot=on
         # redirects guest writes to disposable COW while leaving base bytes intact.
         # The guest EROFS mount is independently verified read-only by PID1.
@@ -60,6 +62,7 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
                  f"ORDAX_INDEPENDENT_OVERLAY_STATE={'CREATED' if label == 'first' else 'RETAINED'}",
                  "ORDAX_INDEPENDENT_NETWORK_ROUTE_DNS_CONFIG=PASS",
                  "ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS",
+                 "ORDAX_INDEPENDENT_NETWORK_HTTP=PASS",
                  "ORDAX_INDEPENDENT_GUARDIAN_RESTART_FAIL_CLOSED=PASS",
                  "ORDAX_INDEPENDENT_GUARDIAN_TERMINATION=PASS",
                  f"ORDAX_INDEPENDENT_STATE={'CREATED' if label == 'first' else 'RETAINED'}",
@@ -141,10 +144,42 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         mkfs = subprocess.run(["mkfs.ext4", "-F", "-q", str(state)], capture_output=True)
         if mkfs.returncode:
             raise BaseError("cannot create disposable state image")
-        receipts = [
-            qemu(kernel, initrd, base, state, "first", serial_dir),
-            qemu(kernel, initrd, base, state, "second", serial_dir),
-        ]
+        # Real guest-to-host TCP flow through QEMU user NAT. The HTTP
+        # responder is loopback-only on this disposable CI machine and
+        # exists solely for the proof, not as a product network service.
+        requests = []
+
+        class ProofHttpHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path != "/ordax-network-proof":
+                    self.send_error(404)
+                    return
+                requests.append(self.path)
+                payload = b"ORDAX_NETWORK_HTTP=PASS\\n"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, format, *args):
+                pass
+
+        with ThreadingHTTPServer(("127.0.0.1", 0), ProofHttpHandler) as server:
+            server.timeout = 1
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                port = server.server_port
+                receipts = [
+                    qemu(kernel, initrd, base, state, "first", serial_dir, port),
+                    qemu(kernel, initrd, base, state, "second", serial_dir, port),
+                ]
+                if len(requests) != 2:
+                    raise BaseError("guest did not perform exactly one outbound HTTP request per healthy boot")
+            finally:
+                server.shutdown()
+                thread.join()
         debugfs = subprocess.run(["debugfs", "-R", "cat /ordax-independent-marker", str(state)],
                                  text=True, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, check=False)
@@ -157,7 +192,7 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
             f.write(b"\x00" * 4096)
         if digest(corrupt) == base_before:
             raise BaseError("fault injection did not modify candidate")
-        receipts.append(qemu(kernel, initrd, corrupt, state, "corrupt-base", serial_dir))
+        receipts.append(qemu(kernel, initrd, corrupt, state, "corrupt-base", serial_dir, port))
     if digest(base) != base_before:
         raise BaseError("original EROFS changed during QEMU proof")
     receipt = {
@@ -181,6 +216,7 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         "phase3_state_permissions_qemu_verified": True,
         "phase3_overlayfs_persistence_qemu_verified": True,
         "phase3_dhcp_ipv4_gateway_dns_qemu_verified": True,
+        "phase3_guest_to_host_http_qemu_verified": True,
         "phase3_product_surface_health_qemu_verified": False,
         "phase3_service_primitives_qemu_verified": True,
         "phase3_native_iproute2_qemu_verified": True,

@@ -86,6 +86,20 @@ if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/netw
         rescue dns-resolution
     grep -q '^Address' /run/ordax-dns-query.log || rescue dns-answer
     echo ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS
+    # Prove a full HTTP request/response over the guest network interface
+    # to an ephemeral loopback-only listener on the QEMU host.
+    proof_port=""
+    for arg in $(cat /proc/cmdline); do
+        case "$arg" in
+            ordax.proof_http_port=*) proof_port=${arg#*=} ;;
+        esac
+    done
+    case "$proof_port" in ''|*[!0-9]*) rescue http-port ;; esac
+    [ "$proof_port" -ge 1 ] && [ "$proof_port" -le 65535 ] || rescue http-port
+    /bin/busybox timeout -k 1 8 /bin/busybox wget -q -T 6 -O /run/ordax-http-response "http://10.0.2.2:$proof_port/ordax-network-proof" ||
+        rescue http-connect
+    grep -qx 'ORDAX_NETWORK_HTTP=PASS' /run/ordax-http-response || rescue http-response
+    echo ORDAX_INDEPENDENT_NETWORK_HTTP=PASS
 else
     rescue dhcp
 fi

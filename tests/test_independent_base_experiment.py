@@ -97,6 +97,8 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertIn("ORDAX_INDEPENDENT_GUARDIAN_RESTART_FAIL_CLOSED=PASS", proof)
         self.assertIn("ORDAX_INDEPENDENT_GUARDIAN_TERMINATION=PASS", proof)
         self.assertIn("ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS", proof)
+        self.assertIn("ORDAX_INDEPENDENT_NETWORK_HTTP=PASS", proof)
+        self.assertIn("http://10.0.2.2:", proof)
         self.assertIn("ORDAX_INDEPENDENT_STATE_SECURITY=PASS", proof)
         self.assertIn("ORDAX_INDEPENDENT_OVERLAY=PASS", proof)
         verifier = (BASE / "qemu_proof.py").read_text()
