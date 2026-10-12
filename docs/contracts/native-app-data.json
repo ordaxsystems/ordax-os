@@ -116,6 +116,13 @@
     "read_only_inspection_exposes_user_values": false,
     "read_only_inspection_activation_authority": "none",
     "read_only_inspection_sha256_for_active_manifest": true,
-    "read_only_inspection_holds_shared_lock_through_blob_verification": true
+    "read_only_inspection_holds_shared_lock_through_blob_verification": true,
+    "exclusive_maintenance_scope_supported": true,
+    "exclusive_maintenance_scope_reuses_partition_flock": true,
+    "public_get_list_put_delete_block_during_maintenance": true,
+    "maintenance_scope_rechecks_revision_and_active_and_pinned_blob_integrity": true,
+    "maintenance_scope_offers_owner_checkpoint_restore_retire": true,
+    "maintenance_scope_is_update_authority": false,
+    "maintenance_scope_quiesces_external_side_effects": false
   }
 }
