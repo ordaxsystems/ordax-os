@@ -38,7 +38,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "ee97fd58a8d3c56acb4b6e47c90558b62d38f23a935e7da7426f23bb6695deec",
+      "adaptedSha256": "65910aba7115421bd50e98111f7868609d24603c78e4b06b36c97dde881aee67",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "df1172238b903a384b125e00e25db27ef59ed9412db4a87c3e7ef9304cca00b2",
+      "adaptedSha256": "76a175b67be6eecf0bc9e06ef8043022bcdd4b6fd9a7b44c4cbd49f97bd65281",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -116,7 +116,8 @@
     "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained",
     "Compact titlebar reduced to a single 40px row with spaced 28px controls; below 260px secondary actions use shared accessible dropdown, driven by the same action descriptors",
     "Window layer uses shared upper/lower grid tracks: regular app spans all columns above compact panes; panel collapse/expand/minimize reallocates height automatically without absolute app sizing",
-    "Shared window icon resolver consumes existing app/project metadata in dock and titlebar; dock minimized marker and current-window semantics derive from reducer state"
+    "Shared window icon resolver consumes existing app/project metadata in dock and titlebar; dock minimized marker and current-window semantics derive from reducer state",
+    "Running-app labels hide only when measured natural widths exceed the dock; ResizeObserver/font readiness restore labels when space permits, accessible names and tooltips remain"
   ],
   "native_files": [
     {

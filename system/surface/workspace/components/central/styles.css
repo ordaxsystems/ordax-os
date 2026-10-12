@@ -733,3 +733,7 @@
 /* Running apps retain a distinct minimized marker without dimming their labels. */
 .workspace-navigation .desktop-task span { white-space: nowrap; }
 .workspace-navigation .desktop-task[data-minimized="true"]::after { width: 6px; height: 3px; left: calc(50% - 3px); }
+
+/* Collapse task labels only when their measured row would exceed available width. */
+.workspace-navigation .desktop-running-apps[data-labels="hidden"] .desktop-task { width: 44px; justify-content: center; }
+.workspace-navigation .desktop-running-apps[data-labels="hidden"] .desktop-task > span { display: none; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type Dispatch } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch } from 'react';
 import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import dayWallpaper from '@/assets/alpine-day.jpg';
@@ -39,6 +39,40 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
   const [startOpen, setStartOpen] = useState(false);
   const [search, setSearch] = useState('');
   const navigationHost = useRef<HTMLElement>(null);
+  const dockHost = useRef<HTMLDivElement>(null);
+  const [dockLabelsVisible, setDockLabelsVisible] = useState(true);
+  useLayoutEffect(() => {
+    const host = dockHost.current;
+    if (!host) return;
+    const context = document.createElement('canvas').getContext('2d');
+    let disposed = false;
+    const measure = () => {
+      if (disposed) return;
+      const buttons = [...host.querySelectorAll<HTMLButtonElement>('.desktop-task')];
+      const gap = parseFloat(getComputedStyle(host).columnGap) || 0;
+      const required = buttons.reduce((total, button) => {
+        const label = button.querySelector('span');
+        if (!label) return total;
+        const style = getComputedStyle(button);
+        const textStyle = getComputedStyle(label);
+        if (context) context.font = textStyle.font || textStyle.fontWeight + ' ' + textStyle.fontSize + ' ' + textStyle.fontFamily;
+        const textWidth = context?.measureText(label.textContent ?? '').width ?? 110;
+        const labelWidth = Math.min(textWidth, parseFloat(textStyle.maxWidth) || textWidth);
+        const iconWidth = button.querySelector('svg')?.getBoundingClientRect().width ?? 16;
+        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+        const naturalWidth = padding + iconWidth + (parseFloat(style.columnGap) || 0) + labelWidth;
+        const buttonWidth = Math.min(parseFloat(style.maxWidth) || Infinity, Math.max(parseFloat(style.minWidth) || 44, naturalWidth));
+        return total + Math.ceil(buttonWidth);
+      }, Math.max(0, buttons.length - 1) * gap);
+      setDockLabelsVisible(required <= host.clientWidth);
+    };
+    measure();
+    void document.fonts.ready.then(measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(host);
+    window.addEventListener('resize', measure);
+    return () => { disposed = true; observer?.disconnect(); window.removeEventListener('resize', measure); };
+  }, [state.windows]);
   const [visibleCount, setVisibleCount] = useState(0);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   useEffect(() => {
@@ -75,6 +109,6 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
       <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Espaços')} onSettings={() => open('Configurações')}/>
     </aside>
     <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>
-    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps">{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
+    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
   </>;
 }

@@ -656,3 +656,15 @@ minimized marker while preserving readable labels and restore actions. No new
 window or service state. Acceptance: recognizable icons agree across surfaces;
 minimized/active indications follow the shared reducer. Backend unchanged.
 No build, npm or tests executed under the standing user restriction.
+
+### Dock label density follows available width — 2026-10-11
+
+Owner: OS Surface. Dock measures label font metrics, icon/padding widths and
+row gaps against available width. When labels would overflow, all tasks switch
+to 44px icon buttons; labels return when space permits. Calculation uses natural
+dimensions independent of the hidden-label mode to avoid oscillation.
+ResizeObserver, window resize and font readiness refresh density; cleanup guards
+late font callbacks. Window count/title changes also remeasure. Accessible names,
+full title/state tooltips and active/minimized indicators remain intact.
+Acceptance: crowded dock shows icons, wider/less crowded dock restores names.
+No build, npm or tests executed under the standing user restriction.
