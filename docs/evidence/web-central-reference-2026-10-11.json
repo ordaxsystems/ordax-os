@@ -45,14 +45,14 @@
       "source": "src/components/central/desktop-state.ts",
       "target": "system/surface/workspace/components/central/desktop-state.ts",
       "sha256": "29495a38b755ce63ab6938a605edb2eb0f6a7e6e4e10ede7dabdf25a85c08728",
-      "adaptedSha256": "121b5a6926a2e5879752bd40baf8cb618baae8f8610f32736a4a483bcb90cdf1",
+      "adaptedSha256": "dd25e681cdabf0272c90f1911dde8141e578758694b0532b3bdf694e40b1e9d1",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "569459b906b2c3eebd7bb7c7f12b0cb92c7e6233639535929a345e2a2b652ff6",
+      "adaptedSha256": "0718bdf05689a4ef0eaa093ff0fa17f6057ecf26db587e91015a604e37ce5464",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -112,12 +112,13 @@
     "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track",
     "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding",
     "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme",
-    "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination"
+    "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination",
+    "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained"
   ],
   "native_files": [
     {
       "target": "system/surface/workspace/components/central/window-layer.tsx",
-      "sha256": "cb0e7c86fa69e1a4259eeee5ed413019f8435f956926f6f5f62221541eed0607",
+      "sha256": "b144673ee7d812daaa64b2bf8388f4f400b8830fa7737d4d5c5aae985ee0d7b6",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls"
     }

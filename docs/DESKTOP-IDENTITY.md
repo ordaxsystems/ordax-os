@@ -605,3 +605,18 @@ overflow entries expose aria-current; More indicates a current hidden destinatio
 No second navigation state or execution authority added. Acceptance: open,
 focus, minimize and close update the indicated destination from the same reducer.
 No build, npm or tests executed under the standing user restriction.
+
+### Multiple compact apps — 2026-10-11
+
+Owner: OS Surface. All non-minimized compact apps divide the available width
+equally in one flex strip, with zero basis and no horizontal strip scrolling.
+Regular windows anchor to the shared outer layer above the strip. Each keyed
+app stays under one stable parent across modes; focusing a visible compact pane
+preserves neighbor order and collapsed state. Minimize/close redistributes the
+remaining divisions. Narrow cards adapt their title, control grid and content
+layouts to the panel width. Vertical app-body scrolling remains available.
+Existing browser-check source covers two non-overlapping compact apps and node
+preservation, but was not run. Acceptance: N panels share the available width
+equally, without hidden offscreen panels or duplicate instances; drafts and
+independent window actions remain intact. Runtime/backend unchanged.
+No build, npm or tests executed under the standing user restriction.

@@ -10,6 +10,10 @@ export function desktopReducer(state: DesktopState, action: DesktopAction): Desk
   if (action.type === 'show-desktop') return { ...state, windows: state.windows.map(w => ({ ...w, minimized: true })), active: null };
   const existing = state.windows.find(w => w.title === action.title);
   if (!existing && action.type !== 'open') return state;
+  // Focusing a visible compact pane must not reorder its neighbors or expand the strip.
+  if (action.type === 'focus' && existing?.mode === 'compact' && !existing.minimized) {
+    return state.active === action.title ? state : { ...state, active: action.title };
+  }
   let window: DesktopWindow = existing ?? { title: action.title, mode: 'maximized', minimized: false, expandedMode: 'maximized' };
   switch (action.type) {
     case 'open': window = { ...window, minimized: false, ...(action.prompt !== undefined ? { initialPrompt: { text: action.prompt } } : {}) }; break;

@@ -11,11 +11,14 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   const layer = useRef<HTMLDivElement>(null);
   const previousActive = useRef<string | null>(null);
   const panes = useRef(new Map<string, HTMLElement>());
-  const compact = state.windows.filter(w => !w.minimized && w.mode === 'compact').at(-1);
+  const compact = state.windows.filter(w => !w.minimized && w.mode === 'compact');
   const regular = state.windows.filter(w => !w.minimized && w.mode !== 'compact').at(-1);
   const activeMode = state.windows.find(w => w.title === state.active)?.mode;
   useEffect(() => {
-    if (state.active) panes.current.get(state.active)?.focus({ preventScroll: true });
+    if (state.active) {
+      const pane = panes.current.get(state.active);
+      pane?.focus({ preventScroll: true });
+    }
     else if (previousActive.current) {
       const tasks = layer.current?.parentElement?.querySelectorAll<HTMLButtonElement>('[data-window-restore]');
       const task = Array.from(tasks ?? []).find(node => node.dataset.windowRestore === previousActive.current && node.getClientRects().length > 0);
@@ -24,9 +27,9 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
     }
     previousActive.current = state.active;
   }, [state.active, activeMode]);
-  return <div ref={layer} className="workspace-windows">
+  return <div ref={layer} className="workspace-windows" role="group" aria-label="Janelas de apps"><div className="compact-window-strip" data-count={compact.length}>
     {state.windows.map(window => {
-      const selected = window.title === (window.mode === 'compact' ? compact?.title : regular?.title);
+      const selected = window.mode === 'compact' || window.title === regular?.title;
       const collapsed = window.mode === 'compact' && state.compactCollapsed;
       return <section key={window.title} ref={node => { if (node) panes.current.set(window.title, node); else panes.current.delete(window.title); }} role="region" tabIndex={-1}
         aria-label={`Janela ${window.title}`} className="desktop-window workspace-window" hidden={window.minimized || !selected}
@@ -48,5 +51,5 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
         </div>
       </section>;
     })}
-  </div>;
+  </div></div>;
 }

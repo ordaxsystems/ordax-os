@@ -107,6 +107,13 @@ try {
       await click('[aria-label="Compactar Aura"]');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'expanded');
       assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Compact keeps the same mounted app');
+      await click('.workspace-sidebar [aria-label="Projetos"]');
+      await click('[aria-label="Compactar Projetos"]');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode="compact"]:not([hidden])').length"),2,'Both compact apps remain visible');
+      assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label="Janela Aura"]').getBoundingClientRect();const b=document.querySelector('[aria-label="Janela Projetos"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,'Compact apps tile horizontally without overlap');
+      assert.equal(await evaluate("(()=>{const strip=document.querySelector('.compact-window-strip');const panes=[...strip.querySelectorAll('[data-mode="compact"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,'Compact panels share available width equally without strip overflow');
+      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label="Janela Aura"]')"),true,'Adding a neighbor keeps the existing app node');
+      await click('[aria-label="Fechar Projetos"]');
       await click('[aria-label="Recolher painel Aura"]');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'collapsed');
       await click('[aria-label="Expandir painel Aura"]');
