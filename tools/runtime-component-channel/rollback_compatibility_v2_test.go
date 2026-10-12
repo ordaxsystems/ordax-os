@@ -11,16 +11,26 @@ func TestReleaseV2RollbackRejectsUnreadableMigratedStateWithoutMutation(t *testi
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
 		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
 	)
-	healthyPromoteV2(t, fixture, previous)
-	current := addActivationV2CandidateWithState(
+	state := healthyPromoteV2(t, fixture, previous)
+	future := addActivationV2CandidateWithState(
 		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
 		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 2, ReadableFrom: 1, ReadableThrough: 2},
 	)
-	state := healthyPromoteV2(t, fixture, current)
-	if _, err := rollbackCurrentStateAtRevision(
-		fixture.root, "internet", *state.Current, state.Revision, fixture.trustPath,
+	trust, err := readRegular(fixture.trustPath, maxTrustBytes, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This rollback contract is deliberately checked directly: a forward
+	// migration from 1 to 2 cannot be installed without the data migration
+	// authority, so making it current just for a test would be a bypass.
+	if err := verifyRollbackStateReadable(
+		fixture.root, "internet", identityFromRelease(sharedReleaseFromV2(future.release)),
+		state.Current, trust,
 	); err == nil || !strings.Contains(err.Error(), "cannot read current signed state contract") {
 		t.Fatalf("rollback accepted incompatible signed state: %v", err)
+	}
+	if _, err := armPendingState(future.slot, fixture.trustPath, fixture.root); err == nil {
+		t.Fatal("unproven state migration reached pending activation")
 	}
 	unchanged, err := readActivationState(fixture.root, "internet")
 	if err != nil {
@@ -29,34 +39,36 @@ func TestReleaseV2RollbackRejectsUnreadableMigratedStateWithoutMutation(t *testi
 	if unchanged.Revision != state.Revision ||
 		!sameSlotIdentity(unchanged.Current, state.Current) ||
 		!sameSlotIdentity(unchanged.Previous, state.Previous) ||
-		unchanged.Rejected != nil {
-		t.Fatalf("incompatible rollback mutated canonical state: %+v", unchanged)
+		unchanged.Pending != nil || unchanged.Rejected != nil {
+		t.Fatalf("invalid forward migration or rollback check mutated canonical state: %+v", unchanged)
 	}
 }
 
-func TestReleaseV2RollbackCanRestorePriorVersionThatReadsCurrentState(t *testing.T) {
+func TestReleaseV2RollbackContractAllowsPreviousReadRangeWithoutGrantingMigration(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	previous := addActivationV2CandidateWithState(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
 		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 2},
 	)
-	healthyPromoteV2(t, fixture, previous)
-	current := addActivationV2CandidateWithState(
+	state := healthyPromoteV2(t, fixture, previous)
+	future := addActivationV2CandidateWithState(
 		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
 		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 2, ReadableFrom: 1, ReadableThrough: 2},
 	)
-	state := healthyPromoteV2(t, fixture, current)
-	rolled, err := rollbackCurrentStateAtRevision(
-		fixture.root, "internet", *state.Current, state.Revision, fixture.trustPath,
-	)
+	trust, err := readRegular(fixture.trustPath, maxTrustBytes, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rolled.Revision != state.Revision+1 ||
-		!sameSlotIdentity(rolled.Current, state.Previous) ||
-		rolled.Previous != nil ||
-		!sameSlotIdentity(rolled.Rejected, state.Current) {
-		t.Fatalf("compatible signed state rollback was not atomic: %+v", rolled)
+	if err := verifyRollbackStateReadable(
+		fixture.root, "internet", identityFromRelease(sharedReleaseFromV2(future.release)),
+		state.Current, trust,
+	); err != nil {
+		t.Fatalf("previous signed release declares support for state version 2: %v", err)
+	}
+	// State readability is only one prerequisite: it does not authorize
+	// transitioning to a new writer without a proven migration.
+	if _, err := armPendingState(future.slot, fixture.trustPath, fixture.root); err == nil {
+		t.Fatal("backward-readable state accidentally granted an unproven forward migration")
 	}
 }
 
@@ -67,16 +79,23 @@ func TestReleaseV2RollbackRejectsStateOwnerChangeAndUnknownBundledFallback(t *te
 			t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
 			&compatibilityState{ID: "ordax.internet.old", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
 		)
-		healthyPromoteV2(t, fixture, old)
-		newRelease := addActivationV2CandidateWithState(
+		state := healthyPromoteV2(t, fixture, old)
+		next := addActivationV2CandidateWithState(
 			t, fixture, "2.0.0", "2222222222222222222222222222222222222222",
 			&compatibilityState{ID: "ordax.internet.new", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
 		)
-		state := healthyPromoteV2(t, fixture, newRelease)
-		if _, err := rollbackCurrentStateAtRevision(
-			fixture.root, "internet", *state.Current, state.Revision, fixture.trustPath,
+		trust, err := readRegular(fixture.trustPath, maxTrustBytes, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := verifyRollbackStateReadable(
+			fixture.root, "internet", identityFromRelease(sharedReleaseFromV2(next.release)),
+			state.Current, trust,
 		); err == nil {
-			t.Fatal("rollback bypassed state-owner schema change")
+			t.Fatal("rollback accepted a different state owner")
+		}
+		if _, err := armPendingState(next.slot, fixture.trustPath, fixture.root); err == nil {
+			t.Fatal("state owner change was armed without an actual migration")
 		}
 	})
 	t.Run("unknown bundled state format", func(t *testing.T) {
