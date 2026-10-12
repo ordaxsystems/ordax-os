@@ -13,6 +13,13 @@ BASE = ROOT / "bootstrap/independent-base"
 
 
 class IndependentBaseTest(unittest.TestCase):
+    def test_buildroot_post_build_hook_is_git_executable(self):
+        relative = "bootstrap/independent-base/post-build.sh"
+        result = subprocess.run(
+            ["git", "ls-files", "--stage", "--", relative],
+            capture_output=True, text=True, cwd=ROOT, check=True)
+        self.assertRegex(result.stdout, r"^100755 [0-9a-f]{40} 0\t" + relative + r"\n$")
+
     def test_probe_init_is_git_executable_in_canonical_source(self):
         relative = "bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init"
         result = subprocess.run(
