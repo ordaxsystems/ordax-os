@@ -34,6 +34,18 @@ jobs:
           persist-credentials: false
 
 
+      - name: Bind writer source to exact authorized operator context
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The release SHA is independent; the physical writer may not come
+          # from an older or newer policy revision than this operator checkout.
+          if [[ "$WRITER_SOURCE_COMMIT" != "$ORDAX_SOURCE_COMMIT" ]]; then
+            echo 'Physical writer source differs from authorized operator context' >&2
+            exit 1
+          fi
+          echo 'PHYSICAL_WRITER_CONTEXT_MATCH=PASS'
+
       - name: Validate official physical promotion gate before resolving payload
         shell: bash
         run: |

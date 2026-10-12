@@ -35,6 +35,7 @@ FINAL_AUTHORIZATION_BLOCKERS = {
 
 AUTHORIZATION_CONTEXT_PATTERNS = (
     ".github/workflows/physical-write-promotion.yml",
+    ".github/workflows/first-physical-usb-payload.yml",
     "tools/creator/physical_promotion.py",
     "tools/creator/pre_usb_nova_ordax_audit.py",
     "docs/contracts/intelligence.json",
