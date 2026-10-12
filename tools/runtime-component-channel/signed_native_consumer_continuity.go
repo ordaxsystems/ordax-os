@@ -117,4 +117,3 @@ func signedReplacementProvidesForRollback(
 	}
 	return report.Descriptor.Provides, nil
 }
-
