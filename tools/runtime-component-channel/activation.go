@@ -536,6 +536,15 @@ func armPendingStateAtRevision(
 			}
 			return activationState{}, errors.New("runtime component already has a different pending slot")
 		}
+		if state.Current != nil {
+			precedence, err := compareRuntimeComponentVersions(identity.Version, state.Current.Version)
+			if err != nil {
+				return activationState{}, err
+			}
+			if precedence <= 0 {
+				return activationState{}, errors.New("runtime component candidate must have a newer semantic version; use explicit rollback for older versions")
+			}
+		}
 		candidate := identity
 		state.Pending = &candidate
 		state.PendingHealth = "unknown"
