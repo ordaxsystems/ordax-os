@@ -294,7 +294,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         composition = NATIVE_COMPONENT_PROBATION_COMPOSITION.read_text(encoding="utf-8")
 
         self.assertIn("component_probation_nonces", browser_host)
-        self.assertIn('SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")', browser_host)
+        self.assertIn(
+            "SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))",
+            browser_host,
+        )
         self.assertIn("self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)", browser_host)
         self.assertIn("component_probation_rerun_requested", browser_host)
         self.assertIn("self.component_probation_rerun_requested.add(component_id)", browser_host)
