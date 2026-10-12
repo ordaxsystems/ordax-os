@@ -147,6 +147,23 @@ revision accepted, attempted concurrent writer lock, and rejection of
 different pending identities. The activation and health/promotion/rollback
 state machine and release/1 format were not replaced.
 
+### Forward-only candidate ordering
+
+The existing `arm-pending` activation writer now compares the *signed*
+candidate version against the exact `current` version **while holding the
+same canonical activation-state lock**. Equal, older, and lower-precedence
+prerelease candidates are rejected without any state mutation, whether or
+not the caller supplies `--expected-revision`. There is no separate
+downgrade route: recovery must use the explicit, state-safe rollback writer.
+The Native Go comparison follows the semantic-version precedence of the
+canonical JavaScript component-manifest contract, including numeric
+prerelease identifiers and large numeric version components; test fixtures
+verify both sides of the ordering.
+
+This is an additional necessary guard, **not** an activation grant or a
+replacement for signed active-consumer compatibility and pinned production
+trust. `arm-pending` is still not enabled for public independent updates.
+
 ### Rollback and persistent state compatibility
 
 The same original `rollback-state` writer now checks the **signed
