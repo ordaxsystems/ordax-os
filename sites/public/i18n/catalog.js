@@ -334,7 +334,7 @@
     ["O botão será habilitado somente quando existir um endpoint de identidade aprovado para o portal.", "The button will be enabled only when an approved identity endpoint exists for the portal."],
     ["Use pelo menos 12 caracteres.", "Use at least 12 characters."],
     ["Leia os Termos e a Política de Privacidade antes de criar sua conta:", "Read the Terms and Privacy Policy before creating your account:"],
-    ["Li e aceito os Termos de Uso e a Política de Privacidade.", "I have read and accept the Terms of Use and Privacy Policy."],
+    ["Li e aceito os Termos de Uso e li a Política de Privacidade.", "I accept the Terms of Use and have read the Privacy Policy."],
     ["Criar conta com segurança", "Create account securely"],
     ["O portal não cria usuários apenas no navegador. Seus dados só serão enviados ao serviço aprovado.", "The portal does not create users only in the browser. Your data will be sent only to the approved service."],
     ["JÁ TEM UMA CONTA?", "ALREADY HAVE AN ACCOUNT?"],
