@@ -61,7 +61,16 @@ try {
       await sleep(100);
     }
     async function clickByText(selector,text){
-      const marker=await evaluate("(()=>{const nodes=[...document.querySelectorAll("+JSON.stringify(selector)+")];const node=nodes.find(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+");if(!node)throw Error('Missing text control');node.dataset.proofClick='current';return '[data-proof-click=current]';})()");
+      // Radix popup items are mounted asynchronously after the pointer event.
+      // Observe their actual visible state instead of relying on a fixed delay.
+      const expression="([...document.querySelectorAll("+JSON.stringify(selector)+")].some(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+"))";
+      try {
+        await until(expression);
+      } catch (error) {
+        const diagnostics=await evaluate("([...document.querySelectorAll("+JSON.stringify(selector)+")].map(n=>({text:n.textContent.trim(),visible:!!n.getClientRects().length,html:n.outerHTML.slice(0,300)})))");
+        throw Error('Missing visible menu action '+JSON.stringify(text)+': '+JSON.stringify(diagnostics),{cause:error});
+      }
+      const marker=await evaluate("(()=>{const nodes=[...document.querySelectorAll("+JSON.stringify(selector)+")];const node=nodes.find(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+");if(!node)throw Error('Menu item changed while selecting');node.dataset.proofClick='current';return '[data-proof-click=current]';})()");
       await click(marker);
       await evaluate("document.querySelector('[data-proof-click=current]')?.removeAttribute('data-proof-click')");
     }
