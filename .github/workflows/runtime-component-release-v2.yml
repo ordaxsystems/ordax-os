@@ -54,31 +54,31 @@ jobs:
             tests/test_runtime_component_release_v2_bounds.py \
             tests/test_runtime_component_release_v2_cli_e2e.py
           test -z "$(gofmt -l \
-            tools/runtime-component-channel/activation.go \\
-            tools/runtime-component-channel/activation_compatibility_v2.go \\
-            tools/runtime-component-channel/activation_compatibility_v2_test.go \\
-            tools/runtime-component-channel/activation_graph_lock_test.go \\
-            tools/runtime-component-channel/activation_slot.go \\
-            tools/runtime-component-channel/activation_state_compatibility_v2.go \\
-            tools/runtime-component-channel/activation_state_compatibility_v2_test.go \\
-            tools/runtime-component-channel/activation_v2_test.go \\
-            tools/runtime-component-channel/active_compatibility_catalog_v2.go \\
-            tools/runtime-component-channel/active_compatibility_catalog_v2_test.go \\
-            tools/runtime-component-channel/cli_v2.go \\
-            tools/runtime-component-channel/cli_v2_test.go \\
-            tools/runtime-component-channel/promotion_compatibility_recheck_v2_test.go \\
-            tools/runtime-component-channel/release_v2.go \\
-            tools/runtime-component-channel/release_v2_test.go \\
-            tools/runtime-component-channel/rollback_compatibility_v2.go \\
-            tools/runtime-component-channel/rollback_compatibility_v2_test.go \\
-            tools/runtime-component-channel/signed_native_consumer_continuity.go \\
-            tools/runtime-component-channel/signed_native_consumer_continuity_test.go \\
-            tools/runtime-component-channel/signed_native_forward_upgrade_test.go \\
-            tools/runtime-component-channel/stage_v2.go \\
-            tools/runtime-component-channel/stage_v2_test.go \\
-            tools/runtime-component-channel/verified_compatibility_v2.go \\
-            tools/runtime-component-channel/verified_compatibility_v2_test.go \\
-            tools/runtime-component-channel/version_order.go \\
+            tools/runtime-component-channel/activation.go \
+            tools/runtime-component-channel/activation_compatibility_v2.go \
+            tools/runtime-component-channel/activation_compatibility_v2_test.go \
+            tools/runtime-component-channel/activation_graph_lock_test.go \
+            tools/runtime-component-channel/activation_slot.go \
+            tools/runtime-component-channel/activation_state_compatibility_v2.go \
+            tools/runtime-component-channel/activation_state_compatibility_v2_test.go \
+            tools/runtime-component-channel/activation_v2_test.go \
+            tools/runtime-component-channel/active_compatibility_catalog_v2.go \
+            tools/runtime-component-channel/active_compatibility_catalog_v2_test.go \
+            tools/runtime-component-channel/cli_v2.go \
+            tools/runtime-component-channel/cli_v2_test.go \
+            tools/runtime-component-channel/promotion_compatibility_recheck_v2_test.go \
+            tools/runtime-component-channel/release_v2.go \
+            tools/runtime-component-channel/release_v2_test.go \
+            tools/runtime-component-channel/rollback_compatibility_v2.go \
+            tools/runtime-component-channel/rollback_compatibility_v2_test.go \
+            tools/runtime-component-channel/signed_native_consumer_continuity.go \
+            tools/runtime-component-channel/signed_native_consumer_continuity_test.go \
+            tools/runtime-component-channel/signed_native_forward_upgrade_test.go \
+            tools/runtime-component-channel/stage_v2.go \
+            tools/runtime-component-channel/stage_v2_test.go \
+            tools/runtime-component-channel/verified_compatibility_v2.go \
+            tools/runtime-component-channel/verified_compatibility_v2_test.go \
+            tools/runtime-component-channel/version_order.go \
             tools/runtime-component-channel/version_order_test.go)"
 
       - name: Prove compatibility-bound release v2 generator
