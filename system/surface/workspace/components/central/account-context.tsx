@@ -1,9 +1,22 @@
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react';
-import type { validateSpace } from '../../../../contracts/spaces.mjs';
-import type { createWebAccountSession } from '../../../../composition/web/account-session.mjs';
+import type { validateIdentitySessionSnapshot } from '../../../../contracts/identity-session.mjs';
+import type { validateIdentityActionsSnapshot } from '../../../../contracts/identity-actions.mjs';
+import type { validateSpace, validateSpacesSnapshot } from '../../../../contracts/spaces.mjs';
 import { deriveAuthorizedSpaces } from '../../../../services/spaces/authorized-view.mjs';
 
-type AccountSession = ReturnType<typeof createWebAccountSession>;
+// Surface depends on public port contracts, not a Web composition owner.
+type SnapshotPort<T> = Readonly<{
+  getSnapshot(): T;
+  subscribe(listener: (snapshot: T) => void): () => void;
+}>;
+type AccountSession = Readonly<{
+  identity: SnapshotPort<ReturnType<typeof validateIdentitySessionSnapshot>>;
+  actions: SnapshotPort<ReturnType<typeof validateIdentityActionsSnapshot>> & {
+    execute(action: 'sign-in' | 'register' | 'sign-out'): Promise<void>;
+  };
+  spaces: SnapshotPort<ReturnType<typeof validateSpacesSnapshot>>;
+  refresh(): Promise<unknown>;
+}>;
 const AccountSessionContext = createContext<AccountSession | null>(null);
 
 export function WebAccountProvider({ session, children }: { session: AccountSession; children: ReactNode }) {
