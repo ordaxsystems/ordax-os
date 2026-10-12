@@ -33,8 +33,8 @@ CATALOG_IMPORT_RE = re.compile(
     re.MULTILINE,
 )
 SOURCE_SPREAD_RE = re.compile(r"\.\.\.([A-Z][A-Z0-9_]*_SOURCE_MESSAGES)\s*,?")
-RAIL_RE = re.compile(
-    r'railButton\("([a-z][a-z0-9-]*)",\s*t\("([^"]+)"\),\s*ICONS\.[a-zA-Z0-9]+,\s*t\)'
+NAVIGATION_RE = re.compile(
+    r'navigation:\s*(\[[^\]]+\])\.map\(id\s*=>\s*railButton\(id,\s*t\(`app\.\$\{id\}\.title`\),\s*ICONS\[id\],\s*t\)\)'
 )
 SPACE_RE = re.compile(r'spaceLink\("([^"]+)",\s*"([^"]+)",\s*t\)')
 AREA_RE = re.compile(r't\("surface\.area\.label",\s*\{\s*ordinal:\s*"([^"]+)"\s*\}\)')
@@ -140,17 +140,23 @@ def _message(messages: dict[str, str], message_id: str, **values: str) -> str:
 def _surface_home() -> dict[str, object]:
     text = DESKTOP_SHELL.read_text(encoding="utf-8")
     messages = _surface_source_messages()
-    rail_matches = RAIL_RE.findall(text)
+    navigation = NAVIGATION_RE.search(text)
     space_matches = SPACE_RE.findall(text)
     area = AREA_RE.search(text)
     command = COMMAND_RE.search(text)
     space_label = SPACE_LABEL_RE.search(text)
-    if not area or not command or not space_label or not rail_matches or not space_matches:
+    if not area or not command or not space_label or not navigation or not space_matches:
         raise PlaygroundFixtureError("desktop shell is missing Home metadata required by the playground")
 
+    navigation_ids = json.loads(navigation.group(1))
+    if (not isinstance(navigation_ids, list) or not navigation_ids
+            or any(not isinstance(app_id, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", app_id)
+                   for app_id in navigation_ids)
+            or len(navigation_ids) != len(set(navigation_ids))):
+        raise PlaygroundFixtureError("invalid canonical sidebar navigation")
     rail = [
-        {"id": app_id, "label": _message(messages, message_id)}
-        for app_id, message_id in rail_matches
+        {"id": app_id, "label": _message(messages, f"app.{app_id}.title")}
+        for app_id in navigation_ids
     ]
     spaces = [
         {"label": _message(messages, message_id), "target": target}
