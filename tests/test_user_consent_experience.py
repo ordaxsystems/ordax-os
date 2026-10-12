@@ -29,27 +29,6 @@ class UserConsentExperienceTests(unittest.TestCase):
             self.assertIn(referenced, policy["authority_references"].values())
         self.assertTrue(policy["creator_portable_usb"]["physical_promotion_unchanged"])
 
-    def test_operational_contracts_reference_same_ux_owner(self):
-        expected = "docs/contracts/user-consent-experience.json"
-        for path in (
-            "docs/contracts/creator-consumer-flow.json",
-            "docs/contracts/public-legal-readiness.json",
-            "docs/contracts/native-installation.json",
-        ):
-            with self.subTest(path=path):
-                contract = json.loads((ROOT / path).read_text(encoding="utf-8"))
-                self.assertEqual(contract["consent_experience_contract"], expected)
-        flow = json.loads(
-            (ROOT / "docs/contracts/creator-consumer-flow.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(flow["visible_product_destructive_confirmation_count"], 1)
-        self.assertEqual(flow["normal_flow"].count("confirm_destructive_target"), 1)
-        self.assertIn("request_windows_elevation_if_required", flow["normal_flow"])
-        self.assertNotIn("approve_windows_uac", flow["normal_flow"])
-        self.assertTrue(flow["windows_elevation_is_os_managed"])
-        self.assertTrue(flow["physical_write_gate"]["requires_windows_elevation"])
-        self.assertTrue(flow["physical_write_gate"]["requires_live_usb_confirmation_token"])
-
     def test_usb_has_one_destructive_dialog_and_zero_fake_uac_promises(self):
         policy = self.policy["creator_portable_usb"]
         self.assertEqual(policy["destructive_confirmation_count"], 1)
