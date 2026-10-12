@@ -130,8 +130,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "c2c5c9969a5e0d618653b95ae673831ced6021b302e45624180faeb1fa44bf7a",
-      "adaptation": "Desktop compact action popup is non-modal, has one controlled open state, and explicitly opens on the user's click and closes before window-changing actions, while retaining its native trigger's keyboard handling. Historical native UI digest preserved."
+      "adaptedSha256": "ffb41d0dcba0d7d1fabf083b9cbdb812fea385a10f491a27b496cb14b3602404",
+      "adaptation": "Compact actions use the native interactive menu item click, compatible with mouse and keyboard activation, and close the one non-modal menu before dispatching its canonical window action. Historical source checksum is preserved."
     },
     {
       "target": "system/composition/web/account-session.mjs",
