@@ -20,6 +20,47 @@ The Native owner does **not** rewrite a whole app snapshot for each change. Each
 
 Reads and list operations do not materialize missing partitions. Mutations use a per-partition lock, fsync, atomic manifest replacement and directory fsync. Symlinks, permissive targets, corrupt manifests and blob digest mismatches fail closed.
 
+## Recuperação transacional interna do owner (candidata)
+
+A geração inicial vazia (revisão 0) também pode ser preservada
+antes da primeira gravação de dados; sua restauração exige CAS,
+retorna a partição a zero chaves e avança a revisão monotônica.
+Essa proteção evita exigir dados inventados para iniciar um update stateful.
+
+O próprio owner Native agora dispõe das funções privadas
+`create_app_data_checkpoint`, `restore_app_data_checkpoint` e
+`retire_app_data_checkpoint`. Essas funções **não** são ações do
+`ordax.app-data/1`, não são expostas pelo endpoint e não permitem que o
+aplicativo solicite restauração. São peças de persistência para futura
+orquestração segura pelo owner Native/State.
+
+Cada partição mantém **um único manifesto ativo** e, no máximo, **um
+checkpoint não autoritativo** (`checkpoint.json`) vinculado à identidade
+da partição, à versão/commit de origem e ao manifesto exato salvo.
+A gravação do checkpoint e a troca do manifesto são duráveis (fsync,
+rename atômico); todos os blobs retidos são identificados e verificados
+por SHA-256. Enquanto existir checkpoint válido, a coleta de lixo
+considera os blobs apontados **tanto pelo manifesto ativo quanto pelo
+checkpoint**. Alterações e exclusões comuns jamais podem descartá-los.
+
+A restauração exige referência exata do release de origem, revisão
+atual CAS, verificação completa dos blobs e avança monotonamente a revisão
+do manifesto ativo. Interrupção antes ou depois do commit conserva uma
+geração consistente. A aposentadoria do checkpoint só acontece por
+chamada interna explícita e sincronizada; após fsync da remoção, o GC
+pode liberar os blobs antigos. Pin inválido, symlink ou corrupção
+bloqueiam mutações, sem descarte preventivo de dados.
+
+**Limites importantes:** o valor `sourceRelease` armazenado é uma
+referência de correlação recebida pelo owner, **não uma assinatura
+verificada nem autorização de instalação**. A ativação do componente Go,
+a política de retenção, a confirmação da origem assinada, a interação
+com processos abertos e a autorização para eventualmente reverter dados
+do usuário **não estão conectadas a essas APIs**. Consequentemente,
+o rollback de componentes com estado persiste bloqueado no writer Native.
+A fronteira `/ordax/home` continua separada; isto não é backup de
+arquivos pessoais.
+
 ## Transport
 
 `native_app_data_endpoint.py` defines the typed JSON boundary, but it deliberately accepts the app identity as a trusted host argument rather than from JSON. Request bodies contain only `action`, keys, bytes and revisions.
