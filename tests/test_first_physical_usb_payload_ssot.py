@@ -83,6 +83,37 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
                 f"RELEASE_SOURCE_COMMIT={expected_commit}\nENVELOPE_URL={expected_url}\n",
             )
 
+    def test_writer_source_is_exact_operator_context_not_arbitrary_commit(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        context = (ROOT / "tools/creator/physical_promotion.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            'if [[ "$WRITER_SOURCE_COMMIT" != "$ORDAX_SOURCE_COMMIT" ]]; then',
+            source,
+        )
+        self.assertIn("PHYSICAL_WRITER_CONTEXT_MATCH=PASS", source)
+        self.assertLess(
+            source.index("PHYSICAL_WRITER_CONTEXT_MATCH=PASS"),
+            source.index("name: Checkout exact published writer source"),
+        )
+        self.assertLess(
+            source.index("PHYSICAL_WRITER_CONTEXT_MATCH=PASS"),
+            source.index("OFFICIAL_PHYSICAL_PROMOTION=READY"),
+        )
+        self.assertIn(
+            '".github/workflows/first-physical-usb-payload.yml",',
+            context,
+        )
+        self.assertIn(
+            'ref: ${{ steps.canonical.outputs.release_source_commit }}',
+            source,
+        )
+        self.assertIn(
+            'ref: ${{ inputs.writer_source_commit }}',
+            source,
+        )
+
     def test_release_identity_comes_only_from_authorization(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("inputs.release_source_commit", source)

@@ -105,6 +105,8 @@ ORDAX-DATA  exFAT
 
 The Creator Core already owns the v2 geometry through `PlanPortableTargetStorage` and the final 39-operation application plan. Physical v2 apply remains disabled until the disposable Portable media/runtime-v4 QEMU+UEFI proof, canonical trust, fresh Stable/MVP owner authorization for the 17-artifact v4 payload and physical USB gates close in order.
 
+The complete 17-artifact media plan also enforces per-partition aggregate capacity **before** the destructive writer is reached: ESP reserves 32 MiB, and ORDAX-DATA reserves the greater of 128 MiB and 2% of its physical extent for FAT32/exFAT metadata, cluster rounding and free-space headroom. The same Core rule is checked when accepting a parsed media plan and again at the application executor boundary. This deterministic conservative preflight rejects impossible payloads; it does **not** replace disposable actual-filesystem verification, live USB revalidation, UAC or the required 17/17 physical readback.
+
 ## Release bootstrap inputs
 
 The release-channel pointer is now canonical and hash-bound in the minimal-bootstrap manifest:

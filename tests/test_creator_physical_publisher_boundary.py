@@ -147,7 +147,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         context_sha, file_count = module.authorization_context_sha256(ROOT)
 
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
-        self.assertEqual(file_count, 75)
+        self.assertEqual(file_count, 76)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
@@ -180,7 +180,8 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
             path.relative_to(ROOT).as_posix()
             for path in module.authorization_context_files(ROOT)
         }
-        self.assertEqual(len(governed), 75)
+        self.assertEqual(len(governed), file_count)
+        self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
         self.assertIn("tools/creator/core/portable_sources.go", governed)
         self.assertIn("tools/creator/physicalchannel/portable_payload.go", governed)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)

@@ -17,6 +17,12 @@ const (
 	PortableMediaPlanSchema = "prototype-ordax.portable-media-plan/1"
 	PortableApplicationPlanSchema = "prototype-ordax.portable-application-plan/1"
 	portableMediaMaxArtifact = uint64(16 << 30)
+	// Reserved headroom for FAT32/exFAT filesystem structures, cluster rounding,
+	// directory metadata and capacity variations. This is only an early
+	// conservative rejection gate; real formatted capacity is checked on-device.
+	portableMediaESPReserveBytes = uint64(32 << 20)
+	portableMediaDataMinReserveBytes = uint64(128 << 20)
+	portableMediaDataReserveDivisor = uint64(50) // 2% for large media
 )
 
 type PortableMediaArtifactBinding struct {
@@ -162,6 +168,35 @@ func validPortableSourceCommit(value string) bool {
 	return err == nil && len(decoded) == 20
 }
 
+// validatePortableArtifactCapacity rejects an oversized complete payload before
+// formatting a device. Every caller uses the same target geometry and reserve
+// policy; neither a JSON media plan nor an application plan may bypass it.
+func validatePortableArtifactCapacity(layout TargetStorageProfile, artifacts []PortableMediaArtifactPlan) error {
+	dataReserve := layout.PayloadBytes / portableMediaDataReserveDivisor
+	if dataReserve < portableMediaDataMinReserveBytes {
+		dataReserve = portableMediaDataMinReserveBytes
+	}
+	if layout.ESPBytes <= portableMediaESPReserveBytes || layout.PayloadBytes <= dataReserve {
+		return errors.New("portable target has insufficient usable filesystem capacity")
+	}
+	budgets := map[string]uint64{
+		"ORDAX-ESP": layout.ESPBytes - portableMediaESPReserveBytes,
+		"ORDAX-DATA": layout.PayloadBytes - dataReserve,
+	}
+	used := map[string]uint64{}
+	for _, artifact := range artifacts {
+		budget, ok := budgets[artifact.Partition]
+		if !ok {
+			return fmt.Errorf("unknown portable capacity partition %q", artifact.Partition)
+		}
+		if artifact.SizeBytes == 0 || artifact.SizeBytes > budget-used[artifact.Partition] {
+			return fmt.Errorf("portable payload exceeds reserved capacity of %s (artifact %q)", artifact.Partition, artifact.ID)
+		}
+		used[artifact.Partition] += artifact.SizeBytes
+	}
+	return nil
+}
+
 func PlanPortableMedia(targetBytes uint64, sourceCommit string, bindings PortableMediaBindings) (PortableMediaPlan, error) {
 	if !validPortableSourceCommit(sourceCommit) {
 		return PortableMediaPlan{}, errors.New("portable source commit must be lowercase 40-hex")
@@ -186,6 +221,7 @@ func PlanPortableMedia(targetBytes uint64, sourceCommit string, bindings Portabl
 		artifacts = append(artifacts, PortableMediaArtifactPlan{ID: binding.ID, Partition: target.partition, TargetPath: target.target(sourceCommit, binding.SHA256), SHA256: binding.SHA256, SizeBytes: binding.SizeBytes})
 	}
 	for id := range portableMediaTargets { if !seen[id] { return PortableMediaPlan{}, fmt.Errorf("missing portable media artifact id %q", id) } }
+	if err := validatePortableArtifactCapacity(layout, artifacts); err != nil { return PortableMediaPlan{}, err }
 	sort.Slice(artifacts, func(i, j int) bool {
 		if artifacts[i].Partition == artifacts[j].Partition {
 			if artifacts[i].TargetPath == artifacts[j].TargetPath { return artifacts[i].ID < artifacts[j].ID }
@@ -252,6 +288,7 @@ func validatePortableMediaPlanForApplication(plan PortableMediaPlan) (TargetStor
 			return TargetStorageProfile{}, fmt.Errorf("portable application is missing artifact %q", id)
 		}
 	}
+	if err := validatePortableArtifactCapacity(layout, plan.Artifacts); err != nil { return TargetStorageProfile{}, err }
 	return layout, nil
 }
 
