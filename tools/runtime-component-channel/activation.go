@@ -15,6 +15,7 @@ const (
 	activationStateSchema   = "prototype-ordax.runtime-component-activation-state/1"
 	activationStateName     = "activation-state.json"
 	activationLockName      = ".activation-state-lock"
+	activationGraphLockName = ".activation-graph-lock"
 	maxActivationStateBytes = 64 << 10
 )
 
@@ -252,6 +253,29 @@ func writeActivationState(root string, state activationState) error {
 	return syncDirectory(componentRoot)
 }
 
+// All writers to the canonical activation-state files acquire this graph lock
+// before their existing per-component lock. A read-only active-catalog scan
+// takes the same lock, so native writers cannot move another component's
+// current/pending identity halfway through a graph inspection.
+// The lock is synchronization metadata, NOT an additional installed-state
+// registry, persisted revision, proof of bundled coverage, or activation grant.
+func acquireActivationGraphLock(root string) (func(), error) {
+	rootPath, err := ensureSecureDirectory(root, 0o755)
+	if err != nil {
+		return nil, err
+	}
+	lockPath := filepath.Join(rootPath, activationGraphLockName)
+	if err := os.Mkdir(lockPath, 0o700); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, errors.New("runtime component activation graph is already locked; stale locks require explicit recovery")
+		}
+		return nil, err
+	}
+	return func() {
+		_ = os.Remove(lockPath)
+	}, nil
+}
+
 func acquireActivationLock(root, componentID string) (func(), error) {
 	componentRoot, err := componentActivationRoot(root, componentID, true)
 	if err != nil {
@@ -447,6 +471,14 @@ func readVerifiedRuntimeFile(root, componentID, trustPath, target, requestedPath
 }
 
 func mutateActivationState(root, componentID string, mutate func(activationState) (activationState, error)) (activationState, error) {
+	// One global ordering point for all installed-slot mutations:
+	// graph first, then component. This prevents write/read skew across
+	// components without replacing the existing component-local writer.
+	releaseGraph, err := acquireActivationGraphLock(root)
+	if err != nil {
+		return activationState{}, err
+	}
+	defer releaseGraph()
 	releaseLock, err := acquireActivationLock(root, componentID)
 	if err != nil {
 		return activationState{}, err
@@ -654,6 +686,25 @@ func promotePendingStateAtRevision(
 		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 			return activationState{}, err
 		}
+		// Pending health proves process liveness, not data or ABI safety.
+		// Recheck the exact current and pending signed release contracts
+		// under the shared graph lock immediately before promotion.
+		// This closes the window between arm-pending and healthy promotion,
+		// but does not claim full bundled-consumer or pinned-trust coverage.
+		if state.Current != nil {
+			precedence, err := compareRuntimeComponentVersions(identity.Version, state.Current.Version)
+			if err != nil {
+				return activationState{}, err
+			}
+			if precedence <= 0 {
+				return activationState{}, errors.New("runtime component promotion candidate is no longer newer than current")
+			}
+			if err := verifyArmPendingStateCompatibility(
+				root, componentID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		}
 		promoted := identity
 		state.Previous = state.Current
 		state.Current = &promoted
@@ -745,6 +796,30 @@ func rollbackCurrentStateAtRevision(
 		if err := verifyRollbackStateReadable(root, componentID, identity, state.Previous, trustBytes); err != nil {
 			return activationState{}, err
 		}
+		// The same graph lock protects every Native current-slot writer.
+		// A rollback must not remove an interface still required by any
+		// other signed release/2 current installation.
+		currentSlot, err := canonicalSlotPath(root, componentID, identity)
+		if err != nil {
+			return activationState{}, err
+		}
+		currentSchema, err := signedActivationSlotSchema(currentSlot, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if currentSchema == releaseSchemaV2 {
+			replacement, err := signedReplacementProvidesForRollback(
+				root, componentID, state.Previous, trustBytes,
+			)
+			if err != nil {
+				return activationState{}, err
+			}
+			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
+				root, componentID, replacement, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		}
 		rejected := identity
 		if state.Previous == nil {
 			state.Current = nil
@@ -799,6 +874,24 @@ func uninstallCurrentStateAtRevision(
 		}
 		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 			return activationState{}, err
+		}
+		// Removing an installed release/2 provider may strand an already
+		// installed signed consumer. Do not rely on the health of the
+		// provider or any stale read-only inventory receipt.
+		currentSlot, err := canonicalSlotPath(root, componentID, identity)
+		if err != nil {
+			return activationState{}, err
+		}
+		currentSchema, err := signedActivationSlotSchema(currentSlot, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if currentSchema == releaseSchemaV2 {
+			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
+				root, componentID, nil, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
 		}
 
 		state.Current = nil

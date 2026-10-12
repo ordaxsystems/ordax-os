@@ -11,14 +11,23 @@ class DynamicComponentProbationContractTests(unittest.TestCase):
     def test_native_lifecycle_requests_probation_without_exposing_promotion(self):
         delegate = DELEGATE.read_text(encoding="utf-8")
         self.assertIn('type: "component.probation.request"', delegate)
-        self.assertIn('new Set(["internet", "notes"])', delegate)
+        self.assertIn("hasNativeExternalFirstPartyProbation(plan.request.appId)", delegate)
+        self.assertNotIn('new Set(["internet", "notes"])', delegate)
         self.assertIn('["install", "update"].includes(plan.request.operation)', delegate)
         self.assertNotIn("component.promote", delegate)
         self.assertNotIn("promotePending", delegate)
 
     def test_browser_host_owns_nonce_and_retrigger_boundary(self):
         host = HOST.read_text(encoding="utf-8")
-        self.assertIn('SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")', host)
+        self.assertIn(
+            "SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))",
+            host,
+        )
+        self.assertIn(
+            "SUPPORTED_COMPONENTS as SUPPORTED_NATIVE_PROBATION_COMPONENTS",
+            host,
+        )
+        self.assertNotIn('SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")', host)
         self.assertIn("def start_component_probation", host)
         self.assertIn("secrets.token_urlsafe(32)", host)
         self.assertIn('elif command == "component.probation.request":', host)

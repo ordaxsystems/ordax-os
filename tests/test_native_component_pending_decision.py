@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -12,9 +13,22 @@ if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
 import native_component_pending_decision as pending
+from native_store_metadata_policy import NATIVE_HEALTH_MUTATION_COMPONENT_IDS
 
 
 class NativeComponentPendingDecisionTests(unittest.TestCase):
+    def test_pending_decision_uses_canonical_health_scope(self):
+        policy = json.loads(
+            (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
+        )
+        self.assertIs(pending.SUPPORTED_COMPONENTS, NATIVE_HEALTH_MUTATION_COMPONENT_IDS)
+        self.assertEqual(
+            pending.SUPPORTED_COMPONENTS,
+            frozenset(policy["native_loopback_broker_health_mutation_components"]),
+        )
+        self.assertNotIn("network", pending.SUPPORTED_COMPONENTS)
+        self.assertNotIn("studio", pending.SUPPORTED_COMPONENTS)
+
     def test_promotion_uses_exact_revision_trust_and_identity(self):
         commit = "a" * 40
         output = (

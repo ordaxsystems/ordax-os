@@ -24,9 +24,12 @@ type activeCompatibilityCatalog struct {
 	Components            []activationCompatibilitySnapshot `json:"components"`
 }
 
-// An observational snapshot, not a transaction or an authority: every
-// installed component can mutate independently after this function returns.
-// Native must lock/revalidate the complete graph at arm-pending time.
+// A snapshot of signed current slots serialized against *all native
+// activation-state writers* through the existing component root. The lock
+// guarantees an internally consistent observation for cooperating native
+// writers, NOT lasting authority after return, bundled-service coverage,
+// protection against external filesystem edits, or a release grant.
+// Native must still lock/revalidate the complete graph at arm-pending time.
 func inspectActiveCompatibilityCatalogV2(
 	root string, trustBytes []byte,
 ) (activeCompatibilityCatalog, error) {
@@ -34,11 +37,25 @@ func inspectActiveCompatibilityCatalogV2(
 	if err != nil {
 		return activeCompatibilityCatalog{}, err
 	}
+	releaseGraph, err := acquireActivationGraphLock(absolute)
+	if err != nil {
+		return activeCompatibilityCatalog{}, err
+	}
+	defer releaseGraph()
+	return inspectActiveCompatibilityCatalogV2UnderGraphLock(absolute, trustBytes)
+}
+
+// Internal scope: ONLY call from code holding the canonical activation graph
+// lock. This is shared by the read-only CLI and the real state writer so
+// consumers are never resolved from a stale preflight receipt.
+func inspectActiveCompatibilityCatalogV2UnderGraphLock(
+	absolute string, trustBytes []byte,
+) (activeCompatibilityCatalog, error) {
 	entries, err := os.ReadDir(absolute)
 	if err != nil {
 		return activeCompatibilityCatalog{}, err
 	}
-	if len(entries) > maxActiveCompatibilityEntries {
+	if len(entries) > maxActiveCompatibilityEntries+1 {
 		return activeCompatibilityCatalog{}, errors.New("active component root exceeds audit bound")
 	}
 
@@ -54,6 +71,12 @@ func inspectActiveCompatibilityCatalogV2(
 	// incomplete even when all observations remain unchanged.
 	observed := make(map[string]activationState)
 	for _, entry := range entries {
+		if entry.Name() == activationGraphLockName {
+			if !entry.IsDir() {
+				return activeCompatibilityCatalog{}, errors.New("active component graph lock has unsafe file type")
+			}
+			continue
+		}
 		if !componentPattern.MatchString(entry.Name()) || !entry.IsDir() {
 			return activeCompatibilityCatalog{}, fmt.Errorf(
 				"active component root has unsupported or unsafe entry: %q", entry.Name(),

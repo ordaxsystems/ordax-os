@@ -96,17 +96,34 @@ func addActivationV2CandidateWithFullContracts(
 	provided []providedCompatibilityContract,
 	requires []requiredCompatibilityContract,
 ) activationV2Candidate {
+	return addActivationV2CandidateForComponent(
+		t, fixture, "internet", version, sourceCommit, state, provided, requires,
+	)
+}
+
+// This fixture writes a real separately signed release/2 for any app ID;
+// cross-component regressions must not fabricate active graph descriptors.
+func addActivationV2CandidateForComponent(
+	t *testing.T,
+	fixture activationV2Fixture,
+	componentID string,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+	requires []requiredCompatibilityContract,
+) activationV2Candidate {
 	t.Helper()
 
-	runtimePath := "system/apps/internet/runtime.mjs"
+	runtimePath := "system/apps/" + componentID + "/runtime.mjs"
 	runtimeBytes := []byte("export const runtimeVersion = \"" + version + "\";\n")
 	runtimeDigest := sha256.Sum256(runtimeBytes)
 	manifest := componentPackageManifest{
 		Schema: packageSchema,
 		Status: "candidate",
 		Component: packageComponent{
-			ID:            "internet",
-			Title:         "Internet",
+			ID:            componentID,
+			Title:         "Component " + componentID,
 			Kind:          "app",
 			Version:       version,
 			ReleaseMode:   "component-slot",
@@ -114,7 +131,7 @@ func addActivationV2CandidateWithFullContracts(
 			FailureDomain: "app",
 			RestartScope:  "component",
 			HealthMode:    "runtime",
-			Owner:         "system/apps/internet",
+			Owner:         "system/apps/" + componentID,
 			Dependencies:  []string{"surface-shell"},
 		},
 		SourceCommit:                      sourceCommit,
@@ -139,7 +156,7 @@ func addActivationV2CandidateWithFullContracts(
 	}
 	manifestDigest := sha256.Sum256(manifestBytes)
 
-	packagePath := filepath.Join(fixture.dir, "internet.zip")
+	packagePath := filepath.Join(fixture.dir, componentID+".zip")
 	if err := os.Remove(packagePath); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
@@ -189,7 +206,7 @@ func addActivationV2CandidateWithFullContracts(
 	}
 	compatibility := map[string]any{
 		"schema":           compatibilitySchemaV1,
-		"componentId":      "internet",
+		"componentId":      componentID,
 		"componentVersion": version,
 		"provides":         signedProvided,
 		"requires":         signedRequirements,
@@ -201,24 +218,24 @@ func addActivationV2CandidateWithFullContracts(
 		t.Fatal(err)
 	}
 	compatibilityDigest := sha256.Sum256(compatibilityBytes)
-	compatibilityPath := filepath.Join(fixture.dir, "internet.compatibility.json")
+	compatibilityPath := filepath.Join(fixture.dir, componentID+".compatibility.json")
 	if err := os.WriteFile(compatibilityPath, compatibilityBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	release := releaseDescriptorV2{
 		Schema:            releaseSchemaV2,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository(componentID),
 		SourceCommit:      sourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{
-			ID:            "internet",
+			ID:            componentID,
 			Version:       version,
 			ReleaseMode:   "component-slot",
 			PackageSchema: packageSchema,
 		},
 		Package: packageBinding{
-			Name:           "internet.zip",
+			Name:           componentID + ".zip",
 			SHA256:         packageHash,
 			Size:           packageSize,
 			ManifestSHA256: hex.EncodeToString(manifestDigest[:]),
@@ -228,7 +245,7 @@ func addActivationV2CandidateWithFullContracts(
 			PendingHealthRequired:   true,
 		},
 		Compatibility: compatibilityBinding{
-			Name:   "internet.compatibility.json",
+			Name:   componentID + ".compatibility.json",
 			Schema: compatibilitySchemaV1,
 			SHA256: hex.EncodeToString(compatibilityDigest[:]),
 			Size:   int64(len(compatibilityBytes)),
@@ -238,11 +255,11 @@ func addActivationV2CandidateWithFullContracts(
 	if err != nil {
 		t.Fatal(err)
 	}
-	releasePath := filepath.Join(fixture.dir, "release-"+version+"-"+sourceCommit+".json")
+	releasePath := filepath.Join(fixture.dir, "release-"+componentID+"-"+version+"-"+sourceCommit+".json")
 	if err := os.WriteFile(releasePath, releaseBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	envelopePath := filepath.Join(fixture.dir, "envelope-"+version+"-"+sourceCommit+".json")
+	envelopePath := filepath.Join(fixture.dir, "envelope-"+componentID+"-"+version+"-"+sourceCommit+".json")
 	if _, err := signReleaseV2(
 		releasePath,
 		compatibilityPath,
