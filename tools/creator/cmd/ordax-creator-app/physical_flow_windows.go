@@ -245,16 +245,15 @@ func beginPhysicalWrite() {
 	if label == "" {
 		label = creatorT(msgTargetUnnamed)
 	}
-	review := creatorExperience(creatorExperienceInput{TargetCount: 1, TargetSelected: true, PhysicalReady: true})
+	// Only one Creator-owned destructive confirmation. Device validation,
+	// payload hashes and Windows elevation are internal security gates rather
+	// than additional product consent prompts.
 	warning := creatorTValues(msgWriteConfirmBody, map[string]string{
-		"title":  review.Title,
-		"body":   review.Body,
 		"device": target.DriveLetter,
 		"name":   label,
 		"disk":   strconv.Itoa(target.DiskNumber),
 		"size":   formatBytes(target.PhysicalDiskBytes),
 		"serial": target.DeviceSerial,
-		"detail": review.Detail,
 	})
 	if messageBox(warning, creatorT(msgWriteConfirmTitle), mbYesNo|mbIconWarning|mbDefButton2) != idYes {
 		return
