@@ -169,6 +169,13 @@ trust. `arm-pending` is still not enabled for public independent updates.
 When a `current` signed slot exists, the original `arm-pending` writer
 now checks **both signed state compatibility sidecars under its existing
 activation-state lock**, before recording the candidate as pending.
+Release/2 upgrades must also **retain every signed interface previously offered**
+by the `current` descriptor, including its contract ID and major version,
+because bundled consumers do not yet have complete independent evidence.
+Adding new interface contracts is allowed, but replacing/removing existing
+majors is denied until a full signed consumer-compatibility transaction can
+authorize the change.
+
 Release/2 upgrades with the same state owner and write version are allowed
 when the candidate declares the current version readable; stateless
 upgrades and the introduction of a new state owner are also allowed
