@@ -782,3 +782,41 @@ reload restores valid saved appearance; storage errors never break theme
 selection or claim cloud synchronization. UI/viewport and authenticated E2E
 proof remain pending. Existing shared window nodes/drafts are preserved during
 theme changes; no desktop/window geometry or CSS palette changed.
+
+### Web Central canonical connectivity — 2026-10-12
+
+Owner: OS Web adapter + composition/Surface. Explicit continuation of backend
+alignment; no first-party app source or platform/Runtime authority changes.
+Contracts: existing ordax.surface-host/1, identity-session/actions,
+Spaces catalog and ordax.space-selection/1. Browser connectivity remains an
+adapter hint, never a probe or proof of gateway/device/inference availability.
+
+The Web host keeps a stable snapshot until connectivity/capabilities change,
+notifies only changes and removes subscriptions/events on disposal. Undefined
+browser connectivity maps to the contract's unknown state. React consumes this
+existing port with useSyncExternalStore, without a shadow connectivity store.
+Offline account commands are disabled and guarded again at activation.
+Identity remains the last known session and the UI explicitly warns about
+staleness. Composition skips offline focus/visibility reads, uses catalog reset
+to abort/invalidate Spaces, and lets the shared selection domain revalidate its
+session-only record on reconnect. The in-flight refresh remains deduplicated;
+a connectivity revision schedules a fresh read after an overlapping reconnect.
+Only reads are replayed, never sign-in/sign-out or other commands.
+
+Risk: online hints may be inaccurate and an identity read already in flight
+may finish after disconnect. Canonical session sequencing still validates that
+read, the UI continues to show offline, and composition cannot start Spaces
+while offline. Existing Spaces ordinals suppress responses after reset.
+Reconnection waits for an existing identity read to settle; this increment does
+not add deadlines or replace the gateway's authentication lifecycle.
+
+Acceptance: offline refresh performs no network reads; disconnect invalidates
+catalog/selection, late catalog bytes do not restore context, reconnect
+revalidates the same subject/Space, and disposal prevents new event work.
+Regression source covers these transitions, overlapping reconnection,
+unknown connectivity, stable snapshots and subscription cleanup. Included in
+existing CI, not run locally. React review covered stable external snapshots,
+hook order, readable offline status, guarded actions and existing cleanup.
+No approved CSS geometry/theme, shared app nodes or window reducer changed.
+No build, npm, typecheck, tests or browser executed. Authenticated E2E and
+production activation remain pending.

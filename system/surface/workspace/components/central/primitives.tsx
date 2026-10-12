@@ -16,8 +16,8 @@ export function Panel({ title, action, onAction, children, className = '' }: { t
 }
 
 export function AccountCard({ onOpen, onSettings, onNotifications }: { onOpen: () => void; onSettings: () => void; onNotifications: () => void }) {
-  const { displayName, identity } = useWebAccount();
-  const label = identity.state === 'signed-in' ? 'Sessão verificada' : 'Conectar conta';
+  const { displayName, identity, offline } = useWebAccount();
+  const label = offline ? 'Sem conexão' : identity.state === 'signed-in' ? 'Sessão verificada' : 'Conectar conta';
   return <section className="account sidebar-account" aria-label={displayName}>
     <Button variant="ghost" className="account-open" onClick={onOpen} aria-label="Abrir minha conta" title={displayName}>
       <Avatar/><span className="account-identity"><strong title={displayName}>{displayName}</strong><span>{label}</span></span><ChevronRight className="account-chevron"/>
@@ -29,7 +29,7 @@ export function AccountCard({ onOpen, onSettings, onNotifications }: { onOpen: (
 
 // Commands delegate to the existing identity-actions port; no local authentication.
 export function AccountPanel() {
-  const { session, identity, actions, displayName } = useWebAccount();
+  const { session, identity, actions, displayName, offline } = useWebAccount();
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
   const mounted = useRef(true);
@@ -37,6 +37,10 @@ export function AccountPanel() {
   const [error, setError] = useState<string | null>(null);
   async function perform(action?: 'sign-in' | 'sign-out') {
     if (inFlight.current) return;
+    if (session.surface.getSnapshot().connectivity === 'offline') {
+      setError('Você está offline. Reconecte para atualizar a conta.');
+      return;
+    }
     inFlight.current = true;
     setPending(true); setError(null);
     try { if (action) await session.actions.execute(action); else await session.refresh(); }
@@ -44,11 +48,11 @@ export function AccountPanel() {
     finally { inFlight.current = false; if (mounted.current) setPending(false); }
   }
   return <Panel title="Minha conta"><div className="account-service-content">
-    <div className="account-service-profile"><Avatar/><div><strong>{displayName}</strong><p className="project-meta">{identity.state === 'signed-in' ? 'Identidade confirmada pelo serviço OrdaX.' : identity.state === 'signed-out' ? 'Entre para consultar seus Spaces e dados autorizados.' : 'Não foi possível conectar sua conta.'}</p></div></div>
+    <div className="account-service-profile"><Avatar/><div><strong>{displayName}</strong><p className="project-meta">{offline ? 'Sem conexão. Os dados da sessão podem estar desatualizados.' : identity.state === 'signed-in' ? 'Identidade confirmada pelo serviço OrdaX.' : identity.state === 'signed-out' ? 'Entre para consultar seus Spaces e dados autorizados.' : 'Não foi possível conectar sua conta.'}</p></div></div>
     <div className="account-service-actions">
-      <Button variant="outline" disabled={pending} onClick={() => void perform()}>{pending ? 'Atualizando…' : 'Atualizar conexão'}</Button>
-      {actions.supportedActions.includes('sign-in') && <Button disabled={pending} onClick={() => void perform('sign-in')}>Entrar</Button>}
-      {actions.supportedActions.includes('sign-out') && <Button variant="outline" disabled={pending} onClick={() => void perform('sign-out')}>Sair da conta</Button>}
+      <Button variant="outline" disabled={pending || offline} onClick={() => void perform()}>{pending ? 'Atualizando…' : 'Atualizar conexão'}</Button>
+      {actions.supportedActions.includes('sign-in') && <Button disabled={pending || offline} onClick={() => void perform('sign-in')}>Entrar</Button>}
+      {actions.supportedActions.includes('sign-out') && <Button variant="outline" disabled={pending || offline} onClick={() => void perform('sign-out')}>Sair da conta</Button>}
       <Button variant="outline" asChild><a href="/conta/">Gerenciar minha conta<ChevronRight/></a></Button>
     </div>
     {error && <p role="alert" className="project-meta">{error}</p>}

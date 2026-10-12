@@ -20,13 +20,28 @@ export function createWebAccountSession(windowRef = globalThis.window) {
   let pending = null;
   let disposed = false;
   const releaseIdentity = identity.subscribe(() => surface.refresh());
+  let connectivity = surface.getSnapshot().connectivity;
+  let connectivityRevision = 0;
+  const releaseSurface = surface.subscribe(snapshot => {
+    if (snapshot.connectivity === connectivity) return;
+    connectivity = snapshot.connectivity;
+    connectivityRevision += 1;
+    // Canonical reset aborts the read and invalidates selection until revalidation.
+    if (connectivity === "offline") spaces.reset();
+  });
   function refresh() {
-    if (disposed) return Promise.resolve();
+    if (disposed || surface.getSnapshot().connectivity === "offline") return Promise.resolve();
     if (pending !== null) return pending;
     pending = (async () => {
-      await identity.refresh();
-      if (!disposed && identity.getSnapshot().state === "signed-in") {
-        await spaces.refresh();
+      // A reconnect during an in-flight read requests one fresh pass afterwards.
+      // Only reads are repeated; identity commands are never replayed.
+      while (!disposed && surface.getSnapshot().connectivity !== "offline") {
+        const revision = connectivityRevision;
+        await identity.refresh();
+        if (disposed || surface.getSnapshot().connectivity === "offline") break;
+        if (revision !== connectivityRevision) continue;
+        if (identity.getSnapshot().state === "signed-in") await spaces.refresh();
+        if (revision === connectivityRevision) break;
       }
     })().finally(() => { pending = null; });
     return pending;
@@ -47,6 +62,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
       windowRef.removeEventListener("online", refreshQuietly);
       windowRef.document?.removeEventListener("visibilitychange", onVisibility);
       releaseIdentity();
+      releaseSurface();
       selection.dispose();
       actions.dispose();
       spaces.dispose();

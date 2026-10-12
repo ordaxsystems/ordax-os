@@ -118,20 +118,24 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
 }
 
 function SpacesPanel() {
-  const { session, identity, catalog, selection, authorized } = useWebAccount();
+  const { session, identity, catalog, selection, authorized, offline } = useWebAccount();
   const [error, setError] = useState<string | null>(null);
-  const message = catalog.state === 'loading' ? 'Carregando seus Spaces…'
+  const message = offline ? 'Sem conexão. Seus Spaces serão consultados quando a conexão voltar.' : catalog.state === 'loading' ? 'Carregando seus Spaces…'
     : identity.state !== 'signed-in' ? 'Entre na conta para consultar seus Spaces.'
     : catalog.state === 'error' ? 'Não foi possível consultar seus Spaces. Tente atualizar a conexão.'
     : authorized.ready ? 'Nenhum Space está disponível para esta conta.' : 'A consulta de Spaces não está disponível.';
   function selectSpace(id: string) {
     setError(null);
+    if (session.surface.getSnapshot().connectivity === 'offline') {
+      setError('Reconecte antes de escolher um Space.');
+      return;
+    }
     try { session.selection.select(id); }
     catch { setError('Este Space não está disponível. Atualize a conexão e escolha novamente.'); }
   }
   return <Panel title="Seus Spaces" action="Atualizar" onAction={() => { setError(null); void session.refresh().catch(() => {}); }}>
     {authorized.ready && authorized.visibleSpaces.length > 0
-      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <Button variant="ghost" className="space-switch space-choice" key={space.id} disabled={space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} title={space.name} onClick={() => selectSpace(space.id)}><AppIcon icon={WalletCards} tone="lime"/><span className="space-choice-name">{space.name}</span><span className="project-meta">{space.state !== 'active' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Escolher'}</span></Button>)}</div>
+      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <Button variant="ghost" className="space-switch space-choice" key={space.id} disabled={offline || space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} title={space.name} onClick={() => selectSpace(space.id)}><AppIcon icon={WalletCards} tone="lime"/><span className="space-choice-name">{space.name}</span><span className="project-meta">{space.state !== 'active' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Escolher'}</span></Button>)}</div>
       : <p className="service-state" role="status">{message}</p>}
     {selection.state === 'selected' && <div className="account-service-actions"><Button variant="outline" onClick={() => { session.selection.clear(); setError(null); }}>Limpar seleção</Button></div>}
     {error && <p className="service-state" role="alert">{error}</p>}

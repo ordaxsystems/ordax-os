@@ -17,11 +17,13 @@ export function useWebAccount() {
   const actions = useSyncExternalStore(session.actions.subscribe, session.actions.getSnapshot, session.actions.getSnapshot);
   const catalog = useSyncExternalStore(session.spaces.subscribe, session.spaces.getSnapshot, session.spaces.getSnapshot);
   const selection = useSyncExternalStore(session.selection.subscribe, session.selection.getSnapshot, session.selection.getSnapshot);
+  const surface = useSyncExternalStore(session.surface.subscribe, session.surface.getSnapshot, session.surface.getSnapshot);
+  const offline = surface.connectivity === 'offline';
   const authorized: { ready: boolean; visibleSpaces: readonly ReturnType<typeof validateSpace>[]; activeSpace: ReturnType<typeof validateSpace> | null } = deriveAuthorizedSpaces(identity, catalog, selection);
   const displayName = identity.state === 'signed-in' ? (identity.displayName ?? 'Sua conta')
     : identity.state === 'signed-out' ? 'Entrar na conta' : 'Conta não conectada';
   const initials = identity.state === 'signed-in'
     ? displayName.trim().split(/\s+/).slice(0, 2).map((part: string) => Array.from(part)[0] ?? '').join('').toLocaleUpperCase('pt-BR')
     : null;
-  return { session, identity, actions, catalog, selection, authorized, displayName, initials };
+  return { session, identity, actions, catalog, selection, surface, offline, authorized, displayName, initials };
 }
