@@ -140,7 +140,7 @@ try {
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("document.documentElement.dataset.theme==='dark'");
       await openSidebarDestination('Ajustes');
-      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Configurações\"] [data-color-theme=\"dark\"]')?.getAttribute('aria-pressed')"),'true','Persisted dark scheme is selected in shared Settings');
+      await until("document.querySelector('[aria-label=\"Janela Configurações\"] [data-color-theme=\"dark\"]')?.getAttribute('aria-pressed')==='true'");
       await chooseColorTheme('native');
       assert.equal(await evaluate("document.documentElement.dataset.ordaxTheme"),'dark','USB palette remains a dark accessible color scheme');
       assert.equal(await evaluate("document.documentElement.dataset.ordaxPalette"),'native','USB palette is the canonical native palette, not a fourth app theme');
