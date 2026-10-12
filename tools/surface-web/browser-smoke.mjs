@@ -17,9 +17,19 @@ const server=createServer(async(request,response)=>{
     const path=resolve(bundle,'.'+(pathname==='/'?'/index.html':pathname));
     const rel=relative(bundle,path);
     if(rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel))throw Error('Outside bundle');
+    // Resolve the file before emitting HTTP 200. A missing asset must never
+    // commit success headers and then crash the entire Chromium smoke server.
+    const bytes = await readFile(path);
     response.writeHead(200,{'content-type':mime[extname(path)]??'application/octet-stream'});
-    response.end(await readFile(path));
-  } catch {response.writeHead(404);response.end();}
+    response.end(bytes);
+  } catch {
+    if (!response.headersSent) {
+      response.writeHead(404);
+      response.end();
+    } else {
+      response.destroy();
+    }
+  }
 });
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 const origin='http://127.0.0.1:'+server.address().port;
