@@ -129,8 +129,8 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "f67cd5fcb31f409baf48e13fd1f0c61a8737a09b9dd145db7b5c744ec25cadab",
-      "adaptation": "The Radix compact-window actions menu is explicitly closed before dispatch; selection and collapse must not leave a stale popup state in the responsive layout. Historical native UI source digest is retained."
+      "adaptedSha256": "dd191532e217d395a84530d5a160cc0d1814260a70ec1c40df8d72f6e34d7026",
+      "adaptation": "Desktop popup is non-modal so selection and focus transitions across compact OS windows cannot hold a blocking modal; the menu also explicitly closes before dispatch. Original UI source identity is preserved."
     },
     {
       "target": "system/composition/web/account-session.mjs",
