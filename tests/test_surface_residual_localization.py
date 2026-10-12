@@ -108,9 +108,15 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
             '"surface.boot.failed": "The interface could not be started"',
         ):
             self.assertIn(marker, boot_catalog)
-        self.assertIn("export function translateSurfaceMessage", i18n)
-        self.assertIn("...SURFACE_BOOT_SOURCE_MESSAGES", i18n)
-        self.assertIn("...SURFACE_BOOT_ENGLISH_MESSAGES", i18n)
+        # Boot strings have one canonical data owner. The complete Surface
+        # imports and spreads it; no second copy of the messages is needed.
+        for marker in (
+            'from "./catalog/boot.mjs";',
+            "...SURFACE_BOOT_SOURCE_MESSAGES,",
+            "...SURFACE_BOOT_ENGLISH_MESSAGES,",
+            "export function translateSurfaceMessage",
+        ):
+            self.assertIn(marker, i18n)
         for composition in (native,):
             self.assertIn("translateSurfaceMessage", composition)
             self.assertIn('"surface.boot.loadingSurface"', composition)
