@@ -1,7 +1,6 @@
 import { validateComponentManifests } from "../contracts/component-manifest.mjs";
 import { appComponentManifests } from "../services/components/manifests/apps.mjs";
 import { coreComponentManifests } from "../services/components/manifests/core.mjs";
-import { assistantComponent } from "./assistant/component.mjs";
 import { activityComponent } from "./activity/component.mjs";
 import { internetComponent } from "./internet/component.mjs";
 import { filesComponent } from "./files/component.mjs";
@@ -10,7 +9,6 @@ import { studioComponent } from "./studio/component.mjs";
 const COMPONENTS = validateComponentManifests([
   ...coreComponentManifests,
   ...appComponentManifests,
-  assistantComponent,
   activityComponent,
   internetComponent,
   filesComponent,
