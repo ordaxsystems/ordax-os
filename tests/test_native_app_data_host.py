@@ -176,6 +176,41 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         finally:
             server.server_close()
 
+    def test_verified_receipt_host_maintenance_revokes_http_capability_and_recovers_data(self):
+        original = self.binding.endpoint
+        release = {
+            "componentId": "notes",
+            "version": "0.4.1",
+            "sourceCommit": "1" * 40,
+        }
+        status, _headers, data = self.json_post(original, {
+            "action": "put", "key": "note.alpha.0",
+            "valueBase64": "b2xk", "expectedRevision": 0,
+        })
+        self.assertEqual((status, data["revision"]), (200, 1))
+        with self.server.hold_verified_app_data_maintenance(
+            self.digest, release, 1,
+        ) as maintenance:
+            self.assertEqual(maintenance.revision(), 1)
+            self.assertEqual(maintenance.checkpoint(1)["pinnedRevision"], 1)
+            self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
+            status, _headers, body = self.json_post(original, {"action": "list"})
+            self.assertEqual(status, 404)
+            self.assertIsNone(body)
+            self.assertEqual(maintenance.restore(1)["revision"], 2)
+        self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
+        status, _headers, _body = self.json_post(original, {"action": "list"})
+        self.assertEqual(status, 404)
+        # No automatic regrant; trusted composition must explicitly reopen
+        # a verified receipt after lifecycle/signature checks elsewhere.
+        reissued = self.server.bind_app_data_receipt(self.digest)
+        self.assertNotEqual(reissued.endpoint, original)
+        status, _headers, listing = self.json_post(reissued.endpoint, {"action": "list"})
+        self.assertEqual(status, 200)
+        self.assertEqual(listing["revision"], 2)
+        self.assertEqual(listing["keys"], ["note.alpha.0"])
+        self.assertNotIn("checkpoint", listing)
+
     def test_bound_route_persists_and_cas_conflict_reports_actual_revision(self):
         status, _headers, stored = self.json_post(
             self.binding.endpoint,
