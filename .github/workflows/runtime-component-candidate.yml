@@ -36,6 +36,8 @@ on:
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
+      - 'system/composition/native/verified-projects-context.mjs'
+      - 'tests/test_verified_projects_context.mjs'
       - 'tools/component-package/**'
       - 'tools/runtime-component-channel/**'
       - 'system/services/components/probation-loader.mjs'
@@ -93,6 +95,8 @@ on:
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
+      - 'system/composition/native/verified-projects-context.mjs'
+      - 'tests/test_verified_projects_context.mjs'
       - 'tools/component-package/**'
       - 'tools/runtime-component-channel/**'
       - 'system/services/components/probation-loader.mjs'
@@ -154,6 +158,7 @@ jobs:
           node --test tests/test_component_probation_loader.mjs
           node --test tests/test_verified_current_component_runtime.mjs
           node --test tests/test_native_verified_installed_apps.mjs
+          node --test tests/test_verified_projects_context.mjs
           node --test tests/test_component_probation_orchestrator.mjs
           node --test tests/test_native_component_probation_composition.mjs
           node --test tests/test_component_promotion_policy.mjs

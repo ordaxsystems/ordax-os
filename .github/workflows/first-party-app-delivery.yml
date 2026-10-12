@@ -19,6 +19,8 @@ on:
       - 'system/services/apps/verified-external-app-catalog.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
+      - 'system/composition/native/verified-projects-context.mjs'
+      - 'tests/test_verified_projects_context.mjs'
       - 'tests/test_verified_external_app_catalog.mjs'
       - 'tests/test_app_presentation_manifest.mjs'
       - 'tests/test_external_app_definition.mjs'
@@ -89,6 +91,8 @@ on:
       - 'system/services/apps/verified-external-app-catalog.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
+      - 'system/composition/native/verified-projects-context.mjs'
+      - 'tests/test_verified_projects_context.mjs'
       - 'tests/test_verified_external_app_catalog.mjs'
       - 'tests/test_app_presentation_manifest.mjs'
       - 'tests/test_external_app_definition.mjs'
@@ -171,6 +175,7 @@ jobs:
           node --check system/services/apps/verified-external-app-catalog.mjs
           node --check system/composition/native/verified-installed-apps.mjs
           node --check tests/test_native_verified_installed_apps.mjs
+          node --check tests/test_verified_projects_context.mjs
           node --check tests/test_verified_external_app_catalog.mjs
           node --check tests/test_app_presentation_manifest.mjs
           node --check tests/test_external_app_definition.mjs
@@ -232,6 +237,7 @@ jobs:
           node --test tests/test_external_app_definition.mjs
           node --test tests/test_verified_external_app_catalog.mjs
           node --test tests/test_native_verified_installed_apps.mjs
+          node --test tests/test_verified_projects_context.mjs
           node --test tests/test_app_store_contract.mjs
           node --test tests/test_app_lifecycle_request.mjs
           node --test tests/test_app_store_lifecycle_service.mjs
