@@ -10,6 +10,9 @@ export function desktopReducer(state: DesktopState, action: DesktopAction): Desk
   if (action.type === 'show-desktop') return { ...state, windows: state.windows.map(w => ({ ...w, minimized: true })), active: null };
   const existing = state.windows.find(w => w.title === action.title);
   if (!existing && action.type !== 'open') return state;
+  // Focus is a presentation event, not explicit restoration. A popup returning
+  // focus to its trigger must never unminimize the window it just minimized.
+  if (action.type === 'focus' && existing?.minimized) return state;
   // Focusing a visible compact pane must not reorder its neighbors or expand the strip.
   if (action.type === 'focus' && existing?.mode === 'compact' && !existing.minimized) {
     return state.active === action.title ? state : { ...state, active: action.title };
