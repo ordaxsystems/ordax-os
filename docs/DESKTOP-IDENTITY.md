@@ -586,3 +586,12 @@ asset from shared theme state; removed conflicting display overrides.
 Central retains clipped rounded hero and theme foreground at narrow widths.
 Acceptance: landscape remains visible in both themes and responsive layouts.
 No build, npm or tests executed under the standing user restriction.
+
+### Time-aware Central greeting — 2026-10-11
+
+Owner: OS Surface. Replaced fixed date and theme-dependent greeting with local
+browser date/time and the shared presentation user fixture. Refresh on minute
+interval and window focus has effect cleanup; accessible time carries ISO value.
+No separate identity source or backend inference. Acceptance: greeting matches
+local hour across themes; date updates after midnight and resume.
+No build, npm or tests executed under the standing user restriction.

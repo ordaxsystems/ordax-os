@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
-import { shortcuts, modes, favorites, projects, activities, devices } from './config';
+import { shortcuts, modes, favorites, projects, activities, devices, presentationUser } from './config';
 import { AppIcon, Panel } from './primitives';
 import { Desktop, WorkspaceNavigation } from './desktop';
 import { desktopReducer, initialDesktopState } from './desktop-state';
@@ -14,6 +14,16 @@ export function Central() {
   const [windows, dispatch] = useReducer(desktopReducer, initialDesktopState);
   const compact = windows.windows.some(window => !window.minimized && window.mode === 'compact');
   const regular = windows.windows.some(window => !window.minimized && window.mode !== 'compact');
+  const [localTime, setLocalTime] = useState(() => new Date());
+  const hour = localTime.getHours();
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const dateLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(localTime);
+  useEffect(() => {
+    const refresh = () => setLocalTime(new Date());
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener('focus', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, []);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [view, setView] = useState<'central' | 'desktop'>('central');
   const [sidebarMode, setSidebarMode] = useState<'auto' | 'collapsed' | 'expanded'>('auto');
@@ -44,7 +54,7 @@ export function Central() {
       <div className="central-content" inert={regular}>
       <section className="os-hero" aria-label="Sua central OrdaX OS">
         <img className="hero-wallpaper" src={theme === 'dark' ? nightWallpaper : dayWallpaper} alt={theme === 'dark' ? 'Lago alpino sob a luz da lua' : 'Lago alpino ao amanhecer'} width={1920} height={768}/>
-        <div className="hero-content"><p className="hero-date">Ter, 27 de maio de 2025</p><h1 className="hero-heading">{theme === 'dark' ? 'Boa noite, João!' : 'Bom dia, João!'}</h1><p className="hero-subtitle">{theme === 'dark' ? 'Grandes ideias também acontecem à noite.' : 'Organize suas ideias. Realize o que importa.'}</p>
+        <div className="hero-content"><p className="hero-date"><time dateTime={localTime.toISOString()}>{dateLabel}</time></p><h1 className="hero-heading">{greeting}, {presentationUser.displayName}!</h1><p className="hero-subtitle">Organize suas ideias. Realize o que importa.</p>
           <form className="aura-search" onSubmit={submitPrompt}><Sparkles className="aura-star" fill="currentColor"/><input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={e => setPrompt(e.target.value)}/><Button type="button" variant="ghost" size="icon" className="size-7 text-muted-foreground" title="Entrada por voz" aria-label="Entrada por voz" onClick={() => setDialog('Entrada por voz')}><Mic className="size-4"/></Button><Button type="submit" className="send-button" aria-label="Enviar ao Aura" title="Enviar ao Aura"><Send className="size-4" fill="currentColor"/></Button></form>
           <div className="aura-modes" aria-label="Modo da Aura">{modes.map(item => <Button variant="ghost" className="mode-chip" key={item.name} data-active={mode === item.name} aria-pressed={mode === item.name} onClick={() => setMode(item.name)}><item.icon/>{item.name}</Button>)}</div>
         </div>

@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "5d88542ecdfd014c20e75f0d83c94da1ed7269c8ab5e847c675008613f9ad4ee",
+      "adaptedSha256": "e54233441094ce2af1287bc67b07a885def1130c926378e156a19ddd41bf6726",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -110,7 +110,8 @@
     "Desktop header duplicate Brand removed; shared sidebar remains the desktop brand owner and header actions remain right aligned",
     "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero",
     "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track",
-    "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding"
+    "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding",
+    "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme"
   ],
   "native_files": [
     {
