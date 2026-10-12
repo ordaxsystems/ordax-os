@@ -38,15 +38,15 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "3b82a164f894ffba3f034f8f96f8f43cc8e990e890adb7d56d2a933f38749a84",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
+      "adaptedSha256": "5f33d6665ff328b8d9804098cd878397c19f33cb67bf9e6c032096b83bce46e7",
+      "adaptation": "Preserves latest offline-safe Space selection and service rendering; minimized taskbar windows now use explicit open instead of generic focus."
     },
     {
       "source": "src/components/central/desktop-state.ts",
       "target": "system/surface/workspace/components/central/desktop-state.ts",
       "sha256": "29495a38b755ce63ab6938a605edb2eb0f6a7e6e4e10ede7dabdf25a85c08728",
-      "adaptedSha256": "dd25e681cdabf0272c90f1911dde8141e578758694b0532b3bdf694e40b1e9d1",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
+      "adaptedSha256": "46b2217f79ed02fe4c4623798f820df7ec5ac400729ffa13a982025420145cbd",
+      "adaptation": "The desktop reducer distinguishes focus from explicit open: popup focus return cannot revive a minimized app, while the dock restores via open. Preserve previous window mode and canonical single reducer."
     },
     {
       "source": "src/styles.css",
@@ -131,7 +131,9 @@
       "target": "system/surface/workspace/components/central/window-layer.tsx",
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
-      "purpose": "Stable shared app window rendering and restoration controls"
+      "purpose": "Stable shared app window rendering and restoration controls",
+      "adaptedSha256": "ffb41d0dcba0d7d1fabf083b9cbdb812fea385a10f491a27b496cb14b3602404",
+      "adaptation": "Compact actions use the native interactive menu item click, compatible with mouse and keyboard activation, and close the one non-modal menu before dispatching its canonical window action. Historical source checksum is preserved."
     },
     {
       "target": "system/composition/web/account-session.mjs",
@@ -143,7 +145,9 @@
       "target": "system/surface/workspace/components/central/account-context.tsx",
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
-      "purpose": "React subscription context projecting existing account and Spaces ports without a second store"
+      "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
+      "adaptedSha256": "2115708b47d1e7f246d09b9462c0d5a3068ae49503ec3783815417be36893c0a",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
     },
     {
       "target": "system/adapters/web/space-selection.mjs",

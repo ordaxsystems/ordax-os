@@ -60,7 +60,7 @@ test("empty installed inventory cannot create launchable external apps", () => {
   assert.equal(result.installed.length, 0);
 });
 
-test("built-in collision remains OS-owned during remove-first transition", () => {
+test("bundled and signed-slot app collision fails closed during remove-first transition", () => {
   const oldInternet = {
     ...item, component: {
       ...component, id: "internet", title: "Internet",
@@ -68,10 +68,10 @@ test("built-in collision remains OS-owned during remove-first transition", () =>
     metadata: { ...metadata, componentId: "internet" },
     presentation: { ...presentation, appId: "internet" },
   };
-  const output = createNativeVerifiedInstalledAppCatalog([oldInternet, item]);
-  assert.equal(output.catalog.get("internet").component.owner, "system/apps/internet");
-  assert.equal(output.installed.length, 1);
-  assert.equal(output.installed[0].component.id, "notes");
+  assert.throws(
+    () => createNativeVerifiedInstalledAppCatalog([oldInternet, item]),
+    /Duplicate bundled and signed-slot app source: internet/,
+  );
 });
 
 test("falsified current state and owner do not enter Surface", () => {
