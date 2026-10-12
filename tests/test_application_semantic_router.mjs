@@ -26,7 +26,6 @@ test("bundled first-party semantics cover internal apps without duplicating exte
     "assistant",
     "files",
     "internet",
-    "network",
     "projects",
     "settings",
     "system",
@@ -54,11 +53,11 @@ test("semantic router resolves YouTube/new-tab phrasing to OrdaX Internet withou
   assert.equal(payload.toolExecution, false);
 });
 
-test("semantic router distinguishes settings network configuration from professional Network app", () => {
+test("semantic router exposes Wi-Fi settings but cannot invent an uninstalled Network app", () => {
   const { router } = runtime();
   const selected = router.select("Abra os Ajustes de rede e configure o Wi-Fi");
   assert.equal(selected[0].appId, "settings");
-  assert.equal(selected.some((entry) => entry.appId === "network"), true);
+  assert.equal(selected.some((entry) => entry.appId === "network"), false);
 });
 
 test("semantic router recognizes file and project workflows from local examples", () => {

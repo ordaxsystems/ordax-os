@@ -71,3 +71,5 @@ Apps may depend on shared contracts and services according to `docs/contracts/mo
 Do not create `apps-web`, `apps-mobile`, `apps-desktop`, Android/iOS copies or host-specific UI trees. Genuine host operations belong behind capability contracts and adapters.
 
 The current registry is intentionally first-party and bounded. It is not a plugin marketplace or arbitrary code-loading framework; extension mechanics should only be introduced when there is a concrete product requirement and an explicit trust boundary.
+
+O aplicativo removível Rede (`network`) não mantém fonte em `system/apps/network` após o cutover. Seu owner canônico passa a `ordaxsystems/ordax-apps`; o OS conserva `system/services/professional-network`, os contratos de Space, Wi-Fi e gestão de rede. O catálogo não declara o app instalado sem slot assinado e saúde comprovada.
