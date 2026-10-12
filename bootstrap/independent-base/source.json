@@ -7,7 +7,6 @@
     "sha256": "87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34"
   },
   "kernel_source_contract": "bootstrap/kernel/source.json",
-  "stable_base_format_contract": "bootstrap/stable-base/source.json",
   "network_source_contract": "bootstrap/network/source.json",
   "build_profile": "ordax_minimal_defconfig",
   "architecture": "x86_64",
@@ -15,5 +14,7 @@
   "physical_artifact_authorized": false,
   "stable_channel_authorized": false,
   "update_owner": "existing-ordax-base-update-contract",
-  "recovery_owner": "existing-ordax-initramfs-contract"
+  "recovery_owner": "existing-ordax-initramfs-contract",
+  "erofs_format_contract": "docs/contracts/portable-boot-handoff.json",
+  "stable_base_layout_compatibility_contract": "bootstrap/stable-base/source.json"
 }
