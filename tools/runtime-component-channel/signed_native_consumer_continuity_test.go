@@ -2,6 +2,8 @@ package main
 
 import (
 	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -167,5 +169,81 @@ func TestRollbackCannotReplaceRequiredSignedNativeProviderWithIncompatiblePrevio
 		!sameSlotIdentity(after.Previous, active.Previous) ||
 		after.Rejected != nil {
 		t.Fatalf("rejected rollback mutated canonical graph: %+v", after)
+	}
+}
+
+func TestRollbackRetainsRequiredAPIForSignedNativePeer(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	previous := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	healthyPromoteV2(t, fixture, previous)
+	current := addActivationV2Candidate(
+		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
+	)
+	active := healthyPromoteV2(t, fixture, current)
+	consumer := addSignedPeer(
+		t, fixture, "notes", "3333333333333333333333333333333333333333",
+		[]providedCompatibilityContract{{ID: "ordax.notes", Major: 1}},
+		[]requiredCompatibilityContract{{ID: "ordax.internet", MinMajor: 1, MaxMajor: 1}},
+	)
+	peer := healthyPromoteSignedPeer(t, fixture, "notes", consumer)
+	restored, err := rollbackCurrentStateAtRevision(
+		fixture.root, "internet", *active.Current,
+		active.Revision, fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterPeer, err := readActivationState(fixture.root, "notes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.Current == nil || restored.Current.Version != "1.0.0" ||
+		restored.Revision != active.Revision+1 ||
+		!sameSlotIdentity(afterPeer.Current, peer.Current) ||
+		afterPeer.Revision != peer.Revision {
+		t.Fatalf("safe rollback altered signed peer or failed to restore prior provider: %+v %+v", restored, afterPeer)
+	}
+}
+
+func TestUninstallFailsClosedOnCorruptSignedNativePeerSlot(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	provider := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	active := healthyPromoteV2(t, fixture, provider)
+	consumer := addSignedPeer(
+		t, fixture, "notes", "2222222222222222222222222222222222222222",
+		[]providedCompatibilityContract{{ID: "ordax.notes", Major: 1}},
+		[]requiredCompatibilityContract{{ID: "ordax.internet", MinMajor: 1, MaxMajor: 1}},
+	)
+	healthyPromoteSignedPeer(t, fixture, "notes", consumer)
+	// A removed/tampered signed compatibility sidecar cannot turn a
+	// mandatory peer into an absent peer or waive its requirement.
+	if err := os.Remove(consumer.compatibilityPath); err != nil {
+		t.Fatal(err)
+	}
+	// Stage keeps an immutable copy in the canonical slot; tamper only the
+	// slot sidecar to simulate damaged installed evidence.
+	canonicalSidecar := filepath.Join(consumer.slot, "notes.compatibility.json")
+	if err := os.Remove(canonicalSidecar); err != nil {
+		t.Fatal(err)
+	}
+	_, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", *active.Current,
+		active.Revision, fixture.trustPath,
+	)
+	if err == nil {
+		t.Fatal("corrupted active peer was silently omitted from uninstall continuity proof")
+	}
+	after, readErr := readActivationState(fixture.root, "internet")
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if after.Revision != active.Revision ||
+		!sameSlotIdentity(after.Current, active.Current) ||
+		after.UserRemoved {
+		t.Fatalf("unverified peer bypass mutated current state: %+v", after)
 	}
 }
