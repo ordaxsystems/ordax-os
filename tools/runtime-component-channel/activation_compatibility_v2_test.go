@@ -188,3 +188,85 @@ func TestInspectActivationCompatibilityV2RejectsWrongTargetAndMissingRevision(t 
 		}
 	}
 }
+
+func TestArmPendingRevisionCASFailsClosedBeforeMutation(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	first := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	second := addActivationV2Candidate(
+		t, fixture, "2.0.0", "2222222222222222222222222222222222222222",
+	)
+	zero := int64(0)
+	pending, err := armPendingStateAtRevision(first.slot, fixture.trustPath, fixture.root, &zero)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending.Revision != 1 || pending.Current != nil || pending.Pending == nil {
+		t.Fatalf("first installation CAS did not commit exactly once: %+v", pending)
+	}
+	if _, err := armPendingStateAtRevision(second.slot, fixture.trustPath, fixture.root, &zero); err == nil {
+		t.Fatal("stale arm revision was accepted")
+	}
+	unchanged, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Revision != pending.Revision || !sameSlotIdentity(unchanged.Pending, pending.Pending) {
+		t.Fatalf("stale arm mutated canonical activation state: %+v", unchanged)
+	}
+	if _, err := armPendingStateAtRevision(second.slot, fixture.trustPath, fixture.root, nil); err == nil {
+		t.Fatal("different pending candidate bypassed existing slot check")
+	}
+}
+
+func TestArmPendingRevisionCASRejectsStaleUpgradeAndHonorsLock(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	first := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	current := healthyPromoteV2(t, fixture, first)
+	next := addActivationV2Candidate(
+		t, fixture, "2.0.0", "2222222222222222222222222222222222222222",
+	)
+	stale := current.Revision - 1
+	if _, err := armPendingStateAtRevision(next.slot, fixture.trustPath, fixture.root, &stale); err == nil {
+		t.Fatal("old upgrade preflight revision was accepted")
+	}
+	releaseLock, err := acquireActivationLock(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := armPendingStateAtRevision(next.slot, fixture.trustPath, fixture.root, &current.Revision); err == nil {
+		releaseLock()
+		t.Fatal("arm bypassed canonical activation mutation lock")
+	}
+	releaseLock()
+	pending, err := armPendingStateAtRevision(next.slot, fixture.trustPath, fixture.root, &current.Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending.Revision != current.Revision+1 ||
+		!sameSlotIdentity(pending.Current, current.Current) ||
+		pending.Pending == nil || pending.Pending.Version != "2.0.0" ||
+		pending.PendingHealth != "unknown" {
+		t.Fatalf("signed candidate arm has wrong activation identity: %+v", pending)
+	}
+	if _, err := armPendingStateAtRevision(next.slot, fixture.trustPath, fixture.root, &current.Revision); err == nil {
+		t.Fatal("same stale revision was accepted after arm")
+	}
+}
+
+func TestArmPendingRevisionCASRejectsNegativeExpectedRevision(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	first := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	negative := int64(-1)
+	if _, err := armPendingStateAtRevision(first.slot, fixture.trustPath, fixture.root, &negative); err == nil {
+		t.Fatal("negative expected revision accepted")
+	}
+	if _, err := armPendingCommand([]string{"--slot", first.slot, "--trust", fixture.trustPath, "--root", fixture.root, "--expected-revision=-2"}); err == nil {
+		t.Fatal("arm CLI accepted illegal revision")
+	}
+}
