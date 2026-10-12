@@ -45,8 +45,8 @@
       "source": "src/components/central/desktop-state.ts",
       "target": "system/surface/workspace/components/central/desktop-state.ts",
       "sha256": "29495a38b755ce63ab6938a605edb2eb0f6a7e6e4e10ede7dabdf25a85c08728",
-      "adaptedSha256": "dd25e681cdabf0272c90f1911dde8141e578758694b0532b3bdf694e40b1e9d1",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
+      "adaptedSha256": "46b2217f79ed02fe4c4623798f820df7ec5ac400729ffa13a982025420145cbd",
+      "adaptation": "The desktop reducer distinguishes focus from explicit open: popup focus return cannot revive a minimized app, while the dock restores via open. Preserve previous window mode and canonical single reducer."
     },
     {
       "source": "src/styles.css",
