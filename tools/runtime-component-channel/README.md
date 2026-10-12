@@ -126,6 +126,27 @@ revision/identity under the existing mutation lock before `arm-pending`.
 Do not send a "compatible" diagnostic as an activation grant or edit the
 activation state from JavaScript.
 
+### Activation writer integrity and revision CAS
+
+The original `arm-pending` writer now performs its **final full signature and
+slot identity verification while holding the existing activation lock**,
+immediately before updating `activation-state.json`. Its earlier verification
+is only used to identify the canonical component/slot. This closes the
+unlocked verify-to-write interval without another writer, lock, database,
+or new signing authority.
+
+Trusted Native orchestration may pass `--expected-revision <N>` (including
+`0` for an uninstalled first revision) to prevent arming a candidate based
+on a stale `current` state. The original optionless command remains available
+for existing development callers and backward-compatible tests; it **does not**
+prove semantic compatibility. Revision checks do not substitute for the
+complete active-consumer contract evaluation.
+
+These guards were tested for first installation, stale revision, exact
+revision accepted, attempted concurrent writer lock, and rejection of
+different pending identities. The activation and health/promotion/rollback
+state machine and release/1 format were not replaced.
+
 **Remaining blocker:** `arm-pending` does not yet consume a verified
 compatibility verdict across all active consumers. A correct fail-closed
 integration must run before any activation-state mutation and invalidate
