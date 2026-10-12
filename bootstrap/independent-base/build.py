@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -159,6 +161,70 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
+
+PROBE_INIT = "sbin/ordax-independent-probe-init"
+
+
+def verify_executable_mode(archive: Path, kind: str) -> None:
+    """Check the *published* initramfs or tar mode, not only the overlay source."""
+    if not archive.is_file() or archive.is_symlink():
+        raise BaseError(f"{kind} archive is missing or unsafe")
+
+    if kind == "tar":
+        with tarfile.open(archive, "r:") as container:
+            matches = [
+                item for item in container
+                if item.name.removeprefix("./") == PROBE_INIT
+            ]
+            if len(matches) != 1 or not matches[0].isreg() or matches[0].mode != 0o755:
+                raise BaseError("rootfs.tar: independent probe-init must be a unique regular 0755 executable")
+        return
+
+    if kind != "cpio":
+        raise BaseError("unsupported initramfs archive format")
+
+    # Buildroot emits gzip-compressed SVR4 newc. Read the actual cpio headers
+    # without extracting potentially privileged entries onto the build host.
+    found = 0
+    with gzip.open(archive, "rb") as stream:
+        while True:
+            header = stream.read(110)
+            if len(header) != 110 or header[:6] not in (b"070701", b"070702"):
+                raise BaseError("rootfs.cpio.gz: invalid/truncated newc header")
+            try:
+                fields = [int(header[6 + offset * 8:14 + offset * 8], 16)
+                          for offset in range(13)]
+            except ValueError as exc:
+                raise BaseError("rootfs.cpio.gz: invalid newc metadata") from exc
+            mode, file_size, name_size = fields[1], fields[6], fields[11]
+            if not 1 <= name_size <= 4096:
+                raise BaseError("rootfs.cpio.gz: invalid cpio pathname length")
+            name_raw = stream.read(name_size)
+            if len(name_raw) != name_size or not name_raw.endswith(b"\\0"):
+                raise BaseError("rootfs.cpio.gz: invalid/truncated cpio filename")
+            name = name_raw[:-1].decode("utf-8", "strict").removeprefix("./")
+            pad = (-(110 + name_size)) % 4
+            if len(stream.read(pad)) != pad:
+                raise BaseError("rootfs.cpio.gz: truncated header padding")
+            if name == "TRAILER!!!":
+                if found != 1:
+                    raise BaseError("rootfs.cpio.gz: executable probe-init missing or duplicated")
+                return
+            if name == PROBE_INIT:
+                found += 1
+                if (found != 1 or stat.S_IFMT(mode) != stat.S_IFREG
+                        or stat.S_IMODE(mode) != 0o755):
+                    raise BaseError(
+                        f"rootfs.cpio.gz: independent probe-init mode must be regular 0755, got {mode:o}"
+                    )
+            remaining = file_size + (-file_size % 4)
+            while remaining:
+                block = stream.read(min(65536, remaining))
+                if not block:
+                    raise BaseError("rootfs.cpio.gz: truncated file content")
+                remaining -= len(block)
+
+
 def verify_target(target: Path) -> None:
     if not BUSYBOX_FRAGMENT.is_file() or BUSYBOX_FRAGMENT.is_symlink():
         raise BaseError("canonical BusyBox handoff config fragment is missing or unsafe")
@@ -172,6 +238,9 @@ def verify_target(target: Path) -> None:
                  "ordax/bootstrap/network/udhcpc.script"):
         if not (target / name).is_file():
             raise BaseError(f"candidate userspace is missing {name}")
+    probe = target / PROBE_INIT
+    if probe.is_symlink() or not probe.is_file() or stat.S_IMODE(probe.stat().st_mode) != 0o755:
+        raise BaseError("Buildroot target probe-init must be a regular 0755 executable")
     if digest(target / "sbin/ordax-stable-init") != digest(CANONICAL_HANDOFF):
         raise BaseError("portable handoff entrypoint differs from canonical source")
     for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
@@ -257,6 +326,8 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             if not (images / name).is_file():
                 raise BaseError(f"Buildroot did not generate {name}")
             shutil.copyfile(images / name, out / name)
+        verify_executable_mode(out / "rootfs.cpio.gz", "cpio")
+        verify_executable_mode(out / "rootfs.tar", "tar")
         base = out / "independent-base.erofs"
         run("mkfs.erofs", "-T", "0", "-z", stable["rootfs"]["compression"],
             "-L", stable["rootfs"]["volume_label"], str(base), str(target))
@@ -280,6 +351,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
             "busybox_handoff_runtime_features_verified": True,
+            "probe_initramfs_executable_mode_verified": True,
             "phase3_service_primitives_verified": True,
             "phase3_iproute2_verified": True,
             "phase3_ca_trust_verified": True,
@@ -313,6 +385,10 @@ def verify(out: Path) -> dict:
         raise BaseError("BusyBox handoff config fragment SHA-256 drift")
     if report.get("busybox_handoff_runtime_features_verified") is not True:
         raise BaseError("BusyBox applet feature proof absent from provenance")
+    if report.get("probe_initramfs_executable_mode_verified") is not True:
+        raise BaseError("initramfs executable mode evidence absent from provenance")
+    verify_executable_mode(out / "rootfs.cpio.gz", "cpio")
+    verify_executable_mode(out / "rootfs.tar", "tar")
     for key in ("phase3_service_primitives_verified", "phase3_iproute2_verified", "phase3_ca_trust_verified"):
         if report.get(key) is not True:
             raise BaseError(f"Phase 3 build validation evidence missing: {key}")
