@@ -1,3 +1,5 @@
+import { createSidebarMarkup } from "./sidebar-layout.mjs";
+import { projectSidebarAccount, sidebarAccountMarkup } from "./sidebar-account.mjs";
 import { assertLocalizationPort } from "../../contracts/localization.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import {
@@ -7,8 +9,10 @@ import {
 
 const SURFACE_LOCALE = "pt-BR";
 const SURFACE_TIME_ZONE = "America/Bahia";
+const QUICK_ACCESS_APP_IDS = Object.freeze(["studio", "files", "internet", "assistant", "settings"]);
 
 const ICONS = Object.freeze({
+  presentation: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
   home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/></svg>`,
   files: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 8.5v-3A1.5 1.5 0 0 1 5 4h4.3l2.2 2.5"/></svg>`,
   assistant: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H9l-4 3v-13z"/><path d="M9 9h6M9 12h4"/></svg>`,
@@ -29,7 +33,7 @@ const ICONS = Object.freeze({
 
 function railButton(appId, label, icon, t, className = "ordax-rail-button") {
   return `
-    <button type="button" class="${className}" data-sidebar-app="${appId}" data-launch-app="${appId}" aria-label="${t("surface.launcher.open", { app: label })}">
+    <button type="button" class="${className}" data-sidebar-app="${appId}" data-launch-app="${appId}" title="${label}" aria-label="${t("surface.launcher.open", { app: label })}">
       <span class="ordax-rail-icon">${icon}</span>
       <span>${label}</span>
     </button>`;
@@ -57,35 +61,18 @@ export function createDesktopShellMarkup(localization) {
   const t = localizationPort.translate;
   return `
     <div class="ordax-shell" data-ordax-shell>
-        <header class="ordax-brandbar">
-          <div class="ordax-brand" aria-label="OrdaX">
-            <span class="ordax-brand-symbol" aria-hidden="true"></span>
-            <span class="ordax-brand-word">OrdaX <small>OS</small></span>
-          </div>
-          <button type="button" class="ordax-command" aria-label="${t("shell.launcher.command")}" data-launcher-toggle aria-expanded="false" aria-controls="ordax-launcher">
-            <span class="ordax-command-icon">${ICONS.search}</span>
-            <span class="ordax-command-copy">${t("shell.launcher.command")}</span>
-            <kbd>Ctrl + K</kbd>
-          </button>
-          <div class="ordax-space-switcher-slot" data-space-switcher-slot></div>
-        </header>
-      <aside class="ordax-rail" aria-label="${t("shell.rail.aria")}">
-        <nav class="ordax-rail-nav">
-          <button type="button" class="ordax-rail-button" data-show-desktop><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button>
-          ${railButton("files", t("app.files.title"), ICONS.files, t)}
-          ${railButton("studio", t("app.studio.title"), ICONS.studio, t)}
-          ${railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)}
-          ${railButton("internet", t("app.internet.title"), ICONS.internet, t)}
-          ${railButton("settings", t("app.settings.title"), ICONS.settings, t)}
-          ${railButton("account", t("app.account.title"), ICONS.account, t)}
-          ${railButton("system", t("app.system.title"), ICONS.system, t)}
-        </nav>
-        <div class="ordax-power-slot" data-power-slot></div>
-      </aside>
+      ${createSidebarMarkup({ id: "ordax-native-sidebar", label: t("shell.rail.aria"), content: {
+        brand: `<button type="button" class="ordax-sidebar-launcher-brand" data-launcher-toggle aria-label="${t("shell.launcher.command")}" title="${t("shell.launcher.command")}" aria-expanded="false" aria-controls="ordax-launcher"><span class="ordax-brand"><span class="ordax-brand-symbol" aria-hidden="true"></span><span class="ordax-brand-word">OrdaX <small>OS</small></span></span></button>`,
+        home: `<button type="button" class="ordax-rail-button" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button>`,
+        navigation: ["files", "studio", "assistant", "internet", "settings", "system"].map(id => railButton(id, t(`app.${id}.title`), ICONS[id], t)).join("") + `<button type="button" class="ordax-rail-button" data-launcher-toggle title="${t("shell.sidebar.more")}" aria-label="${t("shell.sidebar.more")}" hidden><span class="ordax-rail-icon">${ICONS.presentation}</span><span>${t("shell.sidebar.more")}</span></button>`,
+        account: sidebarAccountMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true),
+        auxiliary: `<div class="ordax-space-switcher-slot" data-space-switcher-slot></div><div class="ordax-power-slot" data-power-slot></div>`,
+      } })}
+      <button type="button" class="ordax-sidebar-toggle" data-sidebar-toggle aria-controls="ordax-native-sidebar" aria-expanded="true" aria-label="${t("shell.sidebar.collapse")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
 
       <main class="ordax-workspace" tabindex="-1" data-workspace>
         <section class="ordax-desktop" aria-labelledby="surface-home-title">
-          <div class="ordax-home-panel">
+          <div class="ordax-home-panel" data-central-presentation>
             <div class="ordax-home-hero">
               <p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p>
               <h1 id="surface-home-title" class="ordax-home-title">OrdaX <span>OS</span></h1>
@@ -101,7 +88,7 @@ export function createDesktopShellMarkup(localization) {
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
               <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
               <div class="ordax-home-action-grid">
-                ${["studio", "files", "internet", "assistant", "settings"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
+                ${QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
               </div>
             </section>
 
@@ -113,6 +100,10 @@ export function createDesktopShellMarkup(localization) {
             </section>
           </div>
 
+          <section class="ordax-desktop-shortcuts" data-desktop-presentation aria-label="${t("shell.presentation.shortcuts")}" hidden>
+            <button type="button" class="ordax-desktop-shortcut" data-show-desktop><span class="ordax-rail-icon">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
+            ${QUICK_ACCESS_APP_IDS.map(id => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-desktop-shortcut")).join("")}
+          </section>
         </section>
 
         <div class="ordax-window-layer" data-window-layer aria-live="polite"></div>
@@ -150,6 +141,7 @@ export function createDesktopShellMarkup(localization) {
             <time data-ordax-tray-clock>--:--</time>
           </button>
         </div>
+        <button type="button" class="ordax-presentation-toggle" data-presentation-toggle aria-pressed="false" aria-label="${t("shell.presentation.desktop")}" title="${t("shell.presentation.desktop")}"><span class="ordax-rail-icon">${ICONS.presentation}</span></button>
       </footer>
 
       <div class="ordax-quick-panel-layer" data-quick-panel-layer>
@@ -216,18 +208,30 @@ export function syncDesktopShellLocalization(root, localization) {
   };
 
   aria(".ordax-rail", "shell.rail.aria");
-  for (const appId of ["files", "notes", "assistant", "internet", "settings", "account", "system"]) {
+  for (const appId of ["files", "studio", "notes", "assistant", "internet", "settings", "account", "system"]) {
     const label = t(`app.${appId}.title`);
     for (const button of root.querySelectorAll(`[data-sidebar-app="${appId}"]`)) {
+      if (button.hasAttribute("data-sidebar-account-open")) continue;
+      button.setAttribute("title", label);
       const labelNode = button.querySelector("span:last-child");
       if (labelNode) labelNode.textContent = label;
       button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
     }
   }
   text("[data-home-nav-label]", "shell.home.title");
+  root.querySelector("[data-show-desktop]")?.setAttribute("title", t("shell.home.title"));
+  text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
+  root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
   text("[data-home-tagline]", "shell.home.tagline");
   text("#ordax-home-actions-title", "shell.home.quickAccess");
-  text(".ordax-command-copy", "shell.launcher.command");
+  for (const button of root.querySelectorAll("[data-launcher-toggle]")) {
+    const more = button.classList.contains("ordax-rail-button");
+    const label = t(more ? "shell.sidebar.more" : "shell.launcher.command");
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    button.setAttribute("aria-controls", "ordax-launcher");
+    if (more) button.querySelector("span:last-child").textContent = label;
+  }
   text("#ordax-space-title", "shell.space.title");
   const spaceMessages = new Map([
     ["/Documentos", "shell.space.documents"],

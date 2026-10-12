@@ -20,7 +20,7 @@ function ensureNotificationMarkup(root, translate) {
     throw new Error("Notification center is already mounted");
   }
   const documentRef = root.ownerDocument;
-  const trayHost = requireHost(root, ".ordax-system-tray", "system tray host");
+  const trayHost = requireHost(root, "[data-sidebar-notification-slot]", "sidebar notification host");
   const panelHost = requireHost(root, "[data-quick-panel-layer]", "quick-panel layer");
 
   const tray = documentRef.createElement("button");
@@ -45,7 +45,7 @@ function ensureNotificationMarkup(root, translate) {
   badge.setAttribute("aria-hidden", "true");
   badge.hidden = true;
   tray.append(icon, badge);
-  trayHost.prepend(tray);
+  trayHost.replaceChildren(tray);
 
   const panel = documentRef.createElement("section");
   panel.id = "ordax-quick-notifications";
@@ -293,6 +293,7 @@ export function mountNotificationCenterControls(
     badge.hidden = !attentionVisible;
     badge.textContent = unread > 99 ? "99+" : String(unread);
     tray.dataset.unread = String(attentionVisible);
+    tray.setAttribute("title", t("sidebar.notifications"));
     tray.dataset.doNotDisturb = String(snapshot.doNotDisturb);
     tray.setAttribute("aria-label", trayAriaLabel(snapshot, t));
     doNotDisturb.setAttribute("aria-pressed", String(snapshot.doNotDisturb));

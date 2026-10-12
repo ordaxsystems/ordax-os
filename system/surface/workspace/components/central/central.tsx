@@ -1,10 +1,12 @@
+import { defaultSidebarForPresentation, resolveSidebarMode } from '../../presentation.mjs';
+import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { useEffect, useReducer, useState, type FormEvent } from 'react';
-import { ChevronRight, ChevronDown, Mic, Send, Plus, Pencil, Sparkles, WalletCards } from 'lucide-react';
+import { ChevronRight, ChevronDown, Mic, Send, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
-import { shortcuts, modes, favorites, unavailableServices } from './config';
+import { shortcuts, modes, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
 import { useWebPreferences } from './preferences-context';
 import { AppIcon, Panel } from './primitives';
@@ -34,12 +36,10 @@ export function Central() {
   const [homePanel, setHomePanel] = useState<'projects' | 'favorites' | 'activity'>('projects');
   const [dialog, setDialog] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [addedApps, setAddedApps] = useState<string[]>([]);
   // Central/Desktop is session presentation state, not an account preference.
-  function changeView(next: 'central' | 'desktop') { setView(next); setDialog(null); }
+  function changeView(next: 'central' | 'desktop') { if (next !== view) { setView(next); setSidebarMode(defaultSidebarForPresentation(next)); } setDialog(null); }
   function openPanel(title: string) {
-    if (['Adicionar aplicativo', 'Adicionar dispositivo', 'Entrada por voz', 'Espaço Pessoal'].includes(title)) setDialog(title);
+    if (['Adicionar dispositivo', 'Entrada por voz', 'Espaço Pessoal'].includes(title)) setDialog(title);
     else { setDialog(null); dispatch({ type: 'open', title }); }
   }
   function submitPrompt(event: FormEvent) { event.preventDefault(); if (prompt.trim()) { setDialog(null); dispatch({ type: 'open', title: 'Aura', prompt: prompt.trim() }); } }
@@ -61,18 +61,16 @@ export function Central() {
       <div className="home-panel-tabs" role="group" aria-label="Painel da Central">{[{ id: 'projects' as const, label: 'Projetos' }, { id: 'favorites' as const, label: 'Apps' }, { id: 'activity' as const, label: 'Atividade' }].map(panel => <Button variant="ghost" key={panel.id} aria-pressed={homePanel === panel.id} onClick={() => setHomePanel(panel.id)}>{panel.label}</Button>)}</div>
       <div className="content-grid" data-home-panel={homePanel}>
         <Panel className="projects-panel" title="Projetos recentes" action="Ver todos" onAction={() => openPanel('Projetos')}><p className="service-state">{unavailableServices.projects}</p></Panel>
-        <Panel className="favorites-panel" title="Aplicativos favoritos" action={<><Pencil/>{editing ? 'Concluir' : 'Editar'}</>} onAction={() => setEditing(!editing)}><div className="favorite-grid">{favorites.filter(item => !addedApps.includes(`hidden:${item.name}`)).map(item => <Button variant="ghost" className="favorite-tile" key={item.name} aria-label={editing ? `Remover ${item.name} dos favoritos` : item.name} onClick={() => editing ? setAddedApps(previous => [...previous, `hidden:${item.name}`]) : openPanel(item.name)}><AppIcon icon={item.icon} tone={item.tone}/><span>{item.name}</span></Button>)}<Button variant="ghost" className="favorite-tile" onClick={() => setDialog('Adicionar aplicativo')}><Plus className="size-6 text-muted-foreground"/><span>Adicionar</span></Button></div></Panel>
+        <FavoriteShortcutsPanel className="favorites-panel" onOpen={openPanel}/>
         <Panel title="Atividades recentes" action="Ver todas" onAction={() => openPanel('Atividades')} className="activity-panel"><p className="service-state">{unavailableServices.activity}</p></Panel>
       </div>
       <div className="lower-grid">
         <Panel title={authorized.activeSpace ? "Space atual" : "Seus Spaces"}><Button variant="ghost" className="space-switch" onClick={() => openPanel(identity.state === 'signed-in' ? 'Espaços' : 'Minha conta')}><AppIcon icon={WalletCards} tone="lime"/><span>{authorized.activeSpace?.name ?? (authorized.ready ? 'Escolher um Space' : 'Consultar meus Spaces')}</span><ChevronDown className="ml-auto size-3"/></Button></Panel>
         <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>
       </div>
-      <footer className="os-footer home-footer"><select className="home-mode-select" aria-label="Modo da Aura" value={mode} onChange={event => setMode(event.target.value)}>{modes.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select></footer>
       </div>
     </main>
     <Dialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialog}</DialogTitle><DialogDescription>{dialog === 'Entrada por voz' ? unavailableServices.intelligence : 'OrdaX OS Web'}</DialogDescription></DialogHeader>
-      {dialog === 'Adicionar aplicativo' && <div className="favorite-grid">{favorites.map(item => <Button variant="ghost" className="favorite-tile" key={item.name} onClick={() => { if (dialog === 'Adicionar aplicativo') { setAddedApps(previous => previous.filter(a => a !== `hidden:${item.name}`)); setDialog(null); } else openPanel(item.name); }}><AppIcon icon={item.icon} tone={item.tone}/>{item.name}</Button>)}</div>}
       {dialog === 'Espaço Pessoal' && <Button variant="secondary" onClick={() => openPanel('Espaços')}>Consultar meus Spaces<ChevronRight/></Button>}
       {dialog === 'Adicionar dispositivo' && <p className="service-state">{unavailableServices.devices}</p>}
     </DialogContent></Dialog>
@@ -80,7 +78,7 @@ export function Central() {
     <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onCentral={() => changeView('central')} dispatch={dispatch}/></div>
     </div>
     <div className="compact-reservation" aria-hidden="true"/>
-    <WorkspaceNavigation onSidebarChange={setSidebarMode} state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
+    <WorkspaceNavigation onSidebarChange={next => setSidebarMode(resolveSidebarMode(view, next))} state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
     <WindowLayer state={windows} dispatch={dispatch} onCentral={() => { dispatch({ type: 'show-desktop' }); changeView('central'); }}/>
   </div>;
 }

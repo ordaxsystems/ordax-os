@@ -1,3 +1,4 @@
+import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs";
 import {
   createNativeClientDiagnostics,
   renderedSourceSha,
@@ -723,6 +724,7 @@ async function start() {
     workspaceStore,
     appActivation,
   );
+  const sidebarAccount = mountNativeSidebarAccount(root, identitySession, host, surface);
   const assistantMemoryCapture = memory === null
     ? null
     : createAssistantAutoCaptureRuntime({
@@ -1139,6 +1141,7 @@ async function start() {
       localAi.dispose();
       localSession?.dispose();
       componentManager.destroy();
+      sidebarAccount.destroy();
       surface.destroy();
       identityActions.dispose();
       identitySession.dispose();

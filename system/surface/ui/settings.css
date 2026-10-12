@@ -720,3 +720,21 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Shared setting surfaces adapt to their actual app window, including compact. */
+.ordax-settings-view { container: settings-viewport / inline-size; }
+.ordax-settings-preference-option { grid-template-columns: minmax(0,1fr) auto; }
+.ordax-settings-persistence { padding: 16px 28px; margin: 0; }
+@container settings-viewport (max-width: 680px) {
+  .ordax-settings-options { grid-template-columns: minmax(0,1fr); }
+  .ordax-settings-header { padding: 20px; }
+  .ordax-settings-section { padding: 18px 20px; }
+}
+@container settings-viewport (max-width: 420px) {
+  .ordax-settings-navigation-item { min-height: 44px; }
+  .ordax-settings-option { grid-template-columns: 64px minmax(0,1fr); gap: 10px; }
+  .ordax-settings-theme-preview { width: 64px; }
+  .ordax-settings-option-marker { grid-column: 2; text-align: left; }
+  .ordax-settings-preference-option { grid-template-columns: minmax(0,1fr) auto; }
+  .ordax-settings-preference-option .ordax-settings-option-marker { grid-column: auto; }
+}

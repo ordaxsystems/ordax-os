@@ -17,6 +17,14 @@ chmod 0755 "$TARGET_DIR/ordax/bootstrap/network/bring-up" "$TARGET_DIR/ordax/boo
 # with a minimal argument-forwarding entrypoint, not a second network stack.
 printf '%s\n' '#!/bin/sh' 'exec /bin/busybox "$@"' > "$TARGET_DIR/ordax/bootstrap/network/bin/netbox"
 chmod 0755 "$TARGET_DIR/ordax/bootstrap/network/bin/netbox"
+# Phase 2: install the canonical runtime handoff verbatim. The official
+# portable PID1 (not this build) verifies the pinned base and invokes this
+# entrypoint after composing the verified EROFS/ext4 OverlayFS root.
+# Do not fork or replace bootstrap/stable-base/ordax-stable-init.
+test -f "$ROOT/bootstrap/stable-base/ordax-stable-init"
+cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stable-init"
+chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
+test -x "$TARGET_DIR/sbin/modprobe"
 printf 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL\n' > "$TARGET_DIR/etc/ordax/independent-base"
 if test -e "$TARGET_DIR/etc/alpine-release" || test -e "$TARGET_DIR/sbin/apk" || test -e "$TARGET_DIR/lib/apk"; then
     echo "Alpine/APK unexpectedly present in independent rootfs" >&2

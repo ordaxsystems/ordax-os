@@ -34,6 +34,7 @@ import {
   notificationSourceLabel,
 } from "../../services/notifications/catalog.mjs";
 import { KEYBOARD_LAYOUT_OPTIONS } from "../../services/input/keyboard-layout.mjs";
+import { COLOR_THEME_OPTIONS, resolveColorAppearance, selectColorTheme } from "../../services/preferences/color-palette.mjs";
 import { listPreferenceDefinitions } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 
@@ -85,6 +86,10 @@ const PREFERENCE_PRESENTATION_IDS = Object.freeze({
       dark: Object.freeze({
         label: "settings.preference.appearance.option.dark",
         description: "settings.preference.appearance.option.dark.description",
+      }),
+      native: Object.freeze({
+        label: "settings.preference.appearance.option.native",
+        description: "settings.preference.appearance.option.native.description",
       }),
     }),
   }),
@@ -456,10 +461,13 @@ export function mountSettingsOverviewControls(
         ),
       );
 
-      if (Array.isArray(definition.options) && definition.options.length > 0) {
+      const themePreference = definition.id === "appearance.theme";
+      const choices = themePreference ? COLOR_THEME_OPTIONS : definition.options;
+      if (Array.isArray(choices) && choices.length > 0) {
         const options = node(documentObject, "div", "ordax-settings-options");
-        for (const option of definition.options) {
-          const selected = preferenceSnapshot[definition.id] === option.value;
+        for (const option of choices) {
+          const selectedValue = themePreference ? resolveColorAppearance(preferenceSnapshot).colorTheme : preferenceSnapshot[definition.id];
+          const selected = selectedValue === option.value;
           const optionPresentation = presentation?.options?.[option.value] ?? null;
           const button = node(documentObject, "button", "ordax-settings-option");
           button.type = "button";
@@ -469,7 +477,11 @@ export function mountSettingsOverviewControls(
           button.setAttribute("aria-pressed", String(selected));
 
           const preview = node(documentObject, "span", "ordax-settings-theme-preview");
-          preview.dataset.themePreview = option.value;
+          preview.dataset.themePreview = option.value === "native" ? "dark" : option.value;
+          if (themePreference) {
+            preview.dataset.ordaxPalette = option.value === "native" ? "native" : "standard";
+            preview.dataset.palettePreview = option.value === "native" ? "native" : "standard-" + option.value;
+          }
           preview.setAttribute("aria-hidden", "true");
           const previewRail = node(documentObject, "span", "ordax-settings-theme-rail");
           const previewBody = node(documentObject, "span", "ordax-settings-theme-body");
@@ -1497,10 +1509,10 @@ export function mountSettingsOverviewControls(
 
     const preferenceButton = event.target.closest("[data-settings-preference-id]");
     if (preferenceButton && root.contains(preferenceButton)) {
-      preferences.set(
-        preferenceButton.dataset.settingsPreferenceId,
-        preferenceButton.dataset.settingsPreferenceValue,
-      );
+      const preferenceId = preferenceButton.dataset.settingsPreferenceId;
+      const value = preferenceButton.dataset.settingsPreferenceValue;
+      if (preferenceId === "appearance.theme") selectColorTheme(preferences, value);
+      else preferences.set(preferenceId, value);
       return;
     }
 
