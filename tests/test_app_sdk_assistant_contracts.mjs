@@ -37,11 +37,7 @@ test("Assistant dependency closure is canonical, immutable and data-only", () =>
 });
 
 test("conversation projection never grants execution or implies remote provider", () => {
-  const view = projectIntelligenceConversationCapabilities({
-    schema: "ordax.intelligence/1", state: "unavailable",
-    inferenceAvailable: false, engineId: null, modelId: null,
-    authority: "none", toolExecution: false,
-  });
+  const view = projectIntelligenceConversationCapabilities(null);
   assert.equal(view.authority, "none");
   assert.equal(view.toolExecution, false);
   assert.equal(view.provider, "unavailable");
