@@ -57,6 +57,7 @@ class IndependentBaseTest(unittest.TestCase):
         for marker in ("BR2_PACKAGE_IPROUTE2=y", "BR2_PACKAGE_CA_CERTIFICATES=y",
                        "BR2_INIT_NONE=y"):
             self.assertIn(marker, config)
+        self.assertNotIn("BR2_PACKAGE_IPROUTE2_IP=y", config)
         self.assertNotIn("BR2_PACKAGE_SYSTEMD=y", config)
         self.assertNotIn("BR2_PACKAGE_NETWORK_MANAGER=y", config)
         probe = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text()

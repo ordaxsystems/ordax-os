@@ -6,7 +6,6 @@ BR2_PACKAGE_BUSYBOX=y
 # Phase 3: native networking diagnostics and system-wide HTTPS trust.
 # No new network manager: canonical bootstrap/network/bring-up still owns DHCP.
 BR2_PACKAGE_IPROUTE2=y
-BR2_PACKAGE_IPROUTE2_IP=y
 BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"
 BR2_TARGET_ROOTFS_TAR=y
