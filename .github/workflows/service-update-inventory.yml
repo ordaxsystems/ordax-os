@@ -1,0 +1,75 @@
+name: Native service update inventory
+
+on:
+  pull_request:
+    paths:
+      - 'system/services/**'
+      - 'system/apps/**'
+      - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'docs/contracts/component-update-compatibility.json'
+      - 'sdk/app-sdk-v1/runtime-component-package-policy.json'
+      - 'system/contracts/component-manifest.mjs'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'tools/runtime-component-channel/check_production_readiness.py'
+      - 'tools/service-update-inventory.mjs'
+      - 'tools/component-package/compatibility.mjs'
+      - 'tests/test_service_update_inventory.mjs'
+      - 'tests/test_service_update_readiness.mjs'
+      - 'tests/test_service_upgrade_preflight.mjs'
+      - 'system/services/components/service-upgrade-preflight.mjs'
+      - '.github/workflows/service-update-inventory.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/**'
+      - 'system/apps/**'
+      - 'docs/contracts/runtime-component-package.json'
+      - 'docs/contracts/runtime-component-trust-policy.json'
+      - 'docs/contracts/component-update-compatibility.json'
+      - 'sdk/app-sdk-v1/runtime-component-package-policy.json'
+      - 'system/contracts/component-manifest.mjs'
+      - 'system/contracts/component-update-compatibility.mjs'
+      - 'tools/runtime-component-channel/check_production_readiness.py'
+      - 'tools/service-update-inventory.mjs'
+      - 'tools/component-package/compatibility.mjs'
+      - 'tests/test_service_update_inventory.mjs'
+      - 'tests/test_service_update_readiness.mjs'
+      - 'tests/test_service_upgrade_preflight.mjs'
+      - 'system/services/components/service-upgrade-preflight.mjs'
+      - '.github/workflows/service-update-inventory.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-native-services:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify available Node runtime
+        # The OS supply-chain contract intentionally does not approve
+        # a setup-node action; use the runner's existing Node, fail closed.
+        run: |
+          node --version
+          node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)'
+      - name: Validate canonical service inventory
+        run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs tests/test_service_upgrade_preflight.mjs
+      - name: Validate canonical trust and package policy together
+        # Reuse the real production gate checker; do not reimplement trust policy
+        # or key-custody rules in the read-only service inventory.
+        run: python3 tools/runtime-component-channel/check_production_readiness.py
+      - name: Produce derived update-readiness audit
+        run: |
+          node tools/service-update-inventory.mjs --check
+          node tools/service-update-inventory.mjs > native-service-update-audit.json
+      - name: Retain evidence for other service owners
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: native-service-update-audit
+          path: native-service-update-audit.json
+          retention-days: 14
+          if-no-files-found: error

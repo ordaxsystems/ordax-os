@@ -1,15 +1,11 @@
-import {
-  intelligenceCompatibility,
-  localAiCompatibility,
-} from "../../system/services/components/compatibility/core.mjs";
+import { validateComponentCompatibilityCatalog } from "../../system/contracts/component-update-compatibility.mjs";
+import { coreRuntimeCompatibility } from "../../system/services/components/compatibility/core.mjs";
 
-const COMPATIBILITY_BY_COMPONENT = Object.freeze({
-  "local-ai-service": localAiCompatibility,
-  "ordax-intelligence": intelligenceCompatibility,
-});
-
+// The canonical catalog is the only source of component identities and
+// compatibility descriptors. Never duplicate an ID-to-descriptor map here.
+const catalog = validateComponentCompatibilityCatalog(coreRuntimeCompatibility);
 const componentId = process.argv[2] ?? "";
-const compatibility = COMPATIBILITY_BY_COMPONENT[componentId];
+const compatibility = catalog.find((entry) => entry.componentId === componentId);
 if (!compatibility) {
   throw new Error(
     `No canonical runtime compatibility descriptor for ${componentId || "<empty>"}`,

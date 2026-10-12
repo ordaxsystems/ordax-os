@@ -56,9 +56,8 @@
     "rollback_remains_explicit": true
   },
   "next_gates": [
-    "declare compatibility descriptors for independently updated first-party runtime components",
-    "bind the compatibility descriptor hash in runtime-component-release/2 without changing release/1 semantics",
-    "verify compatibility before signed candidate staging",
+    "maintain canonical compatibility descriptor hash binding in runtime-component-release/2, with unchanged release/1 semantics and source-backed tests",
+    "enforce versioned compatibility against active component contracts before activation of a signed staged candidate",
     "connect state migration IDs only to first-party signed migration implementations owned by the correct state domain",
     "prove copy-on-write migration plus rollback with last-known-good state before public component-slot activation"
   ]
