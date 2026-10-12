@@ -120,6 +120,31 @@ func TestStatefulReleaseV2RollbackPreservesKnownGoodUntilRecoveryProven(t *testi
 	}
 }
 
+func TestRollbackReceiptUsesActualSourceResolution(t *testing.T) {
+	cases := []struct {
+		componentID string
+		want        string
+	}{
+		{componentID: "internet", want: "bundled"},
+		{componentID: "notes", want: "absent"},
+		{componentID: "studio", want: "absent"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.componentID, func(t *testing.T) {
+			state := emptyActivationState(tc.componentID)
+			if got := rollbackResolutionTarget(state); got != tc.want {
+				t.Fatalf("rollback receipt target = %q, want %q", got, tc.want)
+			}
+			state.Current = &slotIdentity{
+				Version: "1.0.0", SourceCommit: "1111111111111111111111111111111111111111",
+			}
+			if got := rollbackResolutionTarget(state); got != "slot" {
+				t.Fatalf("installed slot receipt target = %q", got)
+			}
+		})
+	}
+}
+
 func TestReleaseV2RollbackRejectsStateOwnerChangeAndUnknownBundledFallback(t *testing.T) {
 	t.Run("changed state owner", func(t *testing.T) {
 		fixture := makeActivationV2Fixture(t)
