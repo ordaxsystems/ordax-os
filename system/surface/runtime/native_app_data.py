@@ -587,6 +587,11 @@ def _exclusive_partition_lock(identity: dict, root: str):
     # never be silently reconstructed after a missing/corrupt manifest.
     was_present = _existing_partition_paths(root, identity) is not None
     partition, manifest_path, lock_path, _ = _ensure_partition_directories(root, identity)
+    if not os.path.lexists(lock_path) and was_present:
+        # Never replace the lock identity of an existing partition: another
+        # process may still hold the unlinked inode and think it has exclusive
+        # ownership. Creating a new lock file would split that authority.
+        raise ValueError("App Data partition lock is missing")
     if os.path.lexists(lock_path):
         _validate_private_regular(lock_path, "App Data partition lock")
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
