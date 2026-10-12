@@ -2,6 +2,7 @@
 """Owner-level recovery with real immutable blobs; no public update grant."""
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -104,6 +105,41 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 app_data.create_app_data_checkpoint(identity(), RELEASE, 0, str(root))
             self.assertFalse((partition / "manifest.json").exists())
             self.assertTrue(persisted_blob.exists(), "lost user's data after missing manifest")
+
+    def test_missing_existing_partition_lock_cannot_split_active_writer_authority(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "account", b"trusted-data", 0, str(root))
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            partition = only_partition(root)
+            lock = partition / "lock"
+            pinned = partition / app_data.APP_DATA_CHECKPOINT_NAME
+            manifest = partition / "manifest.json"
+            original_manifest = manifest.read_bytes()
+            old_descriptor = os.open(lock, os.O_RDWR)
+            try:
+                # Hold a real exclusive flock on the old inode. If a new
+                # lock path were created after unlink, it would not conflict
+                # with this lock, causing independent writers.
+                fcntl.flock(old_descriptor, fcntl.LOCK_EX)
+                lock.unlink()
+                with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                    app_data.put_app_data(identity(), "account", b"unsafe-write", 1, str(root))
+                with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                    app_data.delete_app_data(identity(), "account", 1, str(root))
+                with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                    app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+                with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                    app_data.restore_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+                with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                    app_data.retire_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+                self.assertFalse(lock.exists(), "mutation silently created a second lock inode")
+                self.assertEqual(manifest.read_bytes(), original_manifest)
+                self.assertTrue(pinned.exists())
+                self.assertTrue(blob(root, b"trusted-data").exists())
+            finally:
+                fcntl.flock(old_descriptor, fcntl.LOCK_UN)
+                os.close(old_descriptor)
 
     def test_durable_genesis_manifest_protects_empty_checkpoint_from_disappearance(self):
         with tempfile.TemporaryDirectory() as temporary:
