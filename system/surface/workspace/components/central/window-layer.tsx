@@ -29,6 +29,8 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   // One explicit close operation survives a compact-window layout transition.
   const [openCompactMenuId, setOpenCompactMenuId] = useState<string | null>(null);
   const previousActive = useRef<string | null>(null);
+  // Pointer selection must not steal focus back from a dropdown trigger.
+  const pointerSelected = useRef<string | null>(null);
   const panes = useRef(new Map<string, HTMLElement>());
   const compact = state.windows.filter(w => !w.minimized && w.mode === 'compact');
   const regular = state.windows.filter(w => !w.minimized && w.mode !== 'compact').at(-1);
@@ -36,7 +38,11 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
   useEffect(() => {
     if (state.active) {
       const pane = panes.current.get(state.active);
-      pane?.focus({ preventScroll: true });
+      const selectedByPointer = pointerSelected.current === state.active;
+      pointerSelected.current = null;
+      if (!selectedByPointer && pane && !pane.contains(document.activeElement)) {
+        pane.focus({ preventScroll: true });
+      }
     }
     else if (previousActive.current) {
       const tasks = layer.current?.parentElement?.querySelectorAll<HTMLButtonElement>('[data-window-restore]');
@@ -60,7 +66,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
         aria-label={`Janela ${window.title}`} className="desktop-window workspace-window" hidden={window.minimized || !selected}
         style={window.mode === 'compact' ? { gridColumn: compact.findIndex(pane => pane.title === window.title) + 1 } : undefined} data-mode={window.mode} data-active={state.active === window.title} data-maximized={window.mode === 'maximized'} data-collapsed={collapsed}
         onFocus={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}
-        onPointerDown={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}>
+        onPointerDown={() => { if (state.active !== window.title) { pointerSelected.current = window.title; dispatch({ type: 'focus', title: window.title }); } }}>
         <header className="desktop-titlebar">
           <span className="desktop-window-title"><WindowAppIcon title={window.title}/><span title={window.title}>{window.title}</span></span>
           <div className="desktop-window-controls">
