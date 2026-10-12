@@ -52,6 +52,34 @@ func validateForwardProvidedContracts(
 	return nil
 }
 
+// The full installed-provider graph is not yet transactionally attested.
+// Until it is, upgrading a current signed release may not introduce a new
+// mandatory provider or tighten a previously mandatory version interval.
+// This follows the existing signed requires[] contract, not a separate
+// component allowlist. Optional dependencies do not grant activation.
+func validateForwardRequiredContracts(
+	current, candidate []requiredCompatibilityContract,
+) error {
+	for _, next := range candidate {
+		if next.Optional {
+			continue
+		}
+		compatibleOldRequirement := false
+		for _, old := range current {
+			if old.ID == next.ID && !old.Optional &&
+				next.MinMajor <= old.MinMajor &&
+				next.MaxMajor >= old.MaxMajor {
+				compatibleOldRequirement = true
+				break
+			}
+		}
+		if !compatibleOldRequirement {
+			return errors.New("runtime component candidate adds or tightens a mandatory signed dependency without verified provider graph")
+		}
+	}
+	return nil
+}
+
 // Called only from the existing activation-state mutation lock. The current
 // and candidate slots must both be signed with the caller's public trust.
 // Crossing signed schema generations is not silently compatible.
@@ -103,6 +131,11 @@ func verifyArmPendingStateCompatibility(
 	}
 	if err := validateForwardProvidedContracts(
 		before.Descriptor.Provides, after.Descriptor.Provides,
+	); err != nil {
+		return err
+	}
+	if err := validateForwardRequiredContracts(
+		before.Descriptor.Requires, after.Descriptor.Requires,
 	); err != nil {
 		return err
 	}
