@@ -340,6 +340,12 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             shutil.copyfile(images / name, out / name)
         verify_executable_mode(out / "rootfs.cpio.gz", "cpio")
         verify_executable_mode(out / "rootfs.tar", "tar")
+        # The adversarial copies are exclusively in the disposable initramfs
+        # emitted above. The portable product Base must NOT ship a second
+        # unsigned /system service tree or this QEMU-only proof fixture.
+        shutil.rmtree(target / PHASE3_PROOF_SYSTEM)
+        if (target / PHASE3_PROOF_SYSTEM).exists():
+            raise BaseError("QEMU-only Guardian/Supervisor leaked into portable Base")
         base = out / "independent-base.erofs"
         run("mkfs.erofs", "-T", "0", "-z", stable["rootfs"]["compression"],
             "-L", stable["rootfs"]["volume_label"], str(base), str(target))
