@@ -629,10 +629,10 @@ def _shared_partition_lock_if_present(identity: dict, root: str):
         return
     _, manifest_path, lock_path, _ = paths
     if not os.path.lexists(lock_path):
-        if os.path.lexists(manifest_path):
-            raise ValueError("App Data partition lock is missing")
-        yield False
-        return
+        # Only an entirely absent partition is a valid zero-revision read.
+        # Once its directory exists, missing lock/manifest means partial
+        # genesis or damaged storage: do not report fictitious empty data.
+        raise ValueError("App Data partition lock is missing")
     _validate_private_regular(lock_path, "App Data partition lock")
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(lock_path, flags)
