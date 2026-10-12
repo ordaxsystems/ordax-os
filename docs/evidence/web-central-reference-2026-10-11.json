@@ -456,8 +456,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "9f139826b4c897cb236f5dfc2147f47fe5baec303971655c25e9c208947e8d6c",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority."
+      "adaptedSha256": "3aee19c3dbedcf9295e69a1196be25f3536f9c9e868c5e44bd397ef29b3102a2",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Compact panels now use one accessible overflow action menu regardless of viewport width/height, preserving the direct Close control; signed-off change tested by the Chromium UI proof (#1703)."
     },
     {
       "source": "src/assets/alpine-day.jpg",
