@@ -60,7 +60,7 @@ export function deriveNativeServiceUpdateInventory({
         currentDelivery: DELIVERY[component.releaseMode],
         sourceDirectories: Object.freeze(sources),
         // Slot declaration is not proof of pinned trust, activation or rollback.
-        productionIndependentReady: false,
+        releaseReadiness: "not-assessed-by-this-projection",
       });
     })
     .sort((left, right) => left.id.localeCompare(right.id));
@@ -74,7 +74,7 @@ export function deriveNativeServiceUpdateInventory({
         ? "manifest-linked"
         : "embedded-domain-without-independent-component",
       // No inferred SemVer or implicit eligibility for domains lacking a manifest.
-      independentlyReleasable: false,
+      releaseReadiness: "not-assessed-by-this-projection",
     });
   });
 
