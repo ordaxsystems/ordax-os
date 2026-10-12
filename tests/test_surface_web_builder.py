@@ -88,6 +88,16 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                 MODULE.build_bundle(out, "2" * 40)
             self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
 
+    def test_browser_smoke_serves_404_without_writing_success_headers_first(self):
+        source = (ROOT / "tools/surface-web/browser-smoke.mjs").read_text(encoding="utf-8")
+        self.assertIn("const bytes = await readFile(path);", source)
+        self.assertLess(
+            source.index("const bytes = await readFile(path);"),
+            source.index("response.writeHead(200,"),
+        )
+        self.assertIn("if (!response.headersSent)", source)
+        self.assertIn("response.writeHead(404);", source)
+
     def test_web_presentation_preserves_pending_apps_and_does_not_create_authority(self):
         main = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
         model = (ROOT / "system/surface/workspace/lib/web/model.ts").read_text(encoding="utf-8")
