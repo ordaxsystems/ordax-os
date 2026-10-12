@@ -88,7 +88,15 @@ func verifyRollbackStateReadable(
 		currentState.WriteVersion > previousState.ReadableThrough {
 		return errors.New("runtime component rollback target cannot read current signed state contract")
 	}
-	return nil
+	// Signed readability describes what the previous binary promises to
+	// understand; it does NOT authenticate the actual mutable generation,
+	// prove that the state owner committed it, or restore a last-known-good
+	// checkpoint after probation. There is no integrated transactional
+	// device-state recovery proof in this writer yet. Fail closed before
+	// changing current/previous rather than silently claiming data safety.
+	// This guard must only be replaced by evidence from the canonical
+	// system/services/state owner, not caller-provided migration metadata.
+	return errors.New("runtime component stateful rollback requires verified device-state recovery checkpoint")
 }
 
 func signedActivationSlotSchema(slot string, trustBytes []byte) (string, error) {
