@@ -11,12 +11,14 @@ from __future__ import annotations
 import errno
 import os
 import sys
+from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 from native_app_data import (
     DEFAULT_APP_DATA_MAX_KEYS,
     DEFAULT_APP_DATA_QUOTA_BYTES,
     DEFAULT_APP_DATA_ROOT,
+    hold_app_data_maintenance,
 )
 from native_app_data_binding import (
     APP_DATA_ENDPOINT_PREFIX,
@@ -88,6 +90,27 @@ class NativeAppDataHostServer(NativeHostServer):
     def bind_app_data_receipts(self, receipt_sha256s: list[str] | tuple[str, ...]):
         """Trusted all-or-nothing batch handoff for current-boot composition."""
         return self.app_data_bindings.mint_many_from_receipts(receipt_sha256s)
+
+    @contextmanager
+    def hold_verified_app_data_maintenance(
+        self, receipt_sha256: str, source_release: dict, expected_revision: int,
+    ):
+        """Privileged host-only: revoke and drain before locking App Data.
+
+        The caller still owns signed release verification, Supervisor process
+        quiescence and the Go activation graph transaction. This function
+        never authorizes a new component version or exposes HTTP commands.
+        """
+        with self.app_data_bindings.suspend_verified_receipt_for_maintenance(
+            receipt_sha256
+        ) as binding:
+            with hold_app_data_maintenance(
+                binding.app_data_identity(),
+                source_release,
+                expected_revision,
+                self.app_data_root,
+            ) as maintenance:
+                yield maintenance
 
 
 class NativeAppDataHostHandler(NativeHostHandler):
