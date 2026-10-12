@@ -132,6 +132,40 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 "test accidentally destroyed detached user data",
             )
 
+    def test_read_and_public_endpoint_reject_partial_partition_without_lock_and_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "secret", b"preserved-bytes", 0, str(root))
+            partition = only_partition(root)
+            value_blob = blob(root, b"preserved-bytes")
+            (partition / "manifest.json").unlink()
+            (partition / "lock").unlink()
+
+            # The partition still exists: neither get nor list can invent an
+            # empty revision-0 dataset after interrupted/corrupted storage.
+            with self.assertRaisesRegex(ValueError, "partition lock is missing"):
+                app_data.read_app_data(identity(), "secret", str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.list_app_data(identity(), str(root))
+            for action in ({"action": "get", "key": "secret"}, {"action": "list"}):
+                with self.subTest(action=action), self.assertRaises(
+                    endpoint.AppDataEndpointRequestError,
+                ) as caught:
+                    endpoint.handle_app_data_request(
+                        json.dumps(action).encode("utf-8"),
+                        identity=identity(), root=str(root),
+                    )
+                self.assertIn("missing", str(caught.exception))
+            self.assertFalse((partition / "manifest.json").exists())
+            self.assertFalse((partition / "lock").exists())
+            self.assertTrue(value_blob.exists(), "damaged partition caused silent GC")
+
+            # A truly missing partition (rather than an incomplete one)
+            # retains the documented non-materializing empty-read behavior.
+            other = identity("another-app", "ordax.first-party")
+            self.assertEqual(app_data.read_app_data(other, "secret", str(root))["revision"], 0)
+            self.assertEqual(app_data.list_app_data(other, str(root))["keys"], [])
+
     def test_missing_existing_partition_lock_cannot_split_active_writer_authority(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "app-data"
