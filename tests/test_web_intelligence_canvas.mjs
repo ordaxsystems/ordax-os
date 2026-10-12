@@ -23,7 +23,9 @@ test("Canonical Web preserves Intelligence entry without executing providers", a
   const stub = await readFile(new URL("../system/surface/workspace/lib/intelligence/ai.functions.ts", import.meta.url), "utf8");
   assert.match(source, /RouterProvider/);
   assert.match(source, /StoreCatalogProvider/);
-  assert.match(source, /<Central\/>/);
+  assert.match(source, /SessionWorkspace/);
+  assert.match(source, /WebAccountProvider/);
+  assert.match(source, /<Central\b/);
   assert.doesNotMatch(source, /WebShell/);
   assert.match(stub, /status: 503/);
   assert.doesNotMatch(stub, /fetch\(|process.env|apiKey/);
