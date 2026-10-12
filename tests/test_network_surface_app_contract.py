@@ -52,6 +52,12 @@ class NetworkSurfaceAppContractTests(unittest.TestCase):
         web = self.text(WEB)
 
         self.assertIn('componentId: "network"', native)
+        runtime = self.text(APP / "runtime.mjs")
+        self.assertIn('networkDraftPort = null', runtime)
+        self.assertNotIn('services/professional-network/draft.mjs', runtime)
+        self.assertIn('createNetworkDraftRuntime({ identitySession, spaceSelection })', native)
+        self.assertIn('networkDraftPort,', native)
+        self.assertIn('networkDraftPort?.dispose()', native)
         self.assertIn('import("../../apps/network/runtime.mjs")', native)
         self.assertIn("identitySession,", native)
         self.assertIn("spaceSelection,", native)
