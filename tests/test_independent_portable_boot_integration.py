@@ -1,0 +1,88 @@
+"""Phase 2 adapter regression: reuse the canonical portable boot implementation."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+BASE = ROOT / "bootstrap/independent-base"
+PORTABLE = ROOT / "bootstrap/portable-v2"
+INITRAMFS = ROOT / "bootstrap/initramfs"
+
+
+class IndependentPortableBootIntegrationTest(unittest.TestCase):
+    def test_canonical_pid1_mount_and_signed_selection_are_not_forked(self):
+        script = (BASE / "portable_boot_proof.py").read_text()
+        for marker in (
+            'bootstrap/initramfs/portable_init.sh',
+            'bootstrap/initramfs/portable_base_verify.sh',
+            'bootstrap/portable-v2/qemu_boot.py',
+            '--portable-bootstrap-capsule',
+            '--portable-stable-base',
+            '--previous-commit',
+            'physical_usb_boot_proven',
+            'armed_candidate_one_shot_proven',
+        ):
+            self.assertIn(marker, script)
+        self.assertIn('/sbin/ordax-portable-state select-boot',
+                      (INITRAMFS / "portable_init.sh").read_text())
+        self.assertIn('/sbin/ordax-portable-mount mount-base',
+                      (INITRAMFS / "portable_init.sh").read_text())
+        self.assertIn('sha256sum -c',
+                      (INITRAMFS / "portable_base_verify.sh").read_text())
+        self.assertTrue((PORTABLE / "qemu_boot.py").is_file())
+
+    def test_builder_embeds_exact_existing_handoff_with_integrity_receipt(self):
+        post = (BASE / "post-build.sh").read_text()
+        self.assertIn('cp "$ROOT/bootstrap/stable-base/ordax-stable-init"', post)
+        self.assertIn('"$TARGET_DIR/sbin/ordax-stable-init"', post)
+        build = (BASE / "build.py").read_text()
+        self.assertIn('digest(target / "sbin/ordax-stable-init") != digest(CANONICAL_HANDOFF)', build)
+        self.assertIn('"canonical_portable_handoff_sha256": digest(CANONICAL_HANDOFF)', build)
+        self.assertIn('report.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF)', build)
+        self.assertIn('sbin/modprobe', build)
+        self.assertTrue((ROOT / "bootstrap/stable-base/ordax-stable-init").is_file())
+
+    def test_fail_closed_with_invalid_commit_and_missing_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate = Path(tmp) / "new-base"
+            candidate.mkdir()
+            cmd = [
+                sys.executable, str(BASE / "portable_boot_proof.py"),
+                "--base-out", str(candidate),
+                "--kernel", str(Path(tmp) / "missing-vmlinuz"),
+                "--capsule", str(Path(tmp) / "missing-capsule"),
+                "--state-image", str(Path(tmp) / "missing-ext4"),
+                "--portable-root", str(Path(tmp) / "missing-root"),
+                "--trust", str(Path(tmp) / "missing-trust"),
+                "--source-commit", "invalid",
+                "--output-dir", str(Path(tmp) / "result"),
+            ]
+            first = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+            self.assertNotEqual(first.returncode, 0)
+            self.assertIn("ERROR", first.stderr)
+            self.assertFalse((Path(tmp) / "result").exists())
+            cmd[cmd.index("invalid")] = "a" * 40
+            second = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+            self.assertNotEqual(second.returncode, 0)
+            self.assertIn("ERROR", second.stderr)
+            self.assertFalse((Path(tmp) / "result").exists())
+
+    def test_canonical_contract_and_physical_gate(self):
+        source = json.loads((BASE / "source.json").read_text())
+        self.assertFalse(source["physical_artifact_authorized"])
+        self.assertFalse(source["stable_channel_authorized"])
+        self.assertEqual(source["erofs_format_contract"],
+                         "docs/contracts/portable-boot-handoff.json")
+        spec = (BASE / "portable_boot_proof.py").read_text()
+        self.assertIn('outside_source(args.output_dir)', spec)
+        self.assertIn('if str(p).startswith("/dev/"):', spec)
+        self.assertIn('physical_promotion_authorized": False', spec)
+
+
+if __name__ == "__main__":
+    unittest.main()
