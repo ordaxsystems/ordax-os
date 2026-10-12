@@ -93,10 +93,15 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             source,
         )
         self.assertIn("PHYSICAL_WRITER_CONTEXT_MATCH=PASS", source)
-        self.assertLess(
-            source.index("PHYSICAL_WRITER_CONTEXT_MATCH=PASS"),
-            source.index("name: Checkout exact published writer source"),
+        self.assertIn(
+            'WRITER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}',
+            source,
         )
+        self.assertNotIn("inputs.writer_source_commit", source)
+        self.assertNotIn("name: Checkout exact published writer source", source)
+        self.assertNotIn("writer-source", source)
+        self.assertEqual(source.count("path: operator"), 1)
+        self.assertIn("working-directory: operator/tools/creator", source)
         self.assertLess(
             source.index("PHYSICAL_WRITER_CONTEXT_MATCH=PASS"),
             source.index("OFFICIAL_PHYSICAL_PROMOTION=READY"),
@@ -110,7 +115,7 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            'ref: ${{ inputs.writer_source_commit }}',
+            'ref: ${{ github.event.pull_request.head.sha || github.sha }}',
             source,
         )
 
