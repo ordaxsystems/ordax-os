@@ -1,0 +1,35 @@
+name: Native service update inventory
+
+on:
+  pull_request:
+    paths:
+      - 'system/services/**'
+      - 'system/apps/**'
+      - 'tools/service-update-inventory.mjs'
+      - 'tests/test_service_update_inventory.mjs'
+      - '.github/workflows/service-update-inventory.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/**'
+      - 'system/apps/**'
+      - 'tools/service-update-inventory.mjs'
+      - 'tests/test_service_update_inventory.mjs'
+      - '.github/workflows/service-update-inventory.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-native-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate canonical service inventory
+        run: node --test tests/test_service_update_inventory.mjs
+      - name: Produce derived update-readiness audit
+        run: node tools/service-update-inventory.mjs --check
