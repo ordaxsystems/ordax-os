@@ -106,7 +106,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                     "projects", "assistant", "spaces", "settings", "store", "activity"):
             self.assertIn(f"id: '{app}'", model)
         self.assertIn("RouterProvider", main)
-        self.assertIn("<Central/>", main)
+        self.assertRegex(main, r"<Central(?:\s|/>)")
         self.assertNotIn("WebShell", main)
         self.assertIn("createUnavailableAppStoreCatalogPort", main)
         central = (ROOT / "system/surface/workspace/components/central/central.tsx").read_text(encoding="utf-8")
