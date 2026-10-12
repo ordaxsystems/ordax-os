@@ -21,7 +21,9 @@ test("Web Assistant uses canonical, explicitly unavailable Space port without a 
 test("Canonical Web preserves Intelligence entry without executing providers", async () => {
   const source = await readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8");
   const stub = await readFile(new URL("../system/surface/workspace/lib/intelligence/ai.functions.ts", import.meta.url), "utf8");
-  assert.match(source, /WebShell/);
+  assert.match(source, /<Central\/>/);
+  assert.match(source, /StoreCatalogProvider/);
+  assert.doesNotMatch(source, /WebShell/);
   assert.match(stub, /status: 503/);
   assert.doesNotMatch(stub, /fetch\(|process.env|apiKey/);
   assert.doesNotMatch(source, /adapters\/native|createAssistantConversationRuntime\(/);
