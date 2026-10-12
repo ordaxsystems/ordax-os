@@ -271,13 +271,25 @@ range excludes the current release's write version or its state owner
 has changed. A stateful release/2 without a previous signed version
 cannot silently downgrade to an undocumented bundled state format.
 
-An unchanged stateless release/2 rollback remains supported. Release/1 to
-release/1 behavior is preserved without inventing a compatibility sidecar
-for that legacy format; cross-schema rollback without explicit evidence
-is refused. The guard does not modify stored data, invent a migration
-implementation, or certify that an application truly migrates data
-correctly: actual storage copy-on-write and end-to-end recovery are
-still required before public component-slot updates are enabled.
+**Signed readable ranges alone are not recoverability evidence.** Even if
+both signed descriptors declare the same state owner and a compatible
+readable range, the activation writer has not verified the actual mutable
+state generation, a crash-safe checkpoint, or last-known-good restoration.
+Until the canonical `system/services/state` owner provides and integrates
+that transactional proof, **all stateful release/2 rollbacks fail closed
+before any activation-state mutation**. The previous signed slot remains
+retained for an explicit owner-controlled recovery; callers cannot bypass
+this gate by supplying a compatibility plan or a health receipt.
+
+Stateless release/2 rollback remains supported. Release/1 to release/1
+development behavior is preserved without fabricating a compatibility
+sidecar; cross-schema rollback remains blocked. This is a safety boundary,
+not completed copy-on-write, migration, or public update readiness.
+
+The rollback CLI's `TARGET` field now uses the existing canonical source
+resolution: `slot`, `bundled` or `absent`. A removable external app with
+no previous slot must report `absent`; it cannot pretend to have a bundled
+fallback. No additional installed-state registry is introduced.
 
 ### Coverage of the real active graph (read-only)
 
