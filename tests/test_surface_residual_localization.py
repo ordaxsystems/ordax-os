@@ -3,6 +3,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SURFACE_I18N = ROOT / "system/services/i18n/surface.mjs"
+BOOT_I18N = ROOT / "system/services/i18n/catalog/boot.mjs"
 POWER_I18N = ROOT / "system/services/i18n/catalog/power.mjs"
 SYSTEM_I18N = ROOT / "system/services/i18n/catalog/system.mjs"
 HOME_CONTINUATION = ROOT / "system/surface/ui/home-continuation.mjs"
@@ -94,6 +95,7 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
 
     def test_boot_copy_uses_same_surface_catalog_and_neutral_pre_js_markup(self):
         i18n = SURFACE_I18N.read_text(encoding="utf-8")
+        boot_catalog = BOOT_I18N.read_text(encoding="utf-8")
         native = NATIVE_MAIN.read_text(encoding="utf-8")
         web = WEB_MAIN.read_text(encoding="utf-8")
         boot = BOOT.read_text(encoding="utf-8")
@@ -104,9 +106,11 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
             '"surface.boot.loadingApps": "Loading applications…"',
             '"surface.boot.failed": "Não foi possível iniciar a interface"',
             '"surface.boot.failed": "The interface could not be started"',
-            "export function translateSurfaceMessage",
         ):
-            self.assertIn(marker, i18n)
+            self.assertIn(marker, boot_catalog)
+        self.assertIn("export function translateSurfaceMessage", i18n)
+        self.assertIn("...SURFACE_BOOT_SOURCE_MESSAGES", i18n)
+        self.assertIn("...SURFACE_BOOT_ENGLISH_MESSAGES", i18n)
         for composition in (native,):
             self.assertIn("translateSurfaceMessage", composition)
             self.assertIn('"surface.boot.loadingSurface"', composition)
