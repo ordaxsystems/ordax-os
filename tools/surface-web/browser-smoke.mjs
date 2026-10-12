@@ -157,7 +157,7 @@ try {
       assert.equal(await evaluate("(()=>{const upper=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();const lower=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();return upper.bottom<=lower.top+1;})()"),true,'New app fits above compact panels without overlap');
       await compactAction('Aura','Recolher painel Aura','Recolher painel');
       await until("document.querySelector('.window-workspace').dataset.compact==='collapsed'");
-      await until("document.querySelector('[aria-label=\\"Janela Arquivos\\"]').getBoundingClientRect().height>window.proofUpperHeight");
+      await until("document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height>window.proofUpperHeight");
       await compactAction('Aura','Expandir painel Aura','Expandir painel');
       await until("document.querySelector('.window-workspace').dataset.compact==='expanded'");
       await until("Math.abs(document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height-window.proofUpperHeight)<2");
