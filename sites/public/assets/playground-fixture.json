@@ -27,7 +27,6 @@
       "studio",
       "internet",
       "settings",
-      "account",
       "system"
     ],
     "rail_labels": [
@@ -46,10 +45,6 @@
       {
         "id": "settings",
         "label": "Ajustes"
-      },
-      {
-        "id": "account",
-        "label": "Conta"
       },
       {
         "id": "system",
