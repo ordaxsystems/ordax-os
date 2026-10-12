@@ -20,6 +20,7 @@ import { createNativeProjectCloudLinkStore } from "../../adapters/native/project
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
 import { createPersonalActivityExportDocument } from "../../services/personal-ordax/export.mjs";
+import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
 import { createNetworkDraftRuntime } from "../../services/professional-network/draft.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
@@ -992,6 +993,7 @@ async function start() {
       intelligence: selectedSpaceIntelligence,
       memoryCapture: assistantMemoryCapture,
       personalOrdax,
+      projectWorkCanvas: projectPersonalWorkCanvas,
       identitySessionPort: identitySession,
       spaceSelectionPort: spaceSelection,
       profileActivationStatePort: profileActivationState,
