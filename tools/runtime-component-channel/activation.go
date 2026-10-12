@@ -530,6 +530,12 @@ func armPendingStateAtRevision(
 			lockedRelease.Component.Version != release.Component.Version {
 			return activationState{}, errors.New("runtime component candidate changed before locked activation")
 		}
+		// The legacy Go package regex is less strict than the canonical
+		// component-manifest SemVer contract. Even the first installation
+		// (without an active version to compare) must fail closed.
+		if _, err := parseRuntimeComponentVersion(identity.Version); err != nil {
+			return activationState{}, err
+		}
 		if state.Pending != nil {
 			if sameSlotIdentity(state.Pending, &identity) {
 				return state, nil
