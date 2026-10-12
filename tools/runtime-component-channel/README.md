@@ -188,8 +188,9 @@ descriptors and verify state immutability for rejected candidates.
 
 Release/2 upgrades with the same state owner and write version are allowed
 when the candidate declares the current version readable; stateless
-upgrades and the introduction of a new state owner are also allowed
-according to the canonical `evaluateComponentUpgrade` source contract.
+upgrades remain allowed. Introducing a **new persistent state owner**
+is temporarily stricter than the source evaluator: it is refused until the
+Native rollback path can prove recovery of the previous stateless release.
 Removing the owner, changing its ID or write version, or crossing
 release/1 and release/2 formats is **rejected before any mutation**.
 No migration plan is accepted until the Native owner can actually prove
