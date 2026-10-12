@@ -1,6 +1,6 @@
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
-import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
+import { Bell, Settings, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
@@ -9,6 +9,7 @@ import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
 import { useWebPreferences } from './preferences-context';
+import { WEB_COLOR_THEME_OPTIONS } from '../../../../services/preferences/web-palette.mjs';
 import { accessibilityContrastPreference, accessibilityMotionPreference, accessibilityTextScalePreference } from '../../../../services/preferences/accessibility.mjs';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
@@ -167,9 +168,12 @@ function SpacesPanel() {
 const accessibilityPreferences = [accessibilityContrastPreference, accessibilityMotionPreference, accessibilityTextScalePreference];
 
 function AppearancePanel({ onCentral }: { onCentral: () => void }) {
-  const { theme, toggleTheme, persistence, snapshot, setPreference } = useWebPreferences();
+  const { colorTheme, setColorTheme, persistence, snapshot, setPreference } = useWebPreferences();
   return <Panel title="Aparência">
-    <div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={toggleTheme} aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div>
+    <div className="desktop-settings-row preference-setting">
+      <label htmlFor="web-color-theme">Tema<small id="web-color-theme-description">OrdaX USB usa as cores oficiais do sistema, mantendo este layout.</small></label>
+      <select id="web-color-theme" aria-describedby="web-color-theme-description" value={colorTheme} onChange={event => setColorTheme(event.target.value)}>{WEB_COLOR_THEME_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+    </div>
     {accessibilityPreferences.map(preference => <div className="desktop-settings-row preference-setting" key={preference.id}>
       <label htmlFor={preference.id}>{preference.title}<small id={preference.id + '-description'}>{preference.description}</small></label>
       <select id={preference.id} aria-describedby={preference.id + '-description'} value={String(snapshot[preference.id])} onChange={event => setPreference(preference.id, event.target.value)}>{preference.options.map((option: { value: string; label: string }) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>

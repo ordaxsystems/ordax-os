@@ -4,6 +4,7 @@ import {
   accessibilityTextScalePreference,
 } from "./accessibility.mjs";
 import { appearancePreference } from "./appearance.mjs";
+import { webPalettePreference } from "./web-palette.mjs";
 import { homeShortcutsPreference } from "./home-shortcuts.mjs";
 import { memoryAutoCapturePreference } from "./memory.mjs";
 import {
@@ -20,6 +21,7 @@ const DEFINITIONS = Object.freeze([
   regionalLocalePreference,
   regionalTimeZonePreference,
   homeShortcutsPreference,
+  webPalettePreference,
 ]);
 const BY_ID = new Map(DEFINITIONS.map((definition) => [definition.id, definition]));
 

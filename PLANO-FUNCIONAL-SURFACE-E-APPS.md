@@ -1,5 +1,10 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Paleta USB no Web — 12/10/2026:** incremento visual solicitado pelo usuário,
+> sem mudança de layout. Claro/Escuro preservados; terceira opção reutiliza os
+> tokens Native por referência. Persistência pelo mesmo catálogo/runtime/store;
+> aparência portátil e allowlist de sync preservadas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
 > **Favoritos Web — 12/10/2026:** Central/Aplicativos compartilham seleção
 > persistente pelo catálogo/runtime/store canônicos, com lista vazia e fallback
 > explícito. Atalho não concede instalação/execução; Native editor e sync continuam

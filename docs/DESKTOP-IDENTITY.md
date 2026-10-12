@@ -1216,3 +1216,28 @@ a real composition update kept one workspace root, saved choices and no new erro
 Historical error logs remain recorded; they were not cleared to claim a clean run.
 This concerns developer HMR; normal window/view transitions still retain app bodies.
 No inference, external command, installation or production activation was validated.
+
+## USB color profile in Web — 2026-10-12
+
+Owner: OrdaX OS Surface; scoped visual increment explicitly requested by the
+user under PLANO-FUNCIONAL-SURFACE-E-APPS.md. Web Settings exposes Claro, Escuro
+and OrdaX USB in one labeled native select with 44px touch height. The USB profile
+uses the existing Midnight Native semantic palette; aliases in the Web stylesheet
+reference tokens.css directly, without another palette or copied hex colors.
+The Web layout, illustrations, window lifecycle and compact behavior are retained.
+
+Dependencies: the existing preference catalog/runtime/store and Native tokens.
+The portable appearance.theme contract remains light/dark, default light.
+surface.web-palette is an independent Web presentation preference with standard/native
+values, not an execution mode or a copy of the appearance state. USB rendering
+resolves to dark while retaining the user's portable light/dark choice; selecting
+Claro or Escuro returns to the standard Web palette. Native's renderer ignores
+this Web choice. No new storage key, sync allowlist, grants or hardware adapter.
+
+Risks: CSS specificity, contrast and corrupt/blocked browser persistence.
+Acceptance: three selectable profiles, persistence on reload, equivalent computed
+Web/Native semantic colors, intact standard themes, high contrast and narrow-screen
+controls. Verified with 44 Node and 24 Python tests, TypeScript/build/reference
+verification and browser at 390x844; six computed color pairs match Native. The
+new profile remains local to the browser; no cloud continuity or physical USB boot
+is claimed by these presentation checks.

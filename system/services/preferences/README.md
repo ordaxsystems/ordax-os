@@ -40,3 +40,14 @@ runtime and Web store. No second storage key or local copy is maintained by UI.
 Changes are browser-local with explicit session-only fallback. The existing account
 sync allowlist excludes this preference; no cloud sync is implied. Native's catalog
 recognizes the value, but this increment does not add a Native launcher editor.
+
+## Web color profile
+
+web-palette.mjs defines surface.web-palette (standard/native) and derives the
+three Web choices from appearancePreference plus OrdaX USB. This independent
+presentation axis preserves the portable appearance.theme light/dark contract.
+Native colors render with a dark scheme from the existing Native tokens, not
+copied values. Claro/Escuro select the standard palette and requested brightness.
+The same runtime and store persist this browser-local choice; the existing sync
+allowlist excludes it. Native's Surface recognizes the preference data but ignores
+this Web-specific rendering axis. No separate theme storage or native capability.

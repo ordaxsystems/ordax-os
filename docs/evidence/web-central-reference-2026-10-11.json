@@ -718,8 +718,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "2c0ce7d7c9d40a6c0429cb2c695bf1b568d42df53788fb0495bead3dd3a574ef",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "e6fc1eaccbf9ac1778dd53607347a5b1a00459452d79c7850d58287b885c4c9d",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged."
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -732,8 +732,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "8c841a269c043a31f33a40d327de85c9203831261fc170ab4a0cbb9c35540174",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "a284a67085293e7e16eec05da1e960028c623f8abb9c8a9619e3d9cc9ff8909d",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged."
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -849,8 +849,8 @@
       "owner": "OrdaX OS Surface",
       "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
       "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74",
-      "adaptedSha256": "38204b5193f574503a8b0638be2e60f45faac3a17e923fc74a5f97d0fc8dc0e2",
-      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "44aad614bed3d02e74028b7b557be5bbce8b218f6e5a9139d0283e6dcfb1f733",
+      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged."
     },
     {
       "target": "system/composition/web/main.tsx",

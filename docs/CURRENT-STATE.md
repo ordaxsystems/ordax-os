@@ -1,5 +1,20 @@
 # Current State
 
+## Web — perfil de cores OrdaX USB — 2026-10-12
+
+Aparência oferece Claro, Escuro e OrdaX USB no mesmo seletor. O terceiro perfil
+mapeia variáveis Web diretamente aos tokens Native de tokens.css, sem copiar
+cores ou alterar a geometria do layout. O catálogo/runtime/store existentes persistem
+surface.web-palette; appearance.theme mantém light/dark e o default light.
+A escolha de paleta Web é local, excluída da allowlist de sync; Native ignora
+essa preferência e preserva sua composição/contrato de aparência.
+
+44 testes Node e 24 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: três escolhas e reload, igualdade de seis tokens
+Web/Native, seletor de 44 px e viewport 390 x 844 sem overflow horizontal,
+contraste reforçado com tokens canônicos. JS inicial 485,34 kB (151,98 gzip).
+[Owner, escopo, risco e aceite](DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
 ## Web Central — favoritos compartilhados e persistentes — 2026-10-12
 
 Central e Aplicativos agora usam um único renderer/editor e a mesma preferência

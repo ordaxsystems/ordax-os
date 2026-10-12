@@ -683,7 +683,7 @@ test("invalid remote portable preferences fail closed instead of weakening the p
 });
 
 
-test("Memory capture and Surface favorite shortcuts remain device-local and are not queued for account sync", async () => {
+test("Memory capture, Surface favorites and Web palette remain device-local and are not queued for account sync", async () => {
   const preferences = preferencesRuntime();
   const preferenceSync = createPreferenceSyncRuntime(preferences, {
     createIdempotencyKey: keyFactory("pref-memory-local"),
@@ -727,6 +727,7 @@ test("Memory capture and Surface favorite shortcuts remain device-local and are 
   applied.length = 0;
   preferences.set("memory.auto-capture", "off");
   preferences.set("surface.favorite-shortcuts", "files,store");
+  preferences.set("surface.web-palette", "native");
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(preferences.getSnapshot()["memory.auto-capture"], "off");

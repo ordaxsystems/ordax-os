@@ -3,7 +3,7 @@
 @source ".";
 @source "../ui";
 @source "../store";
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="native"], [data-theme="native"] *));
 
 /* SSOT — OrdaX OS. Components never own palette, typography or elevation. */
 @theme inline {
@@ -260,6 +260,54 @@
   --desktop-top-height: 68px;
 }
 [data-theme="dark"] { --desktop-surface: oklch(0.2 0.014 175 / 96%); --desktop-hover: oklch(0.99 0.002 85 / 10%); }
+/* USB color profile: references only. tokens.css remains the palette authority.
+   Geometry, illustrations and window behavior stay with the Web presentation. */
+[data-theme="native"] {
+  --background: var(--ordax-bg);
+  --foreground: var(--ordax-text);
+  --card: var(--ordax-panel);
+  --secondary: var(--ordax-surface);
+  --muted: var(--ordax-surface);
+  --muted-foreground: var(--ordax-muted);
+  --primary: var(--ordax-button-bg);
+  --primary-foreground: var(--ordax-button-text);
+  --accent: var(--ordax-selected-bg);
+  --accent-foreground: var(--ordax-accent);
+  --border: var(--ordax-border-soft);
+  --sidebar-surface: var(--ordax-rail-bg);
+  --hero-foreground: var(--ordax-text);
+  --hero-overlay: var(--ordax-wallpaper-scrim);
+  --hero-search: var(--ordax-glass);
+  --chip-surface: var(--ordax-glass);
+  --chip-border: var(--ordax-border);
+  --active-chip: var(--ordax-button-bg);
+  --active-chip-text: var(--ordax-button-text);
+  --success: var(--ordax-success);
+  --destructive: var(--ordax-danger);
+  --app-orange: var(--ordax-warning);
+  --app-orange-soft: var(--ordax-warning-bg);
+  --app-violet: var(--ordax-brand-violet);
+  --app-violet-soft: var(--ordax-subtle-bg);
+  --app-blue: var(--ordax-brand-blue);
+  --app-blue-soft: var(--ordax-selected-bg);
+  --app-green: var(--ordax-success);
+  --app-green-soft: var(--ordax-success-bg);
+  --app-red: var(--ordax-danger);
+  --app-red-soft: var(--ordax-danger-bg);
+  --app-lime: var(--ordax-accent);
+  --app-lime-soft: var(--ordax-selected-bg);
+  --app-ink: var(--ordax-text);
+  --app-ink-soft: var(--ordax-subtle-bg);
+  --shadow-panel: var(--ordax-shadow-soft);
+  --shadow-search: var(--ordax-shadow-soft);
+  --desktop-surface: var(--ordax-glass);
+  --desktop-hover: var(--ordax-hover-bg);
+  --desktop-hover-border: var(--ordax-border);
+  --desktop-icon-text: var(--ordax-text);
+  --desktop-icon-shadow: var(--ordax-shadow-soft);
+  --desktop-shadow: var(--ordax-shadow);
+}
+
 .classic-desktop { position: relative; height: 100svh; min-height: 440px; overflow: hidden; isolation: isolate; }
 .desktop-wallpaper { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
 .desktop-topbar { position: absolute; top: 0; left: 0; right: 0; height: var(--desktop-top-height); padding: 0 25px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; background: var(--desktop-surface); border-bottom: 1px solid var(--border); backdrop-filter: blur(20px); z-index: 5; }
