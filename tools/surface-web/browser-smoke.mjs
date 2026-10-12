@@ -157,11 +157,18 @@ try {
       assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Compact keeps the same mounted app');
       await openSidebarDestination('Projetos');
       await click('[aria-label="Compactar Projetos"]');
-      assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]:not([hidden])').length"),2,'Both compact apps remain visible');
-      assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();const b=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,'Compact apps tile horizontally without overlap');
-      assert.equal(await evaluate("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,'Compact panels share available width equally without strip overflow');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]').length"),2,'Both compact app instances remain mounted');
+      if (width <= 760) {
+        await until("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]')];const shown=panes.filter(p=>p.getClientRects().length>0);if(panes.length!==2||shown.length!==1)return false;const selected=shown[0];const bounds=selected.getBoundingClientRect();const all=strip.getBoundingClientRect();return selected.getAttribute('aria-label')==='Janela Projetos'&&selected.dataset.compactSelected==='true'&&Math.abs(bounds.width-all.width)<2&&strip.scrollWidth<=strip.clientWidth+1;})()");
+        assert.equal(await evaluate("(()=>{const pane=document.querySelector('[aria-label=\"Janela Projetos\"]');const select=pane?.querySelector('.compact-window-switcher');return !!select&&select.getClientRects().length>0&&[...select.options].some(option=>option.value==='Aura');})()"),true,'Mobile panel must expose keyboard-reachable switcher for the other mounted app');
+      } else {
+        assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]:not([hidden])').length"),2,'Both compact apps remain visible on desktop');
+        assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();const b=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,'Compact apps tile horizontally without overlap');
+        assert.equal(await evaluate("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,'Compact panels share available width equally without strip overflow');
+      }
       assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Adding a neighbor keeps the existing app node');
       await click('[aria-label="Fechar Projetos"]');
+      if (width <= 760) await until("document.querySelector('[aria-label=\"Janela Aura\"]').getClientRects().length>0");
       await openSidebarDestination('Arquivos');
       await evaluate("window.proofUpperHeight=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height");
       assert.equal(await evaluate("(()=>{const upper=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();const lower=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();return upper.bottom<=lower.top+1;})()"),true,'New app fits above compact panels without overlap');
