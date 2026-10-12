@@ -139,7 +139,8 @@ try {
       assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height>window.proofUpperHeight"),true,'Upper app grows when compact track collapses');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'collapsed');
       await compactAction('Aura','Expandir painel Aura','Expandir painel');
-      assert.equal(await evaluate("Math.abs(document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height-window.proofUpperHeight)<2"),true,'Upper app returns to available height on expanding compact');
+      await until("document.querySelector('.window-workspace').dataset.compact==='expanded'");
+      await until("Math.abs(document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height-window.proofUpperHeight)<2");
       await click('[aria-label="Fechar Arquivos"]');
       await compactAction('Aura','Minimizar Aura','Minimizar');
       assert.equal(await evaluate('window.proofAura.hidden'),true);
