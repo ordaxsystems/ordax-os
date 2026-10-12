@@ -235,14 +235,23 @@ This command derives its result **only** from existing per-component
 `activation-state.json` files. Each current release/2 slot must pass
 signature and exact identity verification. Staged-only releases, cached
 signed versions and explicitly uninstalled apps are not counted as active.
-The reader checks the complete root and state records again before returning,
-and rejects unsafe entries, corrupt state or mismatched trust.
+The reader and **every activation-state mutation through the official Native
+writer** now acquire the same bounded graph lock at the canonical component
+root before reading or writing. Mutations retain their original
+per-component lock, always acquired after the graph lock. Therefore the
+reader sees one internally coherent set of signed current slots across
+cooperating Native writers rather than a mix of two activation revisions.
+It also checks the root and state records again before returning, and
+rejects unsafe entries, concurrent owners, corrupt state or mismatched trust.
+An interrupted lock requires explicit recovery; there is no automatic
+lock-breaking bypass.
 
 The `ordax.active-slot-compatibility-catalog/1` report is always labeled
 `authority: none`, `scope: signed-independent-current-slots-only`
 and `completeForActivation: false`. It does **not** represent all
-bundled OS services, unsigned components or a transactionally frozen
-snapshot. It must therefore **never** be used alone to approve an
+bundled OS services, unsigned components, independent staging operations
+or a durable authorization after the lock is released. It must therefore
+**never** be used alone to approve an
 upgrade or to bypass missing active-consumer compatibility information.
 The only authority for installed state remains the activation writer.
 
