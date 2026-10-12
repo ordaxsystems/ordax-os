@@ -56,6 +56,16 @@ func addActivationV2Candidate(
 	version string,
 	sourceCommit string,
 ) activationV2Candidate {
+	return addActivationV2CandidateWithState(t, fixture, version, sourceCommit, nil)
+}
+
+func addActivationV2CandidateWithState(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+) activationV2Candidate {
 	t.Helper()
 
 	runtimePath := "system/apps/internet/runtime.mjs"
@@ -129,7 +139,7 @@ func addActivationV2Candidate(
 			map[string]any{"id": "ordax.internet", "major": 1},
 		},
 		"requires":  []any{},
-		"state":     nil,
+		"state":     state,
 		"authority": "none",
 	}
 	compatibilityBytes, err := marshalJSON(compatibility)
