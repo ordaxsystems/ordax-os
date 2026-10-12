@@ -58,6 +58,13 @@ export function deriveNativeServiceUpdateInventory({
         version: component.version,
         releaseMode: component.releaseMode,
         currentDelivery: DELIVERY[component.releaseMode],
+        criticality: component.criticality,
+        restartScope: component.restartScope,
+        healthMode: component.healthMode,
+        dependencies: Object.freeze([...component.dependencies]),
+        directlyAffectedConsumers: Object.freeze(catalog
+          .filter((candidate) => candidate.dependencies.includes(component.id))
+          .map((candidate) => candidate.id).sort()),
         sourceDirectories: Object.freeze(sources),
         // Slot declaration is not proof of pinned trust, activation or rollback.
         releaseReadiness: "not-assessed-by-this-projection",
