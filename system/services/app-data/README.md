@@ -20,6 +20,8 @@ The Native owner does **not** rewrite a whole app snapshot for each change. Each
 
 Reads and list operations do not materialize missing partitions. Mutations use a per-partition lock, fsync, atomic manifest replacement and directory fsync. Symlinks, permissive targets, corrupt manifests and blob digest mismatches fail closed.
 
+**Recuperação da autoridade do manifesto:** a primeira operação de escrita preserva, antes de qualquer dado de aplicativo, um manifesto gênese vazio (revisão zero) confirmado em disco. Uma partição **já existente** sem `manifest.json` é tratada como corrompida e bloqueada; jamais é reinterpretada como recém-criada para aceitar `put`/CAS com revisão zero. Isso também protege o checkpoint da geração vazia quando o manifesto ativo desaparece. A ausência da partição inteira continua sendo o único estado inicial vazio válido para leitura, sem criação física. Uma interrupção durante a própria criação da partição, antes da persistência do manifesto gênese, também falha fechada na recuperação — exige intervenção explícita do owner, nunca reset automático de dados.
+
 ## Recuperação transacional interna do owner (candidata)
 
 A geração inicial vazia (revisão 0) também pode ser preservada
