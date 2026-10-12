@@ -176,6 +176,16 @@ Adding new interface contracts is allowed, but replacing/removing existing
 majors is denied until a full signed consumer-compatibility transaction can
 authorize the change.
 
+The same signed descriptor also provides a conservative floor for
+`requires`: a candidate cannot add a **new mandatory provider**, turn an
+optional provider into a required one, or narrow the permitted major-version
+range of a previously mandatory provider while the actual provider graph
+remains unattested. Removing mandatory requirements, widening their ranges,
+or adding optional dependencies is allowed by this local guard, but is
+**not** a claim that those providers are installed or that an upgrade is
+production-ready. The test fixtures sign both the before and after
+descriptors and verify state immutability for rejected candidates.
+
 Release/2 upgrades with the same state owner and write version are allowed
 when the candidate declares the current version readable; stateless
 upgrades and the introduction of a new state owner are also allowed
