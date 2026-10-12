@@ -109,7 +109,9 @@ on:
 
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  # Called workflows inherit github.workflow from their caller. Use a distinct
+  # namespace so the official proof cannot cancel its invoking workflow.
+  group: canonical-portable-v2-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
