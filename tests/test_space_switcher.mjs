@@ -92,7 +92,9 @@ test("Native shell uses real ports; canonical Web preserves the Spaces interface
   assert.match(component, /assertSpaceSelectionPort/);
   assert.match(web, /RouterProvider/);
   assert.match(web, /StoreCatalogProvider/);
-  assert.match(web, /<Central\/>/);
+  assert.match(web, /SessionWorkspace/);
+  assert.match(web, /WebAccountProvider/);
+  assert.match(web, /<Central\b/);
   assert.doesNotMatch(web, /WebShell/);
   assert.doesNotMatch(web, /adapters\/native/);
   assert.match(component, /selectionPort\.select\(match\.id\)/);
