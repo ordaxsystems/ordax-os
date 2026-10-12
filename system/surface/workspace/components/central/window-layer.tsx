@@ -30,7 +30,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
     }
     previousActive.current = state.active;
   }, [state.active, activeMode]);
-  return <div ref={layer} className="workspace-windows" role="group" aria-label="Janelas de apps"><div className="compact-window-strip" data-count={compact.length}>
+  return <div ref={layer} className="workspace-windows" role="group" aria-label="Janelas de apps" data-compact-count={compact.length} style={{ gridTemplateColumns: 'repeat(' + Math.max(1, compact.length) + ', minmax(0, 1fr))' }}>
     {state.windows.map(window => {
       const selected = window.mode === 'compact' || window.title === regular?.title;
       const collapsed = window.mode === 'compact' && state.compactCollapsed;
@@ -42,7 +42,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
       ];
       return <section key={window.title} ref={node => { if (node) panes.current.set(window.title, node); else panes.current.delete(window.title); }} role="region" tabIndex={-1}
         aria-label={`Janela ${window.title}`} className="desktop-window workspace-window" hidden={window.minimized || !selected}
-        data-mode={window.mode} data-active={state.active === window.title} data-maximized={window.mode === 'maximized'} data-collapsed={collapsed}
+        style={window.mode === 'compact' ? { gridColumn: compact.findIndex(pane => pane.title === window.title) + 1 } : undefined} data-mode={window.mode} data-active={state.active === window.title} data-maximized={window.mode === 'maximized'} data-collapsed={collapsed}
         onFocus={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}
         onPointerDown={() => { if (state.active !== window.title) dispatch({ type: 'focus', title: window.title }); }}>
         <header className="desktop-titlebar">
@@ -58,5 +58,5 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
         </div>
       </section>;
     })}
-  </div></div>;
+  </div>;
 }

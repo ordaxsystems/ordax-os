@@ -631,3 +631,18 @@ preserving reducer authority and equal pane geometry. Full app title is
 available on hover. Existing browser-check source follows either control mode.
 Acceptance: shorter header with distinct controls and all actions reachable.
 No build, npm or tests executed under the standing user restriction.
+
+### Upper app follows available compact geometry — 2026-10-11
+
+Owner: OS Surface. Regular and compact windows now use one direct grid rather
+than absolute regular positioning inside a nested compact strip. The main app
+spans all columns in the upper track; compact apps occupy equal lower columns.
+Both window layer and Central stage use the existing --compact-track token,
+so collapsing/expanding reallocates height without independent measurements.
+No compact panels reserves zero lower space. App-body container queries use
+actual panel width in either mode. Stable keyed instances/reducer are retained.
+Existing browser-check source covers a new upper app, no overlap and height
+growth/restoration on compact collapse/expand, but was not executed.
+Acceptance: upper app fits the available track, expands when the lower track
+shrinks/disappears, and retains content and controls. Backend unchanged.
+No build, npm or tests executed under the standing user restriction.

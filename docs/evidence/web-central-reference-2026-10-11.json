@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "4729f510e5d07e5de903f0710f701150d64501dbe7cec9f92638dccc3594bedb",
+      "adaptedSha256": "ae797de5b2e20b0054e21c975921703fd0985289e7326c5f232afbb569a34367",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -114,12 +114,13 @@
     "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme",
     "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination",
     "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained",
-    "Compact titlebar reduced to a single 40px row with spaced 28px controls; below 260px secondary actions use shared accessible dropdown, driven by the same action descriptors"
+    "Compact titlebar reduced to a single 40px row with spaced 28px controls; below 260px secondary actions use shared accessible dropdown, driven by the same action descriptors",
+    "Window layer uses shared upper/lower grid tracks: regular app spans all columns above compact panes; panel collapse/expand/minimize reallocates height automatically without absolute app sizing"
   ],
   "native_files": [
     {
       "target": "system/surface/workspace/components/central/window-layer.tsx",
-      "sha256": "864fa5c1c08ba2c800453e18a3d9955927a5d8fe6a03593c5d78c154bdfa8950",
+      "sha256": "87905e6c0ffc9013aa63ede871308dc5291364ef7d02c1fca65e158b4e51be19",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls"
     }
