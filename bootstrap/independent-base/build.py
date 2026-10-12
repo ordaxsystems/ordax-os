@@ -20,6 +20,7 @@ ROOT = HERE.parents[1]
 SOURCE = HERE / "source.json"
 KERNEL = ROOT / "bootstrap/kernel/source.json"
 STABLE = ROOT / "bootstrap/stable-base/source.json"
+BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -50,6 +51,7 @@ def contracts() -> tuple[dict, dict, dict, dict]:
     source = json.loads(SOURCE.read_text(encoding="utf-8"))
     kernel = json.loads(KERNEL.read_text(encoding="utf-8"))
     stable = json.loads(STABLE.read_text(encoding="utf-8"))
+    handoff = json.loads(BOOT_HANDOFF.read_text(encoding="utf-8"))
     network = json.loads(NETWORK.read_text(encoding="utf-8"))
     if source.get("$schema") != "prototype-ordax.independent-base-experiment/1":
         raise BaseError("unrecognized independent base source")
@@ -63,8 +65,13 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         raise BaseError("invalid canonical kernel version")
     if stable.get("$schema") != "prototype-ordax.stable-base-source/1":
         raise BaseError("stable format contract mismatch")
-    if stable["rootfs"]["format"] != "erofs" or stable["rootfs"]["read_only"] is not True:
-        raise BaseError("canonical base format changed")
+    if handoff.get("$schema") != "prototype-ordax.portable-boot-handoff/1":
+        raise BaseError("canonical boot handoff schema mismatch")
+    mount = handoff.get("proof", {}).get("release_mount", {})
+    if mount.get("filesystem") != "erofs" or mount.get("read_only") is not True:
+        raise BaseError("canonical immutable EROFS boot handoff changed")
+    if stable["rootfs"]["format"] != mount["filesystem"] or stable["rootfs"]["read_only"] is not True:
+        raise BaseError("Stable Base format incompatible with existing EROFS handoff")
     if stable["rootfs"]["compression"] != "lz4":
         raise BaseError("canonical base compression changed")
     if network.get("$schema") != "prototype-ordax.network-bootstrap-source/1":
@@ -73,8 +80,10 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         raise BaseError("network minimum changed")
     if source["kernel_source_contract"] != str(KERNEL.relative_to(ROOT)):
         raise BaseError("kernel SSOT drift")
-    if source["stable_base_format_contract"] != str(STABLE.relative_to(ROOT)):
-        raise BaseError("EROFS SSOT drift")
+    if source["erofs_format_contract"] != str(BOOT_HANDOFF.relative_to(ROOT)):
+        raise BaseError("immutable EROFS handoff SSOT drift")
+    if source["stable_base_layout_compatibility_contract"] != str(STABLE.relative_to(ROOT)):
+        raise BaseError("Stable Base layout compatibility path drift")
     if source["network_source_contract"] != str(NETWORK.relative_to(ROOT)):
         raise BaseError("network SSOT drift")
     archive = source["buildroot"]
