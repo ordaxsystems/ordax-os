@@ -1,11 +1,11 @@
 import { useEffect, useReducer, useState, type FormEvent } from 'react';
-import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, Sparkles, WalletCards } from 'lucide-react';
+import { ChevronRight, ChevronDown, Mic, Send, Plus, Pencil, CheckCircle2, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
 import { shortcuts, modes, favorites, projects, activities, devices } from './config';
-import { AppIcon, Avatar, Brand, Panel } from './primitives';
+import { AppIcon, Panel } from './primitives';
 import { Desktop, WorkspaceNavigation } from './desktop';
 import { desktopReducer, initialDesktopState } from './desktop-state';
 import { WindowLayer } from './window-layer';
@@ -37,18 +37,14 @@ export function Central() {
   }
   function submitPrompt(event: FormEvent) { event.preventDefault(); if (prompt.trim()) { setDialog(null); dispatch({ type: 'open', title: 'Aura', prompt: prompt.trim() }); } }
   function openSection(name: string) { if (name === 'Início') dispatch({ type: 'show-desktop' }); else openPanel(name); }
-  const themeControl = <Button variant="ghost" size="icon" className="hero-tool" onClick={toggleTheme} aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'} title={theme === 'light' ? 'Tema escuro' : 'Tema claro'}>{theme === 'light' ? <Sun/> : <Moon/>}</Button>;
-  const notificationControl = <Button variant="ghost" size="icon" className="hero-tool bell-wrap" aria-label="Notificações" title="Notificações" onClick={() => openPanel('Notificações')}><Bell/></Button>;
-  const profileControl = <Button variant="ghost" size="icon" className="hero-tool" aria-label="Perfil de João" onClick={() => setDialog('Espaço Pessoal')}><Avatar/></Button>;
   return <div className="window-workspace" data-view={view} data-sidebar={sidebarMode} data-compact={compact ? (windows.compactCollapsed ? 'collapsed' : 'expanded') : 'none'} data-running={windows.windows.length > 0}>
     <div className="workspace-stage">
     <div className="central-presentation" hidden={view !== 'central'}><div className="os-shell">
     <main className="os-main">
-      <div className="central-content" inert={regular}><header className="mobile-header"><Brand/><div className="mobile-tools">{notificationControl}{themeControl}{profileControl}</div></header>
+      <div className="central-content" inert={regular}>
       <section className="os-hero" aria-label="Sua central OrdaX OS">
         <img className="hero-wallpaper hero-wallpaper-day" src={dayWallpaper} alt="Lago alpino ao amanhecer" width={1920} height={768}/>
         <img className="hero-wallpaper hero-wallpaper-night" src={nightWallpaper} alt="Lago alpino sob a luz da lua" width={1920} height={768}/>
-        <div className="hero-tools">{notificationControl}{themeControl}{profileControl}</div>
         <div className="hero-content"><p className="hero-date">Ter, 27 de maio de 2025</p><h1 className="hero-heading">{theme === 'dark' ? 'Boa noite, João!' : 'Bom dia, João!'}</h1><p className="hero-subtitle">{theme === 'dark' ? 'Grandes ideias também acontecem à noite.' : 'Organize suas ideias. Realize o que importa.'}</p>
           <form className="aura-search" onSubmit={submitPrompt}><Sparkles className="aura-star" fill="currentColor"/><input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={e => setPrompt(e.target.value)}/><Button type="button" variant="ghost" size="icon" className="size-7 text-muted-foreground" title="Entrada por voz" aria-label="Entrada por voz" onClick={() => setDialog('Entrada por voz')}><Mic className="size-4"/></Button><Button type="submit" className="send-button" aria-label="Enviar ao Aura" title="Enviar ao Aura"><Send className="size-4" fill="currentColor"/></Button></form>
           <div className="aura-modes" aria-label="Modo da Aura">{modes.map(item => <Button variant="ghost" className="mode-chip" key={item.name} data-active={mode === item.name} aria-pressed={mode === item.name} onClick={() => setMode(item.name)}><item.icon/>{item.name}</Button>)}</div>

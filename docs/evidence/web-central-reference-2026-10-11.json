@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "6ef31b96d1d21a1aaedfb4f3c6f2cbbc752e9d9b0811306020e3fd9c759040f3",
+      "adaptedSha256": "070264a793702b7d9c27eda4ae31fab56fe29c2d69dfe8b1ce1795935de03145",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "6ae84b983e61db32c4f7692847e9e8d187b43a615ad43461e0691ccec1a7fe77",
+      "adaptedSha256": "64643aecd571d1da42b2f4afe55f23f6b09699eed5dfbe5dea08fb4b8db65d38",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -108,7 +108,8 @@
     "Neutral active window borders; automatic window focus does not paint an outline, keyboard focus remains visible; divider arrow aligned to Home using shared row geometry",
     "Home-aligned divider control reduced to 24 by 32 pixels with a 16-pixel chevron; shared contrast tokens retained",
     "Desktop header duplicate Brand removed; shared sidebar remains the desktop brand owner and header actions remain right aligned",
-    "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero"
+    "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero",
+    "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track"
   ],
   "native_files": [
     {

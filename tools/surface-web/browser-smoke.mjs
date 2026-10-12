@@ -69,13 +69,14 @@ try {
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
-      await click('[aria-label="Ativar tema escuro"]');
+      await click('[aria-label="Ajustes do espaço"]'); await click('.desktop-settings-row button');
       await until("document.documentElement.dataset.theme==='dark'");
       assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),before);
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("document.documentElement.dataset.theme==='dark'");
-      await click('[aria-label="Ativar tema claro"]');
+      await click('[aria-label="Ajustes do espaço"]'); await click('.desktop-settings-row button');
       await until("document.documentElement.dataset.theme==='light'");
+      await click('[aria-label="Fechar Configurações"]');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
       const initiallyExpanded=await evaluate("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')");

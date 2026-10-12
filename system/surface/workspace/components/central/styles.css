@@ -542,7 +542,7 @@
   .device-grid > :nth-child(n+3) { display: none; }
 }
 @container central-viewport (max-width: 640px) {
-  .central-content { grid-template-rows: 32px 164px 64px 28px minmax(184px,1fr) var(--home-footer-height,0px); gap: 10px; }
+  .central-content { grid-template-rows: 164px 64px 28px minmax(184px,1fr) var(--home-footer-height,0px); gap: 10px; }
   .mobile-header { display: flex; justify-content: space-between; align-items: center; padding: 0; }
   .mobile-header .brand-name, .mobile-header .brand-sub { display: none; }
   .hero-content { padding: 8px 0; }
@@ -563,7 +563,7 @@
   .os-panel { padding: 10px; }
 }
 @container central-viewport (max-height: 620px) and (max-width: 640px) {
-  .central-content { grid-template-rows: 32px 108px 48px 28px minmax(152px,1fr) var(--home-footer-height,0px); gap: 6px; }
+  .central-content { grid-template-rows: 108px 48px 28px minmax(152px,1fr) var(--home-footer-height,0px); gap: 6px; }
   .hero-subtitle, .aura-modes { display: none; }
   .aura-search { margin-top: 8px; }
   .quick-item .app-icon { width: 22px; height: 22px; }
@@ -581,7 +581,7 @@
   .os-panel { padding: 8px; }
 }
 @container central-viewport (max-height: 520px) and (max-width: 640px) {
-  .central-content { grid-template-rows: 32px 96px 44px 28px minmax(104px,1fr) var(--home-footer-height,0px); }
+  .central-content { grid-template-rows: 96px 44px 28px minmax(104px,1fr) var(--home-footer-height,0px); }
 }
 @container central-viewport (max-height: 360px) {
   .central-content { grid-template-rows: minmax(80px,1fr) 48px var(--home-footer-height,0px); gap: 6px; }

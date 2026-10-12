@@ -568,3 +568,12 @@ the shared sidebar gear; no duplicate theme state/control was added. Removed
 the now-empty header and its workspace clearance. Acceptance: desktop has no
 duplicate account header; sidebar Settings still exposes the theme action.
 No build, npm or tests executed under the standing user restriction.
+
+### Central controls consolidated in sidebar — 2026-10-11
+
+Owner: OS Surface. Removed duplicated profile, notifications and theme actions
+from Central hero/mobile headers, including the repeated mobile brand. Narrow
+grid tracks no longer reserve space for that header. Sidebar account/bell/gear
+remain shared entry points; Appearance uses existing theme state. Existing
+browser-check source follows Settings but was not executed.
+No build, npm or tests run under the standing user restriction.
