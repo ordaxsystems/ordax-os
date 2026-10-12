@@ -5,7 +5,7 @@ import { deriveNativeServiceUpdateReadiness } from "../system/services/component
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
 import { deriveNativeServiceUpdateInventory } from "../system/services/components/service-update-inventory.mjs";
 import { coreRuntimeCompatibility } from "../system/services/components/compatibility/core.mjs";
-import { deriveServiceCompatibilityCoverage } from "../system/services/components/service-upgrade-preflight.mjs";
+import { deriveServiceCompatibilityCoverage, deriveServiceConsumerImpact } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const servicesUrl = new URL("../system/services/", import.meta.url);
 const base = fileURLToPath(servicesUrl);
@@ -29,6 +29,15 @@ const compatibility = deriveServiceCompatibilityCoverage({
   manifests: listSystemComponents(),
   descriptors: coreRuntimeCompatibility,
 });
+// Impact paths and descriptor gaps are derived from the same manifest SSOT,
+// not hand-maintained service lists or assumed active runtime state.
+const consumerImpact = inventory.components.map((component) =>
+  deriveServiceConsumerImpact({
+    manifests: listSystemComponents(),
+    componentId: component.id,
+    descriptors: coreRuntimeCompatibility,
+  }));
+
 
 if (process.argv.includes("--check")) {
   process.stdout.write(
@@ -37,8 +46,9 @@ if (process.argv.includes("--check")) {
     + inventory.summary.embeddedDomainCount + " embedded domains; "
     + readiness.summary.packagingCandidates + " package-policy candidates; "
     + compatibility.summary.declared + " validated compatibility descriptors; "
+    + consumerImpact.length + " consumer dependency graphs audited; "
     + "production evidence " + readiness.summary.productionEvidence + ".\n"
   );
 } else {
-  process.stdout.write(JSON.stringify({ inventory, readiness, compatibility }, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({ inventory, readiness, compatibility, consumerImpact }, null, 2) + "\n");
 }
