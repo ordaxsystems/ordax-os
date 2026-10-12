@@ -7,11 +7,15 @@ on:
       - 'system/services/app-data/**'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/adapters/native/app-data.mjs'
       - 'docs/contracts/app-data.json'
       - 'docs/contracts/native-app-data.json'
       - 'tests/test_native_app_data.py'
       - 'tests/test_native_app_data_checkpoint.py'
+      - 'tests/test_native_app_data_binding.py'
+      - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_app_data_adapter.mjs'
       - '.github/workflows/native-app-data.yml'
   push:
@@ -21,11 +25,15 @@ on:
       - 'system/services/app-data/**'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/adapters/native/app-data.mjs'
       - 'docs/contracts/app-data.json'
       - 'docs/contracts/native-app-data.json'
       - 'tests/test_native_app_data.py'
       - 'tests/test_native_app_data_checkpoint.py'
+      - 'tests/test_native_app_data_binding.py'
+      - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_app_data_adapter.mjs'
       - '.github/workflows/native-app-data.yml'
 
@@ -44,7 +52,7 @@ jobs:
       - name: Validate source and contract syntax
         run: |
           set -euo pipefail
-          python3 -m py_compile system/surface/runtime/native_app_data.py system/surface/runtime/native_app_data_endpoint.py
+          python3 -m py_compile system/surface/runtime/native_app_data.py system/surface/runtime/native_app_data_endpoint.py system/surface/runtime/native_app_data_binding.py system/surface/runtime/native_app_data_host.py
           node --check system/adapters/native/app-data.mjs
           python3 -m json.tool docs/contracts/native-app-data.json >/dev/null
 
@@ -53,6 +61,9 @@ jobs:
 
       - name: Prove owner-only durable checkpoint, retained blobs, rollback and crash recovery
         run: python3 -m unittest tests.test_native_app_data_checkpoint -v
+
+      - name: Prove verified receipt admission drain and real Native HTTP recovery
+        run: python3 -m unittest tests.test_native_app_data_binding tests.test_native_app_data_host -v
 
       - name: Prove async bound transport without identity self-claims
         run: node --test tests/test_native_app_data_adapter.mjs
