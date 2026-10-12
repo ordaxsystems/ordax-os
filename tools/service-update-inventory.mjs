@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readdirSync, readFileSync } from "node:fs";
-import { deriveNativeServiceUpdateReadiness } from "../system/services/components/service-update-readiness.mjs";
 import { fileURLToPath } from "node:url";
+import { deriveNativeServiceUpdateReadiness } from "../system/services/components/service-update-readiness.mjs";
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
 import { deriveNativeServiceUpdateInventory } from "../system/services/components/service-update-inventory.mjs";
 
