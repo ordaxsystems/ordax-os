@@ -822,7 +822,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("color-scheme: light", tokens)
         self.assertIn("@media (max-width: 760px)", css)
         self.assertIn("prefers-reduced-motion", css)
-        self.assertIn('[data-ordax-motion="reduced"] *', css)
+        self.assertIn('[data-ordax-motion="reduced"] *', tokens)
         self.assertIn('[data-ordax-motion="standard"] .ordax-window', css)
         self.assertIn('html[data-ordax-text-scale="standard"]', tokens)
         self.assertIn('html[data-ordax-text-scale="large"]', tokens)
