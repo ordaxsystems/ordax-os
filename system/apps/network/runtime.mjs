@@ -1,5 +1,4 @@
 import { COMPONENT_RUNTIME_SCHEMA } from "../../contracts/component-runtime.mjs";
-import { createNetworkDraftRuntime } from "../../services/professional-network/draft.mjs";
 import { NETWORK_APP_VERSION } from "./version.mjs";
 import { mountNetworkWorkspaceControls } from "./ui/workspace-controls.mjs";
 
@@ -48,13 +47,12 @@ export const componentRuntime = Object.freeze({
   async mount({
     root,
     surfaceLifecycle,
-    identitySession = null,
-    spaceSelection = null,
+    networkDraftPort = null,
   } = {}) {
     const releaseStyles = await mountStyles(root);
-    const draft = identitySession && spaceSelection
-      ? createNetworkDraftRuntime({ identitySession, spaceSelection })
-      : null;
+    // Host owns the professional-network draft service. The app only consumes
+    // a schema-validated, explicitly injected capability; never imports OS services.
+    const draft = networkDraftPort;
     let controls = null;
 
     try {
@@ -69,13 +67,11 @@ export const componentRuntime = Object.freeze({
           if (destroyed) return;
           destroyed = true;
           controls?.destroy();
-          draft?.dispose();
           releaseStyles();
         },
       });
     } catch (error) {
       controls?.destroy();
-      draft?.dispose();
       releaseStyles();
       throw error;
     }

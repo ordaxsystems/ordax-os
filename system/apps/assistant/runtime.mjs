@@ -54,6 +54,7 @@ export const componentRuntime = Object.freeze({
     spaceSelectionPort,
     profileActivationStatePort = null,
     appActivation = null,
+    projectWorkCanvas = null,
   } = {}) {
     const releaseStyles = await mountAssistantStyles(root);
     let conversation = null;
@@ -76,6 +77,7 @@ export const componentRuntime = Object.freeze({
         identitySessionPort,
         spaceSelectionPort,
         appActivation,
+        projectWorkCanvas,
       });
       let destroyed = false;
       return Object.freeze({

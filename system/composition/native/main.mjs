@@ -19,6 +19,9 @@ import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
+import { createPersonalActivityExportDocument } from "../../services/personal-ordax/export.mjs";
+import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
+import { createNetworkDraftRuntime } from "../../services/professional-network/draft.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -958,6 +961,14 @@ async function start() {
     },
   });
 
+  // Native owns the draft state and connects it to the signed/bundled app
+  // only as a scoped runtime port; component teardown must not own OS services.
+  let networkDraftPort = null;
+  try {
+    networkDraftPort = createNetworkDraftRuntime({ identitySession, spaceSelection });
+  } catch (error) {
+    reportClientDiagnostic("network-draft-runtime", error);
+  }
   const networkComponent = await loadOptionalComponentRuntime({
     componentId: "network",
     importer: () => import("../../apps/network/runtime.mjs"),
@@ -965,8 +976,7 @@ async function start() {
     context: {
       root,
       surfaceLifecycle: surface,
-      identitySession,
-      spaceSelection,
+      networkDraftPort,
     },
     onError(error) {
       reportClientDiagnostic("network-app-runtime", error);
@@ -983,6 +993,7 @@ async function start() {
       intelligence: selectedSpaceIntelligence,
       memoryCapture: assistantMemoryCapture,
       personalOrdax,
+      projectWorkCanvas: projectPersonalWorkCanvas,
       identitySessionPort: identitySession,
       spaceSelectionPort: spaceSelection,
       profileActivationStatePort: profileActivationState,
@@ -1002,6 +1013,8 @@ async function start() {
       surfaceLifecycle: surface,
       personalOrdax,
       activityExport: personalActivityExport,
+      createExportDocument: createPersonalActivityExportDocument,
+      projectWorkCanvas: projectPersonalWorkCanvas,
     },
     onError(error) {
       reportClientDiagnostic("activity-runtime", error);
@@ -1135,6 +1148,7 @@ async function start() {
       fileSpaceControls.destroy();
       projectsComponent?.destroy();
       networkComponent?.destroy();
+      networkDraftPort?.dispose();
       assistantComponent?.destroy();
       activityComponent?.destroy();
       internetComponent?.destroy();
