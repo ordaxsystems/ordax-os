@@ -12,7 +12,6 @@ APP_OWNERS = {
     "internet": APPS / "internet" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
     "account": APPS / "account" / "app.mjs",
-    "assistant": APPS / "assistant" / "app.mjs",
     "system": APPS / "system" / "app.mjs",
 }
 APPEARANCE = PREFERENCES / "appearance.mjs"
@@ -210,7 +209,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"assistant", "files", "internet"}:
+            if app_id in {"files", "internet"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)
@@ -247,45 +246,32 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('.ordax-files-view', css)
         self.assertIn("../../surface/ui/files.css", native_html)
 
-    def test_assistant_is_optional_intelligence_client_without_memory_ownership(self):
-        assistant = APP_OWNERS["assistant"].read_text(encoding="utf-8")
-        conversation = (APPS / "assistant" / "conversation.mjs").read_text(encoding="utf-8")
-        runtime = (APPS / "assistant" / "runtime.mjs").read_text(encoding="utf-8")
-        controls = (APPS / "assistant" / "ui" / "conversation-controls.mjs").read_text(encoding="utf-8")
-        component = (APPS / "assistant" / "component.mjs").read_text(encoding="utf-8")
-        shell = DESKTOP_SHELL.read_text(encoding="utf-8")
-        web_main = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
-        native_main = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
-        localization = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
-        assistant_i18n = (
-            ROOT / "system" / "services" / "i18n" / "catalog" / "assistant.mjs"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn('id: "assistant"', assistant)
-        self.assertIn('extensionId: "assistant-conversation"', assistant)
-        self.assertIn('releaseMode: "git-app"', component)
-        self.assertIn('"ordax-intelligence"', component)
-        self.assertIn('ASSISTANT_CONVERSATION_SCHEMA', conversation)
-        self.assertIn('persistence: "session"', conversation)
-        self.assertIn('authority: "none"', conversation)
-        self.assertIn('toolExecution: false', conversation)
-        self.assertIn('provenance: "ordax-assistant-session"', conversation)
-        self.assertNotIn('services/memory', conversation)
-        self.assertNotIn('memory-capture', conversation)
-        self.assertNotIn('localStorage', conversation)
-        self.assertNotIn('fetch(', conversation)
-        self.assertNotIn('adapters/', conversation)
-        self.assertIn('mountAssistantConversationControls', runtime)
-        self.assertNotIn('adapters/', controls)
-        self.assertNotIn('/__ordax/native/', controls)
-        self.assertIn('railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)', shell)
-        self.assertIn('ASSISTANT_SOURCE_MESSAGES', localization)
-        self.assertIn('ASSISTANT_ENGLISH_MESSAGES', localization)
-        self.assertIn('"app.assistant.title": "Assistente"', assistant_i18n)
-        self.assertIn('"app.assistant.title": "Assistant"', assistant_i18n)
-        self.assertIn('componentId: "assistant"', native_main)
-        self.assertIn('intelligence: selectedSpaceIntelligence', native_main)
-        self.assertIn('assistantComponent?.destroy()', native_main)
+    def test_assistant_remove_first_gate_is_explicit_and_never_implies_installation(self):
+        import json
+        policy = json.loads(
+            (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            policy["prelaunch_remove_first_pending"].get("assistant"),
+            {
+                "state": "platform-source-removed-app-source-pending",
+                "expected_repository": "ordaxsystems/ordax-apps",
+                "platform_source_absence_required": True,
+                "distribution_activation_allowed": False,
+            },
+        )
+        self.assertFalse((APPS / "assistant").exists())
+        self.assertFalse((ROOT / "system/services/i18n/catalog/assistant.mjs").exists())
+        self.assertNotIn('./assistant/app.mjs', APP_CATALOG.read_text(encoding="utf-8"))
+        self.assertNotIn('assistantComponent', COMPONENT_CATALOG.read_text(encoding="utf-8"))
+        native = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        self.assertNotIn('import("../../apps/assistant/runtime.mjs")', native)
+        self.assertNotIn('componentId: "assistant"', native)
+        self.assertNotIn('assistantMemoryCapture', native)
+        self.assertNotIn('railButton("assistant"', DESKTOP_SHELL.read_text(encoding="utf-8"))
+        self.assertNotIn('ASSISTANT_SOURCE_MESSAGES', SURFACE_LOCALIZATION.read_text(encoding="utf-8"))
+        self.assertNotIn("assistant", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
 
 
     def test_internet_uses_shared_browser_session_extension(self):
@@ -822,7 +808,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("color-scheme: light", tokens)
         self.assertIn("@media (max-width: 760px)", css)
         self.assertIn("prefers-reduced-motion", css)
-        self.assertIn('[data-ordax-motion="reduced"] *', css)
+        self.assertIn('[data-ordax-motion="reduced"] *', tokens)
         self.assertIn('[data-ordax-motion="standard"] .ordax-window', css)
         self.assertIn('html[data-ordax-text-scale="standard"]', tokens)
         self.assertIn('html[data-ordax-text-scale="large"]', tokens)
