@@ -76,6 +76,10 @@ def prove(args: argparse.Namespace) -> dict:
         raise BaseError("previous release commit must be lowercase 40-hex")
     base_dir = args.base_out.resolve()
     candidate = regular_file(base_dir / "independent-base.erofs", "candidate EROFS")
+    if args.stable_base is not None:
+        staged_base = regular_file(args.stable_base, "portable-v2 staged base")
+        if digest(staged_base) != digest(candidate):
+            raise BaseError("staged portable EROFS differs from independent Buildroot source")
     receipt = verify(base_dir)
     if receipt.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
         raise BaseError("candidate handoff is not the canonical owner")
@@ -102,13 +106,24 @@ def prove(args: argparse.Namespace) -> dict:
     shutil.copyfile(state, staged_state)
     if digest(staged_state) != source_state_sha256:
         raise BaseError("ext4 staging copy differs from source")
-    initramfs_work = out / "initramfs-work"
-    initramfs_out = out / "initramfs"
     builder = ROOT / "bootstrap/initramfs/build.py"
-    command([sys.executable, str(builder), "build", "--jobs", str(args.jobs),
-             "--work-dir", str(initramfs_work), "--out-dir", str(initramfs_out),
-             "--portable-bootstrap-capsule", str(capsule),
-             "--portable-stable-base", str(candidate)])
+    if (args.initramfs is None) != (args.initramfs_provenance is None):
+        raise BaseError("canonical initramfs and provenance must be provided together")
+    if args.initramfs is not None:
+        archive = regular_file(args.initramfs, "canonical prepared initramfs")
+        metadata = regular_file(args.initramfs_provenance, "canonical initramfs provenance")
+        initramfs_out = archive.parent
+        if (archive.name != "initramfs.cpio.gz"
+                or metadata.name != "initramfs-provenance.json"
+                or metadata.parent != initramfs_out):
+            raise BaseError("prepared initramfs must use the canonical output layout")
+    else:
+        initramfs_work = out / "initramfs-work"
+        initramfs_out = out / "initramfs"
+        command([sys.executable, str(builder), "build", "--jobs", str(args.jobs),
+                 "--work-dir", str(initramfs_work), "--out-dir", str(initramfs_out),
+                 "--portable-bootstrap-capsule", str(capsule),
+                 "--portable-stable-base", str(candidate)])
     command([sys.executable, str(builder), "verify", "--out-dir", str(initramfs_out)])
     provenance = json.loads((initramfs_out / "initramfs-provenance.json").read_text())
     pin = provenance.get("portable_stable_base_pin", {})
@@ -117,7 +132,9 @@ def prove(args: argparse.Namespace) -> dict:
     if provenance.get("source_commit") != args.source_commit:
         raise BaseError("official initramfs does not match candidate source commit")
 
-    qemu_result = out / "portable-qemu-result.json"
+    qemu_result = outside_source(args.out) if args.out is not None else out / "portable-qemu-result.json"
+    if qemu_result.is_symlink() or qemu_result.exists() or not qemu_result.parent.is_dir():
+        raise BaseError("official QEMU output must be a new file inside an existing directory")
     argv = [sys.executable, str(ROOT / "bootstrap/portable-v2/qemu_boot.py"),
             "--kernel", str(kernel),
             "--initramfs", str(initramfs_out / "initramfs.cpio.gz"),
@@ -162,6 +179,10 @@ def prove(args: argparse.Namespace) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-out", required=True, type=Path)
+    parser.add_argument("--stable-base", type=Path)
+    parser.add_argument("--initramfs", type=Path)
+    parser.add_argument("--initramfs-provenance", type=Path)
+    parser.add_argument("--out", type=Path)
     parser.add_argument("--kernel", required=True, type=Path)
     parser.add_argument("--capsule", required=True, type=Path)
     parser.add_argument("--state-image", required=True, type=Path)
