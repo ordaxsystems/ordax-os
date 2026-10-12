@@ -44,7 +44,7 @@ func TestReleaseV2RollbackRejectsUnreadableMigratedStateWithoutMutation(t *testi
 	}
 }
 
-func TestReleaseV2RollbackContractAllowsPreviousReadRangeWithoutGrantingMigration(t *testing.T) {
+func TestReleaseV2RollbackReadabilityDoesNotAuthorizeRecovery(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	previous := addActivationV2CandidateWithState(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
@@ -62,13 +62,61 @@ func TestReleaseV2RollbackContractAllowsPreviousReadRangeWithoutGrantingMigratio
 	if err := verifyRollbackStateReadable(
 		fixture.root, "internet", identityFromRelease(sharedReleaseFromV2(future.release)),
 		state.Current, trust,
-	); err != nil {
-		t.Fatalf("previous signed release declares support for state version 2: %v", err)
+	); err == nil || !strings.Contains(err.Error(), "requires verified device-state recovery checkpoint") {
+		t.Fatalf("signed readable range was mistaken for a verified data checkpoint: %v", err)
 	}
-	// State readability is only one prerequisite: it does not authorize
-	// transitioning to a new writer without a proven migration.
+	// A signed readable range cannot prove a live state generation. It also
+	// cannot authorize transitioning to a new writer without migration.
 	if _, err := armPendingState(future.slot, fixture.trustPath, fixture.root); err == nil {
 		t.Fatal("backward-readable state accidentally granted an unproven forward migration")
+	}
+}
+
+func TestStatefulReleaseV2RollbackPreservesKnownGoodUntilRecoveryProven(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	first := addActivationV2CandidateWithState(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
+	)
+	original := healthyPromoteV2(t, fixture, first)
+	candidate := addActivationV2CandidateWithState(
+		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
+		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
+	)
+	armed, err := armPendingStateAtRevision(candidate.slot, fixture.trustPath, fixture.root, &original.Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probationRevision := armed.Revision
+	healthy, err := recordPendingHealthAtRevision(
+		fixture.root, "internet", *armed.Pending, "healthy", &probationRevision,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := promotePendingStateAtRevision(
+		fixture.root, "internet", *healthy.Pending, healthy.Revision, fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Previous == nil || !sameSlotIdentity(current.Previous, original.Current) {
+		t.Fatalf("upgrade lost its previous signed version: %+v", current)
+	}
+	if _, err := rollbackCurrentStateAtRevision(
+		fixture.root, "internet", *current.Current, current.Revision, fixture.trustPath,
+	); err == nil || !strings.Contains(err.Error(), "requires verified device-state recovery checkpoint") {
+		t.Fatalf("stateful rollback with no real recovery proof was accepted: %v", err)
+	}
+	after, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Revision != current.Revision ||
+		!sameSlotIdentity(after.Current, current.Current) ||
+		!sameSlotIdentity(after.Previous, current.Previous) ||
+		after.Pending != nil || after.Rejected != nil {
+		t.Fatalf("unproven state recovery modified canonical activation state: %+v", after)
 	}
 }
 
