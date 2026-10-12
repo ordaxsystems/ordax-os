@@ -84,6 +84,47 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
                 identity(), "fresh", str(root),
             )["value"], b"post-recovery")
 
+    def test_missing_manifest_after_committed_write_fails_closed_without_data_loss(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "account", b"preserve-me", 0, str(root))
+            partition = only_partition(root)
+            persisted_blob = blob(root, b"preserve-me")
+            (partition / "manifest.json").unlink()
+
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.read_app_data(identity(), "account", str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.list_app_data(identity(), str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.put_app_data(identity(), "account", b"overwrite", 0, str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.delete_app_data(identity(), "account", 0, str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.create_app_data_checkpoint(identity(), RELEASE, 0, str(root))
+            self.assertFalse((partition / "manifest.json").exists())
+            self.assertTrue(persisted_blob.exists(), "lost user's data after missing manifest")
+
+    def test_durable_genesis_manifest_protects_empty_checkpoint_from_disappearance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 0, str(root))
+            partition = only_partition(root)
+            manifest = partition / "manifest.json"
+            pin = partition / app_data.APP_DATA_CHECKPOINT_NAME
+            self.assertTrue(manifest.exists(), "genesis must be committed before pin")
+            self.assertTrue(pin.exists())
+
+            manifest.unlink()
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.put_app_data(identity(), "k", b"unsafe", 0, str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.restore_app_data_checkpoint(identity(), RELEASE, 0, str(root))
+            with self.assertRaisesRegex(ValueError, "manifest is missing"):
+                app_data.retire_app_data_checkpoint(identity(), RELEASE, 0, str(root))
+            self.assertTrue(pin.exists(), "missing active manifest destroyed recovery pin")
+            self.assertFalse(manifest.exists())
+
     def test_first_write_crash_keeps_empty_checkpoint_recoverable(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "app-data"
