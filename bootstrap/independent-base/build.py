@@ -117,9 +117,16 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
             if not parts or parts[0] != expected or ".." in parts or member.name.startswith("/"):
                 raise BaseError("unsafe Buildroot tar path")
             if member.issym() or member.islnk():
+                # The official Buildroot archive has legitimate relative links
+                # with '..'. Resolve them within its named top-level directory.
+                import posixpath
                 link = member.linkname
-                if link.startswith("/") or ".." in Path(link).parts:
-                    raise BaseError("unsafe Buildroot tar link")
+                resolved = posixpath.normpath(
+                    posixpath.join(posixpath.dirname(member.name), link)
+                    if member.issym() else link
+                )
+                if not (resolved == expected or resolved.startswith(expected + "/")):
+                    raise BaseError(f"unsafe Buildroot tar link: {member.name} -> {link}")
         tf.extractall(work, filter="data")
     dest = work / expected
     if not (dest / "Makefile").is_file():
