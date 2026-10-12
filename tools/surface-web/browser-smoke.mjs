@@ -75,6 +75,21 @@ try {
         await clickByText('[role="menuitem"]',menuTitle);
       }
     }
+    async function openDesktopApp(name){
+      // Desktop shortcuts disappear on narrow viewports. Exercise the actual
+      // navigation affordance there rather than skipping window behavior.
+      const shortcutVisible=await evaluate(
+        "([...document.querySelectorAll('.desktop-shortcuts button')].some(node=>node.getClientRects().length>0&&node.textContent.trim()==="+JSON.stringify(name)+"))"
+      );
+      if(shortcutVisible) {await clickByText('.desktop-shortcuts button',name);return;}
+      const sidebarSelector='.workspace-sidebar .os-nav [aria-label='+JSON.stringify(name)+']';
+      const sidebarVisible=await evaluate(
+        '[...document.querySelectorAll('+JSON.stringify(sidebarSelector)+')].some(node=>node.getClientRects().length>0)'
+      );
+      if(sidebarVisible) {await click(sidebarSelector);return;}
+      await click('[aria-label="Mais destinos"]');
+      await clickByText('.desktop-menu-item',name);
+    }
     const results=[];
     for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
       await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
@@ -143,7 +158,7 @@ try {
       assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');
       assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays at the dock edge in both views');
       await until("!!document.querySelector('.classic-desktop')");
-      await clickByText('.desktop-shortcuts button','Projetos');
+      await openDesktopApp('Projetos');
       await click('[aria-label="Restaurar janela Projetos"]');
       assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"Janela Projetos\"]').length"),1);
       await click('[aria-label="Restaurar Projetos"]');
