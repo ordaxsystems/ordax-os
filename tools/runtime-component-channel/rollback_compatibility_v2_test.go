@@ -72,7 +72,7 @@ func TestReleaseV2RollbackReadabilityDoesNotAuthorizeRecovery(t *testing.T) {
 	}
 }
 
-func TestStatefulReleaseV2RollbackPreservesKnownGoodUntilRecoveryProven(t *testing.T) {
+func TestStatefulReleaseV2UpgradeCannotBecomeOneWayWithoutRecovery(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	first := addActivationV2CandidateWithState(
 		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
@@ -83,38 +83,18 @@ func TestStatefulReleaseV2RollbackPreservesKnownGoodUntilRecoveryProven(t *testi
 		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
 		&compatibilityState{ID: "ordax.internet.state", WriteVersion: 1, ReadableFrom: 1, ReadableThrough: 1},
 	)
-	armed, err := armPendingStateAtRevision(candidate.slot, fixture.trustPath, fixture.root, &original.Revision)
-	if err != nil {
-		t.Fatal(err)
-	}
-	probationRevision := armed.Revision
-	healthy, err := recordPendingHealthAtRevision(
-		fixture.root, "internet", *armed.Pending, "healthy", &probationRevision,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	current, err := promotePendingStateAtRevision(
-		fixture.root, "internet", *healthy.Pending, healthy.Revision, fixture.trustPath,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if current.Previous == nil || !sameSlotIdentity(current.Previous, original.Current) {
-		t.Fatalf("upgrade lost its previous signed version: %+v", current)
-	}
-	if _, err := rollbackCurrentStateAtRevision(
-		fixture.root, "internet", *current.Current, current.Revision, fixture.trustPath,
+	if _, err := armPendingStateAtRevision(
+		candidate.slot, fixture.trustPath, fixture.root, &original.Revision,
 	); err == nil || !strings.Contains(err.Error(), "requires verified device-state recovery checkpoint") {
-		t.Fatalf("stateful rollback with no real recovery proof was accepted: %v", err)
+		t.Fatalf("unrecoverable stateful upgrade was accepted: %v", err)
 	}
 	after, err := readActivationState(fixture.root, "internet")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.Revision != current.Revision ||
-		!sameSlotIdentity(after.Current, current.Current) ||
-		!sameSlotIdentity(after.Previous, current.Previous) ||
+	if after.Revision != original.Revision ||
+		!sameSlotIdentity(after.Current, original.Current) ||
+		!sameSlotIdentity(after.Previous, original.Previous) ||
 		after.Pending != nil || after.Rejected != nil {
 		t.Fatalf("unproven state recovery modified canonical activation state: %+v", after)
 	}
