@@ -99,3 +99,46 @@ func TestSignedUpgradeCanIntroduceNewStateOwnerWithoutRewritingExistingState(t *
 		t.Fatalf("new state owner did not reach pending while keeping current: %+v", pending)
 	}
 }
+
+func TestSignedUpgradeCannotDropExistingProvidedABI(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	current := addActivationV2CandidateWithContracts(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111", nil,
+		[]providedCompatibilityContract{{ID: "ordax.internet", Major: 1}},
+	)
+	active := healthyPromoteV2(t, fixture, current)
+	removed := addActivationV2CandidateWithContracts(
+		t, fixture, "1.1.0", "2222222222222222222222222222222222222222", nil,
+		[]providedCompatibilityContract{{ID: "ordax.internet", Major: 2}},
+	)
+	if _, err := armPendingStateAtRevision(
+		removed.slot, fixture.trustPath, fixture.root, &active.Revision,
+	); err == nil || !strings.Contains(err.Error(), "drops an existing signed provided contract") {
+		t.Fatalf("signed major-breaking API replacement reached pending: %v", err)
+	}
+	state, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Revision != active.Revision || !sameSlotIdentity(state.Current, active.Current) ||
+		state.Pending != nil {
+		t.Fatalf("dropped ABI mutated activation state: %+v", state)
+	}
+	additive := addActivationV2CandidateWithContracts(
+		t, fixture, "1.2.0", "3333333333333333333333333333333333333333", nil,
+		[]providedCompatibilityContract{
+			{ID: "ordax.internet", Major: 1},
+			{ID: "ordax.internet.extended", Major: 2},
+		},
+	)
+	armed, err := armPendingStateAtRevision(
+		additive.slot, fixture.trustPath, fixture.root, &active.Revision,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if armed.Pending == nil || armed.Pending.Version != "1.2.0" ||
+		!sameSlotIdentity(armed.Current, active.Current) {
+		t.Fatalf("additive ABI release lost current during staging: %+v", armed)
+	}
+}
