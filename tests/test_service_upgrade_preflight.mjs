@@ -438,7 +438,7 @@ test("signed active graph gaps are derived across every canonical manifest", () 
   assert.equal(result.summary.sourceDescriptorsDeclared, coreRuntimeCompatibility.length);
   assert.equal(result.summary.missingSourceDescriptors, manifests.length - coreRuntimeCompatibility.length);
   assert.equal(result.summary.signedCurrentObserved, 0);
-  assert.equal(result.summary.productionCompatibilityProven, 0);
+  assert.equal(result.summary.productionCompatibilityEvidence, "not-evaluated");
   assert.equal(
     result.components.find((entry) => entry.id === "ordax-intelligence").contractEvidence,
     "source-descriptor-only",
@@ -459,7 +459,7 @@ test("signed slot may be observed while canonical releaseMode is still not promo
   assert.equal(local.signedCurrentObserved, true);
   assert.equal(local.sourcePolicyMatchesObservedSlot, false);
   assert.equal(local.contractEvidence, "verified-by-native-readout-not-pinned");
-  assert.equal(local.productionCompatibilityProven, false);
+  assert.equal(local.productionCompatibilityEvidence, "not-evaluated");
   assert.equal(result.summary.sourceModeMismatches, 1);
   assert.equal(result.completeForActivation, false);
 });
