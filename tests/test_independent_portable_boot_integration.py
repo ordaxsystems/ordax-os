@@ -47,6 +47,22 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('sbin/modprobe', build)
         self.assertTrue((ROOT / "bootstrap/stable-base/ordax-stable-init").is_file())
 
+    def test_busybox_fragment_is_single_reproducible_source_for_handoff_applets(self):
+        profile = (BASE / "configs/ordax_minimal_defconfig").read_text()
+        fragment = BASE / "configs/portable-handoff.busybox.fragment"
+        self.assertEqual(profile.count("BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="), 1)
+        self.assertIn('BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"', profile)
+        self.assertEqual(
+            [line for line in fragment.read_text().splitlines() if line.startswith("CONFIG_")],
+            ["CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y"],
+        )
+        build = (BASE / "build.py").read_text()
+        self.assertIn("BUSYBOX_HANDOFF_SYMBOLS =", build)
+        self.assertIn('run(busybox, "stat", "-c", "%a", str(marker))', build)
+        self.assertIn('run(busybox, "timeout", "-k", "1", "2", busybox, "true")', build)
+        self.assertIn('"busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT)', build)
+        self.assertIn('"busybox_handoff_runtime_features_verified": True', build)
+
     def test_official_qemu_workflow_single_source_and_stable_default(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         experimental = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
