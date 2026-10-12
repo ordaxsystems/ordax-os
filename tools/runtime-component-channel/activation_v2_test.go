@@ -169,9 +169,9 @@ func addActivationV2CandidateWithContracts(
 		"componentId":      "internet",
 		"componentVersion": version,
 		"provides":         signedProvided,
-		"requires":  []any{},
-		"state":     signedState,
-		"authority": "none",
+		"requires":         []any{},
+		"state":            signedState,
+		"authority":        "none",
 	}
 	compatibilityBytes, err := marshalJSON(compatibility)
 	if err != nil {
