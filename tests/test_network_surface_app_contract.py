@@ -1,105 +1,43 @@
 from pathlib import Path
+import json
 import unittest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "system" / "apps" / "network"
-CATALOG = ROOT / "system" / "apps" / "catalog.mjs"
-COMPONENT_CATALOG = ROOT / "system" / "apps" / "component-catalog.mjs"
-SHELL = ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs"
-NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
-DRAFT = ROOT / "system" / "services" / "professional-network" / "draft.mjs"
-I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "network-app.mjs"
-WORKFLOW = ROOT / ".github" / "workflows" / "surface-web-candidate.yml"
-BROWSER_SMOKE = ROOT / "tools" / "surface-native" / "browser-smoke.mjs"
+POLICY = ROOT / "docs" / "contracts" / "runtime-component-package.json"
 
-
-class NetworkSurfaceAppContractTests(unittest.TestCase):
+class NetworkSourceCutoverTests(unittest.TestCase):
     def text(self, path):
-        return path.read_text(encoding="utf-8")
+        return (ROOT / path).read_text(encoding="utf-8")
 
-    def test_network_is_an_optional_independent_first_party_component(self):
-        app = self.text(APP / "app.mjs")
-        component = self.text(APP / "component.mjs")
-        catalog = self.text(CATALOG)
-        components = self.text(COMPONENT_CATALOG)
+    def test_network_has_one_external_owner_without_bundled_fallback(self):
+        policy = json.loads(POLICY.read_text(encoding="utf-8"))
+        self.assertEqual(policy["canonical_package_source_repository_by_component"]["network"], "ordaxsystems/ordax-apps")
+        self.assertFalse(APP.exists())
+        for path in ["system/apps/catalog.mjs", "system/apps/component-catalog.mjs", "system/apps/intelligence-catalog.mjs", "system/composition/native/main.mjs"]:
+            source = self.text(path)
+            self.assertNotIn("apps/network/", source)
+            self.assertNotIn("./network/", source)
+        self.assertNotIn('railButton("network"', self.text("system/surface/ui/desktop-shell.mjs"))
+        self.assertNotIn("system/apps/network/network.css", self.text("tools/surface-native/browser-smoke.mjs"))
 
-        self.assertIn('id: "network"', app)
-        self.assertIn('extensionId: "network-workspace"', app)
-        self.assertIn("networkApp", catalog)
-        self.assertIn("networkComponent", components)
-        self.assertIn('releaseMode: "git-app"', component)
-        self.assertIn('criticality: "optional"', component)
-        self.assertIn('failureDomain: "app"', component)
-        self.assertIn('dependencies: ["surface-shell"]', component)
-        self.assertNotIn('"network-service"', component)
+    def test_network_is_not_falsely_executable_until_native_trust_gate(self):
+        policy = json.loads(POLICY.read_text(encoding="utf-8"))
+        self.assertNotIn("network", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("network", policy["runtime_health_bridge_supported_components"])
+        generated = self.text("system/services/apps/external-first-party-policy.mjs")
+        self.assertIn('"network": "ordaxsystems/ordax-apps"', generated)
+        module_read_block = generated.split("EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([", 1)[1].split("]);", 1)[0]
+        self.assertNotIn('"network"', module_read_block)
 
-    def test_surface_shows_network_but_does_not_fabricate_backend_state(self):
-        shell = self.text(SHELL)
-        controls = self.text(APP / "ui" / "workspace-controls.mjs")
-        i18n = self.text(I18N)
-
-        self.assertIn('railButton("network"', shell)
-        self.assertIn('backend.dataset.networkBackend = "unavailable"', controls)
-        self.assertIn("Nenhuma conversa fictícia", i18n)
-        self.assertIn("não são inventados", i18n)
-        self.assertNotIn("localStorage", controls)
-        self.assertNotIn("fetch(", controls)
-
-    def test_native_uses_real_identity_and_space_selection_while_web_is_honest(self):
-        native = self.text(NATIVE)
-        web = self.text(WEB)
-
-        self.assertIn('componentId: "network"', native)
-        runtime = self.text(APP / "runtime.mjs")
-        self.assertIn('networkDraftPort = null', runtime)
-        self.assertNotIn('services/professional-network/draft.mjs', runtime)
-        self.assertIn('createNetworkDraftRuntime({ identitySession, spaceSelection })', native)
-        self.assertIn('networkDraftPort,', native)
-        self.assertIn('networkDraftPort?.dispose()', native)
-        self.assertIn('import("../../apps/network/runtime.mjs")', native)
-        self.assertIn("identitySession,", native)
-        self.assertIn("spaceSelection,", native)
-        self.assertIn("networkComponent?.destroy()", native)
-
-
-    def test_composer_preserves_focus_while_draft_body_updates(self):
-        controls = self.text(APP / "ui" / "workspace-controls.mjs")
-        self.assertIn('composer.dataset.networkConversation === target', controls)
-        self.assertIn('documentObject.activeElement !== existingTextarea', controls)
-        self.assertIn('existingTextarea.value !== desiredBody', controls)
-
-    def test_draft_runtime_requires_explicit_retarget_and_clears_on_account_change(self):
-        draft = self.text(DRAFT)
-        self.assertIn("retargetToCurrentSpace()", draft)
-        self.assertIn("draft.senderSpaceId === currentSpace.id", draft)
-        self.assertIn("if (previousSubject !== nextSubject)", draft)
-        self.assertIn("draft = null;", draft)
-        selection_subscription = draft.split("const unsubscribeSelection", 1)[1].split("const port", 1)[0]
-        self.assertNotIn("draft =", selection_subscription)
-
-    def test_native_browser_fixture_keeps_network_styles_and_offline_owner(self):
-        smoke = self.text(BROWSER_SMOKE)
-        controls = self.text(APP / "ui" / "workspace-controls.mjs")
-        self.assertIn("'system/apps/network/network.css': 'text/css'", smoke)
-        self.assertIn('backend.dataset.networkBackend = "unavailable"', controls)
-        self.assertNotIn("fetch(", controls)
-
-    def test_surface_ci_executes_network_app_regressions(self):
-        workflow = self.text(WORKFLOW)
-        self.assertGreaterEqual(
-            workflow.count("system/services/professional-network/**"),
-            2,
-        )
-        self.assertGreaterEqual(workflow.count("tests/test_network_draft.mjs"), 2)
-        self.assertGreaterEqual(workflow.count("tests/test_network_surface_app_contract.py"), 2)
-        self.assertIn("node --test tests/test_network_draft.mjs", workflow)
-        self.assertIn(
-            "python -m unittest tests.test_network_surface_app_contract -v",
-            workflow,
-        )
-
+    def test_network_service_and_wifi_infrastructure_stay_on_os(self):
+        for path in ["system/services/professional-network/draft.mjs", "system/contracts/network-draft.mjs", "system/surface/ui/network-quick-panel.mjs", "system/surface/ui/network-tray-controls.mjs"]:
+            self.assertTrue((ROOT / path).is_file())
+        native = self.text("system/composition/native/main.mjs")
+        self.assertIn("mountNetworkQuickPanel", native)
+        self.assertIn("mountNetworkTrayControls", native)
+        sdk = json.loads(self.text("sdk/app-sdk-v1/bundle.json"))
+        self.assertTrue(any(x["schema"] == "ordax.network-draft/1" for x in sdk["contracts"]))
 
 if __name__ == "__main__":
     unittest.main()

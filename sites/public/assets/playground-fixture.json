@@ -28,7 +28,6 @@
       "studio",
       "assistant",
       "internet",
-      "network",
       "settings",
       "account",
       "system"
@@ -53,10 +52,6 @@
       {
         "id": "internet",
         "label": "Internet"
-      },
-      {
-        "id": "network",
-        "label": "Rede"
       },
       {
         "id": "settings",
@@ -93,13 +88,6 @@
       "description": "Acesse seus projetos e confira a integração do Studio com este host.",
       "monogram": "ST",
       "display_title": "ORDAX Studio"
-    },
-    {
-      "id": "network",
-      "title": "Rede profissional",
-      "description": "Comunidades profissionais e mensagens vinculadas explicitamente ao Space remetente.",
-      "monogram": "RE",
-      "display_title": "Rede"
     },
     {
       "id": "assistant",
