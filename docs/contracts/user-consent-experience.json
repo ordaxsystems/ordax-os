@@ -1,0 +1,61 @@
+{
+  "$schema": "prototype-ordax.user-consent-experience/1",
+  "status": "ux-policy-only-not-an-authorization-or-signing-authority",
+  "scope": "one intentional user decision per distinct legal or destructive action; background integrity checks never become user consent screens",
+  "authority_references": {
+    "account_terms_and_privacy": "docs/contracts/public-legal-readiness.json",
+    "account_registration_receipt": "identity-provider-server-owned-versioned-legal-receipt",
+    "usb_target_and_write": "docs/contracts/creator-consumer-flow.json",
+    "usb_release_promotion": "docs/contracts/physical-write-authorization.json",
+    "native_installation": "docs/contracts/native-installation.json"
+  },
+  "account_registration": {
+    "legal_acceptance_control_count": 1,
+    "links_to_current_terms_and_privacy_required": true,
+    "acceptance_receipt_server_authoritative": true,
+    "acceptance_bound_to_exact_published_versions": true,
+    "missing_or_unavailable_policy_behavior": "do-not-fabricate-acceptance",
+    "optional_marketing_consent_must_not_be_bundled_with_terms": true
+  },
+  "account_login": {
+    "legal_acceptance_control_count": 0,
+    "use_existing_session_if_authenticated": true,
+    "no_duplicate_registration_receipt_on_login": true
+  },
+  "plugin": {
+    "legal_acceptance_control_count": 0,
+    "logged_in": "use-authorized-ordax-account-session",
+    "logged_out": "offer-login-and-allow-existing-registration-flow",
+    "no_new_legal_receipt_during_plugin_login": true,
+    "external_app_data_scopes": "request_separate_scoped_authorization_only_when_not_already_granted",
+    "login_does_not_imply_unlimited_external_app_permissions": true
+  },
+  "creator_portable_usb": {
+    "destructive_confirmation_count": 1,
+    "confirmation_subject": "exact_selected_removable_usb",
+    "confirmation_warns_all_existing_data_will_be_erased": true,
+    "confirmation_must_precede_any_destructive_write": true,
+    "automatic_validations": "signed-release+target-identity+sha256-size+readback",
+    "no_separate_product_owner_consent_dialog": true,
+    "windows_elevation": "os-managed-only-as-required; not an OrdaX consent dialog",
+    "no_uac_bypass": true,
+    "system_disk_never_selectable": true,
+    "target_identity_change": "abort-without-write",
+    "physical_promotion_unchanged": true
+  },
+  "native_installation": {
+    "publicly_enabled": false,
+    "system_license_acceptance": "once-during-install-only-when-license-is-not-already-covered-by-valid-record",
+    "destructive_confirmation_count": 1,
+    "confirmation_subject": "exact_target_disk",
+    "source_boot_medium_forbidden": true,
+    "windows_or_host_privilege_elevation": "os-managed-only-as-required",
+    "no_partition_write_before_explicit_target_confirmation": true
+  },
+  "first_run": {
+    "existing_account": "sign-in-without-duplicate-terms-acceptance",
+    "new_account": "same-versioned-registration-flow-as-public-site",
+    "local_account_without_online_registration": "do-not-pretend-cloud-terms-accepted",
+    "system_setup_is_not_a_new_cloud_legal_receipt": true
+  }
+}
