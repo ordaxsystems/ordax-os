@@ -796,6 +796,30 @@ func rollbackCurrentStateAtRevision(
 		if err := verifyRollbackStateReadable(root, componentID, identity, state.Previous, trustBytes); err != nil {
 			return activationState{}, err
 		}
+		// The same graph lock protects every Native current-slot writer.
+		// A rollback must not remove an interface still required by any
+		// other signed release/2 current installation.
+		currentSlot, err := canonicalSlotPath(root, componentID, identity)
+		if err != nil {
+			return activationState{}, err
+		}
+		currentSchema, err := signedActivationSlotSchema(currentSlot, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if currentSchema == releaseSchemaV2 {
+			replacement, err := signedReplacementProvidesForRollback(
+				root, componentID, state.Previous, trustBytes,
+			)
+			if err != nil {
+				return activationState{}, err
+			}
+			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
+				root, componentID, replacement, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		}
 		rejected := identity
 		if state.Previous == nil {
 			state.Current = nil
@@ -850,6 +874,24 @@ func uninstallCurrentStateAtRevision(
 		}
 		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 			return activationState{}, err
+		}
+		// Removing an installed release/2 provider may strand an already
+		// installed signed consumer. Do not rely on the health of the
+		// provider or any stale read-only inventory receipt.
+		currentSlot, err := canonicalSlotPath(root, componentID, identity)
+		if err != nil {
+			return activationState{}, err
+		}
+		currentSchema, err := signedActivationSlotSchema(currentSlot, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if currentSchema == releaseSchemaV2 {
+			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
+				root, componentID, nil, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
 		}
 
 		state.Current = nil

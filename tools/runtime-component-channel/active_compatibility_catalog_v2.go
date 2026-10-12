@@ -42,6 +42,15 @@ func inspectActiveCompatibilityCatalogV2(
 		return activeCompatibilityCatalog{}, err
 	}
 	defer releaseGraph()
+	return inspectActiveCompatibilityCatalogV2UnderGraphLock(absolute, trustBytes)
+}
+
+// Internal scope: ONLY call from code holding the canonical activation graph
+// lock. This is shared by the read-only CLI and the real state writer so
+// consumers are never resolved from a stale preflight receipt.
+func inspectActiveCompatibilityCatalogV2UnderGraphLock(
+	absolute string, trustBytes []byte,
+) (activeCompatibilityCatalog, error) {
 	entries, err := os.ReadDir(absolute)
 	if err != nil {
 		return activeCompatibilityCatalog{}, err
