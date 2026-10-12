@@ -71,6 +71,16 @@ writer Go deverá fazer verificação de confiança, travar sua transação,
 vincular o owner da instalação e revalidar todos os dados imediatamente
 antes de qualquer mudança de ativação.
 
+**Prova cruzada com o atualizador oficial:** o workflow
+`.github/workflows/native-app-data.yml` agora executa também regressões
+reais em Go do mesmo writer `tools/runtime-component-channel`: upgrade
+com estado inalterado, criação de novo estado persistente, prevenção de
+upgrade sem caminho de retorno e rollback cuja faixa de leitura parece
+compatível. Todos devem continuar bloqueados até existir recuperação de
+State verificada e transacional. Esses testes protegem contra concessão
+acidental de autoridade à inspeção diagnóstica; **não afirmam** que o
+caminho de recuperação já foi conectado ao Go.
+
 **Limites importantes:** o valor `sourceRelease` armazenado é uma
 referência de correlação recebida pelo owner, **não uma assinatura
 verificada nem autorização de instalação**. A ativação do componente Go,
