@@ -376,6 +376,7 @@
 .window-workspace .os-sidebar-bottom { padding-top: 18px; }
 .window-workspace .os-main { margin-left: 0; height: 100%; overflow: auto; overscroll-behavior: contain; }
 .window-workspace .classic-desktop { height: 100%; min-height: 0; isolation: auto; }
+.window-workspace .desktop-topbar { justify-content: flex-end; }
 .compact-reservation { grid-row: 2; min-height: 0; }
 .workspace-windows {
   position: absolute;

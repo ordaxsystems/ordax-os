@@ -552,3 +552,10 @@ Owner: OS Surface. Requested size refinement reduces the edge button to 24 by
 32 pixels and its chevron to 16 pixels, retaining the shared contrasting surface
 and Home-row alignment. No behavior or contract changes. No build, npm or tests
 executed under the standing user restriction.
+
+### Single desktop brand in sidebar — 2026-10-11
+
+Owner: OS Surface. Removed the duplicated Brand from the desktop header, keeping
+the shared sidebar as its sole brand location. Existing theme/profile actions
+remain right aligned; app and window behavior are unchanged. No build, npm or
+tests executed under the standing user restriction.
