@@ -170,4 +170,15 @@ test("machine-readable CLI output contains every component and domain", () => {
   assert.equal(report.compatibility.summary.total, report.inventory.summary.componentCount);
   assert.equal(report.compatibility.summary.declared, coreRuntimeCompatibility.length);
   assert.equal(report.compatibility.authority, "none");
+  assert.equal(report.consumerImpact.length, report.inventory.summary.componentCount);
+  const aiImpact = report.consumerImpact.find((entry) => entry.componentId === "local-ai-service");
+  assert.equal(aiImpact.authority, "none");
+  assert.equal(aiImpact.productionActivationAllowed, false);
+  assert.equal(aiImpact.summary.direct, 1);
+  assert.equal(aiImpact.summary.transitive, 1);
+  assert.deepEqual(
+    aiImpact.consumers.find((entry) => entry.id === "assistant").dependencyPath,
+    ["local-ai-service", "ordax-intelligence", "assistant"],
+  );
+  assert.equal(aiImpact.summary.missingDescriptors, 1);
 });
