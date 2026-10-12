@@ -49,6 +49,90 @@ if [ "$(/bin/busybox stat -c '%a' /proof/state/ordax-independent-marker)" != 600
     rescue persistence-permission
 fi
 echo ORDAX_INDEPENDENT_STATE_SECURITY=PASS
+# Exercise the kernel's official immutable-lower + persistent-ext4 OverlayFS
+# composition semantics without replacing the portable PID1/mount owner.
+mkdir -p /proof/state/overlay/upper /proof/state/overlay/work /proof/composed ||
+    rescue overlay-directories
+chmod 700 /proof/state/overlay /proof/state/overlay/upper /proof/state/overlay/work ||
+    rescue overlay-permissions
+mount -t overlay overlay -o lowerdir=/proof/base,upperdir=/proof/state/overlay/upper,workdir=/proof/state/overlay/work /proof/composed ||
+    rescue overlay-mount
+grep -q 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL' /proof/composed/etc/ordax/independent-base ||
+    rescue overlay-lower
+if [ -e /proof/composed/ordax-overlay-proof ]; then
+    grep -q '^DURABLEif /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/network/bring-up; then
+    # iproute2 is diagnostic only; bootstrap/network/bring-up owns DHCP.
+    if ! ip -4 addr show dev eth0 | grep -q "inet "; then rescue iproute2-address; fi
+    echo ORDAX_INDEPENDENT_NETWORK=DHCP
+    echo ORDAX_INDEPENDENT_IPROUTE2=PASS
+    ip -4 route show default | grep -q '^default via ' || rescue gateway
+    [ -s /etc/resolv.conf ] || rescue dns-lease
+    grep -q '^nameserver ' /etc/resolv.conf || rescue dns-lease
+    echo ORDAX_INDEPENDENT_NETWORK_ROUTE_DNS_CONFIG=PASS
+    # Query QEMU's actual slirp resolver, not just a nameserver line on disk.
+    /bin/busybox timeout -k 1 10 /bin/busybox nslookup example.com >/run/ordax-dns-query.log 2>&1 ||
+        rescue dns-resolution
+    grep -q '^Address' /run/ordax-dns-query.log || rescue dns-answer
+    echo ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS
+else
+    rescue dhcp
+fi
+# Run the exact official Guardian and Supervisor scripts as disposable children.
+# The proof image deliberately has NO authenticated Surface release; they must
+# reject its absence, restart within the crash budget, and clean up without
+# pretending this is a successful product/graphical boot.
+GUARDIAN=/usr/lib/ordax-phase3-proof/system/entrypoint
+[ -x "$GUARDIAN" ] || rescue guardian-absent
+[ -x /usr/lib/ordax-phase3-proof/system/supervisor ] || rescue supervisor-absent
+if ORDAX_DISTRIBUTION_PROFILE=stable-mvp ORDAX_PRODUCT_MODE=usb \
+    ORDAX_STABLE_LAYOUT=portable-v2 ORDAX_SOURCE_SHA=0000000000000000000000000000000000000000 \
+    "$GUARDIAN" >/run/ordax-guardian-proof.log 2>&1; then
+    rescue guardian-accepted-unverified-surface
+fi
+[ -f /run/ordax-update/guardian.log ] || rescue guardian-log
+grep -q 'supervisor exceeded crash budget' /run/ordax-update/guardian.log ||
+    rescue guardian-crash-budget
+grep -q 'surface entrypoint is missing' /run/ordax-update/guardian.log ||
+    rescue supervisor-unverified-surface
+starts=$(grep -c 'started supervisor pid' /run/ordax-update/guardian.log)
+[ "$starts" -ge 3 ] || rescue guardian-restart-count
+[ ! -e /run/ordax-update/guardian.pid ] || rescue guardian-pid-leaked
+[ ! -e /run/ordax-update/supervisor.pid ] || rescue supervisor-pid-leaked
+[ "$(/bin/busybox stat -c '%a' /run/ordax-update)" = 700 ] ||
+    rescue guardian-run-mode
+[ "$(/bin/busybox stat -c '%a' /run/ordax-update/base-boot-id)" = 600 ] ||
+    rescue guardian-boot-id-mode
+echo ORDAX_INDEPENDENT_GUARDIAN_RESTART_FAIL_CLOSED=PASS
+# Exercise TERM cleanup on the original Guardian, not a test replacement.
+ORDAX_DISTRIBUTION_PROFILE=stable-mvp ORDAX_PRODUCT_MODE=usb \
+    ORDAX_STABLE_LAYOUT=portable-v2 ORDAX_SOURCE_SHA=0000000000000000000000000000000000000000 \
+    "$GUARDIAN" >/run/ordax-guardian-stop.log 2>&1 &
+guardian_pid=$!
+sleep 1
+kill -TERM "$guardian_pid" 2>/dev/null || rescue guardian-exited-before-term
+wait "$guardian_pid" 2>/dev/null || true
+[ ! -e /run/ordax-update/guardian.pid ] || rescue guardian-term-pid-leaked
+[ ! -e /run/ordax-update/supervisor.pid ] || rescue supervisor-term-pid-leaked
+echo ORDAX_INDEPENDENT_GUARDIAN_TERMINATION=PASS
+echo ORDAX_INDEPENDENT_BOOT=PASS
+umount /proof/state || rescue state-unmount
+umount /proof/base || rescue base-unmount
+sync
+poweroff -f
+sleep 3
+exit 1
+ /proof/composed/ordax-overlay-proof || rescue overlay-persistence
+    echo ORDAX_INDEPENDENT_OVERLAY_STATE=RETAINED
+else
+    (umask 077; echo DURABLE > /proof/composed/ordax-overlay-proof) ||
+        rescue overlay-write
+    echo ORDAX_INDEPENDENT_OVERLAY_STATE=CREATED
+fi
+[ "$(/bin/busybox stat -c '%a' /proof/composed/ordax-overlay-proof)" = 600 ] ||
+    rescue overlay-security
+[ ! -e /proof/base/ordax-overlay-proof ] || rescue overlay-lower-writable
+umount /proof/composed || rescue overlay-unmount
+echo ORDAX_INDEPENDENT_OVERLAY=PASS
 if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/network/bring-up; then
     # iproute2 is diagnostic only; bootstrap/network/bring-up owns DHCP.
     if ! ip -4 addr show dev eth0 | grep -q "inet "; then rescue iproute2-address; fi
