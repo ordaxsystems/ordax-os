@@ -470,6 +470,20 @@ func mutateActivationState(root, componentID string, mutate func(activationState
 }
 
 func armPendingState(slot, trustPath, root string) (activationState, error) {
+	return armPendingStateAtRevision(slot, trustPath, root, nil)
+}
+
+// The expected revision is optional for existing local development callers.
+// Native activation orchestration can pass its observed revision, including
+// revision zero for a first installation. This does not approve production
+// activation: the semantic compatibility gate is still required.
+func armPendingStateAtRevision(
+	slot, trustPath, root string,
+	expectedRevision *int64,
+) (activationState, error) {
+	if expectedRevision != nil && *expectedRevision < 0 {
+		return activationState{}, errors.New("runtime component arm expected revision must be non-negative")
+	}
 	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
 	if err != nil {
 		return activationState{}, err
@@ -495,17 +509,55 @@ func armPendingState(slot, trustPath, root string) (activationState, error) {
 	}
 
 	return mutateActivationState(root, release.Component.ID, func(state activationState) (activationState, error) {
+		if expectedRevision != nil && state.Revision != *expectedRevision {
+			return activationState{}, errors.New("runtime component arm revision is stale")
+		}
 		if sameSlotIdentity(state.Current, &identity) {
 			return activationState{}, errors.New("runtime component candidate already matches current slot")
 		}
 		if sameSlotIdentity(state.Rejected, &identity) {
 			return activationState{}, errors.New("runtime component candidate was previously rejected; a new signed identity is required")
 		}
+		// The first verification is for ID/path discovery only. Reverify the
+		// exact canonical signed slot *inside* the one activation writer lock.
+		// A changed/missing slot cannot be armed between discovery and commit.
+		lockedRelease, _, err := verifyIdentitySlot(root, release.Component.ID, identity, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if lockedRelease.SourceCommit != release.SourceCommit ||
+			lockedRelease.Component.ID != release.Component.ID ||
+			lockedRelease.Component.Version != release.Component.Version {
+			return activationState{}, errors.New("runtime component candidate changed before locked activation")
+		}
+		// The legacy Go package regex is less strict than the canonical
+		// component-manifest SemVer contract. Even the first installation
+		// (without an active version to compare) must fail closed.
+		if _, err := parseRuntimeComponentVersion(identity.Version); err != nil {
+			return activationState{}, err
+		}
 		if state.Pending != nil {
 			if sameSlotIdentity(state.Pending, &identity) {
 				return state, nil
 			}
 			return activationState{}, errors.New("runtime component already has a different pending slot")
+		}
+		if state.Current != nil {
+			precedence, err := compareRuntimeComponentVersions(identity.Version, state.Current.Version)
+			if err != nil {
+				return activationState{}, err
+			}
+			if precedence <= 0 {
+				return activationState{}, errors.New("runtime component candidate must have a newer semantic version; use explicit rollback for older versions")
+			}
+			// No unsigned compatibility JSON or invented migration plan:
+			// read both signed release/2 state contracts inside the only
+			// activation writer lock, before recording pending.
+			if err := verifyArmPendingStateCompatibility(
+				root, release.Component.ID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
 		}
 		candidate := identity
 		state.Pending = &candidate
@@ -687,6 +739,12 @@ func rollbackCurrentStateAtRevision(
 				return activationState{}, err
 			}
 		}
+		// Signature alone cannot authorize a rollback that would strand
+		// migrated state. Enforce signed state readability under the same
+		// canonical activation writer lock, before changing current/previous.
+		if err := verifyRollbackStateReadable(root, componentID, identity, state.Previous, trustBytes); err != nil {
+			return activationState{}, err
+		}
 		rejected := identity
 		if state.Previous == nil {
 			state.Current = nil
@@ -789,13 +847,18 @@ func armPendingCommand(args []string) error {
 	slot := flags.String("slot", "", "verified runtime component slot")
 	trust := flags.String("trust", "", "runtime component public trust")
 	root := flags.String("root", defaultSlotRoot, "runtime component slot root")
+	revision := flags.Int64("expected-revision", -1, "optional exact observed activation revision, including zero")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *slot == "" || *trust == "" || flags.NArg() != 0 {
-		return errors.New("arm-pending requires --slot and --trust")
+	if *slot == "" || *trust == "" || *revision < -1 || flags.NArg() != 0 {
+		return errors.New("arm-pending requires --slot and --trust, and a non-negative --expected-revision when supplied")
 	}
-	state, err := armPendingState(*slot, *trust, *root)
+	var expectedRevision *int64
+	if *revision >= 0 {
+		expectedRevision = revision
+	}
+	state, err := armPendingStateAtRevision(*slot, *trust, *root, expectedRevision)
 	if err != nil {
 		return err
 	}

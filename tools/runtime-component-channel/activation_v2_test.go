@@ -56,6 +56,46 @@ func addActivationV2Candidate(
 	version string,
 	sourceCommit string,
 ) activationV2Candidate {
+	return addActivationV2CandidateWithState(t, fixture, version, sourceCommit, nil)
+}
+
+func addActivationV2CandidateWithState(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+) activationV2Candidate {
+	return addActivationV2CandidateWithContracts(
+		t, fixture, version, sourceCommit, state,
+		[]providedCompatibilityContract{{ID: "ordax.internet", Major: 1}},
+	)
+}
+
+// Contract alterations in these fixtures must be separately signed, not
+// injected into already verified JSON or the activation state.
+func addActivationV2CandidateWithContracts(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+) activationV2Candidate {
+	return addActivationV2CandidateWithFullContracts(
+		t, fixture, version, sourceCommit, state, provided, nil,
+	)
+}
+
+func addActivationV2CandidateWithFullContracts(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+	requires []requiredCompatibilityContract,
+) activationV2Candidate {
 	t.Helper()
 
 	runtimePath := "system/apps/internet/runtime.mjs"
@@ -121,16 +161,40 @@ func addActivationV2Candidate(
 		t.Fatal(err)
 	}
 
+	// Preserve canonical JSON key ordering for the *signed* compatibility
+	// sidecar; a Go struct would serialize its fields in declaration order.
+	var signedState any
+	if state != nil {
+		signedState = map[string]any{
+			"id":              state.ID,
+			"writeVersion":    state.WriteVersion,
+			"readableFrom":    state.ReadableFrom,
+			"readableThrough": state.ReadableThrough,
+		}
+	}
+	signedProvided := make([]any, 0, len(provided))
+	for _, contract := range provided {
+		signedProvided = append(signedProvided, map[string]any{
+			"id": contract.ID, "major": contract.Major,
+		})
+	}
+	signedRequirements := make([]any, 0, len(requires))
+	for _, contract := range requires {
+		signedRequirements = append(signedRequirements, map[string]any{
+			"id":       contract.ID,
+			"minMajor": contract.MinMajor,
+			"maxMajor": contract.MaxMajor,
+			"optional": contract.Optional,
+		})
+	}
 	compatibility := map[string]any{
 		"schema":           compatibilitySchemaV1,
 		"componentId":      "internet",
 		"componentVersion": version,
-		"provides": []any{
-			map[string]any{"id": "ordax.internet", "major": 1},
-		},
-		"requires":  []any{},
-		"state":     nil,
-		"authority": "none",
+		"provides":         signedProvided,
+		"requires":         signedRequirements,
+		"state":            signedState,
+		"authority":        "none",
 	}
 	compatibilityBytes, err := marshalJSON(compatibility)
 	if err != nil {
@@ -174,11 +238,11 @@ func addActivationV2Candidate(
 	if err != nil {
 		t.Fatal(err)
 	}
-	releasePath := filepath.Join(fixture.dir, "release-"+version+".json")
+	releasePath := filepath.Join(fixture.dir, "release-"+version+"-"+sourceCommit+".json")
 	if err := os.WriteFile(releasePath, releaseBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	envelopePath := filepath.Join(fixture.dir, "envelope-"+version+".json")
+	envelopePath := filepath.Join(fixture.dir, "envelope-"+version+"-"+sourceCommit+".json")
 	if _, err := signReleaseV2(
 		releasePath,
 		compatibilityPath,
