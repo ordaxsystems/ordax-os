@@ -1,7 +1,6 @@
 """Contract-only gates. Runtime/QEMU proof is exercised by its separate CI job."""
 import gzip
 import importlib.util
-import io
 import json
 from pathlib import Path
 import subprocess
@@ -19,7 +18,7 @@ class IndependentBaseTest(unittest.TestCase):
         result = subprocess.run(
             ["git", "ls-files", "--stage", "--", relative],
             capture_output=True, text=True, cwd=ROOT, check=True)
-        self.assertRegex(result.stdout, r"^100755 [0-9a-f]{40} 0\\t" + relative + r"\\n$")
+        self.assertRegex(result.stdout, r"^100755 [0-9a-f]{40} 0\t" + relative + r"\n$")
 
     def test_final_cpio_executable_mode_check_rejects_0644(self):
         module_spec = importlib.util.spec_from_file_location(
@@ -28,7 +27,7 @@ class IndependentBaseTest(unittest.TestCase):
         module_spec.loader.exec_module(module)
 
         def entry(name: str, mode: int, payload: bytes = b"") -> bytes:
-            raw_name = name.encode("utf-8") + b"\\0"
+            raw_name = name.encode("utf-8") + b"\0"
             fields = [1, mode, 0, 0, 1, 0, len(payload), 0, 0, 0, 0, len(raw_name), 0]
             header = b"070701" + b"".join(f"{n:08x}".encode("ascii") for n in fields)
             prefix = header + raw_name
@@ -39,7 +38,7 @@ class IndependentBaseTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             artifact = Path(d) / "rootfs.cpio.gz"
             for mode in (0o100755, 0o100644):
-                archive = entry("sbin/ordax-independent-probe-init", mode, b"#!/bin/sh\\n")
+                archive = entry("sbin/ordax-independent-probe-init", mode, b"#!/bin/sh\n")
                 artifact.write_bytes(gzip.compress(archive + trailer, mtime=0))
                 if mode == 0o100755:
                     module.verify_executable_mode(artifact, "cpio")
