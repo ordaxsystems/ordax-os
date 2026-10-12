@@ -559,3 +559,12 @@ Owner: OS Surface. Removed the duplicated Brand from the desktop header, keeping
 the shared sidebar as its sole brand location. Existing theme/profile actions
 remain right aligned; app and window behavior are unchanged. No build, npm or
 tests executed under the standing user restriction.
+
+### Desktop controls through sidebar — 2026-10-11
+
+Owner: OS Surface. Removed the desktop header profile and theme buttons.
+Theme switching remains in the existing Appearance settings, reached through
+the shared sidebar gear; no duplicate theme state/control was added. Removed
+the now-empty header and its workspace clearance. Acceptance: desktop has no
+duplicate account header; sidebar Settings still exposes the theme action.
+No build, npm or tests executed under the standing user restriction.

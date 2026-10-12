@@ -38,7 +38,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "f20a00bfc5c89f9efe6ee390cc3b919a43d54afb57243835a83e149ce5f90911",
+      "adaptedSha256": "ad459dc0bce3ca8c45673535240446f38b676899385372a7ce1fadb3e328dd56",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "131af0367e3c66dfa8d2920f2d84c14b6fba8ccd353b39e048fdd9edc4b73298",
+      "adaptedSha256": "6ae84b983e61db32c4f7692847e9e8d187b43a615ad43461e0691ccec1a7fe77",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -107,7 +107,8 @@
     "Logo-aligned edge chevron gains opaque theme surface, contrasting border, larger heavier icon and accent hover for visibility",
     "Neutral active window borders; automatic window focus does not paint an outline, keyboard focus remains visible; divider arrow aligned to Home using shared row geometry",
     "Home-aligned divider control reduced to 24 by 32 pixels with a 16-pixel chevron; shared contrast tokens retained",
-    "Desktop header duplicate Brand removed; shared sidebar remains the desktop brand owner and header actions remain right aligned"
+    "Desktop header duplicate Brand removed; shared sidebar remains the desktop brand owner and header actions remain right aligned",
+    "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero"
   ],
   "native_files": [
     {

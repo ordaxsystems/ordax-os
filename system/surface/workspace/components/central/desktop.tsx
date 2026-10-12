@@ -9,12 +9,11 @@ import type { DesktopAction, DesktopState } from './desktop-state';
 
 export type PresentationProps = { theme: 'light' | 'dark'; onTheme: () => void; onCentral: () => void };
 type Props = PresentationProps & { dispatch: Dispatch<DesktopAction> };
-export function Desktop({ theme, onTheme, onCentral, dispatch }: Props) {
+export function Desktop({ theme, onCentral, dispatch }: Props) {
 
   const open = (title: string) => dispatch({ type: 'open', title });
   return <main className="classic-desktop" aria-label="Área de trabalho clássica">
     <img src={theme === 'dark' ? nightWallpaper : dayWallpaper} alt="Paisagem da área de trabalho" className="desktop-wallpaper" width={1920} height={768}/>
-    <header className="desktop-topbar"><div className="desktop-top-actions"><Button variant="ghost" size="icon" aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'} title="Alternar tema" onClick={onTheme}>{theme === 'light' ? <Sun/> : <Moon/>}</Button><Button variant="ghost" size="icon" aria-label="Perfil de João" onClick={() => open('Espaços')}><Avatar/></Button></div></header>
     <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">{[{ name: 'Central', icon: LayoutGrid, tone: 'lime' as const }, ...shortcuts, { name: 'Aura', icon: Sparkles, tone: 'lime' as const }].map(item => <Button variant="ghost" className="desktop-shortcut" key={item.name} onClick={() => item.name === 'Central' ? onCentral() : open(item.name)}><AppIcon icon={item.icon} tone={item.tone}/><span>{item.name}</span></Button>)}</section>
     <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Do seu jeito.</span><small>OrdaX OS Web</small></div>
   </main>;
