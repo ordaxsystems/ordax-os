@@ -90,10 +90,22 @@ try {
     async function compactAction(title,label,menuTitle){
       const selector='[aria-label='+JSON.stringify(label)+']';
       const visible=await evaluate('[...document.querySelectorAll('+JSON.stringify(selector)+')].some(node=>node.getClientRects().length>0)');
+      const clickedSelector=visible?selector:'[aria-label='+JSON.stringify('Mais ações de '+title)+']';
+      const hit=await evaluate("(()=>{const n=[...document.querySelectorAll("+JSON.stringify(clickedSelector)+")].find(x=>x.getClientRects().length);if(!n)return {missing:true};const r=n.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;const target=document.elementFromPoint(x,y);return {label:n.getAttribute('aria-label'),box:r.toJSON(),reachable:n===target||n.contains(target),hitTag:target?.tagName,hitAria:target?.getAttribute('aria-label'),hitClass:target?.getAttribute('class'),mode:document.querySelector('.window-workspace')?.dataset.compact,viewport:[innerWidth,innerHeight]}})()");
+      if(!hit.reachable) throw Error('Compact action is obstructed: '+JSON.stringify(hit));
       if(visible) await click(selector);
       else {
-        await click('[aria-label='+JSON.stringify('Mais ações de '+title)+']');
+        await click(clickedSelector);
         await clickByText('[role="menuitem"]',menuTitle);
+      }
+      if(menuTitle==='Recolher painel'||menuTitle==='Expandir painel'){
+        const expected=menuTitle==='Recolher painel'?'collapsed':'expanded';
+        try {
+          await until("document.querySelector('.window-workspace').dataset.compact==="+JSON.stringify(expected));
+        } catch(error) {
+          const details=await evaluate("(()=>({compact:document.querySelector('.window-workspace')?.dataset.compact,trigger:[...document.querySelectorAll('[aria-label]')].filter(n=>n.getAttribute('aria-label')?.startsWith('Mais ações de ')).map(n=>({label:n.getAttribute('aria-label'),open:n.getAttribute('data-state'),box:n.getBoundingClientRect().toJSON()})),visibleControls:[...document.querySelectorAll('.workspace-window[data-mode=\"compact\"] button')].filter(n=>n.getClientRects().length).map(n=>({label:n.getAttribute('aria-label'),box:n.getBoundingClientRect().toJSON()})),focus:document.activeElement?.outerHTML?.slice(0,240),viewport:[innerWidth,innerHeight]}))()");
+          throw Error('Compact action did not reach '+expected+': '+JSON.stringify({hit,details}),{cause:error});
+        }
       }
     }
     async function openSidebarDestination(title) {
