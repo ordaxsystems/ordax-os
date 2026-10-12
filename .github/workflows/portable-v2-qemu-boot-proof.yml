@@ -99,6 +99,14 @@ on:
       - 'tests/test_portable_v4_ai_handoff_contract.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      base_source:
+        type: string
+        description: 'stable (default) or isolated independent Buildroot candidate'
+        required: false
+        default: stable
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
@@ -211,22 +219,49 @@ jobs:
           grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
           grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
 
-      - name: Build and verify exact Stable Base
+      - name: Build and verify exact Stable Base or experimental independent candidate
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-            python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-              --out-dir "$work/stable-base" \
-              --cache-dir "$work/stable-base-cache" \
-              > "$work/metadata/stable-base-build.json"
-          sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-          python bootstrap/stable-base/build.py verify \
-            --out-dir "$work/stable-base" \
-            > "$work/metadata/stable-base-verify.json"
+          case "$ORDAX_BASE_PROOF_SOURCE" in
+            stable)
+              sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
+                python bootstrap/stable-base/build.py build \
+                  --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
+                  --out-dir "$work/stable-base" \
+                  --cache-dir "$work/stable-base-cache" \
+                  > "$work/metadata/stable-base-build.json"
+              sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
+              python bootstrap/stable-base/build.py verify \
+                --out-dir "$work/stable-base" \
+                > "$work/metadata/stable-base-verify.json"
+              ;;
+            independent)
+              # Disposable CI adapter; the current Stable owner is never mutated.
+              sudo apt-get install -y --no-install-recommends \
+                gawk cpio unzip rsync file wget patch
+              python3 bootstrap/independent-base/build.py build \
+                --out "$work/independent-base" \
+                --cache "$work/independent-base-cache" --jobs 4 \
+                > "$work/metadata/independent-base-build.json"
+              python3 bootstrap/independent-base/build.py verify \
+                --out "$work/independent-base" \
+                > "$work/metadata/independent-base-verify.json"
+              mkdir -p "$work/stable-base"
+              cp -- "$work/independent-base/independent-base.erofs" \
+                "$work/stable-base/stable-base.erofs"
+              test "$(sha256sum "$work/stable-base/stable-base.erofs" | awk '{print $1}')" = \
+                "$(sha256sum "$work/independent-base/independent-base.erofs" | awk '{print $1}')"
+              echo 'ORDAX_INDEPENDENT_OFFICIAL_BOOT_SOURCE=BUILDROOT_VERIFIED'
+              ;;
+            *)
+              echo "unsupported portable base proof source" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Build and verify exact offline Surface runtime
         env:
