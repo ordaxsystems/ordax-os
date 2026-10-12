@@ -67,7 +67,11 @@
     "signing_key_is_binding_source": false,
     "authorized_key_rotation_preserves_publisher_binding": true,
     "trusted_composition_receives_opaque_bound_endpoint": true,
-    "port_injection_to_first_party_component_context": true
+    "port_injection_to_first_party_component_context": true,
+    "verified_receipt_maintenance_admission_drain": true,
+    "admitted_requests_drained_across_receipt_rotation": true,
+    "old_capability_revoked_before_checkpoint": true,
+    "maintenance_requires_explicit_trusted_receipt_remint_afterward": true
   },
   "security": {
     "publisher_self_claim_accepted": false,
@@ -123,6 +127,8 @@
     "maintenance_scope_rechecks_revision_and_active_and_pinned_blob_integrity": true,
     "maintenance_scope_offers_owner_checkpoint_restore_retire": true,
     "maintenance_scope_is_update_authority": false,
-    "maintenance_scope_quiesces_external_side_effects": false
+    "maintenance_scope_quiesces_external_side_effects": false,
+    "native_host_composes_verified_receipt_drain_with_partition_flock": true,
+    "host_maintenance_verifies_signed_release_and_quiesces_app_process": false
   }
 }
