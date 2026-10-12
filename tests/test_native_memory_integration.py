@@ -58,7 +58,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertNotIn("memoryReview,\n      intelligence", composition)
         self.assertIn("const selectedSpaceIntelligence = memory === null", composition)
         self.assertIn("intelligence: selectedSpaceIntelligence", composition)
-        self.assertIn("{ mutationPort: memoryMutations }", composition)
+        self.assertNotIn("assistantMemoryCapture", composition)
         self.assertIn("recoverProtectedAccountMemory", composition)
         self.assertIn("refreshAuthorization: true", composition)
         self.assertIn("unsubscribeAccountMemoryRecovery()", composition)
