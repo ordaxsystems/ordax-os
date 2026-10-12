@@ -131,6 +131,17 @@ func addActivationV2CandidateWithState(
 		t.Fatal(err)
 	}
 
+	// Preserve canonical JSON key ordering for the *signed* compatibility
+	// sidecar; a Go struct would serialize its fields in declaration order.
+	var signedState any
+	if state != nil {
+		signedState = map[string]any{
+			"id": state.ID,
+			"writeVersion": state.WriteVersion,
+			"readableFrom": state.ReadableFrom,
+			"readableThrough": state.ReadableThrough,
+		}
+	}
 	compatibility := map[string]any{
 		"schema":           compatibilitySchemaV1,
 		"componentId":      "internet",
@@ -139,7 +150,7 @@ func addActivationV2CandidateWithState(
 			map[string]any{"id": "ordax.internet", "major": 1},
 		},
 		"requires":  []any{},
-		"state":     state,
+		"state":     signedState,
 		"authority": "none",
 	}
 	compatibilityBytes, err := marshalJSON(compatibility)
