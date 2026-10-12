@@ -121,6 +121,40 @@ usar **depois de** comprovar a identidade do release e a quiescência real
 do aplicativo e **enquanto** mantém a transação canônica do atualizador.
 Não liberar os gates de upgrade/rollback stateful só por este escopo.
 
+## Integração com o host Native e permissões antigas
+
+O host `NativeAppDataHostServer`, que já vincula permissões a comprovantes
+de instalação verificáveis, disponibiliza internamente o escopo
+`hold_verified_app_data_maintenance(receipt_sha256, source_release,
+expected_revision)`. Ele **não é uma rota HTTP**. A ordem é canônica:
+
+1. Reabrir o comprovante de instalação pelo digest confiável que já estava
+   vinculado no host; recusar comprovante diferente, ausente ou corrompido.
+2. Revogar imediatamente a permissão opaca da versão antiga e impedir
+   emissão de outra permissão para a mesma partição durante a manutenção.
+3. **Aguardar o fim de todas as requisições já admitidas** dessa identidade,
+   inclusive as que usaram uma permissão anterior à rotação do comprovante.
+4. Só então adquirir o mesmo `flock(LOCK_EX)` do armazenamento Native,
+   verificar CAS e integridade, e permitir checkpoint/restore/retire no escopo.
+5. Liberar recursos ao sair, **sem reemitir** a permissão antiga. O owner
+   confiável de instalação deverá validar a versão efetivamente instalada
+   antes de emitir uma nova permissão pelo mecanismo existente.
+
+Novas requisições HTTP com a permissão antiga recebem 404, sem entrar
+no armazenamento. Os testes exercitam requisições simultâneas em threads,
+a rotação de comprovantes, a drenagem e o **servidor HTTP real** antes e
+depois da recuperação. Essa implementação mantém uma única autoridade
+de armazenamento, um registro **efêmero** de permissões do host e o mesmo
+arquivo de lock existente — não há estado de instalação paralelo.
+
+**Fronteira ainda pendente:** a drenagem deste registro abrange as permissões
+desse host Native, não encerra processos executáveis ou outros hosts por
+si só. O `source_release` fornecido para correlação ainda **não** é
+uma comprovação de assinatura vinculada ao slot e ao publisher. Supervisor
+e writer Go devem garantir quiescência global e verificação Ed25519
+sob transação canônica. Não há novo grant de update, tampouco rollback
+stateful permitido por esta função.
+
 ## Transport
 
 `native_app_data_endpoint.py` defines the typed JSON boundary, but it deliberately accepts the app identity as a trusted host argument rather than from JSON. Request bodies contain only `action`, keys, bytes and revisions.
