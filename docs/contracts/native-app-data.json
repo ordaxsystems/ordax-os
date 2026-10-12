@@ -88,5 +88,21 @@
     "notes_uses_app_data": true,
     "legacy_notes_seed_required": false,
     "legacy_notes_payload_migrated": false
+  },
+  "owner_recovery": {
+    "checkpoint_schema": "ordax.native-app-data-checkpoint/1",
+    "checkpoint_location": "private-same-partition-checkpoint.json",
+    "checkpoint_is_authoritative_current_manifest": false,
+    "checkpoint_binds_identity_source_release_and_exact_manifest": true,
+    "checkpoint_max_active_per_partition": 1,
+    "checkpoint_blobs_referenced_by_garbage_collector": true,
+    "verified_blob_readback_required_before_checkpoint_and_restore": true,
+    "restore_requires_owner_only_cas_and_monotonic_revision": true,
+    "checkpoint_retirement_requires_owner_only_cas": true,
+    "app_facing_checkpoint_actions_available": false,
+    "pinned_trust_or_release_activation_authorized_by_checkpoint": false,
+    "activation_writer_integration_complete": false,
+    "automatic_rewind_on_app_rollback": false,
+    "user_data_backup_completed": false
   }
 }
