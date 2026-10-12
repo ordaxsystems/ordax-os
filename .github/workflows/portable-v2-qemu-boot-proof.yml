@@ -639,6 +639,36 @@ jobs:
           print('PORTABLE_V4_PHYSICAL_BOOT_PROVEN=NO')
           PY
 
+      - name: Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU
+        if: ${{ inputs.base_source == 'independent' }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          previous="$(cat "$work/previous-commit.txt")"
+          mkdir -p "$work/qemu-signed-fault-proof"
+          sudo -E python3 bootstrap/independent-base/signed_release_failure_qemu.py \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
+            --initramfs "$work/initramfs/initramfs.cpio.gz" \
+            --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
+            --capsule "$work/capsule/bootstrap.erofs" \
+            --stable-base "$work/stable-base/stable-base.erofs" \
+            --state-image "$work/persistent-state-one-shot.img" \
+            --portable-root "$work/portable/.ordax" \
+            --trust "$work/release-trust.json" \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --previous-commit "$previous" \
+            --out "$work/qemu-signed-fault-proof/proof.json"
+          sudo chown -R "$(id -u):$(id -g)" "$work/qemu-signed-fault-proof"
+          python3 - "$work/qemu-signed-fault-proof/proof.json" <<'PY'
+          import json, pathlib, sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert proof['status'] == 'pass'
+          assert all(proof['checks'].values())
+          assert proof['physical_device_touched'] is False
+          assert proof['physical_promotion_authorized'] is False
+          print('ORDAX_INDEPENDENT_SIGNED_RELEASE_FAILURE_QEMU=PASS')
+          PY
+
       - name: Keep cold-health promotion as physical Stable/MVP gate
         run: |
           set -euo pipefail
@@ -715,6 +745,7 @@ jobs:
           path: |
             ${{ runner.temp }}/portable-v2-qemu/qemu-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/qemu-one-shot-proof/proof.json
+            ${{ runner.temp }}/portable-v2-qemu/qemu-signed-fault-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/qemu-cold-health-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/uefi-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/
