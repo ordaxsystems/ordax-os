@@ -19,6 +19,24 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertNotIn("bootstrap/independent-base/build.py",
                          (ROOT / "bootstrap/stable-base/source.json").read_text())
 
+    def test_neutral_erofs_owner_and_legacy_layout_separation(self):
+        spec = json.loads((BASE / "source.json").read_text())
+        self.assertEqual(spec["erofs_format_contract"],
+                         "docs/contracts/portable-boot-handoff.json")
+        self.assertEqual(spec["stable_base_layout_compatibility_contract"],
+                         "bootstrap/stable-base/source.json")
+        self.assertNotIn("stable_base_format_contract", spec)
+
+    def test_qemu_never_attaches_a_physical_target_or_mutates_base(self):
+        proof = (BASE / "qemu_proof.py").read_text()
+        self.assertIn("snapshot=on", proof)
+        self.assertIn("base_before = digest(base)", proof)
+        self.assertIn('if digest(base) != base_before:', proof)
+        self.assertIn('str(path).startswith("/dev/")', proof)
+        init = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text()
+        self.assertIn(' /proof/base erofs ro,', init)
+        self.assertIn("rescue erofs-write-accepted", init)
+
     def test_canonical_input_contracts(self):
         result = subprocess.run(
             [sys.executable, str(BASE / "build.py"), "check"],
