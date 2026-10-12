@@ -746,6 +746,7 @@ jobs:
             ${{ runner.temp }}/portable-v2-qemu/qemu-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/qemu-one-shot-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/qemu-signed-fault-proof/proof.json
+            ${{ runner.temp }}/portable-v2-qemu/qemu-signed-fault-proof/serial/*.log
             ${{ runner.temp }}/portable-v2-qemu/qemu-cold-health-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/uefi-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/
