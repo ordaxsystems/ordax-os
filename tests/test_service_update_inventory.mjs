@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
@@ -89,7 +90,7 @@ test("rejects duplicate paths, invalid paths and missing canonical owners", () =
 
 test("the executable audit runs against actual repo source", () => {
   const run = spawnSync(process.execPath, [
-    new URL("../tools/service-update-inventory.mjs", import.meta.url).pathname,
+    fileURLToPath(new URL("../tools/service-update-inventory.mjs", import.meta.url)),
     "--check",
   ], { encoding: "utf8", timeout: 20000 });
   assert.equal(run.status, 0, run.stderr);
