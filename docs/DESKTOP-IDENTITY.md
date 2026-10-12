@@ -440,3 +440,25 @@ maximized selector takes precedence over both desktop/mobile presentation rules.
 Normal restored and compact modes keep their separate layouts. Owner: OS Surface;
 no backend/state authority change. Existing browser-check source includes available
 area bounds; no build, npm or tests executed under the standing user restriction.
+
+## Central viewport layout without page scrolling — 2026-10-11
+
+User-requested Surface increment: Central/Home fits the actual available workspace
+container, including reduced height during compact split mode. A size container and
+CSS grid tracks replace the vertically scrolling presentation. No page transforms,
+whole-page scaling or second workspace state. Full layouts retain hero, shortcuts,
+summary panels and space/devices; narrower layouts select one of Projects/Apps/
+Activity panels with a shared local presentation selection. Height queries reduce
+summary item counts and, in short panes, prioritize Aura, shortcuts and More options.
+Hidden sections and add actions remain available through the existing launcher/
+windows or Central overflow menu. Aura modes use the same state through a select
+when chips cannot fit. App-window bodies retain their independent scrolling.
+
+Owner: OS Surface; CSS tokens, shared UI, demo fixtures and existing window reducer.
+No backend/grant changes. Risk: container-query sizing, zoom/keyboard viewport and
+access to hidden summaries. Acceptance: no Main scroll overflow at supported sizes,
+visible overflow entry above the dock, accessible full lists/actions, preserved
+theme/drafts and compact window behavior. Existing viewport-check source updated;
+no build, npm, typecheck or tests run under the user's standing restriction. Visual
+and automated viewport evidence remain pending; this source increment is not a
+production-readiness claim.

@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Central sem rolagem — 11/10/2026:** estrutura por container e viewport disponível, com seleção de painéis em larguras menores, resumos por altura e acesso ao restante em Mais opções; sem escala da página ou backend novo. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#central-viewport-layout-without-page-scrolling--2026-10-11).
+
 > **Controles e conta na sidebar — 11/10/2026:** Iniciar e troca por quatro quadrados na mesma linha; cartão inferior conforme imagem, com fixture única de plano/armazenamento e ações existentes. [Owner, limites e aceite](docs/DESKTOP-IDENTITY.md#sidebar-launcher-row-and-account-card--2026-10-11).
 
 > **Sidebar integral — 11/10/2026:** sidebar compartilhada até o rodapé, sem rolagem, com Iniciar/troca dentro dela; overflow em Mais, apps abertos no dock inferior. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#full-height-shared-sidebar--2026-10-11).

@@ -489,3 +489,150 @@
   .sidebar-home-row > button, .sidebar-home-row .sidebar-notifications { width: 24px; min-width: 24px; padding: 0; justify-content: center; }
 }
 @media (max-height: 240px) { .workspace-sidebar .sidebar-account { display: none; } }
+
+/* Central fits its actual workspace container, including compact split mode. */
+.central-presentation { container: central-viewport / size; }
+.window-workspace .central-presentation .os-main { overflow: hidden; padding: var(--home-padding,16px); max-width: none; min-height: 0; }
+:where(.central-presentation) .central-content { height: 100%; min-height: 0; display: grid; grid-template-rows: minmax(164px,1fr) 60px minmax(232px,1fr) 100px 28px; gap: 10px; }
+:where(.central-presentation) .mobile-header, :where(.central-presentation) .mobile-section-title, .home-panel-tabs { display: none; }
+:where(.central-presentation) .os-hero { height: auto; min-height: 0; overflow: hidden; }
+:where(.central-presentation) .hero-content { height: 100%; padding: 20px 28px; display: flex; flex-direction: column; justify-content: center; }
+:where(.central-presentation) .hero-heading { font-size: clamp(22px,2.4vw,34px); }
+:where(.central-presentation) .aura-search { width: 100%; flex-shrink: 0; margin-top: 12px; }
+:where(.central-presentation) .aura-modes { margin-top: 8px; }
+:where(.central-presentation) .quick-grid, :where(.central-presentation) .content-grid, :where(.central-presentation) .lower-grid { margin: 0; min-height: 0; }
+:where(.central-presentation) .quick-item { height: 100%; padding: 8px 12px; gap: 8px; }
+:where(.central-presentation) .content-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+:where(.central-presentation) .activity-panel { grid-column: auto; }
+:where(.central-presentation) .os-panel { min-height: 0; padding: 12px; border: 1px solid var(--border); background: var(--card); }
+:where(.central-presentation) .panel-heading { margin-bottom: 8px; }
+:where(.central-presentation) .project-row { height: 52px; grid-template-columns: 36px minmax(0,1fr) auto; }
+:where(.central-presentation) .project-thumb { width: 36px; height: 36px; }
+:where(.central-presentation) .favorite-tile { height: 76px; }
+:where(.central-presentation) .activity-list { grid-template-columns: 1fr; gap: 14px; }
+:where(.central-presentation) .lower-grid { grid-template-columns: 1fr 2fr; }
+:where(.central-presentation) .device-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+:where(.central-presentation) .add-device { display: none; }
+:where(.central-presentation) .home-footer { display: flex; align-items: center; justify-content: space-between; padding: 0; min-height: 0; }
+.home-overflow { height: 28px; padding: 0 8px; font-size: 11px; gap: 6px; }
+.home-overflow svg { width: 14px; height: 14px; }
+.home-panel-tabs { min-height: 0; gap: 4px; }
+.home-panel-tabs > button { min-width: 0; height: 28px; font-size: 11px; padding: 0 8px; flex: 1; }
+.home-panel-tabs > button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+@container central-viewport (max-height: 780px) {
+  .central-content { grid-template-rows: minmax(144px,1fr) 52px minmax(164px,1fr) 80px 28px; gap: 8px; }
+  .hero-content { padding: 12px 20px; }
+  .hero-date { display: none; }
+  .favorite-tile { height: 52px; gap: 3px; }
+  .project-list > :nth-child(n+3), .activity-list > :nth-child(n+4) { display: none; }
+  .device-status { display: none; }
+  .device-item { height: 36px; }
+  .space-switch { height: 36px; }
+}
+@container central-viewport (max-width: 1000px) {
+  .quick-caption, .device-status { display: none; }
+  .lower-grid { grid-template-columns: 1fr 1.5fr; }
+  .device-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .device-grid > :nth-child(n+3) { display: none; }
+}
+@container central-viewport (max-width: 640px) {
+  .central-content { grid-template-rows: 32px 164px 64px 28px minmax(184px,1fr) 28px; gap: 10px; }
+  .mobile-header { display: flex; justify-content: space-between; align-items: center; padding: 0; }
+  .mobile-header .brand-name, .mobile-header .brand-sub { display: none; }
+  .hero-content { padding: 8px 0; }
+  .hero-heading { font-size: 24px; }
+  .hero-date { display: none; }
+  .hero-subtitle { font-size: 11px; }
+  .quick-item { flex-direction: column; justify-content: center; padding: 4px; gap: 4px; }
+  .quick-text { flex: 0; }
+  .quick-title { font-size: 10px; text-align: center; }
+  .quick-item .app-icon { width: 26px; height: 26px; }
+  .quick-item > svg, .quick-caption, .lower-grid { display: none; }
+  .home-panel-tabs { display: flex; }
+  .content-grid { grid-template-columns: minmax(0,1fr); }
+  .content-grid[data-home-panel="projects"] > :not(.projects-panel), .content-grid[data-home-panel="favorites"] > :not(.favorites-panel), .content-grid[data-home-panel="activity"] > :not(.activity-panel) { display: none; }
+  .favorite-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .favorite-tile { height: 56px; }
+  .project-list > :nth-child(n+3) { display: none; }
+  .os-panel { padding: 10px; }
+}
+@container central-viewport (max-height: 620px) and (max-width: 640px) {
+  .central-content { grid-template-rows: 32px 108px 48px 28px minmax(152px,1fr) 28px; gap: 6px; }
+  .hero-subtitle, .aura-modes { display: none; }
+  .aura-search { margin-top: 8px; }
+  .quick-item .app-icon { width: 22px; height: 22px; }
+}
+@container central-viewport (max-height: 520px) {
+  .os-main { --home-padding: 8px; }
+  .central-content { grid-template-rows: 96px 44px minmax(104px,1fr) 28px; gap: 6px; }
+  .hero-content { padding: 8px; }
+  .hero-heading { font-size: 20px; }
+  .hero-subtitle, .hero-date, .aura-modes, .lower-grid { display: none; }
+  .project-list > :nth-child(n+2), .activity-list > :nth-child(n+2) { display: none; }
+  .favorite-grid > :nth-child(n+4) { display: none; }
+  .favorite-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .favorite-tile { height: 48px; }
+  .os-panel { padding: 8px; }
+}
+@container central-viewport (max-height: 520px) and (max-width: 640px) {
+  .central-content { grid-template-rows: 32px 96px 44px 28px minmax(104px,1fr) 28px; }
+}
+@container central-viewport (max-height: 360px) {
+  .central-content { grid-template-rows: minmax(80px,1fr) 48px 28px; gap: 6px; }
+  .content-grid, .home-panel-tabs, .mobile-header { display: none; }
+  .hero-content { padding: 6px; }
+  .hero-heading { font-size: 18px; line-height: 22px; margin: 0; }
+  .aura-search { height: 40px; margin-top: 4px; }
+}
+@container central-viewport (max-height: 220px) {
+  .central-content { grid-template-rows: minmax(48px,1fr) 28px; gap: 4px; }
+  .quick-grid, .hero-heading { display: none; }
+  .hero-content { padding: 4px; }
+  .aura-search { margin: 0; }
+}
+
+.home-mode-select { display: none; height: 28px; max-width: 40%; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--foreground); font-size: 11px; }
+:where(.central-presentation) .home-footer { gap: 4px; }
+@container central-viewport (max-height: 620px) and (max-width: 640px) {
+  .home-mode-select { display: block; }
+  .home-footer > span { display: none; }
+}
+@container central-viewport (max-height: 520px) {
+  .home-mode-select { display: block; }
+  .home-footer > span { display: none; }
+}
+@container central-viewport (max-height: 400px) and (max-width: 640px) {
+  .central-content { grid-template-rows: minmax(80px,1fr) 48px 28px; gap: 6px; }
+  .content-grid, .home-panel-tabs, .mobile-header { display: none; }
+  .hero-content { padding: 6px; }
+  .hero-heading { font-size: 18px; line-height: 22px; margin: 0; }
+  .aura-search { height: 40px; margin-top: 4px; }
+}
+@container central-viewport (max-height: 360px) {
+  .hero-tools { top: 2px; right: 6px; }
+  .hero-tools .hero-tool { width: 28px; height: 28px; }
+}
+@container central-viewport (max-height: 220px) and (max-width: 640px) {
+  .central-content { grid-template-rows: minmax(48px,1fr) 28px; gap: 4px; }
+  .quick-grid, .hero-heading { display: none; }
+  .hero-content { padding: 4px; }
+  .aura-search { margin: 0; }
+}
+
+@container central-viewport (max-width: 640px) {
+  .aura-modes { display: none; }
+  .home-mode-select { display: block; }
+  .home-footer > span { display: none; }
+}
+@container central-viewport (max-height: 520px) {
+  .quick-item { padding: 4px 8px; }
+  .quick-item .app-icon { width: 26px; height: 26px; }
+}
+@container central-viewport (max-height: 520px) and (max-width: 640px) {
+  .quick-item .app-icon { display: none; }
+}
+
+@container central-viewport (min-width: 641px) {
+  .hero-tools { display: flex !important; }
+  .hero-wallpaper, .os-hero::after { display: block !important; }
+}

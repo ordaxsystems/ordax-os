@@ -65,6 +65,8 @@ try {
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
       assert.equal(await evaluate("document.querySelector('.brand-sub').textContent.includes('DEMONSTRAÇÃO')"),true);
       assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
+      assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.scrollHeight<=main.clientHeight+1&&getComputedStyle(main).overflowY==='hidden';})()"),true,'Central fits the work area without page scrolling');
+      assert.equal(await evaluate("document.querySelector('.home-overflow').getBoundingClientRect().bottom<=document.querySelector('.workspace-navigation').getBoundingClientRect().top+1"),true,'Overflow actions stay inside the available viewport');
       assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
       await click('[aria-label="Ativar tema escuro"]');

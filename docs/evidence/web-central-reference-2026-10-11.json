@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "70a36ba7b8a0f5f3ef46e178eea462a0ac06179194da79b5b2ed165d802f1b46",
+      "adaptedSha256": "68b0ea63850f77d33dfcee5e1de774ec8b95824e292815a8b8b7b46cec33d401",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "fac6c0a6814d099d84bfc41f9cd8fdf6d8610ce2ca3d292df421badb01a50227",
+      "adaptedSha256": "18f4ed95fd3f63df555a3866928eecba80766b56a67d953c80e83f453f9e15a0",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -96,7 +96,8 @@
     "Notification icon placed alongside pinned Home in the same shared sidebar row",
     "Start removed; single four-square view switch replaces Minimize All at the bottom dock right edge",
     "Shared dock reduced to 40px; control height and workspace clearance derived from canonical CSS tokens",
-    "Maximized app uses the complete shared work-area track without outer margins or desktop header clearance"
+    "Maximized app uses the complete shared work-area track without outer margins or desktop header clearance",
+    "Central container-sized grid without page scrolling; responsive panel selection, bounded summaries and existing actions through overflow"
   ],
   "native_files": [
     {
