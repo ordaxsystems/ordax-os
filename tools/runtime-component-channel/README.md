@@ -205,6 +205,23 @@ activation state, but does **not** verify bundled consumers, externally
 modified filesystem state or a production-pinned trust anchor. The global
 provider/consumer graph and verified recovery remain release blockers.
 
+### Verificação Native do grafo na atualização para frente
+
+Para um upgrade **release/2 → release/2** com `current` já instalado, o
+writer `arm-pending` e a promoção `promote-state` consultam novamente todos
+os **consumidores Native ativos e assinados** sob o bloqueio de grafo
+canônico. A verificação usa a mesma função de continuidade de interfaces
+aplicada à desinstalação e ao rollback, sem segundo catálogo e sem aceitar
+um relatório de preflight como autorização. Um estado de outro componente
+corrompido, uma assinatura inválida ou um consumidor sem leitura confiável
+interrompe a operação **antes** de alterar a revisão ou o slot ativo.
+
+A prova inclui regressões de corrupção antes de armar e depois da saúde
+positiva, além de uma promoção legítima preservando um consumidor assinado.
+A cobertura **continua incompleta para serviços `bundled`, releases/1,
+primeira instalação sem `current`, confiança de produção e migração de dados**.
+Nenhuma dessas provas liga a publicação de atualizações individuais ao usuário.
+
 ### Signed state-local compatibility before pending activation
 
 When a `current` signed slot exists, the original `arm-pending` writer
