@@ -201,6 +201,22 @@ def prove(args: argparse.Namespace) -> dict:
             }[key]
             if qemu.sha256_file(path) != initial:
                 raise qemu.ProofError("fault injection modified canonical input: " + key)
+        # Save guest serial evidence beside the QEMU receipt; these bytes
+        # can be independently checked against the retained SHA-256 values.
+        serial_files = {
+            "invalid_candidate": "serial-invalid-candidate.log",
+            "persisted_fallback": "serial-persisted-fallback.log",
+            "all_invalid": "all-releases-invalid.serial.log",
+            "explicit_recovery": "explicit-read-only-recovery.serial.log",
+        }
+        serial_output = args.out.parent / "serial"
+        serial_output.mkdir(exist_ok=False)
+        for name, filename in serial_files.items():
+            original = work / filename
+            if not original.is_file() or original.stat().st_size > 2 * 1024 * 1024:
+                raise qemu.ProofError("guest serial evidence absent or oversized: " + filename)
+            shutil.copyfile(original, serial_output / filename)
+            result["serial_sha256"][name] = qemu.sha256_file(serial_output / filename)
         disk.unlink()
         disk = None
         result["checks"]["disposable_guest_disk_destroyed"] = True
