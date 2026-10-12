@@ -56,6 +56,9 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
             "CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y",
             "CONFIG_DATE=y", "CONFIG_MV=y", "CONFIG_READLINK=y",
             "CONFIG_SHA256SUM=y", "CONFIG_OD=y", "CONFIG_TR=y", "CONFIG_SLEEP=y",
+            "CONFIG_SED=y", "CONFIG_HEAD=y", "CONFIG_CUT=y",
+            "CONFIG_RM=y", "CONFIG_TOUCH=y", "CONFIG_NSLOOKUP=y",
+            "CONFIG_WGET=y", "CONFIG_FEATURE_WGET_TIMEOUT=y",
         ]
         configured = [line for line in fragment.read_text().splitlines()
                       if line.startswith("CONFIG_")]
