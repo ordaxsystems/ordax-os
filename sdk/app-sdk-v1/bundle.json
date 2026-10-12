@@ -48,13 +48,6 @@
     },
     {
       "major": 1,
-      "name": "application-action-proposal",
-      "schema": "ordax.application-action-proposal/1",
-      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
-      "source_path": "system/contracts/application-action-capability.mjs"
-    },
-    {
-      "major": 1,
       "name": "application-action-provider",
       "schema": "ordax.application-action-provider/1",
       "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
@@ -73,6 +66,13 @@
       "schema": "ordax.application-action-provider-result/1",
       "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
       "source_path": "system/contracts/application-action-provider.mjs"
+    },
+    {
+      "major": 1,
+      "name": "application-action-proposal",
+      "schema": "ordax.application-action-proposal/1",
+      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
+      "source_path": "system/contracts/application-action-capability.mjs"
     },
     {
       "major": 1,
@@ -227,6 +227,13 @@
       "schema": "ordax.file-space/11",
       "source_git_blob": "e775c22080e40dc3fb8ab8d2e2f00ccf312825d0",
       "source_path": "system/contracts/file-space.mjs"
+    },
+    {
+      "major": 1,
+      "name": "recent-files",
+      "schema": "ordax.recent-files/1",
+      "source_git_blob": "06372c634f7fbb5e8d84bdea9e1c5a92761d37c0",
+      "source_path": "system/contracts/recent-files.mjs"
     },
     {
       "major": 1,
@@ -409,13 +416,6 @@
       "schema": "ordax.project-web-references/1",
       "source_git_blob": "496f47fc06b1ffc44a3964927425922bbf36bfc1",
       "source_path": "system/contracts/project-web-references.mjs"
-    },
-    {
-      "major": 1,
-      "name": "recent-files",
-      "schema": "ordax.recent-files/1",
-      "source_git_blob": "06372c634f7fbb5e8d84bdea9e1c5a92761d37c0",
-      "source_path": "system/contracts/recent-files.mjs"
     },
     {
       "major": 1,
