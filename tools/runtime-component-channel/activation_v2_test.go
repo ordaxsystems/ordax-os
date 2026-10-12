@@ -195,11 +195,11 @@ func addActivationV2CandidateWithState(
 	if err != nil {
 		t.Fatal(err)
 	}
-	releasePath := filepath.Join(fixture.dir, "release-"+version+".json")
+	releasePath := filepath.Join(fixture.dir, "release-"+version+"-"+sourceCommit+".json")
 	if err := os.WriteFile(releasePath, releaseBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	envelopePath := filepath.Join(fixture.dir, "envelope-"+version+".json")
+	envelopePath := filepath.Join(fixture.dir, "envelope-"+version+"-"+sourceCommit+".json")
 	if _, err := signReleaseV2(
 		releasePath,
 		compatibilityPath,
