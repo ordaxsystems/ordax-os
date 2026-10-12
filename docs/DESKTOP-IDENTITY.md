@@ -577,3 +577,12 @@ grid tracks no longer reserve space for that header. Sidebar account/bell/gear
 remain shared entry points; Appearance uses existing theme state. Existing
 browser-check source follows Settings but was not executed.
 No build, npm or tests run under the standing user restriction.
+
+### Responsive hero landscape — 2026-10-11
+
+Owner: OS Surface. Removed the older viewport rule that hid hero wallpaper
+and overlay below 760px. A single hero image selects the existing day/night
+asset from shared theme state; removed conflicting display overrides.
+Central retains clipped rounded hero and theme foreground at narrow widths.
+Acceptance: landscape remains visible in both themes and responsive layouts.
+No build, npm or tests executed under the standing user restriction.

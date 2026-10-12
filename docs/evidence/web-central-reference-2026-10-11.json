@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "070264a793702b7d9c27eda4ae31fab56fe29c2d69dfe8b1ce1795935de03145",
+      "adaptedSha256": "5d88542ecdfd014c20e75f0d83c94da1ed7269c8ab5e847c675008613f9ad4ee",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "64643aecd571d1da42b2f4afe55f23f6b09699eed5dfbe5dea08fb4b8db65d38",
+      "adaptedSha256": "b27407eab073e744e78afceb82ca0898d4ed0489d24360f9abeeecd77307865b",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -109,7 +109,8 @@
     "Home-aligned divider control reduced to 24 by 32 pixels with a 16-pixel chevron; shared contrast tokens retained",
     "Desktop header duplicate Brand removed; shared sidebar remains the desktop brand owner and header actions remain right aligned",
     "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero",
-    "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track"
+    "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track",
+    "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding"
   ],
   "native_files": [
     {
