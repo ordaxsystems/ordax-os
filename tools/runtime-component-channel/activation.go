@@ -15,6 +15,7 @@ const (
 	activationStateSchema   = "prototype-ordax.runtime-component-activation-state/1"
 	activationStateName     = "activation-state.json"
 	activationLockName      = ".activation-state-lock"
+	activationGraphLockName = ".activation-graph-lock"
 	maxActivationStateBytes = 64 << 10
 )
 
@@ -252,6 +253,29 @@ func writeActivationState(root string, state activationState) error {
 	return syncDirectory(componentRoot)
 }
 
+// All writers to the canonical activation-state files acquire this graph lock
+// before their existing per-component lock. A read-only active-catalog scan
+// takes the same lock, so native writers cannot move another component's
+// current/pending identity halfway through a graph inspection.
+// The lock is synchronization metadata, NOT an additional installed-state
+// registry, persisted revision, proof of bundled coverage, or activation grant.
+func acquireActivationGraphLock(root string) (func(), error) {
+	rootPath, err := ensureSecureDirectory(root, 0o755)
+	if err != nil {
+		return nil, err
+	}
+	lockPath := filepath.Join(rootPath, activationGraphLockName)
+	if err := os.Mkdir(lockPath, 0o700); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, errors.New("runtime component activation graph is already locked; stale locks require explicit recovery")
+		}
+		return nil, err
+	}
+	return func() {
+		_ = os.Remove(lockPath)
+	}, nil
+}
+
 func acquireActivationLock(root, componentID string) (func(), error) {
 	componentRoot, err := componentActivationRoot(root, componentID, true)
 	if err != nil {
@@ -447,6 +471,14 @@ func readVerifiedRuntimeFile(root, componentID, trustPath, target, requestedPath
 }
 
 func mutateActivationState(root, componentID string, mutate func(activationState) (activationState, error)) (activationState, error) {
+	// One global ordering point for all installed-slot mutations:
+	// graph first, then component. This prevents write/read skew across
+	// components without replacing the existing component-local writer.
+	releaseGraph, err := acquireActivationGraphLock(root)
+	if err != nil {
+		return activationState{}, err
+	}
+	defer releaseGraph()
 	releaseLock, err := acquireActivationLock(root, componentID)
 	if err != nil {
 		return activationState{}, err
