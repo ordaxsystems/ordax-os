@@ -923,9 +923,9 @@ introduced. Existing source graph and CI paths discover the new catalog.
 
 The user prefers grouped main updates to reduce repeated Vercel builds. All
 validation here was local; no Vercel deployment was invoked. The existing
-public-site ignored-build decision was inspected, not changed. Local work awaits
-commit/push after an automatic approval review usage-limit failure; nothing was
-published or bypassed. Authenticated gateway E2E and production gates remain
+public-site ignored-build decision was inspected, not changed. The earlier automatic approval review usage-limit failure expired; local commit
+and reconciliation with main then succeeded. This round uses one grouped source
+push, without bypassing release or execution gates. Authenticated gateway E2E and production gates remain
 pending. See the same Central provenance evidence above.
 
 ### Canonical Store window — 2026-10-12
@@ -956,3 +956,18 @@ window modes. No document/pane horizontal overflow in responsive checks.
 A failed Store resource leaves the sidebar/other windows available and can be
 recovered after the resource returns through the explicit reload control.
 Final merged validation is recorded in the existing Central provenance evidence.
+
+
+Merged validation: 24 Node tests and eight Python tests passed after reconciling
+main at b0bad62; six Store tests passed again after the final responsive fix.
+TypeScript/build and the 34-file structural/provenance verifier passed. Final
+initial JavaScript is 537.86 kB (169.81 kB gzip), with Store JavaScript 49.59 kB
+and Store CSS 15.11 kB loaded separately. The >500 kB warning remains visible.
+In two equal compact panes at 390 x 844, the Store's 112-pixel useful width has
+no horizontal overflow or controls outside its bounds in Discover/Library.
+The narrow section selector uses the same descriptors and navigation handler.
+A controlled HTTP 503 resource fixture verified isolation, usable Settings,
+and recovery after explicit warned page reload. The fixture server/tab were
+closed and the user viewport/theme restored; main-page logs returned no errors
+or warnings. Authenticated gateway/catalog, signed installation, native/device
+execution and production activation remain outside this local proof.

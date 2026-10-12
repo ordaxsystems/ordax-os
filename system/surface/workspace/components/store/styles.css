@@ -121,4 +121,17 @@
 
 .st-root,.st-main,.st-body,.st-card,.st-detail{min-width:0;overflow-wrap:anywhere}
 .st-searchbar select{max-width:100%}
-@container(max-width:260px){.st-facts div,.st-detail-head{grid-template-columns:minmax(0,1fr)}.st-detail-actions{grid-column:auto}.st-hero-copy{padding:12px}.st-hero-copy h1{font-size:22px}.st-card-foot{flex-wrap:wrap}}
+
+/* At narrow pane widths, one native selector replaces the same section actions. */
+.st-section-select{display:none;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;font:inherit}
+.st-hero-copy div>button,.st-card-foot>button{max-width:100%;white-space:normal;height:auto;min-height:32px}
+@container(max-width:260px){
+  .st-facts div,.st-detail-head{grid-template-columns:minmax(0,1fr)}
+  .st-detail-actions{grid-column:auto}
+  .st-hero-copy{padding:12px}.st-hero-copy h1{font-size:22px}
+  .st-card-foot{flex-wrap:wrap}
+  .st-nav{display:block}.st-nav>button{display:none}
+  .st-section-select{display:block;width:100%;max-width:100%}
+  .st-row{grid-template-columns:auto minmax(0,1fr)}
+  .st-row>button:last-child{grid-column:1/-1;justify-self:start;max-width:100%;white-space:normal;height:auto;min-height:32px}
+}

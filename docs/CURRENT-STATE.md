@@ -15,7 +15,15 @@ diagnóstico tipado e recarga de página somente por ação explícita, com avis
 de perda de rascunhos. Outros erros oferecem reinício apenas do conteúdo local.
 A prova de falha constatou que o browser guarda imports rejeitados; não se
 promete nova descarga por simplesmente recriar o componente React.
-Validação final e reconciliação com a main em andamento; não implica ativação.
+Validação após merge da main: 24 testes Node e oito testes Python passaram;
+a última regressão da Loja repetiu seis testes com sucesso. Build/TypeScript e
+verificação de 34 arquivos/assets passaram. Em 390 x 844, dois painéis compactos
+iguais mantêm os controles da Loja dentro da sua largura útil de 112 px. A
+navegação estreita usa as mesmas seções em um seletor nativo. Prova controlada
+de recurso HTTP 503 isolou a falha e recuperou a Loja por recarga explícita,
+enquanto Ajustes continuou disponível. O bundle inicial final é 537,86 kB
+(169,81 kB gzip); a Loja carrega em um chunk separado de 49,59 kB.
+Catálogo autenticado, instalação e ativação de produção continuam pendentes.
 [Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-store-window--2026-10-12).
 
 ## Web Central — catálogo de boot compartilhado e carregamento inicial — 2026-10-12
