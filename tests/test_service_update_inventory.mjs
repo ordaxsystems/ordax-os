@@ -117,5 +117,5 @@ test("the executable audit runs against actual repo source", () => {
   ], { encoding: "utf8", timeout: 20000 });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /Service update inventory:/);
-  assert.match(run.stdout, /0 independent releases proven/);
+  assert.match(run.stdout, /production evidence not-evaluated/);
 });
