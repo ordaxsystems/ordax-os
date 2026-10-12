@@ -129,3 +129,71 @@ func TestPromotionContinuesWithSignedCompatibleCurrentUnderLock(t *testing.T) {
 		t.Fatalf("compatible release failed atomic healthy promotion: %+v", promoted)
 	}
 }
+
+func TestPromotionDoesNotTrustStaleHealthyStatusForChangedSignedAPI(t *testing.T) {
+	cases := []struct {
+		name       string
+		provided   []providedCompatibilityContract
+		required   []requiredCompatibilityContract
+		errorMatch string
+	}{
+		{
+			name: "provided major changed",
+			provided: []providedCompatibilityContract{
+				{ID: "ordax.internet", Major: 2},
+			},
+			errorMatch: "drops an existing signed provided contract",
+		},
+		{
+			name: "mandatory provider introduced",
+			provided: []providedCompatibilityContract{
+				{ID: "ordax.internet", Major: 1},
+			},
+			required: []requiredCompatibilityContract{
+				{ID: "ordax.network", MinMajor: 1, MaxMajor: 1},
+			},
+			errorMatch: "adds or tightens a mandatory signed dependency",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := makeActivationV2Fixture(t)
+			current := addActivationV2Candidate(
+				t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+			)
+			healthyPromoteV2(t, fixture, current)
+			originalPending := addActivationV2Candidate(
+				t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
+			)
+			state := healthyPendingV2(t, fixture, originalPending)
+			replaced := addActivationV2CandidateWithFullContracts(
+				t, fixture, "1.2.0", "3333333333333333333333333333333333333333",
+				nil, tc.provided, tc.required,
+			)
+			next := identityFromRelease(sharedReleaseFromV2(replaced.release))
+			state.Pending = &next
+			// Keep the old health receipt and exact revision on purpose:
+			// the writer cannot accept it as proof for a different
+			// authenticated pending contract.
+			if err := writeActivationState(fixture.root, state); err != nil {
+				t.Fatal(err)
+			}
+			_, err := promotePendingStateAtRevision(
+				fixture.root, "internet", *state.Pending, state.Revision, fixture.trustPath,
+			)
+			if err == nil || !strings.Contains(err.Error(), tc.errorMatch) {
+				t.Fatalf("changed signed API passed old healthy receipt: %v", err)
+			}
+			after, err := readActivationState(fixture.root, "internet")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after.Revision != state.Revision ||
+				!sameSlotIdentity(after.Current, state.Current) ||
+				!sameSlotIdentity(after.Pending, state.Pending) ||
+				after.PendingHealth != "healthy" {
+				t.Fatalf("rejected signed pending API changed activation state: %+v", after)
+			}
+		})
+	}
+}
