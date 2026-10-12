@@ -1,0 +1,82 @@
+{
+  "$schema": "prototype-ordax.user-consent-experience/1",
+  "status": "creator-confirmation-and-account-registration-source-ready-os-install-terms-pending",
+  "principle": "ask each human only for a meaningful first-party decision; technical gates and operating-system privilege checks are automatic, not terms of service",
+  "creator_usb": {
+    "owner": "tools/creator/cmd/ordax-creator-app/physical_flow_windows.go#beginPhysicalWrite",
+    "human_destructive_confirmations_per_attempt": 1,
+    "trigger": "after explicit removable-target selection, before the first destructive operation",
+    "presentation": "one concise dialog with exact USB identity, size, disk number, serial, clear erase warning, default No",
+    "separate_review_displays_destructive_confirmation": false,
+    "app_acceptance_or_login_required": false,
+    "first_party_legal_terms_prompt": false,
+    "automatic_checks": [
+      "official_release_signature",
+      "physical_usb_identity_reenumeration",
+      "system_disk_exclusion",
+      "portable_media_plan",
+      "capacity",
+      "readback_sha256_size"
+    ],
+    "windows_elevation": {
+      "owner": "tools/creator/cmd/ordax-creator-app/physical_flow_windows.go#runElevatedAndWait",
+      "operating_system_permission_not_ordax_consent": true,
+      "required_when_process_lacks_privileged_token": true,
+      "must_not_bypass_windows_uac": true,
+      "must_not_request_arbitrary_credentials_from_creator_ui": true,
+      "permission_cancelled_aborts_without_writing": true
+    },
+    "operator_authorization": {
+      "owner": "tools/creator/authorize_physical_write.py",
+      "purpose": "controlled first-physical-proof publication, not a consumer-facing acceptance",
+      "public_ui_must_not_request_operator_scope_or_confirmation_phrase": true,
+      "does_not_replace_target_destructive_confirmation": true
+    }
+  },
+  "account": {
+    "owner": "services/public-identity/gateway.py",
+    "website": "sites/public/cadastro/index.html",
+    "native_registration_ui": "system/surface/ui/first-run.mjs",
+    "required_human_acceptance": "once on registration of the account, for the exact server-authoritative version of the terms and privacy notice",
+    "policy_endpoint": "GET /auth/registration-policy",
+    "acceptance_field": "legal_acceptance",
+    "acceptance_value": "accepted",
+    "server_authoritative_receipt_required": true,
+    "sign_in_requires_new_generic_terms_acceptance": false,
+    "same_policy_reaccepted_per_session": false,
+    "materially_changed_terms_may_require_new_acceptance_if_legally_applicable": true,
+    "privacy_consent_distinct_from_contractual_terms": true,
+    "optional_for_offline_usb_usage": true
+  },
+  "os_first_install": {
+    "owner": "system/surface/ui/first-run.mjs",
+    "status": "separate-os-installation-document-and-receipt-not-yet-implemented",
+    "when": "one time during first native setup after boot, not each USB creation or reboot",
+    "terms_must_be_specific_to_os_installation_not_the_account_only_terms": true,
+    "offline_local_terms_copy_required": true,
+    "version_and_document_digest_required": true,
+    "durable_local_first_install_receipt_required": true,
+    "separate_from_optional_online_identity": true,
+    "account_not_required": true,
+    "future_terms_change_does_not_silently_revoke_the_installed_system": true,
+    "no_unreviewed_or_placeholder_legal_text_may_be_presented_as_final": true
+  },
+  "plugins": {
+    "identity_owner": "existing_account_session",
+    "user_experience": "login if needed; registration if no account; no repeated generic first-party terms when same valid registration receipt exists",
+    "first_party_generic_terms_acceptance_on_every_plugin_connection": false,
+    "account_registration_receipt_reused": true,
+    "oauth_or_provider_scopes_are_independent_from_terms": true,
+    "sensitive_device_or_account_actions_require_specific_grants": true,
+    "must_not_infer_unlimited_access_from_account_login": true,
+    "installation_terms_acceptance_not_prerequisite_for_web_plugin_login": true,
+    "implementation_owner": "connected plugin or gateway, not the USB Creator"
+  },
+  "boundaries": {
+    "creator_confirmation_is_not_server_legal_receipt": true,
+    "account_receipt_is_not_device_write_permission": true,
+    "plugin_login_is_not_unlimited_device_authorization": true,
+    "automatic_security_checks_must_not_be_dropped_to_reduce_prompts": true,
+    "public_creator_code_signing_distinct_from_owner_usb_test": true
+  }
+}
