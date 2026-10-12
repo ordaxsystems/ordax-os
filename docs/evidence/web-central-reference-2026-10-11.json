@@ -258,6 +258,18 @@
         "startup": "VITE v8.1.5 ready",
         "http_status": 200,
         "ui_e2e": "pending-browser-control-tool-unavailable"
+      },
+      "remote_reconciliation": {
+        "main_commit": "a22b441c875f1b250ca6643fdda14fd124a84bfd",
+        "merge_commit": "b133547e8034ed134ca74dcbff64411b64a2a0e3",
+        "conflicts": false,
+        "web_source_delta": "git diff --exit-code cff2a39 HEAD -- system/composition/web system/surface/workspace returned 0",
+        "portable_boundary_regression": {
+          "command": "python -m unittest tests.test_first_party_portable_boundary -v",
+          "passed": 1,
+          "failed": 0
+        },
+        "note": "Concurrent Runtime/Projects changes retained; frontend build inputs under composition/Surface unchanged."
       }
     }
   },
