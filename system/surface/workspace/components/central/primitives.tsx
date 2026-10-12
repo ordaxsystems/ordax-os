@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Bell, ChevronRight, Settings, UserRound, type LucideIcon } from 'lucide-react';
+import { Bell, ChevronRight, UserRound, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getWindowIcon, unavailableServices, type IconTone } from './config';
 import { useWebAccount } from './account-context';
@@ -11,11 +11,11 @@ export function AppIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: IconTone
 }
 export function WindowAppIcon({ title }: { title: string }) { const Icon = getWindowIcon(title); return <Icon aria-hidden="true"/>; }
 export function Avatar() { const { displayName, initials } = useWebAccount(); return <span className="avatar" aria-label={displayName}>{initials ?? <UserRound aria-hidden="true"/>}</span>; }
-export function Panel({ title, action, onAction, children, className = '' }: { title: string; action?: ReactNode; onAction?: () => void; children: ReactNode; className?: string }) {
-  return <section className={`os-panel ${className}`}><div className="panel-heading"><h2>{title}</h2>{action && <Button variant="ghost" className="panel-action" onClick={onAction}>{action}</Button>}</div>{children}</section>;
+export function Panel({ title, action, actionControl, onAction, children, className = '' }: { title: string; action?: ReactNode; actionControl?: ReactNode; onAction?: () => void; children: ReactNode; className?: string }) {
+  return <section className={`os-panel ${className}`}><div className="panel-heading"><h2>{title}</h2>{actionControl ?? (action && <Button variant="ghost" className="panel-action" onClick={onAction}>{action}</Button>)}</div>{children}</section>;
 }
 
-export function AccountCard({ onOpen, onSettings, onNotifications }: { onOpen: () => void; onSettings: () => void; onNotifications: () => void }) {
+export function AccountCard({ onOpen, onNotifications }: { onOpen: () => void; onNotifications: () => void }) {
   const { displayName, identity, offline } = useWebAccount();
   const label = offline ? 'Sem conexão' : identity.state === 'signed-in' ? 'Sessão verificada' : 'Conectar conta';
   return <section className="account sidebar-account" aria-label={displayName}>
@@ -23,7 +23,7 @@ export function AccountCard({ onOpen, onSettings, onNotifications }: { onOpen: (
       <Avatar/><span className="account-identity"><strong title={displayName}>{displayName}</strong><span>{label}</span></span><ChevronRight className="account-chevron"/>
     </Button>
     <div className="storage-track storage-unavailable" aria-label={unavailableServices.storage}/>
-    <div className="account-storage-footer"><span className="account-storage-value" title={unavailableServices.storage}><span className="account-storage-summary">Uso indisponível</span><span className="account-storage-compact">—</span></span><div className="account-actions"><Button variant="ghost" size="icon" aria-label="Notificações" title="Notificações" onClick={onNotifications}><Bell/></Button><Button variant="ghost" size="icon" aria-label="Ajustes do espaço" title="Ajustes do espaço" onClick={onSettings}><Settings/></Button></div></div>
+    <div className="account-storage-footer"><span className="account-storage-value" title={unavailableServices.storage}><span className="account-storage-summary">Uso indisponível</span><span className="account-storage-compact">—</span></span><div className="account-actions"><Button variant="ghost" size="icon" aria-label="Notificações" title="Notificações" onClick={onNotifications}><Bell/></Button></div></div>
   </section>;
 }
 

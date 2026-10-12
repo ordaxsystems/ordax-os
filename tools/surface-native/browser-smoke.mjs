@@ -9,6 +9,7 @@ const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
 const CSS_FILES = [
   'system/surface/ui/tokens.css',
+  'system/surface/ui/color-palettes.css',
   'system/surface/ui/surface.css',
   'system/surface/ui/boot-screen.css',
   'system/surface/ui/workspace-areas.css',

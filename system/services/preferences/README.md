@@ -23,3 +23,38 @@ defaults, persists changed values only via ordax.preference-store/1, and reports
 saved/session-only status without inventing cloud continuity. Native's Surface
 reducer remains a consumer of the same catalog. Runtime bindings do not define
 new preference semantics or import browser storage.
+
+
+## Surface favorite shortcuts
+
+`home-shortcuts.mjs` owns the bounded presentation targets and
+`surface.favorite-shortcuts` preference. Its scalar value is a canonical ordered
+comma-separated selection of known shortcut IDs; empty is an intentional empty
+selection. Unknown IDs, duplicates, nonstrings and oversized records are rejected;
+corrupt persisted values recover through the existing catalog without overwriting
+other preferences. Names have one metadata source; icons remain a UI mapping.
+These are Surface shortcut IDs, never installed-app identities or grants.
+
+The Web Home and Apps window use one renderer/editor, the existing preference
+runtime and Web store. No second storage key or local copy is maintained by UI.
+Changes are browser-local with explicit session-only fallback. The existing account
+sync allowlist excludes this preference; no cloud sync is implied. Native's catalog
+recognizes the value, but this increment does not add a Native launcher editor.
+
+## Shared color profiles
+
+color-palette.mjs owns surface.color-palette (standard/native), shared options
+Claro/Escuro/OrdaX USB and their projection to a color scheme. This presentation
+axis preserves the portable appearance.theme light/dark contract. USB resolves
+to dark while preserving that brightness record; Claro/Escuro select standard
+colors and requested brightness. Web and Native use the same semantics and
+their existing preference-store/1 adapters, without another theme store.
+
+The standard palette lives once in surface/ui/color-palettes.css; the original
+USB palette lives once in surface/ui/tokens.css. The shared stylesheet maps
+semantic variables in both renderers. Native Settings miniatures consume these
+same colors. Operational state colors and high contrast remain canonical.
+The sync allowlist excludes the palette choice; no account sync is implied.
+The former Web-only palette module and preference ID were removed rather than
+retained as alternate consumers. Unknown previous preference IDs are ignored by
+the existing record recovery and disappear on the next canonical store write.

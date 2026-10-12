@@ -1,5 +1,87 @@
 # Current State
 
+## Ajustes Web e navegação USB — 2026-10-12
+
+Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
+com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
+engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
+de recursos já existente. As outras seções Native dependentes de host não foram
+expostas como funções Web disponíveis.
+
+workspace/presentation.mjs define uma única política: entrar na Área de trabalho
+mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central
+recupera a apresentação automática e permite expansão manual. Estado é de sessão, sem novo
+registro persistido e sem recriar janelas. USB ganhou ícone de perfil no rodapé da sidebar para account/overview pelo
+catálogo e caminho de ativação existentes. O acesso na header e o item Conta
+duplicado foram removidos. Nomes dos ícones usam tooltips nativos/localizados.
+
+49 testes Node e 36 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: temas, contraste persistido em reload, largura de
+64px fixos no desktop, expansão apenas na Central, perfil USB e 390x844 sem overflow
+horizontal, inclusive Ajustes compacto. Conta autenticada/hardware e boot físico
+não são demonstrados pela prévia local. [Owner e aceite](DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
+
+## Surface Web/USB — cores compartilhadas e desktop nativo — 2026-10-12
+
+Claro/Escuro do Web e OrdaX USB usam um único catálogo de perfis. As cores
+standard foram movidas do CSS Web para system/surface/ui/color-palettes.css;
+os tokens USB seguem em tokens.css. Os dois renderers consomem a mesma fonte
+por aliases sem duplicar paletas. color-palette.mjs e surface.color-palette
+substituem o owner Web-only anterior, sem wrapper ou ID alternativo ativo.
+appearance.theme permanece light/dark; a nova paleta continua device-local,
+fora da allowlist de sync. Web preserva layout e janela; Native Ajustes ganhou
+as três opções e miniaturas dos mesmos tokens.
+
+USB agora alterna Início/Central e Área de trabalho pelo botão de quatro quadrados
+no dock. Atalhos usam o mesmo catálogo e caminho de ativação; nenhum grant novo.
+A apresentação é da sessão; janelas, alvos, geometria e workspace-store/2 não
+são recriados nem copiados. Rede, energia, arquivos e composição Native mantêm
+seus ports. A prévia local usa stores de navegador e não opera hardware.
+
+56 testes Node e 44 Python passaram (100 distintos). Oito testes de estado
+Native foram executados em Ubuntu/WSL com fcntl real, após a incompatibilidade
+do Python Windows; sem shim. TypeScript/build e 34 arquivos/assets verificados.
+Browser: cinco pares de cores Web/Native, três opções, reload, desktop/retorno,
+janela preservada, viewport 390x844 sem overflow horizontal e toggle de 44px.
+JS inicial 485,41 kB (151,98 gzip). Boot físico e release assinada não são provas
+deste incremento. [Owner e aceite](DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
+## Web — perfil de cores OrdaX USB — 2026-10-12
+
+Aparência oferece Claro, Escuro e OrdaX USB no mesmo seletor. O terceiro perfil
+mapeia variáveis Web diretamente aos tokens Native de tokens.css, sem copiar
+cores ou alterar a geometria do layout. O catálogo/runtime/store existentes persistem
+surface.web-palette; appearance.theme mantém light/dark e o default light.
+A escolha de paleta Web é local, excluída da allowlist de sync; Native ignora
+essa preferência e preserva sua composição/contrato de aparência.
+
+44 testes Node e 24 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: três escolhas e reload, igualdade de seis tokens
+Web/Native, seletor de 44 px e viewport 390 x 844 sem overflow horizontal,
+contraste reforçado com tokens canônicos. JS inicial 485,34 kB (151,98 gzip).
+[Owner, escopo, risco e aceite](DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
+## Web Central — favoritos compartilhados e persistentes — 2026-10-12
+
+Central e Aplicativos agora usam um único renderer/editor e a mesma preferência
+surface.favorite-shortcuts no catálogo/runtime/store existentes. Seleção validada,
+lista vazia, foco de retorno e fallback session-only são reais; adicionar atalho
+não instala app nem concede acesso. Metadados de targets têm um owner; estado local
+de favoritos duplicado na Central foi removido. Sync de conta mantém sua allowlist,
+sem enviar essa preferência. Native reconhece o dado, mas não ganhou outro launcher.
+
+35 testes Node e sete de builder passaram; a regressão de sync foi repetida após
+incluir a prova explícita de favoritos locais. TypeScript/build e 34 arquivos/assets
+verificados. Browser comprovou edição compartilhada, recarga/lista vazia, teclado,
+retorno de foco e editor em 390 x 600/844. Erro de HMR observado (raiz React duplicada)
+foi corrigido: a composição desmonta sua raiz antes dos ports. Uma atualização limpa
+manteve uma raiz, sete favoritos e zero novos erros. Escolhas originais, tema e
+viewport restaurados. JS inicial 484,97 kB (151,88 gzip), CSS 81,59 kB.
+Gateway autenticado, arquivos/dispositivos e IA continuam pendentes de transporte.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
 ## Web Central — seletor do rodapé removido — 2026-10-12
 
 Remoção explicitamente solicitada: seletor inferior de modos da Aura, CSS próprio
