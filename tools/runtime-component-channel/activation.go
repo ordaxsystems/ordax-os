@@ -716,6 +716,12 @@ func rollbackCurrentStateAtRevision(
 				return activationState{}, err
 			}
 		}
+		// Signature alone cannot authorize a rollback that would strand
+		// migrated state. Enforce signed state readability under the same
+		// canonical activation writer lock, before changing current/previous.
+		if err := verifyRollbackStateReadable(root, componentID, identity, state.Previous, trustBytes); err != nil {
+			return activationState{}, err
+		}
 		rejected := identity
 		if state.Previous == nil {
 			state.Current = nil
