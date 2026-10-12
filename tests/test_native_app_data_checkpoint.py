@@ -618,6 +618,114 @@ app_data.put_app_data(identity(), "first-key", b"never-committed", 0, sys.argv[1
             self.assertFalse(blob(root, b"never-committed").exists())
             self.assertEqual(app_data.list_app_data(identity(), str(root))["keys"], [])
 
+    def test_maintenance_barrier_blocks_live_public_read_list_and_write_workers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"old", 0, str(root))
+            child = """
+import json
+import pathlib
+import sys
+from tests.test_native_app_data import endpoint, identity
+root, operation, ready = sys.argv[1:4]
+requests = {
+    "get": {"action": "get", "key": "key"},
+    "list": {"action": "list"},
+    "put": {"action": "put", "key": "key", "valueBase64": "bmV3", "expectedRevision": 1},
+}
+pathlib.Path(ready).write_text("entered", encoding="ascii")
+try:
+    result = endpoint.handle_app_data_request(
+        json.dumps(requests[operation]).encode("utf-8"),
+        identity=identity(), root=root,
+    )
+except endpoint.AppDataEndpointRequestError as exc:
+    print(json.dumps({"error": str(exc), "status": exc.status_code}), flush=True)
+else:
+    print(json.dumps(result), flush=True)
+"""
+            workers = []
+            cwd = Path(__file__).resolve().parents[1]
+            try:
+                with app_data.hold_app_data_maintenance(identity(), RELEASE, 1, str(root)) as maintenance:
+                    self.assertEqual(maintenance.revision(), 1)
+                    self.assertEqual(maintenance.checkpoint(1)["pinnedRevision"], 1)
+                    for operation in ("get", "list", "put"):
+                        ready = Path(temporary) / ("ready-" + operation)
+                        worker = subprocess.Popen(
+                            [sys.executable, "-c", child, str(root), operation, str(ready)],
+                            cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                        )
+                        workers.append((operation, worker))
+                        for _ in range(150):
+                            if ready.exists() or worker.poll() is not None:
+                                break
+                            __import__("time").sleep(0.01)
+                        self.assertTrue(ready.exists(), f"{operation} did not reach endpoint")
+                        __import__("time").sleep(0.08)
+                        self.assertIsNone(worker.poll(), f"{operation} bypassed App Data maintenance")
+                    # No app writes can race this restore. Its revision grows,
+                    # so the pending writer must subsequently fail its CAS.
+                    restored = maintenance.restore(1)
+                    self.assertEqual(restored["revision"], 2)
+                    self.assertEqual(maintenance.revision(), 2)
+                    self.assertTrue(
+                        (only_partition(root) / app_data.APP_DATA_CHECKPOINT_NAME).exists(),
+                        "barrier prematurely retired checkpoint",
+                    )
+                    for operation, worker in workers:
+                        self.assertIsNone(worker.poll(), f"{operation} bypassed held writer lock")
+                with self.assertRaisesRegex(RuntimeError, "scope has ended"):
+                    maintenance.revision()
+                results = {}
+                for operation, worker in workers:
+                    output, stderr = worker.communicate(timeout=12)
+                    self.assertEqual(worker.returncode, 0, (operation, stderr))
+                    results[operation] = json.loads(output.strip())
+                self.assertEqual(results["get"]["valueBase64"], "b2xk")
+                self.assertEqual(results["get"]["revision"], 2)
+                self.assertEqual(results["list"]["revision"], 2)
+                self.assertEqual(results["put"]["status"], 409)
+                self.assertEqual(app_data.read_app_data(identity(), "key", str(root))["value"], b"old")
+            finally:
+                for _, worker in workers:
+                    if worker.poll() is None:
+                        worker.kill()
+                    worker.communicate(timeout=12)
+
+    def test_maintenance_unwind_preserves_checkpoint_for_separate_process_recovery(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"last-known-good", 0, str(root))
+            with self.assertRaisesRegex(RuntimeError, "simulated activation failure"):
+                with app_data.hold_app_data_maintenance(identity(), RELEASE, 1, str(root)) as held:
+                    held.checkpoint(1)
+                    raise RuntimeError("simulated activation failure")
+            # A failed owner action never silently discards the pinned state.
+            pin = only_partition(root) / app_data.APP_DATA_CHECKPOINT_NAME
+            self.assertTrue(pin.exists())
+            worker = """
+import sys
+from tests.test_native_app_data import app_data, identity
+from tests.test_native_app_data_checkpoint import RELEASE
+with app_data.hold_app_data_maintenance(identity(), RELEASE, 1, sys.argv[1]) as held:
+    assert held.revision() == 1
+    assert held.restore(1)["revision"] == 2
+print("RECOVERED", flush=True)
+"""
+            result = subprocess.run(
+                [sys.executable, "-c", worker, str(root)],
+                cwd=Path(__file__).resolve().parents[1],
+                capture_output=True, text=True, timeout=12, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "RECOVERED")
+            self.assertEqual(app_data.read_app_data(identity(), "key", str(root))["value"], b"last-known-good")
+            self.assertTrue(pin.exists(), "recovery removed rollback horizon without owner decision")
+            with app_data.hold_app_data_maintenance(identity(), RELEASE, 2, str(root)) as held:
+                self.assertTrue(held.retire(2)["retired"])
+            self.assertFalse(pin.exists())
+
     def test_explicit_retirement_releases_pin_and_garbage_collects_only_orphans(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "app-data"
