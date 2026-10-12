@@ -34,6 +34,13 @@ jobs:
           persist-credentials: false
 
 
+      - name: Validate official physical promotion gate before resolving payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready > /dev/null
+          echo 'OFFICIAL_PHYSICAL_PROMOTION=READY'
+
       - name: Resolve exact signed release from authorization SSOT
         id: canonical
         shell: bash
