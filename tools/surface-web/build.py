@@ -58,6 +58,8 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
                   "system/surface/ui/tokens.css", "system/services/i18n/surface.mjs",
                   "system/contracts/app-store.mjs", "system/services/local-ai/model-candidate.generated.mjs",
                   "system/composition/web/account-session.mjs",
+                  "system/adapters/web/preferences.mjs",
+                  "system/services/preferences/runtime.mjs",
                   "system/services/spaces/authorized-view.mjs"):
         inputs.update(discover_source_graph(root, PurePosixPath(entry),
                                            allowed_prefixes=("system",)))

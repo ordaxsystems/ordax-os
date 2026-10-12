@@ -16,3 +16,10 @@ Persistence is supplied through the platform-neutral `ordax.preference-store/1` 
 Local persistence does **not** imply account sync, cloud backup or secret storage. Cross-device continuity remains a separate service/capability milestone.
 
 Unknown preference IDs are ignored by mutation helpers, while invalid values for known preferences fail closed. New preference semantics require an explicit owner and stable ID.
+
+The Web composition now uses runtime.mjs as a portable observable binding for
+the same catalog through ordax.preference-runtime/1. It recovers validated
+defaults, persists changed values only via ordax.preference-store/1, and reports
+saved/session-only status without inventing cloud continuity. Native's Surface
+reducer remains a consumer of the same catalog. Runtime bindings do not define
+new preference semantics or import browser storage.

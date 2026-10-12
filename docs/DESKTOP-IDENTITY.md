@@ -747,3 +747,38 @@ Regression source now covers these cases plus temporary catalog failure and
 session-only lifecycle. Static source/diff review only: no tests, build, npm,
 typecheck or browser validation executed under the standing user restriction.
 Authenticated gateway/deployment/E2E remains a separate pending proof.
+
+### Web Central canonical appearance preferences — 2026-10-12
+
+Owner: OS preferences domain + Web composition/Surface, continuation of the
+requested backend alignment. Reuses ordax.preference-store/1,
+ordax.preference-runtime/1 and existing appearance.theme semantics/validators
+from system/services/preferences/catalog.mjs. A portable observable binding
+delegates recovery and updates to this catalog and persistence to the Web adapter;
+Native's Surface reducer continues to use the same canonical definitions.
+No new preference ID, palette, backend, account sync, entitlement or grant.
+
+The mounted preferences provider survives subject workspace remounts because
+these preferences are local to this browser, not credentials/account data.
+Central/Desktop wallpaper and Appearance controls consume that one port.
+Theme is applied before paint, also setting the browser control color scheme.
+The previous direct browser-storage/theme state has been removed from Central,
+and redundant theme callbacks through app windows have been removed. Switching
+Central/Desktop remains session presentation state without another persisted
+preference key. No legacy-key migration introduced in this pre-user increment.
+
+Storage denial, corrupt option values or failed writes retain a safe session
+choice; Appearance reports session-only persistence after a failed save.
+Unchanged/unknown preferences do not write; invalid known values are rejected.
+Disposal clears subscriptions and prevents later writes. The existing build
+input graph records the adapter/domain binding, and provenance covers the UI.
+Regression source covers persistence/reload, denied access, invalid/corrupt
+values, failed writes, no-op updates and disposal. React review checked stable
+external snapshots, centralized DOM effect cleanup, hook order and accessible
+theme control. No build, npm, typecheck, tests or browser executed.
+
+Acceptance: one catalog/store binding drives both existing presentations;
+reload restores valid saved appearance; storage errors never break theme
+selection or claim cloud synchronization. UI/viewport and authenticated E2E
+proof remain pending. Existing shared window nodes/drafts are preserved during
+theme changes; no desktop/window geometry or CSS palette changed.
