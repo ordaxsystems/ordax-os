@@ -225,7 +225,7 @@ func addActivationV2CandidateForComponent(
 
 	release := releaseDescriptorV2{
 		Schema:            releaseSchemaV2,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository(componentID),
 		SourceCommit:      sourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{
