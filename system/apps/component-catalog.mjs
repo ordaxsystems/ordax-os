@@ -5,7 +5,6 @@ import { assistantComponent } from "./assistant/component.mjs";
 import { activityComponent } from "./activity/component.mjs";
 import { internetComponent } from "./internet/component.mjs";
 import { filesComponent } from "./files/component.mjs";
-import { networkComponent } from "./network/component.mjs";
 import { projectsComponent } from "./projects/component.mjs";
 import { studioComponent } from "./studio/component.mjs";
 
@@ -16,7 +15,6 @@ const COMPONENTS = validateComponentManifests([
   activityComponent,
   internetComponent,
   filesComponent,
-  networkComponent,
   projectsComponent,
   studioComponent,
 ]);

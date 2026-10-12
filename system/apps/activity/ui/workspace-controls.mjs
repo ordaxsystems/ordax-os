@@ -2,13 +2,12 @@ import { assertPersonalApprovalConsent } from "../../../contracts/personal-appro
 import { assertPersonalActivityExportPort } from "../../../contracts/personal-activity-export.mjs";
 import { PERSONAL_ORDAX_RUNTIME_SCHEMA } from "../../../contracts/personal-ordax-store.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
-import { createPersonalActivityExportDocument } from "../../../services/personal-ordax/export.mjs";
 import { projectPersonalActivitySnapshot } from "../view-model.mjs";
 
 const EXTENSION_SELECTOR = '[data-app-extension="personal-activity"]';
 const TERMINAL_STATES = new Set(["completed", "failed", "cancelled"]);
 
-function requireRuntime(value) {
+function requireRuntime(value, projectWorkCanvas) {
   if (value === null) return null;
   if (!value || typeof value !== "object" || value.schema !== PERSONAL_ORDAX_RUNTIME_SCHEMA) {
     throw new TypeError("Compatible Personal OrdaX runtime is required");
@@ -27,7 +26,7 @@ function requireRuntime(value) {
       throw new TypeError(`Personal OrdaX runtime must implement ${method}()`);
     }
   }
-  projectPersonalActivitySnapshot(value.getSnapshot());
+  projectPersonalActivitySnapshot(value.getSnapshot(), projectWorkCanvas);
   return value;
 }
 
@@ -60,17 +59,22 @@ export function mountPersonalActivityControls(
   surfaceLifecycle,
   approvalConsentValue = null,
   activityExportValue = null,
+  createExportDocument = null,
+  projectWorkCanvas = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Activity controls require a Surface root Element");
   }
-  const personalOrdax = requireRuntime(personalOrdaxValue);
+  const personalOrdax = requireRuntime(personalOrdaxValue, projectWorkCanvas);
   const approvalConsent = approvalConsentValue === null
     ? null
     : assertPersonalApprovalConsent(approvalConsentValue);
   const activityExport = activityExportValue === null
     ? null
     : assertPersonalActivityExportPort(activityExportValue);
+  if (activityExport !== null && typeof createExportDocument !== "function") {
+    throw new TypeError("Activity export requires a host-owned document serializer");
+  }
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const t = lifecycle.localization.translate;
   const documentObject = root.ownerDocument;
@@ -119,7 +123,7 @@ export function mountPersonalActivityControls(
       return;
     }
 
-    const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot());
+    const view = projectPersonalActivitySnapshot(personalOrdax.getSnapshot(), projectWorkCanvas);
     const currentProposalOwnerKey = view.ownerKind === "account"
       ? `account:${view.ownerId}`
       : "device";
@@ -951,7 +955,7 @@ export function mountPersonalActivityControls(
     exportStatus = null;
     render();
     try {
-      const document = createPersonalActivityExportDocument(personalOrdax.getSnapshot());
+      const document = createExportDocument(personalOrdax.getSnapshot());
       const result = await activityExport.save(document);
       if (!result || result.status !== "saved" || result.fileName !== document.fileName) {
         throw new Error("Personal Activity export save confirmation is invalid");

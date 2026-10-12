@@ -29,7 +29,7 @@ A lista executável de **intenção de seleção** fica exclusivamente em `listF
 | --- | --- | --- |
 | **Intelligence** | Serviço de IA, modelo e memória autorizada | Uma fonte sistêmica. **Assistant** é uma interface; **Brain** não vira memória/roteador paralelo. |
 | **Studio** | IDE, projetos, chat e preview técnico | **Projetos** mantém domínio geral de projetos; App Forge é modo do Studio, não clone de IDE. |
-| **Rede (Network)** | Comunidades, mensagens e colaboração | Não confundir com infraestrutura de conectividade ou pares/dispositivos. |
+| **Rede (Network)** | Comunidades, mensagens e colaboração | Fonte removida do OS pelo gate remove-first e destinada a `ordax-apps`. A Rede só estará instalada quando houver pacote assinado com slot saudável; conectividade/Wi-Fi continua no OS. |
 | **Connect** | Nome do roadmap para pareamento/conexões | Não usar como segundo app de comunidades; revisar junto às capabilities de rede/dispositivos. |
 | **Relay** | Ideia de laboratório de IA central para múltiplos PCs | Não criado nem absorvido pelo Studio. Experimentação separada, se aprovada. |
 | **Activity** | Timeline/progresso e receipts reais de trabalho | Timeline é apresentação; não criar outro event store. |

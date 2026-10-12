@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/apps/files/**'
+      - 'system/apps/projects/**'
+      - 'system/apps/internet/**'
+      - 'system/apps/assistant/**'
+      - 'system/apps/activity/**'
+      - 'system/apps/network/**'
+      - 'tests/test_first_party_portable_boundary.py'
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/file-association-manifest.mjs'
       - 'system/contracts/app-presentation-manifest.mjs'
@@ -67,6 +74,13 @@ on:
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
+      - 'system/apps/files/**'
+      - 'system/apps/projects/**'
+      - 'system/apps/internet/**'
+      - 'system/apps/assistant/**'
+      - 'system/apps/activity/**'
+      - 'system/apps/network/**'
+      - 'tests/test_first_party_portable_boundary.py'
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/file-association-manifest.mjs'
       - 'system/contracts/app-presentation-manifest.mjs'
@@ -140,6 +154,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prove six-app portable source boundaries
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_first_party_portable_boundary -v
 
       - name: Validate contract syntax
         run: |
