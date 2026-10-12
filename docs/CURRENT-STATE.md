@@ -1,5 +1,22 @@
 # Current State
 
+## Web Central — menu compacto sob demanda — 2026-10-12
+
+O menu avançado das janelas compactas carrega no primeiro uso de modo compacto,
+consumindo os mesmos controles e dispatch do WindowLayer. Falha de recurso fica
+isolada ao menu: expandir/fechar continuam disponíveis e não remontam o app.
+Carregamento/falha não repetem comandos ou prometem recuperar um import rejeitado.
+
+Build/TypeScript e verificação dos 34 arquivos/assets passaram; 19 regressões de
+workspace e sete de builder passaram. JS inicial caiu de 539,52 para 482,31 kB
+(10,60%); gzip de 170,34 para 151,17 kB. CSS é idêntico. Sem ajuste de limite, o
+aviso de chunk >500 kB deixou de ocorrer; não é prova de tempo de carregamento.
+Menu separado: 58,48 kB (19,27 gzip). Browser com bundle de produção confirmou
+zero downloads do menu no início e um HTTP 200 ao compactar. HTTP 503 controlado
+manteve apps/draft utilizáveis e expansão/minimização/restauração sem novo download.
+Fixture/abas temporárias encerradas; host original preservado. Gateway autenticado
+continua pendente. [Owner, risco e aceite](DESKTOP-IDENTITY.md#lazy-compact-actions--2026-10-12).
+
 ## Web Central — acessibilidade canônica — 2026-10-12
 
 Configurações do Web agora expõe Contraste, Movimento e Tamanho do texto do

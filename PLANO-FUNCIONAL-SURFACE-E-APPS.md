@@ -1,5 +1,10 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Carregamento Web — 12/10/2026:** menu compacto extraído uma vez e carregado
+> sob demanda pelo mesmo WindowLayer; expansão/fechamento preservados após falha
+> de recurso. JS inicial 539,52 → 482,31 kB, CSS idêntico; prova local do bundle
+> cobre download e HTTP 503 sem perda de draft. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#lazy-compact-actions--2026-10-12).
+
 > **Acessibilidade Web — 12/10/2026:** Configurações expõe contraste, movimento
 > e tamanho do texto pelo mesmo catálogo/runtime/store, com tokens compartilhados
 > e tipografia relativa. Prova local inclui persistência, dois temas e janelas
