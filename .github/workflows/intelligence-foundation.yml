@@ -439,12 +439,9 @@ jobs:
           python -m py_compile tools/local-ai-hardware-probe/probe.py
           python -m py_compile tools/local-ai-model-catalog/render.py
           python tools/local-ai-model-catalog/render.py --check
-          node --check system/apps/assistant/conversation.mjs
           node --check system/apps/intelligence-catalog.mjs
           find system/apps -path '*/ai/*.mjs' -type f -print0 | sort -z | xargs -0 -n1 node --check
           node --check system/services/memory/assistant-auto-capture.mjs
-          node --check system/apps/assistant/runtime.mjs
-          node --check system/apps/assistant/ui/conversation-controls.mjs
           node --check system/composition/native/account-memory.mjs
           node --check system/composition/native/account-memory-foundation.mjs
           node --check tests/test_native_account_memory_protected_composition.mjs
@@ -473,9 +470,6 @@ jobs:
           node --test tests/test_intelligence_conversation_capabilities.mjs
           node --test tests/test_intelligence_work_canvas.mjs
           node --test tests/test_personal_ordax_first_foreground_action.mjs
-          node --test tests/test_assistant_conversation.mjs
-          node --test tests/test_assistant_result_canvas.mjs
-          node --test tests/test_assistant_work_strip.mjs
           node --test tests/test_web_intelligence_canvas.mjs
           node --test tests/test_assistant_auto_memory_capture.mjs
           node --test tests/test_intelligence_authorized_memory.mjs

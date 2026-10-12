@@ -11,7 +11,6 @@ const SURFACE_TIME_ZONE = "America/Bahia";
 const ICONS = Object.freeze({
   home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9"/></svg>`,
   files: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 8.5v-3A1.5 1.5 0 0 1 5 4h4.3l2.2 2.5"/></svg>`,
-  assistant: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H9l-4 3v-13z"/><path d="M9 9h6M9 12h4"/></svg>`,
   studio: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11m4-7 2 2-2 2m4 0h2"/></svg>`,
   internet: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.8 12h16.4M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5S14.4 18 12 20.5C9.6 18 8.4 15.2 8.4 12S9.6 6 12 3.5z"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.5 1a8 8 0 0 0-2-1.2L14 3h-4l-.4 2.6a8 8 0 0 0-2 1.2l-2.5-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.5-1a8 8 0 0 0 2 1.2L10 21h4l.4-2.6a8 8 0 0 0 2-1.2l2.5 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>`,
@@ -130,7 +129,7 @@ export function createDesktopShellMarkup(localization) {
       <footer class="ordax-dock ordax-statusbar" aria-label="${t("shell.statusbar.aria")}">
         <div class="ordax-area-switcher" data-area-switcher aria-label="${t("shell.areas.aria")}"></div>
         <div class="ordax-dock-shortcuts">
-          ${["assistant", "files", "internet"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-dock-shortcut")).join("")}
+          ${["files", "internet"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-dock-shortcut")).join("")}
         </div>
         <div class="ordax-running-apps" data-running-apps aria-label="${t("shell.runningApps.aria")}"></div>
         <div class="ordax-status-actions" data-update-slot></div>
@@ -214,7 +213,7 @@ export function syncDesktopShellLocalization(root, localization) {
   };
 
   aria(".ordax-rail", "shell.rail.aria");
-  for (const appId of ["files", "notes", "assistant", "internet", "settings", "account", "system"]) {
+  for (const appId of ["files", "notes", "internet", "settings", "account", "system"]) {
     const label = t(`app.${appId}.title`);
     for (const button of root.querySelectorAll(`[data-sidebar-app="${appId}"]`)) {
       const labelNode = button.querySelector("span:last-child");

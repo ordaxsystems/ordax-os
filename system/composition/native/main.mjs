@@ -100,8 +100,6 @@ import {
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
-import { createPreferenceBoundMemoryCaptureRuntime } from "../../services/memory/capture.mjs";
-import { createAssistantAutoCaptureRuntime } from "../../services/memory/assistant-auto-capture.mjs";
 import { createIdentityBoundMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
@@ -723,19 +721,6 @@ async function start() {
     workspaceStore,
     appActivation,
   );
-  const assistantMemoryCapture = memory === null
-    ? null
-    : createAssistantAutoCaptureRuntime({
-        intelligencePort: intelligence,
-        captureRuntime: createPreferenceBoundMemoryCaptureRuntime(
-          memory,
-          surface.preferences,
-          { mutationPort: memoryMutations },
-        ),
-        preferenceRuntime: surface.preferences,
-        identitySessionPort: identitySession,
-        spaceSelectionPort: spaceSelection,
-      });
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
   let quickPanelControls = null;
