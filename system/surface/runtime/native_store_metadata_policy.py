@@ -17,6 +17,7 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
     "notes",
     "paint",
     "pdf-viewer",
+    "projects",
     "studio",
     "text-viewer",
     "toolbox",
