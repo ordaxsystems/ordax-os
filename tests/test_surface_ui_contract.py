@@ -618,7 +618,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("RouterProvider", main)
         self.assertIn("StoreCatalogProvider", main)
         self.assertIn("createUnavailableAppStoreCatalogPort", main)
-        self.assertIn("<Central/>", main)
+        self.assertRegex(main, r"<Central(?:\\s|/>)")
         self.assertNotIn("WebShell", main)
         self.assertIn("../../surface/ui/tokens.css", main)
         self.assertIn("../../surface/ui/boot-screen.css", main)
