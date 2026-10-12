@@ -15,7 +15,7 @@ type Props = {
 // Presentation only: the existing WindowLayer owns controls, focus and dispatch.
 export function CompactActions({ title, controls, open, onOpenChange, onAction }: Props) {
   return <DropdownMenu modal={false} open={open} onOpenChange={onOpenChange}>
-    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + title} title="Mais ações" onClick={() => onOpenChange(true)}><MoreHorizontal/></Button></DropdownMenuTrigger>
+    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={'Mais ações de ' + title} title="Mais ações"><MoreHorizontal/></Button></DropdownMenuTrigger>
     <DropdownMenuContent align="end" sideOffset={6} className="compact-actions-menu">{controls.map(control => <DropdownMenuItem key={control.label} onClick={() => onAction(control.action)}><control.icon/>{control.title}</DropdownMenuItem>)}</DropdownMenuContent>
   </DropdownMenu>;
 }
