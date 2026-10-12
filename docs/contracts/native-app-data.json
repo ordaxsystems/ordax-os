@@ -31,7 +31,8 @@
     "nofollow": true,
     "unreferenced_blob_is_not_authoritative": true,
     "orphan_temp_is_not_authoritative": true,
-    "orphan_cleanup_on_next_successful_mutation": true
+    "orphan_cleanup_on_next_successful_mutation": true,
+    "durable_genesis_manifest_before_first_mutation": true
   },
   "bounds": {
     "value_bytes_max": 1048576,
@@ -78,7 +79,8 @@
     "blob_digest_mismatch_fails_closed": true,
     "cross_partition_access": false,
     "package_or_manifest_mints_data_capability": false,
-    "store_ui_has_data_capability": false
+    "store_ui_has_data_capability": false,
+    "existing_partition_without_authoritative_manifest_fails_closed": true
   },
   "lifecycle": {
     "uninstall_deletes_data": false,
