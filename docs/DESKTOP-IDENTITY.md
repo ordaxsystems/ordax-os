@@ -430,3 +430,13 @@ Requested Surface density adjustment: shared dock height decreases from 58px to
 these dimensions; the workspace/compact tracks and menu clearance derive from
 the same dock height. Mobile retains additional safe-area clearance. Backend
 and window state unchanged; no build, npm or tests executed per user restriction.
+
+### Maximized app fills available workspace — 2026-10-11
+
+User-requested correction: the existing default maximized app state now fills the
+entire window grid track without outer margins, rounded gaps or Desktop-header
+clearance. The shared layer already excludes sidebar width and dock height; the
+maximized selector takes precedence over both desktop/mobile presentation rules.
+Normal restored and compact modes keep their separate layouts. Owner: OS Surface;
+no backend/state authority change. Existing browser-check source includes available
+area bounds; no build, npm or tests executed under the standing user restriction.

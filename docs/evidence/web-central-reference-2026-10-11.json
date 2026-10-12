@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "05cae66342c5350dfcc5f855b4b8cd870716706172113049b96f470790dee19d",
+      "adaptedSha256": "fac6c0a6814d099d84bfc41f9cd8fdf6d8610ce2ca3d292df421badb01a50227",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -95,7 +95,8 @@
     "Horizontal Start/four-square view toggle and shared AccountCard matching user reference; quota/plan remain presentation fixtures",
     "Notification icon placed alongside pinned Home in the same shared sidebar row",
     "Start removed; single four-square view switch replaces Minimize All at the bottom dock right edge",
-    "Shared dock reduced to 40px; control height and workspace clearance derived from canonical CSS tokens"
+    "Shared dock reduced to 40px; control height and workspace clearance derived from canonical CSS tokens",
+    "Maximized app uses the complete shared work-area track without outer margins or desktop header clearance"
   ],
   "native_files": [
     {

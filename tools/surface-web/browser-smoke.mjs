@@ -106,6 +106,7 @@ try {
       assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"Janela Projetos\"]').length"),1);
       await click('[aria-label="Restaurar Projetos"]');
       await click('[aria-label="Maximizar Projetos"]');
+      assert.equal(await evaluate("(()=>{const app=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();const rail=document.querySelector('.workspace-sidebar').getBoundingClientRect();const dock=document.querySelector('.workspace-navigation').getBoundingClientRect();return Math.abs(app.left-rail.right)<2&&Math.abs(app.top)<2&&Math.abs(app.right-innerWidth)<2&&Math.abs(app.bottom-dock.top)<2;})()"),true,'Maximized app fills the area between sidebar and dock');
       assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').dataset.maximized"),'true');
       await click('[aria-label="Minimizar Projetos"]');
       assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').hidden"),true);
