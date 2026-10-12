@@ -687,3 +687,15 @@
 
 @container central-viewport (max-width: 640px) { .central-content { --home-footer-height: 28px; } }
 @container central-viewport (max-height: 520px) { .central-content { --home-footer-height: 28px; } }
+
+/* Storage stays readable on one line; compact rail shows usage with full tooltip. */
+.account-storage-value { white-space: nowrap; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.account-storage-compact { display: none; }
+.window-workspace[data-sidebar="collapsed"] .account-storage-summary { display: none; }
+.window-workspace[data-sidebar="collapsed"] .account-storage-compact { display: inline; }
+@media (max-width: 760px) {
+  .account-storage-summary { display: none; }
+  .account-storage-compact { display: inline; }
+  .window-workspace[data-sidebar="expanded"] .account-storage-summary { display: inline; }
+  .window-workspace[data-sidebar="expanded"] .account-storage-compact { display: none; }
+}

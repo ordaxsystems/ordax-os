@@ -498,3 +498,13 @@ theme hover/focus feedback; its 24x44px target and accessible labels are retaine
 The CSS rail/visual-width variables position it for desktop and mobile overlay
 modes. One state/control remains; no window remount or backend change. No build,
 npm or tests executed under the standing user restriction.
+
+### Single-line sidebar storage caption — 2026-10-11
+
+Requested account-card readability adjustment: show used/limit once as 128 / 500 GB
+in the expanded rail, with nowrap and tabular numbers. A compact rail shows the
+same fixture's derived 25.6% usage (localized decimal), keeping the full used/limit
+in the tooltip and accessible progress metadata. No smaller illegible font,
+ellipsis hiding units or wrapped quota sentence. Actions stay beside each other.
+Owner: OS Surface; presentation-only quota, no backend change. No build, npm or
+tests executed under the standing user restriction.

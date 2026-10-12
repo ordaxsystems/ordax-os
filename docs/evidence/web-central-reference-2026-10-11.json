@@ -31,7 +31,7 @@
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "cd5a362480f09e940f99147ee6350eb48ccc205bbfdb66a916ea92c3c0e0bcbd",
+      "adaptedSha256": "e61a915108048030e16904292350576b3435e1a112cb0291423f3fc295acbc61",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "60adc046e0c688209504be17897e91b67951600cdeb584dd7bf126d58869e2e4",
+      "adaptedSha256": "c57f5f7b524c5626acbd3c90879f5751b021bbb3f3fb43aab2076d0b066283b4",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -100,7 +100,8 @@
     "Central container-sized grid without page scrolling; responsive panel selection, bounded summaries and existing actions through overflow",
     "Collapsible responsive sidebar, account bell beside settings, and icon-only Home overflow without visible footer labels",
     "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control",
-    "Collapse control moved out of sidebar content flow to a directional chevron on the divider edge"
+    "Collapse control moved out of sidebar content flow to a directional chevron on the divider edge",
+    "Single-line used/limit GB caption; compact rail shows derived usage percentage with full quota tooltip"
   ],
   "native_files": [
     {
