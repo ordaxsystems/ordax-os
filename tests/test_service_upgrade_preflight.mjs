@@ -85,15 +85,27 @@ test("transitive Assistant lacking a live contract blocks an otherwise compatibl
   assert.equal(complete.authority, "none");
 });
 
-test("manifest changes cannot hide deeper consumers from the dependency closure", () => {
-  const newCatalog = manifests.map((component) => component.id === "assistant"
-    ? { ...component, dependencies: ["surface-shell", "ordax-intelligence"] }
-    : component);
+test("new app added three dependencies away is automatically detected and blocks incomplete preflight", () => {
+  const newCatalog = [...independentManifests, {
+    ...manifests.find((entry) => entry.id === "assistant"),
+    id: "assistant-helper",
+    title: "Synthetic Helper (test-only)",
+    owner: "test fixture only",
+    dependencies: ["assistant"],
+  }];
   const result = deriveServiceConsumerImpact({
     manifests: newCatalog, componentId: "local-ai-service",
     descriptors: coreRuntimeCompatibility,
   });
-  assert.equal(result.summary.transitive, 1);
+  assert.equal(result.summary.direct, 1);
+  assert.equal(result.summary.transitive, 2);
+  assert.deepEqual(
+    result.consumers.find((entry) => entry.id === "assistant-helper").dependencyPath,
+    ["local-ai-service", "ordax-intelligence", "assistant", "assistant-helper"],
+  );
+  const denied = inspect({ manifests: newCatalog });
+  assert.equal(denied.compatibilityAllowed, false);
+  assert.equal(denied.reasonCode, "active-consumer-descriptor-unavailable");
   assert.throws(() => deriveServiceConsumerImpact({
     manifests, componentId: "not-a-component", descriptors: coreRuntimeCompatibility,
   }), /no canonical manifest/);
