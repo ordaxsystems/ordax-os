@@ -74,7 +74,6 @@ export function createDesktopShellMarkup(localization) {
           <button type="button" class="ordax-rail-button" data-show-desktop><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button>
           ${railButton("files", t("app.files.title"), ICONS.files, t)}
           ${railButton("studio", t("app.studio.title"), ICONS.studio, t)}
-          ${railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)}
           ${railButton("internet", t("app.internet.title"), ICONS.internet, t)}
           ${railButton("settings", t("app.settings.title"), ICONS.settings, t)}
           ${railButton("account", t("app.account.title"), ICONS.account, t)}
@@ -91,7 +90,6 @@ export function createDesktopShellMarkup(localization) {
               <h1 id="surface-home-title" class="ordax-home-title">OrdaX <span>OS</span></h1>
               <p class="ordax-home-tagline" data-home-tagline>${t("shell.home.tagline")}</p>
               <div class="ordax-welcome-actions">
-                ${railButton("assistant", t("app.assistant.title"), ICONS.assistant, t, "ordax-welcome-action")}
               </div>
             </div>
             <div class="ordax-home-meta">
@@ -101,7 +99,7 @@ export function createDesktopShellMarkup(localization) {
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
               <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
               <div class="ordax-home-action-grid">
-                ${["studio", "files", "internet", "assistant", "settings"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
+                ${["studio", "files", "internet", "settings"].map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
               </div>
             </section>
 
