@@ -108,7 +108,8 @@ test("Activity Surface creates Work only from its explicit user action and does 
   assert.match(source, /dataset\.personalRecoveryFind/);
   assert.match(source, /personalOrdax\.recoverWorkForRequest\(request\)/);
   assert.match(source, /personalOrdax\.acceptRecoveredWork\(recoveryState\.value\)/);
-  assert.match(source, /createPersonalActivityExportDocument\(personalOrdax\.getSnapshot\(\)\)/);
+  assert.match(source, /createExportDocument\(personalOrdax\.getSnapshot\(\)\)/);
+  assert.doesNotMatch(source, /services\/personal-ordax\/export\.mjs/);
   assert.match(source, /activityExport\.save\(document\)/);
   assert.match(source, /dataset\.personalProposalSuggest/);
   assert.match(source, /personalOrdax\.proposeActionForWork\(workItemId\)/);
@@ -141,5 +142,6 @@ test("Native composition passes the one mounted Personal OrdaX runtime into Acti
   assert.match(source, /import\("\.\.\/\.\.\/apps\/activity\/runtime\.mjs"\)/);
   assert.match(source, /createNativePersonalActivityExport\(fileSpace\)/);
   assert.match(source, /context:\s*\{[\s\S]*?personalOrdax,[\s\S]*?activityExport:\s*personalActivityExport,[\s\S]*?\}/);
+  assert.match(source, /createExportDocument: createPersonalActivityExportDocument/);
   assert.match(source, /activityComponent\?\.destroy\(\)/);
 });

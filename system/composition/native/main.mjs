@@ -19,6 +19,7 @@ import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
+import { createPersonalActivityExportDocument } from "../../services/personal-ordax/export.mjs";
 import { createNetworkDraftRuntime } from "../../services/professional-network/draft.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
@@ -1010,6 +1011,7 @@ async function start() {
       surfaceLifecycle: surface,
       personalOrdax,
       activityExport: personalActivityExport,
+      createExportDocument: createPersonalActivityExportDocument,
     },
     onError(error) {
       reportClientDiagnostic("activity-runtime", error);
