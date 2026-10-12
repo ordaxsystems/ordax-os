@@ -200,7 +200,7 @@ def verify_executable_mode(archive: Path, kind: str) -> None:
             if not 1 <= name_size <= 4096:
                 raise BaseError("rootfs.cpio.gz: invalid cpio pathname length")
             name_raw = stream.read(name_size)
-            if len(name_raw) != name_size or not name_raw.endswith(b"\\0"):
+            if len(name_raw) != name_size or not name_raw.endswith(b"\0"):
                 raise BaseError("rootfs.cpio.gz: invalid/truncated cpio filename")
             name = name_raw[:-1].decode("utf-8", "strict").removeprefix("./")
             pad = (-(110 + name_size)) % 4
