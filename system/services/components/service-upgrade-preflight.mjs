@@ -1,7 +1,9 @@
 import {
   validateComponentManifests,
   validateComponentId,
+  validateComponentVersion,
 } from "../../contracts/component-manifest.mjs";
+import { validateComponentSlotSourceCommit } from "../../contracts/component-slot-source.mjs";
 import {
   validateComponentCompatibility,
   validateComponentCompatibilityCatalog,
@@ -147,4 +149,72 @@ export function preflightServiceUpgrade({
     migrationPlan,
   });
   return preflightDecision(id, result.allowed, result.reasonCode, result.migrationRequired);
+}
+
+export const VERIFIED_SLOT_COMPATIBILITY_SCHEMA = "ordax.verified-slot-compatibility/1";
+const TRUST_FINGERPRINT_RE = /^[0-9a-f]{64}$/;
+const INSPECTION_FIELDS = Object.freeze([
+  "schema", "authority", "trustScope", "trustSHA256", "activationStatus",
+  "componentId", "version", "sourceCommit", "descriptor",
+]);
+
+// A JSON report is not cryptographic proof by itself. Only the trusted
+// Native runtime may call the verifier with its pinned key and recheck exact
+// activation revision/identities. This parser never grants installation.
+export function validateSlotCompatibilityInspection(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).sort().join(",") !== [...INSPECTION_FIELDS].sort().join(",")) {
+    throw new TypeError("Signed slot compatibility inspection has invalid shape");
+  }
+  if (value.schema !== VERIFIED_SLOT_COMPATIBILITY_SCHEMA
+    || value.authority !== "none"
+    || value.trustScope !== "caller-supplied-public-anchor"
+    || value.activationStatus !== "not-evaluated"
+    || typeof value.trustSHA256 !== "string"
+    || !TRUST_FINGERPRINT_RE.test(value.trustSHA256)) {
+    throw new TypeError("Signed slot inspection may not claim pinned trust or activation");
+  }
+  const componentId = validateComponentId(value.componentId);
+  const version = validateComponentVersion(value.version);
+  const sourceCommit = validateComponentSlotSourceCommit(value.sourceCommit);
+  const descriptor = validateComponentCompatibility(value.descriptor);
+  if (descriptor.componentId !== componentId || descriptor.componentVersion !== version) {
+    throw new TypeError("Signed slot inspection descriptor identity is inconsistent");
+  }
+  return Object.freeze({
+    schema: VERIFIED_SLOT_COMPATIBILITY_SCHEMA,
+    authority: "none",
+    trustScope: "caller-supplied-public-anchor",
+    trustSHA256: value.trustSHA256,
+    activationStatus: "not-evaluated",
+    componentId, version, sourceCommit, descriptor,
+  });
+}
+
+// Diagnostic bridge: all descriptors come from the same supplied public
+// anchor; this is still NOT proof that any report is active/current/pinned.
+export function preflightServiceUpgradeInspections({
+  manifests, componentId, currentInspection, candidateInspection,
+  activeInspections, migrationPlan = null,
+} = {}) {
+  const id = validateComponentId(componentId);
+  const current = validateSlotCompatibilityInspection(currentInspection);
+  const candidate = validateSlotCompatibilityInspection(candidateInspection);
+  if (!Array.isArray(activeInspections) || activeInspections.length > 128) {
+    throw new TypeError("Explicit bounded active slot inspections are required");
+  }
+  const active = activeInspections.map(validateSlotCompatibilityInspection);
+  if (current.componentId !== id || candidate.componentId !== id) {
+    return preflightDecision(id, false, "component-identity-mismatch");
+  }
+  if ([candidate, ...active].some((item) => item.trustSHA256 !== current.trustSHA256)) {
+    return preflightDecision(id, false, "public-trust-source-mismatch");
+  }
+  return preflightServiceUpgrade({
+    manifests, componentId: id,
+    current: current.descriptor,
+    candidate: candidate.descriptor,
+    active: active.map((item) => item.descriptor),
+    migrationPlan,
+  });
 }
