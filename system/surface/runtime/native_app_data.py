@@ -400,6 +400,40 @@ def _verify_checkpoint_blobs(root: str, checkpoint: dict) -> None:
         _verify_blob(blobs, entry)
 
 
+def _create_app_data_checkpoint_locked(bound: dict, release: dict, expected: int, root: str) -> dict:
+    current, _ = _read_manifest(bound, root)
+    if current["revision"] != expected:
+        raise AppDataConflictError(expected, current["revision"])
+    # A new partition has a real recoverable empty generation (rev 0).
+    # The lock creates its private directory before this read; pinning
+    # genesis lets a first stateful update recover without invented data.
+    if current["revision"] == 0 and current["entries"]:
+        raise ValueError("App Data empty generation contains unexpected entries")
+    if _read_checkpoint(bound, root) is not None:
+        raise ValueError("App Data already has a retained recovery checkpoint")
+    checkpoint = {
+        "$schema": APP_DATA_CHECKPOINT_SCHEMA,
+        "identity": dict(bound),
+        "sourceRelease": release,
+        "manifest": current,
+    }
+    _verify_checkpoint_blobs(root, checkpoint)
+    raw = json.dumps(checkpoint, separators=(",", ":"), sort_keys=True, ensure_ascii=False).encode("utf-8")
+    if len(raw) > MAX_APP_DATA_CHECKPOINT_BYTES:
+        raise ValueError("App Data checkpoint exceeds hard bound")
+    partition, _, _, _ = _ensure_partition_directories(root, bound)
+    _atomic_replace_bytes(
+        os.path.join(partition, APP_DATA_CHECKPOINT_NAME),
+        partition, raw, label="App Data checkpoint",
+    )
+    # Reopen the durable record, including its owner and release binding.
+    saved = _read_checkpoint(bound, root)
+    if saved != checkpoint:
+        raise ValueError("App Data checkpoint failed durable readback")
+    return {"pinnedRevision": current["revision"], "sourceRelease": release}
+
+
+
 def create_app_data_checkpoint(
     identity: object,
     source_release: object,
@@ -411,37 +445,7 @@ def create_app_data_checkpoint(
     release = _source_release(source_release, bound)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
-        current, _ = _read_manifest(bound, root)
-        if current["revision"] != expected:
-            raise AppDataConflictError(expected, current["revision"])
-        # A new partition has a real recoverable empty generation (rev 0).
-        # The lock creates its private directory before this read; pinning
-        # genesis lets a first stateful update recover without invented data.
-        if current["revision"] == 0 and current["entries"]:
-            raise ValueError("App Data empty generation contains unexpected entries")
-        if _read_checkpoint(bound, root) is not None:
-            raise ValueError("App Data already has a retained recovery checkpoint")
-        checkpoint = {
-            "$schema": APP_DATA_CHECKPOINT_SCHEMA,
-            "identity": dict(bound),
-            "sourceRelease": release,
-            "manifest": current,
-        }
-        _verify_checkpoint_blobs(root, checkpoint)
-        raw = json.dumps(checkpoint, separators=(",", ":"), sort_keys=True, ensure_ascii=False).encode("utf-8")
-        if len(raw) > MAX_APP_DATA_CHECKPOINT_BYTES:
-            raise ValueError("App Data checkpoint exceeds hard bound")
-        partition, _, _, _ = _ensure_partition_directories(root, bound)
-        _atomic_replace_bytes(
-            os.path.join(partition, APP_DATA_CHECKPOINT_NAME),
-            partition, raw, label="App Data checkpoint",
-        )
-        # Reopen the durable record, including its owner and release binding.
-        saved = _read_checkpoint(bound, root)
-        if saved != checkpoint:
-            raise ValueError("App Data checkpoint failed durable readback")
-        return {"pinnedRevision": current["revision"], "sourceRelease": release}
-
+        return _create_app_data_checkpoint_locked(bound, release, expected, root)
 
 def inspect_app_data_checkpoint(
     identity: object,
@@ -507,6 +511,32 @@ def inspect_app_data_checkpoint(
         }
 
 
+def _restore_app_data_checkpoint_locked(bound: dict, release: dict, expected: int, root: str) -> dict:
+    current, _ = _read_manifest(bound, root)
+    if current["revision"] != expected:
+        raise AppDataConflictError(expected, current["revision"])
+    checkpoint = _read_checkpoint(bound, root)
+    if checkpoint is None or checkpoint["sourceRelease"] != release:
+        raise ValueError("App Data verified checkpoint for source release is unavailable")
+    if checkpoint["manifest"]["revision"] > current["revision"]:
+        raise ValueError("App Data checkpoint revision exceeds current generation")
+    if current["revision"] >= MAX_SAFE_REVISION:
+        raise ValueError("App Data partition revision is exhausted")
+    _verify_checkpoint_blobs(root, checkpoint)
+    restored = dict(checkpoint["manifest"])
+    restored["revision"] = current["revision"] + 1
+    # Blobs are immutable, already fully verified and kept by the pin.
+    # Atomic manifest replacement is the only authoritative switch.
+    _write_manifest(restored, root)
+    _cleanup_unreferenced_blobs(restored, root)
+    return {
+        "revision": restored["revision"],
+        "restoredFromRevision": checkpoint["manifest"]["revision"],
+        "restored": True,
+    }
+
+
+
 def restore_app_data_checkpoint(
     identity: object,
     source_release: object,
@@ -522,28 +552,29 @@ def restore_app_data_checkpoint(
     release = _source_release(source_release, bound)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
-        current, _ = _read_manifest(bound, root)
-        if current["revision"] != expected:
-            raise AppDataConflictError(expected, current["revision"])
-        checkpoint = _read_checkpoint(bound, root)
-        if checkpoint is None or checkpoint["sourceRelease"] != release:
-            raise ValueError("App Data verified checkpoint for source release is unavailable")
-        if checkpoint["manifest"]["revision"] > current["revision"]:
-            raise ValueError("App Data checkpoint revision exceeds current generation")
-        if current["revision"] >= MAX_SAFE_REVISION:
-            raise ValueError("App Data partition revision is exhausted")
-        _verify_checkpoint_blobs(root, checkpoint)
-        restored = dict(checkpoint["manifest"])
-        restored["revision"] = current["revision"] + 1
-        # Blobs are immutable, already fully verified and kept by the pin.
-        # Atomic manifest replacement is the only authoritative switch.
-        _write_manifest(restored, root)
-        _cleanup_unreferenced_blobs(restored, root)
-        return {
-            "revision": restored["revision"],
-            "restoredFromRevision": checkpoint["manifest"]["revision"],
-            "restored": True,
-        }
+        return _restore_app_data_checkpoint_locked(bound, release, expected, root)
+
+def _retire_app_data_checkpoint_locked(bound: dict, release: dict, expected: int, root: str) -> dict:
+    current, _ = _read_manifest(bound, root)
+    if current["revision"] != expected:
+        raise AppDataConflictError(expected, current["revision"])
+    checkpoint = _read_checkpoint(bound, root)
+    if checkpoint is None or checkpoint["sourceRelease"] != release:
+        raise ValueError("App Data verified checkpoint for source release is unavailable")
+    partition, _, _, _ = _ensure_partition_directories(root, bound)
+    os.unlink(os.path.join(partition, APP_DATA_CHECKPOINT_NAME))
+    descriptor = os.open(
+        partition, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+    )
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    # Garbage collection happens only *after* durable retirement.
+    _cleanup_unreferenced_blobs(current, root)
+    return {"revision": current["revision"], "retired": True}
+
 
 
 def retire_app_data_checkpoint(
@@ -557,25 +588,88 @@ def retire_app_data_checkpoint(
     release = _source_release(source_release, bound)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
+        return _retire_app_data_checkpoint_locked(bound, release, expected, root)
+
+class _AppDataMaintenance:
+    """Scoped access to an already exclusively locked App Data partition.
+
+    This is NOT an activation grant. The trusted coordinator must verify its
+    signed release and hold its own canonical activation graph transaction.
+    Operations here intentionally reuse the existing checkpoint code without
+    reacquiring flock on a different descriptor (which would deadlock).
+    """
+
+    def __init__(self, bound: dict, release: dict, root: str) -> None:
+        self._bound = bound
+        self._release = release
+        self._root = root
+        self._active = True
+
+    def _check(self) -> None:
+        if not self._active:
+            raise RuntimeError("App Data maintenance scope has ended")
+
+    def revision(self) -> int:
+        self._check()
+        manifest, _ = _read_manifest(self._bound, self._root)
+        return manifest["revision"]
+
+    def checkpoint(self, expected_revision: int) -> dict:
+        self._check()
+        return _create_app_data_checkpoint_locked(
+            self._bound, self._release, _revision(expected_revision), self._root,
+        )
+
+    def restore(self, expected_revision: int) -> dict:
+        self._check()
+        return _restore_app_data_checkpoint_locked(
+            self._bound, self._release, _revision(expected_revision), self._root,
+        )
+
+    def retire(self, expected_revision: int) -> dict:
+        self._check()
+        return _retire_app_data_checkpoint_locked(
+            self._bound, self._release, _revision(expected_revision), self._root,
+        )
+
+
+@contextmanager
+def hold_app_data_maintenance(
+    identity: object,
+    source_release: object,
+    expected_revision: object,
+    root: str = DEFAULT_APP_DATA_ROOT,
+):
+    """Hold the actual partition writer lock across a trusted owner's lifecycle.
+
+    No app-facing command exposes this function. App reads, lists, puts and
+    deletes on this partition block for the entire scope. The owner may pin,
+    restore or retire under one lock via the yielded scoped object. Leaving
+    without retiring a checkpoint preserves it; an interrupted process drops
+    flock but never silently discards pinned bytes. This neither signs nor
+    activates any release and cannot by itself suspend non-App-Data effects.
+    """
+    bound = _identity(identity)
+    release = _source_release(source_release, bound)
+    expected = _revision(expected_revision)
+    with _exclusive_partition_lock(bound, root):
         current, _ = _read_manifest(bound, root)
         if current["revision"] != expected:
             raise AppDataConflictError(expected, current["revision"])
+        paths = _existing_partition_paths(root, bound)
+        if paths is None:
+            raise ValueError("App Data maintenance partition is unavailable")
+        _, _, _, blobs = paths
+        for record in current["entries"].values():
+            _verify_blob(blobs, record)
         checkpoint = _read_checkpoint(bound, root)
-        if checkpoint is None or checkpoint["sourceRelease"] != release:
-            raise ValueError("App Data verified checkpoint for source release is unavailable")
-        partition, _, _, _ = _ensure_partition_directories(root, bound)
-        os.unlink(os.path.join(partition, APP_DATA_CHECKPOINT_NAME))
-        descriptor = os.open(
-            partition, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
-        )
+        if checkpoint is not None:
+            _verify_checkpoint_blobs(root, checkpoint)
+        scope = _AppDataMaintenance(bound, release, root)
         try:
-            os.fsync(descriptor)
+            yield scope
         finally:
-            os.close(descriptor)
-        # Garbage collection happens only *after* durable retirement.
-        _cleanup_unreferenced_blobs(current, root)
-        return {"revision": current["revision"], "retired": True}
+            scope._active = False
 
 
 def _write_manifest(manifest: dict, root: str) -> None:
