@@ -166,4 +166,8 @@ test("machine-readable CLI output contains every component and domain", () => {
   assert.equal(report.inventory.summary.domainCount, report.readiness.summary.serviceDomainCount);
   assert.equal(report.inventory.summary.componentCount, report.readiness.summary.componentCount);
   assert.equal(report.readiness.summary.productionEvidence, "not-evaluated");
+  assert.equal(report.compatibility.schema, "ordax.service-compatibility-coverage/1");
+  assert.equal(report.compatibility.summary.total, report.inventory.summary.componentCount);
+  assert.equal(report.compatibility.summary.declared, coreRuntimeCompatibility.length);
+  assert.equal(report.compatibility.authority, "none");
 });
