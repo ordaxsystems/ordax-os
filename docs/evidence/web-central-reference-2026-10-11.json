@@ -725,7 +725,9 @@
     {
       "target": "system/surface/workspace/components/central/compact-actions.tsx",
       "sha256": "2f681892823122a3f210c0d84a0edab5f47394bad687c8040cda956218785221",
-      "purpose": "Canonical lazy compact-menu presentation; consumes existing shared DropdownMenu and WindowLayer controls, without local window state or authority."
+      "purpose": "Canonical lazy compact-menu presentation; consumes existing shared DropdownMenu and WindowLayer controls, without local window state or authority.",
+      "adaptedSha256": "34fb93fe986735ae10cdb4114183bf769ef64fc908f9722d4500b299e4a9ca00",
+      "adaptation": "Remove duplicate onClick forcing open on Radix DropdownMenuTrigger; the shared onOpenChange is the sole menu-open state authority. Existing action dispatch, lazy-loading and Close control are preserved."
     }
   ]
 }
