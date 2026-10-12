@@ -2,27 +2,24 @@ import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
+import { createWebSpaceSelectionStore } from "../../adapters/web/space-selection.mjs";
+import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
 
 // Composition only: the adapters retain all validation, credentials and state.
 export function createWebAccountSession(windowRef = globalThis.window) {
   const identity = createWebIdentitySession(windowRef);
   const actions = createWebIdentityActions(windowRef, identity);
   const spaces = createWebSpacesCatalog(windowRef);
+  // The domain service owns subject changes, catalog invalidation and selection.
+  const selection = createSpaceSelectionRuntime({
+    identitySession: identity, spaces, store: createWebSpaceSelectionStore(),
+  });
   const surface = createWebSurfaceHost(windowRef, {
     readAccountIdentityAvailable: () => identity.getSnapshot().state !== "unavailable",
   });
-  let subjectId = null;
   let pending = null;
   let disposed = false;
-  const releaseIdentity = identity.subscribe((snapshot) => {
-    const nextSubject = snapshot.state === "signed-in" ? snapshot.subjectId : null;
-    if (nextSubject !== subjectId) {
-      subjectId = nextSubject;
-      // Aborts old catalog reads before another subject can see their results.
-      spaces.reset();
-    }
-    surface.refresh();
-  });
+  const releaseIdentity = identity.subscribe(() => surface.refresh());
   function refresh() {
     if (disposed) return Promise.resolve();
     if (pending !== null) return pending;
@@ -42,7 +39,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
   windowRef.addEventListener("online", refreshQuietly);
   windowRef.document?.addEventListener("visibilitychange", onVisibility);
   return Object.freeze({
-    identity, actions, spaces, surface, refresh,
+    identity, actions, spaces, selection, surface, refresh,
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -50,6 +47,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
       windowRef.removeEventListener("online", refreshQuietly);
       windowRef.document?.removeEventListener("visibilitychange", onVisibility);
       releaseIdentity();
+      selection.dispose();
       actions.dispose();
       spaces.dispose();
       identity.dispose();

@@ -39,7 +39,11 @@ The host origin must serve the existing /auth/session, /auth/logout,
  /account/spaces and /login/ routes. /conta/ is the public account destination.
 A standalone Vite/static origin without this gateway stays unavailable; no
 cookie extraction, cross-origin proxy, credentials or second backend is added.
-The current Web adapter does not provide selected-Space context, projects,
+Space selection reuses ordax.space-selection/1 and the Native domain service
+with a session-only Web record adapter. No Space is selected automatically;
+catalog removal/archiving, account changes and logout invalidate context.
+Reloading the page requires choosing again; no selection sync or persistence
+is advertised. The current Web adapters do not provide projects,
 activity, devices, subscription/usage or inference. These cards retain their
 layout and destinations with explicit availability states instead of demo data.
 Identity changes remount only the session workspace to clear local account

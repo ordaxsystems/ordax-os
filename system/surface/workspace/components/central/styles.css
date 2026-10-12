@@ -824,3 +824,10 @@
 .account-service-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .account-service-actions > button, .account-service-actions > a { min-width: 0; font-size: 11px; white-space: normal; height: auto; min-height: 36px; }
 .central-presentation .hero-heading { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Selection uses the existing Space row geometry and theme tokens. */
+.space-choice { width: 100%; text-align: left; white-space: normal; height: auto; min-height: 44px; }
+.space-choice-name { min-width: 0; overflow-wrap: anywhere; }
+.space-choice .project-meta { margin-left: auto; flex-shrink: 0; }
+.space-choice[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+.space-switch > span:not(.app-icon) { min-width: 0; overflow-wrap: anywhere; }

@@ -113,3 +113,93 @@ test('disposal removes refresh listeners and ignores a late session read', async
   assert.equal(f.session.identity.getSnapshot().state, 'unavailable');
   assert.deepEqual(f.session.spaces.getSnapshot().spaces, []);
 });
+
+test('selection is explicit, uses the authorized catalog and issues no mutation requests', async () => {
+  const f = fixture(signedIn('account-a'));
+  try {
+    assert.throws(() => f.session.selection.select('space-account-a'));
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+    assert.throws(() => f.session.selection.select('space-not-authorized'));
+    const requestCount = f.requests.length;
+    f.session.selection.select('space-account-a');
+    assert.equal(f.session.selection.getSnapshot().selectedSpace.id, 'space-account-a');
+    assert.equal(f.requests.length, requestCount);
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().selectedSpace.id, 'space-account-a');
+    f.session.selection.clear();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+  } finally { f.session.dispose(); }
+});
+
+test('catalog revocation and archiving remove the selection instead of choosing another Space', async () => {
+  const f = fixture(signedIn('account-a'));
+  try {
+    await f.session.refresh();
+    f.session.selection.select('space-account-a');
+    const replacement = catalog('account-a');
+    replacement.spaces[0].state = 'archived';
+    f.server.readSpaces = () => response(replacement);
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+    assert.throws(() => f.session.selection.select('space-account-a'));
+    f.server.readSpaces = () => response(catalog('account-a'));
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+    f.session.selection.select('space-account-a');
+    f.server.readSpaces = () => response({ ...catalog('account-a'), spaces: [] });
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+  } finally { f.session.dispose(); }
+});
+
+test('a failed catalog makes selection unavailable until revalidated for the same account', async () => {
+  const f = fixture(signedIn('account-a'));
+  try {
+    await f.session.refresh();
+    f.session.selection.select('space-account-a');
+    f.server.readSpaces = () => ({ ok: false, status: 503 });
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unavailable');
+    assert.equal(f.session.selection.getSnapshot().selectedSpace, null);
+    assert.throws(() => f.session.selection.select('space-account-a'));
+    f.server.readSpaces = () => response(catalog('account-a'));
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().selectedSpace.id, 'space-account-a');
+  } finally { f.session.dispose(); }
+});
+
+test('switching accounts and signing out clear the previous selection permanently', async () => {
+  const f = fixture(signedIn('account-a'));
+  try {
+    await f.session.refresh();
+    f.session.selection.select('space-account-a');
+    f.server.session = signedIn('account-b');
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().subjectId, 'account-b');
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+    f.server.session = signedIn('account-a');
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+    f.session.selection.select('space-account-a');
+    await f.session.actions.execute('sign-out');
+    assert.equal(f.session.selection.getSnapshot().state, 'unavailable');
+    f.server.session = signedIn('account-a');
+    await f.session.refresh();
+    assert.equal(f.session.selection.getSnapshot().state, 'unselected');
+  } finally { f.session.dispose(); }
+});
+
+test('a new Web composition does not inherit session-only selection after disposal', async () => {
+  const f = fixture(signedIn('account-a'));
+  await f.session.refresh();
+  f.session.selection.select('space-account-a');
+  f.session.dispose();
+  assert.equal(f.session.selection.getSnapshot().state, 'unavailable');
+  assert.throws(() => f.session.selection.select('space-account-a'));
+  const next = createWebAccountSession(f.windowRef);
+  try {
+    await next.refresh();
+    assert.equal(next.selection.getSnapshot().state, 'unselected');
+  } finally { next.dispose(); }
+});
