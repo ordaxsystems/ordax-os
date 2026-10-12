@@ -164,6 +164,29 @@ This is an additional necessary guard, **not** an activation grant or a
 replacement for signed active-consumer compatibility and pinned production
 trust. `arm-pending` is still not enabled for public independent updates.
 
+### Signed current consumer continuity on uninstall and rollback
+
+Under the existing activation graph and component locks, `uninstall-current`
+and `rollback-state` of a release/2 current slot inspect **all native signed
+current release/2 peers**, using the same readout function as the canonical
+active-slot catalog. For every mandatory contract requirement presently
+satisfied by the outgoing provider, the writer proves that the replacement
+slot or an alternate installed signed provider still offers a matching
+contract ID and major range. If not, the change is rejected **before**
+modifying `activation-state.json`. Optional requirements never block.
+The scanner rejects corrupt current state, unknown release schemas, unsafe
+root entries and unverified peer signatures rather than silently omitting
+the affected consumer. A signed release/2 rollback destination is inspected
+with its exact prior identity and supplied public trust.
+
+This is a **real safety gate for the installed Native signed subset**, but
+not a global permission to uninstall/rollback arbitrary OrdaX OS bundled
+services: bundled consumers, production trust pinning, legacy release/1
+consumers and external filesystem writers are not fully represented. The
+release/1-to-release/1 development behavior is unchanged; that does not
+confer production safety. The scanner shares the original graph lock,
+source signatures and state SSOT; no shadow installed-app database.
+
 ### Compatibility must survive pending health and promotion
 
 `arm-pending` checks signed state, provided interfaces, required provider
