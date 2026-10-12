@@ -1,6 +1,14 @@
 name: First Physical USB Payload
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/first-physical-usb-payload.yml'
+      - 'tests/test_first_physical_usb_payload_ssot.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/first-physical-usb-payload.yml'
   workflow_dispatch:
     inputs:
       target_bytes:
@@ -14,12 +22,13 @@ permissions:
 
 jobs:
   payload:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
       ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       WRITER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-      TARGET_BYTES: ${{ inputs.target_bytes }}
+      TARGET_BYTES: ${{ inputs.target_bytes || '8053063680' }}
 
     steps:
       - name: Checkout current operator contracts
@@ -43,11 +52,31 @@ jobs:
           echo 'PHYSICAL_WRITER_CONTEXT_MATCH=PASS'
 
       - name: Validate official physical promotion gate before resolving payload
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
           set -euo pipefail
           python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready > /dev/null
           echo 'OFFICIAL_PHYSICAL_PROMOTION=READY'
+
+      - name: Validate non-destructive preauthorization stage
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 operator/tools/creator/physical_promotion.py --repo-root operator --output "$RUNNER_TEMP/preauthorization.json" > /dev/null
+          python3 - <<'PY'
+          import json, os, pathlib
+          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'preauthorization.json').read_text(encoding='utf-8'))
+          if (
+              result['pre_authorization_ready'] is not True
+              or result['ready'] is not False
+              or result['authorization_blockers'] != ['explicit-physical-write-authorization-missing']
+              or result['authorized_candidate_materialization_allowed'] is not False
+          ):
+              raise SystemExit('pre-authorization gate failed or physical authorization already exists')
+          print('V4_PREAUTHORIZATION_PROOF=ELIGIBLE_NOT_AUTHORIZED')
+          PY
 
       - name: Resolve exact signed release from authorization SSOT
         id: canonical
@@ -64,14 +93,18 @@ jobs:
           auth = json.loads(pathlib.Path(
               'operator/docs/contracts/physical-write-authorization.json'
           ).read_text(encoding='utf-8'))
+          physical_mode = os.environ['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
           if (
               auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3'
-              or auth.get('status') != 'authorized'
-              or auth.get('physical_write_allowed') is not True
-              or auth.get('explicit_owner_authorization') is not True
+              or auth.get('status') != (
+                  'authorized' if physical_mode else 'blocked-explicit-physical-authorization-pending'
+              )
+              or auth.get('physical_write_allowed') is not physical_mode
+              or auth.get('explicit_owner_authorization') is not physical_mode
               or auth.get('scope') != 'first-real-stable-mvp-usb-proof'
+              or (not physical_mode and auth.get('authorization_context_sha256') is not None)
           ):
-              raise SystemExit('canonical owner authorization has not passed')
+              raise SystemExit('canonical physical authorization does not match workflow mode')
 
           binding = auth.get('release_binding')
           if not isinstance(binding, dict):
@@ -183,12 +216,15 @@ jobs:
           )
           if auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3':
               raise SystemExit('physical-write authorization schema is not v3')
-          if auth.get('status') != 'authorized':
-              raise SystemExit('physical-write authorization is not authorized')
-          if auth.get('physical_write_allowed') is not True:
-              raise SystemExit('physical write is not allowed by current authorization')
-          if auth.get('explicit_owner_authorization') is not True:
-              raise SystemExit('explicit owner authorization is missing')
+          physical_mode = os.environ['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
+          if auth.get('status') != (
+              'authorized' if physical_mode else 'blocked-explicit-physical-authorization-pending'
+          ):
+              raise SystemExit('physical-write authorization is incompatible with workflow mode')
+          if auth.get('physical_write_allowed') is not physical_mode:
+              raise SystemExit('physical write permission does not match workflow mode')
+          if auth.get('explicit_owner_authorization') is not physical_mode:
+              raise SystemExit('owner authorization does not match workflow mode')
           if auth.get('scope') != 'first-real-stable-mvp-usb-proof':
               raise SystemExit('physical authorization scope mismatch')
 
@@ -214,7 +250,7 @@ jobs:
           if proof.get('canonical_materialization_verified') is not True:
               raise SystemExit('canonical materialization proof is not verified')
 
-          print('FIRST_USB_AUTHORIZATION=PASS')
+          print('FIRST_USB_AUTHORIZATION=PASS' if physical_mode else 'FIRST_USB_PROOF_ONLY=PASS')
           print(f'RELEASE_SOURCE_COMMIT={release_commit}')
           print(f'WRITER_SOURCE_COMMIT={writer_commit}')
           print(f'TARGET_BYTES={target_bytes}')
@@ -502,7 +538,81 @@ jobs:
           print('PORTABLE_ARTIFACT_READBACKS=17')
           PY
 
-      - name: Record non-destructive operator bundle provenance
+      - name: Verify real 17 signed sources through Creator Core (read-only)
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        shell: bash
+        working-directory: operator/tools/creator
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+          result="$(go run ./cmd/ordax-creator verify-portable-sources --bindings "$out/bindings.json" --sources-root "$out/sources")"
+          grep -q '^PORTABLE_SOURCES_VERIFIED=YES
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+          python3 - "$out/provenance.json" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          auth = json.loads(
+              pathlib.Path('operator/docs/contracts/physical-write-authorization.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          proof = json.loads(
+              pathlib.Path('operator/docs/evidence/canonical-v4-release-proof.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          payload = {
+              '$schema': 'prototype-ordax.first-physical-usb-payload/1',
+              'status': 'target-specific-plan-ready-not-written',
+              'release_source_commit': os.environ['RELEASE_SOURCE_COMMIT'],
+              'writer_source_commit': os.environ['WRITER_SOURCE_COMMIT'],
+              'target_bytes': int(os.environ['TARGET_BYTES']),
+              'canonical_envelope_url': os.environ['ENVELOPE_URL'],
+              'release_sequence': auth['release_sequence'],
+              'authorization_context_sha256': auth['authorization_context_sha256'],
+              'canonical_v4_release_proof_sha256': auth['bindings']['canonical_v4_release_proof_sha256'],
+              'canonical_trust_sha256': proof['canonical_trust_sha256'],
+              'artifact_count': 17,
+              'application_operation_count': 39,
+              'whole_disk_raw_image_required': False,
+              'private_key_in_bundle': False,
+              'physical_target_selected': False,
+              'target_specific_destructive_confirmation_recorded': False,
+              'physical_write_performed': False,
+              'public_stable_promoted': False,
+          }
+          pathlib.Path(sys.argv[1]).write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+          (
+            cd "$out"
+            find sources -type f -print0 | sort -z | xargs -0 sha256sum
+            sha256sum bindings.json portable-media-plan.json portable-application-plan.json provenance.json
+          ) > "$out/SHA256SUMS"
+
+          echo 'FIRST_PHYSICAL_USB_PAYLOAD=READY'
+          echo 'PHYSICAL_TARGET_SELECTED=NO'
+          echo 'PHYSICAL_WRITE_PERFORMED=NO'
+
+      - name: Upload first physical USB operator payload
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-first-physical-payload-${{ steps.canonical.outputs.release_source_commit }}-${{ inputs.target_bytes }}
+          path: ${{ runner.temp }}/first-physical-payload/out/
+          if-no-files-found: error
+          retention-days: 7
+ <<< "$result"
+          grep -q '^PORTABLE_SOURCE_COUNT=17
         shell: bash
         run: |
           set -euo pipefail
@@ -566,3 +676,186 @@ jobs:
           path: ${{ runner.temp }}/first-physical-payload/out/
           if-no-files-found: error
           retention-days: 7
+ <<< "$result"
+          grep -q '^PHYSICAL_WRITE_AUTHORIZED=NO
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+          python3 - "$out/provenance.json" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          auth = json.loads(
+              pathlib.Path('operator/docs/contracts/physical-write-authorization.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          proof = json.loads(
+              pathlib.Path('operator/docs/evidence/canonical-v4-release-proof.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          payload = {
+              '$schema': 'prototype-ordax.first-physical-usb-payload/1',
+              'status': 'target-specific-plan-ready-not-written',
+              'release_source_commit': os.environ['RELEASE_SOURCE_COMMIT'],
+              'writer_source_commit': os.environ['WRITER_SOURCE_COMMIT'],
+              'target_bytes': int(os.environ['TARGET_BYTES']),
+              'canonical_envelope_url': os.environ['ENVELOPE_URL'],
+              'release_sequence': auth['release_sequence'],
+              'authorization_context_sha256': auth['authorization_context_sha256'],
+              'canonical_v4_release_proof_sha256': auth['bindings']['canonical_v4_release_proof_sha256'],
+              'canonical_trust_sha256': proof['canonical_trust_sha256'],
+              'artifact_count': 17,
+              'application_operation_count': 39,
+              'whole_disk_raw_image_required': False,
+              'private_key_in_bundle': False,
+              'physical_target_selected': False,
+              'target_specific_destructive_confirmation_recorded': False,
+              'physical_write_performed': False,
+              'public_stable_promoted': False,
+          }
+          pathlib.Path(sys.argv[1]).write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+          (
+            cd "$out"
+            find sources -type f -print0 | sort -z | xargs -0 sha256sum
+            sha256sum bindings.json portable-media-plan.json portable-application-plan.json provenance.json
+          ) > "$out/SHA256SUMS"
+
+          echo 'FIRST_PHYSICAL_USB_PAYLOAD=READY'
+          echo 'PHYSICAL_TARGET_SELECTED=NO'
+          echo 'PHYSICAL_WRITE_PERFORMED=NO'
+
+      - name: Upload first physical USB operator payload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-first-physical-payload-${{ steps.canonical.outputs.release_source_commit }}-${{ inputs.target_bytes }}
+          path: ${{ runner.temp }}/first-physical-payload/out/
+          if-no-files-found: error
+          retention-days: 7
+ <<< "$result"
+          python3 - "$out/preauthorization-proof.json" "$out/bindings.json" "$out/portable-media-plan.json" "$out/portable-application-plan.json" <<'PY'
+          import hashlib, json, os, pathlib, sys
+          output, bindings_path, media_path, app_path = map(pathlib.Path, sys.argv[1:])
+          bindings, media, app = (json.loads(p.read_text(encoding='utf-8')) for p in (bindings_path, media_path, app_path))
+          release = os.environ['RELEASE_SOURCE_COMMIT']
+          if (
+              len(bindings['artifacts']) != 17 or len(media['artifacts']) != 17
+              or len(app['operations']) != 39 or media['source_commit'] != release
+              or app['source_commit'] != release or app['physical_write_authorized'] is not False
+              or app['physical_device_bound'] is not False
+              or app['public_promotion_allowed'] is not False
+          ):
+              raise SystemExit('real v4 pre-authorization proof is not complete or safe')
+          proof = {
+              '$schema': 'prototype-ordax.portable-v4-17-source-preauthorization-proof/1',
+              'status': 'pass-read-only',
+              'release_source_commit': release,
+              'writer_source_commit': os.environ['WRITER_SOURCE_COMMIT'],
+              'canonical_release_envelope_url': os.environ['ENVELOPE_URL'],
+              'target_bytes': int(os.environ['TARGET_BYTES']),
+              'source_artifacts_verified': 17,
+              'application_operations_planned': 39,
+              'artifact_readbacks_planned': 17,
+              'artifact_readbacks_on_physical_media': 0,
+              'bindings_sha256': hashlib.sha256(bindings_path.read_bytes()).hexdigest(),
+              'media_plan_sha256': hashlib.sha256(media_path.read_bytes()).hexdigest(),
+              'application_plan_sha256': hashlib.sha256(app_path.read_bytes()).hexdigest(),
+              'physical_target_selected': False,
+              'physical_write_authorized': False,
+              'physical_write_performed': False,
+              'public_stable_promoted': False,
+          }
+          output.write_text(json.dumps(proof, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print('REAL_V4_17_SOURCE_PREFLIGHT=PASS_NON_DESTRUCTIVE')
+          PY
+
+      - name: Upload proof metadata only (never physical source bytes)
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-real-v4-17-source-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/first-physical-payload/out/preauthorization-proof.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Record non-destructive operator bundle provenance
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+          python3 - "$out/provenance.json" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          auth = json.loads(
+              pathlib.Path('operator/docs/contracts/physical-write-authorization.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          proof = json.loads(
+              pathlib.Path('operator/docs/evidence/canonical-v4-release-proof.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          payload = {
+              '$schema': 'prototype-ordax.first-physical-usb-payload/1',
+              'status': 'target-specific-plan-ready-not-written',
+              'release_source_commit': os.environ['RELEASE_SOURCE_COMMIT'],
+              'writer_source_commit': os.environ['WRITER_SOURCE_COMMIT'],
+              'target_bytes': int(os.environ['TARGET_BYTES']),
+              'canonical_envelope_url': os.environ['ENVELOPE_URL'],
+              'release_sequence': auth['release_sequence'],
+              'authorization_context_sha256': auth['authorization_context_sha256'],
+              'canonical_v4_release_proof_sha256': auth['bindings']['canonical_v4_release_proof_sha256'],
+              'canonical_trust_sha256': proof['canonical_trust_sha256'],
+              'artifact_count': 17,
+              'application_operation_count': 39,
+              'whole_disk_raw_image_required': False,
+              'private_key_in_bundle': False,
+              'physical_target_selected': False,
+              'target_specific_destructive_confirmation_recorded': False,
+              'physical_write_performed': False,
+              'public_stable_promoted': False,
+          }
+          pathlib.Path(sys.argv[1]).write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+          (
+            cd "$out"
+            find sources -type f -print0 | sort -z | xargs -0 sha256sum
+            sha256sum bindings.json portable-media-plan.json portable-application-plan.json provenance.json
+          ) > "$out/SHA256SUMS"
+
+          echo 'FIRST_PHYSICAL_USB_PAYLOAD=READY'
+          echo 'PHYSICAL_TARGET_SELECTED=NO'
+          echo 'PHYSICAL_WRITE_PERFORMED=NO'
+
+      - name: Upload first physical USB operator payload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-first-physical-payload-${{ steps.canonical.outputs.release_source_commit }}-${{ inputs.target_bytes }}
+          path: ${{ runner.temp }}/first-physical-payload/out/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Destroy temporary signed release and 17 source files
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/first-physical-payload"
+          echo 'TEMPORARY_V4_SOURCE_BYTES_DESTROYED=YES'
