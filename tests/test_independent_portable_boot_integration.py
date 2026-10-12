@@ -101,7 +101,7 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('decoded[0] ^= 0x01', fault)
         self.assertEqual(fault.count("qemu.boot_qemu_expected("), 2)
         self.assertIn("qemu.inspect_one_shot_state(", fault)
-        self.assertIn('"ordax.mode=recovery"', fault)
+        self.assertIn("ordax.mode=recovery", fault)
         self.assertIn("no candidate/current/known-good release is safely selectable", fault)
         self.assertIn("before != after", fault)
         self.assertIn('"physical_promotion_authorized": False', fault)
