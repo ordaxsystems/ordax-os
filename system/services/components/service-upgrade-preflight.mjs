@@ -218,3 +218,82 @@ export function preflightServiceUpgradeInspections({
     migrationPlan,
   });
 }
+
+export const ACTIVATION_SLOT_COMPATIBILITY_SNAPSHOT_SCHEMA =
+  "ordax.activation-slot-compatibility-snapshot/1";
+
+const ACTIVATION_SNAPSHOT_FIELDS = Object.freeze([
+  "schema", "authority", "componentId", "target", "revision",
+  "pendingHealth", "trustScope", "trustSHA256", "verifiedSlot",
+]);
+
+export function validateActivationCompatibilitySnapshot(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).sort().join(",") !== [...ACTIVATION_SNAPSHOT_FIELDS].sort().join(",")) {
+    throw new TypeError("Canonical activation compatibility snapshot shape is invalid");
+  }
+  if (value.schema !== ACTIVATION_SLOT_COMPATIBILITY_SNAPSHOT_SCHEMA
+    || value.authority !== "none"
+    || value.trustScope !== "caller-supplied-public-anchor"
+    || !Number.isSafeInteger(value.revision) || value.revision < 1
+    || !["current", "pending"].includes(value.target)
+    || !["unknown", "healthy", "failed"].includes(value.pendingHealth)) {
+    throw new TypeError("Activation compatibility snapshot status is invalid");
+  }
+  const slot = validateSlotCompatibilityInspection(value.verifiedSlot);
+  if (slot.componentId !== value.componentId ||
+    slot.trustSHA256 !== value.trustSHA256) {
+    throw new TypeError("Activation state must bind exact verified slot identity and trust");
+  }
+  return Object.freeze({
+    schema: ACTIVATION_SLOT_COMPATIBILITY_SNAPSHOT_SCHEMA,
+    authority: "none",
+    componentId: slot.componentId,
+    target: value.target,
+    revision: value.revision,
+    pendingHealth: value.pendingHealth,
+    trustScope: "caller-supplied-public-anchor",
+    trustSHA256: slot.trustSHA256,
+    verifiedSlot: slot,
+  });
+}
+
+// A source-only compatibility diagnostic for a staged, NOT-YET-ARMED
+// candidate. The trusted host must recheck the activation revision under its
+// existing activation lock before arm-pending; this result grants no authority.
+export function preflightServiceUpgradeWithActivationSnapshots({
+  manifests, componentId, currentSnapshot, candidateInspection,
+  activeSnapshots, expectedRevision, migrationPlan = null,
+} = {}) {
+  const id = validateComponentId(componentId);
+  const current = validateActivationCompatibilitySnapshot(currentSnapshot);
+  const candidate = validateSlotCompatibilityInspection(candidateInspection);
+  if (!Array.isArray(activeSnapshots) || activeSnapshots.length > 128) {
+    throw new TypeError("Active current activation snapshots must be a bounded array");
+  }
+  const others = activeSnapshots.map(validateActivationCompatibilitySnapshot);
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    throw new TypeError("Expected canonical activation revision is required");
+  }
+  if (current.componentId !== id || candidate.componentId !== id
+    || current.target !== "current") {
+    return preflightDecision(id, false, "activation-snapshot-identity-mismatch");
+  }
+  if (current.revision !== expectedRevision) {
+    return preflightDecision(id, false, "activation-revision-stale");
+  }
+  if (others.some((entry) => entry.target !== "current")) {
+    return preflightDecision(id, false, "active-consumer-not-current");
+  }
+  const ids = others.map((entry) => entry.componentId);
+  if (new Set(ids).size !== ids.length || ids.includes(id)) {
+    throw new TypeError("Active activation snapshot IDs must be unique and exclude current");
+  }
+  return preflightServiceUpgradeInspections({
+    manifests, componentId: id,
+    currentInspection: current.verifiedSlot,
+    candidateInspection: candidate,
+    activeInspections: others.map((entry) => entry.verifiedSlot),
+    migrationPlan,
+  });
+}
