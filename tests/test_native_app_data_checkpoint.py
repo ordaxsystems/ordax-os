@@ -106,6 +106,32 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
             self.assertFalse((partition / "manifest.json").exists())
             self.assertTrue(persisted_blob.exists(), "lost user's data after missing manifest")
 
+    def test_disappeared_blob_directory_cannot_be_recreated_to_hide_lost_data(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "account", b"old-data", 0, str(root))
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            partition = only_partition(root)
+            blobs = partition / "blobs"
+            detached = Path(temporary) / "detached-blobs"
+            blobs.rename(detached)
+            original_manifest = (partition / "manifest.json").read_bytes()
+            with self.assertRaisesRegex(ValueError, "blob directory is missing"):
+                app_data.read_app_data(identity(), "account", str(root))
+            with self.assertRaisesRegex(ValueError, "blob directory is missing"):
+                app_data.list_app_data(identity(), str(root))
+            with self.assertRaisesRegex(ValueError, "blob directory is missing"):
+                app_data.put_app_data(identity(), "account", b"replacement", 1, str(root))
+            with self.assertRaisesRegex(ValueError, "blob directory is missing"):
+                app_data.restore_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            self.assertFalse(blobs.exists(), "storage owner recreated missing blobs")
+            self.assertEqual((partition / "manifest.json").read_bytes(), original_manifest)
+            self.assertTrue((partition / app_data.APP_DATA_CHECKPOINT_NAME).exists())
+            self.assertTrue(
+                (detached / (hashlib.sha256(b"old-data").hexdigest() + ".bin")).exists(),
+                "test accidentally destroyed detached user data",
+            )
+
     def test_missing_existing_partition_lock_cannot_split_active_writer_authority(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "app-data"
