@@ -1,3 +1,4 @@
+import { defaultSidebarForPresentation, resolveSidebarMode } from "../workspace/presentation.mjs";
 import { validateSurfaceSnapshot } from "../../contracts/surface-host.mjs";
 import {
   MAX_WORKSPACE_AREAS,
@@ -164,6 +165,7 @@ export function createSurfaceState(snapshot, preferenceSeed = {}, workspaceSeed 
   return freezeState({
     launcherOpen: false,
     presentation: "central",
+    sidebarMode: defaultSidebarForPresentation("central"),
     connectivity: safeSnapshot.connectivity,
     capabilityIds: safeSnapshot.capabilityIds,
     activeAreaId: workspace.activeAreaId,
@@ -324,7 +326,12 @@ export function reduceSurfaceState(state, action, appCatalog = defaultAppRuntime
       });
     case "workspace.presentation": {
       if (!["central", "desktop"].includes(action.value) || state.presentation === action.value) return state;
-      return freezeState({ ...state, presentation: action.value, launcherOpen: false });
+      return freezeState({ ...state, presentation: action.value, sidebarMode: defaultSidebarForPresentation(action.value), launcherOpen: false });
+    }
+    case "workspace.sidebar": {
+      if (!["collapsed", "expanded"].includes(action.value) || state.sidebarMode === action.value) return state;
+      const sidebarMode = resolveSidebarMode(state.presentation, action.value);
+      return sidebarMode === state.sidebarMode ? state : freezeState({ ...state, sidebarMode });
     }
     case "workspace.show-desktop": {
       const area = getActiveArea(state);

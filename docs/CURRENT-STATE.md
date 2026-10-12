@@ -1,5 +1,28 @@
 # Current State
 
+## Ajustes Web e navegação USB — 2026-10-12
+
+Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
+com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
+engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
+de recursos já existente. As outras seções Native dependentes de host não foram
+expostas como funções Web disponíveis.
+
+workspace/presentation.mjs define uma única política: entrar na Área de trabalho
+mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central
+recupera a apresentação automática e permite expansão manual. Estado é de sessão, sem novo
+registro persistido e sem recriar janelas. USB ganhou ícone de perfil no rodapé da sidebar para account/overview pelo
+catálogo e caminho de ativação existentes. O acesso na header e o item Conta
+duplicado foram removidos. Nomes dos ícones usam tooltips nativos/localizados.
+
+49 testes Node e 36 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: temas, contraste persistido em reload, largura de
+64px fixos no desktop, expansão apenas na Central, perfil USB e 390x844 sem overflow
+horizontal, inclusive Ajustes compacto. Conta autenticada/hardware e boot físico
+não são demonstrados pela prévia local. [Owner e aceite](DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
+
 ## Surface Web/USB — cores compartilhadas e desktop nativo — 2026-10-12
 
 Claro/Escuro do Web e OrdaX USB usam um único catálogo de perfis. As cores

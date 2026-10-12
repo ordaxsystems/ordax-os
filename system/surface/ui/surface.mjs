@@ -704,6 +704,12 @@ export function mountSurface(
     root.dataset.theme = appearance.colorTheme;
     root.dataset.ordaxPalette = appearance.colorTheme === "native" ? "native" : "standard";
     root.dataset.workspacePresentation = state.presentation;
+    root.dataset.nativeSidebar = state.sidebarMode;
+    const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
+    const sidebarExpanded = state.sidebarMode !== "collapsed";
+    sidebarToggle.hidden = state.presentation === "desktop";
+    sidebarToggle.setAttribute("aria-expanded", String(sidebarExpanded));
+    sidebarToggle.setAttribute("aria-label", localization.translate(sidebarExpanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
     root.querySelector("[data-central-presentation]").hidden = state.presentation !== "central";
     root.querySelector("[data-desktop-presentation]").hidden = state.presentation !== "desktop";
     const presentationToggle = root.querySelector("[data-presentation-toggle]");
@@ -833,6 +839,11 @@ export function mountSurface(
       return;
     }
 
+    const sidebarToggle = event.target.closest("[data-sidebar-toggle]");
+    if (sidebarToggle) {
+      dispatch({ type: "workspace.sidebar", value: state.sidebarMode === "collapsed" ? "expanded" : "collapsed" });
+      return;
+    }
     const presentationToggle = event.target.closest("[data-presentation-toggle]");
     if (presentationToggle) {
       dispatch({ type: "workspace.presentation", value: state.presentation === "central" ? "desktop" : "central" });

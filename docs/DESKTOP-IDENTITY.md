@@ -21,7 +21,7 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 ## Shared design-system ownership
 
-`system/surface/ui/tokens.css` owns the USB palette, typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
+`system/surface/ui/tokens.css` owns the USB palette, typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
@@ -1273,3 +1273,31 @@ on Ubuntu/WSL; TypeScript/build/34 reference assets; browser theme/reload/window
 behavior and 390x844 viewport. The local Native preview consumes canonical UI with
 browser preference persistence and unavailable host capabilities. Source readiness
 and this visual preview do not constitute a signed USB release or physical boot.
+
+## Shared settings style and sidebar policy — 2026-10-12
+
+Owner: OrdaX OS Surface, linked to the functional Surface plan; explicit user
+request to reuse USB Settings styling in Web and add a Native profile shortcut.
+Web imports settings.css and the canonical Settings message catalog. Its existing
+appearance and accessibility ports remain authoritative; no duplicate store,
+palette, grants, account runtime or device execution. Host-only Native sections
+are not advertised as implemented Web features. Settings loads on demand and uses
+the existing window resource boundary. The sidebar entry replaces its footer
+shortcut and opens the existing Configurações window.
+
+workspace/presentation.mjs owns the default sidebar policy used by both renderers.
+Desktop keeps an icon rail collapsed; expansion requests cannot override that
+policy and the expansion control is absent in that presentation. Returning to Central uses automatic responsive sizing and allows manual expansion. No
+presentation/sidebar state is added to workspace-store/2. Native's profile
+shortcut lives in the sidebar footer, targets account/overview through catalog
+availability and normal launch, and replaces header/rail duplicates. Icon names
+use localized native browser tooltips without a parallel label registry.
+It does not access the operational profile registry or bypass identity capability.
+
+Risks: layout specificity, real app-width breakpoints, and focus during view
+changes. Acceptance: intact windows, no horizontal overflow at 390x844, compact
+settings adaptation, persistent existing preferences, fixed 64px desktop rail and usable
+Central expansion/profile shortcut. Verified with 49 Node and 36 Python tests,
+TypeScript/build/reference verification and local Web/Native browser flows.
+Authenticated account, device execution, physical boot and signed release remain
+outside the local visual preview's evidence.

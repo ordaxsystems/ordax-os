@@ -529,3 +529,19 @@ body { background: var(--ordax-bg); font-weight: 400; }
   .ordax-desktop-shortcut { width: 100%; min-height: 100px; }
   .ordax-presentation-toggle { width: 44px; min-width: 44px; height: 44px; }
 }
+
+/* Sidebar presentation is session state; the desktop default is shared with Web. */
+[data-native-sidebar="collapsed"] .ordax-shell { --ordax-rail-width: 64px; }
+[data-native-sidebar="expanded"] .ordax-shell { --ordax-rail-width: 202px; }
+[data-native-sidebar="collapsed"] .ordax-rail-nav { padding-inline: 8px; }
+[data-native-sidebar="collapsed"] .ordax-power-slot { padding-inline: 8px; }
+[data-native-sidebar="collapsed"] .ordax-rail-button { justify-content: center; min-height: 44px; flex-direction: row; padding: 10px; }
+[data-native-sidebar="collapsed"] .ordax-rail-button > span:last-child { display: none; }
+.ordax-rail-footer { margin-top: auto; display: grid; justify-items: center; gap: 12px; padding-top: 12px; }
+.ordax-rail-footer .ordax-power-slot { margin-top: 0; width: 100%; }
+.ordax-profile-shortcut { display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; padding: 10px; border: 1px solid var(--ordax-border-soft); border-radius: 50%; background: var(--ordax-surface); color: var(--ordax-text); cursor: pointer; }
+.ordax-sidebar-toggle { position: absolute; z-index: 60; top: calc(var(--ordax-header-height) + 28px); left: calc(var(--ordax-rail-width) - 16px); display: grid; place-items: center; width: 32px; height: 32px; padding: 7px; border: 1px solid var(--ordax-border); border-radius: var(--ordax-radius-sm); background: var(--ordax-panel); color: var(--ordax-text); cursor: pointer; }
+.ordax-sidebar-toggle[hidden] { display: none; }
+.ordax-profile-shortcut:hover, .ordax-profile-shortcut:focus-visible { background: var(--ordax-hover-bg); outline: 2px solid var(--ordax-focus); outline-offset: 2px; }
+.ordax-sidebar-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+@media (max-width: 760px) { .ordax-sidebar-toggle { display: none; } }
