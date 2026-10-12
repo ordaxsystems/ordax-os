@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
+import { coreRuntimeCompatibility } from "../system/services/components/compatibility/core.mjs";
 import { deriveNativeServiceUpdateInventory } from "../system/services/components/service-update-inventory.mjs";
 import {
   SERVICE_UPDATE_READINESS_SCHEMA,
@@ -125,6 +126,24 @@ test("all current explicit policy release modes derive from component IDs", () =
   assert.equal(internet.releaseMode, "git-app");
   assert.equal(internet.policyAssessment, "blocked");
   assert.equal(internet.productionEvidence, "not-evaluated");
+});
+
+test("package compatibility helper derives all entries from the canonical descriptor catalog", () => {
+  const helper = fileURLToPath(new URL("../tools/component-package/compatibility.mjs", import.meta.url));
+  for (const descriptor of coreRuntimeCompatibility) {
+    const result = spawnSync(process.execPath, [helper, descriptor.componentId], {
+      encoding: "utf8", timeout: 20000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), descriptor);
+  }
+  for (const id of ["", "nonexistent-component"]) {
+    const result = spawnSync(process.execPath, [helper, id], {
+      encoding: "utf8", timeout: 20000,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /No canonical runtime compatibility descriptor/);
+  }
 });
 
 test("machine-readable CLI output contains every component and domain", () => {
