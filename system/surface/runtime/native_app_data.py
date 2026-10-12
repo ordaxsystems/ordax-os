@@ -151,8 +151,12 @@ def _existing_partition_paths(root: str, identity: dict) -> tuple[str, str, str,
     partition, _, _, blobs = paths
     if not _validate_private_directory(partition, "App Data partition directory"):
         return None
-    if os.path.lexists(blobs) and not _validate_private_directory(blobs, "App Data blob directory"):
-        raise ValueError("App Data blob directory is unsafe")
+    if not _validate_private_directory(blobs, "App Data blob directory"):
+        # After first materialization, blobs are part of the durable
+        # partition, even if the current generation has zero entries.
+        # Recreating a disappeared directory could make a healthy manifest
+        # point to missing data without noticing the storage failure.
+        raise ValueError("App Data blob directory is missing from existing partition")
     return paths
 
 
