@@ -38,8 +38,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "e108ed1bee16effaff2ce5b22116e96bb81058d53cb5c0b16dbc52f8ec3b639a",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
+      "adaptedSha256": "6824e42c132db0615f264de3436d7690be0bde4b4ff1325e6234924694268c32",
+      "adaptation": "Preserve the existing session-bound desktop and Space selection, but make the running-apps dock explicitly open minimized windows rather than using generic focus. Focus events from Radix popup closure must not implicitly restore a minimized window."
     },
     {
       "source": "src/components/central/desktop-state.ts",
