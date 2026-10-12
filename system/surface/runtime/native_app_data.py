@@ -236,7 +236,10 @@ def _read_manifest(identity: dict, root: str) -> tuple[dict, int]:
         return _empty_manifest(identity), 0
     _, manifest_path, _, _ = paths
     if not os.path.lexists(manifest_path):
-        return _empty_manifest(identity), 0
+        # A partition that already exists is not an authoritative empty
+        # generation. If its manifest vanished, silently returning revision
+        # zero could let the next CAS write discard previously persisted data.
+        raise ValueError("App Data manifest is missing from existing partition")
     payload = _read_regular_file(manifest_path, "App Data manifest", MAX_APP_DATA_MANIFEST_BYTES)
     try:
         parsed = json.loads(payload.decode("utf-8", errors="strict"))
@@ -580,7 +583,10 @@ def _shared_partition_lock_if_present(identity: dict, root: str):
 
 @contextmanager
 def _exclusive_partition_lock(identity: dict, root: str):
-    partition, _, lock_path, _ = _ensure_partition_directories(root, identity)
+    # Determine genesis before creating anything. Existing partitions must
+    # never be silently reconstructed after a missing/corrupt manifest.
+    was_present = _existing_partition_paths(root, identity) is not None
+    partition, manifest_path, lock_path, _ = _ensure_partition_directories(root, identity)
     if os.path.lexists(lock_path):
         _validate_private_regular(lock_path, "App Data partition lock")
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
@@ -591,6 +597,13 @@ def _exclusive_partition_lock(identity: dict, root: str):
             raise ValueError("App Data partition lock is unsafe")
         os.fchmod(descriptor, 0o600)
         fcntl.flock(descriptor, fcntl.LOCK_EX)
+        if not os.path.lexists(manifest_path):
+            if was_present:
+                raise ValueError("App Data manifest is missing from existing partition")
+            # Persist canonical revision zero before exposing a writable
+            # partition. A crash after this fsync has a real genesis
+            # manifest; a crash before it cannot be confused with recovery.
+            _write_manifest(_empty_manifest(identity), root)
         yield partition
     finally:
         try:
