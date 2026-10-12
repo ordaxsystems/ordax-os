@@ -98,6 +98,8 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertIn("ORDAX_INDEPENDENT_GUARDIAN_TERMINATION=PASS", proof)
         self.assertIn("ORDAX_INDEPENDENT_NETWORK_DNS_RESOLUTION=PASS", proof)
         self.assertIn("ORDAX_INDEPENDENT_STATE_SECURITY=PASS", proof)
+        self.assertIn("ORDAX_INDEPENDENT_OVERLAY=PASS", proof)
+        self.assertIn("rescue overlay-lower-writable", proof)
         self.assertIn("rescue guardian-accepted-unverified-surface", proof)
         self.assertNotIn("exec /system/entrypoint", proof)
         self.assertNotIn('ORDAX_STABLE_LAYOUT=legacy-tree', proof)
