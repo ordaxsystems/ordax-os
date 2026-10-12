@@ -12,6 +12,9 @@ import {
   SERVICE_UPGRADE_PREFLIGHT_SCHEMA,
   deriveServiceCompatibilityCoverage,
   preflightServiceUpgrade,
+  validateSlotCompatibilityInspection,
+  preflightServiceUpgradeInspections,
+  VERIFIED_SLOT_COMPATIBILITY_SCHEMA,
 } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const manifests = listSystemComponents();
@@ -141,4 +144,76 @@ test("persistent state change is blocked unless separately planned and verified 
   const fake = inspect({ current, candidate, migrationPlan: { unsafe: true } });
   assert.equal(fake.compatibilityAllowed, false);
   assert.equal(fake.reasonCode, "state-migration-invalid");
+});
+
+const inspection = (descriptor, { fingerprint = "a".repeat(64), commit = "1".repeat(40) } = {}) => ({
+  schema: VERIFIED_SLOT_COMPATIBILITY_SCHEMA,
+  authority: "none",
+  trustScope: "caller-supplied-public-anchor",
+  trustSHA256: fingerprint,
+  activationStatus: "not-evaluated",
+  componentId: descriptor.componentId,
+  version: descriptor.componentVersion,
+  sourceCommit: commit,
+  descriptor,
+});
+
+test("same-trust signed-slot inspection reports feed canonical diagnostic preflight", () => {
+  const report = preflightServiceUpgradeInspections({
+    manifests: independentManifests,
+    componentId: "local-ai-service",
+    currentInspection: inspection(localAiCompatibility),
+    candidateInspection: inspection(futureAI(), { commit: "2".repeat(40) }),
+    activeInspections: [inspection(intelligenceCompatibility, { commit: "3".repeat(40) })],
+  });
+  assert.equal(report.compatibilityAllowed, true);
+  assert.equal(report.reasonCode, "compatible-stateless");
+  assert.equal(report.authority, "none");
+  assert.equal(report.activationEvidence, "not-evaluated");
+  assert.equal(report.signedPackageEvidence, "not-evaluated");
+});
+
+test("different supplied trust or incompatible active consumers fail closed", () => {
+  const shared = {
+    manifests: independentManifests,
+    componentId: "local-ai-service",
+    currentInspection: inspection(localAiCompatibility),
+    candidateInspection: inspection(futureAI()),
+    activeInspections: [inspection(intelligenceCompatibility)],
+  };
+  const wrongTrust = preflightServiceUpgradeInspections({
+    ...shared,
+    candidateInspection: inspection(futureAI(), { fingerprint: "b".repeat(64) }),
+  });
+  assert.equal(wrongTrust.compatibilityAllowed, false);
+  assert.equal(wrongTrust.reasonCode, "public-trust-source-mismatch");
+  const incompatible = preflightServiceUpgradeInspections({
+    ...shared,
+    candidateInspection: inspection(futureAI(2)),
+  });
+  assert.equal(incompatible.compatibilityAllowed, false);
+  assert.equal(incompatible.reasonCode, "contract-compatibility-failed");
+});
+
+test("slot readout rejects forged pinned-trust claim, incomplete binding and wrong version", () => {
+  const source = inspection(localAiCompatibility);
+  for (const invalid of [
+    { ...source, trustScope: "system-pinned" },
+    { ...source, authority: "activation" },
+    { ...source, activationStatus: "current" },
+    { ...source, trustSHA256: "untrusted" },
+    { ...source, sourceCommit: "bad" },
+    { ...source, version: "4.0.0" },
+    { ...source, componentId: "wrong-component" },
+    { ...source, injected: true },
+  ]) {
+    assert.throws(() => validateSlotCompatibilityInspection(invalid));
+  }
+  assert.throws(() => preflightServiceUpgradeInspections({
+    manifests: independentManifests,
+    componentId: "local-ai-service",
+    currentInspection: source,
+    candidateInspection: inspection(futureAI()),
+    activeInspections: null,
+  }), /Explicit bounded/);
 });
