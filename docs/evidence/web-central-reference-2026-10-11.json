@@ -248,7 +248,8 @@
           "Selecting/reopening app transfers focus to canonical active pane",
           "Central shows Home and retains drafts",
           "Mobile viewport and menu controls fit"
-        ]
+        ],
+        "superseded_by": "touch_target_validation.browser"
       },
       "publication_policy": "One grouped source push; no direct deployment or production activation.",
       "preview": {
@@ -257,7 +258,7 @@
         "recovery": "Existing Vite restarted hidden, without npm install or production deployment",
         "startup": "VITE v8.1.5 ready",
         "http_status": 200,
-        "ui_e2e": "pending-browser-control-tool-unavailable"
+        "ui_e2e": "passed-local-navigation; authenticated-gateway-still-pending"
       },
       "remote_reconciliation": {
         "main_commit": "a22b441c875f1b250ca6643fdda14fd124a84bfd",
@@ -270,6 +271,79 @@
           "failed": 0
         },
         "note": "Concurrent Runtime/Projects changes retained; frontend build inputs under composition/Surface unchanged."
+      },
+      "touch_target_validation": {
+        "date": "2026-10-12",
+        "source_base_commit": "2f224d7c4e3c22c483652edca2a9f5def920a1fb",
+        "owner": "OS Surface shared Dialog / WindowLayer",
+        "change": "Native search label and scoped 44 x 44 close target; existing descriptors, tokens and window state retained",
+        "browser": {
+          "result": "passed-for-observed-local-flows",
+          "origin": "http://127.0.0.1:4201/",
+          "viewports": [
+            {
+              "width": 390,
+              "height": 480
+            },
+            {
+              "width": 390,
+              "height": 600
+            },
+            {
+              "width": 390,
+              "height": 844
+            },
+            {
+              "width": 1366,
+              "height": 480
+            }
+          ],
+          "checks": [
+            "Tab/Shift-Tab contained in shared menu",
+            "Escape, close and backdrop restored trigger; backdrop opened no app",
+            "Search label padding tap focused input; close target measured 44 x 44 px",
+            "Trimmed empty search announced result; reopening cleared query",
+            "Selected and explicitly reopened Aura focused canonical active pane",
+            "Unsent local draft survived Central/minimize/dock restore",
+            "Resizing removed trigger; closing focused Home",
+            "Document stayed within tested viewport dimensions; no controls horizontally outside menu"
+          ],
+          "cleanup": "Temporary Aura closed without submitting; original dark theme, Central and default viewport restored; user tabs retained",
+          "dev_logs": "No warning/error entries returned",
+          "screenshot": {
+            "filename": "ordax-navigation-mobile-20261012.jpg",
+            "format": "JPEG",
+            "width": 390,
+            "height": 600,
+            "sha256": "b58b03198afd827abbb11dbccb997b11ba825ed54fc5060ac2f4f6a14c852e5d",
+            "scope": "local visualization artifact outside repository; not publicly published"
+          },
+          "authenticated_gateway_e2e": "pending-not-configured-on-local-Vite"
+        },
+        "build": {
+          "command": "npm.cmd run build --workspace tools/surface-web",
+          "result": "passed-including-typescript",
+          "initial_javascript_kb": 538.76,
+          "initial_gzip_kb": 170.06,
+          "initial_css_kb": 79.17,
+          "warning": "Initial JavaScript remains above 500 kB; no threshold override or loading-time benchmark."
+        },
+        "structure": {
+          "command": "npm.cmd run verify --workspace tools/surface-web",
+          "result": "passed",
+          "reference_files_and_assets": 34
+        },
+        "limits": [
+          "Local UI proof only; no inference or backend commands submitted",
+          "No authenticated catalog, device execution, signed install or production activation proof"
+        ],
+        "publication_policy": "One grouped source push; no direct deployment or production activation",
+        "remote_reconciliation": {
+          "main_commit": "7c0b97e",
+          "scope": "Concurrent signed native provider validation retained; seven Runtime/release files",
+          "web_source_delta": "git diff HEAD origin/main -- system/surface/workspace system/composition/web tools/surface-web package.json package-lock.json was empty before merge",
+          "note": "No frontend build inputs changed; no additional full build required solely for this Runtime merge."
+        }
       }
     }
   },
@@ -299,8 +373,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "ebad8d0f2b55c04aac57a22f2e4a2e184c7765f2ceb73b345148780bfeedd567",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved."
+      "adaptedSha256": "ea077651acb46752f26ff23cf14ff2cc9bef66ffb26d20807197c105bb47766b",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette."
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -313,8 +387,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "c3f441b90b3dd040754cc94c69372e896fdf291a364cca7866ac53a7070e250d",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved."
+      "adaptedSha256": "2b0de2d2fe6546b7728c0d28353e62321aae1630de24db6bc450f6b38c82a73d",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette."
     },
     {
       "source": "src/assets/alpine-day.jpg",

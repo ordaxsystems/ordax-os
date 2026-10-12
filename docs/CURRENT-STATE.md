@@ -10,9 +10,13 @@ o menu retorna ao botão de origem ou ao Início se o botão saiu do viewport.
 Sem novo serviço, catálogo, store de identidade ou autoridade de execução.
 
 36 regressões de workspace/sessão e sete de localização passaram; build com
-TypeScript e verificação de 34 arquivos/assets passaram. Validação visual e
-de teclado permanece pendente: a ferramenta de navegador não respondeu.
-Catálogo/gateway autenticado e serviços de dispositivos continuam separados.
+TypeScript e verificação de 34 arquivos/assets passaram. A validação local no
+navegador foi concluída em mobile curto, mobile alto e desktop: Tab/Shift-Tab,
+Escape, clique fora, reabertura e retenção de rascunho passaram. Busca usa label
+nativo e o botão de fechar tem área de toque de 44 x 44 px. Menu e controles
+couberam nos viewports observados; ao desaparecer o botão de origem, o foco
+voltou ao Início. Catálogo/gateway autenticado e dispositivos continuam fora
+dessa prova. Bundle inicial: 538,76 kB (170,06 kB gzip), ainda com aviso >500 kB.
 [Owner, risco e aceite](DESKTOP-IDENTITY.md#destination-menu-focus--2026-10-12).
 
 
