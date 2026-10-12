@@ -517,3 +517,12 @@ same presentation fixture; the existing single-line truncation is retained with
 full-name tooltip/accessible labels. Space labels elsewhere retain their own
 meaning. The account action/real identity backend is unchanged and remains
 pending. Owner: OS Surface. No build, npm or tests run under user restriction.
+
+### Edge chevron aligned with logo — 2026-10-11
+
+Requested placement revision: the outside-flow edge chevron now uses the shared
+sidebar top inset and logo-row height for its vertical position, rather than the
+viewport midpoint. The header and arrow consume the same CSS geometry in expanded,
+collapsed and narrow modes; short layouts retain the logo row with a smaller inset.
+Owner: OS Surface. State, app layout and backend unchanged. No build, npm or tests
+executed under the standing user restriction.

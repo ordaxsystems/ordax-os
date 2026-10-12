@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "c57f5f7b524c5626acbd3c90879f5751b021bbb3f3fb43aab2076d0b066283b4",
+      "adaptedSha256": "9d29f7608e09e0ec1803595299943ff2e3e78e16a2ce6cf09f5cdcf0ec9c57f8",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -102,7 +102,8 @@
     "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control",
     "Collapse control moved out of sidebar content flow to a directional chevron on the divider edge",
     "Single-line used/limit GB caption; compact rail shows derived usage percentage with full quota tooltip",
-    "Account card and Avatar consume shared demo user display identity; account title remains single-line with full-name tooltip"
+    "Account card and Avatar consume shared demo user display identity; account title remains single-line with full-name tooltip",
+    "Edge chevron vertically aligned to the logo row using shared sidebar inset and header-height CSS tokens"
   ],
   "native_files": [
     {
