@@ -536,7 +536,14 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           rm -rf "$work/qemu-proof"
           mkdir -p "$work/qemu-proof"
-          sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
+          proof_runner=bootstrap/portable-v2/qemu_boot.py
+          proof_extra=()
+          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+            proof_runner=bootstrap/independent-base/portable_boot_proof.py
+            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-proof/bridge")
+            echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
+          fi
+          sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
             --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
@@ -583,7 +590,14 @@ jobs:
           rm -rf "$work/qemu-one-shot-proof"
           mkdir -p "$work/qemu-one-shot-proof"
 
-          sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
+          proof_runner=bootstrap/portable-v2/qemu_boot.py
+          proof_extra=()
+          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+            proof_runner=bootstrap/independent-base/portable_boot_proof.py
+            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-one-shot-proof/bridge")
+            echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
+          fi
+          sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
             --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
