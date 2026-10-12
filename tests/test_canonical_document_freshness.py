@@ -75,7 +75,8 @@ def expected_apps():
     result = bundled_apps()
     result["files"] = app_owned_manifest("files")
     result["internet"] = app_owned_manifest("internet")
-    result["projects"] = app_owned_manifest("projects")
+    if (ROOT / "system/apps/projects/component.mjs").is_file():
+        result["projects"] = app_owned_manifest("projects")
     return result
 
 
@@ -114,7 +115,9 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
     def test_first_party_app_snapshot_matches_real_manifests(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
         apps = expected_apps()
-        self.assertEqual(set(apps), {"files", "settings", "account", "store", "system", "internet", "projects"})
+        self.assertEqual(set(apps), {"files", "settings", "account", "store", "system", "internet"})
+        self.assertFalse((ROOT / "system/apps/projects").exists(),
+                         "Gate A must remove the entire obsolete bundled Projects source")
 
         for app_id, app in apps.items():
             prefix = f"APP_{app_id.upper()}"
