@@ -31,7 +31,15 @@ for (const entry of centralReference.files) {
 }
 for (const entry of centralReference.native_files ?? []) {
   const source = (await readFile(new URL(entry.target, root), 'utf8')).replace(/\r\n/g, '\n');
-  assert.equal(createHash('sha256').update(source).digest('hex'), entry.sha256, 'Native Central source drift: ' + entry.target);
+  const currentDigest = createHash('sha256').update(source).digest('hex');
+  if (entry.adaptedSha256) {
+    assert.match(entry.sha256, /^[a-f0-9]{64}$/, 'Historical Native Central provenance must be retained');
+    assert.match(entry.adaptedSha256, /^[a-f0-9]{64}$/, 'Native adaptation digest must be valid');
+    assert.ok(typeof entry.adaptation === 'string' && entry.adaptation.trim(), 'Native adaptation requires an explanation');
+    assert.equal(currentDigest, entry.adaptedSha256, 'Native Central adaptation drift: ' + entry.target);
+  } else {
+    assert.equal(currentDigest, entry.sha256, 'Native Central source drift: ' + entry.target);
+  }
 }
 const composition = await readFile(new URL('system/composition/web/main.tsx', root), 'utf8');
 assert.ok(composition.includes('<Central key='), 'The approved Central is the primary Web page');

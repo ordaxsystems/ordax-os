@@ -139,7 +139,9 @@
       "target": "system/surface/workspace/components/central/account-context.tsx",
       "sha256": "65dd98da5eb285a5d735d1dcc3b2fe3a56b443e8ff9f9e0619c3e989ede14e6f",
       "owner": "OrdaX OS Surface",
-      "purpose": "React subscription context projecting existing account and Spaces ports without a second store"
+      "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
+      "adaptedSha256": "b119b21241c0e4a88f8b0a8534706ce94c000a13f40028513a6f3919d5052c6a",
+      "adaptation": "Remove UI-to-composition type import. The Surface account context now types its session using public Identity, Actions and Spaces contracts; the historical source hash is preserved."
     }
   ]
 }
