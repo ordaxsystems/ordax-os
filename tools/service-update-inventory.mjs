@@ -28,7 +28,9 @@ if (process.argv.includes("--check")) {
   process.stdout.write(
     "Service update inventory: " + inventory.summary.domainCount + " source domains, "
     + inventory.summary.componentCount + " declared components, "
-    + inventory.summary.embeddedDomainCount + " embedded domains; no independent release claimed.\n"
+    + inventory.summary.embeddedDomainCount + " embedded domains; "
+    + readiness.summary.packagingCandidates + " package-policy candidates; "
+    + readiness.summary.productionUpdateProven + " independent releases proven.\n"
   );
 } else {
   process.stdout.write(JSON.stringify({ inventory, readiness }, null, 2) + "\n");
