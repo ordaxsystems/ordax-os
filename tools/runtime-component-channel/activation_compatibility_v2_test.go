@@ -126,6 +126,37 @@ func TestInspectActivationCompatibilityV2CannotMixTrustOrTamperedState(t *testin
 	}
 }
 
+func TestInspectActivationCompatibilityV2RespectsExplicitUninstallIntent(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	trust, err := readRegular(fixture.trustPath, maxTrustBytes, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := healthyPromoteV2(t, fixture, candidate)
+	removed, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", *state.Current, state.Revision, fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !removed.UserRemoved {
+		t.Fatal("canonical uninstall intent was not recorded")
+	}
+	if _, err := inspectActiveCompatibilityV2(
+		fixture.root, "internet", "current", removed.Revision, trust,
+	); err == nil {
+		t.Fatal("uninstalled app was falsely reported as installed")
+	}
+	// A previously verified immutable slot may remain as a cache; it must
+	// never be confused with active installed state after uninstall.
+	if _, err := inspectVerifiedSlotCompatibilityV2(candidate.slot, trust); err != nil {
+		t.Fatalf("uninstall corrupted existing signed slot cache: %v", err)
+	}
+}
+
 func TestInspectActivationCompatibilityV2RejectsWrongTargetAndMissingRevision(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	trust, err := readRegular(fixture.trustPath, maxTrustBytes, false)
