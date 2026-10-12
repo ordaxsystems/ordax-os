@@ -434,7 +434,7 @@ export function assessServiceActiveGraphCoverage({
       contractEvidence: signed
         ? "verified-by-native-readout-not-pinned"
         : declared ? "source-descriptor-only" : "not-declared",
-      productionCompatibilityProven: false,
+      productionCompatibilityEvidence: "not-evaluated",
     });
   }).sort((left, right) => left.id.localeCompare(right.id));
   return Object.freeze({
@@ -448,7 +448,7 @@ export function assessServiceActiveGraphCoverage({
       sourceDescriptorsDeclared: entries.filter((entry) => entry.descriptorDeclared).length,
       missingSourceDescriptors: entries.filter((entry) => !entry.descriptorDeclared).length,
       sourceModeMismatches: entries.filter((entry) => !entry.sourcePolicyMatchesObservedSlot).length,
-      productionCompatibilityProven: 0,
+      productionCompatibilityEvidence: "not-evaluated",
     }),
   });
 }
