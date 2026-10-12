@@ -159,6 +159,12 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("'physical_target_selected': False", source)
         self.assertIn("'physical_write_authorized': False", source)
         self.assertIn("'physical_write_performed': False", source)
+        self.assertIn("name: Materialize real 17 signed sources on disposable FAT32 and exFAT twin", source)
+        self.assertIn("operator/tools/creator/proof/portable_prepared_media.py", source)
+        self.assertIn("REAL_V4_DISPOSABLE_TWIN=17_OF_17_READBACK_PASS", source)
+        self.assertIn("'disposable_twin_artifacts_readback'] = 17", source)
+        self.assertIn("'disposable_twin_raw_image_deleted'] = True", source)
+        self.assertIn("sudo rm -f \"$work/portable-v4-disposable-twin.raw\"", source)
         self.assertIn("name: Upload proof metadata only (never physical source bytes)", source)
         self.assertIn(
             "path: ${{ runner.temp }}/first-physical-payload/out/preauthorization-proof.json",
