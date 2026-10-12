@@ -98,6 +98,25 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         self.assertIn("if (!response.headersSent)", source)
         self.assertIn("response.writeHead(404);", source)
 
+    def test_collapsed_compact_panels_keep_expand_accessible_at_narrow_width(self):
+        css = (ROOT / "system/surface/workspace/components/central/styles.css").read_text(
+            encoding="utf-8"
+        )
+        layer = (ROOT / "system/surface/workspace/components/central/window-layer.tsx").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("@container (max-width: 260px)", css)
+        self.assertIn(
+            '.workspace-window[data-mode="compact"][data-collapsed="true"] .window-secondary-actions { display: flex; }',
+            css,
+        )
+        self.assertIn(
+            '.workspace-window[data-mode="compact"][data-collapsed="true"] .window-secondary-actions > button:not(:first-child) { display: none; }',
+            css,
+        )
+        self.assertIn("'Expandir' : 'Recolher'", layer)
+        self.assertIn("aria-label={control.label}", layer)
+
     def test_web_presentation_preserves_pending_apps_and_does_not_create_authority(self):
         main = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
         model = (ROOT / "system/surface/workspace/lib/web/model.ts").read_text(encoding="utf-8")
