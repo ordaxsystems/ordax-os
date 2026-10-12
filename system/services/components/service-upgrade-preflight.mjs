@@ -113,13 +113,26 @@ export function preflightServiceUpgrade({
   if (existing.componentId !== id || next.componentId !== id) {
     return preflightDecision(id, false, "component-identity-mismatch");
   }
-  if (existing.componentVersion !== manifest.version) {
-    return preflightDecision(id, false, "current-manifest-version-mismatch");
-  }
+  // Once installed independently, the *verified active slot* may be newer
+  // than the bundled source manifest. Never mistake that immutable source
+  // version for the device's current installed version.
   const otherDescriptors = active.map(validateComponentCompatibility);
   if (new Set(otherDescriptors.map((item) => item.componentId)).size !== otherDescriptors.length
     || otherDescriptors.some((item) => item.componentId === id)) {
     throw new TypeError("Current active descriptors must be unique and exclude the candidate");
+  }
+  const knownIds = new Set(catalog.map((item) => item.id));
+  for (const entry of otherDescriptors) {
+    if (!knownIds.has(entry.componentId)) {
+      throw new TypeError("Active component descriptor has no canonical manifest: " + entry.componentId);
+    }
+  }
+  // A candidate may not be evaluated against an already incoherent active
+  // contract set. Reuse the single canonical contract validator.
+  try {
+    validateComponentCompatibilityCatalog([existing, ...otherDescriptors]);
+  } catch {
+    return preflightDecision(id, false, "active-contract-snapshot-invalid");
   }
   const activeById = new Map(otherDescriptors.map((entry) => [entry.componentId, entry]));
   for (const consumer of catalog) {
