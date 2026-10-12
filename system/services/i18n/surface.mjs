@@ -9,7 +9,6 @@ import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/s
 import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
 import { SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES, SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES } from "./catalog/system-diagnostics.mjs";
-import { INTERNET_SOURCE_MESSAGES, INTERNET_ENGLISH_MESSAGES } from "./catalog/internet.mjs";
 import { ACCOUNT_SOURCE_MESSAGES, ACCOUNT_ENGLISH_MESSAGES } from "./catalog/account.mjs";
 import { ASSISTANT_SOURCE_MESSAGES, ASSISTANT_ENGLISH_MESSAGES } from "./catalog/assistant.mjs";
 import { ACTIVITY_SOURCE_MESSAGES, ACTIVITY_ENGLISH_MESSAGES } from "./catalog/activity.mjs";
@@ -120,11 +119,6 @@ const SOURCE = Object.freeze({
   "app.notes.panel.0.label": "Notas",
   "app.notes.panel.0.title": "Seu espaço de escrita",
   "app.notes.panel.0.body": "O espaço local de Notas não está disponível nesta composição.",
-  "app.internet.title": "Internet",
-  "app.internet.description": "Navegue, organize referências e conecte pesquisa ao seu trabalho.",
-  "app.internet.panel.0.label": "Navegador",
-  "app.internet.panel.0.title": "Internet",
-  "app.internet.panel.0.body": "A navegação integrada depende de um engine isolado fornecido pelo host.",
   "app.settings.title": "Ajustes",
   "app.settings.description": "Preferências compartilhadas, aparência e rede do OrdaX.",
   "app.settings.panel.0.label": "Ajustes",
@@ -153,7 +147,6 @@ const SOURCE = Object.freeze({
   ...ACCOUNT_SOURCE_MESSAGES,
   ...ASSISTANT_SOURCE_MESSAGES,
   ...ACTIVITY_SOURCE_MESSAGES,
-  ...INTERNET_SOURCE_MESSAGES,
   ...NETWORK_SOURCE_MESSAGES,
   ...POWER_SOURCE_MESSAGES,
   ...NOTIFICATIONS_SOURCE_MESSAGES,
@@ -258,11 +251,6 @@ const ENGLISH = Object.freeze({
   "app.notes.panel.0.label": "Notes",
   "app.notes.panel.0.title": "Your writing space",
   "app.notes.panel.0.body": "The local Notes workspace is unavailable in this composition.",
-  "app.internet.title": "Internet",
-  "app.internet.description": "Browse, organize references, and connect research to your work.",
-  "app.internet.panel.0.label": "Browser",
-  "app.internet.panel.0.title": "Internet",
-  "app.internet.panel.0.body": "Integrated browsing depends on an isolated engine supplied by the host.",
   "app.settings.title": "Settings",
   "app.settings.description": "Shared preferences, appearance, and OrdaX network settings.",
   "app.settings.panel.0.label": "Settings",
@@ -291,7 +279,6 @@ const ENGLISH = Object.freeze({
   ...ACCOUNT_ENGLISH_MESSAGES,
   ...ASSISTANT_ENGLISH_MESSAGES,
   ...ACTIVITY_ENGLISH_MESSAGES,
-  ...INTERNET_ENGLISH_MESSAGES,
   ...NETWORK_ENGLISH_MESSAGES,
   ...POWER_ENGLISH_MESSAGES,
   ...NOTIFICATIONS_ENGLISH_MESSAGES,

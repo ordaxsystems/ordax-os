@@ -11,7 +11,6 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
     "colors",
     "converter",
     "image-viewer",
-    "internet",
     "media-player",
     "network",
     "notes",
@@ -25,12 +24,10 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
 
 NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({
     "calculator",
-    "internet",
     "notes",
     "studio",
 })
 
 NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({
-    "internet",
     "notes",
 })

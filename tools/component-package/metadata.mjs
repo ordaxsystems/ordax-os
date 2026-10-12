@@ -1,7 +1,6 @@
 import { getSystemComponent } from "../../system/apps/component-catalog.mjs";
 
 const COMPONENT_ENTRYPOINTS = Object.freeze({
-  internet: "system/apps/internet/runtime.mjs",
   "local-ai-service": "system/components/local-ai-service/runtime.mjs",
   "ordax-intelligence": "system/components/ordax-intelligence/runtime.mjs",
 });

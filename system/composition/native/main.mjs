@@ -982,33 +982,6 @@ async function start() {
     },
   });
 
-  const internetComponent = await loadOptionalComponentRuntime({
-    componentId: "internet",
-    importer: () => import("../../apps/internet/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      browserSession,
-      surfaceLifecycle: surface,
-      projects,
-      projectReferences,
-      createPageSelectionPort: () => createNativeBrowserPageSelection(window),
-      createPageFindPort: () => createNativeBrowserPageFind(window),
-      createDownloadPort: () => createNativeBrowserDownload(window),
-      intelligence: selectedSpaceIntelligence,
-      identitySessionPort: identitySession,
-      spaceSelectionPort: spaceSelection,
-      profileActivationStatePort: profileActivationState,
-      createFavoritesStore: () => createNativeBrowserFavoritesStore(window),
-      createHistoryStore: () => createNativeBrowserHistoryStore(window),
-      createSearchPreferencesStore: () => createNativeBrowserSearchPreferencesStore(window),
-      enableShortcuts: true,
-      reportDiagnostic: reportClientDiagnostic,
-    },
-    onError(error) {
-      reportClientDiagnostic("internet-runtime", error);
-    },
-  });
 
   // External app code receives only its own App Data binding and the
   // documented Surface lifecycle, never a generic host file or AI port.
@@ -1109,7 +1082,6 @@ async function start() {
       fileSpaceControls.destroy();
       assistantComponent?.destroy();
       activityComponent?.destroy();
-      internetComponent?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
