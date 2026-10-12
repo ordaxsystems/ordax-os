@@ -133,10 +133,9 @@ test("all current explicit policy release modes derive from component IDs", () =
       assert.equal(packagePolicy[key], component.releaseMode);
     }
   }
-  const internet = result.components.find((component) => component.id === "internet");
-  assert.equal(internet.releaseMode, "git-app");
-  assert.equal(internet.policyAssessment, "blocked");
-  assert.equal(internet.productionEvidence, "not-evaluated");
+  assert.equal(result.components.some((component) => component.id === "internet"), false);
+  assert.equal(Object.hasOwn(packagePolicy, "internet_release_mode"), false,
+    "removed Internet product must not keep a platform release-mode override");
 });
 
 test("package compatibility helper derives all entries from the canonical descriptor catalog", () => {
