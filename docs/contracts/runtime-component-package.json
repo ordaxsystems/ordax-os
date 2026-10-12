@@ -149,12 +149,5 @@
     "text-viewer": "ordaxsystems/ordax-apps",
     "toolbox": "ordaxsystems/ordax-apps"
   },
-  "prelaunch_remove_first_pending": {
-    "projects": {
-      "state": "platform-source-removed-app-source-pending",
-      "expected_repository": "ordaxsystems/ordax-apps",
-      "platform_source_absence_required": true,
-      "distribution_activation_allowed": false
-    }
-  }
+  "prelaunch_remove_first_pending": {}
 }
