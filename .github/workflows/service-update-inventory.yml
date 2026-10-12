@@ -44,15 +44,18 @@ permissions:
 
 jobs:
   audit-native-services:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '22'
+      - name: Verify available Node runtime
+        # The OS supply-chain contract intentionally does not approve
+        # a setup-node action; use the runner's existing Node, fail closed.
+        run: |
+          node --version
+          node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)'
       - name: Validate canonical service inventory
         run: node --test tests/test_service_update_inventory.mjs tests/test_service_update_readiness.mjs tests/test_service_upgrade_preflight.mjs
       - name: Validate canonical trust and package policy together
