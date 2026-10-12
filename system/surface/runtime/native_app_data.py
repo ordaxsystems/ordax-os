@@ -712,14 +712,17 @@ def list_app_data(
 ) -> dict:
     quota_bytes, max_keys = _quota(quota_bytes, max_keys)
     bound = _identity(identity)
-    manifest, bytes_used = _read_manifest(bound, root)
-    return {
-        "revision": manifest["revision"],
-        "keys": sorted(manifest["entries"]),
-        "bytesUsed": bytes_used,
-        "quotaBytes": quota_bytes,
-        "maxKeys": max_keys,
-    }
+    with _shared_partition_lock_if_present(bound, root):
+        # The manifest must be observed under the same flock as get and
+        # mutations. A maintainer holding LOCK_EX must block list too.
+        manifest, bytes_used = _read_manifest(bound, root)
+        return {
+            "revision": manifest["revision"],
+            "keys": sorted(manifest["entries"]),
+            "bytesUsed": bytes_used,
+            "quotaBytes": quota_bytes,
+            "maxKeys": max_keys,
+        }
 
 
 def put_app_data(
