@@ -76,7 +76,7 @@ function preflightDecision(componentId, allowed, reasonCode, migrationRequired =
     schema: SERVICE_UPGRADE_PREFLIGHT_SCHEMA,
     authority: "none",
     componentId,
-    allowed,
+    compatibilityAllowed: allowed,
     reasonCode,
     migrationRequired,
     // This source gate cannot verify a signed package, perform staging, grant
