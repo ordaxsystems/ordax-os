@@ -126,7 +126,7 @@ class NativeAppDataBindingRegistry:
         self._condition = threading.Condition(self._lock)
         self._by_endpoint: dict[str, NativeAppDataBinding] = {}
         self._endpoint_by_identity: dict[tuple[str, str, str], str] = {}
-        self._inflight: dict[str, int] = {}
+        self._inflight: dict[tuple[str, str, str], int] = {}
         self._suspended: set[tuple[str, str, str]] = set()
 
     def _new_capability_locked(self, reserved_endpoints: set[str]) -> str:
@@ -256,16 +256,17 @@ class NativeAppDataBindingRegistry:
             binding = self._by_endpoint.get(endpoint)
             if binding is None:
                 raise NativeAppDataBindingNotFoundError("Native App Data capability is unknown")
-            self._inflight[endpoint] = self._inflight.get(endpoint, 0) + 1
+            key = binding.identity_key()
+            self._inflight[key] = self._inflight.get(key, 0) + 1
         try:
             yield binding
         finally:
             with self._condition:
-                remaining = self._inflight[endpoint] - 1
+                remaining = self._inflight[key] - 1
                 if remaining:
-                    self._inflight[endpoint] = remaining
+                    self._inflight[key] = remaining
                 else:
-                    self._inflight.pop(endpoint)
+                    self._inflight.pop(key)
                 self._condition.notify_all()
 
     @contextmanager
@@ -297,7 +298,9 @@ class NativeAppDataBindingRegistry:
             self._suspended.add(key)
             self._by_endpoint.pop(endpoint)
             self._endpoint_by_identity.pop(key)
-            while self._inflight.get(endpoint, 0):
+            # Drain every admitted request for this durable identity,
+            # including old caps admitted before a verified receipt rotated.
+            while self._inflight.get(key, 0):
                 self._condition.wait()
         try:
             yield binding
