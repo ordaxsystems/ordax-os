@@ -88,6 +88,16 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                 MODULE.build_bundle(out, "2" * 40)
             self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
 
+    def test_browser_smoke_serves_404_without_writing_success_headers_first(self):
+        source = (ROOT / "tools/surface-web/browser-smoke.mjs").read_text(encoding="utf-8")
+        self.assertIn("const bytes = await readFile(path);", source)
+        self.assertLess(
+            source.index("const bytes = await readFile(path);"),
+            source.index("response.writeHead(200,"),
+        )
+        self.assertIn("if (!response.headersSent)", source)
+        self.assertIn("response.writeHead(404);", source)
+
     def test_web_presentation_preserves_pending_apps_and_does_not_create_authority(self):
         main = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
         model = (ROOT / "system/surface/workspace/lib/web/model.ts").read_text(encoding="utf-8")
@@ -95,7 +105,17 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         for app in ("studio", "files", "internet", "image-viewer", "notes",
                     "projects", "assistant", "spaces", "settings", "store", "activity"):
             self.assertIn(f"id: '{app}'", model)
-        self.assertIn("WebShell", main)
+        self.assertIn("RouterProvider", main)
+        self.assertIn("<Central/>", main)
+        self.assertNotIn("WebShell", main)
+        self.assertIn("createUnavailableAppStoreCatalogPort", main)
+        central = (ROOT / "system/surface/workspace/components/central/central.tsx").read_text(encoding="utf-8")
+        # Only harmless presentation preferences, never identity or app authority,
+        # are allowed in the new canonical Web entry's local storage.
+        for key in ("ordax-theme", "ordax-view"):
+            self.assertIn(f"localStorage.getItem('{key}')", central)
+            self.assertIn(f"localStorage.setItem('{key}'", central)
+        self.assertNotIn("localStorage", main)
         self.assertIn('href="/conta/"', shell)
         self.assertIn('href="/"', shell)
         self.assertIn("Spaces não conectados", shell)
@@ -106,10 +126,12 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                 if source.suffix not in (".ts", ".tsx", ".mjs"):
                     continue
                 text = source.read_text(encoding="utf-8")
-                for forbidden in ("adapters/native", "/__ordax/native/", "localStorage",
+                for forbidden in ("adapters/native", "/__ordax/native/",
                                   "sessionStorage", "/auth/logout", "process.env",
                                   "node:child_process", "node:fs"):
                     self.assertNotIn(forbidden, text, str(source))
+                if source.name != "central.tsx" or source.parent.name != "central":
+                    self.assertNotIn("localStorage", text, str(source))
 
 
 if __name__ == "__main__":

@@ -50,7 +50,10 @@ class SurfaceBootScreenTests(unittest.TestCase):
             self.assertIn('id="ordax-boot-screen"', html)
             self.assertIn('data-ordax-boot-status', html)
             self.assertIn('data-ordax-boot-status>OrdaX</span>', html)
-            self.assertIn('<html lang="und">', html)
+            self.assertIn(
+                '<html lang="und">' if path == NATIVE_HTML else '<html lang="pt-BR">',
+                html,
+            )
             self.assertLess(
                 html.index('id="ordax-boot-screen"'),
                 html.index('id="ordax-root"'),
@@ -95,7 +98,11 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn("useEffect(() => { boot.ready(); }, [])", source)
         self.assertIn("boot.fail", source)
         self.assertIn("surface.boot.failed", source)
-        self.assertIn("WebShell", source)
+        self.assertIn("RouterProvider", source)
+        self.assertIn("StoreCatalogProvider", source)
+        self.assertIn("createUnavailableAppStoreCatalogPort", source)
+        self.assertIn("<Central/>", source)
+        self.assertNotIn("WebShell", source)
 
     def test_kernel_keeps_framebuffer_capability_for_future_early_graphics(self):
         config = KERNEL.read_text(encoding="utf-8")

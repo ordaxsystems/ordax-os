@@ -614,7 +614,12 @@ class SurfaceUiContractTests(unittest.TestCase):
     def test_web_composition_wires_surface_without_duplicate_account_or_runtime(self):
         main = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
         html = (COMPOSITION / "index.html").read_text(encoding="utf-8")
-        self.assertIn("../../surface/workspace/components/web/shell", main)
+        self.assertIn("../../surface/workspace/components/central/central", main)
+        self.assertIn("RouterProvider", main)
+        self.assertIn("StoreCatalogProvider", main)
+        self.assertIn("createUnavailableAppStoreCatalogPort", main)
+        self.assertIn("<Central/>", main)
+        self.assertNotIn("WebShell", main)
         self.assertIn("../../surface/ui/tokens.css", main)
         self.assertIn("../../surface/ui/boot-screen.css", main)
         self.assertIn('src="./main.tsx"', html)
