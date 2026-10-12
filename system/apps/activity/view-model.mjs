@@ -1,7 +1,9 @@
 import { validatePersonalOrdaxRuntimeSnapshot } from "../../contracts/personal-ordax-store.mjs";
-import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
 
-export function projectPersonalActivitySnapshot(value) {
+export function projectPersonalActivitySnapshot(value, projectWorkCanvas) {
+  if (typeof projectWorkCanvas !== "function") {
+    throw new TypeError("Activity Work Canvas requires the canonical Intelligence projection");
+  }
   const snapshot = validatePersonalOrdaxRuntimeSnapshot(value);
   const activitiesByWork = new Map();
   for (const event of snapshot.activities) {
@@ -40,7 +42,7 @@ export function projectPersonalActivitySnapshot(value) {
       item,
       // Personal OrdaX is the only owner of this snapshot. Explicit IDs ensure
       // that this projection cannot select another work item or invent context.
-      canvas: projectPersonalWorkCanvas(snapshot, {
+      canvas: projectWorkCanvas(snapshot, {
         ownerKind: snapshot.ownerKind,
         ownerId: snapshot.ownerId,
         spaceId: item.spaceId,

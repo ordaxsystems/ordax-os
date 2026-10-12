@@ -140,6 +140,7 @@
     "converter": "ordaxsystems/ordax-apps",
     "image-viewer": "ordaxsystems/ordax-apps",
     "media-player": "ordaxsystems/ordax-apps",
+    "network": "ordaxsystems/ordax-apps",
     "notes": "ordaxsystems/ordax-apps",
     "paint": "ordaxsystems/ordax-apps",
     "pdf-viewer": "ordaxsystems/ordax-apps",

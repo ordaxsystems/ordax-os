@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import {
-  projectAssistantWorkStrip,
+  projectAssistantWorkStrip as projectAssistantWorkStripCore,
   ASSISTANT_WORK_STRIP_SCHEMA,
 } from "../system/apps/assistant/ui/work-strip.mjs";
 import { createPersonalOrdaxRuntime } from "../system/services/personal-ordax/runtime.mjs";
@@ -10,10 +10,17 @@ import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../system/contracts/personal-orda
 import {
   canRecordAssistantWork,
   beginAssistantRecordedWork,
-  openAssistantWorkInActivity,
+  openAssistantWorkInActivity as openAssistantWorkInActivityCore,
 } from "../system/apps/assistant/ui/conversation-controls.mjs";
+import { projectPersonalWorkCanvas } from "../system/services/intelligence/work-canvas.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
 import { activityApp } from "../system/apps/activity/app.mjs";
+
+// Tests consume the real canonical Intelligence projection through the same explicit port.
+const projectAssistantWorkStrip = (snapshot, identity, selection) =>
+  projectAssistantWorkStripCore(snapshot, identity, selection, projectPersonalWorkCanvas);
+const openAssistantWorkInActivity = (personal, identity, selection, activation, workId) =>
+  openAssistantWorkInActivityCore(personal, identity, selection, activation, workId, projectPersonalWorkCanvas);
 
 const identity = (state = "signed-out", subjectId = null) => ({
   state, subjectId, displayName: state === "signed-in" ? "Conta" : null,
@@ -144,7 +151,7 @@ test("Native Assistant reads the existing Personal runtime; UI never executes mi
     readFile(new URL("../system/apps/assistant/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/apps/assistant/ui/conversation-controls.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(native, /personalOrdax,\s*identitySessionPort: identitySession/);
+  assert.match(native, /personalOrdax,\s*projectWorkCanvas: projectPersonalWorkCanvas,\s*identitySessionPort: identitySession/);
   assert.match(runtime, /personalOrdax,\s*identitySessionPort,/);
   assert.match(ui, /projectAssistantWorkStrip\(/);
   assert.match(ui, /personalOrdax\.getSnapshot\(\)/);
@@ -628,11 +635,12 @@ test("Activity review UI uses explicit click and only publishes navigation", asy
     readFile(new URL("../system/apps/assistant/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(native, /personalOrdax,\s*identitySessionPort: identitySession,[\s\S]*?appActivation,/);
-  assert.match(runtime, /appActivation,\s*\}\)/);
+  assert.match(native, /personalOrdax,\s*projectWorkCanvas: projectPersonalWorkCanvas,\s*identitySessionPort: identitySession,[\s\S]*?appActivation,/);
+  assert.match(runtime, /appActivation,\s*projectWorkCanvas,\s*\}\)/);
   assert.match(ui, /work\.state === "requires-action"/);
   assert.match(ui, /dataset\.assistantReviewWork = work\.workItemId/);
   assert.match(ui, /target\.dataset\.assistantReviewWork !== undefined/);
-  assert.match(ui, /channel\.publish\(\{ appId: activityApp\.id \}\)/);
+  assert.match(ui, /channel\.publish\(\{ appId: "activity" \}\)/);
+  assert.doesNotMatch(ui, /activity\/app\.mjs/);
   assert.doesNotMatch(ui, /approvalConsent\.approve\(|executeApprovedAction\(|resolveApproval\(/);
 });

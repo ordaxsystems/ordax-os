@@ -1,6 +1,5 @@
 import { INTELLIGENCE_MAX_PROMPT_CHARS } from "../../../contracts/intelligence.mjs";
 import { assertAppActivationPort } from "../../../contracts/app-activation.mjs";
-import { activityApp } from "../../activity/app.mjs";
 import { assertSurfaceRenderLifecycle } from "../../../contracts/surface-render-lifecycle.mjs";
 import { ASSISTANT_CONVERSATION_SCHEMA } from "../conversation.mjs";
 import { PERSONAL_ORDAX_MAX_GOAL_CHARS } from "../../../contracts/personal-ordax.mjs";
@@ -99,7 +98,7 @@ export function beginAssistantRecordedWork(personal, identityPort, selectionPort
 // and Space fence at click time; never embed grants or an unimplemented
 // work deep link, and never resolve/approve/execute an Activity action.
 export function openAssistantWorkInActivity(
-  personal, identityPort, selectionPort, activation, workItemId,
+  personal, identityPort, selectionPort, activation, workItemId, projectWorkCanvas,
 ) {
   if (activation === null || !personal || !identityPort || !selectionPort
     || typeof workItemId !== "string" || !workItemId) return false;
@@ -107,10 +106,12 @@ export function openAssistantWorkInActivity(
     const channel = assertAppActivationPort(activation);
     const view = projectAssistantWorkStrip(
       personal.getSnapshot(), identityPort.getSnapshot(), selectionPort.getSnapshot(),
+      projectWorkCanvas,
     );
     if (!view.cards.some((item) =>
       item.workItemId === workItemId && item.state === "requires-action")) return false;
-    channel.publish({ appId: activityApp.id });
+    // A cross-app activation requests the public app identity, not its source module.
+    channel.publish({ appId: "activity" });
     return true;
   } catch {
     return false; // Context or navigation changed: no cross-owner action.
@@ -121,7 +122,7 @@ export function mountAssistantConversationControls(
   root,
   conversationValue,
   surfaceLifecycle,
-  { personalOrdax = null, identitySessionPort = null, spaceSelectionPort = null, appActivation = null } = {},
+  { personalOrdax = null, identitySessionPort = null, spaceSelectionPort = null, appActivation = null, projectWorkCanvas = null } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Assistant controls require a Surface root Element");
@@ -146,6 +147,7 @@ export function mountAssistantConversationControls(
         personalOrdax.getSnapshot(),
         identitySessionPort.getSnapshot(),
         spaceSelectionPort.getSnapshot(),
+        projectWorkCanvas,
       );
     } catch {
       return { cards: [], remainingCount: 0 }; // Authorization/schemas fail closed.
@@ -591,7 +593,7 @@ export function mountAssistantConversationControls(
     if (target.dataset.assistantReviewWork !== undefined) {
       activityNavigationError = !openAssistantWorkInActivity(
         personalOrdax, identitySessionPort, spaceSelectionPort, activityNavigation,
-        target.dataset.assistantReviewWork,
+        target.dataset.assistantReviewWork, projectWorkCanvas,
       );
       if (activityNavigationError) render();
       return;

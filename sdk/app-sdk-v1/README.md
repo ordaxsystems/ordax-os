@@ -2,6 +2,19 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.17.0
+
+Publicação aditiva de `ordax.network-draft/1` diretamente de
+`system/contracts/network-draft.mjs`. O app Rede precisa validar o
+remetente (Conta + Space), rascunhos e alterações explícitas de Space
+sem importar `system/services/professional-network/draft.mjs`.
+
+A publicação expõe somente schema, validação de snapshot e assinatura da
+porta de rascunho. Não concede credenciais, autorização, nem a capacidade
+de envio de mensagens; o serviço permanece no OrdaX OS. Migração de código
+e pacote assinado são verificações independentes — não declaradas prontas
+por este contrato.
+
 ## Bundle 1.16.0
 
 This additive SDK release publishes the **single canonical first-party
