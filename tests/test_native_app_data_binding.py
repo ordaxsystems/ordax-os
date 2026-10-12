@@ -7,7 +7,10 @@ import json
 import os
 import sys
 import tempfile
+import threading
+import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +21,7 @@ if str(RUNTIME) not in sys.path:
 from native_app_data_binding import (  # noqa: E402
     APP_DATA_ENDPOINT_PREFIX,
     NativeAppDataBindingCapacityError,
+    NativeAppDataBindingError,
     NativeAppDataBindingNotFoundError,
     NativeAppDataBindingRegistry,
     handle_bound_app_data_request,
@@ -205,6 +209,145 @@ class NativeAppDataBindingTest(unittest.TestCase):
         self.assertIsNone(registry.resolve(APP_DATA_ENDPOINT_PREFIX + "a" * 44))
         self.assertIsNone(registry.resolve("/__ordax/native/app-data/../notes"))
         self.assertIsNone(registry.resolve("/__ordax/native/notes"))
+
+    def test_verified_receipt_quiescence_drains_admitted_requests_before_maintenance(self):
+        registry = self.registry()
+        digest = self.write_receipt()
+        original = registry.mint_from_receipt(digest)
+        entered = threading.Event()
+        release = threading.Event()
+        quiesced = threading.Event()
+        complete = threading.Event()
+        errors = []
+
+        def blocking_endpoint(*args, **kwargs):
+            entered.set()
+            if not release.wait(timeout=8):
+                raise AssertionError("request did not receive release signal")
+            return {"ok": True}
+
+        def make_request():
+            try:
+                self.assertEqual(
+                    handle_bound_app_data_request(registry, original.endpoint, b'{"action":"list"}'),
+                    {"ok": True},
+                )
+            except BaseException as exc:
+                errors.append(exc)
+
+        def quiesce():
+            try:
+                with registry.suspend_verified_receipt_for_maintenance(digest) as binding:
+                    self.assertEqual(binding.endpoint, original.endpoint)
+                    quiesced.set()
+                    with self.assertRaises(NativeAppDataBindingNotFoundError):
+                        handle_bound_app_data_request(
+                            registry, original.endpoint, b'{"action":"list"}',
+                        )
+                    with self.assertRaisesRegex(NativeAppDataBindingError, "suspended"):
+                        registry.mint_from_receipt(digest)
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                complete.set()
+
+        worker = threading.Thread(target=make_request, daemon=True)
+        stopper = threading.Thread(target=quiesce, daemon=True)
+        with mock.patch("native_app_data_binding.handle_app_data_request", side_effect=blocking_endpoint):
+            try:
+                worker.start()
+                self.assertTrue(entered.wait(timeout=5))
+                stopper.start()
+                for _ in range(200):
+                    if registry.resolve(original.endpoint) is None:
+                        break
+                    time.sleep(0.01)
+                self.assertIsNone(registry.resolve(original.endpoint))
+                self.assertFalse(quiesced.is_set(), "quiescence ignored admitted request")
+                self.assertFalse(complete.is_set())
+            finally:
+                release.set()
+                worker.join(timeout=8)
+                stopper.join(timeout=8)
+        self.assertFalse(worker.is_alive())
+        self.assertFalse(stopper.is_alive())
+        self.assertEqual(errors, [])
+        self.assertTrue(quiesced.is_set())
+        self.assertTrue(complete.is_set())
+        self.assertEqual(registry.active_binding_count(), 0)
+        with self.assertRaises(NativeAppDataBindingNotFoundError):
+            handle_bound_app_data_request(registry, original.endpoint, b'{"action":"list"}')
+        fresh = registry.mint_from_receipt(digest)
+        self.assertNotEqual(fresh.endpoint, original.endpoint)
+
+    def test_quiescence_includes_old_receipt_requests_admitted_before_rotation(self):
+        registry = self.registry()
+        first_digest = self.write_receipt()
+        first = registry.mint_from_receipt(first_digest)
+        entered = threading.Event()
+        release = threading.Event()
+        ready = threading.Event()
+        failures = []
+        rotated_digest = self.write_receipt(receipt(
+            sourceVersion="0.4.2", sourceDigest="2" * 64,
+            verificationGeneration=2,
+        ))
+
+        def paused(*args, **kwargs):
+            entered.set()
+            if not release.wait(timeout=8):
+                raise AssertionError("held request never released")
+            return {"ok": True}
+
+        def request():
+            try:
+                handle_bound_app_data_request(registry, first.endpoint, b'{"action":"list"}')
+            except BaseException as exc:
+                failures.append(exc)
+
+        def suspend():
+            try:
+                with registry.suspend_verified_receipt_for_maintenance(rotated_digest):
+                    ready.set()
+            except BaseException as exc:
+                failures.append(exc)
+
+        a = threading.Thread(target=request, daemon=True)
+        b = threading.Thread(target=suspend, daemon=True)
+        with mock.patch("native_app_data_binding.handle_app_data_request", side_effect=paused):
+            try:
+                a.start()
+                self.assertTrue(entered.wait(timeout=5))
+                second = registry.mint_from_receipt(rotated_digest)
+                self.assertIsNone(registry.resolve(first.endpoint))
+                b.start()
+                for _ in range(200):
+                    if registry.resolve(second.endpoint) is None:
+                        break
+                    time.sleep(0.01)
+                self.assertIsNone(registry.resolve(second.endpoint))
+                self.assertFalse(ready.is_set(), "old receipt request bypassed quiescence")
+            finally:
+                release.set()
+                a.join(timeout=8)
+                b.join(timeout=8)
+        self.assertFalse(a.is_alive())
+        self.assertFalse(b.is_alive())
+        self.assertEqual(failures, [])
+        self.assertTrue(ready.is_set())
+
+    def test_maintenance_rejects_unknown_receipt_without_revoking_another_app(self):
+        registry = self.registry()
+        first_digest = self.write_receipt()
+        binding = registry.mint_from_receipt(first_digest)
+        other = self.write_receipt(receipt(appId="assistant", sourceVersion="0.3.0"))
+        with self.assertRaises(NativeAppDataBindingNotFoundError):
+            with registry.suspend_verified_receipt_for_maintenance(other):
+                pass
+        self.assertIs(registry.resolve(binding.endpoint), binding)
+        with self.assertRaises(NativeAppDataBindingNotFoundError):
+            with registry.suspend_verified_receipt_for_maintenance("0" * 64):
+                pass
 
     def test_binding_capacity_is_hard_bounded_but_rotation_is_allowed(self):
         registry = self.registry(max_bindings=1)
