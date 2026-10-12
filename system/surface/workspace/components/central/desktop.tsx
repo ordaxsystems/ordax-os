@@ -1,3 +1,4 @@
+import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
 import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ export function DesktopContent({ title, open, onCentral, initialPrompt }: Presen
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
   if (title === 'Minha conta') return <AccountPanel/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
-  if (title === 'Aplicativos') return <Panel title="Aplicativos favoritos"><p className="service-state">Atalhos da interface. A disponibilidade de cada aplicativo depende do host conectado.</p><div className="favorite-grid">{favorites.map(item => <Button variant="ghost" className="favorite-tile" key={item.name} onClick={() => open(item.name)}><AppIcon icon={item.icon} tone={item.tone}/>{item.name}</Button>)}</div></Panel>;
+  if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;
   if (title === 'Notificações' || title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p></Panel>;
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>;
   if (title === 'Espaços') return <SpacesPanel/>;

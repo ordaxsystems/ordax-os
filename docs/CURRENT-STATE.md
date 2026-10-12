@@ -1,5 +1,24 @@
 # Current State
 
+## Web Central — favoritos compartilhados e persistentes — 2026-10-12
+
+Central e Aplicativos agora usam um único renderer/editor e a mesma preferência
+surface.favorite-shortcuts no catálogo/runtime/store existentes. Seleção validada,
+lista vazia, foco de retorno e fallback session-only são reais; adicionar atalho
+não instala app nem concede acesso. Metadados de targets têm um owner; estado local
+de favoritos duplicado na Central foi removido. Sync de conta mantém sua allowlist,
+sem enviar essa preferência. Native reconhece o dado, mas não ganhou outro launcher.
+
+35 testes Node e sete de builder passaram; a regressão de sync foi repetida após
+incluir a prova explícita de favoritos locais. TypeScript/build e 34 arquivos/assets
+verificados. Browser comprovou edição compartilhada, recarga/lista vazia, teclado,
+retorno de foco e editor em 390 x 600/844. Erro de HMR observado (raiz React duplicada)
+foi corrigido: a composição desmonta sua raiz antes dos ports. Uma atualização limpa
+manteve uma raiz, sete favoritos e zero novos erros. Escolhas originais, tema e
+viewport restaurados. JS inicial 484,97 kB (151,88 gzip), CSS 81,59 kB.
+Gateway autenticado, arquivos/dispositivos e IA continuam pendentes de transporte.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
 ## Web Central — seletor do rodapé removido — 2026-10-12
 
 Remoção explicitamente solicitada: seletor inferior de modos da Aura, CSS próprio

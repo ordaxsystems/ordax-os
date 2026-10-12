@@ -1171,3 +1171,48 @@ or page overflow. TypeScript and 34-file structural verification passed. Live
 390 x 600 and 1366 x 768 both had matching client/scroll dimensions, no footer or
 selector, and no browser error/warning entries; viewport restored. No full build
 repeated for this small removal, no backend operation or production activation.
+
+
+### Canonical favorite shortcuts — 2026-10-12
+
+Owner: OS Surface/preferences, explicit UI integration continuation rather than
+individual App polishing. The existing preference-runtime/1 and preference-store/1
+are retained. New scalar ID surface.favorite-shortcuts belongs to the preference
+catalog; bounded IDs/names are defined once in home-shortcuts.mjs. They describe
+presentation targets, not installed app identities, registry receipts or grants.
+Validation rejects unknown/duplicate/nonstring/oversized choices, preserves an
+intentional empty selection and normalizes order. No new storage key or domain.
+
+Home and Apps share FavoriteShortcutsPanel, consuming the same observed snapshot.
+The former local addedApps/hidden selection is removed. Editing uses native labeled
+checkboxes in the shared Dialog, saves on change, reports persistence outcome and
+returns focus to the actual opener. A latest-snapshot mutation prevents sequential
+edits from losing earlier changes. Empty selection offers Add; all future targets
+already present remain eligible as shortcuts with host availability explicit.
+The existing account-sync allowlist is unchanged and excludes this local preference.
+Native recognizes the catalog entry; no separate Native launcher/editor is added.
+
+Risk/acceptance: consistent cross-panel edits, persistence and empty-list recovery,
+no false install/sync success, safe failed-storage fallback, accessible narrow editor
+and keyboard/focus retention. Four new behavior tests exercise storage roundtrip,
+empty selection, two subscribers under save failure, validation/order/recovery.
+35 Node tests (preferences, first-run and sync included) and seven builder checks
+passed; eight sync tests repeated with an explicit local-shortcut assertion, not
+additional unique coverage. Final TypeScript/build and 34-file provenance checks
+passed. Initial JS 484.97 kB (151.88 gzip), CSS 81.59 kB; no chunk threshold override.
+
+Browser: removing Terminal in Home also removed it from Apps; reload retained it.
+Empty selection survived reload and retained an Add action. Escape/Conclude returned
+to Edit/Add respectively. At 390 x 600 the 530.5px dialog fit, with 48px rows and
+internal list scroll. At 390 x 844 all seven choices fit (398px client/scroll height);
+Space toggled the focused checkbox. Original choices, dark theme, Central and default
+viewport restored; temporary Apps window closed. Screenshot:
+ordax-shared-favorites-mobile-20261012.jpg, local artifact outside repository.
+
+During source hot replacement the console exposed duplicate React roots/context
+errors. Web composition now owns its root explicitly and unmounts it before disposing
+consumed ports, without caching a second root or concealing errors. After clean reload,
+a real composition update kept one workspace root, saved choices and no new errors.
+Historical error logs remain recorded; they were not cleared to claim a clean run.
+This concerns developer HMR; normal window/view transitions still retain app bodies.
+No inference, external command, installation or production activation was validated.

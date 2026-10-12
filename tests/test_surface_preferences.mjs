@@ -1,3 +1,4 @@
+import { homeShortcutsPreference, HOME_SHORTCUTS_PREFERENCE_ID } from '../system/services/preferences/home-shortcuts.mjs';
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -18,6 +19,7 @@ function expectedPreferences(values = {}) {
   return {
     "appearance.theme": "light",
     "memory.auto-capture": "on",
+    [HOME_SHORTCUTS_PREFERENCE_ID]: homeShortcutsPreference.defaultValue,
     "accessibility.contrast": "standard",
     "accessibility.motion": "standard",
     "accessibility.text-scale": "standard",

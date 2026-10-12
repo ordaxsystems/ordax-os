@@ -23,3 +23,20 @@ defaults, persists changed values only via ordax.preference-store/1, and reports
 saved/session-only status without inventing cloud continuity. Native's Surface
 reducer remains a consumer of the same catalog. Runtime bindings do not define
 new preference semantics or import browser storage.
+
+
+## Surface favorite shortcuts
+
+`home-shortcuts.mjs` owns the bounded presentation targets and
+`surface.favorite-shortcuts` preference. Its scalar value is a canonical ordered
+comma-separated selection of known shortcut IDs; empty is an intentional empty
+selection. Unknown IDs, duplicates, nonstrings and oversized records are rejected;
+corrupt persisted values recover through the existing catalog without overwriting
+other preferences. Names have one metadata source; icons remain a UI mapping.
+These are Surface shortcut IDs, never installed-app identities or grants.
+
+The Web Home and Apps window use one renderer/editor, the existing preference
+runtime and Web store. No second storage key or local copy is maintained by UI.
+Changes are browser-local with explicit session-only fallback. The existing account
+sync allowlist excludes this preference; no cloud sync is implied. Native's catalog
+recognizes the value, but this increment does not add a Native launcher editor.

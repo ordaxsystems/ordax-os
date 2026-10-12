@@ -11,8 +11,8 @@ export function AppIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: IconTone
 }
 export function WindowAppIcon({ title }: { title: string }) { const Icon = getWindowIcon(title); return <Icon aria-hidden="true"/>; }
 export function Avatar() { const { displayName, initials } = useWebAccount(); return <span className="avatar" aria-label={displayName}>{initials ?? <UserRound aria-hidden="true"/>}</span>; }
-export function Panel({ title, action, onAction, children, className = '' }: { title: string; action?: ReactNode; onAction?: () => void; children: ReactNode; className?: string }) {
-  return <section className={`os-panel ${className}`}><div className="panel-heading"><h2>{title}</h2>{action && <Button variant="ghost" className="panel-action" onClick={onAction}>{action}</Button>}</div>{children}</section>;
+export function Panel({ title, action, actionControl, onAction, children, className = '' }: { title: string; action?: ReactNode; actionControl?: ReactNode; onAction?: () => void; children: ReactNode; className?: string }) {
+  return <section className={`os-panel ${className}`}><div className="panel-heading"><h2>{title}</h2>{actionControl ?? (action && <Button variant="ghost" className="panel-action" onClick={onAction}>{action}</Button>)}</div>{children}</section>;
 }
 
 export function AccountCard({ onOpen, onSettings, onNotifications }: { onOpen: () => void; onSettings: () => void; onNotifications: () => void }) {

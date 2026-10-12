@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Favoritos Web — 12/10/2026:** Central/Aplicativos compartilham seleção
+> persistente pelo catálogo/runtime/store canônicos, com lista vazia e fallback
+> explícito. Atalho não concede instalação/execução; Native editor e sync continuam
+> separados. Teardown da raiz React em HMR foi corrigido após erro observado.
+> [Owner, risco e provas](docs/DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
 > **Compacto mobile — 12/10/2026:** revisão explícita substitui lado a lado no
 > mobile por um app selecionado com largura completa e troca no cabeçalho. O
 > mesmo reducer mantém seleção/drafts; desktop continua com tiles iguais. Conteúdo

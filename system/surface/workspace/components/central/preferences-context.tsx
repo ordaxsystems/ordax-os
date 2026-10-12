@@ -1,3 +1,4 @@
+import { HOME_SHORTCUTS_PREFERENCE_ID, setFavoriteShortcutValue } from '../../../../services/preferences/home-shortcuts.mjs';
 import { createContext, useContext, useLayoutEffect, useSyncExternalStore, type ReactNode } from 'react';
 import type { createPreferenceRuntime } from '../../../../services/preferences/runtime.mjs';
 import { ACCESSIBILITY_CONTRAST_PREFERENCE_ID, ACCESSIBILITY_MOTION_PREFERENCE_ID, ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID } from '../../../../services/preferences/accessibility.mjs';
@@ -41,5 +42,9 @@ export function useWebPreferences() {
     const next = preferences.getSnapshot()[APPEARANCE_PREFERENCE_ID] === 'dark' ? 'light' : 'dark';
     preferences.set(APPEARANCE_PREFERENCE_ID, next);
   }
-  return { theme, persistence, toggleTheme, snapshot, setPreference: port.set };
+  function setFavoriteShortcut(id: string, included: boolean) {
+    const value = preferences.getSnapshot()[HOME_SHORTCUTS_PREFERENCE_ID];
+    preferences.set(HOME_SHORTCUTS_PREFERENCE_ID, setFavoriteShortcutValue(value, id, included));
+  }
+  return { theme, persistence, toggleTheme, snapshot, setPreference: port.set, setFavoriteShortcut };
 }
