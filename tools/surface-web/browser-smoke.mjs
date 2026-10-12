@@ -78,6 +78,13 @@ try {
       await until("document.documentElement.dataset.theme==='light'");
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
+      const initiallyExpanded=await evaluate("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')");
+      await click('.sidebar-collapse');
+      await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
+      await click('.sidebar-collapse');
+      await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
+      assert.equal(await evaluate("document.querySelectorAll('.account-actions [aria-label=\"Notificações\"]').length"),1,'Notification control sits next to account settings');
+      assert.equal(await evaluate("document.querySelector('.home-footer').textContent.includes('OrdaX OS Web')||document.querySelector('.home-footer').textContent.includes('Mais opções')"),false,'Home footer labels are removed');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-sidebar')).overflowY"),'hidden','Sidebar does not scroll');
       assert.equal(await evaluate("Math.abs(document.querySelector('.workspace-sidebar').getBoundingClientRect().bottom-innerHeight)<2"),true,'Sidebar reaches viewport bottom');
       assert.equal(await evaluate("!!document.querySelector('.workspace-navigation [data-workspace-switch]') && !document.querySelector('.desktop-start-button')"),true,'View switch belongs to the dock; Start button is absent');

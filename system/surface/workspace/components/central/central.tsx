@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState, type FormEvent } from 'react';
-import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, Sparkles, WalletCards } from 'lucide-react';
+import { Bell, Settings, ChevronRight, ChevronDown, Sun, Moon, Mic, Send, Plus, Pencil, CheckCircle2, MoreHorizontal, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
@@ -16,6 +16,7 @@ export function Central() {
   const regular = windows.windows.some(window => !window.minimized && window.mode !== 'compact');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [view, setView] = useState<'central' | 'desktop'>('central');
+  const [sidebarMode, setSidebarMode] = useState<'auto' | 'collapsed' | 'expanded'>('auto');
   const [mode, setMode] = useState('Trabalhar');
   const [homePanel, setHomePanel] = useState<'projects' | 'favorites' | 'activity'>('projects');
   const [dialog, setDialog] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export function Central() {
   const themeControl = <Button variant="ghost" size="icon" className="hero-tool" onClick={toggleTheme} aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'} title={theme === 'light' ? 'Tema escuro' : 'Tema claro'}>{theme === 'light' ? <Sun/> : <Moon/>}</Button>;
   const notificationControl = <Button variant="ghost" size="icon" className="hero-tool bell-wrap" aria-label="Notificações" title="Notificações" onClick={() => openPanel('Notificações')}><Bell/></Button>;
   const profileControl = <Button variant="ghost" size="icon" className="hero-tool" aria-label="Perfil de João" onClick={() => setDialog('Espaço Pessoal')}><Avatar/></Button>;
-  return <div className="window-workspace" data-view={view} data-compact={compact ? (windows.compactCollapsed ? 'collapsed' : 'expanded') : 'none'} data-running={windows.windows.length > 0}>
+  return <div className="window-workspace" data-view={view} data-sidebar={sidebarMode} data-compact={compact ? (windows.compactCollapsed ? 'collapsed' : 'expanded') : 'none'} data-running={windows.windows.length > 0}>
     <div className="workspace-stage">
     <div className="central-presentation" hidden={view !== 'central'}><div className="os-shell">
     <main className="os-main">
@@ -65,7 +66,7 @@ export function Central() {
         <Panel title="Espaço atual"><Button variant="ghost" className="space-switch" onClick={() => openPanel('Espaços')}><AppIcon icon={WalletCards} tone="lime"/><span>Espaço Pessoal</span><span className="pro-badge">Pro</span><ChevronDown className="ml-auto size-3"/></Button></Panel>
         <Panel title="Dispositivos conectados"><div className="device-grid">{devices.map(item => <div className="device-item" key={item.name}><item.icon/><div className="min-w-0"><div className="device-name truncate">{item.name}</div><div className="device-status"><span className="online-dot"/>Online · {item.platform}</div></div></div>)}<Button variant="outline" className="add-device" onClick={() => setDialog('Adicionar dispositivo')}><Plus/>Adicionar</Button></div></Panel>
       </div>
-      <footer className="os-footer home-footer"><span>OrdaX OS Web</span><select className="home-mode-select" aria-label="Modo da Aura" value={mode} onChange={event => setMode(event.target.value)}>{modes.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select><Button variant="ghost" className="home-overflow" aria-label="Mais opções da Central" onClick={() => setDialog('Mais')}>Mais opções<ChevronDown/></Button></footer>
+      <footer className="os-footer home-footer"><select className="home-mode-select" aria-label="Modo da Aura" value={mode} onChange={event => setMode(event.target.value)}>{modes.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select><Button variant="ghost" className="home-overflow" aria-label="Mais opções da Central" title="Mais opções da Central" onClick={() => setDialog('Mais')}><MoreHorizontal/></Button></footer>
       </div>
     </main>
     <Dialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null); }}><DialogContent><DialogHeader><DialogTitle>{dialog}</DialogTitle><DialogDescription>{dialog === 'Entrada por voz' ? 'Aura ainda não está conectada a um serviço de inteligência artificial.' : 'Espaço de apresentação · OrdaX OS Web'}</DialogDescription></DialogHeader>
@@ -77,7 +78,7 @@ export function Central() {
     <div className="desktop-presentation" hidden={view !== 'desktop'}><Desktop theme={theme} onTheme={toggleTheme} onCentral={() => changeView('central')} dispatch={dispatch}/></div>
     </div>
     <div className="compact-reservation" aria-hidden="true"/>
-    <WorkspaceNavigation state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
+    <WorkspaceNavigation onSidebarChange={setSidebarMode} state={windows} dispatch={dispatch} view={view} onToggleView={() => changeView(view === 'central' ? 'desktop' : 'central')} onCentral={() => changeView('central')}/>
     <WindowLayer state={windows} dispatch={dispatch} theme={theme} onTheme={toggleTheme} onCentral={() => { dispatch({ type: 'show-desktop' }); changeView('central'); }}/>
   </div>;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type Dispatch } from 'react';
-import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
+import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, PanelLeftClose, PanelLeftOpen, ChevronRight, Sparkles, Send, WalletCards, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
@@ -33,22 +33,25 @@ export function DesktopContent({ title, theme, onTheme, open, onCentral, initial
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
 }
 
-type NavigationProps = { state: DesktopState; dispatch: Dispatch<DesktopAction>; view: 'central' | 'desktop'; onToggleView: () => void; onCentral: () => void };
+type NavigationProps = { onSidebarChange: (mode: 'collapsed' | 'expanded') => void; state: DesktopState; dispatch: Dispatch<DesktopAction>; view: 'central' | 'desktop'; onToggleView: () => void; onCentral: () => void };
 
 // The same mounted navigation owns the launcher, view toggle and all running apps.
-export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCentral }: NavigationProps) {
+export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCentral, onSidebarChange }: NavigationProps) {
   const [startOpen, setStartOpen] = useState(false);
   const [search, setSearch] = useState('');
   const navigationHost = useRef<HTMLElement>(null);
   const [visibleCount, setVisibleCount] = useState(0);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   useEffect(() => {
     const host = navigationHost.current;
     if (!host) return;
-    const measure = () => setVisibleCount(Math.max(0, Math.floor(host.clientHeight / 48)));
+    const sidebar = host.closest<HTMLElement>('.workspace-sidebar');
+    const measure = () => { setVisibleCount(Math.max(0, Math.floor(host.clientHeight / 48))); if (sidebar) setSidebarExpanded(getComputedStyle(sidebar).getPropertyValue('--sidebar-expanded').trim() === '1'); };
     measure();
     if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
     const observer = new ResizeObserver(measure);
     observer.observe(host);
+    if (sidebar) observer.observe(sidebar);
     return () => observer.disconnect();
   }, []);
   const destinations = navigation.filter(item => item.name !== 'Início');
@@ -58,17 +61,16 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
   useEffect(() => { const handler = (event: KeyboardEvent) => { if (event.key === 'Escape') setStartOpen(false); }; document.addEventListener('keydown', handler); return () => document.removeEventListener('keydown', handler); }, []);
   return <>
     {startOpen && <><div className="desktop-menu-dismiss" onClick={() => setStartOpen(false)}/><section className="desktop-start-menu" aria-label="Menu de destinos"><div className="desktop-menu-search"><Search className="size-4"/><input autoFocus aria-label="Pesquisar destinos" placeholder="Pesquisar aplicativos e painéis" value={search} onChange={e => setSearch(e.target.value)}/></div><div className="desktop-menu-heading">Aplicativos e painéis</div><div className="desktop-menu-apps">{[...navigation, { name: 'Notificações', icon: Bell }].filter(item => item.name !== 'Início' && item.name.toLowerCase().includes(search.toLowerCase())).map(item => <Button variant="ghost" key={item.name} className="desktop-menu-item" onClick={() => open(item.name)}><item.icon/>{item.name}<ChevronRight className="ml-auto"/></Button>)}{'central'.includes(search.toLowerCase()) && <Button variant="ghost" className="desktop-menu-item" onClick={returnToCentral}><LayoutGrid/>Central<ChevronRight className="ml-auto"/></Button>}</div><div className="desktop-menu-footer"><Avatar/><span>João <small>Espaço Pessoal</small></span><Button variant="ghost" size="icon" className="ml-auto" aria-label="Configurações" title="Configurações" onClick={() => open('Configurações')}><Settings/></Button></div></section></>}
-    <aside className="os-sidebar workspace-sidebar" aria-label="Navegação principal">
-      <Brand/>
+    <aside id="workspace-sidebar" className="os-sidebar workspace-sidebar" aria-label="Navegação principal">
+      <div className="sidebar-header"><Brand/><Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <PanelLeftClose/> : <PanelLeftOpen/>}</Button></div>
       <div className="sidebar-home-row">
         {navigation.filter(item => item.name === 'Início').map(item => <Button key={item.name} variant="ghost" className="os-nav-item" title={item.name} aria-label={item.name} data-window-home="true" data-active={view === 'central'} onClick={() => { dispatch({ type: 'show-desktop' }); returnToCentral(); }}><item.icon/><span>{item.name}</span></Button>)}
-        <Button variant="ghost" size="icon" className="sidebar-notifications" aria-label="Notificações" title="Notificações" onClick={() => open('Notificações')}><Bell/></Button>
       </div>
       <nav className="os-nav" ref={navigationHost} aria-label="Destinos">
         {visibleNavigation.map(item => <Button key={item.name} variant="ghost" className="os-nav-item" title={item.name} aria-label={item.name} data-active={item.name === 'Início' && view === 'central'} onClick={() => { if (item.name === 'Início') { dispatch({ type: 'show-desktop' }); returnToCentral(); } else open(item.name); }}><item.icon/><span>{item.name}</span></Button>)}
         {visibleNavigation.length < destinations.length && <Button variant="ghost" className="os-nav-item" aria-label="Mais destinos" title="Mais destinos" onClick={() => { setStartOpen(true); setSearch(''); }}><MoreHorizontal/><span>Mais</span></Button>}
       </nav>
-      <AccountCard onOpen={() => open('Espaços')} onSettings={() => open('Configurações')}/>
+      <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Espaços')} onSettings={() => open('Configurações')}/>
     </aside>
     <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps">{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: 'focus', title: w.title })}><LayoutGrid/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><LayoutGrid/></Button></div></footer>
   </>;

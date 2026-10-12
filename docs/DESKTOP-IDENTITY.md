@@ -462,3 +462,21 @@ theme/drafts and compact window behavior. Existing viewport-check source updated
 no build, npm, typecheck or tests run under the user's standing restriction. Visual
 and automated viewport evidence remain pending; this source increment is not a
 production-readiness claim.
+
+## Collapsible sidebar and lower account utilities — 2026-10-11
+
+User-requested Surface revision: remove visible OrdaX OS Web/More Options labels
+from the Home footer, retaining an accessible icon for overflow destinations and
+the mode select where required. Move the sidebar bell into AccountCard's action
+row beside settings, removing the Home-row bell. Add one sidebar collapse control.
+Central owns the presentation mode (auto/collapsed/expanded); CSS owns resolved rail
+width and responsive layout. The existing resize observer reads that resolved
+layout for the control's accessible expanded state. No second window manager.
+Desktop collapse frees app space; mobile expansion overlays the content instead
+of shrinking the already narrow work area. App instances remain mounted.
+
+Owner: OS Surface. Risk: responsive rail sizing and narrow account action spacing.
+Acceptance: no visible footer labels, one sidebar bell next to settings, operable
+collapse/expand in both views, available overflow/actions and stable app instances.
+Existing browser-check source updated; no build, npm, typecheck or tests executed
+under the user's standing restriction. No backend authority or real quota change.

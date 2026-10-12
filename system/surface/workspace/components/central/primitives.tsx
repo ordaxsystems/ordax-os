@@ -1,5 +1,5 @@
 import { type CSSProperties, type ReactNode } from 'react';
-import { ChevronRight, Settings, type LucideIcon } from 'lucide-react';
+import { Bell, ChevronRight, Settings, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { presentationAccount, presentationStoragePercent, type IconTone } from './config';
 export function Brand() {
@@ -13,12 +13,12 @@ export function Panel({ title, action, onAction, children, className = '' }: { t
   return <section className={`os-panel ${className}`}><div className="panel-heading"><h2>{title}</h2>{action && <Button variant="ghost" className="panel-action" onClick={onAction}>{action}</Button>}</div>{children}</section>;
 }
 
-export function AccountCard({ onOpen, onSettings }: { onOpen: () => void; onSettings: () => void }) {
+export function AccountCard({ onOpen, onSettings, onNotifications }: { onOpen: () => void; onSettings: () => void; onNotifications: () => void }) {
   return <section className="account sidebar-account" aria-label="Espaço Pessoal — dados de demonstração">
     <Button variant="ghost" className="account-open" onClick={onOpen} aria-label="Abrir Espaço Pessoal" title={`${presentationAccount.spaceName} · ${presentationAccount.planName}`}>
       <Avatar/><span className="account-identity"><strong>{presentationAccount.spaceName}</strong><span>{presentationAccount.planName}</span></span><ChevronRight className="account-chevron"/>
     </Button>
     <div className="storage-track" role="progressbar" aria-label="Armazenamento de demonstração" aria-valuemin={0} aria-valuemax={presentationAccount.storageLimitGb} aria-valuenow={presentationAccount.storageUsedGb} style={{ '--storage-progress': `${presentationStoragePercent}%` } as CSSProperties}/>
-    <div className="account-storage-footer"><span><strong>{presentationAccount.storageUsedGb} GB</strong><span className="account-storage-total"> de {presentationAccount.storageLimitGb} GB</span></span><Button variant="ghost" size="icon" aria-label="Ajustes do espaço" title="Ajustes do espaço" onClick={onSettings}><Settings/></Button></div>
+    <div className="account-storage-footer"><span><strong>{presentationAccount.storageUsedGb} GB</strong><span className="account-storage-total"> de {presentationAccount.storageLimitGb} GB</span></span><div className="account-actions"><Button variant="ghost" size="icon" aria-label="Notificações" title="Notificações" onClick={onNotifications}><Bell/></Button><Button variant="ghost" size="icon" aria-label="Ajustes do espaço" title="Ajustes do espaço" onClick={onSettings}><Settings/></Button></div></div>
   </section>;
 }
