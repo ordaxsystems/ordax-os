@@ -443,6 +443,57 @@ def create_app_data_checkpoint(
         return {"pinnedRevision": current["revision"], "sourceRelease": release}
 
 
+def inspect_app_data_checkpoint(
+    identity: object,
+    source_release: object,
+    expected_revision: object,
+    root: str = DEFAULT_APP_DATA_ROOT,
+) -> dict:
+    """Read-only owner inspection, never activation proof or an app endpoint.
+
+    This checks the actual persisted current and pinned bytes under the
+    partition's shared flock. The returned digest and release correlation
+    are deliberately not a signature and cannot authorize a Go stateful
+    activation or rollback after the lock has been released.
+    """
+    bound = _identity(identity)
+    release = _source_release(source_release, bound)
+    expected = _revision(expected_revision)
+    with _shared_partition_lock_if_present(bound, root) as locked:
+        if not locked:
+            raise ValueError("App Data checkpoint partition or lock is unavailable")
+        current, _ = _read_manifest(bound, root)
+        if current["revision"] != expected:
+            raise AppDataConflictError(expected, current["revision"])
+        checkpoint = _read_checkpoint(bound, root)
+        if checkpoint is None or checkpoint["sourceRelease"] != release:
+            raise ValueError("App Data verified checkpoint for source release is unavailable")
+        pinned_revision = checkpoint["manifest"]["revision"]
+        if pinned_revision > current["revision"]:
+            raise ValueError("App Data checkpoint revision exceeds current generation")
+        # Verify both generations before returning a diagnostic snapshot.
+        # This does not grant a lease over the content after releasing flock.
+        paths = _existing_partition_paths(root, bound)
+        if paths is None:
+            raise ValueError("App Data checkpoint partition disappeared")
+        _, _, _, blobs = paths
+        for entry in current["entries"].values():
+            _verify_blob(blobs, entry)
+        _verify_checkpoint_blobs(root, checkpoint)
+        persisted = _read_regular_file(
+            _checkpoint_path(root, bound),
+            "App Data checkpoint", MAX_APP_DATA_CHECKPOINT_BYTES,
+        )
+        return {
+            "authority": "none",
+            "identity": dict(bound),
+            "sourceRelease": release,
+            "pinnedRevision": pinned_revision,
+            "currentRevision": current["revision"],
+            "checkpointSHA256": hashlib.sha256(persisted).hexdigest(),
+        }
+
+
 def restore_app_data_checkpoint(
     identity: object,
     source_release: object,
