@@ -109,6 +109,10 @@
     "automatic_rewind_on_app_rollback": false,
     "user_data_backup_completed": false,
     "empty_generation_checkpoint_supported": true,
-    "empty_generation_checkpoint_requires_zero_entries": true
+    "empty_generation_checkpoint_requires_zero_entries": true,
+    "read_only_owner_inspection_available": true,
+    "read_only_inspection_verifies_active_and_pinned_blobs": true,
+    "read_only_inspection_exposes_user_values": false,
+    "read_only_inspection_activation_authority": "none"
   }
 }
