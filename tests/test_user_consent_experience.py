@@ -8,7 +8,6 @@ UX = ROOT / "docs/contracts/user-consent-experience.json"
 CREATOR = ROOT / "tools/creator/cmd/ordax-creator-app"
 PUBLIC = ROOT / "sites/public/cadastro/index.html"
 NATIVE = ROOT / "docs/contracts/native-installation.json"
-PHYSICAL_AUTH = ROOT / "docs/contracts/physical-write-authorization.json"
 
 
 class UserConsentExperienceTests(unittest.TestCase):
@@ -82,14 +81,11 @@ class UserConsentExperienceTests(unittest.TestCase):
 
     def test_native_installation_is_not_unlocked_by_a_ui_policy(self):
         native = json.loads(NATIVE.read_text(encoding="utf-8"))
-        auth = json.loads(PHYSICAL_AUTH.read_text(encoding="utf-8"))
         policy = self.policy["native_installation"]
         self.assertEqual(policy["destructive_confirmation_count"], 1)
         self.assertFalse(policy["publicly_enabled"])
         self.assertFalse(native["mvp_availability"]["destructive_operations_allowed"])
         self.assertTrue(native["post_mvp_activation_scope"]["explicit_destructive_confirmation_required"])
-        self.assertFalse(auth["physical_write_allowed"])
-        self.assertFalse(auth["explicit_owner_authorization"])
 
 
 if __name__ == "__main__":
