@@ -178,6 +178,31 @@
         "deployment_invoked": false,
         "configuration_changed": false,
         "publication_policy": "One grouped source push; existing automatic deployment policy remains."
+      },
+      "remote_reconciliation": {
+        "main_commit": "93ec5bbefeb9d2c2f00c9ab8a4525590c8a25454",
+        "merged_commit": "34094685efe4c9700525d2968fe3ab9394cd9aa7",
+        "conflicts": false,
+        "changes_preserved": [
+          "Projects remove-first Gate A and canonical domain",
+          "Native signed component continuity and update inventory",
+          "Isolated independent base experiment"
+        ],
+        "localization_regression": {
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0
+        },
+        "builder_and_boundary_regression": {
+          "passed": 8,
+          "failed": 0
+        },
+        "note": "Repeats affected checks after the later concurrent main update; not additional unique coverage.",
+        "build": "passed-including-typescript; same emitted JS/CSS assets and sizes",
+        "structure": {
+          "result": "passed",
+          "reference_files_and_assets": 34
+        }
       }
     }
   },
