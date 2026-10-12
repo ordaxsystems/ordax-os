@@ -821,8 +821,12 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('[data-ordax-theme="dark"][data-ordax-contrast="high"]', tokens)
         self.assertIn("color-scheme: light", tokens)
         self.assertIn("@media (max-width: 760px)", css)
-        self.assertIn("prefers-reduced-motion", css)
-        self.assertIn('[data-ordax-motion="reduced"] *', css)
+        # Reduced-motion rules are centralized in tokens.css across Native/Web,
+        # while standard animations belong to the shared Surface presentation.
+        self.assertIn("prefers-reduced-motion", tokens)
+        self.assertIn('[data-ordax-motion="reduced"] *', tokens)
+        self.assertIn('animation: none !important', tokens)
+        self.assertIn('transition: none !important', tokens)
         self.assertIn('[data-ordax-motion="standard"] .ordax-window', css)
         self.assertIn('html[data-ordax-text-scale="standard"]', tokens)
         self.assertIn('html[data-ordax-text-scale="large"]', tokens)
