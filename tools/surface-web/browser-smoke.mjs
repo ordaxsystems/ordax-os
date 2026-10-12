@@ -82,7 +82,11 @@ try {
       const reachable=await evaluate("([...document.querySelectorAll("+JSON.stringify(selector)+")].some(node=>{const r=node.getBoundingClientRect();if(!r.width||!r.height)return false;const top=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return top===node||node.contains(top)}))");
       if(reachable) await click(selector);
       else {
-        await click('[aria-label='+JSON.stringify('Mais ações de '+title)+']');
+        // CompactActions is lazy-loaded by the canonical WindowLayer. Wait
+        // until its *real visible* trigger has mounted; absence still fails.
+        const trigger='[aria-label='+JSON.stringify('Mais ações de '+title)+']';
+        await until("[...document.querySelectorAll("+JSON.stringify(trigger)+")].some(node=>node.getClientRects().length>0)");
+        await click(trigger);
         await clickByText('[role="menuitem"]',menuTitle);
       }
     }
