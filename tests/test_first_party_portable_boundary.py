@@ -22,6 +22,13 @@ class PortableSourceBoundaryTests(unittest.TestCase):
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )
         external_owners = policy["canonical_package_source_repository_by_component"]
+        self.assertEqual(external_owners.get("projects"), "ordaxsystems/ordax-apps")
+        self.assertNotIn("projects", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("projects", policy["runtime_health_bridge_supported_components"])
+        pending = policy.get("prelaunch_remove_first_pending", {})
+        self.assertIsInstance(pending, dict)
+        self.assertTrue(set(pending).issubset(CANDIDATES))
+        self.assertFalse(set(pending).intersection(external_owners))
         for app_id in CANDIDATES:
             owner = APP_ROOT / app_id
             external = external_owners.get(app_id)
@@ -35,9 +42,26 @@ class PortableSourceBoundaryTests(unittest.TestCase):
                     f"{app_id}: OS bundled source must be removed once external source is canonical",
                 )
                 continue
+            if app_id in pending:
+                self.assertEqual(pending[app_id], {
+                    "state": "platform-source-removed-app-source-pending",
+                    "expected_repository": "ordaxsystems/ordax-apps",
+                    "platform_source_absence_required": True,
+                    "distribution_activation_allowed": False,
+                })
+                self.assertFalse(
+                    owner.exists(),
+                    f"{app_id}: remove-first Gate A must remove all platform payloads",
+                )
+                self.assertNotIn(
+                    app_id,
+                    policy["native_loopback_broker_supported_components"],
+                    f"{app_id}: pending source transfer cannot confer module read authority",
+                )
+                continue
             self.assertTrue(
                 owner.is_dir(),
-                f"{app_id}: source disappeared without an external SSOT owner cutover",
+                f"{app_id}: source disappeared without canonical ownership or an explicit fail-closed Gate A",
             )
             files = sorted(owner.rglob("*.mjs"))
             self.assertTrue(files, f"Missing executable source for {app_id}")

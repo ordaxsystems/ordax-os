@@ -143,24 +143,13 @@ test("English catalog contains primary Files, Settings and System entries", asyn
   assert.match(localSessionCatalog, /"localSession\.lock\.message\.rateLimited": "Too many attempts\./);
 });
 
-test("Projects primary journey uses shared localization in PT-BR and English", async () => {
-  const controls = await readFile(
-    new URL("../system/apps/projects/ui/workspace-controls.mjs", import.meta.url),
+test("Projects app-owned translations are absent from OS during remove-first Gate A", async () => {
+  const surface = await readFile(
+    new URL("../system/services/i18n/surface.mjs", import.meta.url),
     "utf8",
   );
-  const catalog = await readFile(
-    new URL("../system/services/i18n/catalog/projects.mjs", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(controls, /const localization = lifecycle\.localization/);
-  assert.match(controls, /t\("projects\.action\.openFiles"\)/);
-  assert.match(controls, /ordaxProjectsLocale/);
-  assert.match(catalog, /"projects\.title": "Projetos"/);
-  assert.match(catalog, /"projects\.title": "Projects"/);
-  assert.match(catalog, /"projects\.status\.localOnly": "Somente local"/);
-  assert.match(catalog, /"projects\.status\.localOnly": "Local only"/);
-  assert.doesNotMatch(controls, /timeZone:\s*"America\/Bahia"/);
+  assert.doesNotMatch(surface, /PROJECTS_SOURCE_MESSAGES|PROJECTS_ENGLISH_MESSAGES/);
+  assert.doesNotMatch(surface, /"app\.projects\.title"/);
 });
 
 test("Internet primary journey uses the shared localization owner", async () => {

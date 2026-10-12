@@ -18,6 +18,7 @@ export const EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT = Object.freeze
   "notes": "ordaxsystems/ordax-apps",
   "paint": "ordaxsystems/ordax-apps",
   "pdf-viewer": "ordaxsystems/ordax-apps",
+  "projects": "ordaxsystems/ordax-apps",
   "studio": "ordaxsystems/ordax-apps",
   "text-viewer": "ordaxsystems/ordax-apps",
   "toolbox": "ordaxsystems/ordax-apps",

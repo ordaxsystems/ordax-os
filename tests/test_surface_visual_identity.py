@@ -10,7 +10,6 @@ NATIVE_INDEX = ROOT / "system" / "composition" / "native" / "index.html"
 APPEARANCE = ROOT / "system" / "services" / "preferences" / "appearance.mjs"
 DESKTOP_IDENTITY = ROOT / "docs" / "DESKTOP-IDENTITY.md"
 BROWSER_SMOKE = ROOT / "tools" / "surface-native" / "browser-smoke.mjs"
-PROJECTS_CSS = ROOT / "system" / "apps" / "projects" / "projects.css"
 INTERNET_CSS = ROOT / "system" / "apps" / "internet" / "internet.css"
 SETTINGS_CSS = SURFACE / "settings.css"
 ACCOUNT_CSS = SURFACE / "account.css"
@@ -125,22 +124,8 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertIn(".ordax-system-navigation-item[data-active=\"true\"]", system)
         self.assertIn("box-shadow: 0 0 10px", system)
 
-    def test_projects_consumes_semantic_tokens_in_component_css(self):
-        css = PROJECTS_CSS.read_text(encoding="utf-8")
-        for declaration in (
-            "color: var(--ordax-text)",
-            "color: var(--ordax-muted)",
-            "border: 1px solid var(--ordax-border-soft)",
-            "border-radius: var(--ordax-radius-lg)",
-            "background: color-mix(in srgb, var(--ordax-panel) 66%, transparent)",
-            "box-shadow: var(--ordax-shadow-soft)",
-            "border: 1px solid var(--ordax-border)",
-            "outline: 2px solid var(--ordax-focus)",
-            "var(--ordax-accent)",
-            "prefers-reduced-motion",
-        ):
-            self.assertIn(declaration, css)
-
+    def test_projects_styles_are_not_bundled_after_remove_first_cutover(self):
+        self.assertFalse((ROOT / "system/apps/projects/projects.css").exists())
 
     def test_internet_consumes_semantic_tokens_in_component_css(self):
         css = INTERNET_CSS.read_text(encoding="utf-8")

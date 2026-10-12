@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type Dispatch } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, MoreHorizontal, PanelBottom, Square, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { DesktopContent, type PresentationProps } from './desktop';
+import type { PresentationProps } from './desktop';
+import { WindowContent } from './window-content';
 import type { DesktopAction, DesktopState } from './desktop-state';
 import { WindowAppIcon } from './primitives';
 
@@ -57,7 +58,7 @@ export function WindowLayer({ state, dispatch, ...presentation }: Props) {
           </div>
         </header>
         <div className="desktop-window-body" hidden={collapsed}>
-          <DesktopContent {...presentation} title={window.title} initialPrompt={window.initialPrompt} open={title => dispatch({ type: 'open', title })}/>
+          <WindowContent {...presentation} title={window.title} initialPrompt={window.initialPrompt} open={title => dispatch({ type: 'open', title })}/>
         </div>
       </section>;
     })}

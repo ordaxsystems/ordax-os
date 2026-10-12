@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
 import { Bell, Settings, Sun, Moon, Search, LayoutGrid, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import dayWallpaper from '@/assets/alpine-day.jpg';
@@ -7,7 +7,12 @@ import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
 import { useWebPreferences } from './preferences-context';
+import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
+
+// One stable resource type; no fetch until the Store is actually mounted.
+// Cached module-load failures are recovered by explicit page reload.
+const Store = lazy(() => import('../store/store').then(module => ({ default: module.StoreExperience })).catch(error => { throw new WindowResourceLoadError(error); }));
 
 export type PresentationProps = { onCentral: () => void };
 type Props = PresentationProps & { theme: 'light' | 'dark'; dispatch: Dispatch<DesktopAction> };
@@ -24,6 +29,7 @@ export function DesktopContent({ title, open, onCentral, initialPrompt }: Presen
   const [prompt, setPrompt] = useState('');
   const [sent, setSent] = useState(false);
   useEffect(() => { if (initialPrompt !== undefined) { setPrompt(initialPrompt.text); setSent(true); } }, [initialPrompt]);
+  if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
   if (title === 'Minha conta') return <AccountPanel/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
   if (title === 'Aplicativos') return <Panel title="Aplicativos favoritos"><p className="service-state">Atalhos da interface. A disponibilidade de cada aplicativo depende do host conectado.</p><div className="favorite-grid">{favorites.map(item => <Button variant="ghost" className="favorite-tile" key={item.name} onClick={() => open(item.name)}><AppIcon icon={item.icon} tone={item.tone}/>{item.name}</Button>)}</div></Panel>;

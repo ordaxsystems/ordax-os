@@ -146,5 +146,16 @@ func verifyArmPendingStateCompatibility(
 	); err != nil {
 		return err
 	}
-	return validateForwardStateCompatibility(before.Descriptor.State, after.Descriptor.State)
+	if err := validateForwardStateCompatibility(
+		before.Descriptor.State, after.Descriptor.State,
+	); err != nil {
+		return err
+	}
+	// A locally compatible replacement still cannot assume that the
+	// installed native graph stayed valid since an earlier preflight.
+	// Re-read every signed current peer under the activation graph lock.
+	// This does not attest bundled consumers or grant public activation.
+	return verifySignedNativeConsumerContinuityUnderGraphLock(
+		root, componentID, after.Descriptor.Provides, trustBytes,
+	)
 }

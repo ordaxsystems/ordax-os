@@ -1,5 +1,53 @@
 # Current State
 
+## Web Central — Loja canônica e recuperação por janela — 2026-10-12
+
+A janela Loja monta o StoreExperience existente, pelo mesmo catálogo público
+ordax.app-store-catalog-port/2. A importação é sob demanda; a composição mantém
+o port indisponível quando o host não oferece catálogo. Demonstração continua
+explícita e isolada; não representa instalação, grants ou sessão real.
+O CSS da Loja foi movido para um único arquivo no componente, com tokens da
+Surface e responsividade pela largura da janela. O shell anterior não guarda
+uma segunda cópia dos estilos.
+
+Boundary de conteúdo mantém erros dentro da janela. Falhas de recursos têm
+diagnóstico tipado e recarga de página somente por ação explícita, com aviso
+de perda de rascunhos. Outros erros oferecem reinício apenas do conteúdo local.
+A prova de falha constatou que o browser guarda imports rejeitados; não se
+promete nova descarga por simplesmente recriar o componente React.
+Validação após merge da main: 24 testes Node e oito testes Python passaram;
+a última regressão da Loja repetiu seis testes com sucesso. Build/TypeScript e
+verificação de 34 arquivos/assets passaram. Em 390 x 844, dois painéis compactos
+iguais mantêm os controles da Loja dentro da sua largura útil de 112 px. A
+navegação estreita usa as mesmas seções em um seletor nativo. Prova controlada
+de recurso HTTP 503 isolou a falha e recuperou a Loja por recarga explícita,
+enquanto Ajustes continuou disponível. O bundle inicial final é 537,86 kB
+(169,81 kB gzip); a Loja carrega em um chunk separado de 49,59 kB.
+Catálogo autenticado, instalação e ativação de produção continuam pendentes.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-store-window--2026-10-12).
+
+## Web Central — catálogo de boot compartilhado e carregamento inicial — 2026-10-12
+
+Owner: catálogo canônico de localização do OS e composição Web. As quatro
+mensagens de boot foram extraídas para system/services/i18n/catalog/boot.mjs;
+o catálogo completo importa esses mesmos textos, sem duplicação de português
+ou inglês. A composição atual pt-BR importa apenas esse catálogo de dados.
+Portas, serviços, idioma atual, rotas, temas e geometria permanecem preservados.
+
+Build local com TypeScript passou: JavaScript inicial de 776,99 para 533,40 kB
+(redução de 31,35%); gzip de 220,94 para 167,96 kB. O CSS emitido é idêntico.
+Ainda existe aviso acima de 500 kB; não foi elevado o limite nem alegada uma
+medição de tempo de carregamento. Mais 18 testes de tradução e sete de builder
+passaram. Verificador de 34 arquivos/assets passou após corrigir o checksum
+registrado com quebra de linha Windows para o formato LF canônico.
+Browser recarregado: Central preservada, sem entradas de erro/aviso nos logs.
+A validação autenticada com gateway real continua pendente.
+
+Testes/builds foram locais, sem deploy Vercel. A configuração existente para
+ignorar builds públicos não afetados foi apenas consultada. Uma revisão automática falhou por limite de uso; a janela de retomada
+passou e o envio agrupado será revalidado com a main. Nenhum gate foi contornado.
+[Evidência e comparação](evidence/web-central-reference-2026-10-11.json).
+
 ## Web Central — consultas de conta canceláveis e limitadas — 2026-10-12
 
 Identidade e catálogo de Spaces reutilizam um único transporte JSON GET nos
@@ -12,8 +60,15 @@ Ordinais e validações dos adapters continuam sendo a autoridade de publicaçã
 Timeout real mantém os estados indisponível/erro, sem simular logout.
 Snapshots de identidade/comandos permanecem estáveis quando não mudam; portas
 descartadas não retêm novos assinantes nem iniciam comandos/consultas.
-Layout e serviços pendentes permanecem preservados. Regressões incluídas no
-source/CI, sem build, npm, testes, typecheck ou browser locais.
+Layout e serviços pendentes permanecem preservados. Validação local autorizada
+em 2026-10-12: 64 testes passaram; build com TypeScript e verificação de 34
+arquivos/assets passaram. Browser conferido em 390 x 844, 768 x 600 e
+1366 x 768, incluindo temas, viewport, compacto, minimizar e restaurar pelo dock.
+Não houve mudança de source funcional nesta rodada de validação.
+Gateway autenticado não está configurado neste Vite local: o fluxo com conta,
+Spaces e dispositivos reais permanece pendente. Bundle inicial de 776,99 kB
+(220,94 kB gzip) gerou aviso de desempenho; testes não provam prontidão de release.
+[Evidência datada](evidence/web-central-reference-2026-10-11.json).
 [Owner, risco e aceite](DESKTOP-IDENTITY.md#web-account-bounded-read-lifecycle--2026-10-12).
 
 
@@ -297,7 +352,7 @@ See `docs/PUBLIC-SITE.md` for ownership, acceptance and remaining gates.
 
 ## Studio Web availability — 2026-10-09 source candidate
 
-The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates Projects to its existing app owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).
+The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates project data to its canonical platform service owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).
 
 
 ## Surface visual identity — 2026-10-09 source candidate
@@ -384,7 +439,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,PROJECTS,STUDIO,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -412,9 +467,6 @@ FIRST_PARTY_APP_PRE_1_0_MATURITY=BETA
 APP_FILES_VERSION=0.1.0
 APP_FILES_MATURITY=BETA
 APP_FILES_RELEASE_MODE=bundled
-APP_PROJECTS_VERSION=0.1.0
-APP_PROJECTS_MATURITY=BETA
-APP_PROJECTS_RELEASE_MODE=git-app
 APP_SETTINGS_VERSION=0.1.0
 APP_SETTINGS_MATURITY=BETA
 APP_SETTINGS_RELEASE_MODE=bundled
@@ -471,11 +523,11 @@ CANONICAL_SYSTEM_RUNTIME_COMPLETE=NO
 
 The canonical prototype trust ceremony and public handoff are complete. The eligible toolkit bound to `2172eb6a18430910afd036199ec492ad63dc185d` passed read-only preflight; canonical Ed25519 key material was generated locally, independent public derivation matched, the proof signature passed, recovery was verified from a distinct restored copy, and the recovered signing envelope passed public verification. The exact public anchor is pinned in Git and the minimal-bootstrap trust binding remains resolved. An earlier owner authorization existed for the first Stable/MVP USB proof, release sequence 1, but it was bound to a previous physical-writer context and is no longer valid after the writer changed. On 2026-09-26 the owner-controlled v4 candidate was signed and published as a prerelease, then materialized and verified from its exact versioned HTTPS URL in CI run `36234573905`; aggregate proof SHA-256 `2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b` is bound in the repository. This prerelease did not become GitHub's stable `latest` release. The authorization contract is now `blocked-explicit-physical-authorization-pending`, with `physical_write_allowed=false`, `explicit_owner_authorization=false` and no authorization-context hash. A fresh explicit owner authorization must be recorded against the current writer context before any destructive physical flow becomes eligible. No target-specific consent has been recorded and no USB is selected or authorized for a new write; live target revalidation, Windows UAC and target-specific destructive confirmation remain separate later gates. The local PEM remains a controlled prototype signing backend rather than the intended long-term production custody model; independent off-device custody and managed non-exportable KMS/HSM remain broad-distribution hardening requirements, with signed trust rotation required before broad public distribution.
 
-The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and component/app versions are separate identities: v0.1.0 identifies the prototype product milestone, Entrega identifies the notebook-facing delivery sequence, the SHA remains the exact technical build identity, and each component may evolve its own SemVer. First-party apps on the `0.x` line are **Beta**; `1.0.0` remains reserved for the first stable release of each app. Internet is currently `0.3.0 Beta` and Projetos is `0.1.0 Beta`; both use `git-app` in Owner/Development. Notes remains a known first-party product identity but its local payload is intentionally absent during the pre-launch externalization gate. Arquivos, Ajustes, Conta and Sistema are `0.1.0 Beta` and remain `bundled`. A component having its own version does not mean it already has a production-independent update channel: `git-app` is a development delivery mode, while production-independent activation remains gated behind the signed `component-slot` path with pending health, promotion and rollback. Product v1.0 remains reserved for the stable product rather than being inferred from prototype maturity, component versions or delivery count.
+The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and component/app versions are separate identities: v0.1.0 identifies the prototype product milestone, Entrega identifies the notebook-facing delivery sequence, the SHA remains the exact technical build identity, and each component may evolve its own SemVer. First-party apps on the `0.x` line are **Beta**; `1.0.0` remains reserved for the first stable release of each app. Internet is currently `0.3.0 Beta` and uses `git-app` in Owner/Development. Projetos is a remove-first externalization target: its original 0.1.0 app source is pinned in `ordax-apps`, and its bundled UI/runtime is absent until a signed package is verified. Notes remains a known first-party product identity but its local payload is intentionally absent during the pre-launch externalization gate. Arquivos, Ajustes, Conta and Sistema are `0.1.0 Beta` and remain `bundled`. A component having its own version does not mean it already has a production-independent update channel: `git-app` is a development delivery mode, while production-independent activation remains gated behind the signed `component-slot` path with pending health, promotion and rollback. Product v1.0 remains reserved for the stable product rather than being inferred from prototype maturity, component versions or delivery count.
 
 `system/` is the shared product source. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI also proves that the actual `system/` tree can be bundled deterministically as `system.tar`.
 
-The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projects is a first-party application with stable app id `projects`, version `0.1.0 Beta` and `git-app` delivery in Owner/Development. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. During the pre-launch remove-first externalization gate its payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its future package is sourced from `ordax-apps` and will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet`, version `0.3.0 Beta` and `git-app` delivery in Owner/Development; this version identity does not claim a production Store/updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
+The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projetos remains a first-party product identity, but no longer has a bundled application source in the OS during Gate A; its future portable runtime belongs to `ordax-apps` and installation is still blocked. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. During the pre-launch remove-first externalization gate its payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its future package is sourced from `ordax-apps` and will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet`, version `0.3.0 Beta` and `git-app` delivery in Owner/Development; this version identity does not claim a production Store/updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
 
 ### Nova OrdaX pre-USB functional closure
 
@@ -778,7 +830,7 @@ SETTINGS_NOTIFICATIONS_EN_US=PASS_SOURCE
 SETTINGS_SECURITY_EN_US=PASS_SOURCE
 LOCAL_SESSION_LOCK_EN_US=PASS_SOURCE
 ACCOUNT_EN_US=PASS_SOURCE
-PROJECTS_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
+PROJECTS_PRIMARY_JOURNEY_EN_US=EXTERNALIZATION_SOURCE_PENDING
 NOTES_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
 NOTES_DEEP_EN_US=PASS_SOURCE
 NOTES_SEMANTIC_ASYNC_MESSAGES=PASS_SOURCE

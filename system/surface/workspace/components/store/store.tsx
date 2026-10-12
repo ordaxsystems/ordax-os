@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
+import './styles.css';
 import { Search, Compass, LayoutGrid, Brain, Puzzle, Plug, Palette, Library, RefreshCw, Heart, ArrowLeft, ShieldCheck, Cpu, Cloud, Bot, Info, AlertTriangle, CheckCircle2, Loader2, XCircle, Ban, Wifi, HardDrive, Monitor, Globe2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { catalog, kindMeta, platformLabel, evaluateModel, type Kind, type StoreItem, type ModelItem, type Platform } from '@/lib/store/catalog';
@@ -76,6 +77,9 @@ function StoreBody({ snapshot, demo, onModeChange, onOpenApp }: { snapshot: Stor
   return <div className="st-root" data-store-mode={demo ? 'demo' : 'official'}>
     <nav className="st-nav" aria-label="Seções da Loja">
       {sections.map(s => <button type="button" key={s.id} aria-current={section === s.id && !item ? 'page' : undefined} onClick={() => go(s.id)}><s.icon/><span>{s.label}</span>{s.id === 'updates' && ups.length > 0 && <b>{ups.length}</b>}</button>)}
+      <select className="st-section-select" aria-label="Seção da Loja" value={section} onChange={event => go(event.target.value as Section)}>
+        {sections.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+      </select>
     </nav>
     <div className="st-main">
       <div className="st-mode">

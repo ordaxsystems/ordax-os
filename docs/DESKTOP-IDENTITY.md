@@ -864,3 +864,110 @@ the deadline; offline/disposal release them promptly, no old identity/catalog
 bytes replace a newer session, and post-disposal commands cause no network work.
 Preserve approved frontend geometry, themes, sidebar/dock/compact app behavior
 and canonical domain boundaries. Authenticated E2E remains pending.
+
+### Web account local validation — 2026-10-12
+
+The user authorized local tests, npm and build after the earlier source-only
+increments. This validation supersedes their no-local-execution status; it does
+not change runtime contracts, Surface geometry or release authority.
+Owner remains OS Surface/Web adapters; scope is the existing account/Spaces,
+preferences, Store availability and shared-window lifecycle.
+
+On source commit 73b409a78909061c58247947ed8ebf11049bb571, 64 Node regressions passed (zero failures/skips).
+The Surface build includes TypeScript and passed. The structural verifier passed
+34 reference files/assets and existing window/provenance/disabled-AI checks.
+The local browser confirmed 390 x 844, 768 x 600 and 1366 x 768 document sizes
+without page overflow, loaded hero assets in both themes, an upper maximized app
+above a compact pane, equal-width compact panes, mobile menu minimization and
+explicit dock restoration. Browser dev logs returned no error/warning entries
+at the start and finish. Temporary windows, theme and viewport were restored.
+
+Limits: this Vite origin does not host the authenticated account gateway.
+Transport/unit fixtures exercise account changes, stalled reads, offline
+cancellation and late results; they are not evidence of a live authenticated
+gateway, device control, actual billing/storage or signed app installation.
+The initial JavaScript chunk is 776.99 kB (220.94 kB gzip), a performance warning
+to address through measured startup code splitting, without merely raising the
+warning threshold. No production activation or release claim follows.
+
+The Apps minimum verifier separately reports 20 targets, 13 unsigned package
+candidates, seven blocked targets and zero verified public installations; it is
+not a production catalog. Full commands/results and source SHA are recorded in
+the existing [Central provenance evidence](evidence/web-central-reference-2026-10-11.json).
+
+### Web startup catalog boundary — 2026-10-12
+
+Owner: OS localization and Web composition. The previous eager import of the
+full Surface translator loaded unrelated application dictionaries for four boot
+messages. A shared data-only boot catalog now owns the same PT-BR/English IDs
+and text. Full Surface localization spreads the catalog; the current pt-BR Web
+composition reads its source messages directly with a TypeScript key union.
+No translator, locale state, authority or second persistent store is added.
+Regional localization behavior in Native remains with its existing service.
+Web locale selection remains a separate pending capability.
+
+Risk/acceptance: future boot messages must be added once to both locale maps
+in this catalog. Regression checks require identical keys, identical full
+translator output and existing source fallback, and prevent eager full-catalog
+imports in the Web entry. Eighteen localization tests and seven builder tests
+passed; TypeScript/build passed. The structural verifier caught a recorded
+checksum using Windows line endings; its adapted digest was corrected to LF
+without replacing the historical digest. Verification then passed.
+
+Measured production build output fell from 776.99 to 533.40 kB initial JavaScript
+(31.35%); gzip fell from 220.94 to 167.96 kB. CSS is byte-identical. This is bundle
+size evidence, not a controlled loading-time benchmark. The >500 kB warning
+remains visible. Browser reload rendered the same Central with no returned
+error/warning logs. No additional install, dependency, provider or new app was
+introduced. Existing source graph and CI paths discover the new catalog.
+
+The user prefers grouped main updates to reduce repeated Vercel builds. All
+validation here was local; no Vercel deployment was invoked. The existing
+public-site ignored-build decision was inspected, not changed. The earlier automatic approval review usage-limit failure expired; local commit
+and reconciliation with main then succeeded. This round uses one grouped source
+push, without bypassing release or execution gates. Authenticated gateway E2E and production gates remain
+pending. See the same Central provenance evidence above.
+
+### Canonical Store window — 2026-10-12
+
+Owner: OS Surface and structural Store, an explicitly requested continuation of
+backend/frontend alignment. Central Loja now mounts the existing StoreExperience,
+not a second Store. The same read-only catalog context is retained; unconfigured
+Web still has no execution/install port. Demonstration remains explicit and
+separate from host state. No new catalog API, device authority or grants.
+
+Store styles were extracted from the former shell into the component's single
+stylesheet, consumed by its existing renderer. Historical provenance remains
+reversible. Store aliases use Surface tokens; grids and navigation use container
+width so a compact pane does not inherit the width of the full browser.
+The renderer/styles load on demand. Utility compilation registers that same
+component, without copying the shell or bringing the Store into initial render.
+
+A common window-content boundary isolates rendering errors from the rest of
+the workspace. Typed resource-load errors deliberately offer an explicit page
+reload with a draft-loss warning, because the browser caches failed module
+imports; changing React.lazy alone did not recover in the controlled proof.
+Other content errors may be reset within that single window. No command is
+retried. Minimizing/compacting/view changes retain the existing mounted body.
+
+Acceptance: official mode renders actual supplied catalog entries; unavailable
+hosts do not invent installed apps or enabling actions. Search persists through
+window modes. No document/pane horizontal overflow in responsive checks.
+A failed Store resource leaves the sidebar/other windows available and can be
+recovered after the resource returns through the explicit reload control.
+Final merged validation is recorded in the existing Central provenance evidence.
+
+
+Merged validation: 24 Node tests and eight Python tests passed after reconciling
+main at b0bad62; six Store tests passed again after the final responsive fix.
+TypeScript/build and the 34-file structural/provenance verifier passed. Final
+initial JavaScript is 537.86 kB (169.81 kB gzip), with Store JavaScript 49.59 kB
+and Store CSS 15.11 kB loaded separately. The >500 kB warning remains visible.
+In two equal compact panes at 390 x 844, the Store's 112-pixel useful width has
+no horizontal overflow or controls outside its bounds in Discover/Library.
+The narrow section selector uses the same descriptors and navigation handler.
+A controlled HTTP 503 resource fixture verified isolation, usable Settings,
+and recovery after explicit warned page reload. The fixture server/tab were
+closed and the user viewport/theme restored; main-page logs returned no errors
+or warnings. Authenticated gateway/catalog, signed installation, native/device
+execution and production activation remain outside this local proof.
