@@ -1,5 +1,18 @@
 # Current State
 
+## Web Central — preferências canônicas de aparência no source — 2026-10-12
+
+Tema da Central/Desktop e Ajustes usa ordax.preference-runtime/1 com o catálogo
+existente e o adapter ordax.preference-store/1. A UI não lê/grava localStorage
+nem mantém uma segunda escolha de tema. Inicialização recupera valores válidos;
+falha de persistência mantém a escolha na sessão com aviso em Ajustes. Temas,
+paisagens, cores e geometria aprovados foram preservados. Central/Desktop
+continua sendo estado de apresentação da sessão, separado das preferências
+da conta. Persistência é local ao navegador; sync cloud e E2E não foram ativados.
+Casos de regressão foram acrescentados no source, sem execução de build, npm,
+testes ou browser por restrição do usuário.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-central-canonical-appearance-preferences--2026-10-12).
+
 ## Web Central — integração de conta e Spaces no source — 2026-10-12
 
 A composição Web reutiliza os adapters existentes de sessão, comandos de

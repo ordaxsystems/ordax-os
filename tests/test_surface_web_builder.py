@@ -110,11 +110,12 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         self.assertNotIn("WebShell", main)
         self.assertIn("createUnavailableAppStoreCatalogPort", main)
         central = (ROOT / "system/surface/workspace/components/central/central.tsx").read_text(encoding="utf-8")
-        # Only harmless presentation preferences, never identity or app authority,
-        # are allowed in the new canonical Web entry's local storage.
-        for key in ("ordax-theme", "ordax-view"):
-            self.assertIn(f"localStorage.getItem('{key}')", central)
-            self.assertIn(f"localStorage.setItem('{key}'", central)
+        # Preferences are composed once from the public service and Web adapter;
+        # neither Central nor another Surface module owns browser storage.
+        self.assertIn("useWebPreferences", central)
+        self.assertNotIn("localStorage", central)
+        self.assertIn("createPreferenceRuntime(createWebPreferenceStore(window))", main)
+        self.assertIn("<WebPreferencesProvider port={preferences}>", main)
         self.assertNotIn("localStorage", main)
         self.assertIn('href="/conta/"', shell)
         self.assertIn('href="/"', shell)
@@ -130,8 +131,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                                   "sessionStorage", "/auth/logout", "process.env",
                                   "node:child_process", "node:fs"):
                     self.assertNotIn(forbidden, text, str(source))
-                if source.name != "central.tsx" or source.parent.name != "central":
-                    self.assertNotIn("localStorage", text, str(source))
+                self.assertNotIn("localStorage", text, str(source))
 
 
 if __name__ == "__main__":

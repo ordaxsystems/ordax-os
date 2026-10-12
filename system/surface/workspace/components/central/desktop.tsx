@@ -6,10 +6,11 @@ import nightWallpaper from '@/assets/alpine-night.jpg';
 import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon } from './primitives';
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
+import { useWebPreferences } from './preferences-context';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
-export type PresentationProps = { theme: 'light' | 'dark'; onTheme: () => void; onCentral: () => void };
-type Props = PresentationProps & { dispatch: Dispatch<DesktopAction> };
+export type PresentationProps = { onCentral: () => void };
+type Props = PresentationProps & { theme: 'light' | 'dark'; dispatch: Dispatch<DesktopAction> };
 export function Desktop({ theme, onCentral, dispatch }: Props) {
 
   const open = (title: string) => dispatch({ type: 'open', title });
@@ -19,7 +20,7 @@ export function Desktop({ theme, onCentral, dispatch }: Props) {
     <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Do seu jeito.</span><small>OrdaX OS Web</small></div>
   </main>;
 }
-export function DesktopContent({ title, theme, onTheme, open, onCentral, initialPrompt }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
+export function DesktopContent({ title, open, onCentral, initialPrompt }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   const [prompt, setPrompt] = useState('');
   const [sent, setSent] = useState(false);
   useEffect(() => { if (initialPrompt !== undefined) { setPrompt(initialPrompt.text); setSent(true); } }, [initialPrompt]);
@@ -29,7 +30,7 @@ export function DesktopContent({ title, theme, onTheme, open, onCentral, initial
   if (title === 'Notificações' || title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p></Panel>;
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>;
   if (title === 'Espaços') return <SpacesPanel/>;
-  if (title === 'Configurações') return <Panel title="Aparência"><div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={onTheme}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div><div className="desktop-settings-row"><span>Visualização</span><Button variant="secondary" onClick={onCentral}><LayoutGrid/>Voltar à central</Button></div></Panel>;
+  if (title === 'Configurações') return <AppearancePanel onCentral={onCentral}/>;
   if (title === 'Aura' || title === 'Inteligência') return <><div className="desktop-content-heading"><Sparkles/><h2>Aura</h2></div><form className="aura-search" onSubmit={e => { e.preventDefault(); if (prompt.trim()) setSent(true); }}><Sparkles className="aura-star"/><input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={e => { setPrompt(e.target.value); setSent(false); }}/><Button type="submit" className="send-button" aria-label="Enviar ao Aura"><Send/></Button></form>{sent && <p className="desktop-unconnected">{unavailableServices.intelligence}</p>}</>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
 }
@@ -136,5 +137,14 @@ function SpacesPanel() {
     {error && <p className="service-state" role="alert">{error}</p>}
     <p className="service-state" role="status">{authorized.activeSpace ? 'Space atual: ' + authorized.activeSpace.name : authorized.ready ? 'Escolha um Space para definir o contexto desta sessão.' : 'Nenhum contexto de Space está disponível.'}</p>
     <p className="service-state">A escolha vale nesta sessão e não concede acesso a arquivos, dispositivos ou IA.</p>
+  </Panel>;
+}
+
+function AppearancePanel({ onCentral }: { onCentral: () => void }) {
+  const { theme, toggleTheme, persistence } = useWebPreferences();
+  return <Panel title="Aparência">
+    <div className="desktop-settings-row"><span>Tema</span><Button variant="secondary" onClick={toggleTheme} aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'}>{theme === 'light' ? <Sun/> : <Moon/>}{theme === 'light' ? 'Claro' : 'Escuro'}</Button></div>
+    <p className="service-state" role="status">{persistence === 'session-only' ? 'O navegador não permitiu salvar. O tema será mantido apenas nesta sessão.' : 'Tema deste navegador. Sincronização entre dispositivos ainda não está conectada.'}</p>
+    <div className="desktop-settings-row"><span>Visualização</span><Button variant="secondary" onClick={onCentral}><LayoutGrid/>Voltar à central</Button></div>
   </Panel>;
 }

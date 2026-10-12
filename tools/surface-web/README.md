@@ -50,3 +50,12 @@ Identity changes remount only the session workspace to clear local account
 drafts/windows; refresh of the same subject preserves its app instances.
 Account tests and browser assertions were updated as source only, not executed
 locally under the standing user restriction.
+
+Appearance uses the existing Web preference-store adapter and canonical
+preference-runtime/catalog. The one mounted provider feeds Central/Desktop and
+Ajustes, including wallpaper and native control color scheme. No direct storage
+calls remain in Central. Theme persists locally where the browser permits;
+failed saves keep session appearance and surface a notice in Ajustes. View mode
+is session-only UI state. No account sync or backend preference endpoint added.
+Preference regression source is included in existing CI, not run locally under
+the standing restriction.

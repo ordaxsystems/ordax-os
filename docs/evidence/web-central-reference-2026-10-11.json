@@ -17,7 +17,7 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "dc6f9099410609b402cee7b63bdcbcea779ec24ed7e9027b4e3e34e079eb5901",
+      "adaptedSha256": "d95f942425ba0f0c9ebc48837387a90ea9d4f669d4fc29d0612a6830c13cee31",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
     },
     {
@@ -38,7 +38,7 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "f0873c28c0d8c6358cf555d85f5beb6a037ccce85841fbae6f7f23e64b8fc340",
+      "adaptedSha256": "e108ed1bee16effaff2ce5b22116e96bb81058d53cb5c0b16dbc52f8ec3b639a",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred"
     },
     {
@@ -121,7 +121,8 @@
     "Central narrow layouts consider available container height: tall areas stack all three existing summaries, short areas keep tabs; lower summaries and Aura modes depend on actual capacity, without a duplicate layout or page scrolling",
     "Canonical Web identity/session/actions and read-only Spaces adapters feed one context; subject changes abort/reset catalogs and remount local session workspace, while same-subject refresh preserves app nodes",
     "Removed demo user/subscription/storage/projects/activity/online devices from active Central; existing cards and destinations show explicit unavailable transports without removing future features or changing responsive geometry",
-    "Explicit active-Space choice and clear action reuse the Native domain selection service; session-only Web adapter holds a validated subject-bound record, while the service owns invalidation instead of duplicated composition reset"
+    "Explicit active-Space choice and clear action reuse the Native domain selection service; session-only Web adapter holds a validated subject-bound record, while the service owns invalidation instead of duplicated composition reset",
+    "Central/Desktop and Appearance consume one mounted canonical preference-runtime/catalog and existing Web preference-store; direct localStorage/theme state and duplicate window theme callbacks removed, saved versus session-only persistence remains honest, approved palette/geometry retained"
   ],
   "native_files": [
     {
@@ -151,6 +152,24 @@
       "sha256": "8f25ed2aa6e3f5c44fd2febcec639901fc46022003c25e9262897daa11336d1a",
       "owner": "OrdaX OS Web adapter",
       "purpose": "Session-only validated record for the canonical selection service and unavailable port for unconfigured hosts"
+    },
+    {
+      "target": "system/services/preferences/runtime.mjs",
+      "owner": "OrdaX OS preferences",
+      "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
+      "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c"
+    },
+    {
+      "target": "system/surface/workspace/components/central/preferences-context.tsx",
+      "owner": "OrdaX OS Surface",
+      "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
+      "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74"
+    },
+    {
+      "target": "system/composition/web/main.tsx",
+      "owner": "OrdaX OS Web composition",
+      "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
+      "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240"
     }
   ]
 }

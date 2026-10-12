@@ -7,6 +7,9 @@ import { StoreCatalogProvider } from '../../surface/workspace/components/store/c
 import { Central } from '../../surface/workspace/components/central/central';
 import { WebAccountProvider, useWebAccount } from '../../surface/workspace/components/central/account-context';
 import { createWebAccountSession } from './account-session.mjs';
+import { createWebPreferenceStore } from '../../adapters/web/preferences.mjs';
+import { createPreferenceRuntime } from '../../services/preferences/runtime.mjs';
+import { WebPreferencesProvider } from '../../surface/workspace/components/central/preferences-context';
 import { createSurfaceBootScreen } from '../../surface/ui/boot-screen.mjs';
 import { translateSurfaceMessage } from '../../services/i18n/surface.mjs';
 import '../../surface/ui/tokens.css';
@@ -20,10 +23,12 @@ if (!root) throw new Error('OrdaX composition root is missing #ordax-root');
 const route = createRootRoute();
 const storeCatalog = createUnavailableAppStoreCatalogPort('web-store-transport-unavailable');
 const accountSession = createWebAccountSession(window);
+const preferences = createPreferenceRuntime(createWebPreferenceStore(window));
 void accountSession.refresh();
-const onPageHide = (event: PageTransitionEvent) => { if (!event.persisted) accountSession.dispose(); };
+const disposeServices = () => { accountSession.dispose(); preferences.dispose(); };
+const onPageHide = (event: PageTransitionEvent) => { if (!event.persisted) disposeServices(); };
 window.addEventListener('pagehide', onPageHide);
-import.meta.hot?.dispose(() => { window.removeEventListener('pagehide', onPageHide); accountSession.dispose(); });
+import.meta.hot?.dispose(() => { window.removeEventListener('pagehide', onPageHide); disposeServices(); });
 class WorkspaceBoundary extends Component<{children: ReactNode}, {failed: boolean}> {
   state = {failed: false};
   static getDerivedStateFromError() { return {failed: true}; }
@@ -36,7 +41,7 @@ function SessionWorkspace() {
 }
 function Workspace() {
   useEffect(() => { boot.ready(); }, []);
-  return <><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><SessionWorkspace/></StoreCatalogProvider></WebAccountProvider><Toaster/></>;
+  return <><WebPreferencesProvider port={preferences}><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><SessionWorkspace/></StoreCatalogProvider></WebAccountProvider></WebPreferencesProvider><Toaster/></>;
 }
 const web = createRoute({
   getParentRoute: () => route, path: '/',

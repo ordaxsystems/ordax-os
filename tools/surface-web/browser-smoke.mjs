@@ -87,7 +87,7 @@ try {
     const results=[];
     for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
       await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-      await evaluate("localStorage.removeItem('ordax-view');localStorage.removeItem('ordax-theme')");
+      await evaluate("localStorage.removeItem('ordax.preferences.v1')");
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("!!document.querySelector('.os-shell')");
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
