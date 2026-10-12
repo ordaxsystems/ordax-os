@@ -42,12 +42,21 @@ function validatePolicy(policy, components) {
       throw new TypeError("Package policy gate must be explicit boolean: " + field);
     }
   }
-  // Where the canonical policy declares a release mode for a component,
-  // the manifest must agree. Derive the policy key from the component ID;
-  // never hand-maintain a second allowlist (Internet was previously omitted).
-  for (const component of components) {
-    const key = component.id.replaceAll("-", "_") + "_release_mode";
-    if (Object.hasOwn(policy, key) && policy[key] !== component.releaseMode) {
+  // Canonical release-mode fields must match actual component IDs in both
+  // directions: reject stale legacy keys as well as mismatched live values.
+  // This is derived from the component IDs, never an independent allowlist.
+  const modeFields = new Map(
+    components.map((component) => [
+      component.id.replaceAll("-", "_") + "_release_mode",
+      component,
+    ]),
+  );
+  for (const key of Object.keys(policy).filter((field) => field.endsWith("_release_mode"))) {
+    const component = modeFields.get(key);
+    if (!component) {
+      throw new TypeError("Package policy has orphaned component release mode: " + key);
+    }
+    if (policy[key] !== component.releaseMode) {
       throw new TypeError(
         "Canonical release mode mismatch between manifest and package policy: " + component.id,
       );
