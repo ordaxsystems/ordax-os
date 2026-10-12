@@ -164,6 +164,27 @@ This is an additional necessary guard, **not** an activation grant or a
 replacement for signed active-consumer compatibility and pinned production
 trust. `arm-pending` is still not enabled for public independent updates.
 
+### Signed state-local compatibility before pending activation
+
+When a `current` signed slot exists, the original `arm-pending` writer
+now checks **both signed state compatibility sidecars under its existing
+activation-state lock**, before recording the candidate as pending.
+Release/2 upgrades with the same state owner and write version are allowed
+when the candidate declares the current version readable; stateless
+upgrades and the introduction of a new state owner are also allowed
+according to the canonical `evaluateComponentUpgrade` source contract.
+Removing the owner, changing its ID or write version, or crossing
+release/1 and release/2 formats is **rejected before any mutation**.
+No migration plan is accepted until the Native owner can actually prove
+and execute a versioned data migration with last-known-good restoration.
+
+This is only the **local state** portion of that contract. The writer
+does not yet have a complete locked inventory of all bundled and active
+consumers, or a production-pinned trust anchor. A signed package
+passing this gate **cannot** be considered safe for public deployment.
+Release/1-to-release/1 behavior remains unchanged in its legacy
+development protocol.
+
 ### Rollback and persistent state compatibility
 
 The same original `rollback-state` writer now checks the **signed
