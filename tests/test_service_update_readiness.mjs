@@ -38,9 +38,9 @@ test("all canonical services are assessed without an update authority", () => {
     result.domains.map((d) => d.path).sort(),
     inv.domains.map((d) => d.path).sort(),
   );
-  assert.equal(result.summary.productionUpdateProven, 0);
-  assert.ok(result.components.every((c) => c.productionUpdateProven === false));
-  assert.ok(result.domains.every((d) => d.productionUpdateProven === false));
+  assert.equal(result.summary.productionEvidence, "not-evaluated");
+  assert.ok(result.components.every((c) => c.productionEvidence === "not-evaluated"));
+  assert.ok(result.domains.every((d) => d.productionEvidence === "not-evaluated"));
   assert.equal(result.summary.packagingCandidates, packagePolicy.supported_components.length);
 });
 
@@ -69,7 +69,7 @@ test("a slot declaration without trust, health and rollback remains blocked", ()
   assert.equal(local.policyAssessment, "blocked");
   assert.ok(local.blockers.includes("release-gate-closed:canonical_component_trust_anchor_pinned"));
   assert.ok(local.blockers.includes("release-gate-closed:rollback_slot_activation_available"));
-  assert.equal(local.productionUpdateProven, false);
+  assert.equal(local.productionEvidence, "not-evaluated");
 });
 
 test("even all declared policy gates do not provide real production proof", () => {
@@ -92,7 +92,7 @@ test("even all declared policy gates do not provide real production proof", () =
   const local = result.components.find((entry) => entry.id === "local-ai-service");
   assert.equal(local.policyAssessment, "proof-required");
   assert.deepEqual(local.blockers, []);
-  assert.equal(local.productionUpdateProven, false);
+  assert.equal(local.productionEvidence, "not-evaluated");
 });
 
 test("stale, missing or contradictory source policy fails closed", () => {
@@ -103,12 +103,28 @@ test("stale, missing or contradictory source policy fails closed", () => {
     { ...packagePolicy, packaging_only_components: ["nonexistent"] },
     { ...packagePolicy, slot_activation_available: undefined },
     { ...packagePolicy, local_ai_service_release_mode: "component-slot" },
+    { ...packagePolicy, internet_release_mode: "component-slot" },
     { ...packagePolicy, $schema: "unknown" },
   ]) {
     assert.throws(() => deriveNativeServiceUpdateReadiness({
       inventory: inv, packagePolicy: policy,
     }));
   }
+});
+
+test("all current explicit policy release modes derive from component IDs", () => {
+  const inv = inventory();
+  const result = deriveNativeServiceUpdateReadiness({ inventory: inv, packagePolicy });
+  for (const component of result.components) {
+    const key = component.id.replaceAll("-", "_") + "_release_mode";
+    if (Object.hasOwn(packagePolicy, key)) {
+      assert.equal(packagePolicy[key], component.releaseMode);
+    }
+  }
+  const internet = result.components.find((component) => component.id === "internet");
+  assert.equal(internet.releaseMode, "git-app");
+  assert.equal(internet.policyAssessment, "blocked");
+  assert.equal(internet.productionEvidence, "not-evaluated");
 });
 
 test("machine-readable CLI output contains every component and domain", () => {
@@ -119,5 +135,5 @@ test("machine-readable CLI output contains every component and domain", () => {
   const report = JSON.parse(run.stdout);
   assert.equal(report.inventory.summary.domainCount, report.readiness.summary.serviceDomainCount);
   assert.equal(report.inventory.summary.componentCount, report.readiness.summary.componentCount);
-  assert.equal(report.readiness.summary.productionUpdateProven, 0);
+  assert.equal(report.readiness.summary.productionEvidence, "not-evaluated");
 });
