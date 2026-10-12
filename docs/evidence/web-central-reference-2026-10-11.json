@@ -52,7 +52,7 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "f0129a3d64e89ba0d5481962af4a80bbdd0963b33d254215e38431d5785b414b",
+      "adaptedSha256": "1514fdb35a6690cb92e3e3f56b6f0cc15c4843e2217353a5bdad4b8d0fbe756a",
       "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar controls and single presentation account fixture, with backend integrations deferred"
     },
     {
@@ -105,7 +105,8 @@
     "Account card and Avatar consume shared demo user display identity; account title remains single-line with full-name tooltip",
     "Edge chevron vertically aligned to the logo row using shared sidebar inset and header-height CSS tokens",
     "Logo-aligned edge chevron gains opaque theme surface, contrasting border, larger heavier icon and accent hover for visibility",
-    "Neutral active window borders; automatic window focus does not paint an outline, keyboard focus remains visible; divider arrow aligned to Home using shared row geometry"
+    "Neutral active window borders; automatic window focus does not paint an outline, keyboard focus remains visible; divider arrow aligned to Home using shared row geometry",
+    "Home-aligned divider control reduced to 24 by 32 pixels with a 16-pixel chevron; shared contrast tokens retained"
   ],
   "native_files": [
     {

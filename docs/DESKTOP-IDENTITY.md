@@ -545,3 +545,10 @@ The divider chevron aligns with Home using shared header, gap and Home-height
 tokens across responsive sidebar modes. Window lifecycle and app contracts
 remain unchanged. Acceptance: neutral resting app edges and Home-centered arrow.
 No build, npm or tests executed under the standing user restriction.
+
+### Compact divider chevron — 2026-10-11
+
+Owner: OS Surface. Requested size refinement reduces the edge button to 24 by
+32 pixels and its chevron to 16 pixels, retaining the shared contrasting surface
+and Home-row alignment. No behavior or contract changes. No build, npm or tests
+executed under the standing user restriction.
