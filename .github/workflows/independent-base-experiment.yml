@@ -20,6 +20,12 @@ on:
       - 'bootstrap/stable-base/source.json'
       - 'system/entrypoint'
       - 'system/supervisor'
+      # The actual signed Surface release is a required cold-health input.
+      # Re-run the authentic portable QEMU proof for owner Surface changes.
+      - 'system/composition/native/**'
+      - 'system/surface/runtime/**'
+      - 'system/adapters/native/update-runtime.mjs'
+      - 'system/adapters/native/surface-heartbeat.mjs'
       - '.github/workflows/independent-base-experiment.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
