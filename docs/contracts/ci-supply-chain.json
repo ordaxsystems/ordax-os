@@ -39,6 +39,21 @@
       "uses": "actions/upload-artifact",
       "sha": "b7c566a772e6b6bfb58ed0dc250532a479d7789f",
       "version_label": "v6"
+    },
+    {
+      "uses": "actions/cache/restore",
+      "sha": "0400d5f644dc74513175e3cd8d07132dd4860809",
+      "version_label": "v4.2.4"
+    },
+    {
+      "uses": "actions/cache/save",
+      "sha": "0400d5f644dc74513175e3cd8d07132dd4860809",
+      "version_label": "v4.2.4"
+    },
+    {
+      "uses": "actions/download-artifact",
+      "sha": "d3f86a106a0bac45b974a628896c90dbdf5c8093",
+      "version_label": "v4.3.0"
     }
   ],
   "workflow_policy": {

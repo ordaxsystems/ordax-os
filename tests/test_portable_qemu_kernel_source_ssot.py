@@ -22,10 +22,17 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
         expected = {
             'vmlinuz-$ORDAX_KERNEL_VERSION': 5,
             'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 2,
-            'kernel-$ORDAX_KERNEL_VERSION.config': 3,
+            'kernel-$ORDAX_KERNEL_VERSION.config': 6,
         }
         for artifact, count in expected.items():
             self.assertEqual(workflow.count(artifact), count, artifact)
+        # The three additional exact-config assertions belong only to the
+        # independent shared-artifact verification, never a second ABI source.
+        shared = workflow.split(
+            "- name: Independently reverify shared kernel, Buildroot and current-commit binding",
+            1,
+        )[1].split("- name: Build exact kernel and kernel modules", 1)[0]
+        self.assertEqual(shared.count('kernel-$ORDAX_KERNEL_VERSION.config'), 3)
         for step in (
             "Build exact kernel and kernel modules",
             "Build and verify exact Stable Base",

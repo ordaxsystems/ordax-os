@@ -103,6 +103,22 @@ class GithubActionsSupplyChainTests(unittest.TestCase):
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(any("sha256 digest" in item for item in violations))
 
+    def test_reuse_actions_are_immutably_pinned_without_general_allowlist_bypass(self):
+        self.assertFalse(CONTRACT["external_actions"]["unknown_external_action_allowed"])
+        self.assertTrue(CONTRACT["external_actions"]["full_commit_sha_required"])
+        allowed = MODULE.approved_refs(CONTRACT)
+        for action, sha in (
+            ("actions/cache/restore", "0400d5f644dc74513175e3cd8d07132dd4860809"),
+            ("actions/cache/save", "0400d5f644dc74513175e3cd8d07132dd4860809"),
+            ("actions/download-artifact", "d3f86a106a0bac45b974a628896c90dbdf5c8093"),
+        ):
+            self.assertIn((action, sha), allowed)
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                self.seed(root, self.base(action + "@" + "f" * 40))
+                self.assertTrue(any("not approved" in issue
+                                    for issue in MODULE.find_violations(root, CONTRACT)))
+
     def test_pull_request_target_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
