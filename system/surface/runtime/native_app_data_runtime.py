@@ -9,8 +9,11 @@ WebKit host; apps never receive those descriptors directly.
 
 from __future__ import annotations
 
+import fcntl
 import os
+import stat
 import sys
+from contextlib import contextmanager
 from functools import partial
 
 from native_app_data_host import NativeAppDataHostHandler, NativeAppDataHostServer
@@ -33,6 +36,78 @@ from native_host_server import (
 )
 
 TRUSTED_STATE_UID = 0
+
+# Transient root-owned lock shared by every Native host instance in the boot.
+# Its inode must survive process restarts; never unlink it during cleanup.
+DEFAULT_NATIVE_HOST_INSTANCE_LOCK = "/run/ordax-surface/native-host-instance.lock"
+
+
+class NativeHostInstanceBusyError(RuntimeError):
+    """Another trusted Native host owns receipt/capability issuance."""
+
+
+@contextmanager
+def hold_native_host_instance(lock_path: str | None = None):
+    """Hold one kernel-backed host authority through mint, bind and shutdown.
+
+    Lock the *directory-relative* inode rather than a separately checked path.
+    O_NOFOLLOW, ownership, private permissions, one hardlink and post-lock
+    inode verification prevent duplicate authorities caused by unsafe locks.
+    The caller owns no unlink operation: process death releases flock without
+    exposing a second lock inode to a racing process.
+    """
+    if lock_path is None:
+        lock_path = DEFAULT_NATIVE_HOST_INSTANCE_LOCK
+    if not isinstance(lock_path, str) or not os.path.isabs(lock_path):
+        raise ValueError("Native host instance lock path must be absolute")
+    directory, name = os.path.split(lock_path)
+    if name != "native-host-instance.lock":
+        raise ValueError("Native host instance lock filename is not canonical")
+    directory_fd = os.open(
+        directory,
+        os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0),
+    )
+    try:
+        directory_meta = os.fstat(directory_fd)
+        if (not stat.S_ISDIR(directory_meta.st_mode)
+                or directory_meta.st_uid != os.geteuid()
+                or stat.S_IMODE(directory_meta.st_mode) & 0o077):
+            raise PermissionError("Native host instance directory is not private and owned")
+        descriptor = os.open(
+            name,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        try:
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()
+                    or metadata.st_nlink != 1
+                    or stat.S_IMODE(metadata.st_mode) != 0o600):
+                raise PermissionError("Native host instance lock inode is unsafe")
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise NativeHostInstanceBusyError(
+                    "another Native host already owns the live App Data authority"
+                ) from exc
+            try:
+                selected = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                if (selected.st_dev != metadata.st_dev
+                        or selected.st_ino != metadata.st_ino
+                        or selected.st_nlink != 1):
+                    raise PermissionError("Native host instance lock inode changed")
+                yield
+            finally:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+    finally:
+        os.close(directory_fd)
+
 
 
 def prepare_private_app_data_authority(
@@ -65,14 +140,7 @@ def prepare_private_app_data_authority(
     return published
 
 
-def main() -> int:
-    args = parse_args()
-    try:
-        expected_surface_authority((args.bind, args.port))
-    except ValueError as exc:
-        print(f"ordax-native-host: refusing unsafe bind: {exc}", file=sys.stderr, flush=True)
-        return 2
-
+def _serve_native_host(args) -> int:
     try:
         standard_directories = ensure_standard_user_directories(args.user_root)
     except OSError as exc:
@@ -157,6 +225,28 @@ def main() -> int:
     finally:
         server.server_close()
     return 0
+
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        expected_surface_authority((args.bind, args.port))
+    except ValueError as exc:
+        print(f"ordax-native-host: refusing unsafe bind: {exc}", file=sys.stderr, flush=True)
+        return 2
+    try:
+        # The only host authority must be acquired BEFORE constructing the
+        # HTTP server, reading boot receipts or minting any capability.
+        with hold_native_host_instance():
+            return _serve_native_host(args)
+    except (OSError, PermissionError, NativeHostInstanceBusyError, ValueError) as exc:
+        print(
+            f"ordax-native-host: refusing duplicate or unsafe host authority: {exc}",
+            file=sys.stderr, flush=True,
+        )
+        return 3
+
 
 
 if __name__ == "__main__":
