@@ -211,6 +211,50 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         self.assertEqual(listing["keys"], ["note.alpha.0"])
         self.assertNotIn("checkpoint", listing)
 
+    def test_maintenance_release_mismatch_never_revokes_healthy_binding(self):
+        original = self.binding.endpoint
+        status, _headers, data = self.json_post(original, {
+            "action": "put", "key": "private.note",
+            "valueBase64": "b3JpZ2luYWw=", "expectedRevision": 0,
+        })
+        self.assertEqual((status, data["revision"]), (200, 1))
+        matching_release = {
+            "componentId": "notes",
+            "version": "0.4.1",
+            "sourceCommit": "1" * 40,
+        }
+        for mismatch in (
+            {"componentId": "other-app"},
+            {"version": "0.4.2"},
+            {"componentId": "other-app", "version": "0.4.2"},
+        ):
+            with self.subTest(mismatch=mismatch):
+                proposed = {**matching_release, **mismatch}
+                with self.assertRaisesRegex(
+                    RuntimeError, "source release does not match verified install receipt"
+                ):
+                    with self.server.hold_verified_app_data_maintenance(
+                        self.digest, proposed, 1,
+                    ):
+                        self.fail("mismatched release entered maintenance")
+                self.assertEqual(self.server.app_data_bindings.active_binding_count(), 1)
+                status, _headers, listing = self.json_post(original, {"action": "list"})
+                self.assertEqual(status, 200)
+                self.assertEqual(listing["revision"], 1)
+                self.assertEqual(listing["keys"], ["private.note"])
+                self.assertEqual(self.binding.endpoint, original)
+
+        # Once the trusted caller supplies the matching release correlation,
+        # the genuine maintenance path must remain usable and revoke the cap.
+        with self.server.hold_verified_app_data_maintenance(
+            self.digest, matching_release, 1,
+        ) as maintenance:
+            self.assertEqual(maintenance.checkpoint(1)["pinnedRevision"], 1)
+            self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
+        status, _headers, response = self.json_post(original, {"action": "list"})
+        self.assertEqual(status, 404)
+        self.assertEqual(response["error"], "Native App Data capability is unknown")
+
     def test_bound_route_persists_and_cas_conflict_reports_actual_revision(self):
         status, _headers, stored = self.json_post(
             self.binding.endpoint,
