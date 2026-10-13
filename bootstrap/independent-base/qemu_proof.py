@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 from build import contracts, digest, BaseError, ROOT
 
@@ -24,6 +25,31 @@ def regular(path: Path, label: str) -> Path:
     if path.is_symlink() or not path.is_file():
         raise BaseError(f"{label} must be a regular file")
     return path.resolve()
+
+
+def parse_guest_metrics(log: str) -> dict:
+    """Parse measurements emitted by the real guest probe; never infer health."""
+    keys = ("MEM_TOTAL_KIB", "MEM_USED_KIB", "CPU_BUSY_PCT", "PROCESSES", "UPTIME_S")
+    observed = {}
+    for key in keys:
+        values = re.findall(
+            rf"^ORDAX_INDEPENDENT_METRIC_{key}=([0-9]+(?:\\.[0-9]+)?)\\r?$",
+            log, flags=re.MULTILINE,
+        )
+        if len(values) != 1:
+            raise BaseError(f"missing or ambiguous guest metric: {key}")
+        try:
+            observed[key.lower()] = (float(values[0]) if key == "UPTIME_S"
+                                   else int(values[0]))
+        except ValueError as exc:
+            raise BaseError(f"invalid guest metric: {key}") from exc
+    total, used = observed["mem_total_kib"], observed["mem_used_kib"]
+    if not (0 < total and 0 <= used <= total
+            and 0 <= observed["cpu_busy_pct"] <= 100
+            and observed["processes"] > 0
+            and observed["uptime_s"] > 0):
+        raise BaseError("guest metrics outside physically valid bounds")
+    return observed
 
 
 def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_dir: Path) -> dict:
@@ -41,12 +67,14 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
     ]
     log_dir.mkdir(parents=True, exist_ok=True)
     serial_file = log_dir / f"{label}.serial.log"
+    started = time.monotonic()
     try:
         complete = subprocess.run(argv, check=False, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, timeout=120)
     except subprocess.TimeoutExpired as exc:
         serial_file.write_bytes(exc.stdout or b"")
         raise BaseError(f"QEMU {label} boot timeout; serial log: {serial_file}") from exc
+    elapsed_seconds = round(time.monotonic() - started, 3)
     log = complete.stdout.decode("utf-8", "replace")
     serial_file.write_text(log, encoding="utf-8")
     serial_hash = digest(serial_file)
@@ -61,9 +89,11 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
                         f"missing={missing}, serial-log={serial_file}, serial-tail={log[-3500:]!r}")
     if label == "corrupt-base" and "ORDAX_INDEPENDENT_BOOT=PASS" in log:
         raise BaseError("corrupted base unexpectedly booted successfully")
+    metrics = None if label == "corrupt-base" else parse_guest_metrics(log)
     return {"mode": label, "exit_code": complete.returncode, "markers": expected,
             "serial_log_sha256": serial_hash, "serial_log": serial_file.name,
-            "serial_tail": log[-800:]}
+            "serial_tail": log[-800:], "qemu_wall_seconds": elapsed_seconds,
+            "guest_resource_metrics": metrics}
 
 
 def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
@@ -137,6 +167,11 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         "kernel_version": version,
         "kernel_sha256": digest(kernel),
         "base_sha256": base_before,
+        "image_sizes_bytes": {
+            "independent_base_erofs": base.stat().st_size,
+            "buildroot_initramfs_cpio_gz": initrd.stat().st_size,
+            "kernel_vmlinuz": kernel.stat().st_size,
+        },
         "boots": receipts,
         "serial_log_directory": serial_dir.name,
         "offline_ext4_marker_verified": True,
