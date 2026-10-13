@@ -164,3 +164,48 @@ func verifyArmPendingStateCompatibility(
 		root, componentID, after.Descriptor, trustBytes, true,
 	)
 }
+
+// verifyUninstallStateSafety runs inside the canonical activation graph and
+// per-component writer locks. Removing a signed stateful current slot without
+// quiescing its app processes and coordinating the device-state checkpoint
+// would leave live writers operating on a logically absent installation.
+//
+// An unretired checkpoint alone cannot prove process quiescence or authorize
+// a signed activation decision. Until Supervisor, the Go writer and the App
+// Data owner share one recoverable transaction, reject both initial removal
+// and an idempotent retry claiming previously completed stateful removal.
+func verifyUninstallStateSafety(
+	root, componentID string,
+	identity slotIdentity,
+	trustBytes []byte,
+) error {
+	slot, err := canonicalSlotPath(root, componentID, identity)
+	if err != nil {
+		return err
+	}
+	schema, err := signedActivationSlotSchema(slot, trustBytes)
+	if err != nil {
+		return err
+	}
+	if schema == releaseSchema {
+		// Preserve development release/1 behavior; it has no signed
+		// persistent-state contract and grants no production authority.
+		return nil
+	}
+	if schema != releaseSchemaV2 {
+		return errors.New("runtime component uninstall signed release schema is unsupported")
+	}
+	report, err := inspectVerifiedSlotCompatibilityV2(slot, trustBytes)
+	if err != nil {
+		return err
+	}
+	if report.ComponentID != componentID ||
+		report.Version != identity.Version ||
+		report.SourceCommit != identity.SourceCommit {
+		return errors.New("runtime component uninstall signed state contract identity changed")
+	}
+	if report.Descriptor.State != nil {
+		return errors.New("runtime component stateful uninstall requires verified Supervisor quiescence and device-state recovery transaction")
+	}
+	return nil
+}

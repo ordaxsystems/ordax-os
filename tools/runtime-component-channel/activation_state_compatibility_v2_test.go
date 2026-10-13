@@ -242,3 +242,90 @@ func TestSignedUpgradeCannotIntroduceOrTightenMandatoryRequirements(t *testing.T
 		})
 	}
 }
+
+func TestSignedStatefulUninstallRequiresRealQuiescenceAndRecovery(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2CandidateWithState(
+		t, fixture, "1.0.0", strings.Repeat("1", 40),
+		&compatibilityState{
+			ID: "ordax.internet.state", WriteVersion: 1,
+			ReadableFrom: 1, ReadableThrough: 1,
+		},
+	)
+	active := healthyPromoteV2(t, fixture, candidate)
+	current := *active.Current
+
+	for attempt := 0; attempt < 2; attempt++ {
+		if _, err := uninstallCurrentStateAtRevision(
+			fixture.root, "internet", current, active.Revision, fixture.trustPath,
+		); err == nil || !strings.Contains(err.Error(), "requires verified Supervisor quiescence and device-state recovery transaction") {
+			t.Fatalf("stateful uninstall attempt %d escaped the canonical writer gate: %v", attempt, err)
+		}
+		got, err := readActivationState(fixture.root, "internet")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Revision != active.Revision ||
+			!sameSlotIdentity(got.Current, &current) ||
+			got.UserRemoved || got.Removed != nil ||
+			got.Pending != nil || got.Rejected != nil {
+			t.Fatalf("rejected stateful uninstall mutated installed state: %+v", got)
+		}
+	}
+
+	// Even if caller supplies a valid signature and stale revision for a
+	// historical stateful uninstall, an idempotent acknowledgment cannot
+	// invent missing quiescence/restore proof. This is a persisted-state
+	// regression fixture, not a production writer bypass.
+	historical := active
+	historical.Revision++
+	historical.Current = nil
+	historical.Previous = nil
+	historical.Pending = nil
+	historical.Rejected = nil
+	historical.PendingHealth = "unknown"
+	historical.UserRemoved = true
+	historical.Removed = &current
+	if err := writeActivationState(fixture.root, historical); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", current, active.Revision, fixture.trustPath,
+	); err == nil || !strings.Contains(err.Error(), "requires verified Supervisor quiescence and device-state recovery transaction") {
+		t.Fatalf("historical stateful uninstall retry incorrectly claimed a safe transaction: %v", err)
+	}
+	after, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Revision != historical.Revision || after.Current != nil ||
+		!after.UserRemoved || !sameSlotIdentity(after.Removed, &current) {
+		t.Fatalf("blocked historical retry changed durable state: %+v", after)
+	}
+}
+
+func TestSignedStatelessUninstallPreservesExistingPath(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2CandidateWithState(
+		t, fixture, "1.0.0", strings.Repeat("2", 40), nil,
+	)
+	active := healthyPromoteV2(t, fixture, candidate)
+	current := *active.Current
+	removed, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", current, active.Revision, fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatalf("stateless signed uninstall unexpectedly blocked: %v", err)
+	}
+	if removed.Current != nil || !removed.UserRemoved ||
+		!sameSlotIdentity(removed.Removed, &current) ||
+		removed.Revision != active.Revision+1 {
+		t.Fatalf("stateless uninstall did not preserve removal semantics: %+v", removed)
+	}
+	retry, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", current, active.Revision, fixture.trustPath,
+	)
+	if err != nil || retry.Revision != removed.Revision {
+		t.Fatalf("stateless exact signed uninstall retry = %+v, %v", retry, err)
+	}
+}

@@ -904,6 +904,11 @@ func uninstallCurrentStateAtRevision(
 			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 				return activationState{}, err
 			}
+			// A retry must not certify a historical stateful uninstall
+			// whose process/data quiescence was never proven.
+			if err := verifyUninstallStateSafety(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -930,6 +935,9 @@ func uninstallCurrentStateAtRevision(
 			return activationState{}, err
 		}
 		if currentSchema == releaseSchemaV2 {
+			if err := verifyUninstallStateSafety(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
 			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
 				root, componentID, nil, trustBytes,
 			); err != nil {
