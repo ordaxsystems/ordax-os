@@ -1,5 +1,7 @@
 # OrdaX public site ? production-only Git deployment policy (2026-10-13)
 
+> **Correction recorded later on 2026-10-13:** this evidence captured the initial `"*": false` rule. A live `feat/...` branch still produced a Vercel Preview deployment because Vercel evaluates branch rules with minimatch and `*` does not cover `/`-separated branch segments. The canonical correction is `"**": false` plus `"main": true`; see `docs/evidence/public-vercel-production-only-minimatch-correction-2026-10-13.md`.
+
 ## Decision
 
 The canonical Vercel project remains `ordax-os-public` under the `ordaxsystems` team and the canonical public origin remains `https://ordax.com.br`. There is no second project, alternate auth origin or parallel release pipeline.
