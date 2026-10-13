@@ -20,7 +20,7 @@ from native_app_data import (
     MAX_APP_DATA_PARTITION_BYTES,
     MAX_APP_DATA_PARTITION_KEYS,
     validate_app_data_maintenance_request,
-    assert_app_data_install_receipt_compatible,
+    assert_app_data_recovery_resolved,
 )
 from native_app_data_endpoint import handle_app_data_request
 from native_app_install_identity import (
@@ -75,7 +75,6 @@ class NativeAppDataBinding:
     owner_scope: str
     quota_bytes: int
     max_keys: int
-    source_version: str
 
     @property
     def endpoint(self) -> str:
@@ -168,9 +167,8 @@ class NativeAppDataBindingRegistry:
         # as an authorization to run a different version of the app.
         # Validate *all* requested identities before mutating this registry.
         for verified in verified_receipts:
-            assert_app_data_install_receipt_compatible(
-                verified.app_data_identity(), verified.source_version,
-                root=self._app_data_root,
+            assert_app_data_recovery_resolved(
+                verified.app_data_identity(), root=self._app_data_root,
             )
 
         durable_keys = []
@@ -247,7 +245,6 @@ class NativeAppDataBindingRegistry:
                     owner_scope=identity["ownerScope"],
                     quota_bytes=quota_bytes,
                     max_keys=max_keys,
-                    source_version=verified.source_version,
                 )
                 reserved_endpoints.add(binding.endpoint)
                 planned.append((key, binding, previous.endpoint if previous is not None else None))
@@ -394,5 +391,4 @@ def handle_bound_app_data_request(
             root=root,
             quota_bytes=effective_quota_bytes,
             max_keys=effective_max_keys,
-            installed_version=binding.source_version,
         )
