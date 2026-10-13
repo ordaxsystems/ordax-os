@@ -38,8 +38,8 @@ _KEY_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 _DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
-class AppDataReceiptVersionConflictError(ValueError):
-    """Running app receipt cannot access data pinned for a different release."""
+class AppDataRecoveryPendingError(ValueError):
+    """App access is forbidden while the owner has an unresolved durable pin."""
 
 
 class AppDataConflictError(ValueError):
@@ -528,13 +528,15 @@ def inspect_app_data_checkpoint(
         }
 
 
-def _assert_receipt_version_locked(
+def _assert_recovery_resolved_locked(
     bound: dict, installed_version: str, root: str, *, verify_pin_blobs: bool = False,
 ) -> None:
-    """Check the receipt against the durable pin while holding the data lock.
+    """Require a completed trusted recovery decision under the data lock.
 
-    Admission-only verification cannot protect a capability minted before
-    maintenance pins a different release. This is not signed slot authority.
+    A retained pin means recovery has not been resolved. The old version is
+    NOT implicitly safe: while the Go activation result is unknown, allowing
+    either old or new apps to mutate state would invalidate recovery. Only
+    explicit trusted-owner retirement releases this fence.
     """
     if not isinstance(installed_version, str) or not installed_version:
         raise ValueError("App Data receipt version is invalid")
@@ -546,23 +548,22 @@ def _assert_receipt_version_locked(
         raise ValueError("App Data retained checkpoint revision is ahead of current state")
     if verify_pin_blobs:
         _verify_checkpoint_blobs(root, checkpoint)
-    if checkpoint["sourceRelease"]["version"] != installed_version:
-        raise AppDataReceiptVersionConflictError(
-            "App Data retained checkpoint requires trusted recovery before another version can access it"
-        )
+    raise AppDataRecoveryPendingError(
+        "App Data retained checkpoint requires trusted recovery decision before app access"
+    )
 
 
 def assert_app_data_install_receipt_compatible(
     identity: object, installed_version: object, root: str = DEFAULT_APP_DATA_ROOT,
 ) -> None:
-    """Fail closed on boot-time grants while another version owns a recovery pin."""
+    """Fail closed on boot-time grants while any recovery pin is unresolved."""
     bound = _identity(identity)
     with _shared_partition_lock_if_present(bound, root) as locked:
         if not locked:
             if not isinstance(installed_version, str) or not installed_version:
                 raise ValueError("App Data receipt version is invalid")
             return
-        _assert_receipt_version_locked(
+        _assert_recovery_resolved_locked(
             bound, installed_version, root, verify_pin_blobs=True,
         )
 
@@ -845,7 +846,7 @@ def read_app_data(
         if not locked:
             return {"revision": 0, "found": False, "key": validated_key, "value": None}
         if receipt_version is not None:
-            _assert_receipt_version_locked(bound, receipt_version, root)
+            _assert_recovery_resolved_locked(bound, receipt_version, root)
         manifest, _ = _read_manifest(bound, root)
         record = manifest["entries"].get(validated_key)
         if record is None:
@@ -870,7 +871,7 @@ def list_app_data(
     bound = _identity(identity)
     with _shared_partition_lock_if_present(bound, root):
         if receipt_version is not None:
-            _assert_receipt_version_locked(bound, receipt_version, root)
+            _assert_recovery_resolved_locked(bound, receipt_version, root)
         # The manifest must be observed under the same flock as get and
         # mutations. A maintainer holding LOCK_EX must block list too.
         manifest, bytes_used = _read_manifest(bound, root)
@@ -901,7 +902,7 @@ def put_app_data(
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
         if receipt_version is not None:
-            _assert_receipt_version_locked(bound, receipt_version, root)
+            _assert_recovery_resolved_locked(bound, receipt_version, root)
         # A damaged recovery pin may never be bypassed by a new mutation.
         _read_checkpoint(bound, root)
         manifest, bytes_used = _read_manifest(bound, root)
@@ -941,7 +942,7 @@ def delete_app_data(
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
         if receipt_version is not None:
-            _assert_receipt_version_locked(bound, receipt_version, root)
+            _assert_recovery_resolved_locked(bound, receipt_version, root)
         # Keep the rollback horizon intact even during ordinary deletion.
         _read_checkpoint(bound, root)
         manifest, _ = _read_manifest(bound, root)
