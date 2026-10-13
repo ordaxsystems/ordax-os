@@ -197,7 +197,7 @@ def verify_surface_loopback_ip(target: Path) -> None:
             "ip utility, iproute2-" not in (version.stdout + version.stderr)):
         raise BaseError("Surface requires iproute2, not BusyBox ip")
     usage = address_help.stdout + address_help.stderr
-    if not re.search(r"\\baddress.*?\\breplace\\b|\\breplace\\b", usage, re.I | re.S):
+    if not re.search(r"\breplace\b", usage):
         raise BaseError("Surface IP tool cannot prove address replace syntax")
 
 
