@@ -82,9 +82,13 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('independent)', official)
         self.assertIn('bootstrap/stable-base/build.py build', official)
         self.assertIn('bootstrap/independent-base/build.py build', official)
+        producer = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text()
         self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
-                      experimental)
-        self.assertIn("base_source: independent", experimental)
+                      producer)
+        self.assertIn("base_source: independent", producer)
+        self.assertIn("shared_inputs: true", producer)
+        self.assertIn("canonical-portable-boundary:", experimental)
+        self.assertNotIn("independent-real-portable-qemu:", experimental)
         # Both real QEMU scenarios must actually invoke the bridge in CI,
         # not only inspect its Python source through contract tests.
         self.assertEqual(official.count("proof_runner=bootstrap/independent-base/portable_boot_proof.py"), 2)
