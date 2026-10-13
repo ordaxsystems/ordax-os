@@ -106,6 +106,69 @@ function verifiedModuleUrl(source, current) {
   return url.href;
 }
 
+// A caller supplies the shared Surface element, never a shared app mount point.
+// Validate it before any fetch/import; only create the per-app mount node after
+// slot identity and trusted host bindings have been verified.
+function assertComponentMountParent(context) {
+  if (!context || typeof context !== "object" || Array.isArray(context)
+    || ![Object.prototype, null].includes(Object.getPrototypeOf(context))) {
+    throw new TypeError("Current component context must be a plain object");
+  }
+  const hasOwnRoot = Object.prototype.hasOwnProperty.call(context, "root");
+  if ("root" in context && !hasOwnRoot) {
+    throw new TypeError("Current component mount parent cannot be inherited");
+  }
+  if (!hasOwnRoot) return;
+  const descriptor = Object.getOwnPropertyDescriptor(context, "root");
+  if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+    throw new TypeError("Current component mount parent must be a data property");
+  }
+  const parent = descriptor.value;
+  if (!parent || typeof parent !== "object" || parent.nodeType !== 1
+    || typeof parent.append !== "function"
+    || !parent.ownerDocument
+    || typeof parent.ownerDocument.createElement !== "function") {
+    throw new TypeError("Current component mount parent must be a Surface Element");
+  }
+}
+
+function createComponentMountContext(context, componentId) {
+  if (!Object.prototype.hasOwnProperty.call(context, "root")) {
+    return { context, releaseRoot: null };
+  }
+  const parent = Object.getOwnPropertyDescriptor(context, "root").value;
+  const root = parent.ownerDocument.createElement("div");
+  if (!root || root.nodeType !== 1 || typeof root.append !== "function"
+    || typeof root.remove !== "function" || !root.dataset || !root.style
+    || !root.childNodes || root.childNodes.length !== 0) {
+    try { root?.remove?.(); } catch { /* invalid DOM factory output is isolated */ }
+    throw new TypeError("Current component mount root must be a fresh empty Element");
+  }
+
+  let released = false;
+  const releaseRoot = () => {
+    if (released) return;
+    released = true;
+    root.remove();
+  };
+  const mountContext = Object.freeze({ ...context, root });
+  try {
+    root.className = "ordax-native-installed-component-root";
+    root.dataset.ordaxComponentRoot = componentId;
+    // Preserve the existing Surface layout while limiting app selectors and
+    // mount mutations to this component-owned subtree.
+    root.style.display = "contents";
+    parent.append(root);
+    if (root.parentNode !== parent) {
+      throw new TypeError("Current component mount root was not attached to its Surface");
+    }
+  } catch (error) {
+    try { releaseRoot(); } catch { /* mount root teardown is best effort */ }
+    throw error;
+  }
+  return { context: mountContext, releaseRoot };
+}
+
 /**
  * Consume an already verified Native 'current' slot. Never installs, promotes
  * or falls back to platform-owned app source. Absence is an optional-app state.
@@ -132,7 +195,9 @@ export async function loadVerifiedCurrentComponentRuntime({
     throw new TypeError("Current component onError must be a function or null");
   }
   let mounted = null;
+  let releaseMountRoot = null;
   try {
+    assertComponentMountParent(context);
     // The privileged Native bootstrap is the only owner of App Data binding.
     // External apps cannot be read/imported when its expected binding is absent.
     const trustedBeforeImport = requireTrustedAppData
@@ -163,13 +228,28 @@ export async function loadVerifiedCurrentComponentRuntime({
     const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
-    mounted = await mountBounded(runtime, effectiveContext, limit, id);
+    const mountContext = createComponentMountContext(effectiveContext, id);
+    releaseMountRoot = mountContext.releaseRoot;
+    mounted = await mountBounded(runtime, mountContext.context, limit, id);
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed during mount");
     }
-    return mounted;
+
+    const runtimeMount = mounted;
+    const releaseRoot = releaseMountRoot;
+    let destroyed = false;
+    mounted = null;
+    releaseMountRoot = null;
+    return Object.freeze({
+      destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        try { runtimeMount.destroy(); } finally { releaseRoot?.(); }
+      },
+    });
   } catch (error) {
     try { mounted?.destroy(); } catch { /* component errors cannot crash Surface */ }
+    try { releaseMountRoot?.(); } catch { /* mount root cleanup is isolated */ }
     onError?.(error);
     return null;
   }
