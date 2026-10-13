@@ -12,6 +12,7 @@ import json
 
 from native_app_data import (
     AppDataConflictError,
+    AppDataRecoveryPendingError,
     DEFAULT_APP_DATA_MAX_KEYS,
     DEFAULT_APP_DATA_QUOTA_BYTES,
     DEFAULT_APP_DATA_ROOT,
@@ -80,7 +81,7 @@ def handle_app_data_request(
     action = request.get("action")
     try:
         if action == "get" and set(request) == {"action", "key"}:
-            result = read_app_data(identity, request["key"], root)
+            result = read_app_data(identity, request["key"], root, app_access=True)
             return {
                 "revision": result["revision"],
                 "found": result["found"],
@@ -88,7 +89,7 @@ def handle_app_data_request(
                 "valueBase64": None if result["value"] is None else base64.b64encode(result["value"]).decode("ascii"),
             }
         if action == "list" and set(request) == {"action"}:
-            return list_app_data(identity, root, quota_bytes=quota_bytes, max_keys=max_keys)
+            return list_app_data(identity, root, quota_bytes=quota_bytes, max_keys=max_keys, app_access=True)
         if action == "put" and set(request) == {"action", "key", "valueBase64", "expectedRevision"}:
             return put_app_data(
                 identity,
@@ -98,6 +99,7 @@ def handle_app_data_request(
                 root,
                 quota_bytes=quota_bytes,
                 max_keys=max_keys,
+                app_access=True,
             )
         if action == "delete" and set(request) == {"action", "key", "expectedRevision"}:
             return delete_app_data(
@@ -107,10 +109,13 @@ def handle_app_data_request(
                 root,
                 quota_bytes=quota_bytes,
                 max_keys=max_keys,
+                app_access=True,
             )
         raise AppDataEndpointRequestError("App Data action or request shape is invalid")
     except AppDataEndpointRequestError:
         raise
+    except AppDataRecoveryPendingError as exc:
+        raise AppDataEndpointRequestError(str(exc), status_code=409) from exc
     except AppDataConflictError as exc:
         raise AppDataEndpointRequestError(
             str(exc), status_code=409, actual_revision=exc.actual_revision,
