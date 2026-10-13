@@ -54,12 +54,14 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"', profile)
         self.assertEqual(
             [line for line in fragment.read_text().splitlines() if line.startswith("CONFIG_")],
-            ["CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y"],
+            ["CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y"],
         )
         build = (BASE / "build.py").read_text()
         self.assertIn("BUSYBOX_HANDOFF_SYMBOLS =", build)
         self.assertIn('run(busybox, "stat", "-c", "%a", str(marker))', build)
         self.assertIn('run(busybox, "timeout", "-k", "1", "2", busybox, "true")', build)
+        self.assertIn('run(busybox, "flock", "-n", str(lock_path), busybox, "true")', build)
+        self.assertIn('BusyBox flock granted a lock already owned by another process', build)
         self.assertIn('"busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT)', build)
         self.assertIn('"busybox_handoff_runtime_features_verified": True', build)
 
