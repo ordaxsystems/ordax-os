@@ -23,6 +23,7 @@ The system contract remains `ordax.intelligence/1`. Native, Web, Studio and futu
 9. Source proof, deployed transport, external-provider E2E and physical Stable proof remain distinct states.
 10. Transport composition belongs to the composition/adapter layer. Surface code consumes an injected client and must not own endpoint discovery, provider selection, credentials, Memory policy, or runtime state.
 11. A presentation adapter must not change the public Intelligence contract merely to express one client's unavailable state.
+12. Observable client snapshots keep stable identity while their canonical fields are unchanged; transports may repeat health/status events without causing synthetic Surface state churn.
 
 ## Phases
 
@@ -33,7 +34,8 @@ The system contract remains `ordax.intelligence/1`. Native, Web, Studio and futu
 - keep the default Web composition fail-closed when no authorized transport is supplied;
 - ensure the client validates bounded response identity/content and never accepts authority/tool fields;
 - abort/ignore superseded in-flight presentation requests without granting backend-cancellation claims;
-- add unit/integration tests for unavailable, successful, malformed, authority-bearing and transport-failure cases;
+- keep `useSyncExternalStore` snapshots stable until the semantic Intelligence state changes;
+- add unit/integration tests for unavailable, successful, malformed, authority-bearing, repeated-equivalent status and transport-failure cases;
 - keep Native composition unchanged and authoritative for local inference.
 
 Acceptance: Web can consume a real injected Intelligence port without importing Native/local-AI/provider code, and still fails closed when none is configured.
@@ -76,13 +78,24 @@ Acceptance: provider route is enabled only after adapter + policy + consent + E2
 PR #1756 currently implements the boundary without enabling any remote provider:
 
 - `system/adapters/web/intelligence.mjs` owns the honest fail-closed Web adapter; it implements the existing contract without modifying it;
-- `system/surface/workspace/lib/intelligence/client.mjs` is a thin provider-neutral presentation client and validates canonical requests/responses;
-- `IntelligenceClientProvider` injects the client into the current Web composition;
+- `system/surface/workspace/lib/intelligence/client.mjs` is a thin provider-neutral presentation client, validates canonical requests/responses and suppresses only semantically duplicate status notifications;
+- `IntelligenceClientProvider` injects the client into the current Web composition and remains platform-neutral;
 - current `Central`/Aura windows route through `AuraContent`, not the old WebShell demo path;
 - Aura owns only transient presentation state and request cancellation; it does not own provider discovery, credentials, Memory, model routing or authority;
-- tests reject malformed/authority-bearing responses and assert that the Web path has no provider credentials, `fetch()` transport, Native adapter import or provider-specific API.
+- tests reject malformed/authority-bearing responses, prove snapshot identity stability and assert that the Web path has no provider credentials, `fetch()` transport, Native adapter import or provider-specific API;
+- the Surface verifier no longer calls the old `ai.functions.ts` `503` stub; it proves the canonical Web adapter/client fail closed instead.
 
-The first CI attempt exposed two real integration issues and they were corrected at the architecture boundary instead of bypassed: TypeScript needed an explicit `AbortSignal` option type, and placing a Web fallback helper in the public contract made the App SDK bundle stale. The helper was moved to the Web adapter and `system/contracts/intelligence.mjs` was restored byte-for-byte to the base contract. The rerun remains the gate for Phase 1 completion.
+The first CI attempts exposed real integration issues and they were corrected at the architecture boundary instead of bypassed:
+
+1. TypeScript needed an explicit `AbortSignal` option type.
+2. Placing a Web fallback helper in the public contract made the App SDK bundle stale. The helper moved to the Web adapter and `system/contracts/intelligence.mjs` returned to the unchanged public contract.
+3. Chromium exposed a React `Maximum update depth` loop: validation created a new snapshot object on every immediate subscription event. The client now retains snapshot identity until canonical fields change and does not synthesize an extra subscription notification. A regression test covers repeated-equivalent and real state transitions.
+
+`Intelligence Foundation` is green on the stabilized client head. Surface Web build/Chromium and the remaining canonical workflows remain the completion gate for this phase.
+
+## Cleanup audit
+
+The old Intelligence WebShell/demo graph is not mounted by `system/composition/web/main.tsx`, but it is not yet safe to delete as a blind cleanup: `tests/test_surface_web_builder.py` still treats `components/web/shell.tsx` as part of its builder/source contract, and that shell owns the old `IntelligenceSessionProvider` chain. Therefore Phase 1 removes the obsolete **active verifier dependency** on the hardcoded `503`, while retirement of the old shell/session/demo graph remains a deliberate Phase 5 migration with builder/provenance updates and replacement coverage. This prevents both parallel active paths and destructive cleanup by filename/age.
 
 ## Explicitly not implemented by Phase 1
 
