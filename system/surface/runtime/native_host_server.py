@@ -5114,7 +5114,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         # Never copy the HMP/HTTP log line: tokens, bodies and paths are private.
         request_path = urlsplit(self.path).path
         kind = {
-            ("GET", UPDATE_STATE_PATH): "http-get-update",
+            ("GET", UPDATE_PATH): "http-get-update",
             ("POST", HEALTH_PATH): "http-post-health",
             ("POST", SURFACE_HEARTBEAT_PATH): "http-post-heartbeat",
         }.get((self.command, request_path))
