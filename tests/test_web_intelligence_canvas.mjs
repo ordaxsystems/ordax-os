@@ -5,10 +5,10 @@ import {
   INTELLIGENCE_PORT_SCHEMA,
   INTELLIGENCE_RESPONSE_SCHEMA,
   assertIntelligencePort,
-  createUnavailableIntelligencePort,
   validateIntelligenceSnapshot,
 } from "../system/contracts/intelligence.mjs";
 import { assertSpaceSelectionPort } from "../system/contracts/space-selection.mjs";
+import { createUnavailableWebIntelligencePort } from "../system/adapters/web/intelligence.mjs";
 import { createUnavailableWebSpaceSelection } from "../system/adapters/web/space-selection.mjs";
 import { createIntelligenceClient } from "../system/surface/workspace/lib/intelligence/client.mjs";
 
@@ -27,7 +27,7 @@ test("Web Assistant uses canonical, explicitly unavailable Space port without a 
 });
 
 test("Web Intelligence fallback is a canonical fail-closed port", async () => {
-  const port = createUnavailableIntelligencePort();
+  const port = createUnavailableWebIntelligencePort();
   assert.equal(assertIntelligencePort(port), port);
   const snapshot = validateIntelligenceSnapshot(port.getSnapshot());
   assert.equal(snapshot.state, "degraded");
@@ -103,16 +103,17 @@ test("Web Intelligence client rejects malformed or authority-bearing responses",
 
 test("Canonical Web injects Intelligence without owning provider transport or credentials", async () => {
   const source = await readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8");
+  const adapter = await readFile(new URL("../system/adapters/web/intelligence.mjs", import.meta.url), "utf8");
   const windowContent = await readFile(new URL("../system/surface/workspace/components/central/window-content.tsx", import.meta.url), "utf8");
   const aura = await readFile(new URL("../system/surface/workspace/components/intelligence/aura-content.tsx", import.meta.url), "utf8");
   const client = await readFile(new URL("../system/surface/workspace/lib/intelligence/client.mjs", import.meta.url), "utf8");
-  assert.match(source, /createUnavailableIntelligencePort/);
+  assert.match(source, /createUnavailableWebIntelligencePort/);
   assert.match(source, /<IntelligenceClientProvider port=\{intelligence\}>/);
   assert.match(source, /<Central key=/);
   assert.doesNotMatch(source, /WebShell/);
   assert.match(windowContent, /AuraContent/);
   assert.match(aura, /client\.ask/);
-  for (const text of [source, aura, client]) {
+  for (const text of [source, adapter, aura, client]) {
     assert.doesNotMatch(text, /fetch\(|process\.env|apiKey|OPENAI|xAI|adapters\/native/);
   }
 });
