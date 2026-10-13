@@ -4,6 +4,7 @@
 # Metadata queries, verified executable file reads and health mutations have DISTINCT scopes.
 
 STORE_METADATA_COMPONENT_IDS = frozenset({
+    "activity",
     "calculator",
     "calendar",
     "character-map",

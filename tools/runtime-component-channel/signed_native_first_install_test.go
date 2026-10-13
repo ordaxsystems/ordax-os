@@ -275,3 +275,32 @@ func TestSignedStatefulPromotionRechecksRemovalFence(t *testing.T) {
 		t.Fatalf("blocked promotion changed canonical activation state: %+v", after)
 	}
 }
+
+func TestNativeHostABIClassificationDoesNotWeakenSignedDependencyGraph(t *testing.T) {
+	graph := activeCompatibilityCatalog{}
+	declared := []requiredCompatibilityContract{
+		{ID: "ordax.app-activation", MinMajor: 1, MaxMajor: 1},
+		{ID: "ordax.app-data", MinMajor: 1, MaxMajor: 1},
+		{ID: "ordax.localization", MinMajor: 2, MaxMajor: 2},
+		{ID: "ordax.surface-render-lifecycle", MinMajor: 5, MaxMajor: 5},
+		{ID: "ordax.personal-runtime", MinMajor: 1, MaxMajor: 1},
+	}
+	if err := checkSignedNativeCandidateRequirements(graph, "notes", declared); err != nil {
+		t.Fatalf("platform-owned interface was misclassified as signed peer: %v", err)
+	}
+	for _, invalid := range []requiredCompatibilityContract{
+		{ID: "ordax.app-activation", MinMajor: 2, MaxMajor: 2},
+		{ID: "ordax.surface-render-lifecycle", MinMajor: 1, MaxMajor: 4},
+	} {
+		err := checkSignedNativeCandidateRequirements(graph, "notes", []requiredCompatibilityContract{invalid})
+		if err == nil || !strings.Contains(err.Error(), "unsupported OS host interface") {
+			t.Fatalf("host ABI mismatch silently accepted: %v", err)
+		}
+	}
+	err := checkSignedNativeCandidateRequirements(graph, "notes", []requiredCompatibilityContract{
+		{ID: "ordax.internet", MinMajor: 1, MaxMajor: 1},
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires unavailable signed native provider") {
+		t.Fatalf("unsigned app dependency was treated as host port: %v", err)
+	}
+}

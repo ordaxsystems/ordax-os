@@ -4,6 +4,7 @@
 package main
 
 var canonicalExternalComponentSourceRepositories = map[string]string{
+	"activity": appsSourceRepository,
 	"calculator": appsSourceRepository,
 	"calendar": appsSourceRepository,
 	"character-map": appsSourceRepository,
@@ -20,4 +21,15 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"studio": appsSourceRepository,
 	"text-viewer": appsSourceRepository,
 	"toolbox": appsSourceRepository,
+}
+
+// Platform-owned ABI declarations, not signed app providers or capability grants.
+var nativeHostInterfaceContractMajors = map[string]int64{
+	"ordax.app-activation": 1,
+	"ordax.app-data": 1,
+	"ordax.localization": 2,
+	"ordax.personal-activity-export-port": 1,
+	"ordax.personal-approval-consent": 1,
+	"ordax.personal-runtime": 1,
+	"ordax.surface-render-lifecycle": 5,
 }

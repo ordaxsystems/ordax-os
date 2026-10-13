@@ -127,6 +127,7 @@
   "notes_component_promotion_proven": false,
   "notes_component_rollback_proven": false,
   "canonical_package_source_repository_by_component": {
+    "activity": "ordaxsystems/ordax-apps",
     "calculator": "ordaxsystems/ordax-apps",
     "calendar": "ordaxsystems/ordax-apps",
     "character-map": "ordaxsystems/ordax-apps",
@@ -156,12 +157,15 @@
       "expected_repository": "ordaxsystems/ordax-apps",
       "platform_source_absence_required": true,
       "distribution_activation_allowed": false
-    },
-    "activity": {
-      "state": "platform-source-removed-app-source-pending",
-      "expected_repository": "ordaxsystems/ordax-apps",
-      "platform_source_absence_required": true,
-      "distribution_activation_allowed": false
     }
+  },
+  "native_host_contract_major_versions": {
+    "ordax.app-activation": 1,
+    "ordax.app-data": 1,
+    "ordax.localization": 2,
+    "ordax.personal-activity-export-port": 1,
+    "ordax.personal-approval-consent": 1,
+    "ordax.personal-runtime": 1,
+    "ordax.surface-render-lifecycle": 5
   }
 }
