@@ -1,0 +1,94 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFile } from "node:fs/promises";
+
+import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { createRecentFilesRuntime } from "../system/services/files/recent-files.mjs";
+import { createProjectCatalogRuntime } from "../system/services/files/projects.mjs";
+import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
+import { createProjectContinuityFileSpace } from "../system/services/files/project-continuity-file-space.mjs";
+import { createNativeFilesTrustedContextProvider } from "../system/composition/native/files-trusted-context.mjs";
+import { hasNativeExternalFirstPartyModuleRead } from "../system/services/apps/external-first-party-policy.mjs";
+import { getFirstPartyApp } from "../system/apps/catalog.mjs";
+
+function nativeFilePort() {
+  const listing = path => ({ path, entries: [] });
+  return Object.freeze({
+    schema: FILE_SPACE_SCHEMA,
+    async list(path) { return listing(path); },
+    async createDirectory(path) { return listing(path); },
+    async readTextFile(path) { return { path, size: 0, text: "" }; },
+    async renameEntry(path) { return listing(path); },
+    async copyFile(_src, _name, path) { return listing(path); },
+    async moveEntry(_src, _name, path) { return listing(path); },
+    async trashEntry(path) { return listing(path); },
+    async listTrash() { return { entries: [] }; },
+    async restoreTrashEntry() { return { entries: [] }; },
+    async exportFile() { return true; },
+    async importFile(path) { return listing(path); },
+  });
+}
+
+test("Files trusted context binds only the existing typed host ports with project continuity", async () => {
+  const projects = createProjectCatalogRuntime();
+  const recentFiles = createRecentFilesRuntime();
+  const appActivation = createAppActivationChannel();
+  const fileSpace = createProjectContinuityFileSpace(nativeFilePort(), projects);
+  const provider = createNativeFilesTrustedContextProvider({
+    fileSpace, recentFiles, projects, appActivation,
+  });
+  const context = provider("files");
+  assert.equal(Object.isFrozen(context), true);
+  assert.deepEqual(Object.keys(context).sort(), ["appActivation", "fileSpace", "projects", "recentFiles"]);
+  assert.strictEqual(context.fileSpace, fileSpace);
+  assert.strictEqual(context.recentFiles, recentFiles);
+  assert.strictEqual(context.projects, projects);
+  assert.strictEqual(context.appActivation, appActivation);
+  assert.deepEqual(await context.fileSpace.list("/Documentos"), { path: "/Documentos", entries: [] });
+  for (const other of ["activity", "notes", "studio", "settings", "assistant", "__proto__", "files-other"]) {
+    assert.equal(provider(other), null, other);
+  }
+  assert.equal(provider(null), null);
+  assert.equal(provider({ toString() { throw new Error("unexpected coercion"); } }), null);
+});
+
+test("Files trusted context fails closed for absent, malformed and mismatched host ports", () => {
+  assert.throws(() => createNativeFilesTrustedContextProvider()("files"), /compatible file-space/);
+  const projects = createProjectCatalogRuntime();
+  const recentFiles = createRecentFilesRuntime();
+  const activation = createAppActivationChannel();
+  const ports = {
+    fileSpace: createProjectContinuityFileSpace(nativeFilePort(), projects),
+    recentFiles, projects, appActivation: activation,
+  };
+  assert.throws(
+    () => createNativeFilesTrustedContextProvider({ ...ports, fileSpace: { schema: FILE_SPACE_SCHEMA } })("files"),
+    /must implement/,
+  );
+  assert.throws(
+    () => createNativeFilesTrustedContextProvider({ ...ports, recentFiles: {} })("files"),
+    /compatible recent-files/,
+  );
+  assert.throws(
+    () => createNativeFilesTrustedContextProvider({ ...ports, projects: null })("files"),
+    /compatible project-catalog/,
+  );
+  assert.throws(
+    () => createNativeFilesTrustedContextProvider({ ...ports, appActivation: null })("files"),
+    /compatible app-activation/,
+  );
+  assert.equal(createNativeFilesTrustedContextProvider({ fileSpace: {} })("notes"), null);
+});
+
+test("Files host binding stays inactive while OS retains the bundled Files source", async () => {
+  assert.equal(getFirstPartyApp("files")?.id, "files");
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
+  const composition = await readFile(
+    new URL("../system/composition/native/main.mjs", import.meta.url), "utf8",
+  );
+  assert.match(composition, /hasNativeExternalFirstPartyModuleRead\("files"\)/);
+  assert.match(composition, /!listFirstPartyApps\(\)\.some\(\(app\) => app\.id === "files"\)/);
+  assert.match(composition, /installTrustedComponentContextProvider\(\s*createNativeFilesTrustedContextProvider/);
+  assert.match(composition, /fileSpace: filesOwnerSpace/);
+  assert.match(composition, /installed: installedAppCatalog\?\.installed \?\? \[\]/);
+});

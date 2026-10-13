@@ -71,12 +71,12 @@ test("trusted component context composes multiple contributors without replacing
   });
 
   const mounted = await loadOptionalComponentRuntime({
-    componentId: "internet",
+    componentId: "settings",
     componentManager: manager,
     context: Object.freeze({ marker: "caller" }),
     importer: async () => runtimeModule(
-      "internet",
-      versionOf(manager, "internet"),
+      "settings",
+      versionOf(manager, "settings"),
       async (context) => {
         mountedContext = context;
         return { destroy() {} };
@@ -86,8 +86,8 @@ test("trusted component context composes multiple contributors without replacing
 
   assert.notEqual(mounted, null);
   assert.deepEqual(calls, [
-    ["app-data", "internet"],
-    ["application-actions", "internet"],
+    ["app-data", "settings"],
+    ["application-actions", "settings"],
   ]);
   assert.equal(mountedContext.marker, "caller");
   assert.equal(mountedContext.appData.schema, "test.app-data");
@@ -96,7 +96,7 @@ test("trusted component context composes multiple contributors without replacing
     "test.application-action-host-registration",
   );
   assert.equal(Object.isFrozen(mountedContext), true);
-  assert.equal(healthOf(manager, "internet"), "healthy");
+  assert.equal(healthOf(manager, "settings"), "healthy");
   manager.destroy();
 });
 
@@ -113,11 +113,11 @@ test("trusted component context fails closed when contributors collide", async (
   installTrustedComponentContextProvider(() => ({ shared: "second" }));
 
   const result = await loadOptionalComponentRuntime({
-    componentId: "internet",
+    componentId: "settings",
     componentManager: manager,
     importer: async () => runtimeModule(
-      "internet",
-      versionOf(manager, "internet"),
+      "settings",
+      versionOf(manager, "settings"),
       async () => {
         mounted = true;
         return { destroy() {} };
@@ -131,7 +131,7 @@ test("trusted component context fails closed when contributors collide", async (
   assert.equal(result, null);
   assert.equal(mounted, false);
   assert.match(reported?.message ?? "", /cannot add field: shared/);
-  assert.equal(healthOf(manager, "internet"), "failed");
+  assert.equal(healthOf(manager, "settings"), "failed");
   manager.destroy();
 });
 
@@ -146,12 +146,12 @@ test("trusted component context cannot replace explicit caller context", async (
   installTrustedComponentContextProvider(() => ({ marker: "trusted" }));
 
   const result = await loadOptionalComponentRuntime({
-    componentId: "internet",
+    componentId: "settings",
     componentManager: manager,
     context: Object.freeze({ marker: "caller" }),
     importer: async () => runtimeModule(
-      "internet",
-      versionOf(manager, "internet"),
+      "settings",
+      versionOf(manager, "settings"),
       async () => {
         mounted = true;
         return { destroy() {} };
@@ -161,7 +161,7 @@ test("trusted component context cannot replace explicit caller context", async (
 
   assert.equal(result, null);
   assert.equal(mounted, false);
-  assert.equal(healthOf(manager, "internet"), "failed");
+  assert.equal(healthOf(manager, "settings"), "failed");
   manager.destroy();
 });
 
@@ -192,11 +192,11 @@ test("trusted component context cannot be extended after component loading start
 
   installTrustedComponentContextProvider(() => ({ first: true }));
   const mounted = await loadOptionalComponentRuntime({
-    componentId: "internet",
+    componentId: "settings",
     componentManager: manager,
     importer: async () => runtimeModule(
-      "internet",
-      versionOf(manager, "internet"),
+      "settings",
+      versionOf(manager, "settings"),
       async () => ({ destroy() {} }),
     ),
   });
@@ -218,16 +218,16 @@ test("trusted component context rejects non-plain or oversized contributor paylo
     const manager = createManager();
     installTrustedComponentContextProvider(() => new Date());
     const mounted = await loadOptionalComponentRuntime({
-      componentId: "internet",
+      componentId: "settings",
       componentManager: manager,
       importer: async () => runtimeModule(
-        "internet",
-        versionOf(manager, "internet"),
+        "settings",
+        versionOf(manager, "settings"),
         async () => ({ destroy() {} }),
       ),
     });
     assert.equal(mounted, null);
-    assert.equal(healthOf(manager, "internet"), "failed");
+    assert.equal(healthOf(manager, "settings"), "failed");
     manager.destroy();
   }
 
@@ -241,16 +241,16 @@ test("trusted component context rejects non-plain or oversized contributor paylo
       Array.from({ length: 17 }, (_, index) => [`field${index}`, index]),
     ));
     const mounted = await loadOptionalComponentRuntime({
-      componentId: "internet",
+      componentId: "settings",
       componentManager: manager,
       importer: async () => runtimeModule(
-        "internet",
-        versionOf(manager, "internet"),
+        "settings",
+        versionOf(manager, "settings"),
         async () => ({ destroy() {} }),
       ),
     });
     assert.equal(mounted, null);
-    assert.equal(healthOf(manager, "internet"), "failed");
+    assert.equal(healthOf(manager, "settings"), "failed");
     manager.destroy();
   }
 });
@@ -268,16 +268,16 @@ test("trusted component context rejects prototype-sensitive field names", async 
   ));
 
   const mounted = await loadOptionalComponentRuntime({
-    componentId: "internet",
+    componentId: "settings",
     componentManager: manager,
     importer: async () => runtimeModule(
-      "internet",
-      versionOf(manager, "internet"),
+      "settings",
+      versionOf(manager, "settings"),
       async () => ({ destroy() {} }),
     ),
   });
   assert.equal(mounted, null);
-  assert.equal(healthOf(manager, "internet"), "failed");
+  assert.equal(healthOf(manager, "settings"), "failed");
   manager.destroy();
 });
 
@@ -294,16 +294,16 @@ test("trusted component context rejects symbol-keyed contributor fields", async 
   }));
 
   const mounted = await loadOptionalComponentRuntime({
-    componentId: "internet",
+    componentId: "settings",
     componentManager: manager,
     importer: async () => runtimeModule(
-      "internet",
-      versionOf(manager, "internet"),
+      "settings",
+      versionOf(manager, "settings"),
       async () => ({ destroy() {} }),
     ),
   });
 
   assert.equal(mounted, null);
-  assert.equal(healthOf(manager, "internet"), "failed");
+  assert.equal(healthOf(manager, "settings"), "failed");
   manager.destroy();
 });
