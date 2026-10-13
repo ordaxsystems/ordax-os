@@ -77,7 +77,12 @@
     "browser_bridge_response_event": null,
     "global_native_session_exposure": false,
     "dom_exposure": false,
-    "catalog_or_store_exposure": false
+    "catalog_or_store_exposure": false,
+    "stale_boot_handoff_cleared_before_new_host_mint": true,
+    "unconsumed_handoff_cleared_before_host_lock_release": true,
+    "failed_listener_does_not_retain_published_handoff": true,
+    "duplicate_host_must_not_clear_active_owner_handoff": true,
+    "abrupt_process_death_cleanup_guaranteed": false
   },
   "app_facing_surface": {
     "receives_typed_port_only": true,

@@ -233,6 +233,10 @@ class NativeHostInstanceLifetimeTest(unittest.TestCase):
         with runtime.hold_native_host_instance(self.lock):
             with (
                 patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+                patch.object(
+                    runtime, "DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH",
+                    os.path.join(self.temporary.name, "app-data-port-bindings.json"),
+                ),
                 patch.object(runtime, "parse_args", return_value=SimpleNamespace(
                     bind="127.0.0.1", port=8765,
                 )),
@@ -245,6 +249,10 @@ class NativeHostInstanceLifetimeTest(unittest.TestCase):
         # After the previous owner exits, the new instance may start.
         with (
             patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+            patch.object(
+                runtime, "DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH",
+                os.path.join(self.temporary.name, "app-data-port-bindings.json"),
+            ),
             patch.object(runtime, "parse_args", return_value=SimpleNamespace(
                 bind="127.0.0.1", port=8765,
             )),
@@ -253,6 +261,80 @@ class NativeHostInstanceLifetimeTest(unittest.TestCase):
         ):
             self.assertEqual(runtime.main(), 0)
             serve.assert_called_once()
+
+
+    def test_host_recovers_stale_handoff_and_clears_unconsumed_bootstrap_on_exit(self):
+        handoff = os.path.join(self.temporary.name, "app-data-port-bindings.json")
+        # An old host may have been killed after publishing, before listening.
+        with open(handoff, "wb") as output:
+            output.write(b"stale previous host descriptor")
+        os.chmod(handoff, 0o600)
+        called = []
+
+        def serve(_args):
+            self.assertFalse(os.path.exists(handoff))
+            called.append(True)
+            with open(handoff, "wb") as output:
+                output.write(b"new privileged handoff not consumed")
+            return 0
+
+        with (
+            patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+            patch.object(runtime, "DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH", handoff),
+            patch.object(runtime, "parse_args", return_value=SimpleNamespace(
+                bind="127.0.0.1", port=8765,
+            )),
+            patch.object(runtime, "expected_surface_authority"),
+            patch.object(runtime, "_serve_native_host", side_effect=serve),
+        ):
+            self.assertEqual(runtime.main(), 0)
+        self.assertEqual(called, [True])
+        self.assertFalse(os.path.exists(handoff))
+        # The stable lock inode is never deleted as part of handoff cleanup.
+        self.assertTrue(os.path.isfile(self.lock))
+
+    def test_listener_failure_removes_handoff_before_releasing_instance_lock(self):
+        handoff = os.path.join(self.temporary.name, "app-data-port-bindings.json")
+        shutdown_checked = []
+
+        def crash(_args):
+            with open(handoff, "wb") as output:
+                output.write(b"verified port emitted before failed listener")
+            raise RuntimeError("simulated listener activation failure")
+
+        with (
+            patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+            patch.object(runtime, "DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH", handoff),
+            patch.object(runtime, "parse_args", return_value=SimpleNamespace(
+                bind="127.0.0.1", port=8765,
+            )),
+            patch.object(runtime, "expected_surface_authority"),
+            patch.object(runtime, "_serve_native_host", side_effect=crash),
+        ):
+            self.assertEqual(runtime.main(), 3)
+            self.assertFalse(os.path.exists(handoff))
+            with runtime.hold_native_host_instance(self.lock):
+                shutdown_checked.append(True)
+        self.assertEqual(shutdown_checked, [True])
+
+    def test_duplicate_host_must_not_delete_live_owners_handoff(self):
+        handoff = os.path.join(self.temporary.name, "app-data-port-bindings.json")
+        with runtime.hold_native_host_instance(self.lock):
+            with open(handoff, "wb") as output:
+                output.write(b"active owner handoff")
+            with (
+                patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+                patch.object(runtime, "DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH", handoff),
+                patch.object(runtime, "parse_args", return_value=SimpleNamespace(
+                    bind="127.0.0.1", port=8765,
+                )),
+                patch.object(runtime, "expected_surface_authority"),
+                patch.object(runtime, "_serve_native_host") as serve,
+            ):
+                self.assertEqual(runtime.main(), 3)
+                serve.assert_not_called()
+            with open(handoff, "rb") as source:
+                self.assertEqual(source.read(), b"active owner handoff")
 
 
 if __name__ == "__main__":
