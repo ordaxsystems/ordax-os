@@ -21,6 +21,9 @@ Presentation links:
 - `/`: Central, Argila material.
 - `/?material=ink`: Central, Grafite material.
 - `/?surface=desktop`: Desktop.
+- `/?journey=setup`: first-use storyboard, optional network/account.
+- `/?journey=recovery&material=ink`: independent recovery storyboard.
+- `/?journey=update`: update, deferred restart and known-good review.
 - `/?area=spaces`, `/?area=profiles`, `/?area=store`: catalogue views.
 
 These options are checked against the experiment catalogue. They do not change
@@ -68,3 +71,41 @@ Python must be available as `python`, or selected with `ORDAX_PYTHON`.
 output directory (default `out/meridian-proof`). The runner uses a disposable
 browser profile and a loopback preview host, then stops both. These checks are
 included in the existing Surface Web Candidate workflow.
+
+
+## Meridian Round 2
+
+The [Round 2 coverage report](../../docs/evidence/meridian-round2/coverage.md)
+maps the visual journeys to the audit backlog, canonical owners, limitations and
+captures. It does not supersede the audit or declare merge readiness.
+
+The preview composition explicitly injects `demo/storyboards.mjs`. The shared
+journey renderer presents first use, local session, USB, update/recovery,
+Intelligence, package lifecycle, Spaces, settings, files and communication. The
+journey catalogue is available under the visible study marker; operational
+entries also appear in Central, System, Settings and the corresponding catalogue.
+Closing a journey preserves its place in this page session. Refresh resets it.
+
+New states are screen scenarios, not services: progress advances on explicit
+reviewer actions; the one streaming animation reveals fixed example text. No
+credential, valid pairing code, real publisher trust or real action receipt is
+created. Login failure can lead to local use without a cloud account.
+
+To repeat only the small Round 2 preview check, first start the host at port 4203
+using the command above, then run:
+
+```sh
+node tools/meridian-preview/round2-smoke.mjs
+```
+
+It uses the existing disposable Chromium runner and the already-running host;
+it leaves that host running. Output defaults to `out/meridian-round2` and can be
+changed with `MERIDIAN_EVIDENCE_DIR`. The checked-in evidence contains 23 focused
+checks plus screenshots. This does not run Foundation, the complete browser
+matrix, build, CI, backend or physical USB checks.
+
+The earlier `browser-smoke.mjs` remains the independent audit regression runner.
+Its existing assertions are retained, with the two Space-switch interactions
+updated for explicit impact review. The full runner was not rerun in Round 2;
+its new result belongs to the independent audit, not the historical 155-check
+result. No workflow gate has been removed or weakened.

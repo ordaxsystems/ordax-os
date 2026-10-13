@@ -1528,3 +1528,34 @@ The MVP scope stays with MVP.md. The inventory describes missing presentation an
 integration work; it neither reduces the integrated MVP nor grants release/device
 authority. Domain-like fixtures and the window examples must be projected from the
 canonical owners before any product integration; their demo dispatch is not a port.
+
+
+## Meridian Round 2 — 2026-10-13
+
+Owner: isolated Surface presentation. Continues from audit-corrected `25e0f57`
+on `codex/meridian-design-lab`; the original study and audit evidence above
+remain historical. This increment expands operating journeys instead of
+promoting fixtures into canonical services. It does not change the active
+product identity, production themes, main, ownership or release gates.
+
+Central now exposes USB/session/network/storage and deferred-update context.
+Shared presentation storyboards cover optional-account first use, lock/power,
+update/recovery, Intelligence proposal review, catalogue lifecycle, Space impact,
+settings, file references, device pairing examples and communication states.
+Store/Profile detail routes use one visual lifecycle, and the old mock dispatch
+install/profile/Space-creation operations are removed. Drafts and window examples
+are retained per identity/Space within the current page session.
+
+Fixtures are injected only by the preview composition. The renderer performs no
+network, credential collection, filesystem mutation, install or device action.
+The Portable v2 illustration uses ESP + DATA per the machine-readable contract,
+not the transitional three-partition wording from historical text. It is neither
+physical-media evidence nor a claim about installed capacity.
+
+Evidence and handoff: [Round 2 coverage, owners, risks and captures](evidence/meridian-round2/coverage.md).
+The focused preview check passed 23 assertions and module syntax parsing passed;
+no full audit, canonical build/CI, Foundation or physical proof ran in this round.
+The earlier browser regression assertions are preserved and their Space routes
+adapted, but their full matrix requires independent rerun. The controller still
+reconstructs DOM; real lifecycle integration, complete accessibility review and
+canonical-contract projection remain required. Meridian is not ready for merge.
