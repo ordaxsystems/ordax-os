@@ -140,7 +140,7 @@
 .mobile-header, .mobile-section-title { display: none; }
 .modal-list { display: grid; gap: 10px; margin-top: 18px; }
 @media (min-width: 1500px) { .os-main { padding: 28px; } .os-hero { height: 300px; } .hero-content { padding-top: 60px; } }
-@media (max-width: 1150px) and (min-width: 761px) { :root { --sidebar-width: 185px; --layout-gap: 12px; } .os-main { padding: 16px; } .os-sidebar { padding-inline: 12px; } .content-grid { grid-template-columns: 1fr 1.1fr; } .activity-panel { grid-column: 1 / -1; } .activity-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .quick-item { padding: 10px; gap: 8px; } .quick-caption { display: none; } .lower-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1150px) and (min-width: 761px) { :root { --layout-gap: 12px; } .os-main { padding: 16px; } .os-sidebar { padding-inline: 12px; } .content-grid { grid-template-columns: 1fr 1.1fr; } .activity-panel { grid-column: 1 / -1; } .activity-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .quick-item { padding: 10px; gap: 8px; } .quick-caption { display: none; } .lower-grid { grid-template-columns: 1fr; } }
 @media (max-width: 760px) {
   :root { --layout-gap: 12px; }
   .os-sidebar { display: none; }

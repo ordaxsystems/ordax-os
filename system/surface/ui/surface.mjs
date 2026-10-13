@@ -21,6 +21,7 @@ import {
   createDesktopShellMarkup,
   mountDesktopClock,
   syncDesktopShellLocalization,
+  syncDesktopPresentationToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
@@ -723,10 +724,7 @@ export function mountSurface(
     root.querySelector("[data-central-presentation]").hidden = state.presentation !== "central";
     root.querySelector("[data-desktop-presentation]").hidden = state.presentation !== "desktop";
     const presentationToggle = root.querySelector("[data-presentation-toggle]");
-    presentationToggle.setAttribute("aria-pressed", String(state.presentation === "desktop"));
-    const presentationLabel = localization.translate(state.presentation === "desktop" ? "shell.presentation.central" : "shell.presentation.desktop");
-    presentationToggle.setAttribute("aria-label", presentationLabel);
-    presentationToggle.title = presentationLabel;
+    syncDesktopPresentationToggle(presentationToggle, state.presentation, localization);
     root.dataset.ordaxContrast = state.preferences[ACCESSIBILITY_CONTRAST_PREFERENCE_ID];
     root.dataset.ordaxMotion = state.preferences[ACCESSIBILITY_MOTION_PREFERENCE_ID];
     documentElement.dataset.ordaxTextScale =

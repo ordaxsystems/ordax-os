@@ -739,6 +739,39 @@
         "initial_gzip_kb": 153.59,
         "css_kb": 102.12
       }
+    },
+    "presentation_toggle_2026_10_12": {
+      "based_on_commit": "2a04dc52fb69d1ccdbd7e232f6880dbba64fb538",
+      "scope": "Working-tree increment: canonical sidebar width and shared contextual toggle; preserves main Router basepath fix",
+      "node_tests": {
+        "passed": 71,
+        "failed": 0,
+        "skipped": 0,
+        "command": "node --test tests/test_surface_workspace.mjs tests/test_color_palette.mjs tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs tests/test_surface_localization.mjs tests/test_sidebar_hints.mjs tests/test_sidebar_layout.mjs tests/test_identity_session.mjs"
+      },
+      "python_tests": {
+        "passed": 41,
+        "failed": 0,
+        "command": "python -m unittest tests.test_surface_web_builder tests.test_surface_visual_identity tests.test_settings_canonical_navigation tests.test_settings_deep_localization tests.test_notification_center_ui_contract"
+      },
+      "build": {
+        "command": "npm.cmd run build --workspace tools/surface-web",
+        "result": "passed-including-typescript",
+        "initial_js_kb": 490.01,
+        "initial_js_gzip_kb": 153.73
+      },
+      "provenance_verification": {
+        "command": "npm.cmd run verify --workspace tools/surface-web",
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "host_checks": {
+        "web": "http://127.0.0.1:4201/",
+        "native_visual_preview": "http://127.0.0.1:57987/",
+        "http_status": 200
+      },
+      "interactive_browser_proof": "not-executed-in-this-increment",
+      "physical_usb_boot": "not-executed"
     }
   },
   "files": [
@@ -767,8 +800,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "700bde6cea98d4304034a6724984115df7ea3076435a08acacab8780b8abbe84",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
+      "adaptedSha256": "7f60f4e2eded9dabfafca61cdd8e24d9a1c1d9359e9128b40de98817a46b35a4",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12)"
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -781,8 +814,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "edb545a872236bda2a6ef543ef09548228b4f315bfd9863825211eaaa5f6e1a4",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
+      "adaptedSha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12)"
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -907,7 +940,7 @@
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
       "adaptedSha256": "f7698b5389a968708fabe0844a3b3023c8c43c9571839889ee71a4cadebb7451",
-      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner."
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716."
     },
     {
       "target": "system/adapters/web/runtime.mjs",
