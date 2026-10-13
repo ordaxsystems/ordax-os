@@ -690,11 +690,28 @@ else:
                     output, stderr = worker.communicate(timeout=12)
                     self.assertEqual(worker.returncode, 0, (operation, stderr))
                     results[operation] = json.loads(output.strip())
-                self.assertEqual(results["get"]["valueBase64"], "b2xk")
-                self.assertEqual(results["get"]["revision"], 2)
-                self.assertEqual(results["list"]["revision"], 2)
-                self.assertEqual(results["put"]["status"], 409)
-                self.assertEqual(app_data.read_app_data(identity(), "key", str(root))["value"], b"old")
+                # The kernel lock did block all workers. When it is
+                # released, the durable pin still prevents *every* app
+                # operation from resuming without an activation decision.
+                for operation in ("get", "list", "put"):
+                    self.assertEqual(results[operation]["status"], 409)
+                    self.assertIn(
+                        "requires trusted recovery", results[operation]["error"],
+                    )
+                self.assertEqual(
+                    app_data.read_app_data(identity(), "key", str(root))["value"], b"old",
+                )
+                # The trusted owner closes the pending horizon explicitly,
+                # then the same typed endpoint may read the unchanged data.
+                with app_data.hold_app_data_maintenance(identity(), RELEASE, 2, str(root)) as owner:
+                    self.assertTrue(owner.retire(2)["retired"])
+                resumed = endpoint.handle_app_data_request(
+                    b'{"action":"get","key":"key"}',
+                    identity=identity(), root=str(root),
+                )
+                self.assertEqual(
+                    (resumed["revision"], resumed["valueBase64"]), (2, "b2xk"),
+                )
             finally:
                 for _, worker in workers:
                     if worker.poll() is None:
