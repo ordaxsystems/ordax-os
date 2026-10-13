@@ -29,7 +29,9 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Do not kill a 30-minute verified build merely because a doc/test commit arrived.
+  # A later run is queued and may reuse its sealed cache by exact input SHA.
+  cancel-in-progress: false
 
 jobs:
   buildroot-qemu:
