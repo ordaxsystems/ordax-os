@@ -1,4 +1,8 @@
 from pathlib import Path
+import fcntl
+import os
+import tempfile
+import unittest.mock
 import subprocess
 import unittest
 
@@ -667,6 +671,47 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn("asking guardian to restart supervisor without reboot", text)
         self.assertIn("exit 75", text)
         self.assertNotIn('exec "$SYSTEM_ENTRYPOINT"', text)
+
+    def test_supervisor_does_not_confuse_launcher_exit_with_native_host_shutdown(self):
+        text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        helper = text.split("native_host_quiesced() {", 1)[1].split("\n}", 1)[0]
+        stopped = text.split("stop_surface() {", 1)[1].split("\n}", 1)[0]
+        self.assertIn('native_lock=/run/ordax-surface/native-host-instance.lock', helper)
+        self.assertIn('/bin/busybox flock -n "$native_lock" /bin/true', helper)
+        self.assertIn('[ ! -L "$native_lock" ] || return 1', helper)
+        self.assertIn('if ! native_host_quiesced; then', stopped)
+        self.assertIn('trap - EXIT HUP INT TERM', stopped)
+        self.assertIn('exit 1', stopped)
+        self.assertNotIn('[ -n "$SURFACE_PID" ] || return 0', stopped)
+
+    def test_native_host_lock_quiescence_with_real_processes(self):
+        if not Path("/bin/busybox").is_file():
+            self.skipTest("target BusyBox availability is checked in the independent Base build")
+        text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        helper = "native_host_quiesced() {" + text.split(
+            "native_host_quiesced() {", 1
+        )[1].split("\n}", 1)[0] + "\n}"
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_path = Path(temporary) / "native-host-instance.lock"
+            # Use precisely the production helper, replacing only the test's
+            # isolated lock path. No environment-controlled production override.
+            helper = helper.replace(
+                "/run/ordax-surface/native-host-instance.lock", str(lock_path)
+            )
+            def probe():
+                return subprocess.run(["sh", "-c", helper + "\nnative_host_quiesced"],
+                                      capture_output=True, timeout=10)
+            self.assertEqual(probe().returncode, 0)  # Host never started.
+            lock_path.write_bytes(b"")
+            lock_path.chmod(0o600)
+            self.assertEqual(probe().returncode, 0)  # Stopped host.
+            with lock_path.open("rb") as locked:
+                fcntl.flock(locked, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.assertNotEqual(probe().returncode, 0)  # Orphan host alive.
+            self.assertEqual(probe().returncode, 0)  # Kernel released lock.
+            lock_path.unlink()
+            lock_path.symlink_to(Path(temporary) / "another-inode")
+            self.assertNotEqual(probe().returncode, 0)  # Unsafe symlink.
 
     def test_surface_launcher_is_gracefully_restartable(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
