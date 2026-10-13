@@ -6,7 +6,6 @@ on:
       - 'sites/account-ui/**'
       - 'sites/public/i18n/catalog.js'
       - 'sites/public/i18n/runtime.js'
-      - '.github/workflows/account-lovable-source-candidate.yml'
   workflow_dispatch:
 
 permissions:
