@@ -1,0 +1,37 @@
+{
+  "checks": [
+    "Operational context is visible",
+    "Review requires confirmation",
+    "Invalid integrity cannot activate",
+    "Central draft survives journey",
+    "Deferred restart stays visible in Central",
+    "Other Space has no previous window",
+    "Original window and draft restored",
+    "Lock removes project content from DOM",
+    "Unlock retains draft",
+    "Guest has no private windows",
+    "Identity return retains draft",
+    "Dismissed event has restore action",
+    "IA ends in explicit example receipt",
+    "Completed package has a visual receipt in the catalogue",
+    "Removed package stays absent when revisiting details",
+    "Setup permits offline continuation",
+    "Setup completes to local session",
+    "Setup desktop shortcut retains local choice",
+    "Offline setup status reaches Central",
+    "Recovery fits narrow viewport",
+    "Recovery returns to shell",
+    "Legal profile explicitly unavailable",
+    "Central fits mobile"
+  ],
+  "uncaughtErrors": [],
+  "captures": [
+    "update-invalid-1440",
+    "intelligence-1440",
+    "central-1440",
+    "setup-network-390",
+    "recovery-320",
+    "central-390"
+  ],
+  "scope": "Targeted Meridian-only preview; not the full audit."
+}

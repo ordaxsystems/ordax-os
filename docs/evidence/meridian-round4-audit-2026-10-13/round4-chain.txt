@@ -1,0 +1,3 @@
+ebd58cdb83278d194313c5f215dea2788b5fde05 docs(surface): preserve Meridian Round 4 runner logs
+8d48d019c3c0d6eeac1876c8d1e0f85d14b84eec docs(surface): record Meridian Round 4 refinement and focused proof
+11bee9e7ba9a3c496e9b5f607dfea2d795e1fca0 refine(surface): polish Meridian rail dock and window chrome

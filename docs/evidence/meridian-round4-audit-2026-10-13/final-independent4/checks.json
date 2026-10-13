@@ -1,0 +1,3740 @@
+{
+  "results": [
+    {
+      "name": "Viewport resize reveals active app paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Resize preserves keyboard browsing without activation paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Viewport resize reveals active app ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Resize preserves keyboard browsing without activation ink",
+      "status": "PASS"
+    },
+    {
+      "name": "All rail targets share named guidance desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Independent stage releases dock observation desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Destroy disconnects observer and aborts listeners desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "All rail targets share named guidance central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Independent stage releases dock observation central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Destroy disconnects observer and aborts listeners central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "All rail targets share named guidance desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Independent stage releases dock observation desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Destroy disconnects observer and aborts listeners desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "All rail targets share named guidance central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape stays dismissed within the same target central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Independent stage releases dock observation central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Destroy disconnects observer and aborts listeners central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Landscape compact is near 156 px paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact save remains reachable by scroll paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Collapse returns useful height paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Landscape compact is near 156 px ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact save remains reachable by scroll ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Collapse returns useful height ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Low or wide rail Account tooltip fits 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 390/ink",
+      "status": "FAIL"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock has one horizontal scroll region and separated targets 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Narrow Central tray fits and remains illustrative 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Projects names its Central destination paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Projects opens existing Work page with Space preserved paper",
+      "status": "PASS"
+    },
+    {
+      "name": "New window receives entry motion paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Ordinary repaint does not reanimate the window paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mode change receives resize feedback paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Reduced motion suppresses entry and transitions paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Projects names its Central destination ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Projects opens existing Work page with Space preserved ink",
+      "status": "PASS"
+    },
+    {
+      "name": "New window receives entry motion ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Ordinary repaint does not reanimate the window ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mode change receives resize feedback ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Reduced motion suppresses entry and transitions ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No uncaught errors",
+      "status": "PASS"
+    },
+    {
+      "name": "Loopback requests only",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 492,
+        "width": 1368,
+        "height": 342,
+        "top": 492,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1440,
+      "width": 1440
+    },
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 492,
+        "width": 1368,
+        "height": 342,
+        "top": 492,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1440,
+      "width": 1440
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 410.171875,
+        "width": 952,
+        "height": 291.828125,
+        "top": 410.171875,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 702,
+        "width": 952,
+        "height": 66,
+        "top": 702,
+        "right": 1024,
+        "bottom": 768,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1024,
+      "width": 1024
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 410.171875,
+        "width": 952,
+        "height": 291.828125,
+        "top": 410.171875,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 702,
+        "width": 952,
+        "height": 66,
+        "top": 702,
+        "right": 1024,
+        "bottom": 768,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1024,
+      "width": 1024
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 306,
+        "width": 696,
+        "height": 228,
+        "top": 306,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 534,
+        "width": 696,
+        "height": 66,
+        "top": 534,
+        "right": 768,
+        "bottom": 600,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 768,
+      "width": 768
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 306,
+        "width": 696,
+        "height": 228,
+        "top": 306,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 534,
+        "width": 696,
+        "height": 66,
+        "top": 534,
+        "right": 768,
+        "bottom": 600,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 768,
+      "width": 768
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 844,
+      "width": 844
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 844,
+      "width": 844
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 417.53125,
+        "width": 390,
+        "height": 354.46875,
+        "top": 417.53125,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 390,
+      "width": 390
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 417.53125,
+        "width": 390,
+        "height": 354.46875,
+        "top": 417.53125,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 390,
+      "width": 390
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 257.453125,
+        "width": 320,
+        "height": 238.546875,
+        "top": 257.453125,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 320,
+      "width": 320
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 257.453125,
+        "width": 320,
+        "height": 238.546875,
+        "top": 257.453125,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 320,
+      "width": 320
+    }
+  ],
+  "sidebar": [
+    {
+      "presentation": "desktop",
+      "material": "paper",
+      "items": [
+        {
+          "name": "Trocar Space, atual: Estúdio",
+          "tooltip": "Trocar Space, atual: Estúdio",
+          "action": "panel:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Intelligence",
+          "tooltip": "Intelligence",
+          "action": "route:intelligence",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Spaces",
+          "tooltip": "Spaces",
+          "action": "route:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Aplicativos",
+          "tooltip": "Aplicativos",
+          "action": "route:apps",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Perfis",
+          "tooltip": "Perfis",
+          "action": "route:profiles",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Dispositivos",
+          "tooltip": "Dispositivos",
+          "action": "route:devices",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Descobrir",
+          "tooltip": "Descobrir",
+          "action": "route:store",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Continuidade",
+          "tooltip": "Continuidade",
+          "action": "route:activity",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Notificações",
+          "tooltip": "Notificações",
+          "action": "panel:notifications",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Ajustes",
+          "tooltip": "Ajustes",
+          "action": "route:settings",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Conta e identidade",
+          "tooltip": "Conta e identidade",
+          "action": "panel:account",
+          "current": null,
+          "title": null
+        }
+      ]
+    },
+    {
+      "presentation": "central",
+      "material": "paper",
+      "items": [
+        {
+          "name": "Trocar Space, atual: Estúdio",
+          "tooltip": "Trocar Space, atual: Estúdio",
+          "action": "panel:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Início",
+          "tooltip": "Início",
+          "action": "route:central",
+          "current": "page",
+          "title": null
+        },
+        {
+          "name": "Intelligence",
+          "tooltip": "Intelligence",
+          "action": "route:intelligence",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Spaces",
+          "tooltip": "Spaces",
+          "action": "route:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Aplicativos",
+          "tooltip": "Aplicativos",
+          "action": "route:apps",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Perfis",
+          "tooltip": "Perfis",
+          "action": "route:profiles",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Dispositivos",
+          "tooltip": "Dispositivos",
+          "action": "route:devices",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Descobrir",
+          "tooltip": "Descobrir",
+          "action": "route:store",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Continuidade",
+          "tooltip": "Continuidade",
+          "action": "route:activity",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Notificações",
+          "tooltip": "Notificações",
+          "action": "panel:notifications",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Ajustes",
+          "tooltip": "Ajustes",
+          "action": "route:settings",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Conta e identidade",
+          "tooltip": "Conta e identidade",
+          "action": "panel:account",
+          "current": null,
+          "title": null
+        }
+      ]
+    },
+    {
+      "presentation": "desktop",
+      "material": "ink",
+      "items": [
+        {
+          "name": "Trocar Space, atual: Estúdio",
+          "tooltip": "Trocar Space, atual: Estúdio",
+          "action": "panel:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Intelligence",
+          "tooltip": "Intelligence",
+          "action": "route:intelligence",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Spaces",
+          "tooltip": "Spaces",
+          "action": "route:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Aplicativos",
+          "tooltip": "Aplicativos",
+          "action": "route:apps",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Perfis",
+          "tooltip": "Perfis",
+          "action": "route:profiles",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Dispositivos",
+          "tooltip": "Dispositivos",
+          "action": "route:devices",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Descobrir",
+          "tooltip": "Descobrir",
+          "action": "route:store",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Continuidade",
+          "tooltip": "Continuidade",
+          "action": "route:activity",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Notificações",
+          "tooltip": "Notificações",
+          "action": "panel:notifications",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Ajustes",
+          "tooltip": "Ajustes",
+          "action": "route:settings",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Conta e identidade",
+          "tooltip": "Conta e identidade",
+          "action": "panel:account",
+          "current": null,
+          "title": null
+        }
+      ]
+    },
+    {
+      "presentation": "central",
+      "material": "ink",
+      "items": [
+        {
+          "name": "Trocar Space, atual: Estúdio",
+          "tooltip": "Trocar Space, atual: Estúdio",
+          "action": "panel:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Início",
+          "tooltip": "Início",
+          "action": "route:central",
+          "current": "page",
+          "title": null
+        },
+        {
+          "name": "Intelligence",
+          "tooltip": "Intelligence",
+          "action": "route:intelligence",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Spaces",
+          "tooltip": "Spaces",
+          "action": "route:spaces",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Aplicativos",
+          "tooltip": "Aplicativos",
+          "action": "route:apps",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Perfis",
+          "tooltip": "Perfis",
+          "action": "route:profiles",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Dispositivos",
+          "tooltip": "Dispositivos",
+          "action": "route:devices",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Descobrir",
+          "tooltip": "Descobrir",
+          "action": "route:store",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Continuidade",
+          "tooltip": "Continuidade",
+          "action": "route:activity",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Notificações",
+          "tooltip": "Notificações",
+          "action": "panel:notifications",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Ajustes",
+          "tooltip": "Ajustes",
+          "action": "route:settings",
+          "current": null,
+          "title": null
+        },
+        {
+          "name": "Conta e identidade",
+          "tooltip": "Conta e identidade",
+          "action": "panel:account",
+          "current": null,
+          "title": null
+        }
+      ]
+    }
+  ],
+  "styles": [
+    {
+      "presentation": "desktop",
+      "material": "paper",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(39, 46, 43)",
+        "fontSize": "12px"
+      },
+      "sample": {
+        "fontSize": "12px",
+        "color": "rgb(232, 233, 223)",
+        "backgrounds": [
+          "rgb(39, 46, 43)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "canvas": "#f4f2ed"
+    },
+    {
+      "presentation": "central",
+      "material": "paper",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(39, 46, 43)",
+        "fontSize": "12px"
+      },
+      "sample": {
+        "fontSize": "12px",
+        "color": "rgb(232, 233, 223)",
+        "backgrounds": [
+          "rgb(39, 46, 43)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "canvas": "#f4f2ed"
+    },
+    {
+      "presentation": "desktop",
+      "material": "ink",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(23, 33, 27)",
+        "fontSize": "12px"
+      },
+      "sample": {
+        "fontSize": "12px",
+        "color": "rgb(232, 233, 223)",
+        "backgrounds": [
+          "rgb(23, 33, 27)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "canvas": "#202824"
+    },
+    {
+      "presentation": "central",
+      "material": "ink",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(23, 33, 27)",
+        "fontSize": "12px"
+      },
+      "sample": {
+        "fontSize": "12px",
+        "color": "rgb(232, 233, 223)",
+        "backgrounds": [
+          "rgb(23, 33, 27)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "canvas": "#202824"
+    },
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(255, 252, 247)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      }
+    },
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(41, 51, 44)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      }
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(255, 252, 247)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(41, 51, 44)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(255, 252, 247)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(41, 51, 44)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(255, 252, 247)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(41, 51, 44)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(255, 252, 247)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(41, 51, 44)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(255, 252, 247)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(103, 107, 99)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(244, 242, 237)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "study": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "title": {
+        "fontSize": "12px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(41, 51, 44)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(217, 219, 194)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": true
+      },
+      "time": {
+        "fontSize": "11px",
+        "color": "rgb(178, 188, 175)",
+        "backgrounds": [
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgba(0, 0, 0, 0)",
+          "rgb(32, 40, 36)",
+          "rgb(244, 242, 237)",
+          "rgba(0, 0, 0, 0)"
+        ],
+        "visible": false
+      }
+    }
+  ],
+  "exceptions": [],
+  "requests": [
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/?surface=central&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/?surface=central&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:53933/?surface=desktop&material=paper",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:53933/?surface=desktop&material=ink",
+    "http://127.0.0.1:53933/system/surface/ui/tokens.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:53933/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:53933/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:53933/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:53933/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:53933/system/surface/ui/brand/ordax-symbol.png"
+  ]
+}

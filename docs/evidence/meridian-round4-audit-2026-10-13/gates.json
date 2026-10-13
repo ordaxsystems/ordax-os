@@ -1,0 +1,106 @@
+[
+  {
+    "gate": "Syntax",
+    "before": "baseline-syntax",
+    "beforeExit": 0,
+    "final": "verified-syntax",
+    "finalExit": 0,
+    "details": "29 modules after correction"
+  },
+  {
+    "gate": "Whitespace source",
+    "before": "baseline-whitespace",
+    "beforeExit": 0,
+    "final": "verified-whitespace",
+    "finalExit": 0,
+    "details": "PASS"
+  },
+  {
+    "gate": "Module boundaries",
+    "before": "baseline-boundaries",
+    "beforeExit": 0,
+    "final": "verified-boundaries",
+    "finalExit": 0,
+    "details": "PASS"
+  },
+  {
+    "gate": "Canonical source graph",
+    "before": "baseline-source-graph",
+    "beforeExit": 0,
+    "final": "final-source-graph",
+    "finalExit": 0,
+    "details": "128 files, unchanged imports/inputs after scroll fix"
+  },
+  {
+    "gate": "Storyboard unit",
+    "before": "baseline-unit",
+    "beforeExit": 0,
+    "final": "final-unit",
+    "finalExit": 0,
+    "details": "4 checks; unaffected by final scroll change"
+  },
+  {
+    "gate": "Smoke Round 1",
+    "before": "baseline-meridian",
+    "beforeExit": 0,
+    "final": "final-meridian",
+    "finalExit": 0,
+    "details": "155 checks after first corrections"
+  },
+  {
+    "gate": "Smoke Round 2",
+    "before": "baseline-round2",
+    "beforeExit": 0,
+    "final": "final-round2",
+    "finalExit": 0,
+    "details": "23 checks after first corrections"
+  },
+  {
+    "gate": "Smoke Round 3",
+    "before": "baseline-round3",
+    "beforeExit": 0,
+    "final": "final-round3",
+    "finalExit": 0,
+    "details": "27 checks after first corrections"
+  },
+  {
+    "gate": "Navigation",
+    "before": "baseline-navigation",
+    "beforeExit": 0,
+    "final": "final-navigation",
+    "finalExit": 0,
+    "details": "21 checks after first corrections"
+  },
+  {
+    "gate": "Smoke Round 4",
+    "before": "baseline-round4",
+    "beforeExit": 0,
+    "final": "verified-round4",
+    "finalExit": 0,
+    "details": "81 checks after final inertia fix"
+  },
+  {
+    "gate": "Independent Round 3",
+    "before": "baseline-independent3",
+    "beforeExit": 0,
+    "final": "verified-independent3",
+    "finalExit": 0,
+    "details": "287 checks after final inertia fix"
+  },
+  {
+    "gate": "Independent Round 4",
+    "before": "baseline-diagnostic",
+    "beforeExit": 1,
+    "final": "verified-independent4",
+    "finalExit": 0,
+    "details": "368 checks / 12 geometries after final fix"
+  },
+  {
+    "gate": "Native touch→Home diagnostic",
+    "before": "dock-key-diagnostic",
+    "beforeExit": 1,
+    "final": "dock-key-corrected3",
+    "finalExit": 0,
+    "details": "37 checks / 18 cases, unchanged diagnostic"
+  }
+]

@@ -1,0 +1,1050 @@
+{
+  "results": [
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation desktop/paper",
+      "status": "FAIL",
+      "details": {
+        "instances": 1,
+        "targets": 1,
+        "detached": 1,
+        "listeners": 15
+      }
+    },
+    {
+      "name": "guidance desktop paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action journey:recovery\n    at <anonymous>:1:225\n    at <anonymous>:1:295",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52717/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nLM\nEstúdio\nSeus projetos\nna Central\nBriefing — Atlas\nReferências de forma\nEspaço para\no que vem agora.\nORDAX · MERIDIAN\nDeslize para ver mais aplicativos. No teclado, use as setas esquerda e direita, Home e End.\n84%\n09:41\nexemplo\nEstudo\nConta e identidade"
+      }
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation central/paper",
+      "status": "FAIL",
+      "details": {
+        "instances": 1,
+        "targets": 1,
+        "detached": 1,
+        "listeners": 15
+      }
+    },
+    {
+      "name": "guidance central paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action journey:recovery\n    at <anonymous>:1:225\n    at <anonymous>:1:295",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52717/?surface=central&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nEncontre o seu próximo passo\nCtrl K\nMeridian · estudo visual\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nNO SEU CONTEXTO\nCriação & design\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas.\nExatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nO que se moveu\nContinuidade\nAtlas está pronto para continuar\nHá 12 min\nUm resumo para sua próxima reunião\nHá 25 min\nReferência adicionada ao Estúdio\nOntem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo se"
+      }
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation desktop/ink",
+      "status": "FAIL",
+      "details": {
+        "instances": 1,
+        "targets": 1,
+        "detached": 1,
+        "listeners": 15
+      }
+    },
+    {
+      "name": "guidance desktop ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action journey:recovery\n    at <anonymous>:1:225\n    at <anonymous>:1:295",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52717/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nLM\nEstúdio\nSeus projetos\nna Central\nBriefing — Atlas\nReferências de forma\nEspaço para\no que vem agora.\nORDAX · MERIDIAN\nDeslize para ver mais aplicativos. No teclado, use as setas esquerda e direita, Home e End.\n84%\n09:41\nexemplo\nEstudo\nConta e identidade"
+      }
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint retains one observer target central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Repaint does not grow listeners central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock releases detached dock observation central/ink",
+      "status": "FAIL",
+      "details": {
+        "instances": 1,
+        "targets": 1,
+        "detached": 1,
+        "listeners": 15
+      }
+    },
+    {
+      "name": "guidance central ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action journey:recovery\n    at <anonymous>:1:225\n    at <anonymous>:1:295",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52717/?surface=central&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nEncontre o seu próximo passo\nCtrl K\nMeridian · estudo visual\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nNO SEU CONTEXTO\nCriação & design\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas.\nExatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nO que se moveu\nContinuidade\nAtlas está pronto para continuar\nHá 12 min\nUm resumo para sua próxima reunião\nHá 25 min\nReferência adicionada ao Estúdio\nOntem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo se"
+      }
+    },
+    {
+      "name": "Dock targets are 44x44 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Landscape compact is near 156 px paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact save remains reachable by scroll paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Collapse returns useful height paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Landscape compact is near 156 px ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact save remains reachable by scroll ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Collapse returns useful height ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No uncaught errors",
+      "status": "PASS"
+    },
+    {
+      "name": "Loopback requests only",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [
+    {
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 844,
+      "width": 844
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 844,
+      "width": 844
+    }
+  ],
+  "styles": [
+    {
+      "presentation": "desktop",
+      "material": "paper",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(39, 46, 43)",
+        "fontSize": "12px"
+      },
+      "canvas": "#f4f2ed"
+    },
+    {
+      "presentation": "central",
+      "material": "paper",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(39, 46, 43)",
+        "fontSize": "12px"
+      },
+      "canvas": "#f4f2ed"
+    },
+    {
+      "presentation": "desktop",
+      "material": "ink",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(23, 33, 27)",
+        "fontSize": "12px"
+      },
+      "canvas": "#202824"
+    },
+    {
+      "presentation": "central",
+      "material": "ink",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(23, 33, 27)",
+        "fontSize": "12px"
+      },
+      "canvas": "#202824"
+    }
+  ],
+  "exceptions": [],
+  "requests": [
+    "http://127.0.0.1:52717/?surface=desktop&material=paper",
+    "http://127.0.0.1:52717/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52717/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52717/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/?surface=central&material=paper",
+    "http://127.0.0.1:52717/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52717/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52717/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52717/?surface=desktop&material=ink",
+    "http://127.0.0.1:52717/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52717/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52717/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/?surface=central&material=ink",
+    "http://127.0.0.1:52717/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52717/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52717/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52717/?surface=desktop&material=paper",
+    "http://127.0.0.1:52717/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52717/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52717/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52717/?surface=desktop&material=ink",
+    "http://127.0.0.1:52717/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52717/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52717/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52717/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52717/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52717/system/surface/experiments/meridian/assets/atlas-study.svg"
+  ]
+}

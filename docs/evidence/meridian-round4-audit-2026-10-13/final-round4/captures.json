@@ -1,0 +1,194 @@
+[
+  {
+    "file": "desktop-paper-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "sidebar-space-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "sidebar-conta-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "maximizada-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "desktop-varias-janelas-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "intelligence-contextual-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "central-home-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "central-dispositivos-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "tray-aberto-paper.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "compacto-maximizada-paisagem-paper.png",
+    "viewport": {
+      "width": 844,
+      "height": 390,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "desktop-ink-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "sidebar-space-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "sidebar-conta-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "maximizada-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "desktop-varias-janelas-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "intelligence-contextual-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "central-home-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "central-dispositivos-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "tray-aberto-ink.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "compacto-maximizada-paisagem-ink.png",
+    "viewport": {
+      "width": 844,
+      "height": 390,
+      "material": "ink"
+    }
+  },
+  {
+    "file": "dock-cheio-390.png",
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "central-mobile-390.png",
+    "viewport": {
+      "width": 390,
+      "height": 844,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "dock-cheio-320.png",
+    "viewport": {
+      "width": 320,
+      "height": 568,
+      "material": "paper"
+    }
+  },
+  {
+    "file": "dock-cheio-844.png",
+    "viewport": {
+      "width": 844,
+      "height": 390,
+      "material": "paper"
+    }
+  }
+]

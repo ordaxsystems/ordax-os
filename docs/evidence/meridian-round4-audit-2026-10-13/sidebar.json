@@ -1,0 +1,348 @@
+[
+  {
+    "presentation": "desktop",
+    "material": "paper",
+    "items": [
+      {
+        "name": "Trocar Space, atual: Estúdio",
+        "tooltip": "Trocar Space, atual: Estúdio",
+        "action": "panel:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Intelligence",
+        "tooltip": "Intelligence",
+        "action": "route:intelligence",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Spaces",
+        "tooltip": "Spaces",
+        "action": "route:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Aplicativos",
+        "tooltip": "Aplicativos",
+        "action": "route:apps",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Perfis",
+        "tooltip": "Perfis",
+        "action": "route:profiles",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Dispositivos",
+        "tooltip": "Dispositivos",
+        "action": "route:devices",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Descobrir",
+        "tooltip": "Descobrir",
+        "action": "route:store",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Continuidade",
+        "tooltip": "Continuidade",
+        "action": "route:activity",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Notificações",
+        "tooltip": "Notificações",
+        "action": "panel:notifications",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Ajustes",
+        "tooltip": "Ajustes",
+        "action": "route:settings",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Conta e identidade",
+        "tooltip": "Conta e identidade",
+        "action": "panel:account",
+        "current": null,
+        "title": null
+      }
+    ]
+  },
+  {
+    "presentation": "central",
+    "material": "paper",
+    "items": [
+      {
+        "name": "Trocar Space, atual: Estúdio",
+        "tooltip": "Trocar Space, atual: Estúdio",
+        "action": "panel:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Início",
+        "tooltip": "Início",
+        "action": "route:central",
+        "current": "page",
+        "title": null
+      },
+      {
+        "name": "Intelligence",
+        "tooltip": "Intelligence",
+        "action": "route:intelligence",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Spaces",
+        "tooltip": "Spaces",
+        "action": "route:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Aplicativos",
+        "tooltip": "Aplicativos",
+        "action": "route:apps",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Perfis",
+        "tooltip": "Perfis",
+        "action": "route:profiles",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Dispositivos",
+        "tooltip": "Dispositivos",
+        "action": "route:devices",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Descobrir",
+        "tooltip": "Descobrir",
+        "action": "route:store",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Continuidade",
+        "tooltip": "Continuidade",
+        "action": "route:activity",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Notificações",
+        "tooltip": "Notificações",
+        "action": "panel:notifications",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Ajustes",
+        "tooltip": "Ajustes",
+        "action": "route:settings",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Conta e identidade",
+        "tooltip": "Conta e identidade",
+        "action": "panel:account",
+        "current": null,
+        "title": null
+      }
+    ]
+  },
+  {
+    "presentation": "desktop",
+    "material": "ink",
+    "items": [
+      {
+        "name": "Trocar Space, atual: Estúdio",
+        "tooltip": "Trocar Space, atual: Estúdio",
+        "action": "panel:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Intelligence",
+        "tooltip": "Intelligence",
+        "action": "route:intelligence",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Spaces",
+        "tooltip": "Spaces",
+        "action": "route:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Aplicativos",
+        "tooltip": "Aplicativos",
+        "action": "route:apps",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Perfis",
+        "tooltip": "Perfis",
+        "action": "route:profiles",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Dispositivos",
+        "tooltip": "Dispositivos",
+        "action": "route:devices",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Descobrir",
+        "tooltip": "Descobrir",
+        "action": "route:store",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Continuidade",
+        "tooltip": "Continuidade",
+        "action": "route:activity",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Notificações",
+        "tooltip": "Notificações",
+        "action": "panel:notifications",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Ajustes",
+        "tooltip": "Ajustes",
+        "action": "route:settings",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Conta e identidade",
+        "tooltip": "Conta e identidade",
+        "action": "panel:account",
+        "current": null,
+        "title": null
+      }
+    ]
+  },
+  {
+    "presentation": "central",
+    "material": "ink",
+    "items": [
+      {
+        "name": "Trocar Space, atual: Estúdio",
+        "tooltip": "Trocar Space, atual: Estúdio",
+        "action": "panel:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Início",
+        "tooltip": "Início",
+        "action": "route:central",
+        "current": "page",
+        "title": null
+      },
+      {
+        "name": "Intelligence",
+        "tooltip": "Intelligence",
+        "action": "route:intelligence",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Spaces",
+        "tooltip": "Spaces",
+        "action": "route:spaces",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Aplicativos",
+        "tooltip": "Aplicativos",
+        "action": "route:apps",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Perfis",
+        "tooltip": "Perfis",
+        "action": "route:profiles",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Dispositivos",
+        "tooltip": "Dispositivos",
+        "action": "route:devices",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Descobrir",
+        "tooltip": "Descobrir",
+        "action": "route:store",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Continuidade",
+        "tooltip": "Continuidade",
+        "action": "route:activity",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Notificações",
+        "tooltip": "Notificações",
+        "action": "panel:notifications",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Ajustes",
+        "tooltip": "Ajustes",
+        "action": "route:settings",
+        "current": null,
+        "title": null
+      },
+      {
+        "name": "Conta e identidade",
+        "tooltip": "Conta e identidade",
+        "action": "panel:account",
+        "current": null,
+        "title": null
+      }
+    ]
+  }
+]

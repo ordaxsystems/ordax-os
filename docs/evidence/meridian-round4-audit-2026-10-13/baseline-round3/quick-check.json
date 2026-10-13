@@ -1,0 +1,33 @@
+{
+  "checks": [
+    "Desktop has no topbar or reserved top row",
+    "Desktop retains wallpaper and contextual Space",
+    "Bottom search opens focused field",
+    "Escape closes search",
+    "Ctrl K still opens search",
+    "Active app is distinguishable",
+    "Minimized app has its own state",
+    "Restore preserves draft",
+    "Contextual Intelligence identifies active app",
+    "Central retains its topbar",
+    "Central Desktop round trip preserves local text",
+    "Pending update offline is explained",
+    "Unsaved text blocks casual restart copy",
+    "Failed file write remains visible",
+    "Device loss with open work stays explicit",
+    "Expired account exposes local work only",
+    "Unavailable Space has no silent replacement or visible old work",
+    "Explicit Space re-entry restores its own draft",
+    "Space tools change without leaking previous windows",
+    "Central mobile has no horizontal overflow",
+    "Offline guest stays guest",
+    "Small Desktop tray and study marker remain visible",
+    "Small Desktop fits viewport",
+    "Small tray exposes notifications and audio",
+    "Mobile Desktop menu opens the existing account journey",
+    "Dense journey fits landscape",
+    "Reduced motion disables presentation animation"
+  ],
+  "uncaughtErrors": [],
+  "scope": "Focused Round 3 visual smoke. Independent audit not run."
+}

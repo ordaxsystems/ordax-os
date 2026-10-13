@@ -1,0 +1,42 @@
+[
+  {
+    "presentation": "desktop",
+    "material": "paper",
+    "tooltip": {
+      "color": "rgb(232, 233, 223)",
+      "background": "rgb(39, 46, 43)",
+      "fontSize": "12px"
+    },
+    "canvas": "#f4f2ed"
+  },
+  {
+    "presentation": "central",
+    "material": "paper",
+    "tooltip": {
+      "color": "rgb(232, 233, 223)",
+      "background": "rgb(39, 46, 43)",
+      "fontSize": "12px"
+    },
+    "canvas": "#f4f2ed"
+  },
+  {
+    "presentation": "desktop",
+    "material": "ink",
+    "tooltip": {
+      "color": "rgb(232, 233, 223)",
+      "background": "rgb(23, 33, 27)",
+      "fontSize": "12px"
+    },
+    "canvas": "#202824"
+  },
+  {
+    "presentation": "central",
+    "material": "ink",
+    "tooltip": {
+      "color": "rgb(232, 233, 223)",
+      "background": "rgb(23, 33, 27)",
+      "fontSize": "12px"
+    },
+    "canvas": "#202824"
+  }
+]

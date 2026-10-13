@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-13",
+  "branch": "codex/meridian-design-lab",
+  "receivedHead": "ebd58cdb83278d194313c5f215dea2788b5fde05",
+  "round4Base": "771cb98c3de077dac0b63197ff9198ca0220ee8b",
+  "codeCommit": "44d2ef0cc6ae8d0c0573e754d300e316c46dff84",
+  "main": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "classification": "C",
+  "objectiveBugsCorrected": 5,
+  "finalIndependent": {
+    "checks": 368,
+    "pass": 368,
+    "fail": 0,
+    "geometries": 12,
+    "captures": 22
+  },
+  "finalRound4Smoke": {
+    "pass": 81,
+    "exit": 0
+  },
+  "finalRound3Independent": {
+    "pass": 287,
+    "fail": 0
+  },
+  "nativeTouchHome": {
+    "checks": 37,
+    "pass": 37,
+    "fail": 0,
+    "cases": 18
+  },
+  "earlierPostCorrectionSmokes": {
+    "round1": 155,
+    "round2": 23,
+    "round3": 27,
+    "navigation": 21,
+    "note": "PASS after first four corrections; no duplicate heavy runs after the final dock-only inertia fix"
+  },
+  "journeysAtReceivedHead": {
+    "checks": 392,
+    "screens": 180,
+    "confirmationBarriers": 29,
+    "geometries": 64
+  },
+  "visualMaturity": "Freeze direction; measured final accessibility/touch refinements allowed",
+  "architecturalMaturity": "Isolated presentation and SSOT respected; preview/controller fixtures remain prototype",
+  "integrationMaturity": "Not approved; canonical gates/adapters/lifecycle/hardware evidence remain",
+  "notRun": [
+    "canonical build",
+    "Foundation complete Windows",
+    "canonical Web smoke",
+    "CI",
+    "physical touch/USB"
+  ],
+  "pushed": false
+}

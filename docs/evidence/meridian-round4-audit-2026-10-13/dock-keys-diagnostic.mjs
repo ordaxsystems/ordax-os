@@ -1,0 +1,51 @@
+import {spawn} from 'node:child_process';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {runBrowser,sleep} from '../../tools/browser-proof/chromium.mjs';
+const out=resolve(process.env.MERIDIAN_EVIDENCE_DIR??'out/meridian-round4-audit/independent');
+await mkdir(out,{recursive:true});
+const results=[],geometry=[],sidebar=[];
+const host=spawn(process.env.ORDAX_PYTHON??'python',['tools/meridian-preview/serve.py','--port','0'],{windowsHide:true,stdio:['ignore','pipe','pipe']});
+let hostLog='';host.stderr.on('data',x=>hostLog+=x);
+const origin=await new Promise((ok,no)=>{let text='';const timer=setTimeout(()=>no(Error('host timeout')),30000);host.stdout.on('data',x=>{text+=x;const m=text.match(/http:\/\/127\.0\.0\.1:\d+/);if(m){clearTimeout(timer);ok(m[0]);}});host.on('error',no);});
+try {await runBrowser(async client=>{
+ await client.send('Network.enable');
+ await client.send('Emulation.setFocusEmulationEnabled',{enabled:true});
+ const ev=async expression=>{const r=await client.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description??'evaluation');return r.result?.value;};
+ const until=async expression=>{const end=Date.now()+15000;while(!await ev(expression)){if(Date.now()>end)throw Error('timeout '+expression);await sleep(50);}};
+ const frames=()=>ev('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
+ const nav=async q=>{await client.send('Page.navigate',{url:'about:blank'});await until('location.href==="about:blank"&&document.readyState==="complete"');await client.send('Page.navigate',{url:origin+'/'+q});await until('document.readyState==="complete"&&!!document.querySelector("[data-meridian] #meridian-main")');await ev('document.fonts.ready.then(()=>true)');};
+ const action=async value=>{await ev('(()=>{const n=[...document.querySelectorAll("[data-action]")].find(n=>n.dataset.action==='+JSON.stringify(value)+'&&n.getClientRects().length&&(!document.querySelector("dialog[open]")||n.closest("dialog")));if(!n||n.disabled)throw Error("Unavailable action "+'+JSON.stringify(value)+');n.focus();n.click();})()');await frames();};
+ const fill=async(s,v)=>ev('(()=>{const n=document.querySelector('+JSON.stringify(s)+');if(!n)throw Error("Missing field");n.focus();n.value='+JSON.stringify(v)+';n.dispatchEvent(new Event("input",{bubbles:true}));})()');
+ const key=async(key,code,windowsVirtualKeyCode,modifiers=0)=>{await client.send('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode,modifiers});await client.send('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode,modifiers});await frames();};
+ const check=async(name,expr,details)=>{const pass=typeof expr==='string'?await ev(expr):expr;results.push({name,status:pass?'PASS':'FAIL',...(!pass&&details?{details}:{} )});};
+ const test=async(name,fn)=>{try{await fn();}catch(e){results.push({name,status:'FAIL',error:e.message,diagnostic:await ev('({url:location.href,ready:document.readyState,text:document.body.innerText.slice(0,1200)})').catch(()=>null)});}await writeFile(resolve(out,'checks.json'),JSON.stringify({results,geometry,sidebar},null,2));};
+ const size=(width,height)=>client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+ const route=async id=>{const visible=await ev('[...document.querySelectorAll(".md-sidebar [data-action]")].some(n=>n.dataset.action==='+JSON.stringify('route:'+id)+'&&n.getClientRects().length)');if(!visible)await key('k','KeyK',75,2);await action('route:'+id);};
+ const focusWindow=id=>ev('document.activeElement.closest("[data-window]")?.dataset.window==='+JSON.stringify(id));
+ const space=async id=>{await action('panel:spaces');await action('select-space:'+id);await action('story-next');await ev('document.querySelector(".md-journey-consent input").click()');await action('story-next');await action('story-finish');};
+ const rect=selector=>ev('document.querySelector('+JSON.stringify(selector)+').getBoundingClientRect().toJSON()');
+ const shot=async name=>{await ev('Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))');await ev('Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect.getComputedTiming().iterations)).map(a=>a.finished.catch(()=>{})))');const r=await client.send('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,name+'.png'),Buffer.from(r.data,'base64'));};
+ const context=async()=>{if(!await ev('[...document.querySelectorAll("[data-action]")].some(n=>n.dataset.action==="panel:intelligence-context"&&n.getClientRects().length)'))await action('panel:menu');await action('panel:intelligence-context');};
+ await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'('+(()=>{
+  window.__feedbackAudit={observers:[],listeners:[]};const audit=window.__feedbackAudit;
+  const Native=window.ResizeObserver;
+  window.ResizeObserver=class extends Native {constructor(callback){const record={targets:new Set(),callbacks:0};super((...args)=>{record.callbacks++;callback(...args)});this.record=record;audit.observers.push(record)}observe(target,options){this.record.targets.add(target);super.observe(target,options)}unobserve(target){this.record.targets.delete(target);super.unobserve(target)}disconnect(){this.record.targets.clear();super.disconnect()}};
+  const add=EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener=function(type,callback,options){if(this instanceof Element&&this.id==='meridian'){const record={type,active:true};audit.listeners.push(record);if(options?.signal)add.call(options.signal,'abort',()=>record.active=false,{once:true})}return add.call(this,type,callback,options)};
+ }).toString()+')()'});
+ const pointer=async selector=>{const r=await rect(selector);await client.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:r.x+r.width/2,y:r.y+r.height/2});await frames();};
+ const tooltipInfo=()=>ev('(()=>{const n=document.querySelector(".md-pointer-hint");return{hidden:n.hidden,text:n.textContent,rect:n.getBoundingClientRect().toJSON(),count:document.querySelectorAll(".md-pointer-hint").length}})()');
+ const observerInfo=()=>ev('({instances:window.__feedbackAudit.observers.length,targets:window.__feedbackAudit.observers.reduce((n,o)=>n+o.targets.size,0),detached:window.__feedbackAudit.observers.reduce((n,o)=>n+[...o.targets].filter(t=>!t.isConnected).length,0),listeners:window.__feedbackAudit.listeners.filter(l=>l.active).length})');
+ for(const [w,h] of [[390,844],[320,568],[844,390]])for(const material of ['paper','ink'])for(let repeat=0;repeat<3;repeat++)await test('touch keys '+w+'/'+material+'/'+repeat,async()=>{
+ await client.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});await size(w,h);await nav('?surface=desktop&material='+material);
+ for(const id of ['notes','files','studio'])await action('app:'+id);for(const id of ['devices','apps','profiles','settings'])await route(id);
+ const d=await rect('.md-dock');await ev('document.querySelector(".md-dock").scrollLeft=0');await frames();const x=d.right-16,end=d.left+16,y=d.y+d.height/2;
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let i=1;i<=10;i++){await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+(end-x)*i/10,y}]});await sleep(16)}await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(150);
+ await ev('document.querySelector(".md-dock-app").focus({preventScroll:true})');await key('End','End',35);await key('Home','Home',36);
+ const snap=await ev('(()=>{const d=document.querySelector(".md-dock"),b=document.querySelector(".md-dock-app");return{scroll:d.scrollLeft,focus:document.activeElement===b,dock:d.getBoundingClientRect().toJSON(),first:b.getBoundingClientRect().toJSON()}})()');geometry.push({w,h,material,repeat,immediate:snap});await check('Home immediate '+w+'/'+material+'/'+repeat,snap.focus&&snap.scroll<3,snap);
+ await sleep(200);const settled=await ev('({scroll:document.querySelector(".md-dock").scrollLeft,focus:document.activeElement===document.querySelector(".md-dock-app"),active:document.querySelector(".md-dock-app.is-active").dataset.action})');geometry.at(-1).settled=settled;await check('Home settled '+w+'/'+material+'/'+repeat,settled.focus&&settled.scroll<3&&settled.active==='app:section:settings',settled);
+ });
+ const exceptions=client.events.filter(e=>e.method==='Runtime.exceptionThrown').map(e=>e.params);await check('No uncaught errors',exceptions.length===0,exceptions);await writeFile(resolve(out,'checks.json'),JSON.stringify({results,geometry,exceptions},null,2));
+ });}finally{host.kill();await writeFile(resolve(out,'host.log'),hostLog)}
+ console.log(JSON.stringify({checks:results.length,fail:results.filter(r=>r.status==='FAIL')}));if(results.some(r=>r.status==='FAIL'))process.exitCode=1;

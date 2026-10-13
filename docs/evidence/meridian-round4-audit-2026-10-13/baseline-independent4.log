@@ -1,0 +1,15 @@
+SURFACE_BROWSER_STARTUP_MS=4319
+CHROMIUM_STDERR_BEGIN
+
+DevTools listening on ws://127.0.0.1:52029/devtools/browser/3e0e07eb-c6bb-492d-af14-3180648f03fa
+
+CHROMIUM_STDERR_END
+file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/browser-proof/chromium.mjs:237
+      throw new Error('Browser emitted a JavaScript exception');
+            ^
+
+Error: Browser emitted a JavaScript exception
+    at runBrowser (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/browser-proof/chromium.mjs:237:13)
+    at async file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round4-audit/round4-audit-smoke.mjs:11:6
+
+Node.js v26.7.0

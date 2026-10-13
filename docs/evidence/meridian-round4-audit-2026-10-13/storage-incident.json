@@ -1,0 +1,13 @@
+{
+  "error": "ENOSPC",
+  "phase": "dock-key-corrected2",
+  "checksFileBytes": 0,
+  "status": "FAIL infrastructure; no result inferred",
+  "cleanup": {
+    "scope": "Only PNGs under out/meridian-round4-audit created by this audit, except four inspected relevant intermediate captures",
+    "files": 200,
+    "bytes": 30214154,
+    "logsResultsSourceHistoryPreserved": true
+  },
+  "freeAfter": 57167872
+}

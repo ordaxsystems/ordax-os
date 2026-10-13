@@ -1,0 +1,4647 @@
+{
+  "results": [
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance desktop/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "guidance desktop paper",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'observers')\n    at <anonymous>:1:36",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nLM\nEstúdio\nSeus projetos\nna Central\nBriefing — Atlas\nReferências de forma\nEspaço para\no que vem agora.\nORDAX · MERIDIAN\nDeslize para ver mais aplicativos. No teclado, use as setas esquerda e direita, Home e End.\n84%\n09:41\nexemplo\nEstudo\nConta e identidade"
+      }
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/paper/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/paper/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance central/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "guidance central paper",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'observers')\n    at <anonymous>:1:36",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52027/?surface=central&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nEncontre o seu próximo passo\nCtrl K\nMeridian · estudo visual\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nNO SEU CONTEXTO\nCriação & design\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas.\nExatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nO que se moveu\nContinuidade\nAtlas está pronto para continuar\nHá 12 min\nUm resumo para sua próxima reunião\nHá 25 min\nReferência adicionada ao Estúdio\nOntem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo se"
+      }
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title desktop/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip desktop/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance desktop/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip desktop/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance desktop/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "guidance desktop ink",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'observers')\n    at <anonymous>:1:36",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nLM\nEstúdio\nSeus projetos\nna Central\nBriefing — Atlas\nReferências de forma\nEspaço para\no que vem agora.\nORDAX · MERIDIAN\nDeslize para ver mais aplicativos. No teclado, use as setas esquerda e direita, Home e End.\n84%\n09:41\nexemplo\nEstudo\nConta e identidade"
+      }
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Trocar Space, atual: Estúdio",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Trocar Space, atual: Estúdio",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Conta e identidade",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Conta e identidade",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "One tooltip with correct hover label central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Custom tooltip has no competing native title central/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Tooltip is within viewport central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape dismisses tooltip central/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Keyboard focus shows one tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape preserves focus and dismisses guidance central/ink/Dispositivos",
+      "status": "FAIL"
+    },
+    {
+      "name": "Focus exit removes tooltip central/ink/Dispositivos",
+      "status": "PASS"
+    },
+    {
+      "name": "Dialog excludes stale guidance central/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "guidance central ink",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'observers')\n    at <anonymous>:1:36",
+      "diagnostic": {
+        "url": "http://127.0.0.1:52027/?surface=central&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nEncontre o seu próximo passo\nCtrl K\nMeridian · estudo visual\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nNO SEU CONTEXTO\nCriação & design\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas.\nExatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nO que se moveu\nContinuidade\nAtlas está pronto para continuar\nHá 12 min\nUm resumo para sua próxima reunião\nHá 25 min\nReferência adicionada ao Estúdio\nOntem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo se"
+      }
+    },
+    {
+      "name": "Dock targets are 44x44 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Landscape compact is near 156 px paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact save remains reachable by scroll paper",
+      "status": "FAIL"
+    },
+    {
+      "name": "Collapse returns useful height paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Landscape compact is near 156 px ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact save remains reachable by scroll ink",
+      "status": "FAIL"
+    },
+    {
+      "name": "Collapse returns useful height ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Dock targets are 44x44 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Overflow indication agrees with scroll 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Native touch scrolls only dock 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "End exposes last app without activation 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Home exposes first app 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Arrow leaves foreground unchanged 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximize has exact useful edges 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact and taskbar are reserved 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Document fits without horizontal scroll 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Chrome and dock agree 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Study label is declared 12 px 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "AX controls are named 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central has no hidden Desktop active app 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No uncaught errors",
+      "status": "FAIL",
+      "details": [
+        {
+          "timestamp": 1791920531495.521,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "6120165678584417688.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920541867.55,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "6120165678584417688.3.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 3
+          }
+        },
+        {
+          "timestamp": 1791920544116.788,
+          "exceptionDetails": {
+            "exceptionId": 4,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "63",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "6120165678584417688.4.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 4
+          }
+        },
+        {
+          "timestamp": 1791920544148.697,
+          "exceptionDetails": {
+            "exceptionId": 5,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "64",
+            "url": "http://127.0.0.1:52027/?surface=central&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "6120165678584417688.5.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 5
+          }
+        },
+        {
+          "timestamp": 1791920546062.201,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-7710654272053093117.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920546090,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-7710654272053093117.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920547989.401,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "16358393407488579.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920548018.215,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=central&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "16358393407488579.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920549966.967,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-171593980051284949.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920549996.384,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-171593980051284949.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920552116.844,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-1656803042496426301.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920552148.421,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-1656803042496426301.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920554556.121,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-6952111098630987813.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920554584.411,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-6952111098630987813.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920556286.031,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-2407550383257542417.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920556317.328,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-2407550383257542417.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920558236.241,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "3180292519023362695.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920558268.799,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "3180292519023362695.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920560934.954,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-2800693780478291136.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920560972.094,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-2800693780478291136.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920563757.27,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-132723914843080906.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920563796.718,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "-132723914843080906.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920566544.167,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "9181869175762496817.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920566572.373,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "9181869175762496817.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920569861.088,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "490273367193912959.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920569889.455,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "490273367193912959.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920572395.706,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "4360079108090985577.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920572425.927,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "4360079108090985577.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920574963.409,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "8208289443662376412.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920574993.528,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "8208289443662376412.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        },
+        {
+          "timestamp": 1791920577560.526,
+          "exceptionDetails": {
+            "exceptionId": 1,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "3",
+            "url": "about:blank",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "5354041339058322060.1.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 1
+          }
+        },
+        {
+          "timestamp": 1791920577587.44,
+          "exceptionDetails": {
+            "exceptionId": 2,
+            "text": "Uncaught",
+            "lineNumber": 6,
+            "columnNumber": 2,
+            "scriptId": "5",
+            "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+            "exception": {
+              "type": "object",
+              "subtype": "error",
+              "className": "SyntaxError",
+              "description": "SyntaxError: Unexpected token '('",
+              "objectId": "5354041339058322060.2.1",
+              "preview": {
+                "type": "object",
+                "subtype": "error",
+                "description": "SyntaxError: Unexpected token '('",
+                "overflow": false,
+                "properties": [
+                  {
+                    "name": "stack",
+                    "type": "string",
+                    "value": "SyntaxError: Unexpected token '('"
+                  },
+                  {
+                    "name": "message",
+                    "type": "string",
+                    "value": "Unexpected token '('"
+                  }
+                ]
+              }
+            },
+            "executionContextId": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loopback requests only",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 492,
+        "width": 1368,
+        "height": 342,
+        "top": 492,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1440,
+      "width": 1440
+    },
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 492,
+        "width": 1368,
+        "height": 342,
+        "top": 492,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1440,
+      "width": 1440
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 410.171875,
+        "width": 952,
+        "height": 291.828125,
+        "top": 410.171875,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 702,
+        "width": 952,
+        "height": 66,
+        "top": 702,
+        "right": 1024,
+        "bottom": 768,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1024,
+      "width": 1024
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 410.171875,
+        "width": 952,
+        "height": 291.828125,
+        "top": 410.171875,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 702,
+        "width": 952,
+        "height": 66,
+        "top": 702,
+        "right": 1024,
+        "bottom": 768,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 1024,
+      "width": 1024
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 306,
+        "width": 696,
+        "height": 228,
+        "top": 306,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 534,
+        "width": 696,
+        "height": 66,
+        "top": 534,
+        "right": 768,
+        "bottom": 600,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 768,
+      "width": 768
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 306,
+        "width": 696,
+        "height": 228,
+        "top": 306,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 534,
+        "width": 696,
+        "height": 66,
+        "top": 534,
+        "right": 768,
+        "bottom": 600,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 768,
+      "width": 768
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 844,
+      "width": 844
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "area": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 844,
+      "width": 844
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 417.53125,
+        "width": 390,
+        "height": 354.46875,
+        "top": 417.53125,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 390,
+      "width": 390
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 417.53125,
+        "width": 390,
+        "height": 354.46875,
+        "top": 417.53125,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 390,
+      "width": 390
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 257.453125,
+        "width": 320,
+        "height": 238.546875,
+        "top": 257.453125,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 320,
+      "width": 320
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "area": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 257.453125,
+        "width": 320,
+        "height": 238.546875,
+        "top": 257.453125,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      },
+      "radius": "0px",
+      "fullscreen": false,
+      "page": 320,
+      "width": 320
+    }
+  ],
+  "styles": [
+    {
+      "presentation": "desktop",
+      "material": "paper",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(39, 46, 43)",
+        "fontSize": "12px"
+      },
+      "canvas": "#f4f2ed"
+    },
+    {
+      "presentation": "central",
+      "material": "paper",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(39, 46, 43)",
+        "fontSize": "12px"
+      },
+      "canvas": "#f4f2ed"
+    },
+    {
+      "presentation": "desktop",
+      "material": "ink",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(23, 33, 27)",
+        "fontSize": "12px"
+      },
+      "canvas": "#202824"
+    },
+    {
+      "presentation": "central",
+      "material": "ink",
+      "tooltip": {
+        "color": "rgb(232, 233, 223)",
+        "background": "rgb(23, 33, 27)",
+        "fontSize": "12px"
+      },
+      "canvas": "#202824"
+    }
+  ],
+  "exceptions": [
+    {
+      "timestamp": 1791920531495.521,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "6120165678584417688.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920541867.55,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "6120165678584417688.3.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 3
+      }
+    },
+    {
+      "timestamp": 1791920544116.788,
+      "exceptionDetails": {
+        "exceptionId": 4,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "63",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "6120165678584417688.4.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 4
+      }
+    },
+    {
+      "timestamp": 1791920544148.697,
+      "exceptionDetails": {
+        "exceptionId": 5,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "64",
+        "url": "http://127.0.0.1:52027/?surface=central&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "6120165678584417688.5.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 5
+      }
+    },
+    {
+      "timestamp": 1791920546062.201,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-7710654272053093117.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920546090,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-7710654272053093117.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920547989.401,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "16358393407488579.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920548018.215,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=central&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "16358393407488579.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920549966.967,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-171593980051284949.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920549996.384,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-171593980051284949.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920552116.844,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-1656803042496426301.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920552148.421,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-1656803042496426301.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920554556.121,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-6952111098630987813.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920554584.411,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-6952111098630987813.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920556286.031,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-2407550383257542417.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920556317.328,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-2407550383257542417.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920558236.241,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "3180292519023362695.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920558268.799,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "3180292519023362695.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920560934.954,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-2800693780478291136.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920560972.094,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-2800693780478291136.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920563757.27,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-132723914843080906.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920563796.718,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "-132723914843080906.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920566544.167,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "9181869175762496817.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920566572.373,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "9181869175762496817.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920569861.088,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "490273367193912959.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920569889.455,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "490273367193912959.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920572395.706,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "4360079108090985577.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920572425.927,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "4360079108090985577.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920574963.409,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "8208289443662376412.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920574993.528,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=paper",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "8208289443662376412.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    },
+    {
+      "timestamp": 1791920577560.526,
+      "exceptionDetails": {
+        "exceptionId": 1,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "3",
+        "url": "about:blank",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "5354041339058322060.1.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 1
+      }
+    },
+    {
+      "timestamp": 1791920577587.44,
+      "exceptionDetails": {
+        "exceptionId": 2,
+        "text": "Uncaught",
+        "lineNumber": 6,
+        "columnNumber": 2,
+        "scriptId": "5",
+        "url": "http://127.0.0.1:52027/?surface=desktop&material=ink",
+        "exception": {
+          "type": "object",
+          "subtype": "error",
+          "className": "SyntaxError",
+          "description": "SyntaxError: Unexpected token '('",
+          "objectId": "5354041339058322060.2.1",
+          "preview": {
+            "type": "object",
+            "subtype": "error",
+            "description": "SyntaxError: Unexpected token '('",
+            "overflow": false,
+            "properties": [
+              {
+                "name": "stack",
+                "type": "string",
+                "value": "SyntaxError: Unexpected token '('"
+              },
+              {
+                "name": "message",
+                "type": "string",
+                "value": "Unexpected token '('"
+              }
+            ]
+          }
+        },
+        "executionContextId": 2
+      }
+    }
+  ],
+  "requests": [
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/?surface=central&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/?surface=central&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=paper",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:52027/?surface=desktop&material=ink",
+    "http://127.0.0.1:52027/system/surface/ui/tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:52027/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:52027/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/interactions.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:52027/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:52027/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:52027/system/surface/experiments/meridian/assets/atlas-study.svg"
+  ]
+}

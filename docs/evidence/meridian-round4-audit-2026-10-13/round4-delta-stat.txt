@@ -1,0 +1,45 @@
+ docs/evidence/meridian-round4/attempt-2.log        |  20 +
+ docs/evidence/meridian-round4/attempt-3.log        |  18 +
+ docs/evidence/meridian-round4/captures.json        | 194 ++++++
+ .../meridian-round4/central-dispositivos-ink.png   | Bin 0 -> 118991 bytes
+ .../meridian-round4/central-dispositivos-paper.png | Bin 0 -> 118925 bytes
+ docs/evidence/meridian-round4/central-home-ink.png | Bin 0 -> 191476 bytes
+ .../meridian-round4/central-home-paper.png         | Bin 0 -> 191476 bytes
+ .../meridian-round4/central-mobile-390.png         | Bin 0 -> 65229 bytes
+ docs/evidence/meridian-round4/checks.json          | 670 +++++++++++++++++++++
+ .../compacto-maximizada-paisagem-ink.png           | Bin 0 -> 34424 bytes
+ .../compacto-maximizada-paisagem-paper.png         | Bin 0 -> 34424 bytes
+ docs/evidence/meridian-round4/coverage.md          |  92 +++
+ docs/evidence/meridian-round4/desktop-ink-1440.png | Bin 0 -> 455317 bytes
+ .../meridian-round4/desktop-paper-1440.png         | Bin 0 -> 455730 bytes
+ .../meridian-round4/desktop-varias-janelas-ink.png | Bin 0 -> 314250 bytes
+ .../desktop-varias-janelas-paper.png               | Bin 0 -> 311680 bytes
+ docs/evidence/meridian-round4/dock-cheio-320.png   | Bin 0 -> 35471 bytes
+ docs/evidence/meridian-round4/dock-cheio-390.png   | Bin 0 -> 58631 bytes
+ docs/evidence/meridian-round4/dock-cheio-844.png   | Bin 0 -> 45292 bytes
+ docs/evidence/meridian-round4/focused-run.log      |   2 +
+ .../intelligence-contextual-ink.png                | Bin 0 -> 163966 bytes
+ .../intelligence-contextual-paper.png              | Bin 0 -> 163357 bytes
+ docs/evidence/meridian-round4/maximizada-ink.png   | Bin 0 -> 38228 bytes
+ docs/evidence/meridian-round4/maximizada-paper.png | Bin 0 -> 37661 bytes
+ .../evidence/meridian-round4/sidebar-conta-ink.png | Bin 0 -> 456491 bytes
+ .../meridian-round4/sidebar-conta-paper.png        | Bin 0 -> 457071 bytes
+ .../evidence/meridian-round4/sidebar-space-ink.png | Bin 0 -> 456742 bytes
+ .../meridian-round4/sidebar-space-paper.png        | Bin 0 -> 456991 bytes
+ docs/evidence/meridian-round4/source-snapshot.json |  40 ++
+ docs/evidence/meridian-round4/tray-aberto-ink.png  | Bin 0 -> 165143 bytes
+ .../evidence/meridian-round4/tray-aberto-paper.png | Bin 0 -> 164466 bytes
+ system/surface/experiments/meridian/experience.mjs |   6 +
+ .../surface/experiments/meridian/interactions.mjs  |  59 ++
+ system/surface/experiments/meridian/meridian.css   | 214 +++----
+ .../experiments/meridian/meridian.journeys.css     |   6 +-
+ .../experiments/meridian/meridian.tokens.css       |   3 +
+ .../experiments/meridian/meridian.views.css        | 123 ++--
+ system/surface/experiments/meridian/ui.mjs         |   6 +-
+ .../surface/experiments/meridian/views/desktop.mjs |   6 +-
+ .../surface/experiments/meridian/views/panels.mjs  |   8 +-
+ .../surface/experiments/meridian/views/shell.mjs   |   8 +-
+ .../surface/experiments/meridian/views/taskbar.mjs |  17 +-
+ tools/meridian-preview/README.md                   |  16 +
+ tools/meridian-preview/round4-smoke.mjs            |  78 +++
+ 44 files changed, 1376 insertions(+), 210 deletions(-)

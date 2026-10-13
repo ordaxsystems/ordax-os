@@ -1,0 +1,670 @@
+{
+  "scope": "Round 4 focused visual/interactions proof, not independent audit or physical touch certification.",
+  "checks": [
+    {
+      "label": "Desktop no topbar paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Desktop has no Home route in sidebar paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Space pointer guidance paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Account pointer guidance paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Account has keyboard guidance paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Maximized fills available area paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Window and dock agree on foreground paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Minimized marker and accessible state paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Restoring keeps window mode paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Draft after restore paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Native edit focus preserves app DOM paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Context names visible app and valid document paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Collapsed compact is not foreground paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Central Home has page state paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Central pages keep presentation paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Central/Desktop continuity preserves draft paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Tray keeps illustrative state paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape compact plus maximized paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape compact content has vertical scroll paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape chrome touch targets paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Compact note prioritizes editor paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Low landscape rail keeps account reachable paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape fits paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Collapse gives main its space back paper",
+      "status": "PASS"
+    },
+    {
+      "label": "Desktop no topbar ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Desktop has no Home route in sidebar ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Space pointer guidance ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Account pointer guidance ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Account has keyboard guidance ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Maximized fills available area ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Window and dock agree on foreground ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Minimized marker and accessible state ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Restoring keeps window mode ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Draft after restore ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Native edit focus preserves app DOM ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Context names visible app and valid document ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Collapsed compact is not foreground ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Central Home has page state ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Central pages keep presentation ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Central/Desktop continuity preserves draft ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Tray keeps illustrative state ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape compact plus maximized ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape compact content has vertical scroll ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape chrome touch targets ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Compact note prioritizes editor ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Low landscape rail keeps account reachable ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Landscape fits ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Collapse gives main its space back ink",
+      "status": "PASS"
+    },
+    {
+      "label": "Full dock shell fits 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Dock targets at least 44px 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Overflow cue is intentional 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Native emulated touch scrolls dock 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Keyboard End reveals last dock app 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Keyboard Home reveals first dock app 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Arrow navigation preserves foreground 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Narrow maximize still fits 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Central fits 390",
+      "status": "PASS"
+    },
+    {
+      "label": "Full dock shell fits 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Dock targets at least 44px 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Overflow cue is intentional 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Native emulated touch scrolls dock 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Keyboard End reveals last dock app 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Keyboard Home reveals first dock app 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Arrow navigation preserves foreground 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Narrow maximize still fits 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Central fits 320",
+      "status": "PASS"
+    },
+    {
+      "label": "Full dock shell fits 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Dock targets at least 44px 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Overflow cue is intentional 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Native emulated touch scrolls dock 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Keyboard End reveals last dock app 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Keyboard Home reveals first dock app 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Arrow navigation preserves foreground 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Narrow maximize still fits 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Central fits 844",
+      "status": "PASS"
+    },
+    {
+      "label": "Projects consequence is Central work page",
+      "status": "PASS"
+    },
+    {
+      "label": "Toggle has the same accessible destination in menu and taskbar",
+      "status": "PASS"
+    },
+    {
+      "label": "Menu toggle explicitly returns to Central",
+      "status": "PASS"
+    },
+    {
+      "label": "Reduced motion suppresses window animation",
+      "status": "PASS"
+    },
+    {
+      "label": "Named controls in focused AX snapshot",
+      "status": "PASS"
+    },
+    {
+      "label": "No uncaught errors or external requests",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [
+    {
+      "label": "Maximized fills available area paper",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 834,
+        "top": 0,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 834,
+        "top": 0,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      }
+    },
+    {
+      "label": "Landscape compact plus maximized paper",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      }
+    },
+    {
+      "label": "Collapse gives main its space back paper",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 284,
+        "top": 0,
+        "right": 844,
+        "bottom": 284,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 284,
+        "top": 0,
+        "right": 844,
+        "bottom": 284,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 284,
+        "width": 772,
+        "height": 40,
+        "top": 284,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      }
+    },
+    {
+      "label": "Maximized fills available area ink",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 834,
+        "top": 0,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 834,
+        "top": 0,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      }
+    },
+    {
+      "label": "Landscape compact plus maximized ink",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 168,
+        "top": 0,
+        "right": 844,
+        "bottom": 168,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 168,
+        "width": 772,
+        "height": 156,
+        "top": 168,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      }
+    },
+    {
+      "label": "Collapse gives main its space back ink",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 284,
+        "top": 0,
+        "right": 844,
+        "bottom": 284,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 284,
+        "top": 0,
+        "right": 844,
+        "bottom": 284,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 284,
+        "width": 772,
+        "height": 40,
+        "top": 284,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      }
+    },
+    {
+      "label": "Narrow maximize still fits 390",
+      "primary": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 772,
+        "top": 0,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 772,
+        "top": 0,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      }
+    },
+    {
+      "label": "Narrow maximize still fits 320",
+      "primary": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 496,
+        "top": 0,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 496,
+        "top": 0,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "label": "Narrow maximize still fits 844",
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 324,
+        "top": 0,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 324,
+        "top": 0,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      }
+    }
+  ],
+  "exceptions": [],
+  "externalRequests": []
+}

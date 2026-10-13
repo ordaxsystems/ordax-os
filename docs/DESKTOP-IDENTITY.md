@@ -1605,3 +1605,9 @@ screens/29 confirmation barriers/64 geometries. Existing smokes passed 155, 23,
 27 and 21 checks. Historical failures and harness diagnostics remain separate;
 canonical Foundation/Web-browser gates remain unresolved. Main, palettes,
 contracts and adapters remain unchanged. See also the [sidebar inventory](evidence/meridian-round3-audit-2026-10-13/sidebar.md).
+
+## Meridian Round 4 independent audit — 2026-10-13
+
+The [44-item final audit](evidence/meridian-round4-audit-2026-10-13/relatorio.md) reviews actual HEAD ebd58cd and preserves the 771cb98 → 11bee9e → 8d48d01 → ebd58cd chain and prior audits. Five objective fixes cover competing tooltip titles, Escape, detached dock observation in lock/stage, active app visibility after viewport resize, and native touch inertia overriding keyboard scroll. No domain, adapter, contract, canonical palette or main change.
+
+Classification **C: approved for freezing the visual direction and measured final refinement**. Freeze Meridian materials, shell composition and orientation; stop further shell redesign rounds. The isolated architecture preserves existing owners/foreground SSOT, but preview repaint/fixtures remain prototype limits. Integration maturity remains insufficient: canonical Foundation/Web gates and physical/platform acceptance are unresolved. See the report for stage-specific gates, failures, hashes and captures; no release or merge approval.

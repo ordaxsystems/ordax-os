@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-13",
+  "branch": "codex/meridian-design-lab",
+  "head": "44d2ef0cc6ae8d0c0573e754d300e316c46dff84",
+  "base": "771cb98c3de077dac0b63197ff9198ca0220ee8b",
+  "implementation": "11bee9e7ba9a3c496e9b5f607dfea2d795e1fca0",
+  "main": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "initialTree": "clean",
+  "sourceHashes": [
+    {
+      "path": "system/surface/experiments/meridian/catalog.mjs",
+      "sha256": "d72914a7418dc32365adcb2bf948d4e95e3e2d669c38fe0f08395e19fe2f24bb"
+    },
+    {
+      "path": "system/surface/experiments/meridian/context.mjs",
+      "sha256": "3aaa2b91484101b3378326c0d08136b39e10894012010c50c7f39ca5e20e1027"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/data.mjs",
+      "sha256": "30f809105a2f685575bfa3fc7e846b225b774d96f8386e986f0867d54abca35f"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/source.mjs",
+      "sha256": "173a041ce685781029725f8a35f969ba4c2795b0d3b7ccaf1a1d43909da5b951"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/storyboards.mjs",
+      "sha256": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8"
+    },
+    {
+      "path": "system/surface/experiments/meridian/experience.mjs",
+      "sha256": "903fc08894bdaa55314d2fde45bfa0625bddcb0f26dee83723c6b097cacfaf7b"
+    },
+    {
+      "path": "system/surface/experiments/meridian/icons.mjs",
+      "sha256": "5f1ac1d60cd9fad72eb993b75a87a9bc67570cf9f8fdc2b21244bff2f0f2b7f9"
+    },
+    {
+      "path": "system/surface/experiments/meridian/interactions.mjs",
+      "sha256": "9edaf2db94f48dc1c334a1f3061022ca4bf0ef71824afe3a7ac1cd940afb6b3b"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/navigation.mjs",
+      "sha256": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/view.mjs",
+      "sha256": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.css",
+      "sha256": "f755485472d5ec65d0202dc5fd341366633e9f91feb425303fde4f4686f0b7c7"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.journeys.css",
+      "sha256": "c86248316987eb72950f4775244e6332308bb83bd4d6df8ad9feacd990857579"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.tokens.css",
+      "sha256": "2f3336c05526a6005d6e278154f0564076977d028a0d707c258a312adef1fed3"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.views.css",
+      "sha256": "f5c3bba49bc6f374ccd5175136fa8849fe032b5f72b0f19723c9cff4ab7a23b4"
+    },
+    {
+      "path": "system/surface/experiments/meridian/ui.mjs",
+      "sha256": "34b27b71590abc3d4202f83bd6cad1381a17049fbca4a440d37c21ab299c2bca"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/central.mjs",
+      "sha256": "f31a2a9f45003f08ed727cfa0cd1973a99a2c9bd134ae1153a90342cbd382dd9"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/continuity.mjs",
+      "sha256": "2f9045d61e5646d440ac165fcd07d946e553e375aba4cffc9d021005b0007bea"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/desktop.mjs",
+      "sha256": "886ef1aac818cb759d9af8c783320767135a3aef7360352d2cf78e697ec4c311"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/explore.mjs",
+      "sha256": "f2320e6e73009c4e409428a9dddbf8915df0eeb67b395fac55e5140638e8e99f"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/intelligence.mjs",
+      "sha256": "672c274bbb715f070c198957df650e7c30ecfe20fb2700c7860cc954a515e98a"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/operations.mjs",
+      "sha256": "9c454103dccb98202046a399b92cfb2410294817f74819f5485bfda5cce420d1"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/panels.mjs",
+      "sha256": "a814b46e411ce57e24758269fb04c768a54b937520960abf15dedc5553b9423e"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/shell.mjs",
+      "sha256": "86c7f2afad20edd33cced22bbedcd8144b882432fc7ae62b7ed55d8826d11265"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/taskbar.mjs",
+      "sha256": "e67f111ff3eaca25a67f1847da8d4e2e99841cf295dfceef1f4975e10b87aaa3"
+    },
+    {
+      "path": "tools/meridian-preview/browser-smoke.mjs",
+      "sha256": "90bd6325c2634a02268ee5cc0c3556db0d3710c36343278461f7e92c1b98defb"
+    },
+    {
+      "path": "tools/meridian-preview/main.mjs",
+      "sha256": "97db5760abb14b7dc079df80939173fe453f25707dbc6607b600aae8f330d238"
+    },
+    {
+      "path": "tools/meridian-preview/navigation-smoke.mjs",
+      "sha256": "3b566cafbe2b2fded000cbd5aba9221ffe47beba5898aabaab80bd65b3fdd7f1"
+    },
+    {
+      "path": "tools/meridian-preview/round2-audit-smoke.mjs",
+      "sha256": "643c14f57ca156938bd1e3044be025f44a1c70048dbe6e3fa9aeb10e184b80ae"
+    },
+    {
+      "path": "tools/meridian-preview/round2-smoke.mjs",
+      "sha256": "a0c113f156d0fec521b3c91bb605eb3fc235c747274df2de477c569ece12deec"
+    },
+    {
+      "path": "tools/meridian-preview/round3-audit-smoke.mjs",
+      "sha256": "cda1e4f3f02ff2d2d942c493a900c7c485315d9d18c3afc0585006e2567b0820"
+    },
+    {
+      "path": "tools/meridian-preview/round3-smoke.mjs",
+      "sha256": "aa51fc2c13735795763824dcbdcca683043bd048bd8fc9c29329b2261844bbdd"
+    },
+    {
+      "path": "tools/meridian-preview/round4-smoke.mjs",
+      "sha256": "0119d85684a68cb0421ac4a2424a151a20de4e31930972676ed70887f3ce27d4"
+    },
+    {
+      "path": "tools/meridian-preview/serve.py",
+      "sha256": "0befc8a7451477cb2a88286fa716163267b237839c3f36afa0f286c0d2350e7f"
+    },
+    {
+      "path": "tools/meridian-preview/round4-audit-smoke.mjs",
+      "sha256": "91c7ebe33f5db22a479afe6fbfa4a23ed722732ddc9de78a8dbb3c6074e9af17"
+    }
+  ],
+  "stage": "Final corrected source; verified-independent4, verified-round4, verified-independent3 and dock-key-corrected3"
+}

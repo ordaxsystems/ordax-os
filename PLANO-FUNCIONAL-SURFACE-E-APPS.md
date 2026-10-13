@@ -1,5 +1,7 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Auditoria independente Meridian Round 4 — 13/10/2026:** HEAD real ebd58cd, base 771cb98; cinco bugs objetivos de orientação, scroll e cleanup corrigidos. Classificação **C** para congelar direção visual e encerrar redesign do shell, com refinamento final medido. Maturidade visual suficiente; arquitetura do estudo isolada; integração/gates canônicos ainda pendentes. Sem Round 5, avanço de MVP, backend, main ou merge. [Relatório de 44 itens](docs/evidence/meridian-round4-audit-2026-10-13/relatorio.md).
+
 > **Auditoria final Meridian Round 3 — 13/10/2026:** HEAD db7b4a1 e todos os
 > follow-ups, correções objetivas em 2b609ed. Classificação **C** para próximo
 > refinamento visual; 287 checks novos e 392 de jornadas. Sem avanço automático

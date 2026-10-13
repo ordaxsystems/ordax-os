@@ -188,3 +188,13 @@ Uses the running host at 4203 and disposable Chromium. Output defaults to
 out/meridian-round4; MERIDIAN_EVIDENCE_DIR can select another proof directory.
 It covers only Round 4 refinements; emulated touch is not physical touch acceptance.
 Earlier smokes and evidence remain intact. No integration, main update or merge readiness.
+
+## Independent Round 4 audit
+
+See [the 44-item independent audit](../../docs/evidence/meridian-round4-audit-2026-10-13/relatorio.md). Classification C freezes the Meridian visual direction and allows measured final fixes. Integration, merge and canonical/physical acceptance remain separate.
+
+```sh
+node tools/meridian-preview/round4-audit-smoke.mjs
+```
+
+Starts/stops its own loopback host and uses disposable Chromium. ORDAX_PYTHON and MERIDIAN_EVIDENCE_DIR work as above. Includes six viewports in both materials, native touch followed by keyboard and another gesture, tooltip Escape, AX/geometry/motion, and observer/listener/frame cleanup. MERIDIAN_R4_AUDIT_FOCUSED=1 skips geometry cases except 844x390; it is a focused diagnostic, not the complete matrix. Previous runners and failed attempts remain preserved.

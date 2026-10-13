@@ -1,0 +1,2 @@
+SURFACE_BROWSER_STARTUP_MS=5943
+{"pass":359,"fail":[{"name":"Home exposes first app 390/ink","status":"FAIL"}],"geometry":12}
