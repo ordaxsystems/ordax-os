@@ -48,6 +48,10 @@ class PublicAccountEntryUxTests(unittest.TestCase):
             ".account-quicklinks",
             ".account-ui .identity-form[hidden]",
             ".account-ui [hidden]",
+            'grid-template-areas:"story access"',
+            "display:flex;flex-direction:column;min-height:0",
+            ":is(.login-access,.signup-access){order:1",
+            ":is(.login-story,.signup-story){order:2",
             "@media(max-width:780px)",
             "@media(max-width:440px)",
             "@media(prefers-reduced-motion:reduce)",
@@ -64,11 +68,19 @@ class PublicAccountEntryUxTests(unittest.TestCase):
             self.assertIn("/assets/site.css", styles)
             self.assertEqual(
                 [value for value in styles if "account.css" in value],
-                ["/assets/account.css?v=account-ux-2"],
+                ["/assets/account.css?v=account-ux-3"],
             )
             self.assertTrue(any(
                 name == "body" and tag.get("data-page") == route
                 and "account-ui" in tag.get("class", "").split()
+                for name, tag in parsed.tags
+            ))
+            self.assertTrue(any(
+                name == "header" and "account-header" in tag.get("class", "").split()
+                for name, tag in parsed.tags
+            ))
+            self.assertFalse(any(
+                name == "nav" and "site-nav" in tag.get("class", "").split()
                 for name, tag in parsed.tags
             ))
             self.assertNotIn('login.css', html)
@@ -143,7 +155,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
         self.assertIn(".account-ui [hidden]{display:none!important}", css)
         for route in ("login", "cadastro"):
             html, _ = self.read(route)
-            self.assertIn('href="/assets/account.css?v=account-ux-2"', html)
+            self.assertIn('href="/assets/account.css?v=account-ux-3"', html)
             self.assertIn('class="account-benefits"', html)
             self.assertIn('class="account-side-footer"', html)
             self.assertIn('class="account-quicklinks"', html)
