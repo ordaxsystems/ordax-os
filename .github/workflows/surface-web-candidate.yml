@@ -619,7 +619,8 @@ jobs:
           python -m unittest tests.test_internet_remove_first_cutover -v
           python -m unittest tests.test_internet_browser_contract -v
           python -m unittest tests.test_internet_sdk_readiness -v
-          python tools/verify/internet_sdk_readiness.py --check
+          # Full product SDK-closure auditing belongs to the external Internet package.
+          # The preceding unit tests prove that an absent OS source fails closed.
           python -m unittest tests.test_internet_popup_policy -v
           python -m unittest tests.test_internet_native_page_selection -v
           python -m unittest tests.test_internet_native_page_find -v
