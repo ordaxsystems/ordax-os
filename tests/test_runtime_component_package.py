@@ -129,7 +129,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["runtime_health_bridge_supported_components"],
-            ["internet", "notes"],
+            ["notes"],
         )
         self.assertEqual(policy["runtime_health_bridge_probe_mode"], "import-contract")
         self.assertTrue(policy["runtime_health_bridge_requires_host_nonce"])
