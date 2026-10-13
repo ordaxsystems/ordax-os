@@ -166,11 +166,24 @@ function blockedAccountMemoryMutations() {
   });
 }
 
+function reportQemuBootStage(stage) {
+  // The privileged official browser host validates the fixed stage allowlist.
+  // No token, user content or completion marker is transmitted here.
+  try {
+    window.webkit?.messageHandlers?.ordaxBrowser?.postMessage(
+      JSON.stringify({ type: "boot.diagnostic", stage }),
+    );
+  } catch {
+    // Diagnostics are observation-only and cannot affect product startup.
+  }
+}
+
 const bootScreen = createSurfaceBootScreen(document);
 let bootLocale = "pt-BR";
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
+  reportQemuBootStage("composition-started");
   const root = document.querySelector("#ordax-root");
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
@@ -471,14 +484,18 @@ async function start() {
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
-  await identityActions.refresh();
+  // The registration policy is online enrichment, never a prerequisite to
+  // seeing the real offline Surface. resumeAccountConnectivity() already
+  // refreshes this authority after the Surface has mounted and requested health.
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
     spaces,
     store: createNativeSpaceSelectionStore(window),
   });
+  reportQemuBootStage("semantics-wait");
   const verifiedAppSemantics = await verifiedAppSemanticsPromise ?? [];
+  reportQemuBootStage("semantics-complete");
   const firstPartyApplications = overlayVerifiedFirstPartyApplications(
     listFirstPartyApps(),
     verifiedAppSemantics,
@@ -888,7 +905,9 @@ async function start() {
       localAi,
     );
   }
+  reportQemuBootStage("store-wait");
   const storeCatalogComposition = await storeCatalogCompositionPromise;
+  reportQemuBootStage("store-complete");
   const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
   let storeLifecycleRequests = null;
   if (storeCatalogComposition?.verifiedCatalogPort) {
@@ -930,8 +949,10 @@ async function start() {
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
   // import or mount failure cannot turn into a failed OrdaX cold boot.
+  reportQemuBootStage("composition-mounted");
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
+  reportQemuBootStage("health-requested");
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
 
   // Account/continuity is online enrichment, not a boot-health dependency.
@@ -1149,6 +1170,7 @@ async function start() {
 }
 
 start().catch((error) => {
+  reportQemuBootStage("composition-failed");
   bootScreen.fail(bootText("surface.boot.failed"));
   console.error("OrdaX native composition failed", error);
 });

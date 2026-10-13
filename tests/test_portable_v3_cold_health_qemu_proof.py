@@ -59,7 +59,7 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         handler = text.split("handle_portable_candidate_boot() {", 1)[1].split("\n}", 1)[0]
         commit = handler.index('portable_commit_candidate "$candidate_sha"')
         applied = handler.index('record_applied "$candidate_sha" signed-release')
-        marker = handler.index("ORDAX_PORTABLE_COLD_HEALTH_COMMIT=%s\n")
+        marker = handler.index("ORDAX_PORTABLE_COLD_HEALTH_COMMIT=%s\\n")
         health = handler.index(
             'wait_for_surface_health "$candidate_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"'
         )
