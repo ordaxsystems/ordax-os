@@ -38,6 +38,46 @@ if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/netw
 else
     rescue dhcp
 fi
+# Probe-only diagnostics from kernel-owned /proc. No extra daemon or package.
+# These are observed resource measurements, NOT release-health predicates.
+measure_resources() {
+    mem_total_kib=
+    mem_available_kib=
+    while read -r label value unit; do
+        case "$label" in
+            MemTotal:) mem_total_kib=$value ;;
+            MemAvailable:) mem_available_kib=$value ;;
+        esac
+    done < /proc/meminfo
+    case "$mem_total_kib:$mem_available_kib" in
+        *[!0-9:]*|:*|*:) return 1 ;;
+    esac
+    [ "$mem_total_kib" -gt 0 ] || return 1
+    [ "$mem_available_kib" -le "$mem_total_kib" ] || return 1
+    read -r cpu user nice system idle iowait irq softirq steal remaining < /proc/stat || return 1
+    [ "$cpu" = cpu ] || return 1
+    case "$user:$nice:$system:$idle:$iowait:$irq:$softirq:$steal" in
+        *[!0-9:]*|:*|*:) return 1 ;;
+    esac
+    total_ticks=$((user + nice + system + idle + iowait + irq + softirq + steal))
+    [ "$total_ticks" -gt 0 ] || return 1
+    busy_ticks=$((total_ticks - idle - iowait))
+    process_count=0
+    for process_dir in /proc/[0-9]*; do
+        [ ! -d "$process_dir" ] || process_count=$((process_count + 1))
+    done
+    [ "$process_count" -gt 0 ] || return 1
+    read -r boot_uptime_s remainder < /proc/uptime || return 1
+    case "$boot_uptime_s" in
+        ''|*[!0-9.]*) return 1 ;;
+    esac
+    printf 'ORDAX_INDEPENDENT_METRIC_MEM_TOTAL_KIB=%s\n' "$mem_total_kib"
+    printf 'ORDAX_INDEPENDENT_METRIC_MEM_USED_KIB=%s\n' "$((mem_total_kib - mem_available_kib))"
+    printf 'ORDAX_INDEPENDENT_METRIC_CPU_BUSY_PCT=%s\n' "$((busy_ticks * 100 / total_ticks))"
+    printf 'ORDAX_INDEPENDENT_METRIC_PROCESSES=%s\n' "$process_count"
+    printf 'ORDAX_INDEPENDENT_METRIC_UPTIME_S=%s\n' "$boot_uptime_s"
+}
+measure_resources || rescue resource-metrics
 echo ORDAX_INDEPENDENT_BOOT=PASS
 umount /proof/state || rescue state-unmount
 umount /proof/base || rescue base-unmount
