@@ -172,36 +172,54 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
-def verify_surface_loopback_ip(target: Path) -> None:
-    """Exercise the exact IP tool required by the official Surface launcher.
+def verify_surface_ip_identity(target: Path) -> dict:
+    """Authenticate the built /sbin/ip without mutating host networking.
 
-    Query syntax only; NEVER configure the CI host's network interface.
+    Functional compatibility is proven later by the disposable QEMU guest.
+    This host-side step only binds identity, executable provenance and linkage.
     """
-    ip_tool = target / "sbin/ip"
-    if not ip_tool.is_file() or not os.access(ip_tool, os.X_OK):
+    target_root = target.resolve()
+    ip_entry = target / "sbin/ip"
+    if not ip_entry.is_file() or not os.access(ip_entry, os.X_OK):
         raise BaseError("Surface requires executable /sbin/ip")
-    if not ip_tool.resolve().is_relative_to(target.resolve()):
-        raise BaseError("Surface IP tool resolves outside verified target root")
+    try:
+        resolved = ip_entry.resolve(strict=True)
+        relative = resolved.relative_to(target_root).as_posix()
+    except (OSError, ValueError) as exc:
+        raise BaseError("Surface IP tool resolves outside verified target root") from exc
     try:
         version = subprocess.run(
-            [str(ip_tool), "-V"], capture_output=True, text=True,
+            [str(ip_entry), "-V"], capture_output=True, text=True,
             check=False, timeout=5,
-        )
-        address_help = subprocess.run(
-            [str(ip_tool), "address", "help"],
-            capture_output=True, text=True, check=False, timeout=5,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise BaseError("Surface IP tool is not runnable on the build host") from exc
-    if (version.returncode != 0 or
-            "ip utility, iproute2-" not in (version.stdout + version.stderr)):
+    version_text = (version.stdout + version.stderr).strip()
+    if version.returncode != 0 or not version_text.startswith("ip utility, iproute2-"):
         raise BaseError("Surface requires iproute2, not BusyBox ip")
-    usage = address_help.stdout + address_help.stderr
-    if not re.search(r"\breplace\b", usage):
-        raise BaseError("Surface IP tool cannot prove address replace syntax")
+
+    file_identity = run("file", "-b", str(resolved)).strip()
+    if "ELF 64-bit LSB" not in file_identity or "x86-64" not in file_identity:
+        raise BaseError("Surface iproute2 binary has unexpected ELF identity")
+    dynamic = run("readelf", "-d", str(resolved))
+    needed = sorted(set(re.findall(r"\(NEEDED\).*?\[(.+?)\]", dynamic)))
+    if needed:
+        raise BaseError(f"Surface iproute2 unexpectedly has dynamic dependencies: {needed}")
+    if "statically linked" not in file_identity:
+        raise BaseError("Surface iproute2 must follow the static Independent Base linkage contract")
+    return {
+        "entrypoint": "/sbin/ip",
+        "resolved_target_path": "/" + relative,
+        "sha256": digest(resolved),
+        "version": version_text,
+        "elf_identity": file_identity,
+        "linkage": "static",
+        "dynamic_dependencies": needed,
+        "buildroot_symbol": "BR2_PACKAGE_IPROUTE2=y",
+    }
 
 
-def verify_target(target: Path) -> None:
+def verify_target(target: Path) -> dict:
     if not BUSYBOX_FRAGMENT.is_file() or BUSYBOX_FRAGMENT.is_symlink():
         raise BaseError("canonical BusyBox handoff config fragment is missing or unsafe")
     fragment_lines = BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
@@ -219,7 +237,7 @@ def verify_target(target: Path) -> None:
     for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
         if (target / name).exists():
             raise BaseError(f"Alpine/APK dependency found: {name}")
-    verify_surface_loopback_ip(target)
+    surface_iproute2 = verify_surface_ip_identity(target)
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
     missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
@@ -261,6 +279,7 @@ def verify_target(target: Path) -> None:
                     raise BaseError("BusyBox flock granted a lock already owned by another process")
             finally:
                 fcntl.flock(locked, fcntl.LOCK_UN)
+    return surface_iproute2
 
 
 def build(out: Path, cache: Path, jobs: int) -> dict:
@@ -270,7 +289,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         raise BaseError("output must be outside the source repository")
     if out.exists() and any(out.iterdir()):
         raise BaseError("output directory must be new or empty")
-    for prog in ("make", "mkfs.erofs", "fsck.erofs", "blkid"):
+    for prog in ("make", "mkfs.erofs", "fsck.erofs", "blkid", "file", "readelf"):
         if not shutil.which(prog):
             raise BaseError(f"required host build/proof tool is missing: {prog}")
     out.mkdir(parents=True, exist_ok=True)
@@ -299,7 +318,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
                 raise BaseError(f"Buildroot rejected required configuration {key}")
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         target = build_dir / "target"
-        verify_target(target)
+        surface_iproute2 = verify_target(target)
         images = build_dir / "images"
         for name in ("rootfs.cpio.gz", "rootfs.tar"):
             if not (images / name).is_file():
@@ -325,7 +344,8 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
-            "surface_loopback_iproute2_verified": True,
+            "surface_iproute2_identity_verified": True,
+            "surface_iproute2": surface_iproute2,
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
             "busybox_handoff_runtime_features_verified": True,
@@ -355,8 +375,21 @@ def verify(out: Path) -> dict:
         raise BaseError("BusyBox handoff config fragment provenance drift")
     if report.get("busybox_handoff_config_sha256") != digest(BUSYBOX_FRAGMENT):
         raise BaseError("BusyBox handoff config fragment SHA-256 drift")
-    if report.get("surface_loopback_iproute2_verified") is not True:
-        raise BaseError("Surface iproute2 capability proof missing")
+    if report.get("surface_iproute2_identity_verified") is not True:
+        raise BaseError("Surface iproute2 identity proof missing")
+    surface_iproute2 = report.get("surface_iproute2")
+    if not isinstance(surface_iproute2, dict):
+        raise BaseError("Surface iproute2 provenance missing")
+    if surface_iproute2.get("entrypoint") != "/sbin/ip":
+        raise BaseError("Surface iproute2 entrypoint provenance drift")
+    if surface_iproute2.get("buildroot_symbol") != "BR2_PACKAGE_IPROUTE2=y":
+        raise BaseError("Surface iproute2 Buildroot provenance drift")
+    if surface_iproute2.get("linkage") != "static" or surface_iproute2.get("dynamic_dependencies") != []:
+        raise BaseError("Surface iproute2 dependency provenance drift")
+    if not HASH.fullmatch(str(surface_iproute2.get("sha256", ""))):
+        raise BaseError("Surface iproute2 binary digest invalid")
+    if not str(surface_iproute2.get("version", "")).startswith("ip utility, iproute2-"):
+        raise BaseError("Surface iproute2 version provenance invalid")
     if report.get("busybox_handoff_runtime_features_verified") is not True:
         raise BaseError("BusyBox applet feature proof absent from provenance")
     if report.get("canonical_portable_handoff_source") != str(CANONICAL_HANDOFF.relative_to(ROOT)):

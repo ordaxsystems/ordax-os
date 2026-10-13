@@ -1,17 +1,23 @@
-# Paridade de /sbin/ip da Surface — primeira entrega de substituição Alpine
+# Paridade de `/sbin/ip` da Surface ? primeiro slice da substitui??o do Alpine
 
-**Owner**: `bootstrap/independent-base` / issue #1730. **Status**: candidato experimental; não substitui o Stable, o Creator, o PID1, o Supervisor, os runtimes gráficos assinados ou o USB do outro responsável.
+**Owner:** `bootstrap/independent-base` / issue #1730. **Status:** candidato experimental; n?o substitui Stable, Creator, PID1, Supervisor, runtimes gr?ficos assinados nem o USB sob responsabilidade de outro owner.
 
 ## Bloqueio observado
 
-O artefato autenticado da execução [#38449110078](https://github.com/ordaxsystems/ordax-os/actions/runs/38449110078) incluía `/sbin/ip -> ../bin/busybox` na base mínima. O binário BusyBox 1.38.0 expõe `ip addr add|del`, `show|flush`, mas não `ip address replace`. O launcher oficial `system/surface/bin/ordax-surface` invoca `/sbin/ip address replace 127.0.0.1/8 dev lo`. A compatibilidade não é demonstrada pela mera presença do applet.
+A prova anterior da base m?nima continha `/sbin/ip -> ../bin/busybox`. O applet BusyBox dispon?vel n?o comprovava o contrato usado pelo launcher can?nico `system/surface/bin/ordax-surface`, que executa `/sbin/ip address replace 127.0.0.1/8 dev lo`. Presen?a de pacote, applet ou texto de ajuda n?o ? prova de compatibilidade funcional.
 
-## Correção
+## Corre??o e prova
 
-A fonte Buildroot fixa o pacote mínimo `iproute2` e verifica a seleção efetiva em `.config`. Após a compilação, o verificador único `bootstrap/independent-base/build.py` executa **somente comandos de identificação/ajuda** no binário real de `/sbin/ip` do rootfs: `-V` deve identificar iproute2 e `address help` deve anunciar `replace`. Nenhuma mudança de interface, endereço, route ou configuração de rede é executada no host. Recibo de proveniência passa a registrar a prova; `verify` rejeita a ausência do campo.
+O perfil Buildroot seleciona `BR2_PACKAGE_IPROUTE2=y` e o fragmento can?nico do BusyBox desativa `CONFIG_IP`, mantendo uma ?nica implementa??o de `ip`. O pacote n?o introduz daemon residente.
 
-O pacote `iproute2` não acrescenta daemon residente. BusyBox segue como fonte única dos outros applets necessários; DHCP reutiliza `bootstrap/network/bring-up` e `udhcpc.script`.
+No build, `bootstrap/independent-base/build.py` autentica o `/sbin/ip` realmente produzido: caminho resolvido dentro do rootfs, SHA-256, vers?o iproute2, identidade ELF x86-64 e linkagem est?tica sem depend?ncias din?micas. Essa etapa n?o altera interfaces, endere?os ou rotas do host da CI.
+
+A compatibilidade funcional ? comprovada separadamente no guest QEMU descart?vel j? usado pela Independent Base. O probe executa exatamente `/sbin/ip address replace 127.0.0.1/8 dev lo`, registra o c?digo de sa?da e consulta o IPv4 de `lo`; a prova s? passa com exit code `0` e `127.0.0.1/8` efetivamente aplicado. O recibo QEMU vincula esse resultado ? identidade iproute2 autenticada no provenance do mesmo build.
+
+DHCP continua usando o contrato can?nico `bootstrap/network/bring-up` e `udhcpc.script`; esta entrega n?o cria outro gerenciador de rede.
 
 ## Limites e medidas
 
-Antes do acréscimo, o EROFS mínimo tinha **839.680 bytes** e o initramfs gzip **559.808 bytes** (fonte de mesmo run, SHA da prova em artefato; somente probe QEMU). O delta real de bytes, RAM, processos e tempo deve ser extraído dos recibos CI do novo SHA; não inferir ganhos nem perdas sem execução. Este slice elimina **o bloqueio de sintaxe do comando ip**; não comprova interface Wi-Fi funcional, módulos, firmware, TLS, Surface no notebook, nem substituição do runtime gráfico. O próximo corte exigirá os binários `iw`/`wpa_supplicant` usados pelo broker e provas específicas do hardware suportado. A base Alpine do MVP USB fica intocada até o cutover aprovado.
+Este slice comprova somente a compatibilidade espec?fica de `/sbin/ip` exigida pela Surface. N?o comprova paridade completa de rede, Wi-Fi funcional, `iw`, `wpa_supplicant`, certificados, firmware, drivers, hardware Surface f?sico ou promo??o da Independent Base para produ??o.
+
+O delta real de tamanho, RAM, processos e tempo deve vir dos recibos do CI no SHA desta entrega. N?o inferir ganhos ou perdas a partir de builds anteriores. A Stable/Alpine do MVP USB permanece intacta at? o cutover formalmente aprovado.

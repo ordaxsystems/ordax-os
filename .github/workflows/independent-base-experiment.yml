@@ -37,7 +37,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
             libelf-dev dwarves kmod xz-utils pkg-config \
-            gawk cpio unzip rsync file wget curl patch git \
+            gawk cpio unzip rsync file binutils wget curl patch git \
             erofs-utils e2fsprogs util-linux qemu-system-x86
       - name: Verify isolated contract and regressions
         run: |
