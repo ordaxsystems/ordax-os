@@ -36,6 +36,14 @@ A validação de owner do app instalado agora usa
 `EXTERNAL_FIRST_PARTY_OWNER`, gerada a partir do mapa canônico de
 pacotes, sem outra string de proprietário duplicada.
 
+## Raiz DOM dedicada para runtime externo — 13/10/2026
+
+A composição Native passa ao carregador a raiz compartilhada da Surface. Essa raiz é o pai de montagem do host, não o container de um aplicativo individual. O carregador de slot atual agora valida esse pai antes de fetch/import e, somente após revalidar a identidade do slot e obter o contexto confiável, cria um `div` vazio por componente com `data-ordax-component-root` e `display: contents`. Apenas esse elemento é passado como `context.root` ao runtime.
+
+O ciclo de vida do elemento acompanha o runtime: ele é removido em `destroy()`, falha de montagem, timeout ou divergência de identidade detectada na revalidação pós-mount. Isso faz o contrato de raiz vazia respeitado por Files funcionar sem pedir ao aplicativo que limpe a Surface compartilhada e sem modificar a política de confiança, ativação de slot ou ownership bundled de Files. Este é um limite de montagem DOM, não um sandbox contra código externo hostil.
+
+A regressão usa a Surface já ocupada, verifica que o runtime recebe um filho vazio por componente e comprova a limpeza em destroy, timeout e mudança de identidade. Os testes Native/Files relevantes passam juntos: **40/40 PASS**; `node --check` e `git diff --check` também passaram.
+
 ## Provas
 
 - 30 testes JS com Node PASS: Native installed apps, catálogo Surface,
