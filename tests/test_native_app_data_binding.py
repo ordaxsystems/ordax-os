@@ -26,7 +26,7 @@ from native_app_data_binding import (  # noqa: E402
     NativeAppDataBindingRegistry,
     handle_bound_app_data_request,
 )
-from native_app_data_endpoint import AppDataEndpointRequestError  # noqa: E402
+from native_app_data_endpoint import AppDataEndpointRequestError, handle_app_data_request  # noqa: E402
 from native_app_data import (  # noqa: E402
     create_app_data_checkpoint,
     put_app_data,
@@ -182,6 +182,29 @@ class NativeAppDataBindingTest(unittest.TestCase):
         rotated = restarted.mint_from_receipt(updated)
         self.assertIsNone(restarted.resolve(preserved.endpoint))
         self.assertIs(restarted.resolve(rotated.endpoint), rotated)
+
+    def test_direct_app_endpoint_cannot_omit_recovery_check(self):
+        registry = self.registry()
+        current = registry.mint_from_receipt(self.write_receipt())
+        identity = current.app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        put_app_data(identity, "key", b"before", 0, root=str(self.data_root))
+        create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        # Even the typed handler, called without a binding registry or an
+        # optional version hint, must fail closed. Not only the HTTP host.
+        with self.assertRaisesRegex(AppDataEndpointRequestError, "requires trusted recovery") as conflict:
+            handle_app_data_request(
+                b'{"action":"get","key":"key"}',
+                identity=identity, root=str(self.data_root),
+            )
+        self.assertEqual(conflict.exception.status_code, 409)
+        with self.assertRaisesRegex(AppDataEndpointRequestError, "requires trusted recovery") as denied:
+            handle_app_data_request(
+                b'{"action":"delete","key":"key","expectedRevision":1}',
+                identity=identity, root=str(self.data_root),
+            )
+        self.assertEqual(denied.exception.status_code, 409)
+        self.assertEqual(registry.active_binding_count(), 1)
 
     def test_boot_rejects_incomplete_partition_and_mixed_receipt_batch(self):
         original = self.write_receipt()
