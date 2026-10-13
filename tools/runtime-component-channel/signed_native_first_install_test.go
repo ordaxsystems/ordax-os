@@ -125,18 +125,17 @@ func TestSignedFirstInstallRejectsCorruptActiveGraph(t *testing.T) {
 	}
 }
 
-
 func TestSignedStatefulReinstallAfterRemovalRequiresRecovery(t *testing.T) {
 	stateful := &compatibilityState{
 		ID: "ordax.internet.state", WriteVersion: 1,
 		ReadableFrom: 1, ReadableThrough: 1,
 	}
 	cases := []struct {
-		name       string
-		source     *compatibilityState
-		reinstall  *compatibilityState
-		reuseSlot  bool
-		legacy     bool
+		name      string
+		source    *compatibilityState
+		reinstall *compatibilityState
+		reuseSlot bool
+		legacy    bool
 	}{
 		{
 			name: "same exact signed stateful slot",
