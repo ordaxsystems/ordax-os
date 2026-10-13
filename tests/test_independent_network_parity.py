@@ -20,6 +20,8 @@ class IndependentIPParity(unittest.TestCase):
     def test_real_product_contract_matches_buildroot_profile(self):
         profile = (BASE / "configs/ordax_minimal_defconfig").read_text(encoding="utf-8")
         self.assertEqual(profile.splitlines().count("BR2_PACKAGE_IPROUTE2=y"), 1)
+        fragment = (BASE / "configs/portable-handoff.busybox.fragment").read_text(encoding="utf-8")
+        self.assertEqual(fragment.splitlines().count("# CONFIG_IP is not set"), 1)
         surface = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
         self.assertIn('/sbin/ip address replace 127.0.0.1/8 dev lo', surface)
         self.assertIn('verify_surface_loopback_ip(target)', (BASE / "build.py").read_text(encoding="utf-8"))
