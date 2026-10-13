@@ -22,13 +22,13 @@ test("bundled first-party semantics cover internal apps without duplicating exte
   const ids = manifests.map((manifest) => manifest.appId).sort();
   assert.deepEqual(ids, [
     "account",
-    "activity",
     "files",
     "settings",
     "system",
   ]);
   assert.equal(ids.includes("studio"), false);
   assert.equal(ids.includes("assistant"), false, "source not transferred/installed while Gate A is pending");
+  assert.equal(ids.includes("activity"), false, "Activity Gate A must remain fail-closed");
   for (const manifest of manifests) {
     assert.equal(manifest.authority, "none");
     assert.equal(manifest.execution, "declarative-only");

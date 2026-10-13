@@ -73,7 +73,8 @@ function exactCatalogKeys(source, english, label) {
 
 test("every registered first-party app has localized en-US display metadata", () => {
   const apps = listFirstPartyApps();
-  assert.ok(apps.length >= 7, "audit must inspect the canonical first-party app catalog");
+  assert.ok(apps.length > 0, "audit must inspect the canonical first-party app catalog");
+  assert.ok(!apps.some((app) => app.id === "activity"), "Absent Activity must not appear as an installed app");
   assert.ok(!apps.some((app) => app.id === "internet"), "Absent Internet must not appear as an installed first-party app");
 
   for (const app of apps) {

@@ -33,6 +33,5 @@ NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({
 })
 
 NATIVE_PROBATION_COMPONENT_IDS = frozenset({
-    "internet",
     "notes",
 })
