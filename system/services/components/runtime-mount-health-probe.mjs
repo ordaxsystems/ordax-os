@@ -16,13 +16,30 @@ function validateTimeout(value) {
   return value;
 }
 
-function assertPendingRuntimeUrl(runtimeUrl, componentId) {
+function assertPendingRuntimeUrl(runtimeUrl, pending) {
   if (typeof runtimeUrl !== "string") {
     throw new TypeError("Component mount-health runtime URL must be text");
   }
-  const needle = `/__ordax/native/component-module/${componentId}/pending/`;
-  if (!runtimeUrl.includes(needle)) {
-    throw new TypeError("Component mount-health runtime URL is not pending-slot bound");
+  let url;
+  try {
+    url = new URL(runtimeUrl);
+  } catch {
+    throw new TypeError("Component mount-health runtime URL must be absolute");
+  }
+  const expectedPath =
+    `/__ordax/native/component-module/${pending.componentId}/pending/`
+    + `${pending.version}/${pending.sourceCommit}/${pending.entrypoint}`;
+  if (
+    url.protocol !== "http:"
+    || url.hostname !== "127.0.0.1"
+    || !url.port
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+    || url.pathname !== expectedPath
+  ) {
+    throw new TypeError("Component mount-health runtime URL is not exact pending-slot identity");
   }
 }
 
@@ -54,7 +71,7 @@ export function createRuntimeMountHealthCheck({
       componentId: id,
       version: pending.version,
     });
-    assertPendingRuntimeUrl(runtimeUrl, id);
+    assertPendingRuntimeUrl(runtimeUrl, pending);
 
     const mountContext = createComponentMountContext(context, id, {
       label: "Component mount-health",
