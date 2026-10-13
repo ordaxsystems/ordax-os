@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -444,16 +445,81 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("reap_stale_runtime_processes()", text)
         self.assertIn("clear_stale_runtime_mounts()", text)
         self.assertIn('root_target=$(/bin/busybox readlink "$root_link"', text)
-        self.assertIn('[ "$root_target" = "$RUNTIME_ROOT" ] || continue', text)
+        self.assertIn('"$RUNTIME_ROOT"|"$LEGACY_RUNTIME_ROOT"', text)
+        self.assertIn('stale_pids=$(runtime_root_processes) || return 1', text)
+        self.assertIn('runtime processes remain after bounded SIGKILL; refusing mount teardown', text)
+        self.assertIn('cleanup refused; runtime chroot remains active', text)
+        self.assertIn('reap_stale_runtime_processes || fallback_with_reason', text)
         self.assertIn('kill -KILL "$pid"', text)
         self.assertIn('terminate_child "$GRAPHICS_PID" "graphics host"', text)
         self.assertIn('terminate_child "$HTTP_PID" "native HTTP host"', text)
         self.assertLess(
-            text.index("reap_stale_runtime_processes\nclear_stale_runtime_mounts"),
+            text.index('reap_stale_runtime_processes || fallback_with_reason'),
             text.index('ensure_runtime || fallback_with_reason'),
         )
         self.assertNotIn("pkill ", text)
         self.assertNotIn("killall ", text)
+
+    def test_runtime_reaper_sends_kill_and_waits_for_real_process_exit(self):
+        text = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        function = "reap_stale_runtime_processes() {" + text.split(
+            "reap_stale_runtime_processes() {", 1
+        )[1].split("\n}", 1)[0] + "\n}"
+        # This exercises the production reaper with a real Linux child.
+        # Only /proc/root enumeration is substituted: entering a chroot
+        # would require privileges not available to Foundation CI.
+        child = subprocess.Popen(
+            [
+                sys.executable,
+                "-u",
+                "-c",
+                "import signal,time; "
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+                "print('ready',flush=True); time.sleep(60)",
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            self.assertEqual(child.stdout.readline().strip(), "ready")
+            script = (
+                "HOST_LOG=/dev/null\n"
+                "runtime_root_processes() {\n"
+                f"  if [ -r /proc/{child.pid}/status ] && "
+                f"! grep -q '^State:[[:space:]]*Z' /proc/{child.pid}/status; then\n"
+                f"    printf '%s\\n' {child.pid}\n"
+                "  fi\n"
+                "}\n" + function + "\nreap_stale_runtime_processes\n"
+            )
+            result = subprocess.run(
+                ["sh", "-c", script], capture_output=True, text=True, timeout=12
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertLess(child.wait(timeout=3), 0)
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=3)
+            child.stdout.close()
+
+    def test_runtime_reaper_refuses_unverified_process_survivor(self):
+        text = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        function = "reap_stale_runtime_processes() {" + text.split(
+            "reap_stale_runtime_processes() {", 1
+        )[1].split("\n}", 1)[0] + "\n}"
+        # A permanently observed live process must never be treated as
+        # quiesced merely because TERM/SIGKILL commands returned success.
+        script = (
+            "HOST_LOG=/dev/null\n"
+            "runtime_root_processes() { printf '43210\\n'; }\n"
+            "kill() { return 0; }\n"
+            + function
+            + "\nreap_stale_runtime_processes\n"
+        )
+        result = subprocess.run(
+            ["sh", "-c", script], capture_output=True, text=True, timeout=12
+        )
+        self.assertNotEqual(result.returncode, 0)
 
     def test_native_host_clears_only_stale_seatd_socket(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
