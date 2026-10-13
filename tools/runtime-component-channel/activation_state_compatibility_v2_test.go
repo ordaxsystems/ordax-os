@@ -243,7 +243,6 @@ func TestSignedUpgradeCannotIntroduceOrTightenMandatoryRequirements(t *testing.T
 	}
 }
 
-
 func TestSignedStatefulUninstallRequiresRealQuiescenceAndRecovery(t *testing.T) {
 	fixture := makeActivationV2Fixture(t)
 	candidate := addActivationV2CandidateWithState(
