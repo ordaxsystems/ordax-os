@@ -22,7 +22,7 @@ test("Native probation composition wires adapter and pure service", async () => 
   const fetched = [];
   const imported = [];
   const result = await runNativePendingComponentProbation({
-    componentId: "internet",
+    componentId: "notes",
     windowRef: windowRef(),
     fetchImpl: async (url, options) => {
       fetched.push({ url, options });
@@ -31,13 +31,13 @@ test("Native probation composition wires adapter and pure service", async () => 
         status: 200,
         async json() {
           return {
-            componentId: "internet",
+            componentId: "notes",
             state: "pending",
             source: "slot",
             revision: 11,
-            version: "0.4.0",
+            version: "0.4.1",
             sourceCommit: COMMIT,
-            entrypoint: "system/apps/internet/runtime.mjs",
+            entrypoint: "system/apps/notes/src/runtime.mjs",
             pendingHealth: "unknown",
           };
         },
@@ -48,8 +48,8 @@ test("Native probation composition wires adapter and pure service", async () => 
       return {
         componentRuntime: Object.freeze({
           schema: COMPONENT_RUNTIME_SCHEMA,
-          componentId: "internet",
-          version: "0.4.0",
+          componentId: "notes",
+          version: "0.4.1",
           async mount() {
             return { destroy() {} };
           },
@@ -60,7 +60,7 @@ test("Native probation composition wires adapter and pure service", async () => 
   });
 
   assert.equal(NATIVE_COMPONENT_PROBATION_SCHEMA, "ordax.native-component-probation/1");
-  assert.equal(result.componentId, "internet");
+  assert.equal(result.componentId, "notes");
   assert.equal(result.revision, 11);
   assert.equal(result.health, "healthy");
   assert.equal(result.probeMode, "import-contract");
@@ -69,16 +69,16 @@ test("Native probation composition wires adapter and pure service", async () => 
   assert.match(
     imported[0],
     new RegExp(
-      "/__ordax/native/component-module/internet/pending/0\\.4\\.0/"
+      "/__ordax/native/component-module/notes/pending/0\\.4\\.1/"
       + COMMIT
-      + "/system/apps/internet/runtime\\.mjs$",
+      + "/system/apps/notes/src/runtime\\.mjs$",
     ),
   );
 });
 
 test("Native probation composition preserves non-actionable missing pending", async () => {
   const result = await runNativePendingComponentProbation({
-    componentId: "internet",
+    componentId: "notes",
     windowRef: windowRef(),
     fetchImpl: async () => ({
       ok: false,

@@ -14,14 +14,11 @@ import { createNativeBrowserSearchPreferencesStore } from "../../adapters/native
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
-import { createNativePersonalActivityExport } from "../../adapters/native/personal-activity-export.mjs";
 import { createNativeRecentFilesStore } from "../../adapters/native/recent-files.mjs";
 import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
-import { createPersonalActivityExportDocument } from "../../services/personal-ordax/export.mjs";
-import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -71,7 +68,6 @@ import {
 } from "./verified-installed-apps.mjs";
 import { listBundledFirstPartyIntelligenceManifests } from "../../apps/intelligence-catalog.mjs";
 import { createComponentManager } from "../../services/components/manager.mjs";
-import { loadOptionalComponentRuntime } from "../../services/components/runtime-loader.mjs";
 import { createRecentFilesRuntime } from "../../services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
@@ -548,9 +544,6 @@ async function start() {
   const personalOrdaxActionCatalog = createPersonalActionCatalog({
     registrations: personalOrdaxFileActions?.actionRegistrations ?? [],
   });
-  const personalActivityExport = fileSpace === null
-    ? null
-    : createNativePersonalActivityExport(fileSpace);
   const personalOrdax = await optionalNativeProbe(
     "OrdaX Personal runtime unavailable",
     () => createNativePersonalOrdaxComposition({
@@ -931,22 +924,7 @@ async function start() {
 
   bootScreen.setStage(surface.localization.translate("surface.boot.loadingApps"));
 
-  const activityComponent = await loadOptionalComponentRuntime({
-    componentId: "activity",
-    importer: () => import("../../apps/activity/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      surfaceLifecycle: surface,
-      personalOrdax,
-      activityExport: personalActivityExport,
-      createExportDocument: createPersonalActivityExportDocument,
-      projectWorkCanvas: projectPersonalWorkCanvas,
-    },
-    onError(error) {
-      reportClientDiagnostic("activity-runtime", error);
-    },
-  });
+
 
 
   // External app code receives only its own App Data binding and the
@@ -1046,7 +1024,6 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
-      activityComponent?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();

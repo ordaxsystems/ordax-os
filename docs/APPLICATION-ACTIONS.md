@@ -528,7 +528,7 @@ A sugestão antiga não é aceita depois de troca de conta, mudança de revisão
 de Work ou perda de Space/Project. O usuário pode descartá-la/revogar sua
 preparação. Os testes ficam em
 `tests/test_application_action_preparation_composition.mjs` e
-`tests/test_personal_ordax_activity_surface.mjs`.
+`migrations/activity.source-snapshot.json` no repositório `ordax-apps` (prova do componente transferida com o Gate B).
 
 Este corte **não** habilita ações reais nos aplicativos: a implementação de
 grants, consentimento e adapter verificado para cada ação continua sendo

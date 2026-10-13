@@ -14,7 +14,6 @@ import {
 } from "../system/apps/assistant/ui/conversation-controls.mjs";
 import { projectPersonalWorkCanvas } from "../system/services/intelligence/work-canvas.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
-import { activityApp } from "../system/apps/activity/app.mjs";
 
 // Tests consume the real canonical Intelligence projection through the same explicit port.
 const projectAssistantWorkStrip = (snapshot, identity, selection) =>
@@ -573,7 +572,7 @@ test("verified pending Work can request Activity navigation only through canonic
       reason: "Leitura requer aprovação",
     });
     assert.equal(openAssistantWorkInActivity(runtime, id, space, activation, waiting.id), true);
-    assert.deepEqual(calls, [{ appId: activityApp.id, target: null }]);
+    assert.deepEqual(calls, [{ appId: "activity", target: null }]);
     assert.equal(runtime.getSnapshot().workItems[0].state, "waiting-approval");
     assert.equal(runtime.getSnapshot().approvals[0].status, "pending");
     assert.equal(runtime.getSnapshot().attempts.length, 0);
