@@ -33,6 +33,7 @@ on:
       - 'system/contracts/file-space.mjs'
       - 'system/contracts/project-*.mjs'
       - 'system/services/components/**'
+      - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
@@ -90,6 +91,7 @@ on:
       - 'system/contracts/file-space.mjs'
       - 'system/contracts/project-*.mjs'
       - 'system/services/components/**'
+      - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
@@ -152,6 +154,7 @@ jobs:
           python -m unittest tests.test_runtime_component_package -v
           python -m unittest tests.test_runtime_component_trust_promotion -v
           node --test tests/test_component_probation_loader.mjs
+          node --test tests/test_component_mount_health_probe.mjs
           node --test tests/test_verified_current_component_runtime.mjs
           node --test tests/test_native_verified_installed_apps.mjs
           node --test tests/test_component_probation_orchestrator.mjs
