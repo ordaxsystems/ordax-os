@@ -1,4 +1,5 @@
 import { createSidebarMarkup } from "./sidebar-layout.mjs";
+import { presentationDestination } from "../workspace/presentation.mjs";
 import { projectSidebarAccount, sidebarAccountMarkup } from "./sidebar-account.mjs";
 import { assertLocalizationPort } from "../../contracts/localization.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
@@ -6,6 +7,18 @@ import {
   REGIONAL_LOCALE_PREFERENCE_ID,
   REGIONAL_TIME_ZONE_PREFERENCE_ID,
 } from "../../services/preferences/regional.mjs";
+
+export function syncDesktopPresentationToggle(button, presentation, localization) {
+  const destination = presentationDestination(presentation);
+  const label = localization.translate(destination.labelId);
+  button.setAttribute("aria-pressed", String(presentation === "desktop"));
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  if (button.dataset.presentationDestination !== destination.target) {
+    button.querySelector(".ordax-rail-icon").innerHTML = destination.target === "desktop" ? ICONS.system : ICONS.presentation;
+    button.dataset.presentationDestination = destination.target;
+  }
+}
 
 const SURFACE_LOCALE = "pt-BR";
 const SURFACE_TIME_ZONE = "America/Bahia";
@@ -141,7 +154,7 @@ export function createDesktopShellMarkup(localization) {
             <time data-ordax-tray-clock>--:--</time>
           </button>
         </div>
-        <button type="button" class="ordax-presentation-toggle" data-presentation-toggle aria-pressed="false" aria-label="${t("shell.presentation.desktop")}" title="${t("shell.presentation.desktop")}"><span class="ordax-rail-icon">${ICONS.presentation}</span></button>
+        <button type="button" class="ordax-presentation-toggle" data-presentation-toggle data-presentation-destination="desktop" aria-pressed="false" aria-label="${t("shell.presentation.desktop")}" title="${t("shell.presentation.desktop")}"><span class="ordax-rail-icon">${ICONS.system}</span></button>
       </footer>
 
       <div class="ordax-quick-panel-layer" data-quick-panel-layer>

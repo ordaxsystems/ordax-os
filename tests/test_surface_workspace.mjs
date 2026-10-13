@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { presentationDestination } from "../system/surface/workspace/presentation.mjs";
+import { syncDesktopPresentationToggle } from "../system/surface/ui/desktop-shell.mjs";
 
 import { createNativeWorkspaceStore } from "../system/adapters/native/workspace.mjs";
 import { createWebWorkspaceStore } from "../system/adapters/web/workspace.mjs";
@@ -458,4 +460,38 @@ test("desktop rail stays collapsed without changing windows or persisted workspa
   state = reduceSurfaceState(state, { type: "workspace.presentation", value: "desktop" });
   assert.equal(state.sidebarMode, "collapsed");
   assert.deepEqual(createWorkspaceSnapshot(state), persisted);
+});
+
+
+test("presentation destination is immutable, contextual and rejects unknown views", () => {
+  assert.deepEqual(presentationDestination("central"), { target: "desktop", labelId: "shell.presentation.desktop" });
+  assert.deepEqual(presentationDestination("desktop"), { target: "central", labelId: "shell.presentation.central" });
+  assert.equal(Object.isFrozen(presentationDestination("central")), true);
+  assert.throws(() => presentationDestination("unknown"), TypeError);
+});
+
+test("Native toggle changes destination and locale without replacing its control", () => {
+  const attributes = new Map();
+  let iconUpdates = 0;
+  let iconMarkup = "";
+  const icon = { set innerHTML(value) { iconUpdates++; iconMarkup = value; } };
+  const button = {
+    dataset: {}, title: "",
+    setAttribute: (key, value) => attributes.set(key, value),
+    querySelector: () => icon,
+  };
+  const localization = { translate: id => `en:${id}` };
+  syncDesktopPresentationToggle(button, "central", localization);
+  assert.equal(attributes.get("aria-pressed"), "false");
+  assert.equal(attributes.get("aria-label"), "en:shell.presentation.desktop");
+  assert.equal(button.dataset.presentationDestination, "desktop");
+  assert.match(iconMarkup, /M8 21h8/);
+  syncDesktopPresentationToggle(button, "central", { translate: id => `pt:${id}` });
+  assert.equal(button.title, "pt:shell.presentation.desktop");
+  assert.equal(iconUpdates, 1);
+  syncDesktopPresentationToggle(button, "desktop", localization);
+  assert.equal(attributes.get("aria-pressed"), "true");
+  assert.equal(button.dataset.presentationDestination, "central");
+  assert.match(iconMarkup, /width="7"/);
+  assert.equal(iconUpdates, 2);
 });
