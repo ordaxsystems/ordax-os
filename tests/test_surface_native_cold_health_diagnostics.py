@@ -16,8 +16,11 @@ class SurfaceColdHealthContract(unittest.TestCase):
     def test_registration_policy_cannot_block_initial_graphical_mount(self):
         code = MAIN.read_text()
         before, after = code.split('reportQemuBootStage("composition-mounted");', 1)
-        self.assertNotIn("await identityActions.refresh();", before)
-        self.assertIn("await identityActions.refresh();", after)
+        # The online refresh is defined before the mount but NOT awaited
+        # there: only its call site after the real graphical mount is relevant.
+        self.assertNotIn("\\n  await identityActions.refresh();\\n", before)
+        self.assertIn("    await identityActions.refresh();", before)
+        self.assertIn("void resumeAccountConnectivity().catch(", after)
         self.assertIn('componentManager.setCurrentHealth("surface-shell", "healthy")', after)
         self.assertIn("void updateWatcher.markHealthy()", after)
         self.assertIn("createNativeSurfaceHeartbeat(window)", after)
