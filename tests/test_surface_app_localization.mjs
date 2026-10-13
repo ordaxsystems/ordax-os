@@ -155,7 +155,7 @@ test("Projects app-owned translations are absent from OS during remove-first Gat
 test("Internet product translations cannot leak back into the OS after Gate A", async () => {
   const surface = await readFile(new URL("../system/services/i18n/surface.mjs", import.meta.url), "utf8");
   const shell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
-  assert.doesNotMatch(surface, /catalog\\/internet\\.mjs/);
+  assert.ok(!surface.includes("catalog/internet.mjs"), "No product-owned Internet translations should remain in OS");
   assert.doesNotMatch(surface, /\\.\\.\\.INTERNET_SOURCE_MESSAGES/);
   assert.doesNotMatch(shell, /railButton\\("internet"/);
 });
