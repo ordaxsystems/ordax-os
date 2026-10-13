@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256HexUtf8 } from "./sha256.mjs";
 
 import {
   APPLICATION_ACTION_CAPABILITY_REGISTRY_PORT_SCHEMA,
@@ -33,7 +33,7 @@ function canonicalJson(value) {
 }
 
 function capabilitySha256(capability) {
-  return createHash("sha256").update(canonicalJson(capability), "utf8").digest("hex");
+  return sha256HexUtf8(canonicalJson(capability));
 }
 
 function validateArgument(parameter, value) {

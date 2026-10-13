@@ -52,6 +52,8 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
         self.assertIn("from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError", source)
         self.assertIn("from native_component_slots import (", source)
         self.assertIn("def _request_is_trusted(self)", source)
+        self.assertIn("def guess_type(self, path: str) -> str:", source)
+        self.assertIn('return "text/javascript"', source)
         parser = next(
             node for node in classes["NativeHostHandler"].body
             if isinstance(node, ast.FunctionDef) and node.name == "parse_request"

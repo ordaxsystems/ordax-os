@@ -55,6 +55,9 @@ function createInboundAuthorizedMemorySync(memorySync, accountMemory, now) {
     stageForget: (value) => memorySync.stageForget(value),
     pendingMutations: () => memorySync.pendingMutations(),
     pendingConflicts: () => memorySync.pendingConflicts(),
+    // Keep the canonical identity, explicit decision, and durable coordination
+    // checks in the session runtime. The Native port must not drop this operation.
+    resolveConflict: (objectId, decision) => memorySync.resolveConflict(objectId, decision),
   });
 }
 

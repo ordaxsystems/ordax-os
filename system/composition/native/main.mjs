@@ -881,29 +881,11 @@ async function start() {
       localAi,
     );
   }
-  const storeCatalogComposition = await storeCatalogCompositionPromise;
-  const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
-  let storeLifecycleRequests = null;
-  if (storeCatalogComposition?.verifiedCatalogPort) {
-    try {
-      storeLifecycleRequests = createAppLifecycleRequestService({
-        catalogPort: storeCatalog,
-        verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
-        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
-      });
-    } catch (error) {
-      reportClientDiagnostic("store-lifecycle-composition", error);
-    }
-  }
-  const storeOverviewControls = mountStoreOverviewControls(
-    root,
-    storeCatalog,
-    surface,
-    storeLifecycleRequests,
-    (options) => readNativeHardwareInventory(window, options),
-    systemMetrics,
-    appActivation,
-  );
+  // Store is optional: its asynchronous verified projection must not prevent
+  // the visible shell from requesting legitimate Surface health.
+  let storeCatalogComposition = null;
+  let storeCatalog = createUnavailableAppStoreCatalogPort();
+  let storeOverviewControls = null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -923,6 +905,9 @@ async function start() {
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
   // import or mount failure cannot turn into a failed OrdaX cold boot.
+  // The already-mounted shell is visible before asking the official
+  // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
+  bootScreen.ready();
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -935,7 +920,31 @@ async function start() {
     console.warn("OrdaX account connectivity refresh remains pending after Surface health", error);
   });
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.loadingApps"));
+  // Populate the Store after the core shell and official health request.
+  // Optional catalog failure stays isolated from the signed boot gate.
+  storeCatalogComposition = await storeCatalogCompositionPromise;
+  storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
+  let storeLifecycleRequests = null;
+  if (storeCatalogComposition?.verifiedCatalogPort) {
+    try {
+      storeLifecycleRequests = createAppLifecycleRequestService({
+        catalogPort: storeCatalog,
+        verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
+        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
+      });
+    } catch (error) {
+      reportClientDiagnostic("store-lifecycle-composition", error);
+    }
+  }
+  storeOverviewControls = mountStoreOverviewControls(
+    root,
+    storeCatalog,
+    surface,
+    storeLifecycleRequests,
+    (options) => readNativeHardwareInventory(window, options),
+    systemMetrics,
+    appActivation,
+  );
 
 
 
@@ -1010,8 +1019,6 @@ async function start() {
       reportClientDiagnostic("local-session-lock", error);
     }
   }
-  bootScreen.ready();
-
   window.addEventListener(
     "pagehide",
     () => {
@@ -1027,7 +1034,7 @@ async function start() {
       powerControls.destroy();
       updateControls.destroy();
       systemOverviewControls.destroy();
-      storeOverviewControls.destroy();
+      storeOverviewControls?.destroy();
       storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();
