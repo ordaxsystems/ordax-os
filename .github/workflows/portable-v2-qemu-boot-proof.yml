@@ -790,7 +790,7 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           mkdir -p "$work/qemu-cold-health-proof"
           sudo -E python3 bootstrap/independent-base/healthy_services_proof.py \
-            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
+            --kernel "$work/kernel/vmlinuz-${ORDAX_KERNEL_VERSION}" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
