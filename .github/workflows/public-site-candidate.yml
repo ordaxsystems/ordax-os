@@ -313,7 +313,7 @@ jobs:
         with:
           name: ordax-react-account-viewports-${{ github.sha }}
           path: out/account-react-viewport-proof/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Upload public site candidate

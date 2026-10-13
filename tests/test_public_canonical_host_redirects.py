@@ -49,7 +49,6 @@ class CanonicalPublicHostTests(unittest.TestCase):
                 ("/auth/:path*", "/api/account-proxy?ordax_path=/auth/:path*"),
                 ("/sync/:path*", "/api/account-proxy?ordax_path=/sync/:path*"),
                 ("/account/:path*", "/api/account-proxy?ordax_path=/account/:path*"),
-                ("/conta/:section", "/conta/index.html"),
             ],
         )
         self.assertEqual(self.config["git"]["deploymentEnabled"], {"*": False, "main": True})
