@@ -25,6 +25,9 @@ BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
+IPROUTE2_PATCH_ROOT = HERE / "patches/iproute2"
+IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
+IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -172,6 +175,45 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
+def verify_iproute2_minimal_build(build_dir: Path) -> dict:
+    """Bind the version-scoped minimal patch to the source Buildroot actually built."""
+    package_root = build_dir / "build"
+    sources = sorted(path for path in package_root.glob("iproute2-*") if path.is_dir())
+    if len(sources) != 1:
+        raise BaseError(f"expected exactly one built iproute2 source tree, found {len(sources)}")
+    source = sources[0]
+    version = source.name.removeprefix("iproute2-")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise BaseError("built iproute2 source has unexpected version identity")
+    patch = IPROUTE2_PATCH_ROOT / version / IPROUTE2_PATCH_NAME
+    if not patch.is_file() or patch.is_symlink():
+        raise BaseError(f"version-scoped iproute2 minimal patch missing for {version}")
+
+    top_makefile = (source / "Makefile").read_text(encoding="utf-8")
+    ip_makefile = (source / "ip/Makefile").read_text(encoding="utf-8")
+    if top_makefile.splitlines().count("SUBDIRS=lib ip") != 1:
+        raise BaseError("iproute2 minimal patch did not restrict top-level build scope")
+    if any(line.startswith("SUBDIRS +=") for line in top_makefile.splitlines()):
+        raise BaseError("iproute2 minimal patch left conditional utility subdirectories enabled")
+    if ip_makefile.splitlines().count("SCRIPTS=") != 1 or ip_makefile.splitlines().count("TARGETS=ip") != 1:
+        raise BaseError("iproute2 minimal patch did not restrict ip install targets")
+    try:
+        install_section = top_makefile.split("install: all", 1)[1].split("\nversion:", 1)[0]
+    except IndexError as exc:
+        raise BaseError("iproute2 install section shape changed") from exc
+    for forbidden in ("$(DESTDIR)$(CONF_USR_DIR)", "$(DESTDIR)$(HDRDIR)", "$(DESTDIR)$(BASH_COMPDIR)"):
+        if forbidden in install_section:
+            raise BaseError(f"iproute2 minimal patch left unconsumed install payload: {forbidden}")
+
+    return {
+        "upstream_version": version,
+        "patch": str(patch.relative_to(ROOT)),
+        "patch_sha256": digest(patch),
+        "build_scope": ["lib", "ip"],
+        "installed_runtime_entrypoints": ["/sbin/ip"],
+    }
+
+
 def verify_surface_ip_identity(target: Path) -> dict:
     """Authenticate the built /sbin/ip without mutating host networking.
 
@@ -312,13 +354,17 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         config = (build_dir / ".config").read_text(encoding="utf-8")
         for key in ('BR2_KERNEL_HEADERS_VERSION=y', f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
                     'BR2_TOOLCHAIN_BUILDROOT_MUSL=y', 'BR2_STATIC_LIBS=y', 'BR2_INIT_NONE=y',
-                    'BR2_PACKAGE_IPROUTE2=y',
+                    'BR2_PACKAGE_IPROUTE2=y', IPROUTE2_PATCH_CONFIG,
                     'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"'):
             if key not in config:
                 raise BaseError(f"Buildroot rejected required configuration {key}")
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
+        iproute2_minimal_build = verify_iproute2_minimal_build(build_dir)
         target = build_dir / "target"
         surface_iproute2 = verify_target(target)
+        expected_version_prefix = f'ip utility, iproute2-{iproute2_minimal_build["upstream_version"]}'
+        if not surface_iproute2["version"].startswith(expected_version_prefix):
+            raise BaseError("built /sbin/ip version differs from patched iproute2 source identity")
         images = build_dir / "images"
         for name in ("rootfs.cpio.gz", "rootfs.tar"):
             if not (images / name).is_file():
@@ -346,6 +392,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "network_contract_applied": True,
             "surface_iproute2_identity_verified": True,
             "surface_iproute2": surface_iproute2,
+            "surface_iproute2_minimal_build": iproute2_minimal_build,
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
             "busybox_handoff_runtime_features_verified": True,
@@ -390,6 +437,25 @@ def verify(out: Path) -> dict:
         raise BaseError("Surface iproute2 binary digest invalid")
     if not str(surface_iproute2.get("version", "")).startswith("ip utility, iproute2-"):
         raise BaseError("Surface iproute2 version provenance invalid")
+    minimal_build = report.get("surface_iproute2_minimal_build")
+    if not isinstance(minimal_build, dict):
+        raise BaseError("Surface iproute2 minimal-build provenance missing")
+    version = str(minimal_build.get("upstream_version", ""))
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise BaseError("Surface iproute2 minimal-build version invalid")
+    expected_patch = IPROUTE2_PATCH_ROOT / version / IPROUTE2_PATCH_NAME
+    if minimal_build.get("patch") != str(expected_patch.relative_to(ROOT)):
+        raise BaseError("Surface iproute2 minimal patch path drift")
+    if not expected_patch.is_file() or expected_patch.is_symlink():
+        raise BaseError("Surface iproute2 minimal patch unavailable")
+    if minimal_build.get("patch_sha256") != digest(expected_patch):
+        raise BaseError("Surface iproute2 minimal patch SHA-256 drift")
+    if minimal_build.get("build_scope") != ["lib", "ip"]:
+        raise BaseError("Surface iproute2 minimal build scope drift")
+    if minimal_build.get("installed_runtime_entrypoints") != ["/sbin/ip"]:
+        raise BaseError("Surface iproute2 minimal runtime payload drift")
+    if not surface_iproute2["version"].startswith(f"ip utility, iproute2-{version}"):
+        raise BaseError("Surface iproute2 binary/source version mismatch")
     if report.get("busybox_handoff_runtime_features_verified") is not True:
         raise BaseError("BusyBox applet feature proof absent from provenance")
     if report.get("canonical_portable_handoff_source") != str(CANONICAL_HANDOFF.relative_to(ROOT)):

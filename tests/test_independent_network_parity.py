@@ -37,7 +37,9 @@ class IndependentIPParity(unittest.TestCase):
             ),
             1,
         )
-        minimal_patch = BASE / "patches/iproute2/6.14.0/0001-ordax-minimal-ip-only.patch"
+        patches = list((BASE / "patches/iproute2").glob("*/0001-ordax-minimal-ip-only.patch"))
+        self.assertEqual(len(patches), 1)
+        minimal_patch = patches[0]
         self.assertTrue(minimal_patch.is_file())
         self.assertFalse(minimal_patch.is_symlink())
         patch_text = minimal_patch.read_text(encoding="utf-8")
@@ -62,11 +64,38 @@ class IndependentIPParity(unittest.TestCase):
             "/sbin/rtmon",
             "/sbin/routel",
             "/sbin/genl",
+            "/sbin/tipc",
+            "/sbin/devlink",
+            "/sbin/rdma",
+            "/sbin/dcb",
+            "/sbin/vdpa",
+            "/sbin/netshaper",
+            "/sbin/dpll",
+            "/sbin/nstat",
+            "/sbin/lnstat",
+            "/sbin/arpd",
             "/usr/share/iproute2",
             "/usr/include/iproute2",
         ):
             self.assertIn(forbidden, post_build)
         self.assertNotIn("rm -", post_build)
+
+    def test_minimal_build_receipt_binds_actual_source_version_and_patch(self):
+        b = builder()
+        with tempfile.TemporaryDirectory() as dirname:
+            build_dir = Path(dirname)
+            source = build_dir / "build/iproute2-7.1.0"
+            (source / "ip").mkdir(parents=True)
+            (source / "Makefile").write_text(
+                "SUBDIRS=lib ip\ninstall: all\n\tinstall -m 0755 -d $(DESTDIR)$(SBINDIR)\n\t@for i in $(SUBDIRS); do $(MAKE) -C $$i install; done\nversion:\n",
+                encoding="utf-8",
+            )
+            (source / "ip/Makefile").write_text("SCRIPTS=\nTARGETS=ip\n", encoding="utf-8")
+            receipt = b.verify_iproute2_minimal_build(build_dir)
+        self.assertEqual(receipt["upstream_version"], "7.1.0")
+        self.assertEqual(receipt["build_scope"], ["lib", "ip"])
+        self.assertEqual(receipt["installed_runtime_entrypoints"], ["/sbin/ip"])
+        self.assertRegex(receipt["patch_sha256"], r"^[0-9a-f]{64}$")
 
     def test_missing_and_busybox_ip_fail_closed(self):
         b = builder()

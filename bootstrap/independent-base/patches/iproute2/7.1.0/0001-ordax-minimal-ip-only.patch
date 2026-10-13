@@ -1,9 +1,9 @@
 From: OrdaX Systems <ordaxos@gmail.com>
 Subject: [PATCH] iproute2: build and install only ip for minimal base
 
-The Independent Base currently consumes only /sbin/ip for the canonical
-Surface loopback contract. Buildroot 2025.02.6 otherwise builds and
-installs the complete iproute2 utility suite.
+The Independent Base consumes only /sbin/ip for the canonical Surface
+loopback contract. Buildroot otherwise builds and installs the complete
+iproute2 utility suite.
 
 Keep lib as a build-only prerequisite and restrict the target payload to
 ip. Do not install tc/bridge/misc/genl tools, rtmon/routel, manuals,
@@ -13,19 +13,19 @@ accidentally.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -69,10 +69,7 @@
+@@ -60,10 +60,7 @@
  CFLAGS := $(WFLAGS) $(CCOPTS) -I../include -I../include/uapi $(DEFINES) $(CFLAGS)
  YACCFLAGS = -d -t -v
  
 -SUBDIRS=lib ip tc bridge misc netem genl man
 -ifeq ($(HAVE_MNL),y)
--SUBDIRS += tipc devlink rdma dcb vdpa
+-SUBDIRS += tipc devlink rdma dcb vdpa netshaper dpll
 -endif
 +SUBDIRS=lib ip
  
  LIBNETLINK=../lib/libutil.a ../lib/libnetlink.a
  LDLIBS += $(LIBNETLINK)
-@@ -102,14 +99,7 @@
+@@ -95,15 +92,7 @@
  
  install: all
  	install -m 0755 -d $(DESTDIR)$(SBINDIR)
@@ -36,6 +36,7 @@ accidentally.
 -	install -m 0755 -d $(DESTDIR)$(BASH_COMPDIR)
 -	install -m 0644 bash-completion/tc $(DESTDIR)$(BASH_COMPDIR)
 -	install -m 0644 bash-completion/devlink $(DESTDIR)$(BASH_COMPDIR)
+-	install -m 0644 bash-completion/dpll $(DESTDIR)$(BASH_COMPDIR)
 -	install -m 0644 include/bpf_elf.h $(DESTDIR)$(HDRDIR)
  
  version:

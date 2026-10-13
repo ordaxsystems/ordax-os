@@ -8,9 +8,9 @@ A prova anterior da base mínima continha `/sbin/ip -> ../bin/busybox`. O applet
 
 ## Correção e prova
 
-O perfil Buildroot seleciona `BR2_PACKAGE_IPROUTE2=y` e o fragmento canônico do BusyBox desativa `CONFIG_IP`, mantendo uma única implementação de `ip`. No Buildroot 2025.02.6, esse pacote resolve iproute2 6.14.0.
+O perfil Buildroot seleciona `BR2_PACKAGE_IPROUTE2=y` e o fragmento canônico do BusyBox desativa `CONFIG_IP`, mantendo uma única implementação de `ip`. No Buildroot 2026.08 atualmente fixado por `source.json`, esse pacote resolve iproute2 7.1.0.
 
-O pacote upstream instala a suíte completa por padrão, mas este slice tem somente um consumidor identificado. Por isso `BR2_GLOBAL_PATCH_DIR` aplica `patches/iproute2/6.14.0/0001-ordax-minimal-ip-only.patch`: o build fica restrito a `lib + ip` e a instalação contém apenas `/sbin/ip` do iproute2, sem `tc`, `bridge`, `ss`, `rtmon`, `routel`, `genl`, headers, completions ou dados auxiliares não consumidos. O `post-build.sh` apenas verifica fail-closed que esses extras não entraram; ele não os remove depois da instalação.
+O pacote upstream instala a suíte completa por padrão, mas este slice tem somente um consumidor identificado. Por isso `BR2_GLOBAL_PATCH_DIR` aplica `patches/iproute2/7.1.0/0001-ordax-minimal-ip-only.patch`: o build fica restrito a `lib + ip` e a instalação contém apenas `/sbin/ip` do iproute2, sem `tc`, `bridge`, `ss`, `rtmon`, `routel`, `genl`, headers, completions ou dados auxiliares não consumidos. O `post-build.sh` apenas verifica fail-closed que esses extras não entraram; ele não os remove depois da instalação.
 
 No build, `bootstrap/independent-base/build.py` autentica o `/sbin/ip` realmente produzido: caminho resolvido dentro do rootfs, SHA-256, versão iproute2, identidade ELF x86-64 e linkagem estática sem dependências dinâmicas. Essa etapa não altera interfaces, endereços ou rotas do host da CI.
 

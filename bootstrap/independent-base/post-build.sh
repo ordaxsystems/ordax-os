@@ -36,6 +36,16 @@ for unexpected in \
     "$TARGET_DIR/sbin/rtmon" \
     "$TARGET_DIR/sbin/routel" \
     "$TARGET_DIR/sbin/genl" \
+    "$TARGET_DIR/sbin/tipc" \
+    "$TARGET_DIR/sbin/devlink" \
+    "$TARGET_DIR/sbin/rdma" \
+    "$TARGET_DIR/sbin/dcb" \
+    "$TARGET_DIR/sbin/vdpa" \
+    "$TARGET_DIR/sbin/netshaper" \
+    "$TARGET_DIR/sbin/dpll" \
+    "$TARGET_DIR/sbin/nstat" \
+    "$TARGET_DIR/sbin/lnstat" \
+    "$TARGET_DIR/sbin/arpd" \
     "$TARGET_DIR/usr/share/iproute2" \
     "$TARGET_DIR/usr/include/iproute2" \
     "$TARGET_DIR/usr/share/bash-completion/completions/tc" \
