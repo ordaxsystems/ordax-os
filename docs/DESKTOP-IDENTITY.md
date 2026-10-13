@@ -1442,3 +1442,65 @@ notification and builder checks passed; module boundaries and reference integrit
 passed. Isolated Native browser proof passed 1280×800, 390×844, 320×568 and
 844×390, including unread preservation, action failure, focus recovery,
 destination delegation, teardown and notification panel bounds/overflow.
+
+
+## Meridian visual study — 2026-10-13
+
+**Status: isolated visual proposal, not a product cutover or release.** Explicit
+user-requested exception to the current implementation sequence: this increment
+explores a complete future USB Central/Desktop experience, exclusively frontend,
+on `codex/meridian-design-lab`, based on `9fec127`. No main modification, merge,
+production activation or change to existing theme contracts is authorised by
+this experiment. Validation/builds are assigned to another chat by the user.
+
+Owner: Surface presentation, `system/surface/experiments/meridian/`. Preview
+composition and run recipe: `tools/meridian-preview/`. No Apps/Runtime/Platform
+ownership is transferred. Identity, Memory, Intelligence routing, permissions,
+notification services, Store authority, pairing and device execution stay with
+their existing owners. The production notification center remains unchanged.
+
+The proposal, Meridian, uses Argila and Grafite materials scoped beneath its
+opted-in root. It introduces an editorial Central organised around the active
+Space: Day, Work and Ecosystem perspectives, an embedded intention composer,
+continuity, agenda, professional profiles and a catalogue of more than apps.
+Details and action reviews appear in contextual side panels, becoming sheets on
+narrow screens. The Desktop shares identity, Space, launcher, search and settings;
+window examples demonstrate maximise/minimise/floating/compact states with a
+reserved compact region and one visible compact app on narrow screens.
+
+Future concepts represented: a phone as a selected peripheral, reviewable context
+sources, session preparation, Space-specific module discovery and professional
+communities. Each is a presentation study with a reason (continuity, explicit
+scope or discoverability), not evidence of operational support.
+
+SSOT and dependencies: canonical Inter/brand resources and the existing
+`workspace/presentation.mjs` switch policy are reused. Existing Claro/Escuro/USB
+palettes, preference values, persistence and live adapters are not modified.
+Experiment tokens, navigation catalogue, read-only context selectors and injected
+presentation source each have a single owner. Fictional records live in `demo/`;
+only the preview entry point imports that source. Its session dispatch cannot
+invoke backend ports, persist data, grant access, install anything or send a
+message. Native/browser production compositions do not mount these fixtures.
+The local host serves only an explicit visual-resource allowlist on loopback.
+
+Implemented exploration: Space selection/creation, project examples, profile
+selection, simulated Store additions per Space, search/filter, notes drafts,
+message drafts, notifications read state, quick settings and guest/login/signup
+review screens. No credentials are collected. Connected, guest, offline, empty,
+loading and error scenarios are selectable manually and clearly presented as
+examples. Original vector art and glyphs were authored locally; no third-party
+application code or new runtime package is incorporated.
+
+Risks and acceptance: mocks must never be auto-selected by a production host;
+visual window state must later be mapped to the canonical window lifecycle, not
+promoted as a second runtime; future integrations need public owner contracts.
+The reviewer should inspect material contrast, keyboard/focus, narrow viewport,
+compact resizing, same-Space context, all scenario states and theme preservation.
+Production localisation, real identity/services and release validation remain
+separate work after visual approval. Portuguese editorial copy is scoped to this
+study; it is not a new canonical localisation authority.
+
+Evidence this increment: local module syntax parsing and presentation captures
+only. No unit suites, E2E, build, Foundation/Surface CI, USB image or physical boot
+validation was run, per the user's explicit instruction. No production readiness
+claim follows from the mock preview.

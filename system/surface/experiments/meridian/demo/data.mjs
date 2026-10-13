@@ -1,0 +1,73 @@
+// Fictional editorial dataset. Never imported by a product composition or adapter.
+export const demoData = {
+ person:{name:'Lia Martins',firstName:'Lia',initials:'LM',email:'lia@example.test'},
+ dateLabel:'Terça-feira, 13 de outubro', time:'09:41',
+ agenda:[{time:'10:30',title:'Tempo para criar',note:'Atlas · Bloco de foco'},{time:'14:00',title:'Revisão com Rafael',note:'Estúdio · 30 minutos'},{time:'16:00',title:'Explorar sem pressa',note:'Seu tempo pessoal'}],
+ spaces:[
+  {id:'studio',name:'Estúdio',icon:'aura',tone:'clay',description:'Ideias que ganham forma.',members:'Você + 2 pessoas',profile:'Criação & design',modules:['Studio','Arquivos','Quadro de referências'],permission:'Somente este Space',storage:'12,8 GB'},
+  {id:'personal',name:'Pessoal',icon:'sun',tone:'sage',description:'Seu ritmo. Seu espaço.',members:'Só você',profile:'Pessoal',modules:['Notas','Agenda','Música'],permission:'Privado',storage:'4,2 GB'},
+  {id:'workshop',name:'Oficina 3D',icon:'cube',tone:'blue',description:'Do primeiro esboço ao objeto.',members:'Você + 1 pessoa',profile:'Impressão 3D',modules:['Editor 3D','Fila de produção','Materiais'],permission:'Dispositivos selecionados',storage:'28,6 GB'},
+ ],
+ projects:[
+  {id:'atlas',name:'Atlas',description:'Uma identidade em construção.',category:'Identidade visual',updated:'Há 12 minutos',tone:'clay',progress:64,space:'studio'},
+  {id:'casa',name:'Casa Aberta',description:'Arquitetura para novas conversas.',category:'Projeto editorial',updated:'Ontem',tone:'sage',progress:38,space:'studio'},
+  {id:'lume',name:'Lume',description:'Uma nova forma de iluminar.',category:'Produto · impressão 3D',updated:'Segunda-feira',tone:'blue',progress:81,space:'workshop'},
+ ],
+ files:[
+  {id:'brief',project:'atlas',space:'studio',name:'Briefing — Atlas',kind:'Documento',app:'Notas',icon:'file',tone:'clay',modified:'09:28',size:'24 KB',body:'Uma marca para quem transforma ideias em lugares.\n\nDireção\nPrecisão sem rigidez. Calma sem monotonia.\n\nPróximo passo\nExplorar aplicações da identidade em materiais impressos e digitais.'},
+  {id:'mood',project:'atlas',space:'studio',name:'Referências de forma',kind:'Coleção',app:'Internet',icon:'globe',tone:'sage',modified:'Ontem',size:'18 itens',body:'Uma coleção de materiais, formas e referências para o projeto Atlas.'},
+  {id:'model',project:'lume',space:'workshop',name:'Luminária — estudo 03',kind:'Modelo 3D',app:'Editor 3D',icon:'cube',tone:'blue',modified:'Seg.',size:'8,4 MB',body:'Exploração de uma luminária modular. Material: PLA natural. Versão de estudo.'},
+ ],
+ apps:[
+  {id:'studio',name:'Studio',icon:'terminal',tone:'clay',description:'Crie e desenvolva com contexto.',category:'Criar'},
+  {id:'notes',name:'Notas',icon:'file',tone:'sage',description:'Organize o que vale guardar.',category:'Organizar'},
+  {id:'files',name:'Arquivos',icon:'folder',tone:'amber',description:'Seu trabalho, em um lugar.',category:'Organizar'},
+  {id:'internet',name:'Internet',icon:'globe',tone:'blue',description:'Explore com intenção.',category:'Explorar'},
+  {id:'editor',name:'Editor 3D',icon:'cube',tone:'blue',description:'Dê volume às suas ideias.',category:'Criar'},
+  {id:'calendar',name:'Agenda',icon:'clock',tone:'sage',description:'Tempo para o que importa.',category:'Organizar'},
+  {id:'music',name:'Música',icon:'music',tone:'rose',description:'Encontre o seu ritmo.',category:'Pessoal'},
+  {id:'intelligence',name:'Intelligence',icon:'aura',tone:'clay',description:'Um fio que conecta seu contexto.',category:'Sistema'},
+ ],
+ devices:[
+  {id:'computer',name:'Este computador',detail:'OrdaX USB · Sessão portátil',icon:'desktop',status:'Em uso',online:true,capabilities:['Tela','Arquivos locais','Áudio'],battery:84},
+  {id:'phone',name:'Telefone da Lia',detail:'Companion · Próximo a você',icon:'phone',status:'Disponível',online:true,capabilities:['Câmera','Microfone','Segunda tela'],battery:76},
+  {id:'printer',name:'Oficina · Impressora 3D',detail:'Perfil de fabricação',icon:'cube',status:'Em espera',online:true,capabilities:['Consultar fila','Ver câmera','Revisar trabalho']},
+  {id:'camera',name:'Câmera de mesa',detail:'USB · Estúdio',icon:'camera',status:'Desconectada',online:false,capabilities:['Captura de vídeo']},
+  {id:'mic',name:'Microfone do estúdio',detail:'USB · Entrada de áudio',icon:'mic',status:'Disponível',online:true,capabilities:['Áudio','Monitoramento']},
+ ],
+ profiles:[
+  {id:'design',name:'Criação & design',group:'Criatividade',icon:'aura',tone:'clay',description:'Projetos, referências e ferramentas para transformar ideias.',modules:['Studio','Referências','Projetos'],members:'Comunidade criativa'},
+  {id:'3d',name:'Impressão 3D',group:'Fabricação',icon:'cube',tone:'blue',description:'Da modelagem à fila de produção, com contexto do material.',modules:['Editor 3D','Produção','Materiais'],members:'Rede de fabricação'},
+  {id:'business',name:'Empresas',group:'Negócios',icon:'briefcase',tone:'slate',description:'Pessoas, operações e decisões que compartilham contexto.',modules:['Equipes','Operações','Documentos'],members:'Networking empresarial'},
+  {id:'pizza',name:'Pizzaria',group:'Alimentação',icon:'store',tone:'amber',description:'Pedidos, produção e atendimento em um fluxo contínuo.',modules:['Pedidos','Cozinha','Atendimento'],members:'Comunidade de gastronomia'},
+  {id:'law',name:'Advocacia',group:'Serviços',icon:'book',tone:'sage',description:'Casos, prazos e documentos com atenção à privacidade.',modules:['Casos','Agenda','Documentos'],members:'Rede profissional'},
+  {id:'education',name:'Educação',group:'Conhecimento',icon:'book',tone:'rose',description:'Espaços para aprender, criar e compartilhar conhecimento.',modules:['Turmas','Biblioteca','Encontros'],members:'Comunidade de educadores'},
+ ],
+ store:[
+  {id:'focus-space',name:'Espaço de foco',kind:'Spaces',icon:'spaces',tone:'sage',description:'Menos distrações. Mais espaço para terminar.',detail:'Um Space com escrita, agenda e sessões de foco.',permissions:['Preferências do Space','Agenda selecionada']},
+  {id:'3d-profile',name:'Oficina 3D',kind:'Perfis',icon:'cube',tone:'blue',description:'Sua bancada digital, organizada.',detail:'Um perfil profissional para modelagem e produção.',permissions:['Projetos selecionados','Dispositivos autorizados']},
+  {id:'sketch',name:'Caderno de ideias',kind:'Aplicativos',icon:'file',tone:'clay',description:'O lugar certo para o primeiro esboço.',detail:'Notas, desenhos e referências para um projeto.',permissions:['Arquivos escolhidos']},
+  {id:'github',name:'GitHub',kind:'Integrações',icon:'terminal',tone:'slate',description:'Código e projetos no mesmo contexto.',detail:'Proposta visual de conexão com repositórios.',permissions:['Repositórios escolhidos']},
+  {id:'material',name:'Biblioteca de materiais',kind:'Módulos',icon:'cube',tone:'amber',description:'Encontre a matéria da próxima ideia.',detail:'Catálogo visual de materiais para perfis de criação.',permissions:['Contexto do projeto']},
+  {id:'meridian',name:'Meridian',kind:'Temas',icon:'sun',tone:'clay',description:'Uma perspectiva mais tranquila.',detail:'A experiência visual que você está explorando.',permissions:['Aparência da interface']},
+  {id:'capture',name:'Captura contextual',kind:'Extensões',icon:'camera',tone:'rose',description:'Guarde uma referência com sua origem.',detail:'Uma extensão conceitual para referências de projeto.',permissions:['Página selecionada']},
+  {id:'studio-kit',name:'Kit de criação',kind:'Recursos',icon:'folder',tone:'sage',description:'Um ponto de partida, sem página em branco.',detail:'Modelos de documentos e roteiros para criação.',permissions:[]},
+ ],
+ activity:[
+  {id:'a1',title:'Atlas está pronto para continuar',detail:'3 documentos, 2 aplicativos e suas referências reunidos.',time:'Há 12 min',icon:'folder',tone:'clay',action:'project:atlas'},
+  {id:'a2',title:'Um resumo para sua próxima reunião',detail:'Intelligence · proposta para revisão',time:'Há 25 min',icon:'aura',tone:'sage',action:'ask:Prepare minha próxima reunião'},
+  {id:'a3',title:'Referência adicionada ao Estúdio',detail:'Painel de formas · por Rafael',time:'Ontem',icon:'file',tone:'blue',action:'file:mood'},
+  {id:'a4',title:'O dia terminou com tudo no lugar',detail:'Contexto do Space preparado para a próxima sessão.',time:'Ontem, 18:20',icon:'check',tone:'sage',action:'route:spaces'},
+ ],
+ messages:[
+  {id:'rafael',name:'Rafael Costa',initials:'RC',topic:'Projeto Atlas',text:'A direção ficou ótima. Podemos explorar a aplicação editorial?',time:'09:32',unread:true},
+  {id:'equipe',name:'Estúdio · Equipe',initials:'ES',topic:'Espaço compartilhado',text:'Revisão de referências às 14h. Separei algumas ideias.',time:'08:56',unread:true},
+  {id:'oficina',name:'Comunidade 3D',initials:'3D',topic:'Networking · Fabricação',text:'Novos materiais na biblioteca da comunidade.',time:'Ontem',unread:false},
+ ],
+ automations:[
+  {id:'day',name:'Preparar meu dia',description:'Agenda, tarefas e contexto dos projetos, reunidos na Central.',trigger:'Ao iniciar o Space',icon:'sun',enabled:true},
+  {id:'reference',name:'Guardar com contexto',description:'Organize referências com a origem e o projeto selecionado.',trigger:'Ao guardar uma referência',icon:'folder',enabled:true},
+  {id:'end',name:'Fechar o dia',description:'Reúna pendências e prepare o ponto de retomada.',trigger:'Quando eu solicitar',icon:'moon',enabled:false},
+ ],
+ tasks:[{id:'t1',title:'Explorar aplicações da marca Atlas',done:false},{id:'t2',title:'Revisar referências com Rafael',done:false},{id:'t3',title:'Organizar o briefing',done:true}],
+};
