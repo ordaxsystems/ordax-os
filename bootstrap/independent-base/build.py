@@ -195,8 +195,10 @@ def verify_iproute2_minimal_build(build_dir: Path) -> dict:
         raise BaseError("iproute2 minimal patch did not restrict top-level build scope")
     if any(line.startswith("SUBDIRS +=") for line in top_makefile.splitlines()):
         raise BaseError("iproute2 minimal patch left conditional utility subdirectories enabled")
-    if ip_makefile.splitlines().count("SCRIPTS=") != 1 or ip_makefile.splitlines().count("TARGETS=ip") != 1:
-        raise BaseError("iproute2 minimal patch did not restrict ip install targets")
+    if ip_makefile.splitlines().count("TARGETS=ip") != 1 or ip_makefile.splitlines().count("all: $(TARGETS)") != 1:
+        raise BaseError("iproute2 minimal patch did not restrict ip build targets")
+    if any(line.startswith("SCRIPTS=") for line in ip_makefile.splitlines()) or "$(SCRIPTS)" in ip_makefile:
+        raise BaseError("iproute2 minimal patch left script build/install targets enabled")
     try:
         install_section = top_makefile.split("install: all", 1)[1].split("\nversion:", 1)[0]
     except IndexError as exc:

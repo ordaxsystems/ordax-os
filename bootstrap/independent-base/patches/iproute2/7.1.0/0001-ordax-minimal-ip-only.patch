@@ -43,14 +43,24 @@ accidentally.
  	echo "static const char version[] = \""`git describe --tags --long`"\";" \
 --- a/ip/Makefile
 +++ b/ip/Makefile
-@@ -20,8 +20,8 @@
+@@ -20,10 +20,9 @@
  include ../config.mk
  
  ALLOBJ=$(IPOBJ) $(RTMONOBJ)
 -SCRIPTS=routel
 -TARGETS=ip rtmon
-+SCRIPTS=
 +TARGETS=ip
  
- all: $(TARGETS) $(SCRIPTS)
+-all: $(TARGETS) $(SCRIPTS)
++all: $(TARGETS)
  
+ ip: $(IPOBJ) $(LIBNETLINK)
+ 	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+@@ -33,7 +32,6 @@
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+-	install -m 0755 $(SCRIPTS) $(DESTDIR)$(SBINDIR)
+ 
+ clean:
+ 	rm -f $(ALLOBJ) $(TARGETS)

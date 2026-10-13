@@ -43,8 +43,10 @@ class IndependentIPParity(unittest.TestCase):
         self.assertTrue(minimal_patch.is_file())
         self.assertFalse(minimal_patch.is_symlink())
         patch_text = minimal_patch.read_text(encoding="utf-8")
-        for required in ("+SUBDIRS=lib ip", "+SCRIPTS=", "+TARGETS=ip"):
+        for required in ("+SUBDIRS=lib ip", "+TARGETS=ip", "+all: $(TARGETS)"):
             self.assertIn(required, patch_text)
+        self.assertNotIn("+SCRIPTS=", patch_text)
+        self.assertIn("-\tinstall -m 0755 $(SCRIPTS) $(DESTDIR)$(SBINDIR)", patch_text)
         fragment = (BASE / "configs/portable-handoff.busybox.fragment").read_text(encoding="utf-8")
         self.assertEqual(fragment.splitlines().count("# CONFIG_IP is not set"), 1)
         surface = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
@@ -90,7 +92,7 @@ class IndependentIPParity(unittest.TestCase):
                 "SUBDIRS=lib ip\ninstall: all\n\tinstall -m 0755 -d $(DESTDIR)$(SBINDIR)\n\t@for i in $(SUBDIRS); do $(MAKE) -C $$i install; done\nversion:\n",
                 encoding="utf-8",
             )
-            (source / "ip/Makefile").write_text("SCRIPTS=\nTARGETS=ip\n", encoding="utf-8")
+            (source / "ip/Makefile").write_text("TARGETS=ip\nall: $(TARGETS)\n", encoding="utf-8")
             receipt = b.verify_iproute2_minimal_build(build_dir)
         self.assertEqual(receipt["upstream_version"], "7.1.0")
         self.assertEqual(receipt["build_scope"], ["lib", "ip"])
