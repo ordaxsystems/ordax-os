@@ -1,0 +1,2 @@
+SURFACE_BROWSER_STARTUP_MS=735
+{"pass":371,"fail":[{"name":"geometry device 1440 ink","status":"FAIL","error":"timeout document.readyState===\"complete\"&&!!document.querySelector(\"[data-meridian] #meridian-main\")"}],"geometry":63}

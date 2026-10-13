@@ -1,0 +1,31 @@
+SURFACE_BROWSER_STARTUP_MS=923
+CHROMIUM_STDERR_BEGIN
+[22008:11116:1013/112736.641:ERROR:components\os_crypt\async\browser\os_crypt_win.cc:63] Failed to encrypt: O sistema não pode encontrar o arquivo especificado. (0x2)
+[22008:15528:1013/112736.712:ERROR:chrome\installer\util\google_update_settings_win.cc:270] Failed opening key Software\Google\Update\ClientState\{8A69D345-D564-463c-AFF1-A69D9E530F96} to set usagestats; result: 5
+
+DevTools listening on ws://127.0.0.1:59938/devtools/browser/dc38a4e6-5056-42be-a4ee-0a34a5cf4a02
+[22008:11116:1013/112737.201:ERROR:content\browser\gpu\gpu_process_host.cc:1043] GPU process exited unexpectedly: exit_code=-1073741790
+[22008:11116:1013/112737.244:ERROR:content\browser\gpu\gpu_process_host.cc:1043] GPU process exited unexpectedly: exit_code=-1073741790
+[22008:11116:1013/112738.229:ERROR:content\browser\gpu\gpu_process_host.cc:1043] GPU process exited unexpectedly: exit_code=-1073741790
+[22008:11116:1013/112738.248:ERROR:content\browser\gpu\gpu_process_host.cc:1043] GPU process exited unexpectedly: exit_code=-1073741790
+[22008:11116:1013/112738.478:ERROR:content\browser\gpu\gpu_process_host.cc:1043] GPU process exited unexpectedly: exit_code=-1073741790
+[22008:11116:1013/112738.561:ERROR:content\browser\gpu\gpu_process_host.cc:1043] GPU process exited unexpectedly: exit_code=-1073741790
+[22008:11116:1013/112738.561:FATAL:content\browser\gpu\gpu_data_manager_impl_private.cc:389] GPU process isn't usable. Goodbye.
+
+CHROMIUM_STDERR_END
+MERIDIAN_ASSERTIONS=9
+file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/browser-proof/chromium.mjs:149
+    this.socket.addEventListener('error', () => this.rejectPending(new Error('DevTools connection failed')));
+                                                                   ^
+
+Error: DevTools connection failed
+    at WebSocket.<anonymous> (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/browser-proof/chromium.mjs:149:68)
+    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:856:20)
+    at WebSocket.dispatchEvent (node:internal/event_target:789:26)
+    at fireEvent (node:internal/deps/undici/undici:15068:14)
+    at #onSocketClose (node:internal/deps/undici/undici:16409:11)
+    at Socket.onSocketClose (node:internal/deps/undici/undici:16108:72)
+    at Socket.emit (node:events:526:24)
+    at TCP.<anonymous> (node:net:362:12)
+
+Node.js v26.7.0
