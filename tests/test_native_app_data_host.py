@@ -23,6 +23,10 @@ from native_app_data_host import (  # noqa: E402
     NativeAppDataHostHandler,
     NativeAppDataHostServer,
 )
+from native_app_data import (  # noqa: E402
+    create_app_data_checkpoint,
+    retire_app_data_checkpoint,
+)
 from native_app_install_identity import (  # noqa: E402
     canonical_verified_app_install_identity_bytes,
 )
@@ -270,6 +274,37 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         status, _headers, response = self.json_post(original, {"action": "list"})
         self.assertEqual(status, 404)
         self.assertEqual(response["error"], "Native App Data capability is unknown")
+
+    def test_live_http_capability_cannot_access_data_after_foreign_version_pin(self):
+        """A token issued before a checkpoint cannot bypass its version fence."""
+        endpoint = self.binding.endpoint
+        identity = self.binding.app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.2", "sourceCommit": "2" * 40}
+        status, _, written = self.json_post(endpoint, {
+            "action": "put", "key": "note.alpha",
+            "valueBase64": "b2xk", "expectedRevision": 0,
+        })
+        self.assertEqual((status, written["revision"]), (200, 1))
+        pinned = create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        self.assertEqual(pinned["pinnedRevision"], 1)
+
+        for body in (
+            {"action": "list"},
+            {"action": "get", "key": "note.alpha"},
+            {"action": "put", "key": "note.alpha", "valueBase64": "bmV3", "expectedRevision": 1},
+            {"action": "delete", "key": "note.alpha", "expectedRevision": 1},
+        ):
+            with self.subTest(action=body["action"]):
+                status, _, response = self.json_post(endpoint, body)
+                self.assertEqual(status, 409)
+                self.assertIn("requires trusted recovery", response["error"])
+
+        # The only way to release the pin is a trusted owner's explicit
+        # decision; failed requests must not mutate the durable revision.
+        retired = retire_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        self.assertTrue(retired["retired"])
+        status, _, value = self.json_post(endpoint, {"action": "get", "key": "note.alpha"})
+        self.assertEqual((status, value["revision"], value["valueBase64"]), (200, 1, "b2xk"))
 
     def test_bound_route_persists_and_cas_conflict_reports_actual_revision(self):
         status, _headers, stored = self.json_post(
