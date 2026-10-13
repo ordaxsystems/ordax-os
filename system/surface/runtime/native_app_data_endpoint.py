@@ -12,7 +12,7 @@ import json
 
 from native_app_data import (
     AppDataConflictError,
-    AppDataReceiptVersionConflictError,
+    AppDataRecoveryPendingError,
     DEFAULT_APP_DATA_MAX_KEYS,
     DEFAULT_APP_DATA_QUOTA_BYTES,
     DEFAULT_APP_DATA_ROOT,
@@ -115,7 +115,7 @@ def handle_app_data_request(
         raise AppDataEndpointRequestError("App Data action or request shape is invalid")
     except AppDataEndpointRequestError:
         raise
-    except AppDataReceiptVersionConflictError as exc:
+    except AppDataRecoveryPendingError as exc:
         raise AppDataEndpointRequestError(str(exc), status_code=409) from exc
     except AppDataConflictError as exc:
         raise AppDataEndpointRequestError(
