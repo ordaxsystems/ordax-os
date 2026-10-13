@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -205,6 +206,130 @@ class NativeAppDataBindingTest(unittest.TestCase):
             )
         self.assertEqual(denied.exception.status_code, 409)
         self.assertEqual(registry.active_binding_count(), 1)
+
+
+    def test_checkpoint_committed_before_grant_lock_rejects_entire_batch(self):
+        # Deterministic reproduction of check-then-mint: the checkpoint wins
+        # before the mint acquires any partition lock. No other app in the
+        # batch may receive a partial capability as a side effect.
+        import native_app_data
+
+        notes = self.write_receipt()
+        unrelated = self.write_receipt(receipt(
+            appId="assistant", sourceVersion="0.1.0", sourceDigest="2" * 64,
+        ))
+        registry = self.registry()
+        identity = {"publisherId": "ordax-official", "appId": "notes", "ownerScope": "device"}
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        put_app_data(identity, "before", b"durable", 0, root=str(self.data_root))
+        entered = threading.Event()
+        resume = threading.Event()
+        observed = []
+        actual = native_app_data._shared_partition_lock_if_present
+
+        @contextmanager
+        def pause_before_lock(bound, root):
+            if bound["appId"] == "notes":
+                entered.set()
+                if not resume.wait(timeout=8):
+                    raise AssertionError("mint pre-lock release timed out")
+            with actual(bound, root) as locked:
+                yield locked
+
+        def mint():
+            try:
+                registry.mint_many_from_receipts([unrelated, notes])
+                observed.append(AssertionError("grant bypassed a durable checkpoint"))
+            except BaseException as exc:
+                observed.append(exc)
+
+        worker = threading.Thread(target=mint, daemon=True)
+        with mock.patch("native_app_data._shared_partition_lock_if_present", new=pause_before_lock):
+            try:
+                worker.start()
+                self.assertTrue(entered.wait(timeout=5))
+                create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+            finally:
+                resume.set()
+                worker.join(timeout=8)
+
+        self.assertFalse(worker.is_alive(), "mint hung after recovery checkpoint")
+        self.assertEqual(len(observed), 1)
+        self.assertIsInstance(observed[0], ValueError)
+        self.assertIn("requires trusted recovery", str(observed[0]))
+        self.assertEqual(registry.active_binding_count(), 0)
+
+    def test_grant_holds_partition_lock_through_commit_then_checkpoint_fences_usage(self):
+        # If mint wins the shared lock first, a concurrent checkpoint cannot
+        # commit before the capability registry does. Once the updater
+        # checkpoints, even the already-granted token is fenced at the data
+        # endpoint until the signed owner decides recovery.
+        import native_app_data
+
+        receipt_sha = self.write_receipt()
+        registry = self.registry()
+        identity = {"publisherId": "ordax-official", "appId": "notes", "ownerScope": "device"}
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        put_app_data(identity, "before", b"durable", 0, root=str(self.data_root))
+        shared_held = threading.Event()
+        release_mint = threading.Event()
+        writer_entered = threading.Event()
+        checkpoint_written = threading.Event()
+        errors = []
+        minted = []
+        actual = native_app_data._shared_partition_lock_if_present
+
+        @contextmanager
+        def pause_inside_lock(bound, root):
+            with actual(bound, root) as locked:
+                if bound["appId"] == "notes":
+                    self.assertTrue(locked)
+                    shared_held.set()
+                    if not release_mint.wait(timeout=8):
+                        raise AssertionError("mint locked release timed out")
+                yield locked
+
+        def mint():
+            try:
+                minted.append(registry.mint_from_receipt(receipt_sha))
+            except BaseException as exc:
+                errors.append(exc)
+
+        def checkpoint():
+            try:
+                writer_entered.set()
+                create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+                checkpoint_written.set()
+            except BaseException as exc:
+                errors.append(exc)
+
+        mint_worker = threading.Thread(target=mint, daemon=True)
+        checkpoint_worker = threading.Thread(target=checkpoint, daemon=True)
+        with mock.patch("native_app_data._shared_partition_lock_if_present", new=pause_inside_lock):
+            try:
+                mint_worker.start()
+                self.assertTrue(shared_held.wait(timeout=5))
+                checkpoint_worker.start()
+                self.assertTrue(writer_entered.wait(timeout=5))
+                self.assertFalse(checkpoint_written.wait(timeout=0.1))
+            finally:
+                release_mint.set()
+                mint_worker.join(timeout=8)
+                checkpoint_worker.join(timeout=8)
+
+        self.assertFalse(mint_worker.is_alive())
+        self.assertFalse(checkpoint_worker.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(minted), 1)
+        self.assertTrue(checkpoint_written.is_set())
+        self.assertIs(registry.resolve(minted[0].endpoint), minted[0])
+        with self.assertRaisesRegex(AppDataEndpointRequestError, "requires trusted recovery"):
+            handle_bound_app_data_request(
+                registry, minted[0].endpoint, b'{"action":"list"}',
+                root=str(self.data_root),
+            )
+        with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
+            registry.mint_from_receipt(receipt_sha)
 
     def test_boot_rejects_incomplete_partition_and_mixed_receipt_batch(self):
         original = self.write_receipt()
