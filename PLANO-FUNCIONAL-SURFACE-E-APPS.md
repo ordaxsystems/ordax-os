@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Reconciliação dos gates Surface — 12/10/2026:** continuidade solicitada
+> após a reprovação da main por expectativas de UI anteriores à sidebar compartilhada.
+> Prova de navegador da PR #1713 reutilizada e alinhada ao source atual; renderização
+> Native exercitada em pt-BR/en-US, perfil único, launcher acessível e SSOT de cores/movimento.
+> Layout e autoridades preservados; [escopo e aceite](docs/DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
 > **Alternador contextual — 12/10/2026:** Web/Native usam a política de
 > apresentação existente para monitor/grade de destino; a exceção Web de
 > largura 185 px foi removida. Posição à direita e owners preservados.

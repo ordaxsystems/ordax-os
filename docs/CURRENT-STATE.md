@@ -1,5 +1,31 @@
 # Current State
 
+## Reconciliação dos gates Surface — 2026-10-12
+
+As cinco reprovações de contratos em main 9a84bbd eram expectativas de templates
+anteriores aos owners atuais. A primeira correção também revelou a expectativa
+obsoleta do texto Ctrl + K no header removido. A marca/sidebar, cada launcher
+com nome acessível e o perfil único agora são verificados no markup realmente
+gerado em pt-BR/en-US, sem restaurar UI antiga para satisfazer testes.
+Paleta e movimento reduzido continuam nos owners canônicos.
+
+A prova de browser da PR #1713 foi reconciliada com a main atual; nenhuma versão
+antiga dos arquivos gerados do site ou da UI foi reintegrada. Não foi necessário
+aplicar a alteração de produto da PR #1712: a composição atual passou fisicamente
+os sete viewports, incluindo compacto mobile selecionado e tiles desktop.
+39 testes Node, 44 Python, 34 arquivos/assets de referência, fronteiras de módulos
+e a prova de browser Native passaram. Web/USB visual continuam HTTP 200.
+Durante a validação outro chat integrou d406116, com o SDK atualizado e as
+mesmas correções de provas. Foundation e Surface Web passaram nesse SHA no Linux.
+A reconciliação preserva essas mudanças e acrescenta os testes de renderização;
+os gates do novo commit continuam distintos das provas da base e das provas locais. Ver [escopo, risco e aceite](DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
+
+A reconciliação também preserva a base 0562491: Gate A remove-first do Assistant
+(#1717) e retries de ativação assinada (#1718). Os testes de renderização seguem
+os cinco destinos atuais e exigem ausência do atalho Assistant durante o gap;
+nenhum source removido ou instalação fictícia é restaurado.
+
 ## Alternância Central/Área de trabalho — 2026-10-12
 
 Owner OS Surface; incremento solicitado sobre a sidebar/dock compartilhada.
