@@ -74,6 +74,8 @@ import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-li
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
+import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
+import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -89,6 +91,7 @@ import { createApplicationSemanticRouter } from "../../services/intelligence/app
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
+  hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
 import {
   loadVerifiedFirstPartyApplicationSemantics,
@@ -830,6 +833,16 @@ async function start() {
           reportClientDiagnostic("files-project-continuity", error);
         },
       });
+  // This binding is dormant while Files is bundled or the Native signed-slot
+  // read policy excludes it. No alternative Files source is mounted here.
+  if (hasNativeExternalFirstPartyModuleRead("files")
+    && !listFirstPartyApps().some((app) => app.id === "files")) {
+    installTrustedComponentContextProvider(
+      createNativeFilesTrustedContextProvider({
+        fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+      }),
+    );
+  }
   const fileSpaceControls = mountFileSpaceControls(
     root,
     filesOwnerSpace,
