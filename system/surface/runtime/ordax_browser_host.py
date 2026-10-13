@@ -510,10 +510,15 @@ class OrdaXBrowserHost:
                 emit_boot_diag(stage)
                 break
         if load_event == WebKit2.LoadEvent.COMMITTED:
-            emit_boot_diag(
-                "webkit-uri-expected" if self.surface_view.get_uri() == self.start_uri
-                else "webkit-uri-mismatch"
-            )
+            # Compare only the main resource in memory. Never read the privileged
+            # WebView navigation URI into the browser session/state owner.
+            resource = self.surface_view.get_main_resource()
+            resource_uri = resource.get_uri() if resource is not None else None
+            if resource_uri is not None:
+                emit_boot_diag(
+                    "webkit-uri-expected" if resource_uri == self.start_uri
+                    else "webkit-uri-mismatch"
+                )
         if load_event == WebKit2.LoadEvent.FINISHED:
             # HTTP completion is not proof of JavaScript execution or health.
             resource = self.surface_view.get_main_resource()
