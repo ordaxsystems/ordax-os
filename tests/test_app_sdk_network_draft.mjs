@@ -10,7 +10,7 @@ const gitBlob = createHash("sha1").update(Buffer.from("blob " + source.length + 
 
 test("Network Draft public SDK 1.17 preserves canonical source and schema", () => {
   const specs = bundle.contracts.filter(entry => entry.schema === NETWORK_DRAFT_SCHEMA);
-  assert.equal(bundle.bundle_version, "1.17.0");
+  assert.equal(bundle.bundle_version, "1.18.0");
   assert.equal(specs.length, 1);
   assert.equal(specs[0].name, "network-draft");
   assert.equal(specs[0].source_path, "system/contracts/network-draft.mjs");
