@@ -126,6 +126,17 @@ test("en-US translation generates at most one mutation, never a feedback loop", 
   assert.equal(browser.attributes, 1);
 });
 
+test("dynamic runtime text is not overwritten by a stale localization record", () => {
+  const browser = browserFixture("pt-BR");
+  browser.content.nodeValue = "proof-account@example.invalid";
+  assert.equal(browser.flush(), 1);
+  assert.equal(browser.content.nodeValue, "proof-account@example.invalid");
+
+  browser.window.OrdaXPublicI18n.setLocale("en-US");
+  assert.equal(browser.content.nodeValue, "proof-account@example.invalid");
+  assert.equal(browser.flush(), 0);
+});
+
 test("locale switching flushes the mutation queue and keeps clicks unblocked", () => {
   const browser = browserFixture("pt-BR");
   browser.window.OrdaXPublicI18n.setLocale("en-US");

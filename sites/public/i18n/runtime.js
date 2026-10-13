@@ -81,12 +81,32 @@
     return id ? t(id) : source;
   }
 
+  function isKnownMessageValue(id, value) {
+    const normalized = normalize(value);
+    if (!normalized) return false;
+    for (const locale of SUPPORTED) {
+      const candidate = catalog.messages[locale]?.[id];
+      if (typeof candidate === "string" && normalize(candidate) === normalized) return true;
+    }
+    return false;
+  }
+
   function textRecord(node) {
     let record = textSources.get(node);
-    if (record) return record;
     const raw = node.nodeValue ?? "";
     const normalized = normalize(raw);
-    if (!normalized) return null;
+    if (!normalized) {
+      textSources.delete(node);
+      return null;
+    }
+    if (record && isKnownMessageValue(record.id, normalized)) return record;
+
+    // React and other UI owners may reuse an existing text node for runtime
+    // data (for example, replacing an anonymous-account sentence with the
+    // authenticated email). A cached localization record must never overwrite
+    // that new value. Forget stale ownership and only adopt the new text when
+    // it is itself a canonical source message.
+    if (record) textSources.delete(node);
     const id = findMessageId(normalized);
     if (!id) return null;
     const leading = raw.match(/^\s*/)?.[0] ?? "";

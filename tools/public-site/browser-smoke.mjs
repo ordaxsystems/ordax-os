@@ -65,7 +65,8 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
       }
       await sleep(50);
     }
-    await evaluate('document.fonts.ready.then(() => true)');
+    await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
+    await sleep(50);
     const report = await evaluate(`(() => {
       const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
       const hero = document.querySelector('.overview-hero');
@@ -87,8 +88,13 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
         originalLandscapeLoaded: !!hero?.querySelector('img')?.naturalWidth,
         threeSummaryCards: summary.length === 3 && summary.every(visible),
         twoDashboardCards: secondary.length === 2 && secondary.every(visible),
-        noInventedConsumption: !!document.querySelector('.chart-empty') &&
-          document.querySelector('.chart-empty').innerText.includes('indisponíveis'),
+        localePtBr: document.documentElement.lang === 'pt-BR',
+        noInventedConsumption: (() => {
+          const chart = document.querySelector('.usage-chart');
+          const empty = chart?.querySelector('.chart-empty');
+          const svgs = chart ? [...chart.querySelectorAll('svg')] : [];
+          return visible(empty) && svgs.length === 1 && empty.contains(svgs[0]);
+        })(),
         noExposedUnverifiedIdentity: !document.querySelector('.account-session-email'),
         mobileNavigation: innerWidth >= 600 || visible(nav),
         sidebarDesktop: innerWidth < 1100 || visible(sidebar),
@@ -101,7 +107,7 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     const required = [
       'noHorizontalOverflow', 'mainVisible', 'heroVisible', 'profileVisible', 'noInventedPersonalPlan',
       'originalLogoLoaded', 'originalLandscapeLoaded', 'threeSummaryCards',
-      'twoDashboardCards', 'noInventedConsumption',
+      'twoDashboardCards', 'localePtBr', 'noInventedConsumption',
       'noExposedUnverifiedIdentity', 'mobileNavigation', 'sidebarDesktop',
       'accountButton', 'publicPrivacyLink', 'summaryActive',
     ];
@@ -110,6 +116,15 @@ async function proveReactPublicAccount(client, url, evidenceDir) {
     }
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(join(evidenceDir, `react-account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
+    await evaluate('window.OrdaXPublicI18n.setLocale("en-US")');
+    await sleep(100);
+    const englishFits = await evaluate('document.documentElement.lang === "en-US" && document.documentElement.scrollWidth <= innerWidth + 1');
+    if (!englishFits) throw new Error(`${name} React account English layout overflowed`);
+    const englishScreenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await writeFile(join(evidenceDir, `react-account-${name}-en.png`), Buffer.from(englishScreenshot.data, 'base64'));
+    report.englishFits = englishFits;
+    await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
+    await sleep(50);
     // Radix DropdownMenu listens to genuine pointer/keyboard events, not
     // HTMLElement.click(), which skips pointerdown and can hide regressions.
     await evaluate('document.querySelector("button.account-menu").focus()');
