@@ -161,15 +161,39 @@ func TestSignedStatefulReinstallAfterRemovalRequiresRecovery(t *testing.T) {
 				t, fixture, "1.0.0", strings.Repeat("1", 40), tc.source,
 			)
 			active := healthyPromoteV2(t, fixture, current)
-			removed, err := uninstallCurrentStateAtRevision(
-				fixture.root, "internet", *active.Current, active.Revision,
-				fixture.trustPath,
-			)
-			if err != nil {
-				t.Fatal(err)
+			var removed activationState
+			if tc.source == nil {
+				// A stateless signed uninstall is still a real supported
+				// writer transition.
+				var err error
+				removed, err = uninstallCurrentStateAtRevision(
+					fixture.root, "internet", *active.Current, active.Revision,
+					fixture.trustPath,
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				// Existing stateful tombstones must stay recoverable and
+				// fail closed on reinstall, even though new stateful
+				// uninstalls are now blocked by the production writer.
+				// This is an injected historical persisted-state fixture,
+				// not a bypass or second production activation authority.
+				removed = active
+				removed.Revision++
+				removed.Current = nil
+				removed.Previous = nil
+				removed.Pending = nil
+				removed.Rejected = nil
+				removed.PendingHealth = "unknown"
+				removed.UserRemoved = true
+				removed.Removed = active.Current
+				if err := writeActivationState(fixture.root, removed); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if !removed.UserRemoved || removed.Current != nil {
-				t.Fatalf("uninstall did not durably remove current: %+v", removed)
+				t.Fatalf("uninstall recovery fixture is inconsistent: %+v", removed)
 			}
 			if tc.legacy {
 				removed.Removed = nil
@@ -183,7 +207,7 @@ func TestSignedStatefulReinstallAfterRemovalRequiresRecovery(t *testing.T) {
 					t, fixture, "1.1.0", strings.Repeat("2", 40), tc.reinstall,
 				)
 			}
-			_, err = armPendingStateAtRevision(
+			_, err := armPendingStateAtRevision(
 				candidate.slot, fixture.trustPath, fixture.root, &removed.Revision,
 			)
 			if err == nil || !strings.Contains(err.Error(), "stateful reinstall after uninstall requires verified device-state recovery transaction") {

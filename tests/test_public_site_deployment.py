@@ -27,7 +27,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.vercel["ignoreCommand"],
             "sh tools/public-site/should_skip_vercel_build.sh",
         )
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"*": False, "main": True})
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"**": False, "main": True})
         script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
         self.assertTrue(script.is_file())
 
@@ -241,8 +241,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["automatic_production_git_deployments_enabled"])
         self.assertEqual(migration["production_git_branch"], "main")
         self.assertEqual(migration["git_deployment_branch_policy"], "production-only")
+        self.assertEqual(migration["git_deployment_pattern_syntax"], "minimatch")
+        self.assertEqual(migration["git_deployment_disabled_branch_pattern"], "**")
+        self.assertEqual(
+            migration["git_deployment_policy_evidence"],
+            "docs/evidence/public-vercel-production-only-minimatch-correction-2026-10-13.md",
+        )
         self.assertEqual(migration["pull_request_validation_owner"], "github-actions-public-site-candidate")
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"*": False, "main": True})
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"**": False, "main": True})
         self.assertEqual(
             migration["target_team_slug"],
             self.contract["vercel_adapter"]["team"],

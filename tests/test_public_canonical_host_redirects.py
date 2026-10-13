@@ -51,13 +51,15 @@ class CanonicalPublicHostTests(unittest.TestCase):
                 ("/account/:path*", "/api/account-proxy?ordax_path=/account/:path*"),
             ],
         )
-        self.assertEqual(self.config["git"]["deploymentEnabled"], {"*": False, "main": True})
+        self.assertEqual(self.config["git"]["deploymentEnabled"], {"**": False, "main": True})
         migration = self.contract["vercel_migration"]
         self.assertFalse(migration["automatic_git_deployments_frozen"])
         self.assertFalse(migration["automatic_preview_git_deployments_enabled"])
         self.assertTrue(migration["automatic_production_git_deployments_enabled"])
         self.assertEqual(migration["production_git_branch"], "main")
         self.assertEqual(migration["git_deployment_branch_policy"], "production-only")
+        self.assertEqual(migration["git_deployment_pattern_syntax"], "minimatch")
+        self.assertEqual(migration["git_deployment_disabled_branch_pattern"], "**")
         self.assertEqual(migration["pull_request_validation_owner"], "github-actions-public-site-candidate")
         self.assertEqual(self.contract["vercel_adapter"]["canonical_public_origin"], "https://ordax.com.br")
 
