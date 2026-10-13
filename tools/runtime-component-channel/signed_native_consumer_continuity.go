@@ -54,6 +54,24 @@ func verifySignedNativeCandidateGraphUnderLock(
 	return checkSignedNativeCandidateRequirements(graph, componentID, descriptor.Requires)
 }
 
+// Host interfaces have distinct owners from independently signed components.
+// The exact ABI declarations are generated from the canonical OS contract policy.
+// Recognition here only classifies a dependency: no port is injected, no
+// capability is granted, and component runtime health remains mandatory.
+func declaredNativeHostInterfaceRequirement(required requiredCompatibilityContract) (bool, error) {
+	major, ownedByHost := nativeHostInterfaceContractMajors[required.ID]
+	if !ownedByHost {
+		return false, nil
+	}
+	if major < required.MinMajor || major > required.MaxMajor {
+		return true, fmt.Errorf(
+			"component requires unsupported OS host interface %s@%d-%d (OS declares %d)",
+			required.ID, required.MinMajor, required.MaxMajor, major,
+		)
+	}
+	return true, nil
+}
+
 // A required provider is acceptable only when another currently installed
 // release/2 slot actually signs a matching provided contract. A bundled
 // fallback and release/1 have no equivalent attestation: neither may be
@@ -65,6 +83,15 @@ func checkSignedNativeCandidateRequirements(
 ) error {
 	for _, required := range requires {
 		if required.Optional {
+			continue
+		}
+		hostInterface, err := declaredNativeHostInterfaceRequirement(required)
+		if err != nil {
+			return err
+		}
+		if hostInterface {
+			// Host-owned interfaces are validated by the Native host at mount
+			// and probation. Never invent a signed component slot for them.
 			continue
 		}
 		available := false
@@ -163,7 +190,11 @@ func checkSignedNativeConsumerContinuity(
 			continue
 		}
 		for _, required := range peer.VerifiedSlot.Descriptor.Requires {
-			if required.Optional || !signedInterfaceSatisfiesRequirement(provides, required) {
+			hostInterface, err := declaredNativeHostInterfaceRequirement(required)
+			if err != nil {
+				return err
+			}
+			if hostInterface || required.Optional || !signedInterfaceSatisfiesRequirement(provides, required) {
 				continue
 			}
 			if signedInterfaceSatisfiesRequirement(replacement, required) {

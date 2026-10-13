@@ -22,6 +22,19 @@ class RuntimePackageSourceSsotTests(unittest.TestCase):
             )
         }
         self.assertEqual(found, expected)
+        host_abi = policy["native_host_contract_major_versions"]
+        self.assertEqual(host_abi["ordax.app-activation"], 1)
+        self.assertEqual(host_abi["ordax.app-data"], 1)
+        self.assertEqual(host_abi["ordax.localization"], 2)
+        self.assertEqual(host_abi["ordax.surface-render-lifecycle"], 5)
+        for name, major in host_abi.items():
+            self.assertIn(f'\t"{name}": {major},', source)
+        self.assertNotIn("ordax.internet", host_abi)
+
+        self.assertEqual(found.get("activity"), "ordaxsystems/ordax-apps")
+        self.assertNotIn("activity", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("activity", policy["runtime_health_bridge_supported_components"])
+        self.assertNotIn("activity", policy["prelaunch_remove_first_pending"])
 
 
 if __name__ == "__main__":
