@@ -172,3 +172,19 @@ the disposable Chromium profile for native focus-event checks, and records
 navigation, window geometry, keyboard, AX and foreground-context results.
 ORDAX_PYTHON and MERIDIAN_EVIDENCE_DIR work as above. It does not replace the
 existing smokes or the independent Round 2 journey matrix.
+
+## Meridian Round 4 — rail, touch and window chrome
+
+See [the focused delivery and 24 captures](../../docs/evidence/meridian-round4/coverage.md).
+Rail/dock pointer labels, scoped dock scroll feedback, window chrome and low
+landscape density are refined together in Argila/Grafite. Audited navigation,
+maximization, foreground and context boundaries remain in the same preview.
+
+```sh
+node tools/meridian-preview/round4-smoke.mjs
+```
+
+Uses the running host at 4203 and disposable Chromium. Output defaults to
+out/meridian-round4; MERIDIAN_EVIDENCE_DIR can select another proof directory.
+It covers only Round 4 refinements; emulated touch is not physical touch acceptance.
+Earlier smokes and evidence remain intact. No integration, main update or merge readiness.

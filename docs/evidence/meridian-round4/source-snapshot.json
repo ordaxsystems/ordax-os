@@ -1,0 +1,40 @@
+{
+  "branch": "codex/meridian-design-lab",
+  "initialHead": "771cb98c3de077dac0b63197ff9198ca0220ee8b",
+  "codeCommit": "11bee9e7ba9a3c496e9b5f607dfea2d795e1fca0",
+  "preservedAuditFix": "2b609edae1fca0db56b4de05f76d1bb822245ebe",
+  "mainInitial": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "mainFinal": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "changedPaths": [
+    "system/surface/experiments/meridian/experience.mjs",
+    "system/surface/experiments/meridian/interactions.mjs",
+    "system/surface/experiments/meridian/meridian.css",
+    "system/surface/experiments/meridian/meridian.journeys.css",
+    "system/surface/experiments/meridian/meridian.tokens.css",
+    "system/surface/experiments/meridian/meridian.views.css",
+    "system/surface/experiments/meridian/ui.mjs",
+    "system/surface/experiments/meridian/views/desktop.mjs",
+    "system/surface/experiments/meridian/views/panels.mjs",
+    "system/surface/experiments/meridian/views/shell.mjs",
+    "system/surface/experiments/meridian/views/taskbar.mjs",
+    "tools/meridian-preview/round4-smoke.mjs"
+  ],
+  "sha256": {
+    "system/surface/experiments/meridian/experience.mjs": "4f3f606f4e0bc16ddab98249323e7d6a631b850a0095a2c617589ed8ea13ec61",
+    "system/surface/experiments/meridian/interactions.mjs": "20ad8cad95eddca92780de7bcc30e9b56e9c107e95e23ac2c1a20010d6aa1736",
+    "system/surface/experiments/meridian/meridian.css": "f755485472d5ec65d0202dc5fd341366633e9f91feb425303fde4f4686f0b7c7",
+    "system/surface/experiments/meridian/meridian.journeys.css": "c86248316987eb72950f4775244e6332308bb83bd4d6df8ad9feacd990857579",
+    "system/surface/experiments/meridian/meridian.tokens.css": "2f3336c05526a6005d6e278154f0564076977d028a0d707c258a312adef1fed3",
+    "system/surface/experiments/meridian/meridian.views.css": "f5c3bba49bc6f374ccd5175136fa8849fe032b5f72b0f19723c9cff4ab7a23b4",
+    "system/surface/experiments/meridian/ui.mjs": "34b27b71590abc3d4202f83bd6cad1381a17049fbca4a440d37c21ab299c2bca",
+    "system/surface/experiments/meridian/views/desktop.mjs": "886ef1aac818cb759d9af8c783320767135a3aef7360352d2cf78e697ec4c311",
+    "system/surface/experiments/meridian/views/panels.mjs": "a814b46e411ce57e24758269fb04c768a54b937520960abf15dedc5553b9423e",
+    "system/surface/experiments/meridian/views/shell.mjs": "86c7f2afad20edd33cced22bbedcd8144b882432fc7ae62b7ed55d8826d11265",
+    "system/surface/experiments/meridian/views/taskbar.mjs": "e67f111ff3eaca25a67f1847da8d4e2e99841cf295dfceef1f4975e10b87aaa3",
+    "tools/meridian-preview/round4-smoke.mjs": "0119d85684a68cb0421ac4a2424a151a20de4e31930972676ed70887f3ce27d4"
+  },
+  "nodeCheckModules": 21,
+  "focusedChecks": 81,
+  "captures": 24,
+  "scope": "Experimental frontend only; no production promotion or independent audit."
+}
