@@ -270,7 +270,9 @@ class NativeAppDataBindingRegistry:
                 self._condition.notify_all()
 
     @contextmanager
-    def suspend_verified_receipt_for_maintenance(self, receipt_sha256: str):
+    def suspend_verified_receipt_for_maintenance(
+        self, receipt_sha256: str, *, expected_source_release: dict | None = None,
+    ):
         """Trusted host-only admission barrier; no app-facing revocation route.
 
         Reopens the same install receipt used to mint a capability, revokes
@@ -285,6 +287,21 @@ class NativeAppDataBindingRegistry:
             expected_uid=self._expected_uid,
         )
         identity = verified.app_data_identity()
+        # The installer receipt is the current host's authenticated identity
+        # source. Before revocation, ensure that a proposed owner checkpoint
+        # at least correlates to this very installation, not another release
+        # version or application. A match is NECESSARY, NEVER SUFFICIENT:
+        # the receipt does not bind sourceCommit or grant signed activation.
+        if expected_source_release is not None:
+            if (
+                not isinstance(expected_source_release, dict)
+                or set(expected_source_release) != {"componentId", "version", "sourceCommit"}
+                or expected_source_release["componentId"] != verified.app_id
+                or expected_source_release["version"] != verified.source_version
+            ):
+                raise NativeAppDataBindingError(
+                    "Native App Data maintenance source release does not match verified install receipt"
+                )
         key = (identity["publisherId"], identity["appId"], identity["ownerScope"])
         with self._condition:
             if key in self._suspended:
