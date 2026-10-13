@@ -913,6 +913,12 @@ start_surface_from_system() {
 
     is_sha "$surface_source_sha" || return 1
     [ -x "$surface_entrypoint" ] || return 1
+    # Gate every start, including automatic recovery after an unexpected
+    # launcher crash. A prior HTTP child may still own Native App Data.
+    if ! native_host_quiesced; then
+        log "refusing to start Surface while a previous Native host owns App Data"
+        return 1
+    fi
 
     ORDAX_SYSTEM_ROOT="$surface_system_root" \
     ORDAX_DISTRIBUTION_PROFILE="$DISTRIBUTION_PROFILE" \
