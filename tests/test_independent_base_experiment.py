@@ -66,7 +66,7 @@ class IndependentBaseTest(unittest.TestCase):
                 current, peak = tracemalloc.get_traced_memory()
             finally:
                 tracemalloc.stop()
-            self.assertTrue(output.endswith("END_OF_BUILD\\n"))
+            self.assertTrue(output.endswith("END_OF_BUILD\n"))
             return peak
 
         baseline = observed_peak(False)
