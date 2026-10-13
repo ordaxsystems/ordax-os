@@ -41,6 +41,50 @@ test("Web Intelligence fallback is a canonical fail-closed port", async () => {
   await assert.rejects(port.respond({ intent: "ask", prompt: "teste", context: [] }), /transport is unavailable/);
 });
 
+test("Web Intelligence client keeps snapshot identity stable until semantic state changes", () => {
+  let raw = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    state: "degraded",
+    inferenceAvailable: false,
+    engineId: null,
+    modelId: null,
+    authority: "none",
+    toolExecution: false,
+  };
+  let emit = () => {};
+  const port = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot: () => ({ ...raw }),
+    subscribe(listener) { emit = listener; listener({ ...raw }); return () => {}; },
+    async respond() { throw new Error("not ready"); },
+  };
+  const client = createIntelligenceClient(port);
+  const first = client.getSnapshot();
+  let notifications = 0;
+  client.subscribe(() => { notifications += 1; });
+  assert.equal(client.getSnapshot(), first, "Immediate equivalent source notification must retain object identity");
+  assert.equal(notifications, 0, "Equivalent source state must not notify React consumers");
+
+  raw = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    state: "ready",
+    inferenceAvailable: true,
+    engineId: "engine-test",
+    modelId: "model-test",
+    authority: "none",
+    toolExecution: false,
+  };
+  emit({ ...raw });
+  assert.equal(notifications, 1);
+  assert.notEqual(client.getSnapshot(), first);
+  assert.equal(client.getSnapshot().state, "ready");
+
+  const readySnapshot = client.getSnapshot();
+  emit({ ...raw });
+  assert.equal(notifications, 1, "Repeated equivalent ready state must not notify again");
+  assert.equal(client.getSnapshot(), readySnapshot);
+});
+
 test("Web Intelligence client consumes only the canonical port and sanitizes the response", async () => {
   let received = null;
   const port = {
