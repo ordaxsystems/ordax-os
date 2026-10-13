@@ -77,20 +77,23 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn(".ordax-boot-spinner", css)
         self.assertIn("prefers-reduced-motion", css)
 
-    def test_native_finishes_loading_after_optional_apps_are_attempted(self):
+    def test_native_reveals_real_shell_before_optional_store(self):
         for path in (NATIVE_MAIN,):
             source = path.read_text(encoding="utf-8")
             self.assertIn("createSurfaceBootScreen", source)
             self.assertIn('"surface.boot.loadingSurface"', source)
-            self.assertIn('"surface.boot.loadingApps"', source)
             self.assertIn("translateSurfaceMessage", source)
             self.assertIn("bootScreen.ready()", source)
             self.assertIn('"surface.boot.failed"', source)
             self.assertNotIn('componentId: "notes"', source)
             self.assertNotIn('componentId: "internet"', source)
             self.assertLess(
-                source.index('"surface.boot.loadingApps"'),
                 source.index("bootScreen.ready()"),
+                source.index("void updateWatcher.markHealthy()"),
+            )
+            self.assertLess(
+                source.index("void updateWatcher.markHealthy()"),
+                source.index("storeCatalogComposition = await storeCatalogCompositionPromise"),
             )
 
     def test_web_finishes_boot_after_workspace_mount_and_uses_shared_failure_copy(self):
