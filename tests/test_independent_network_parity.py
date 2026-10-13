@@ -31,6 +31,18 @@ class IndependentIPParity(unittest.TestCase):
     def test_real_product_contract_matches_buildroot_profile(self):
         profile = (BASE / "configs/ordax_minimal_defconfig").read_text(encoding="utf-8")
         self.assertEqual(profile.splitlines().count("BR2_PACKAGE_IPROUTE2=y"), 1)
+        self.assertEqual(
+            profile.splitlines().count(
+                'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
+            ),
+            1,
+        )
+        minimal_patch = BASE / "patches/iproute2/6.14.0/0001-ordax-minimal-ip-only.patch"
+        self.assertTrue(minimal_patch.is_file())
+        self.assertFalse(minimal_patch.is_symlink())
+        patch_text = minimal_patch.read_text(encoding="utf-8")
+        for required in ("+SUBDIRS=lib ip", "+SCRIPTS=", "+TARGETS=ip"):
+            self.assertIn(required, patch_text)
         fragment = (BASE / "configs/portable-handoff.busybox.fragment").read_text(encoding="utf-8")
         self.assertEqual(fragment.splitlines().count("# CONFIG_IP is not set"), 1)
         surface = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
@@ -39,6 +51,22 @@ class IndependentIPParity(unittest.TestCase):
         probe = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text(encoding="utf-8")
         self.assertEqual(probe.count(command), 1)
         self.assertNotIn(command, (BASE / "build.py").read_text(encoding="utf-8"))
+
+    def test_minimal_iproute2_payload_is_fail_closed(self):
+        post_build = (BASE / "post-build.sh").read_text(encoding="utf-8")
+        self.assertIn("Unexpected unused iproute2 payload in Independent Base", post_build)
+        for forbidden in (
+            "/sbin/tc",
+            "/sbin/bridge",
+            "/sbin/ss",
+            "/sbin/rtmon",
+            "/sbin/routel",
+            "/sbin/genl",
+            "/usr/share/iproute2",
+            "/usr/include/iproute2",
+        ):
+            self.assertIn(forbidden, post_build)
+        self.assertNotIn("rm -", post_build)
 
     def test_missing_and_busybox_ip_fail_closed(self):
         b = builder()

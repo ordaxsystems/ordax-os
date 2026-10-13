@@ -25,6 +25,27 @@ test -f "$ROOT/bootstrap/stable-base/ordax-stable-init"
 cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stable-init"
 chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
 test -x "$TARGET_DIR/sbin/modprobe"
+# This parity slice has exactly one iproute2 runtime consumer: /sbin/ip.
+# The version-scoped Buildroot patch must prevent the rest of the suite from
+# entering the target at all; do not hide unused payload by deleting it here.
+test -x "$TARGET_DIR/sbin/ip"
+for unexpected in \
+    "$TARGET_DIR/sbin/tc" \
+    "$TARGET_DIR/sbin/bridge" \
+    "$TARGET_DIR/sbin/ss" \
+    "$TARGET_DIR/sbin/rtmon" \
+    "$TARGET_DIR/sbin/routel" \
+    "$TARGET_DIR/sbin/genl" \
+    "$TARGET_DIR/usr/share/iproute2" \
+    "$TARGET_DIR/usr/include/iproute2" \
+    "$TARGET_DIR/usr/share/bash-completion/completions/tc" \
+    "$TARGET_DIR/usr/share/bash-completion/completions/devlink"
+do
+    if test -e "$unexpected"; then
+        echo "Unexpected unused iproute2 payload in Independent Base: $unexpected" >&2
+        exit 1
+    fi
+done
 printf 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL\n' > "$TARGET_DIR/etc/ordax/independent-base"
 if test -e "$TARGET_DIR/etc/alpine-release" || test -e "$TARGET_DIR/sbin/apk" || test -e "$TARGET_DIR/lib/apk"; then
     echo "Alpine/APK unexpectedly present in independent rootfs" >&2
