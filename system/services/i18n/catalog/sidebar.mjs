@@ -1,0 +1,26 @@
+export const SIDEBAR_SOURCE_MESSAGES = Object.freeze({
+  "sidebar.account.unavailable": "Conta não conectada",
+  "sidebar.account.signIn": "Entrar na conta",
+  "sidebar.account.signedIn": "Sessão verificada",
+  "sidebar.account.connect": "Conectar conta",
+  "sidebar.account.offline": "Sem conexão",
+  "sidebar.account.open": "Abrir meu perfil",
+  "sidebar.storage.unavailable": "Uso e limite de armazenamento indisponíveis.",
+  "sidebar.storage.short": "Uso indisponível",
+  "sidebar.notifications": "Notificações",
+  "sidebar.notifications.unavailable": "Notificações indisponíveis nesta prévia",
+  "shell.sidebar.more": "Mais destinos",
+});
+export const SIDEBAR_ENGLISH_MESSAGES = Object.freeze({
+  "sidebar.account.unavailable": "Account not connected",
+  "sidebar.account.signIn": "Sign in to account",
+  "sidebar.account.signedIn": "Verified session",
+  "sidebar.account.connect": "Connect account",
+  "sidebar.account.offline": "Offline",
+  "sidebar.account.open": "Open my profile",
+  "sidebar.storage.unavailable": "Storage usage and limit unavailable.",
+  "sidebar.storage.short": "Usage unavailable",
+  "sidebar.notifications": "Notifications",
+  "sidebar.notifications.unavailable": "Notifications unavailable in this preview",
+  "shell.sidebar.more": "More destinations",
+});

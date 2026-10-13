@@ -1,3 +1,4 @@
+import { projectSidebarAccount } from "../../../ui/sidebar-account.mjs";
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react';
 import type { validateIdentitySessionSnapshot } from '../../../../contracts/identity-session.mjs';
 import type { validateIdentityActionsSnapshot } from '../../../../contracts/identity-actions.mjs';
@@ -40,10 +41,6 @@ export function useWebAccount() {
   const surface = useSyncExternalStore(session.surface.subscribe, session.surface.getSnapshot, session.surface.getSnapshot);
   const offline = surface.connectivity === 'offline';
   const authorized: { ready: boolean; visibleSpaces: readonly ReturnType<typeof validateSpace>[]; activeSpace: ReturnType<typeof validateSpace> | null } = deriveAuthorizedSpaces(identity, catalog, selection);
-  const displayName = identity.state === 'signed-in' ? (identity.displayName ?? 'Sua conta')
-    : identity.state === 'signed-out' ? 'Entrar na conta' : 'Conta não conectada';
-  const initials = identity.state === 'signed-in'
-    ? displayName.trim().split(/\s+/).slice(0, 2).map((part: string) => Array.from(part)[0] ?? '').join('').toLocaleUpperCase('pt-BR')
-    : null;
+  const { displayName, initials } = projectSidebarAccount(identity, offline);
   return { session, identity, actions, catalog, selection, surface, offline, authorized, displayName, initials };
 }

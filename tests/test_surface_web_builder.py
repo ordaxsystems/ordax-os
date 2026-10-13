@@ -88,6 +88,16 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                 MODULE.build_bundle(out, "2" * 40)
             self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
 
+    def test_router_base_matches_vite_asset_base_for_relocatable_web_build(self):
+        entry = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
+        config = (ROOT / "tools/surface-web/vite.config.ts").read_text(encoding="utf-8")
+        self.assertIn("base: './'", config)
+        self.assertIn("import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL", entry)
+        self.assertIn("basepath: webBasepath", entry)
+        self.assertNotIn("basepath: '/'", entry)
+        # Vite's --base flag is the single build-time authority for both
+        # static assets and the TanStack router mount path.
+
     def test_browser_smoke_serves_404_without_writing_success_headers_first(self):
         source = (ROOT / "tools/surface-web/browser-smoke.mjs").read_text(encoding="utf-8")
         self.assertIn("const bytes = await readFile(path);", source)

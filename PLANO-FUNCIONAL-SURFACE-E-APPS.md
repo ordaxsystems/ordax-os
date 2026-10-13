@@ -1,5 +1,17 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Alternador contextual — 12/10/2026:** Web/Native usam a política de
+> apresentação existente para monitor/grade de destino; a exceção Web de
+> largura 185 px foi removida. Posição à direita e owners preservados.
+> [Escopo, risco e aceite](docs/DESKTOP-IDENTITY.md#contextual-presentation-toggle--2026-10-12).
+
+> **Sidebar/dock — 12/10/2026:** estrutura e cartão de conta compartilhados
+> em sidebar-layout/sidebar-account, geometria 192/64 px e nav de 40 px em tokens,
+> hints imediatos e faixa opaca reservada sem borda. USB sem header; logo/launcher
+> na sidebar até o rodapé. Identidade original, quota indisponível explícita,
+> notificações/Space/energia preservados; desktop sempre recolhido.
+> [Owner, contratos, riscos e aceite](docs/DESKTOP-IDENTITY.md#shared-sidebar-geometry-and-immediate-hints--2026-10-12).
+
 > **Ajustes e sidebar Web/USB — 12/10/2026:** incremento solicitado com CSS e
 > catálogo de Ajustes compartilhados, preferências Web existentes preservadas e
 > política única de manter sidebar recolhida no desktop. Perfil no rodapé USB usa Conta

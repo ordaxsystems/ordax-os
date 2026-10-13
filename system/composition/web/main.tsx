@@ -15,7 +15,9 @@ import { SURFACE_BOOT_SOURCE_MESSAGES } from '../../services/i18n/catalog/boot.m
 import '../../surface/ui/tokens.css';
 import '../../surface/ui/color-palettes.css';
 import '../../surface/ui/settings.css';
+import '../../surface/ui/sidebar-hints.css';
 import '../../surface/workspace/components/central/styles.css';
+import '../../surface/ui/sidebar-layout.css';
 import '../../surface/ui/boot-screen.css';
 const boot = createSurfaceBootScreen(document);
 // This composition currently uses pt-BR; boot text still has one canonical catalog.
@@ -52,8 +54,11 @@ const web = createRoute({
   getParentRoute: () => route, path: '/',
   component: Workspace
 });
-// Canonical Web product entry. Unknown paths do not become alternate product mounts.
-const router = createRouter({basepath: '/',
+// The build base owns both asset URLs and the Router mount. A relative default
+// is rooted at / for the canonical host; an explicitly mounted bundle may use
+// --base /preview-os/ without changing the product's routes or permissions.
+const webBasepath = import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL;
+const router = createRouter({basepath: webBasepath,
   trailingSlash: 'always', routeTree: route.addChildren([web])});
 try {
   boot.setStage(text('surface.boot.loadingApps'));

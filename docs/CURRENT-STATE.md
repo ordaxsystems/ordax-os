@@ -1,5 +1,45 @@
 # Current State
 
+## Alternância Central/Área de trabalho — 2026-10-12
+
+Owner OS Surface; incremento solicitado sobre a sidebar/dock compartilhada.
+A largura em tablets/intermediários agora usa o token canônico, retirando a
+exceção Web de 185 px. O alternador conserva posição à direita e anuncia o
+destino com monitor/grade, usando a mesma política de apresentação no Native
+e React. Rótulos Native continuam no catálogo i18n; o controle não é remontado
+em cada render. Não altera janelas, sessão, grants ou persistência.
+As regressões cobrem destinos inválidos, tradução e troca de ícone somente
+quando o destino muda. A prévia USB local continua visual, sem execução Native
+ou prova de boot físico. 71 testes Node, 41 Python, TypeScript/build Vite e
+verificação de 34 arquivos/assets passaram neste incremento. Os dois hosts
+responderam HTTP 200; não houve nova prova interativa de browser ou boot físico.
+
+## Sidebar e navegação Web/USB — SSOT — 2026-10-12
+
+Owner: OS Surface; incremento explicitamente solicitado. sidebar-layout.mjs/css
+define slots, encaixe e cartão comuns para React e Native. tokens.css fornece
+192/64 px, marca de 36 px e navegação de 40 px (controles de 32 px).
+USB não monta header de pesquisa; marca/launcher ficam na sidebar até o rodapé.
+Navegação ocupa faixa reservada só na coluna dos apps, sem borda/blur/sombra,
+com fundo opaco do app. A troca Central/Área de trabalho fica à direita.
+
+sidebar-account.mjs projeta a sessão pelo contrato Identity existente nos dois
+renderers. Logout/perda de capability retiram nome e iniciais antigos. O perfil
+abre Conta canônica; notificações Native continuam no controle original, agora
+no slot comum. Uso/quota indisponíveis são explícitos: não há plano ou GB fictícios.
+Space switcher e energia preservam seus owners Native. Nenhum grant ou sessão nova.
+
+sidebar-hints.mjs/css dá nomes imediatos por pointerover e foco/teclado, com
+Escape, limite de viewport e teardown. Sidebar não tem scroll; overflow conserva
+launcher/Mais e recupera atalhos ao crescer. Desktop mantém rail sempre recolhido.
+
+69 testes Node e 40 Python passaram, incluindo gaps/overflow, escape de nomes,
+logout, Identity, workspace, temas, localização e notificações. TypeScript/build
+e fonte de referência verificados. Browser local confirmou ausência de header,
+rail até rodapé, nav de 40 px, controles móveis de 44 px, launcher/perfil,
+layout sem overflow horizontal e desktop recolhido. Prévia Native é visual;
+não comprova boot físico, serviços autenticados de host ou release assinada.
+
 ## Ajustes Web e navegação USB — 2026-10-12
 
 Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
