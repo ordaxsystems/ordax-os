@@ -75,6 +75,7 @@ class NativeAppDataBinding:
     owner_scope: str
     quota_bytes: int
     max_keys: int
+    source_version: str
 
     @property
     def endpoint(self) -> str:
@@ -246,6 +247,7 @@ class NativeAppDataBindingRegistry:
                     owner_scope=identity["ownerScope"],
                     quota_bytes=quota_bytes,
                     max_keys=max_keys,
+                    source_version=verified.source_version,
                 )
                 reserved_endpoints.add(binding.endpoint)
                 planned.append((key, binding, previous.endpoint if previous is not None else None))
@@ -392,4 +394,5 @@ def handle_bound_app_data_request(
             root=root,
             quota_bytes=effective_quota_bytes,
             max_keys=effective_max_keys,
+            installed_version=binding.source_version,
         )
