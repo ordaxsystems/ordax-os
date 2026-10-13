@@ -1,0 +1,151 @@
+{
+  "scope": "Visual reference evidence of experimental Meridian only; no runtime/design-token registry or integration readiness.",
+  "date": "2026-10-13",
+  "branch": "codex/meridian-design-lab",
+  "initialHead": "7782b76daa0fcf4eb4229dd124be61d7b0abaeb9",
+  "preservedAuditFix": "44d2ef0cc6ae8d0c0573e754d300e316c46dff84",
+  "mainInitialFinal": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "visualOwner": "docs/design/MERIDIAN-VISUAL-SYSTEM.md",
+  "visualOwnerSha256": "dfe6ec2572d7c97ce94a9ed29bb711ef5a372e73074acf7bb53cc7cec8bd1eee",
+  "sourceHashBasis": "Working-tree bytes, as in the independent audit; Git may normalize CRLF. Source files are not modified.",
+  "sourceSha256": {
+    "system/surface/experiments/meridian/assets/atlas-study.svg": "3f947dff57cec572a5f5662a0cb78843fe7767a0c576755fac51be9f91981641",
+    "system/surface/experiments/meridian/assets/meridian-field.svg": "1bb1e4a8aa10e189ea8057f64a2b760e1032b3ad653e54bbec974b2495243928",
+    "system/surface/experiments/meridian/catalog.mjs": "d72914a7418dc32365adcb2bf948d4e95e3e2d669c38fe0f08395e19fe2f24bb",
+    "system/surface/experiments/meridian/context.mjs": "3aaa2b91484101b3378326c0d08136b39e10894012010c50c7f39ca5e20e1027",
+    "system/surface/experiments/meridian/demo/data.mjs": "30f809105a2f685575bfa3fc7e846b225b774d96f8386e986f0867d54abca35f",
+    "system/surface/experiments/meridian/demo/source.mjs": "173a041ce685781029725f8a35f969ba4c2795b0d3b7ccaf1a1d43909da5b951",
+    "system/surface/experiments/meridian/demo/storyboards.mjs": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8",
+    "system/surface/experiments/meridian/experience.mjs": "903fc08894bdaa55314d2fde45bfa0625bddcb0f26dee83723c6b097cacfaf7b",
+    "system/surface/experiments/meridian/icons.mjs": "5f1ac1d60cd9fad72eb993b75a87a9bc67570cf9f8fdc2b21244bff2f0f2b7f9",
+    "system/surface/experiments/meridian/interactions.mjs": "9edaf2db94f48dc1c334a1f3061022ca4bf0ef71824afe3a7ac1cd940afb6b3b",
+    "system/surface/experiments/meridian/journeys/navigation.mjs": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da",
+    "system/surface/experiments/meridian/journeys/view.mjs": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063",
+    "system/surface/experiments/meridian/meridian.css": "f755485472d5ec65d0202dc5fd341366633e9f91feb425303fde4f4686f0b7c7",
+    "system/surface/experiments/meridian/meridian.journeys.css": "c86248316987eb72950f4775244e6332308bb83bd4d6df8ad9feacd990857579",
+    "system/surface/experiments/meridian/meridian.tokens.css": "2f3336c05526a6005d6e278154f0564076977d028a0d707c258a312adef1fed3",
+    "system/surface/experiments/meridian/meridian.views.css": "f5c3bba49bc6f374ccd5175136fa8849fe032b5f72b0f19723c9cff4ab7a23b4",
+    "system/surface/experiments/meridian/ui.mjs": "34b27b71590abc3d4202f83bd6cad1381a17049fbca4a440d37c21ab299c2bca",
+    "system/surface/experiments/meridian/views/central.mjs": "f31a2a9f45003f08ed727cfa0cd1973a99a2c9bd134ae1153a90342cbd382dd9",
+    "system/surface/experiments/meridian/views/continuity.mjs": "2f9045d61e5646d440ac165fcd07d946e553e375aba4cffc9d021005b0007bea",
+    "system/surface/experiments/meridian/views/desktop.mjs": "886ef1aac818cb759d9af8c783320767135a3aef7360352d2cf78e697ec4c311",
+    "system/surface/experiments/meridian/views/explore.mjs": "f2320e6e73009c4e409428a9dddbf8915df0eeb67b395fac55e5140638e8e99f",
+    "system/surface/experiments/meridian/views/intelligence.mjs": "672c274bbb715f070c198957df650e7c30ecfe20fb2700c7860cc954a515e98a",
+    "system/surface/experiments/meridian/views/operations.mjs": "9c454103dccb98202046a399b92cfb2410294817f74819f5485bfda5cce420d1",
+    "system/surface/experiments/meridian/views/panels.mjs": "a814b46e411ce57e24758269fb04c768a54b937520960abf15dedc5553b9423e",
+    "system/surface/experiments/meridian/views/shell.mjs": "86c7f2afad20edd33cced22bbedcd8144b882432fc7ae62b7ed55d8826d11265",
+    "system/surface/experiments/meridian/views/taskbar.mjs": "e67f111ff3eaca25a67f1847da8d4e2e99841cf295dfceef1f4975e10b87aaa3"
+  },
+  "referenceCaptures": [
+    {
+      "id": "REF-C-ARG",
+      "roleViewport": "Central Argila / 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "6aa7837d8894e9f26f83ceb8fa04c6e8495f2cb3690ae0e2284afb74f11f591a"
+    },
+    {
+      "id": "REF-C-GRA",
+      "roleViewport": "Central Grafite / 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-ink-1440.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "545a20c6064f384a47c86f91aec32e618a6067cf0b2e625dd75bb318bbafbd9e"
+    },
+    {
+      "id": "REF-D-ARG",
+      "roleViewport": "Desktop Argila, sem janelas / 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/desktop-argila-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "07cf44944cb9a91ef6b76092ed92ba282ba9d9a4e9d4dff1f5da3223cfe424dc"
+    },
+    {
+      "id": "REF-D-GRA",
+      "roleViewport": "Desktop Grafite, sem janelas / 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "1df4bb3f596d4597ed4f0819c915fde37571059b1dca9998e813ab45f58bd0ae"
+    },
+    {
+      "id": "REF-W-FLOAT",
+      "roleViewport": "Várias floating / Grafite 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "9e77e1d6481b5464d7f17fcdd1e63ea847945ddca1d792019226b16919d50b29"
+    },
+    {
+      "id": "REF-W-MAX",
+      "roleViewport": "Maximizada / Argila 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "e27f417efe2088d5c0008dbfd297ccdc2d9dc982c1f2bdf8ca7d346064620209"
+    },
+    {
+      "id": "REF-W-SPLIT",
+      "roleViewport": "Compacta + maximizada / Grafite 844×390",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "f02c3365c06783fa2bbe90a68d773b4141cde34e9741103c530ce8ed19757dae"
+    },
+    {
+      "id": "REF-DOCK",
+      "roleViewport": "Dock cheio, alvo ativo / Argila 320×568",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-paper-320.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "d8688a048e0652205242be2f140626bb3b2faf4eac63b46492cf6165e246cb33"
+    },
+    {
+      "id": "REF-TRAY",
+      "roleViewport": "Tray aberto / Grafite 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/tray-grafite-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "a5fb2b1ebd11d393f4e8f77bf8d28b75464e69cfb0c77c7c140a20677942438f"
+    },
+    {
+      "id": "REF-I",
+      "roleViewport": "Intelligence contextual / Argila 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "4cc88dc8fac217eb960772afc077cf77f8fa6a8cf2d20e5d0215f4d055319b16"
+    },
+    {
+      "id": "REF-C-MOBILE",
+      "roleViewport": "Central mobile / Argila 390×844",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-390.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "7343dfe664cd696863a11de71d6648bd42e0bae460d7247071e2a4cd0a05cd27"
+    },
+    {
+      "id": "REF-D-MOBILE",
+      "roleViewport": "Desktop mobile / Grafite 320×568",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-320.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "e89b8a2898ea974ce7b8b1e5b857e54705efc175213db781b93394ecb4581054"
+    },
+    {
+      "id": "REF-HINT",
+      "roleViewport": "Orientação rail Desktop / Argila 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-desktop-paper.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "13a33588acb9c40252d2c642bee07e3a8c721b5019453640fd5b2e8a3f20c2ae"
+    },
+    {
+      "id": "REF-C-HINT",
+      "roleViewport": "Orientação rail Central / Grafite 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-central-ink.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "524f096c164c604c979d181bf8d3304e9886bd6a78badc502d58702e43d3f834"
+    }
+  ],
+  "validationThisTask": [
+    "Full independent Round 4 report inspected",
+    "Component/CSS/token inspection",
+    "Six specific captures of unchanged source via temporary loopback host",
+    "Local Markdown references and whitespace checked; no matrix/build/CI/USB",
+    "69 local file links verified across visual owner and documentation entry points"
+  ],
+  "limits": [
+    "Prototype repaint/fixtures remain",
+    "Physical touch, real screen reader, zoom, forced colors and platform gates not certified",
+    "No Round 5, adapters, backend, main change, push, merge or deployment"
+  ]
+}

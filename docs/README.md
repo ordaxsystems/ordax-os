@@ -98,6 +98,16 @@ FUTURE_CUSTODY_TARGET=managed non-exportable KMS/HSM
 The future managed backend is provider-neutral and intentionally deferred. The same-host encrypted backup copy is sufficient for the first controlled prototype because cryptographic recovery was proven, but it is not treated as independent off-device custody; an external/off-device encrypted copy remains required before broad public distribution.
 
 
+## Experimental visual references — scoped authority
+
+[Meridian Visual System / Visual Freeze](design/MERIDIAN-VISUAL-SYSTEM.md) is the
+single visual reference for the frozen experimental Meridian proposal. It defines
+presentation principles, materials, states, component maturity and selected
+comparison captures. It does not change the production identity, theme defaults,
+contracts, runtime or release gates. Prior Meridian rounds/audits remain dated
+evidence; future changes to the proposal's shell need objective justification in
+this same visual owner. Visual Freeze is not Integration Ready.
+
 ## Dated Surface study evidence
 
 - [Meridian technical audit — 2026-10-13](evidence/meridian-audit-2026-10-13/relatorio.md): baseline, gates, safe corrections, UI/UX inventory and flows. Evidence only; MVP and domain owners remain canonical.

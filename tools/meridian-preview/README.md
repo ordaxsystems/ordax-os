@@ -198,3 +198,14 @@ node tools/meridian-preview/round4-audit-smoke.mjs
 ```
 
 Starts/stops its own loopback host and uses disposable Chromium. ORDAX_PYTHON and MERIDIAN_EVIDENCE_DIR work as above. Includes six viewports in both materials, native touch followed by keyboard and another gesture, tooltip Escape, AX/geometry/motion, and observer/listener/frame cleanup. MERIDIAN_R4_AUDIT_FOCUSED=1 skips geometry cases except 844x390; it is a focused diagnostic, not the complete matrix. Previous runners and failed attempts remain preserved.
+
+## Meridian Visual Freeze — 2026-10-13
+
+[The visual SSOT](../../docs/design/MERIDIAN-VISUAL-SYSTEM.md) consolidates the
+four rounds and final audit correction 44d2ef0. It freezes the direction, not
+production runtime or every CSS pixel. Materials, geometry, states, motion,
+responsive/accessibility principles and comparison references live there;
+prior coverage/audit reports are historical evidence.
+
+No Round 5 or product source change. No new integration/default theme. Main is
+unchanged. Future shell changes require an objective cause recorded in that owner.

@@ -1446,6 +1446,14 @@ destination delegation, teardown and notification panel bounds/overflow.
 
 ## Meridian visual study — 2026-10-13
 
+**Current visual reference for this experimental proposal:**
+[Meridian Visual System — Visual Freeze](design/MERIDIAN-VISUAL-SYSTEM.md).
+The proposal's direction is frozen; these dated study/audit entries record its
+history, not parallel active design specifications. Production identity/themes,
+contracts, architecture and release authority remain as defined above. Visual
+Freeze does not authorise integration, a default-theme change or merge.
+
+
 **Status: isolated visual proposal, not a product cutover or release.** Explicit
 user-requested exception to the current implementation sequence: this increment
 explores a complete future USB Central/Desktop experience, exclusively frontend,

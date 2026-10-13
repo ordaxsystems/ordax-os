@@ -1,0 +1,42 @@
+{
+  "head": "7782b76daa0fcf4eb4229dd124be61d7b0abaeb9",
+  "scope": "Six specific reference captures only, not a smoke/matrix or integration proof.",
+  "captures": [
+    {
+      "file": "desktop-argila-1440.png",
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    },
+    {
+      "file": "maximizada-argila-1440.png",
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    },
+    {
+      "file": "intelligence-contextual-argila-1440.png",
+      "width": 1440,
+      "height": 900,
+      "material": "paper"
+    },
+    {
+      "file": "desktop-grafite-1440.png",
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    },
+    {
+      "file": "desktop-janelas-grafite-1440.png",
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    },
+    {
+      "file": "tray-grafite-1440.png",
+      "width": 1440,
+      "height": 900,
+      "material": "ink"
+    }
+  ]
+}
