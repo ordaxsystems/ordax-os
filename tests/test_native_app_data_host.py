@@ -205,8 +205,15 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
         status, _headers, _body = self.json_post(original, {"action": "list"})
         self.assertEqual(status, 404)
-        # No automatic regrant; trusted composition must explicitly reopen
-        # a verified receipt after lifecycle/signature checks elsewhere.
+        # Restoring data is not the same as a durable final activation
+        # decision. Both old and new receipts stay fenced until the trusted
+        # owner explicitly retires the recovery checkpoint.
+        with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
+            self.server.bind_app_data_receipt(self.digest)
+        identity = self.binding.app_data_identity()
+        self.assertTrue(retire_app_data_checkpoint(
+            identity, release, 2, root=str(self.data_root),
+        )["retired"])
         reissued = self.server.bind_app_data_receipt(self.digest)
         self.assertNotEqual(reissued.endpoint, original)
         status, _headers, listing = self.json_post(reissued.endpoint, {"action": "list"})
@@ -305,6 +312,33 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
         self.assertTrue(retired["retired"])
         status, _, value = self.json_post(endpoint, {"action": "get", "key": "note.alpha"})
         self.assertEqual((status, value["revision"], value["valueBase64"]), (200, 1, "b2xk"))
+
+    def test_original_version_token_is_also_fenced_by_unresolved_checkpoint(self):
+        endpoint = self.binding.endpoint
+        identity = self.binding.app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        status, _, written = self.json_post(endpoint, {
+            "action": "put", "key": "note.beta",
+            "valueBase64": "b3JpZw==", "expectedRevision": 0,
+        })
+        self.assertEqual((status, written["revision"]), (200, 1))
+        create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        for body in (
+            {"action": "list"},
+            {"action": "get", "key": "note.beta"},
+            {"action": "put", "key": "note.beta", "valueBase64": "bmV3", "expectedRevision": 1},
+            {"action": "delete", "key": "note.beta", "expectedRevision": 1},
+        ):
+            with self.subTest(action=body["action"]):
+                status, _, response = self.json_post(endpoint, body)
+                self.assertEqual(status, 409)
+                self.assertIn("requires trusted recovery", response["error"])
+        # Owner decisions remain out of the HTTP capability boundary.
+        self.assertTrue(retire_app_data_checkpoint(
+            identity, release, 1, root=str(self.data_root),
+        )["retired"])
+        status, _, value = self.json_post(endpoint, {"action": "get", "key": "note.beta"})
+        self.assertEqual((status, value["revision"], value["valueBase64"]), (200, 1, "b3JpZw=="))
 
     def test_bound_route_persists_and_cas_conflict_reports_actual_revision(self):
         status, _headers, stored = self.json_post(
