@@ -74,7 +74,11 @@
     "maintenance_requires_explicit_trusted_receipt_remint_afterward": true,
     "maintenance_requires_receipt_component_and_version_correlation": true,
     "receipt_correlation_is_signed_activation_authority": false,
-    "maintenance_mismatch_preserves_current_binding": true
+    "maintenance_mismatch_preserves_current_binding": true,
+    "recovery_pending_refuses_new_capabilities_for_every_version": true,
+    "recovery_pending_refuses_mixed_batch_without_partial_grants": true,
+    "app_endpoint_always_checks_recovery_under_partition_lock": true,
+    "preexisting_capability_cannot_bypass_later_checkpoint": true
   },
   "security": {
     "publisher_self_claim_accepted": false,
@@ -132,6 +136,10 @@
     "maintenance_scope_is_update_authority": false,
     "maintenance_scope_quiesces_external_side_effects": false,
     "native_host_composes_verified_receipt_drain_with_partition_flock": true,
-    "host_maintenance_verifies_signed_release_and_quiesces_app_process": false
+    "host_maintenance_verifies_signed_release_and_quiesces_app_process": false,
+    "pending_checkpoint_blocks_original_and_replacement_app_access": true,
+    "recovery_pending_fence_uses_existing_partition_checkpoint": true,
+    "retirement_verifies_current_and_retained_blob_integrity_before_unlink": true,
+    "checkpoint_retirement_is_activation_proof": false
   }
 }
