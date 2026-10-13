@@ -120,7 +120,10 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
         for composition in (native,):
             self.assertIn("translateSurfaceMessage", composition)
             self.assertIn('"surface.boot.loadingSurface"', composition)
-            self.assertIn('"surface.boot.loadingApps"', composition)
+            # The Native shell is usable before optional apps load, so the
+            # loadingApps stage remains in the canonical catalog but is not
+            # emitted by the Native composition during essential boot.
+            self.assertNotIn('"surface.boot.loadingApps"', composition)
             self.assertIn('"surface.boot.failed"', composition)
             self.assertNotIn('bootScreen.fail("Não foi possível iniciar a interface")', composition)
         self.assertNotIn("Não foi possível iniciar a interface", boot)

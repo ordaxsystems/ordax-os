@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import { SYNC_STATE_STORE_SCHEMA } from "../system/contracts/sync-state-store.mjs";
 import { createMemoryRuntime } from "../system/services/memory/runtime.mjs";
+import { createMemoryConflictReviewRuntime } from "../system/services/sync/memory-conflict-review.mjs";
 import {
   NATIVE_ACCOUNT_MEMORY_DEFERRED_NAMESPACE,
   NATIVE_ACCOUNT_MEMORY_RECOVERY_NAMESPACE,
@@ -129,5 +130,33 @@ test("Native Account Memory composition fails closed when entitlement endpoint i
   assert.equal(snapshot.authority, null);
   assert.equal(composition.memorySync.pendingMutations().length, 0);
 
+  composition.destroy();
+});
+
+test("Native Account Memory exposes canonical durable manual conflict resolution to review", async () => {
+  const composition = createNativeAccountMemoryComposition({
+    windowRef: {
+      async fetch() {
+        return response(entitlement());
+      },
+    },
+    identitySession: identitySession(),
+    memoryPort: createMemoryRuntime(),
+    syncStateRegistry: stateRegistry([]),
+    createIdempotencyKey: (kind) => `memory:${kind}:native-review`,
+  });
+  await composition.settled();
+  const review = createMemoryConflictReviewRuntime(composition.memorySync);
+  assert.equal(typeof composition.memorySync.resolveConflict, "function");
+  assert.equal(review.getSnapshot().conflictCount, 0);
+  assert.equal(review.getSnapshot().automaticResolution, false);
+  await assert.rejects(
+    review.resolve("unrecognized-memory", "preserve-local-intent"),
+    /no longer pending/,
+  );
+  await assert.rejects(
+    review.resolve("unrecognized-memory", "automatic"),
+    /decision is incompatible/,
+  );
   composition.destroy();
 });
