@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { FIRST_PARTY_APP_SCHEMA, defineFirstPartyApp } from "../system/contracts/first-party-app.mjs";
-import { internetApp } from "../system/apps/internet/app.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
 import { COMPONENT_LOCALIZATION_SCHEMA } from "../system/contracts/localization-pack.mjs";
 import { validateFileListing } from "../system/contracts/file-space.mjs";
@@ -194,14 +193,9 @@ test("Projects has no bundled fallback after remove-first Gate A", () => {
 });
 
 
-test("Internet stays a first-party app while engine availability remains host-owned", () => {
-  assert.equal(internetApp.id, "internet");
-  assert.deepEqual(internetApp.requiredCapabilities, []);
-  assert.deepEqual(internetApp.optionalCapabilities, ["browser.web-content"]);
-  assert.equal(internetApp.panels[0].extensionId, "internet-browser");
-  assert.equal(internetApp.component.owner, "system/apps/internet");
-  assert.equal(internetApp.component.releaseMode, "git-app");
-  assert.deepEqual(internetApp.localization.bundledLocales, ["pt-BR", "en-US"]);
+test("Internet stays absent from the OS app catalog after remove-first Gate A", () => {
+  assert.equal(getFirstPartyApp("internet"), null);
+  assert.equal(getFirstPartyApp("projects"), null);
 });
 
 test("app contract rejects obsolete identity-specific panel kinds", () => {
