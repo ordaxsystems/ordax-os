@@ -1,7 +1,7 @@
 import { icon } from './icons.mjs';
 export { icon };
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-export const button = (label, action, glyph = '', kind = 'quiet') => `<button type="button" class="md-button md-button--${kind}" data-action="${esc(action)}">${glyph ? icon(glyph,18) : ''}<span>${esc(label)}</span></button>`;
+export const button = (label, action, glyph = '', kind = 'quiet') => `<button type="button" class="md-button md-button--${kind}" data-action="${esc(action)}" aria-label="${esc(label)}">${glyph ? icon(glyph,18) : ''}<span>${esc(label)}</span></button>`;
 export const iconButton = (label, action, glyph, extra = '') => `<button type="button" class="md-icon-button ${extra}" data-action="${esc(action)}" aria-label="${esc(label)}" title="${esc(label)}">${icon(glyph)}</button>`;
 export const tag = (label, tone = '') => `<span class="md-tag ${tone ? `md-tag--${tone}` : ''}">${esc(label)}</span>`;
 export const heading = (eyebrow, title, description = '', action = '') => `<header class="md-page-heading"><div><p class="md-eyebrow">${esc(eyebrow)}</p><h1>${esc(title)}</h1>${description ? `<p class="md-lead">${esc(description)}</p>` : ''}</div>${action}</header>`;

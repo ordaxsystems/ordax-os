@@ -96,3 +96,8 @@ FUTURE_CUSTODY_TARGET=managed non-exportable KMS/HSM
 ```
 
 The future managed backend is provider-neutral and intentionally deferred. The same-host encrypted backup copy is sufficient for the first controlled prototype because cryptographic recovery was proven, but it is not treated as independent off-device custody; an external/off-device encrypted copy remains required before broad public distribution.
+
+
+## Dated Surface study evidence
+
+- [Meridian technical audit — 2026-10-13](evidence/meridian-audit-2026-10-13/relatorio.md): baseline, gates, safe corrections, UI/UX inventory and flows. Evidence only; MVP and domain owners remain canonical.

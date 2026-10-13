@@ -104,6 +104,7 @@ on:
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
+      - 'tools/meridian-preview/**'
       - 'tools/browser-proof/**'
       - 'tools/surface-native/**'
       - 'package.json'
@@ -333,6 +334,7 @@ on:
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
+      - 'tools/meridian-preview/**'
       - 'tools/browser-proof/**'
       - 'tools/surface-native/**'
       - 'package.json'
@@ -505,6 +507,8 @@ jobs:
             system/services/notifications \
             system/apps \
             system/surface/ui \
+            system/surface/experiments/meridian \
+            tools/meridian-preview \
             system/adapters/web \
             system/adapters/mobile \
             system/adapters/native \
@@ -663,6 +667,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_web_store_catalog.mjs tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs
           npm run verify --workspace tools/surface-web
+          node tools/meridian-preview/browser-smoke.mjs
           node tools/surface-native/browser-smoke.mjs
           node tools/surface-native/first-run-browser-smoke.mjs
           node tools/surface-web/browser-smoke.mjs --bundle-dir out/web-client

@@ -52,6 +52,19 @@ presentation accessibility options. Ctrl/Meta+K opens local visual search.
   their current owners. New art and icons were authored for this branch.
 - Existing light, dark and native palettes and their settings remain untouched.
 
-No suites, E2E, build, CI validation or physical USB validation were run for this
-experiment, by user instruction. Only syntax checks and local presentation
-captures were used while editing. A separate validation task owns acceptance.
+The initial study used syntax checks and captures only. The separate technical
+audit is recorded in [the dated report](../../docs/evidence/meridian-audit-2026-10-13/relatorio.md),
+including passed checks and unresolved canonical gates. No physical USB test or
+production activation follows from this preview.
+
+Run focused UI regressions with the existing Chromium proof runner:
+
+```sh
+node tools/meridian-preview/browser-smoke.mjs
+```
+
+Python must be available as `python`, or selected with `ORDAX_PYTHON`.
+`ORDAX_CHROME_BIN` can select Chromium; `MERIDIAN_EVIDENCE_DIR` selects the proof
+output directory (default `out/meridian-proof`). The runner uses a disposable
+browser profile and a loopback preview host, then stops both. These checks are
+included in the existing Surface Web Candidate workflow.

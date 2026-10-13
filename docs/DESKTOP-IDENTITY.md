@@ -1504,3 +1504,27 @@ Evidence this increment: local module syntax parsing and presentation captures
 only. No unit suites, E2E, build, Foundation/Surface CI, USB image or physical boot
 validation was run, per the user's explicit instruction. No production readiness
 claim follows from the mock preview.
+
+
+## Meridian technical audit — 2026-10-13
+
+Owner and scope remain the isolated Surface presentation study above. The follow-up
+requested by the user audited baseline 69a8937 on codex/meridian-design-lab.
+Safe corrections preserve unsent preview forms by Space/form/conversation, restore
+keyboard focus after dialogs, name controls at responsive breakpoints, and keep
+the study marker visible at 320 px. No production palette, domain contract or
+backend adapter changes. The preview still discards session data on refresh.
+
+Evidence: [technical report](evidence/meridian-audit-2026-10-13/relatorio.md),
+[196-item UI/UX backlog](evidence/meridian-audit-2026-10-13/inventario.md) and
+[complete flows](evidence/meridian-audit-2026-10-13/fluxos.md).
+The focused Chromium proof reuses tools/browser-proof/chromium.mjs and is wired
+into the existing Surface candidate workflow. It passed 155 assertions. Canonical
+Web builds/typecheck, repeatability, Native and first-run proofs passed locally.
+Foundation failed on this Windows environment, and the canonical Web browser smoke
+timed out; the report retains those failures. This is not a full green CI verdict.
+
+The MVP scope stays with MVP.md. The inventory describes missing presentation and
+integration work; it neither reduces the integrated MVP nor grants release/device
+authority. Domain-like fixtures and the window examples must be projected from the
+canonical owners before any product integration; their demo dispatch is not a port.

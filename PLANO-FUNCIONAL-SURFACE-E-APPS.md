@@ -1,5 +1,11 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Auditoria técnica Meridian — 13/10/2026:** estudo exclusivo da branch
+> `codex/meridian-design-lab`, baseline `69a8937`. Correções objetivas de
+> rascunho/foco/nomes acessíveis e identificação da demonstração. Inventário
+> de 196 itens e fluxos completos para a próxima rodada; escopo MVP preservado.
+> [Relatório, falhas de gates e evidências](docs/evidence/meridian-audit-2026-10-13/relatorio.md).
+
 > **Notificações Web/USB — 13/10/2026:** incremento de UX solicitado.
 > Renderer/CSS únicos para filtros, leitura explícita, dispensa e Não perturbe.
 > USB mantém runtime/store/bridge do atualizador; Web mostra ausência de adapter

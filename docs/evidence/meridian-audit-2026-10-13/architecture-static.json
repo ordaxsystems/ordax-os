@@ -1,0 +1,27 @@
+{
+  "modules": 13,
+  "cycles": [],
+  "sharedImports": [
+    "system\\surface\\workspace\\presentation.mjs"
+  ],
+  "styles": [
+    {
+      "file": "meridian.css",
+      "lines": 1881,
+      "hexLiterals": 0,
+      "pxLiterals": 549
+    },
+    {
+      "file": "meridian.views.css",
+      "lines": 2742,
+      "hexLiterals": 50,
+      "pxLiterals": 858
+    },
+    {
+      "file": "meridian.tokens.css",
+      "lines": 105,
+      "hexLiterals": 64,
+      "pxLiterals": 23
+    }
+  ]
+}

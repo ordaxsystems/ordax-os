@@ -1,0 +1,346 @@
+{
+  "baseline": "69a893701f2f43dee5046f7649ec675facd02e5d",
+  "branch": "codex/meridian-design-lab",
+  "main_initial": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "main_at_final_checks": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "log_directory": "C:\\Users\\TONECOS\\Documents\\github\\ordax-apps\\tools\\assistant-host\\.data\\meridian-audit-20261013",
+  "sessions": {
+    "baseline-dependencies": 33342,
+    "baseline-python": 48301,
+    "baseline-node": 78227,
+    "baseline-static": 51919,
+    "baseline-build": 98587,
+    "baseline-initial-browsers": 24195,
+    "baseline-repeat-build": 12107,
+    "baseline-browser-retry-access": 14821,
+    "baseline-web-focused-retry": 13277,
+    "final-browser-1": 53373,
+    "final-browser-2": 76498,
+    "final-browser-3": 79693,
+    "final-light-gates": 81570
+  },
+  "executions": [
+    {
+      "id": "baseline-first-run-browser-unsandboxed",
+      "command": "node tools/surface-native/first-run-browser-smoke.mjs (process/loopback access)",
+      "exit": 0,
+      "log": "baseline-first-run-browser-unsandboxed.log",
+      "bytes": 99,
+      "sha256": "4b773b63f5e7c33b99f13a6a638c12baa82bf6109355a31f5a99aef337ce30d6"
+    },
+    {
+      "id": "baseline-first-run-browser",
+      "command": "node tools/surface-native/first-run-browser-smoke.mjs (sandboxed attempt)",
+      "exit": 1,
+      "log": "baseline-first-run-browser.log",
+      "bytes": 2861,
+      "sha256": "1676f32d965ba5ecbd32d842b1d3776240361dfd3bfed283ddcc49f468f77901"
+    },
+    {
+      "id": "baseline-foundation-python",
+      "command": "python -m unittest discover -s tests -p 'test_*.py' -v",
+      "exit": 1,
+      "log": "baseline-foundation-python.log",
+      "bytes": 935147,
+      "sha256": "78e1b4dc2b6815644ebb0c5ed92dd9dc9ec8c6f73f024dece2e7d8726518e587"
+    },
+    {
+      "id": "baseline-json-contracts",
+      "command": "python tools/verify/json_contracts.py",
+      "exit": 0,
+      "log": "baseline-json-contracts.log",
+      "bytes": 80,
+      "sha256": "ba39ef3532d8b7f07a5b96aa6fbd3b73fb7f330e9246b9223658df23e9c8f6cd"
+    },
+    {
+      "id": "baseline-meridian-syntax",
+      "command": "node --check (13 experiment modules + tools/meridian-preview/main.mjs)",
+      "exit": 0,
+      "log": "baseline-meridian-syntax.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "baseline-module-boundaries",
+      "command": "python tools/verify/module_boundaries.py",
+      "exit": 0,
+      "log": "baseline-module-boundaries.log",
+      "bytes": 88,
+      "sha256": "ef4bc4946c92c8d4d92226bf800e71340ed5e158fb080303933b0aa26d0b9a43"
+    },
+    {
+      "id": "baseline-native-browser-unsandboxed",
+      "command": "node tools/surface-native/browser-smoke.mjs (process/loopback access)",
+      "exit": 0,
+      "log": "baseline-native-browser-unsandboxed.log",
+      "bytes": 335,
+      "sha256": "31083ef4295176fdf15346fab5a0d694fceeb4f4d5ffd4115a2b1b47a459a191"
+    },
+    {
+      "id": "baseline-native-browser",
+      "command": "node tools/surface-native/browser-smoke.mjs (sandboxed attempt)",
+      "exit": 1,
+      "log": "baseline-native-browser.log",
+      "bytes": 2140,
+      "sha256": "5c6ab37281d3198eaf24ed658fb99c6f8d31f81514bd3fea9ff02f996b62f5bb"
+    },
+    {
+      "id": "baseline-source-graph",
+      "command": "python tools/surface-web/build.py check",
+      "exit": 0,
+      "log": "baseline-source-graph.log",
+      "bytes": 64,
+      "sha256": "f48102e4ca9b7f543e80343ad25e672761ee0763cfd0df97bc5b6658f124d139"
+    },
+    {
+      "id": "baseline-store-after-deps",
+      "command": "node --test tests/test_web_store_catalog.mjs",
+      "exit": 0,
+      "log": "baseline-store-after-deps.log",
+      "bytes": 801,
+      "sha256": "79a4f4e4315ec87a66fa5702395ddffda937edf5a0326031d9251399c09595f8"
+    },
+    {
+      "id": "baseline-surface-node",
+      "command": "node --test --test-concurrency=2 <paths recorded in baseline-node-files.txt>",
+      "exit": 1,
+      "log": "baseline-surface-node.log",
+      "bytes": 62280,
+      "sha256": "7706bad60418f1c990a74877080d9e853cd86f9a07a00cfeea2c7da7cf04c8b4"
+    },
+    {
+      "id": "baseline-web-browser-retry",
+      "command": "node tools/surface-web/browser-smoke.mjs --bundle-dir out/meridian-audit-web-baseline --evidence-dir out/meridian-audit-web-browser-retry",
+      "exit": 1,
+      "log": "baseline-web-browser-retry.log",
+      "bytes": 1357,
+      "sha256": "1e7e0fdc35997c0a512218d48cba459660a318c19d1b592d1b24f42f88f96a68"
+    },
+    {
+      "id": "baseline-web-browser-unsandboxed",
+      "command": "node tools/surface-web/browser-smoke.mjs --bundle-dir out/meridian-audit-web-baseline (process/loopback access)",
+      "exit": 1,
+      "log": "baseline-web-browser-unsandboxed.log",
+      "bytes": 1355,
+      "sha256": "293195e767fa508a50164ff421f0da4d9b3ce6e981fdeb73cc7a19c7c5b9b67e"
+    },
+    {
+      "id": "baseline-web-browser",
+      "command": "node tools/surface-web/browser-smoke.mjs --bundle-dir out/meridian-audit-web-baseline (sandboxed attempt)",
+      "exit": 1,
+      "log": "baseline-web-browser.log",
+      "bytes": 3204,
+      "sha256": "f91c20effddb85f8b5a0d9dbf8186e689e0380c3f2e5745b22c9359d2b13b65a"
+    },
+    {
+      "id": "baseline-web-build",
+      "command": "python tools/surface-web/build.py build --source-commit 69a893701f2f43dee5046f7649ec675facd02e5d --out-dir out/meridian-audit-web-baseline",
+      "exit": 0,
+      "log": "baseline-web-build.log",
+      "bytes": 2047,
+      "sha256": "8a19f3e3f1ead9bcb7cc5c094ad049580247e92721577f09a072863f5fce10d4"
+    },
+    {
+      "id": "baseline-web-reference",
+      "command": "npm run verify --workspace tools/surface-web",
+      "exit": 0,
+      "log": "baseline-web-reference.log",
+      "bytes": 228,
+      "sha256": "e7a664efaef23469363cd0c1b0f296eedbce421caa349270728d123932fcd63d"
+    },
+    {
+      "id": "baseline-web-repeat",
+      "command": "python tools/surface-web/build.py build --source-commit 69a893701f2f43dee5046f7649ec675facd02e5d --out-dir out/meridian-audit-web-repeat; then verify that directory",
+      "exit": 0,
+      "log": "baseline-web-repeat.log",
+      "bytes": 1991,
+      "sha256": "15f31211dd4531d5d897d88c4eb1773a035efd8abcf62b21f459837737124abd"
+    },
+    {
+      "id": "baseline-web-repeatability",
+      "command": "SHA-256 comparison of all files in baseline/repeat directories",
+      "exit": 0,
+      "log": "baseline-web-repeatability.log",
+      "bytes": 25,
+      "sha256": "2bb304cc901dde19d698ae547626e258d3bfda46f0bcf64d4eeb72774abcccf8"
+    },
+    {
+      "id": "baseline-web-verify",
+      "command": "python tools/surface-web/build.py verify --out-dir out/meridian-audit-web-baseline",
+      "exit": 0,
+      "log": "baseline-web-verify.log",
+      "bytes": 91,
+      "sha256": "cbb45a902d55ff89d19a112eaf333a9bd020bb8eed9513425aa38d02aa5925a7"
+    },
+    {
+      "id": "final-actions-supply-chain",
+      "command": "python tools/verify/github_actions_supply_chain.py",
+      "exit": 0,
+      "log": "final-actions-supply-chain.log",
+      "bytes": 34,
+      "sha256": "49f0c1c9809ec337efb3450016d61330bf133fc8766583fdd1fa1ac69c98d5cb"
+    },
+    {
+      "id": "final-meridian-browser-2",
+      "command": "node tools/meridian-preview/browser-smoke.mjs (second diagnostic run)",
+      "exit": 1,
+      "log": "final-meridian-browser-2.log",
+      "bytes": 1431,
+      "sha256": "97306fc4b02f46c12d8067e5e0e454dbb3d3a5c26388c9270a1d80db8c82455a"
+    },
+    {
+      "id": "final-meridian-browser-3",
+      "command": "node tools/meridian-preview/browser-smoke.mjs (155 checks passed)",
+      "exit": 0,
+      "log": "final-meridian-browser-3.log",
+      "bytes": 87,
+      "sha256": "e48b18467f7e0fbe6e1746e4456052aa93dec9cff6fed44a432504ecde4a1337"
+    },
+    {
+      "id": "final-meridian-browser",
+      "command": "node tools/meridian-preview/browser-smoke.mjs (first diagnostic run)",
+      "exit": 1,
+      "log": "final-meridian-browser.log",
+      "bytes": 1136,
+      "sha256": "501f867f1c0ded4389936541c70cc4d2c22080e0ceaa9a66d97d5efb2e7637c3"
+    },
+    {
+      "id": "final-module-boundaries",
+      "command": "python tools/verify/module_boundaries.py",
+      "exit": 0,
+      "log": "final-module-boundaries.log",
+      "bytes": 88,
+      "sha256": "ef4bc4946c92c8d4d92226bf800e71340ed5e158fb080303933b0aa26d0b9a43"
+    },
+    {
+      "id": "final-source-graph",
+      "command": "python tools/surface-web/build.py check",
+      "exit": 0,
+      "log": "final-source-graph.log",
+      "bytes": 64,
+      "sha256": "f48102e4ca9b7f543e80343ad25e672761ee0763cfd0df97bc5b6658f124d139"
+    },
+    {
+      "id": "final-surface-focused",
+      "command": "node --test tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs tests/test_color_palette.mjs tests/test_surface_localization.mjs tests/test_surface_app_localization.mjs tests/test_surface_workspace.mjs",
+      "exit": 0,
+      "log": "final-surface-focused.log",
+      "bytes": 5362,
+      "sha256": "3f7233bdff33cc0e403a208cead76503866ec88251914dfa81406f944d929693"
+    },
+    {
+      "id": "final-syntax",
+      "command": "node --check (13 experiment modules + 2 preview entrypoints)",
+      "exit": 0,
+      "log": "final-syntax.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "npm-ci",
+      "command": "npm ci --ignore-scripts --no-audit --no-fund",
+      "exit": 0,
+      "log": "npm-ci.log",
+      "bytes": 98,
+      "sha256": "08fd23fab3c03b7a576193cb768d4fe7d13269255021ed2706bf42c906d278c4"
+    }
+  ],
+  "final_source_sha256": [
+    {
+      "path": "system/surface/experiments/meridian/catalog.mjs",
+      "sha256": "3f7d507b5fed13623ce07296d8c0535f3e7c8dccbd290e633ecdf2114ebd284e"
+    },
+    {
+      "path": "system/surface/experiments/meridian/context.mjs",
+      "sha256": "e5780fb0bb50f9c92b8c53ed5f5b3d48eb02be029bc5364d3945cfd6acda58a3"
+    },
+    {
+      "path": "system/surface/experiments/meridian/experience.mjs",
+      "sha256": "8f18c21810645b9a42e05b5378417e6924ae31510abaac69c0a01d6a3ae4c4cf"
+    },
+    {
+      "path": "system/surface/experiments/meridian/icons.mjs",
+      "sha256": "80b3f29bba9280f9621b77c4a46e271f3c2e51a312073d2cd41f58423d02fb2b"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.css",
+      "sha256": "de19cb76905878ceb6b6e443c40aa0de37938609b33d5c06ee3c6509417b265a"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.tokens.css",
+      "sha256": "7bc50ad24d1f4cf70b128689401c1ffdb2e7169e843eb654a353fc47e627cb0b"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.views.css",
+      "sha256": "f9a3f5a748044df45523496aedd9677e87847d44a04d61c0055ef060eb596e2a"
+    },
+    {
+      "path": "system/surface/experiments/meridian/ui.mjs",
+      "sha256": "971800fce2a71a34fbb7696498d68a62cb905a9ec228bbe75dffc61a1e1d0703"
+    },
+    {
+      "path": "system/surface/experiments/meridian/assets/atlas-study.svg",
+      "sha256": "3f947dff57cec572a5f5662a0cb78843fe7767a0c576755fac51be9f91981641"
+    },
+    {
+      "path": "system/surface/experiments/meridian/assets/meridian-field.svg",
+      "sha256": "1bb1e4a8aa10e189ea8057f64a2b760e1032b3ad653e54bbec974b2495243928"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/data.mjs",
+      "sha256": "43d93a8a95b559f398b11d8f77b0dd7e41676a68064b752e3195e56bfaa37039"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/source.mjs",
+      "sha256": "16b2ec4e2b3bf15249e89a929c316cecfbaa8fa164958cb6143f467d0d33f01a"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/central.mjs",
+      "sha256": "b693d97c3ed6610b6036751a1baf42e5e0f67eeb582e3271ba26a12681626bbd"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/desktop.mjs",
+      "sha256": "ad3a2e43e40f5bf8cae43ad0d24d938d7f00112d186996255179f120b05b4ad0"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/explore.mjs",
+      "sha256": "cc7dbbbfc759a5fb08eed2ce02226e09e96b2d71a8c37ebd71eb89997c979bb8"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/intelligence.mjs",
+      "sha256": "bf425b901e937517dfb1b061629cde72d30c8625e2f0d5bac848d25eb66c93c8"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/panels.mjs",
+      "sha256": "d6b67df47ccdeae1993bd3d228f459203c21e485a6bd6237d80c69ee6534e255"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/shell.mjs",
+      "sha256": "2cc8b11041905de2e34833a6bed14857e9bf2f7a86ee2d796b56d58e4917e308"
+    },
+    {
+      "path": "tools/meridian-preview/browser-smoke.mjs",
+      "sha256": "68a6d1d6407b8b9585d54dc8f82d3c7b7f98f1338a56d2159b87e2885e239563"
+    },
+    {
+      "path": "tools/meridian-preview/index.html",
+      "sha256": "15aa9aa99ea747db3a5251384a6ba9dc2f108e24974f585b83f7c37a63dd504e"
+    },
+    {
+      "path": "tools/meridian-preview/main.mjs",
+      "sha256": "ae580d3e1ce3c30c0fc3f16fe4c5f871ec459dab9d36f7b030b68dbcee1162d6"
+    },
+    {
+      "path": "tools/meridian-preview/README.md",
+      "sha256": "83c85ea308e62bd58afbaeb51075b3e68ea519bf742b7a17e9ed780b9c109b6b"
+    },
+    {
+      "path": "tools/meridian-preview/serve.py",
+      "sha256": "f516b761c7b3a0b29ce78eedc63908fea5730d5e99336e6a007f550821ccee23"
+    },
+    {
+      "path": ".github/workflows/surface-web-candidate.yml",
+      "sha256": "c049da2826966de99fbf00cc917e005d66494b09b51b346ab22d83e6a5f4a18f"
+    }
+  ]
+}

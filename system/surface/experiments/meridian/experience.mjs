@@ -12,29 +12,43 @@ import { presentationDestination } from '../../workspace/presentation.mjs';
 export function mountMeridianExperience(root,source,options={}){
  if(!root||!source?.getSnapshot||!source?.subscribe||!source?.dispatch)throw new TypeError('Meridian requires an explicit presentation source.');
  const life=new AbortController();let destroyed=false,toastTimer=0;
- const ui={route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnAction:null};
+ // Unsent form text belongs to this preview session and its Space/conversation.
+ // It is neither Memory nor a persisted document.
+ const formDrafts=new Map();
+ const draftKey=(form,field)=>JSON.stringify([root.dataset.space,form.dataset.form,form.dataset.conversation??form.dataset.file??'',field.name,field.id]);
+ function rememberForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]'))if(!field.dataset.draft)formDrafts.set(draftKey(form,field),field.value);}
+ function restoreForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]')){const key=draftKey(form,field);if(!field.dataset.draft&&formDrafts.has(key))field.value=formDrafts.get(key);}}
+ const ui={route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnFocus:null};
  if(options.presentation==='desktop')ui.presentation='desktop';
  if(options.material==='ink')ui.material='ink';
  if(sections.some(item=>item.id===options.route))ui.route=options.route;
  function render(resetScroll=false){
   if(destroyed)return;
+  rememberForms();const previousSpace=root.dataset.space;
   const data=source.getSnapshot();
   const previous=root.querySelector('.md-main');const scroll=resetScroll?0:previous?.scrollTop??0;
   const focused=document.activeElement;const focusId=root.contains(focused)?focused?.id:null;
   const focusAction=root.contains(focused)?focused?.dataset?.action:null;
   const panelScroll=root.querySelector('.md-panel-body')?.scrollTop??0;
   const selection=focused?.tagName==='TEXTAREA'||focused?.tagName==='INPUT'?{start:focused.selectionStart,end:focused.selectionEnd,value:focused.value}:null;
-  root.dataset.meridian='';root.dataset.material=ui.material;root.dataset.presentation=ui.presentation;
+  root.dataset.meridian='';root.dataset.space=data.activeSpace;root.dataset.material=ui.material;root.dataset.presentation=ui.presentation;
   root.dataset.focus=String(data.focus);root.dataset.largeText=String(ui.largeText);root.dataset.reduceMotion=String(ui.reduceMotion);
   root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));
   const view=ui.presentation==='desktop'?desktop(data,ui):ui.route==='central'?central(data,ui):ui.route==='intelligence'?intelligence(data,ui):explore(data,ui);
   root.innerHTML=shell(data,ui,view);root.querySelector('.md-main').scrollTop=scroll;
   if(ui.panel){root.querySelector('.md-panel-root').innerHTML=panelMarkup(ui.panel,data,ui);const dialog=root.querySelector('dialog');dialog.showModal();dialog.querySelector('.md-panel-body').scrollTop=panelScroll;if(ui.panel.type==='search')dialog.querySelector('input')?.focus();}
-  if(focusId||focusAction){const restored=focusId?root.querySelector(`#${CSS.escape(focusId)}`):root.querySelector(`[data-action="${CSS.escape(focusAction)}"]`);if(restored&&(!ui.panel||restored.closest('dialog'))){restored.focus({preventScroll:true});if(selection){restored.value=selection.value;try{restored.setSelectionRange(selection.start,selection.end);}catch{/* Search/number inputs need no text selection restoration. */}}}}
+  restoreForms();
+  if(previousSpace===data.activeSpace&&(focusId||focusAction)){const restored=focusId?root.querySelector(`#${CSS.escape(focusId)}`):root.querySelector(`[data-action="${CSS.escape(focusAction)}"]`);if(restored&&(!ui.panel||restored.closest('dialog'))){restored.focus({preventScroll:true});if(selection){restored.value=selection.value;try{restored.setSelectionRange(selection.start,selection.end);}catch{/* Search/number inputs need no text selection restoration. */}}}}
  }
  function toast(message){clearTimeout(toastTimer);const el=root.querySelector('dialog .md-panel-feedback')??root.querySelector('.md-toast');if(!el)return;el.textContent=message;el.classList.add('is-visible');toastTimer=setTimeout(()=>el.classList.remove('is-visible'),4500);}
- function closePanel(){ui.panel=null;const dialog=root.querySelector('dialog');dialog?.close();dialog?.remove();const target=ui.returnAction?root.querySelector(`[data-action="${CSS.escape(ui.returnAction)}"]`):null;(target??root.querySelector('.md-main'))?.focus({preventScroll:true});}
- function openPanel(type,id,more={}){ui.panel={type,id,...more};render();}
+ function closePanel(){
+  rememberForms();ui.panel=null;const dialog=root.querySelector('dialog');dialog?.close();dialog?.remove();
+  const origin=ui.returnFocus;ui.returnFocus=null;
+  const candidates=origin?.id?root.querySelectorAll(`#${CSS.escape(origin.id)}`):origin?.action?root.querySelectorAll(`[data-action="${CSS.escape(origin.action)}"]`):[];
+  const target=[...candidates].find(node=>node.getClientRects().length);
+  (target??root.querySelector('.md-main'))?.focus({preventScroll:true});
+ }
+ function openPanel(type,id,more={}){if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(focused)?{id:focused.id,action:focused.dataset.action}:null;}ui.panel={type,id,...more};render();}
  function navigate(route){if(!sections.some(item=>item.id===route))return;ui.route=route;ui.presentation='central';ui.panel=null;render(true);root.querySelector('.md-main')?.focus({preventScroll:true});}
  function ask(prompt){ui.prompt=String(prompt).trim().slice(0,1000);ui.route='intelligence';ui.presentation='central';ui.panel=null;render(true);}
  function openApp(id,fileId){const app=source.getSnapshot().apps.find(item=>item.id===id);if(!app)return;let win=ui.windows.find(item=>item.id===id);if(win){win.minimized=false;if(fileId)win.fileId=fileId;}else{win={id,title:app.name,fileId,mode:'expanded',minimized:false,x:24,y:24};ui.windows.push(win);}ui.windows=ui.windows.filter(item=>item.id!==id).concat(win);ui.activeWindow=id;if(win.mode==='compact'){ui.compactActive=id;ui.compactCollapsed=false;}ui.presentation='desktop';ui.panel=null;render();}
@@ -55,7 +69,6 @@ export function mountMeridianExperience(root,source,options={}){
   if(event.target.matches('dialog')){const box=event.target.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)closePanel();return;}
   const trigger=event.target.closest('[data-action]');if(!trigger||!root.contains(trigger))return;
   const raw=trigger.dataset.action;const index=raw.indexOf(':');const action=index<0?raw:raw.slice(0,index);const id=index<0?'':raw.slice(index+1);
-  if(action==='panel'&&id!=='close'&&!ui.panel)ui.returnAction=raw;
   if(action.startsWith('window-')){windowAction(action,id);return;}
   switch(action){
    case 'route':navigate(id);break;
@@ -65,7 +78,7 @@ export function mountMeridianExperience(root,source,options={}){
    case 'ask':ask(id);break;
    case 'app':openApp(id);break;
    case 'file':{const file=source.getSnapshot().files.find(item=>item.id===id);if(file)openApp(file.kind==='Coleção'?'internet':file.kind==='Modelo 3D'?'editor':'notes',id);break;}
-   case 'project':case 'space':case 'profile':case 'store':case 'device':case 'message':case 'automation-detail':if(!ui.panel)ui.returnAction=raw;openPanel(action,id);break;
+   case 'project':case 'space':case 'profile':case 'store':case 'device':case 'message':case 'automation-detail':openPanel(action,id);break;
    case 'select-space':ui.windows=[];ui.activeWindow=null;ui.compactActive=null;ui.panel=null;ui.route='central';ui.presentation='central';source.dispatch({type:'space',id});break;
    case 'install':source.dispatch({type:'install',id});toast('Adicionado somente à demonstração deste Space.');break;
    case 'activate-profile':ui.panel=null;source.dispatch({type:'profile',id});toast('Perfil aplicado ao Space de exemplo.');break;
@@ -88,6 +101,8 @@ export function mountMeridianExperience(root,source,options={}){
  root.addEventListener('input',event=>{const target=event.target;if(target.matches('[data-search]'))filter(target.closest('dialog')??target.closest('.md-page'));if(target.dataset.draft)ui.drafts[target.dataset.draft]=target.value;if(target.dataset.range==='brightness'){ui.brightness=Number(target.value);root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));}if(target.dataset.range==='volume')ui.volume=Number(target.value);},{signal:life.signal});
  root.addEventListener('submit',event=>{const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();const values=new FormData(form);
   if(['new-space','new-project'].includes(form.dataset.form)&&!String(values.get('name')??'').trim()){form.querySelector('[name=name]')?.focus();toast('Escolha um nome para continuar.');return;}
+  if(['ask','reply'].includes(form.dataset.form)&&!String(values.get(form.dataset.form==='ask'?'prompt':'reply')??'').trim())return;
+  if(['ask','reply','new-space','new-project'].includes(form.dataset.form)){for(const field of form.querySelectorAll('input[name],textarea[name]'))formDrafts.delete(draftKey(form,field));form.reset();}
   switch(form.dataset.form){
    case 'ask':ask(values.get('prompt'));break;
    case 'new-space':ui.panel=null;ui.route='spaces';source.dispatch({type:'create-space',value:values.get('name')});toast('Space criado somente nesta demonstração.');break;
@@ -102,5 +117,5 @@ export function mountMeridianExperience(root,source,options={}){
   const end=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);};handle.addEventListener('pointermove',move,{signal:life.signal});handle.addEventListener('pointerup',end,{signal:life.signal});handle.addEventListener('pointercancel',end,{signal:life.signal});
  },{signal:life.signal});
  const unsubscribe=source.subscribe(()=>render());render();
- return {destroy(){if(destroyed)return;destroyed=true;clearTimeout(toastTimer);life.abort();unsubscribe();root.replaceChildren();},source};
+ return {destroy(){if(destroyed)return;destroyed=true;clearTimeout(toastTimer);life.abort();unsubscribe();formDrafts.clear();root.replaceChildren();},source};
 }
