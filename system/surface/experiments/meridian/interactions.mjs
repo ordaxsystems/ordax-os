@@ -10,13 +10,22 @@ export function applyWindowAppearance(root,previous){
  }
 }
 export function createPresentationFeedback(root,signal){
- let dock=null,scrollLeft=0,scope='',active='',frame=0,hintTarget=null;
- const observer=new ResizeObserver(()=>queue());
+ let dock=null,scrollLeft=0,scope='',active='',frame=0,hintTarget=null,dismissedTarget=null,dockWidth=0,keyboardTarget=null;
+ const observer=new ResizeObserver(()=>{
+  if(!dock?.isConnected)return;
+  const width=dock.clientWidth;
+  if(width!==dockWidth){
+   const focused=dock.contains(document.activeElement)?document.activeElement.closest('.md-dock-app'):null;
+   reveal(focused??dock.querySelector('.is-active'));
+   dockWidth=width;
+  }
+  queue();
+ });
  const tooltipSelector='.md-sidebar [data-tooltip], .md-taskbar [data-tooltip]';
  const hint=()=>root.querySelector('.md-pointer-hint');
  function hideHint(){hintTarget=null;const node=hint();if(node)node.hidden=true;}
  function showHint(target){
-  const node=hint();if(!node||!target?.getClientRects().length||root.querySelector('dialog[open]'))return;
+  const node=hint();if(!node||target===dismissedTarget||!target?.getClientRects().length||root.querySelector('dialog[open]'))return;
   hintTarget=target;node.textContent=target.dataset.tooltip;node.hidden=false;
   const box=target.getBoundingClientRect(),tip=node.getBoundingClientRect();
   const side=!!target.closest('.md-sidebar');
@@ -32,28 +41,45 @@ export function createPresentationFeedback(root,signal){
   dock.closest('.md-dock-frame').dataset.overflow=start?(end?'both':'start'):(end?'end':'none');
  }
  function queue(){cancelAnimationFrame(frame);frame=requestAnimationFrame(measure);}
- function reveal(button){if(!dock||!button)return;const a=dock.getBoundingClientRect(),b=button.getBoundingClientRect();if(b.left<a.left+12)dock.scrollLeft-=a.left+12-b.left;else if(b.right>a.right-12)dock.scrollLeft+=b.right-a.right+12;measure();}
+ function reveal(button){if(!dock?.isConnected||!button||!dock.contains(button))return;const a=dock.getBoundingClientRect(),b=button.getBoundingClientRect();if(b.left<a.left+12)dock.scrollLeft-=a.left+12-b.left;else if(b.right>a.right-12)dock.scrollLeft+=b.right-a.right+12;measure();}
  function refresh(){
-  hideHint();observer.disconnect();dock=root.querySelector('.md-dock');
-  if(!dock)return;
+  cancelAnimationFrame(frame);frame=0;hideHint();dismissedTarget=null;keyboardTarget=null;observer.disconnect();
+  // The common hint owns these labels; native title would add a second tooltip.
+  for(const target of root.querySelectorAll(tooltipSelector))target.removeAttribute('title');
+  dock=root.querySelector('.md-dock');
+  if(!dock){dockWidth=0;return;}
   const nextScope=[root.dataset.subject,root.dataset.space,root.dataset.presentation].join('/');
   const nextActive=dock.querySelector('.is-active')?.dataset.action??'';
   dock.scrollLeft=scope===nextScope?scrollLeft:0;
   if(nextActive!==active||scope!==nextScope)reveal(dock.querySelector('.is-active'));
   scope=nextScope;active=nextActive;observer.observe(dock);queue();
  }
- root.addEventListener('scroll',event=>{if(event.target===dock){measure();hideHint();}},{capture:true,signal});
+ function releaseKeyboardScroll(){keyboardTarget=null;if(dock)dock.style.scrollSnapType='';}
+ root.addEventListener('scroll',event=>{if(event.target===dock){
+  // Native touch inertia can continue after a key event. Keep its newer focus
+  // destination visible until another input takes control of scrolling.
+  if(keyboardTarget===document.activeElement)reveal(keyboardTarget);
+  measure();hideHint();
+ }},{capture:true,signal});
  root.addEventListener('pointerover',event=>{if(event.pointerType==='touch')return;const target=event.target.closest(tooltipSelector);if(target)showHint(target);},{signal});
- root.addEventListener('pointerout',event=>{if(hintTarget&&!hintTarget.contains(event.relatedTarget))hideHint();},{signal});
+ root.addEventListener('pointerout',event=>{
+  if(hintTarget&&!hintTarget.contains(event.relatedTarget))hideHint();
+  if(dismissedTarget?.contains(event.target)&&!dismissedTarget.contains(event.relatedTarget))dismissedTarget=null;
+ },{signal});
  root.addEventListener('focusin',event=>{const target=event.target.closest(tooltipSelector);if(target){if(target.matches('.md-dock-app'))reveal(target);showHint(target);}},{signal});
- root.addEventListener('focusout',hideHint,{signal});
- root.addEventListener('pointerdown',hideHint,{signal});
+ root.addEventListener('focusout',event=>{hideHint();if(dismissedTarget?.contains(event.target))dismissedTarget=null;if(keyboardTarget?.contains(event.target))releaseKeyboardScroll();},{signal});
+ root.addEventListener('pointerdown',()=>{hideHint();releaseKeyboardScroll();},{signal});
+ root.addEventListener('wheel',releaseKeyboardScroll,{passive:true,signal});
+ document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&hint()?.hidden===false){dismissedTarget=hintTarget;hideHint();event.preventDefault();return;}
+ },{signal});
  root.addEventListener('keydown',event=>{
-  const button=event.target.closest('.md-dock-app');if(!button||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  const button=event.target.closest('.md-dock-app');if(!dock||!button||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
   const buttons=[...dock.querySelectorAll('.md-dock-app')],index=buttons.indexOf(button);
   const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:Math.max(0,Math.min(buttons.length-1,index+(event.key==='ArrowLeft'?-1:1)));
-  event.preventDefault();buttons[next].focus({preventScroll:true});reveal(buttons[next]);
+  // A pending touch snap must not override a later keyboard destination.
+  event.preventDefault();buttons[next].focus({preventScroll:true});keyboardTarget=buttons[next];dock.style.scrollSnapType='none';reveal(keyboardTarget);
  },{signal});
- signal.addEventListener('abort',()=>{cancelAnimationFrame(frame);observer.disconnect();hideHint();},{once:true});
+ signal.addEventListener('abort',()=>{cancelAnimationFrame(frame);observer.disconnect();hideHint();dismissedTarget=null;keyboardTarget=null;dock=null;},{once:true});
  return {refresh};
 }

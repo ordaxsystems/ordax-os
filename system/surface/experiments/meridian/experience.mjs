@@ -41,8 +41,8 @@ export function mountMeridianExperience(root,source,options={}){
   root.dataset.meridian='';root.dataset.subject=contextSubject();root.dataset.stage=String(ui.stage||ui.locked);root.dataset.space=data.activeSpace;root.dataset.material=ui.material;root.dataset.presentation=ui.presentation;
   root.dataset.focus=String(data.focus);root.dataset.largeText=String(ui.largeText);root.dataset.reduceMotion=String(ui.reduceMotion);
   root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));
-  if(ui.locked){root.innerHTML=lockScreen(ui);root.querySelector('.md-stage')?.focus({preventScroll:true});return;}
-  if(ui.stage&&ui.currentStory){const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];root.innerHTML=journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),true);restoreForms();return;}
+  if(ui.locked){root.innerHTML=lockScreen(ui);feedback.refresh();root.querySelector('.md-stage')?.focus({preventScroll:true});return;}
+  if(ui.stage&&ui.currentStory){const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];root.innerHTML=journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),true);feedback.refresh();restoreForms();return;}
   const view=ui.presentation==='desktop'?desktop(data,ui):ui.route==='central'?central(data,ui):ui.route==='intelligence'?intelligence(data,ui):explore(data,ui);
   root.innerHTML=shell(data,ui,view);root.querySelector('.md-main').scrollTop=scroll;
   if(root.dataset.presentationChanged!=='true')applyWindowAppearance(root,previousWindows);
