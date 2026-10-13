@@ -214,7 +214,32 @@ O host também rejeita `sourceCommit` ou revisão com forma inválida
 owner App Data. A checagem CAS e de integridade continua sob `flock`
 exclusivo. Estas proteções não autenticam um slot Ed25519, não encerram
 processos via Supervisor e não autorizam ativação ou rollback stateful.
-\n\n### Recuperação no reinício do host: versão vinculada ao checkpoint\n\nAntes de emitir qualquer capability a partir dos receipts verificados, o host\nconsulta o **mesmo checkpoint persistente do owner App Data**, sob lock\ncompartilhado. Se existir um pin de recuperação para uma versão diferente\nda presente no receipt, toda a emissão é recusada (incluindo lotes, sem\nautorização parcial). Corrupção ou diretório parcial também são fail-closed.\nUm reinício do host não apaga a intenção de recuperação. A versão antiga\npode ser vinculada se o receipt permanecer válido; isto **não** autoriza\nrollback nem valida sourceCommit. A aposentadoria do pin é exclusiva do\nowner confiável e não é automática durante o bootstrap.\n\nEste controle é somente um **fence de inicialização**: não oferece\nquiescência entre hosts, nem substitui o lock de ativação Go, prova de slot\nEd25519, a transação de rollback, ou a política para escritas na probation.\n
+
+
+### Recuperação não resolvida bloqueia todas as versões
+
+O checkpoint persistente é uma **barreira de recuperação pendente**,
+e não uma autorização de continuidade da versão antiga. Quando existe
+um checkpoint não aposentado, o host recusa a emissão de **qualquer**
+capability para a identidade correspondente, inclusive se o recibo
+verificado declara exatamente a mesma versão. Isso também vale após
+reiniciar o host, e lotes com identidades diferentes não admitem
+concessões parciais.
+
+O owner App Data aplica a mesma regra sob `flock` para todas as
+operações `get/list/put/delete` já admitidas: mesmo uma capability
+emitida **antes** da criação do pin recebe HTTP 409. Não há leitura
+ou gravação de dados sob recuperação pendente. O bloqueio nasce da
+presença do próprio `checkpoint.json`, não de um registro paralelo.
+Somente a conclusão explícita e durável da decisão pelo owner confiável
+pode aposentar o pin; uma inspeção, uma versão correspondente ou um
+reinício **não** comprovam essa decisão.
+
+Isso evita modificações durante uma janela de rollback ainda indefinida.
+A política não substitui assinatura Ed25519, quiescência de processos
+do Supervisor, locks do writer Go ou a transação de ativação/rollback:
+o caminho stateful do Go continua fail-closed até estar integrado.
+
 ## Bloqueio de capabilities já emitidas quando o checkpoint muda
 
 A checagem na emissão da capability é insuficiente por si só: um checkpoint
@@ -223,12 +248,12 @@ O `sourceVersion` do receipt verificado agora acompanha a binding efêmera
 do host e o endpoint o transmite somente como argumento confiável, nunca
 como metadado escolhido pelo aplicativo. Cada `get/list/put/delete` verifica
 a versão contra o checkpoint **sob o mesmo flock da própria leitura ou
-mutação**. Quando outra versão detém o pin, a operação HTTP recebe 409 sem
-acessar nem modificar os dados; o pin continua persistido para recuperação.
+mutação**. Enquanto qualquer pin estiver pendente, a operação HTTP recebe 409,
+mesmo para a versão original. Os dados não são acessados ou modificados.
 
 Essa proteção continua necessária mesmo com bootstrap fail-closed, porque
 hosts antigos podem permanecer executando. Acesso direto do owner ao App
 Data não é uma capability de aplicativo e preserva suas APIs existentes.
-A condição de versão **não é prova Ed25519 nem autorização de rollback**:
+A presença do pin é um bloqueio, **não é prova Ed25519 nem autorização de rollback**:
 a transação com writer Go, Supervisor e decisões de pós-atualização segue
 bloqueada até provas reais.
