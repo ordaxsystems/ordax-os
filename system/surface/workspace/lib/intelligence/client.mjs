@@ -37,6 +37,10 @@ export function createIntelligenceClient(input) {
       listener();
       return () => { active = false; release(); };
     },
+    /**
+     * @param {string} prompt
+     * @param {{ signal?: AbortSignal | null }} [options]
+     */
     async ask(prompt, { signal = null } = {}) {
       const current = read();
       if (current.state !== "ready") {
