@@ -166,16 +166,19 @@ class NativeAppDataBindingTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
             restarted.mint_from_receipt(updated)
         self.assertEqual(restarted.active_binding_count(), 0)
-        # Rebind of the same installed version is not confused with a
-        # trusted release/2 rollback or a cross-version authorization.
-        preserved = restarted.mint_from_receipt(initial)
-        self.assertEqual(preserved.app_data_identity(), identity)
-        self.assertEqual(restarted.active_binding_count(), 1)
+        # A reboot cannot re-authorize even the original release. Until
+        # the canonical updater makes a durable decision, this pin is an
+        # unresolved transaction, not a safe downgrade certificate.
+        with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
+            restarted.mint_from_receipt(initial)
+        self.assertEqual(restarted.active_binding_count(), 0)
 
-        # The checkpoint remains durable until the trusted owner explicitly
-        # retires it. A new host cannot silently dispose of its data.
+        # A separate trusted owner explicitly closes recovery before app
+        # access can resume; the checkpoint is never discarded on bootstrap.
         retired = retire_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
         self.assertTrue(retired["retired"])
+        preserved = restarted.mint_from_receipt(initial)
+        self.assertEqual(preserved.app_data_identity(), identity)
         rotated = restarted.mint_from_receipt(updated)
         self.assertIsNone(restarted.resolve(preserved.endpoint))
         self.assertIs(restarted.resolve(rotated.endpoint), rotated)
