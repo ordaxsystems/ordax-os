@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -24,7 +25,7 @@ BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
-BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y")
+BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -194,6 +195,26 @@ def verify_target(target: Path) -> None:
             raise BaseError("BusyBox stat -c cannot enforce canonical key permission")
     if run(busybox, "timeout", "-k", "1", "2", busybox, "true").strip():
         raise BaseError("BusyBox timeout emitted unexpected output")
+    # The Supervisor must distinguish a dead Surface launcher from a still
+    # live Native host. Verify both successful and contended flock operations
+    # on the ACTUAL target BusyBox, not just its compiled configuration.
+    with tempfile.TemporaryDirectory() as lock_dir:
+        lock_path = Path(lock_dir) / "native-host-instance.lock"
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o600)
+        run(busybox, "flock", "-n", str(lock_path), busybox, "true")
+        with lock_path.open("rb") as locked:
+            fcntl.flock(locked, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try:
+                contender = subprocess.run(
+                    [str(busybox), "flock", "-n", str(lock_path), str(busybox), "true"],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, check=False, timeout=4,
+                )
+                if contender.returncode == 0:
+                    raise BaseError("BusyBox flock granted a lock already owned by another process")
+            finally:
+                fcntl.flock(locked, fcntl.LOCK_UN)
 
 
 def build(out: Path, cache: Path, jobs: int) -> dict:
