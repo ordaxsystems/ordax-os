@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -149,6 +153,106 @@ class NativeAppDataRuntimeWiringTest(unittest.TestCase):
         self.assertTrue(app_surface["first_party_only"])
         self.assertFalse(self.contract["binding"]["capability_published_in_global_native_session"])
         self.assertFalse(app_surface["same_realm_third_party_isolation_claimed"])
+
+
+
+class NativeHostInstanceLifetimeTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        os.chmod(self.temporary.name, 0o700)
+        self.lock = os.path.join(self.temporary.name, "native-host-instance.lock")
+
+    def test_exclusive_authority_rejects_second_process_and_recovers_on_crash(self):
+        # A distinct OS process owns a real flock, not just a mocked mutex.
+        child = (
+            "import sys\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from native_app_data_runtime import hold_native_host_instance\n"
+            "with hold_native_host_instance(sys.argv[2]):\n"
+            "    print('LOCKED', flush=True)\n"
+            "    sys.stdin.read(1)\n"
+        )
+        process = subprocess.Popen(
+            [sys.executable, "-c", child, str(RUNTIME_DIR), self.lock],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            self.assertEqual(process.stdout.readline().strip(), "LOCKED")
+            with self.assertRaises(runtime.NativeHostInstanceBusyError):
+                with runtime.hold_native_host_instance(self.lock):
+                    self.fail("second host received concurrent authority")
+            self.assertTrue(os.path.isfile(self.lock))
+            process.kill()  # kernel releases lock on abnormal process death
+            process.wait(timeout=5)
+            with runtime.hold_native_host_instance(self.lock):
+                self.assertTrue(os.path.isfile(self.lock))
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+            if process.stdin:
+                process.stdin.close()
+            if process.stdout:
+                process.stdout.close()
+            if process.stderr:
+                process.stderr.close()
+
+    def test_unsafe_instance_inode_or_parent_fails_closed(self):
+        with open(self.lock, "wb"):
+            pass
+        os.chmod(self.lock, 0o644)
+        with self.assertRaises(PermissionError):
+            with runtime.hold_native_host_instance(self.lock):
+                self.fail("world-readable lock was accepted")
+        os.chmod(self.lock, 0o600)
+        linked = os.path.join(self.temporary.name, "another-inode-alias")
+        os.link(self.lock, linked)
+        with self.assertRaises(PermissionError):
+            with runtime.hold_native_host_instance(self.lock):
+                self.fail("hardlinked host lock was accepted")
+        os.unlink(linked)
+        os.unlink(self.lock)
+        with open(linked, "wb"):
+            pass
+        os.symlink(linked, self.lock)
+        with self.assertRaises(OSError):
+            with runtime.hold_native_host_instance(self.lock):
+                self.fail("symlinked host lock was accepted")
+        os.unlink(self.lock)
+        os.chmod(self.temporary.name, 0o755)
+        with self.assertRaises(PermissionError):
+            with runtime.hold_native_host_instance(self.lock):
+                self.fail("public directory was accepted")
+        os.chmod(self.temporary.name, 0o700)
+        with runtime.hold_native_host_instance(self.lock):
+            self.assertTrue(os.path.isfile(self.lock))
+
+    def test_main_never_constructs_or_mints_when_host_authority_is_busy(self):
+        with runtime.hold_native_host_instance(self.lock):
+            with (
+                patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+                patch.object(runtime, "parse_args", return_value=SimpleNamespace(
+                    bind="127.0.0.1", port=8765,
+                )),
+                patch.object(runtime, "expected_surface_authority") as authority,
+                patch.object(runtime, "_serve_native_host") as serve,
+            ):
+                self.assertEqual(runtime.main(), 3)
+                authority.assert_called_once_with(("127.0.0.1", 8765))
+                serve.assert_not_called()
+        # After the previous owner exits, the new instance may start.
+        with (
+            patch.object(runtime, "DEFAULT_NATIVE_HOST_INSTANCE_LOCK", self.lock),
+            patch.object(runtime, "parse_args", return_value=SimpleNamespace(
+                bind="127.0.0.1", port=8765,
+            )),
+            patch.object(runtime, "expected_surface_authority"),
+            patch.object(runtime, "_serve_native_host", return_value=0) as serve,
+        ):
+            self.assertEqual(runtime.main(), 0)
+            serve.assert_called_once()
 
 
 if __name__ == "__main__":
