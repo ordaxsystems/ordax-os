@@ -1,7 +1,8 @@
-from pathlib import Path
 import fcntl
-import tempfile
+from pathlib import Path
+import shutil
 import subprocess
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -685,8 +686,13 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertNotIn('[ -n "$SURFACE_PID" ] || return 0', stopped)
 
     def test_native_host_lock_quiescence_with_real_processes(self):
-        if not Path("/bin/busybox").is_file():
-            self.skipTest("target BusyBox availability is checked in the independent Base build")
+        # GitHub's generic Ubuntu runner has a minimal BusyBox build with
+        # no flock applet. Use the host's util-linux flock to test the kernel
+        # contention semantics; the independent Base build separately proves
+        # the ACTUAL target BusyBox supports this applet in both directions.
+        host_flock = shutil.which("flock")
+        if host_flock is None:
+            self.skipTest("no host flock; target applet proof runs in Base build")
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         helper = "native_host_quiesced() {" + text.split(
             "native_host_quiesced() {", 1
@@ -697,7 +703,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             # isolated lock path. No environment-controlled production override.
             helper = helper.replace(
                 "/run/ordax-surface/native-host-instance.lock", str(lock_path)
-            )
+            ).replace("/bin/busybox flock -n", host_flock + " -n")
             def probe():
                 return subprocess.run(["sh", "-c", helper + "\nnative_host_quiesced"],
                                       capture_output=True, timeout=10)
