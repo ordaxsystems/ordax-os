@@ -59,6 +59,7 @@ def preserve_failure_diagnostics(
     exc: Exception,
     source_commit: str,
     previous_commit: str,
+    failed_guest_state: dict[str, Any] | None = None,
 ) -> None:
     """Persist bounded failure evidence before the disposable work tree is removed."""
 
@@ -84,6 +85,7 @@ def preserve_failure_diagnostics(
         "serial_tail_lines": SERIAL_TAIL_LINES,
         "serial_logs": serial_logs,
         "copy_errors": copy_errors,
+        "failed_guest_state": failed_guest_state,
     }
     try:
         out.write_text(
@@ -101,6 +103,106 @@ def preserve_failure_diagnostics(
         + json.dumps(receipt, sort_keys=True),
         file=sys.stderr,
     )
+
+
+def snapshot_failure_state_from_mounted_ext4(
+    state_mount: Path, *, candidate_commit: str, previous_commit: str
+) -> dict[str, Any]:
+    """Only SHA identities and boolean activation flags; no guest log/user data."""
+    def sha_identity(relative: str) -> str | None:
+        path = state_mount / relative
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 128:
+            return None
+        try:
+            value = path.read_text(encoding="ascii").strip()
+        except (UnicodeError, OSError):
+            return None
+        return value if qemu.COMMIT_RE.fullmatch(value) else None
+
+    release = "ordax/portable-release/"
+    current = sha_identity(release + "current")
+    previous = sha_identity(release + "known-good")
+    candidate = sha_identity(release + "candidate")
+    rejected = sha_identity(release + "rejected")
+    observed = {
+        "current": current,
+        "known_good": previous,
+        "candidate": candidate,
+        "rejected": rejected,
+        "candidate_still_armed": candidate == candidate_commit,
+        "candidate_rejected": rejected == candidate_commit,
+        "previous_restored": current == previous_commit,
+        "candidate_promoted": current == candidate_commit,
+        "transaction_exists": (
+            state_mount / (release + "activation-transaction.json")
+        ).exists(),
+        "supervisor_persisted_rejected_candidate": (
+            sha_identity("ordax/stable-release-health-rejected-sha")
+            == candidate_commit
+        ),
+        "last_applied_is_candidate": (
+            sha_identity("ordax/last-applied-sha") == candidate_commit
+        ),
+        "runtime_surface_sha_matches_candidate": (
+            sha_identity("ordax/runtime-surface-sha") == candidate_commit
+        ),
+    }
+    return {
+        "$schema": "prototype-ordax.portable-cold-health-failure-state/1",
+        "observation": "readonly-disposable-guest-ext4-copy",
+        "private_guest_files_collected": False,
+        "volatile_guest_run_logs_recoverable": False,
+        "source_commit": candidate_commit,
+        "previous_commit": previous_commit,
+        "activation": observed,
+    }
+
+
+def inspect_failure_state(
+    disk: Path, work: Path, *,
+    candidate_commit: str, previous_commit: str,
+) -> dict[str, Any]:
+    """Snapshot only allowlisted activation identities; preserve no guest disk."""
+    data_mount = work / "failure-data"
+    state_mount = work / "failure-state"
+    data_mount.mkdir()
+    state_mount.mkdir()
+    loop = ""
+    data_mounted = False
+    state_mounted = False
+    try:
+        loop = qemu.capture(["losetup", "--find", "--show", "--partscan", str(disk)])
+        if not loop.startswith("/dev/loop"):
+            raise qemu.ProofError("invalid disposable QEMU loop identity")
+        data = Path(loop + "p2")
+        qemu.wait_block(data)
+        qemu.run(["mount.exfat-fuse", "-o", "ro", str(data), str(data_mount)])
+        data_mounted = True
+        guest_ext4 = qemu.regular(
+            data_mount / ".ordax/state/persistent-state.img",
+            "disposable failed-boot persistent state", minimum=16 * 1024 * 1024,
+        )
+        inspection_copy = work / "failure-state-copy.img"
+        qemu.prepare_state_inspection_copy(guest_ext4, inspection_copy)
+        qemu.unmount(data_mount)
+        data_mounted = False
+        qemu.run([
+            "mount", "-t", "ext4", "-o", "loop,ro,noload",
+            str(inspection_copy), str(state_mount),
+        ])
+        state_mounted = True
+        return snapshot_failure_state_from_mounted_ext4(
+            state_mount,
+            candidate_commit=candidate_commit,
+            previous_commit=previous_commit,
+        )
+    finally:
+        if state_mounted:
+            qemu.unmount(state_mount)
+        if data_mounted:
+            qemu.unmount(data_mount)
+        if loop:
+            qemu.run(["losetup", "-d", loop])
 
 
 def inspect_committed_state(
@@ -330,6 +432,22 @@ def prove(args: argparse.Namespace) -> dict[str, Any]:
             )
             return result
         except Exception as exc:
+            # Diagnostics are observation-only and never change the real
+            # success predicate, signed release, or original failure status.
+            failed_guest_state: dict[str, Any] | None = None
+            if disk is not None and disk.exists():
+                try:
+                    failed_guest_state = inspect_failure_state(
+                        disk, work,
+                        candidate_commit=args.source_commit,
+                        previous_commit=args.previous_commit,
+                    )
+                except Exception as diagnostic_error:
+                    failed_guest_state = {
+                        "status": "unavailable",
+                        "diagnostic_error_type": type(diagnostic_error).__name__,
+                        "private_guest_files_collected": False,
+                    }
             preserve_failure_diagnostics(
                 work,
                 args.out,
@@ -337,6 +455,7 @@ def prove(args: argparse.Namespace) -> dict[str, Any]:
                 exc=exc,
                 source_commit=args.source_commit,
                 previous_commit=args.previous_commit,
+                failed_guest_state=failed_guest_state,
             )
             raise
     finally:

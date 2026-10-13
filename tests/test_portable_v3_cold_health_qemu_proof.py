@@ -105,6 +105,40 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         self.assertIn('"physical_usb_boot_proven": False', text)
         self.assertIn('"secure_boot_proven": False', text)
 
+
+    def test_failed_qemu_state_is_readonly_bounded_and_has_no_user_content(self):
+        spec = importlib.util.spec_from_file_location("qemu_cold_health_diag", RUNNER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        candidate, previous = "a" * 40, "b" * 40
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            release = state / "ordax/portable-release"
+            release.mkdir(parents=True)
+            (release / "current").write_text(previous)
+            (release / "known-good").write_text(previous)
+            (release / "rejected").write_text(candidate)
+            (release / "candidate").write_text("malformed\n")
+            private = state / "home"
+            private.mkdir()
+            (private / "secret").write_text("PRIVATE_NEVER_COLLECT")
+            result = module.snapshot_failure_state_from_mounted_ext4(
+                state, candidate_commit=candidate, previous_commit=previous
+            )
+            self.assertTrue(result["activation"]["candidate_rejected"])
+            self.assertTrue(result["activation"]["previous_restored"])
+            self.assertFalse(result["activation"]["candidate_promoted"])
+            self.assertFalse(result["activation"]["candidate_still_armed"])
+            self.assertFalse(result["private_guest_files_collected"])
+            self.assertFalse(result["volatile_guest_run_logs_recoverable"])
+            self.assertNotIn("PRIVATE_NEVER_COLLECT", json.dumps(result))
+            (release / "rejected").unlink()
+            (release / "rejected").symlink_to(private / "secret")
+            result = module.snapshot_failure_state_from_mounted_ext4(
+                state, candidate_commit=candidate, previous_commit=previous
+            )
+            self.assertFalse(result["activation"]["candidate_rejected"])
+
     def test_final_state_is_inspected_read_only(self):
         text = RUNNER.read_text(encoding="utf-8")
         self.assertIn('"mount.exfat-fuse", "-o", "ro"', text)
