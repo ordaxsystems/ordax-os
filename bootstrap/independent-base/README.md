@@ -1,6 +1,6 @@
 # Base independente OrdaX — experimento isolado
 
-**Estado:** candidato experimental **não promovível**. Esta pasta é um laboratório de fonte/compilação dentro de `bootstrap/`, não uma nova distribuição, linha de atualização, gerenciador de pacotes ou caminho alternativo de boot em produção.
+**Estado (13/10/2026):** capacidade independente experimental **não promovível**. A Fase 2 de boot portátil e a Fase 3 de saúde gráfica real foram validadas em QEMU, incluindo release assinado, recuperação e segundo boot `current` (prova [#38422187862](https://github.com/ordaxsystems/ordax-os/actions/runs/38422187862) e integração [PR #1746](https://github.com/ordaxsystems/ordax-os/pull/1746)). Isso não comprova Secure Boot, equivalência em hardware físico, firmware/Wi-Fi ou autorização de migração. A autoridade e o acompanhamento desses gates continuam no [issue #1730](https://github.com/ordaxsystems/ordax-os/issues/1730). Esta pasta não cria outra distribuição, linha de atualização, gerenciador de pacotes ou boot de produção.
 
 ## Escolha técnica
 
@@ -16,6 +16,10 @@ O perfil Buildroot usa `bootstrap/kernel/source.json` como única versão de cab
 - **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato.
 - O teste QEMU usa o kernel **real** `bootstrap/kernel/build.py` e valida seu provenance. Testa montagem EROFS somente-leitura e escrita rejeitada, imagem ext4 descartável persistente, DHCP e falha segura de EROFS inválido. O QEMU usa `snapshot=on` para permitir emulação IDE com backend COW descartável sem modificar os bytes originais de EROFS, cuja integridade é novamente verificada por SHA-256. Não prova UEFI, mídia física, EROFS/OverlayFS do fluxo portátil completo nem equivalência de recuperação assinada.
 - Exige execução de CI Linux; nenhum passo pertence à estação de trabalho do usuário.
+
+## Uso de recursos no builder
+
+A compilação `make -j` do Buildroot usa **captura limitada de stdout/stderr** no builder oficial: o processo pai conserva só os últimos 10 KiB de saída para diagnosticar falhas, evitando que logs extensos consumam RAM proporcional à duração do build. Comandos menores que precisam de sua saída completa (como `stat` ou `blkid`) mantêm a captura tradicional. O teste `test_large_build_output_stays_bounded_without_losing_failure_tail` mede o pico de memória Python em uma carga sintética de 16 MiB e valida a retenção do diagnóstico. Isso otimiza **o processo de compilação no host**, não é uma medida de RAM, CPU ou boot do sistema operacional no QEMU ou no hardware físico.
 
 ## Entrypoints reproduzíveis
 

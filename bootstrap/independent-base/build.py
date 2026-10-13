@@ -41,14 +41,28 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def run(*args: str, cwd: Path | None = None) -> str:
+def run(*args: str, cwd: Path | None = None, bounded_output: bool = False) -> str:
     argv = list(args)
-    result = subprocess.run(argv, cwd=cwd, text=True, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, check=False)
-    if result.returncode:
-        raise BaseError(f"{' '.join(argv)} failed ({result.returncode}):\n"
-                        + result.stdout[-10000:])
-    return result.stdout
+    if bounded_output:
+        # Buildroot can print many MiB of compilation progress. Stream its
+        # combined output rather than retaining the entire build log in RAM;
+        # preserve the same bounded diagnostic tail on failure.
+        with subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT) as process:
+            assert process.stdout is not None
+            tail = b""
+            for chunk in iter(lambda: process.stdout.read(65536), b""):
+                tail = (tail + chunk)[-10000:]
+            code = process.wait()
+        output = tail.decode("utf-8", errors="replace")
+    else:
+        result = subprocess.run(argv, cwd=cwd, text=True, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, check=False)
+        code = result.returncode
+        output = result.stdout
+    if code:
+        raise BaseError(f"{' '.join(argv)} failed ({code}):\n" + output[-10000:])
+    return output
 
 
 def contracts() -> tuple[dict, dict, dict, dict]:
@@ -250,7 +264,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
                     'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"'):
             if key not in config:
                 raise BaseError(f"Buildroot rejected required configuration {key}")
-        run(*cmd[:-1], f"-j{max(1, jobs)}")
+        run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         target = build_dir / "target"
         verify_target(target)
         images = build_dir / "images"
