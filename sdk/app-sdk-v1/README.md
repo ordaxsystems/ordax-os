@@ -2,6 +2,13 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.19.0
+
+Adição dos contratos tipados de Atividade: aprovação humana e exportação. Essas
+portas são fornecidas pelo host autorizado; publicá-las não transfere execução,
+credenciais, permissões, armazenamento, instalação ou acesso nativo ao app.
+Os pins imutáveis 1.18.0 dos outros aplicativos continuam válidos.
+
 ## Bundle 1.18.0
 
 Esta versão publica **contratos de dados do Assistente e Personal OrdaX**: capacidades

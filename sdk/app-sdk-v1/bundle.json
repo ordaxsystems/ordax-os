@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.18.0",
+  "bundle_version": "1.19.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -346,6 +346,27 @@
       "schema": "ordax.personal-action-attempt/1",
       "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
       "source_path": "system/contracts/personal-ordax.mjs"
+    },
+    {
+      "major": 1,
+      "name": "personal-activity-export",
+      "schema": "ordax.personal-activity-export/1",
+      "source_git_blob": "b0ae00321eff37c32713b198b4b127c74db7f9c5",
+      "source_path": "system/contracts/personal-activity-export.mjs"
+    },
+    {
+      "major": 1,
+      "name": "personal-activity-export-port",
+      "schema": "ordax.personal-activity-export-port/1",
+      "source_git_blob": "b0ae00321eff37c32713b198b4b127c74db7f9c5",
+      "source_path": "system/contracts/personal-activity-export.mjs"
+    },
+    {
+      "major": 1,
+      "name": "personal-approval-consent",
+      "schema": "ordax.personal-approval-consent/1",
+      "source_git_blob": "7ba1a63057a8d66f36d4b9aa0164c70bfb33e923",
+      "source_path": "system/contracts/personal-approval-consent.mjs"
     },
     {
       "major": 1,

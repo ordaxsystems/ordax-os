@@ -355,6 +355,27 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "personal-activity-export",
+        "path": "system/contracts/personal-activity-export.mjs",
+        "constant": "PERSONAL_ACTIVITY_EXPORT_SCHEMA",
+        "schema": "ordax.personal-activity-export/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-activity-export-port",
+        "path": "system/contracts/personal-activity-export.mjs",
+        "constant": "PERSONAL_ACTIVITY_EXPORT_PORT_SCHEMA",
+        "schema": "ordax.personal-activity-export-port/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-approval-consent",
+        "path": "system/contracts/personal-approval-consent.mjs",
+        "constant": "PERSONAL_APPROVAL_CONSENT_SCHEMA",
+        "schema": "ordax.personal-approval-consent/1",
+        "major": 1,
+    },
+    {
         "name": "personal-work-store",
         "path": "system/contracts/personal-ordax-store.mjs",
         "constant": "PERSONAL_ORDAX_STORE_SCHEMA",
@@ -503,7 +524,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.18.0"
+BUNDLE_VERSION = "1.19.0"
 
 
 def git_blob(path: Path) -> str:

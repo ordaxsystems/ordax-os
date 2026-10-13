@@ -35,6 +35,18 @@ const required = [
     "schema": "ordax.personal-action-attempt/1"
   },
   {
+    "name": "personal-activity-export",
+    "schema": "ordax.personal-activity-export/1"
+  },
+  {
+    "name": "personal-activity-export-port",
+    "schema": "ordax.personal-activity-export-port/1"
+  },
+  {
+    "name": "personal-approval-consent",
+    "schema": "ordax.personal-approval-consent/1"
+  },
+  {
     "name": "personal-work-store",
     "schema": "ordax.personal-work-store/1"
   },
@@ -49,7 +61,7 @@ const required = [
 ];
 
 test("Assistant and Personal OrdaX schemas are published only as versioned App SDK data contracts", () => {
-  assert.equal(bundle.bundle_version, "1.18.0");
+  assert.equal(bundle.bundle_version, "1.19.0");
   assert.equal(bundle.authority, "none");
   const byName = new Map(bundle.contracts.map(x => [x.name, x]));
   assert.equal(byName.size, bundle.contracts.length);
@@ -71,7 +83,8 @@ test("portable Assistant SDK closure is public and exposes no native execution a
   const closure = [
     "intelligence.mjs", "intelligence-conversation-capabilities.mjs",
     "identity-session.mjs", "space-selection.mjs", "profile-activation-state.mjs",
-    "personal-ordax.mjs", "personal-ordax-store.mjs", "component-runtime.mjs",
+    "personal-ordax.mjs", "personal-ordax-store.mjs",
+    "personal-approval-consent.mjs", "personal-activity-export.mjs", "component-runtime.mjs",
     "surface-render-lifecycle.mjs", "app-activation.mjs",
     "first-party-app.mjs", "component-manifest.mjs", "app-intelligence-manifest.mjs",
   ];
