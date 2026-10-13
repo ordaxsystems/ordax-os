@@ -9,7 +9,6 @@ APP_CATALOG = APPS / "catalog.mjs"
 APP_CONTRACT = ROOT / "system" / "contracts" / "first-party-app.mjs"
 APP_OWNERS = {
     "files": APPS / "files" / "app.mjs",
-    "internet": APPS / "internet" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
     "account": APPS / "account" / "app.mjs",
     "system": APPS / "system" / "app.mjs",
@@ -79,8 +78,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             SURFACE_LOCALIZATION,
             SURFACE_LIFECYCLE,
             FILE_SPACE_CONTROLS,
-            INTERNET_BROWSER_CONTROLS,
-            INTERNET_BROWSER_SHORTCUTS,
             SYSTEM_OVERVIEW_CONTROLS,
             ACCOUNT_OVERVIEW_CONTROLS,
             SETTINGS_OVERVIEW_CONTROLS,
@@ -89,7 +86,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             SURFACE / "tokens.css",
             SURFACE / "surface.css",
             SURFACE / "files.css",
-            APPS / "internet" / "internet.css",
             SURFACE / "system.css",
             SURFACE / "account.css",
             SURFACE / "settings.css",
@@ -189,11 +185,8 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn("assertSurfaceRenderLifecycle", text, path)
             self.assertIn("subscribeRender", text, path)
             self.assertNotIn("MutationObserver", text, path)
-        internet_controls = INTERNET_BROWSER_CONTROLS.read_text(encoding="utf-8")
-        self.assertIn("contracts/surface-render-lifecycle.mjs", internet_controls)
-        self.assertIn("assertSurfaceRenderLifecycle", internet_controls)
-        self.assertIn("subscribeRender", internet_controls)
-        self.assertNotIn("MutationObserver", internet_controls)
+        self.assertFalse(INTERNET_BROWSER_CONTROLS.exists())
+        self.assertFalse(INTERNET_BROWSER_SHORTCUTS.exists())
 
         files = FILE_SPACE_CONTROLS.read_text(encoding="utf-8")
         self.assertIn('lifecycle.setAppTarget("files", next.path)', files)
@@ -212,7 +205,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"files", "internet"}:
+            if app_id in {"files"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)
@@ -277,50 +270,17 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
 
 
-    def test_internet_uses_shared_browser_session_extension(self):
-        internet = APP_OWNERS["internet"].read_text(encoding="utf-8")
-        controls = INTERNET_BROWSER_CONTROLS.read_text(encoding="utf-8")
-        shortcuts = INTERNET_BROWSER_SHORTCUTS.read_text(encoding="utf-8")
-        css = (APPS / "internet" / "internet.css").read_text(encoding="utf-8")
-        web_html = (COMPOSITION / "index.html").read_text(encoding="utf-8")
-        native_html = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
-        web_main = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
-        native_main = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
-        internet_runtime = (
-            APPS / "internet" / "runtime.mjs"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn('id: "internet"', internet)
-        self.assertIn('extensionId: "internet-browser"', internet)
-        # Rendered Internet launch controls are exercised with the live locale
-        # in test_surface_localization.mjs; browser authority is checked below.
-        localization = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
-        self.assertIn('"app.internet.title": "Internet"', localization)
-        self.assertIn("assertBrowserSessionPort", controls)
-        self.assertIn("assertSurfaceRenderLifecycle", controls)
-        self.assertIn('getAppTarget("internet")', controls)
-        self.assertIn("syncSurfaceTarget", controls)
-        self.assertIn("data-browser-viewport", controls)
-        self.assertNotIn("iframe", controls.lower())
-        self.assertNotIn("/__ordax/native/", controls)
-        self.assertNotIn("adapters/", controls)
-        self.assertIn("assertBrowserSessionPort", shortcuts)
-        self.assertIn(".ordax-internet-view", css)
-        self.assertIn(".ordax-internet-project-panel", css)
-        self.assertNotIn("../../surface/ui/internet.css", web_html)
-        self.assertNotIn("../../surface/ui/internet.css", native_html)
-        self.assertIn("createNativeBrowserSession", native_main)
-        self.assertIn("loadOptionalComponentRuntime", native_main)
-        self.assertIn('import("../../apps/internet/runtime.mjs")', native_main)
-        self.assertNotIn('from "../../surface/ui/internet-browser-controls.mjs"', web_main)
-        self.assertNotIn('from "../../surface/ui/internet-browser-controls.mjs"', native_main)
-        self.assertIn("mountInternetBrowserControls", internet_runtime)
-        self.assertIn("mountInternetBrowserShortcuts", internet_runtime)
-        self.assertIn('new URL("./internet.css", import.meta.url)', internet_runtime)
-        self.assertIn("mountInternetStyles", internet_runtime)
-        self.assertIn("releaseStyles()", internet_runtime)
-        self.assertIn("internetComponent?.destroy()", native_main)
-        self.assertIn("browserSession.dispose()", native_main)
+    def test_browser_engine_stays_in_platform_without_bundled_internet_app(self):
+        native = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        web = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
+        for source in (INTERNET_BROWSER_CONTROLS, INTERNET_BROWSER_SHORTCUTS,
+                       APPS / "internet" / "runtime.mjs", APPS / "internet" / "internet.css"):
+            self.assertFalse(source.exists(), "Internet app source must be external")
+        self.assertIn("createNativeBrowserSession", native)
+        self.assertNotIn('componentId: "internet"', native)
+        self.assertNotIn('import("../../apps/internet/runtime.mjs")', native)
+        self.assertNotIn('from "../../surface/ui/internet-browser-controls.mjs"', native)
+        self.assertNotIn('from "../../surface/ui/internet-browser-controls.mjs"', web)
 
     def test_system_uses_formal_shared_overview_extension(self):
         system = APP_OWNERS["system"].read_text(encoding="utf-8")
