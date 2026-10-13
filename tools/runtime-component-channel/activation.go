@@ -26,13 +26,13 @@ type slotIdentity struct {
 }
 
 type activationState struct {
-	Schema        string        `json:"$schema"`
-	ComponentID   string        `json:"component_id"`
-	Revision      int64         `json:"revision"`
-	Current       *slotIdentity `json:"current"`
-	Previous      *slotIdentity `json:"previous"`
-	Pending       *slotIdentity `json:"pending"`
-	Rejected      *slotIdentity `json:"rejected"`
+	Schema      string        `json:"$schema"`
+	ComponentID string        `json:"component_id"`
+	Revision    int64         `json:"revision"`
+	Current     *slotIdentity `json:"current"`
+	Previous    *slotIdentity `json:"previous"`
+	Pending     *slotIdentity `json:"pending"`
+	Rejected    *slotIdentity `json:"rejected"`
 	// The canonical activation-state file retains the exact uninstall
 	// identity. Otherwise a retry could falsely acknowledge the removal
 	// of any release at the same revision after Current becomes nil.
