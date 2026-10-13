@@ -228,6 +228,8 @@ def verify_target(target: Path) -> None:
                "cat", "mkdir", "chmod"} - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
+    if "ip" in applets:
+        raise BaseError("redundant BusyBox ip applet conflicts with iproute2 SSOT")
     # Presence in the applet list is not enough: the official handoff uses
     # stat -c and timeout -k, so exercise those exact feature interfaces.
     busybox = str(target / "bin/busybox")
