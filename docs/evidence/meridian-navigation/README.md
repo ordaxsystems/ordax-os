@@ -14,3 +14,14 @@ Verificação focada: `node tools/meridian-preview/navigation-smoke.mjs`, com ho
 Capturas: [Ajustes no Desktop](desktop-ajustes.png), [Aplicativos e painel compacto](desktop-apps-com-dispositivos.png), [Dispositivos mobile](desktop-dispositivos-mobile.png). Resultado: [quick-check.json](quick-check.json).
 
 Base desta mudança: `0f4f067`, branch `codex/meridian-design-lab`. Meridian permanece experimental e não pronto para merge. Os registros históricos da Round 3 permanecem sem alteração.
+
+## Maximização sem margens
+
+A janela maximizada passa a preencher os limites da área de trabalho disponível,
+sem inset, cantos arredondados ou sombra externa. Sidebar, navegação e a divisão
+existente do painel compacto continuam reservadas pelo layout. Não usa a API de
+tela cheia: maximizar e tela cheia de conteúdo permanecem conceitos separados.
+
+Conferência geométrica em 1440×900, 820×900 e 390×844: nove verificações aprovadas,
+incluindo alternar janela flutuante/maximizada. Zero exceções JavaScript.
+Resultado em [maximize-check.json](maximize-check.json).

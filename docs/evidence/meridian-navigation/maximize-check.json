@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "Maximized fills workspace 1440",
+    "Navigation stays outside window 1440",
+    "Restoring maximized keeps edge alignment 1440",
+    "Maximized fills workspace 820",
+    "Navigation stays outside window 820",
+    "Restoring maximized keeps edge alignment 820",
+    "Maximized fills workspace 390",
+    "Navigation stays outside window 390",
+    "Restoring maximized keeps edge alignment 390"
+  ],
+  "uncaughtErrors": []
+}

@@ -1647,7 +1647,10 @@
   z-index:2
 }
 .md-preview-window.is-expanded {
-  inset:14px
+  inset:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none
 }
 .md-preview-window.is-floating {
   left:var(--window-x,24px);
@@ -1658,8 +1661,7 @@
   max-height:100%
 }
 .md-preview-window.is-active {
-  z-index:5;
-  box-shadow:var(--md-shadow)
+  z-index:5
 }
 .md-window-titlebar {
   display:flex;
@@ -2526,9 +2528,6 @@
   }
   .md-proposal-steps>div {
     gap:10px
-  }
-  .md-preview-window.is-expanded {
-    inset:7px
   }
   .md-preview-window.is-floating {
     inset:7px;
