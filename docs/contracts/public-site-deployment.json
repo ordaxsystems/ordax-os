@@ -3,7 +3,7 @@
   "status": "canonical-public-edge-v3-oidc-ingress-proven-service-bridge-and-legal-blocked",
   "site_artifact": "public-site",
   "vercel_migration": {
-    "status": "target-static-production-canonical-domain-live-identity-runtime-pending",
+    "status": "target-static-production-canonical-domain-auth-only-runtime-observed-full-identity-e2e-pending",
     "target_account_email": "ordaxos@gmail.com",
     "target_team_slug": "ordaxsystems",
     "target_project": "ordax-os-public",
@@ -74,11 +74,17 @@
     "target_www_redirect_https_verified": true,
     "target_canonical_domain_http_status": 200,
     "target_www_redirect_http_status": 308,
-    "target_canonical_domain_account_session_http_status": 503,
+    "target_canonical_domain_account_session_http_status": 200,
+    "target_canonical_domain_registration_policy_http_status": 200,
     "target_canonical_domain_sync_http_status": 503,
     "target_canonical_domain_unknown_route_http_status": 404,
+    "target_canonical_domain_identity_mode_observed": "auth-only",
+    "target_canonical_domain_account_activation_ready_observed": false,
+    "target_canonical_domain_auth_only_source_enabled_observed": true,
+    "target_canonical_domain_recovery_configured_observed": false,
+    "target_canonical_domain_observation_source": "read-only-canonical-http-observation",
     "target_legacy_project_dashboard_detachment_verified": false,
-    "target_canonical_domain_proof_observed_date": "2026-10-08",
+    "target_canonical_domain_proof_observed_date": "2026-10-13",
     "historical_team_slug": "jogo-brasils-projects"
   },
   "adapter": {
