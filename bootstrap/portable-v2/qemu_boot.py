@@ -644,7 +644,7 @@ def boot_qemu_expected(
         while time.monotonic() < deadline:
             text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
             if monitor_socket is not None and graphical_diagnostics_dir is not None:
-                if cage_observed_at is None and re.search(r"cage\\[\\d+\\]", text):
+                if cage_observed_at is None and re.search(r"cage\[\d+\]", text):
                     cage_observed_at = time.monotonic()
                 if cage_observed_at is not None:
                     for seconds in (12, 30):
