@@ -23,6 +23,7 @@ on:
       # The actual signed Surface release is a required cold-health input.
       # Re-run the authentic portable QEMU proof for owner Surface changes.
       - 'system/composition/native/**'
+      # WebKitGTK resource integrity + canonical JS MIME are cold-health inputs.
       - 'system/surface/runtime/**'
       - 'system/adapters/native/update-runtime.mjs'
       - 'system/adapters/native/surface-heartbeat.mjs'
