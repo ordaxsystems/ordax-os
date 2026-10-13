@@ -22,7 +22,6 @@ test("bundled first-party semantics cover internal apps without duplicating exte
   const ids = manifests.map((manifest) => manifest.appId).sort();
   assert.deepEqual(ids, [
     "account",
-    "files",
     "settings",
     "system",
   ]);
@@ -50,9 +49,9 @@ test("semantic router exposes Wi-Fi settings but cannot invent an uninstalled Ne
   assert.equal(selected.some((entry) => entry.appId === "network"), false);
 });
 
-test("semantic router retains Files but cannot invent an absent Projects app", () => {
+test("semantic router does not invent absent Files or Projects apps", () => {
   const { router } = runtime();
-  assert.equal(router.select("Encontre imagens do catálogo")[0].appId, "files");
+  assert.equal(router.select("Encontre imagens do catálogo").some(candidate => candidate.appId === "files"), false);
   assert.equal(
     router.select("Abra o projeto Bay of All Saints").some((candidate) => candidate.appId === "projects"),
     false,

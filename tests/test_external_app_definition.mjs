@@ -53,7 +53,7 @@ test("runtime catalog derives built-ins from the canonical catalog and adds only
   assertAppRuntimeCatalog(registry);
   assert.equal(registry.get("notes"), notes);
   assert.equal(registry.list().length, listFirstPartyApps().length + 1);
-  assert.equal(registry.get("files"), listFirstPartyApps().find(app => app.id === "files"));
+  assert.equal(registry.get("files"), null, "Files source is not bundled after Gate A");
   assert.equal(registry.get("unknown"), null);
   assert.equal(registry.isAvailable(notes, []), true);
   assert.ok(Object.isFrozen(registry.list()));
@@ -62,12 +62,12 @@ test("runtime catalog derives built-ins from the canonical catalog and adds only
 test("built-ins cannot be replaced and repeated external ids fail closed", () => {
   const notes = defineExternalFirstPartyApp(component, presentation);
   const collision = defineExternalFirstPartyApp(
-    { ...component, id: "files", title: "Arquivos", dependencies: ["surface-shell"] },
-    { ...presentation, appId: "files" },
+    { ...component, id: "settings", title: "Ajustes", dependencies: ["surface-shell"] },
+    { ...presentation, appId: "settings" },
   );
   assert.throws(
     () => createAppRuntimeCatalog({ external: [collision, notes] }),
-    /Duplicate bundled and external app source: files/,
+    /Duplicate bundled and external app source: settings/,
   );
   assert.throws(() => createAppRuntimeCatalog({ external: [notes, notes] }), /Duplicate external app id/);
   assert.throws(() => createAppRuntimeCatalog({ builtIns: [listFirstPartyApps()[0], listFirstPartyApps()[0]] }), /Duplicate built-in app id/);

@@ -50,21 +50,6 @@ test("Surface lifecycle v4 requires the shared localization port", () => {
   assert.equal(SURFACE_RENDER_LIFECYCLE_SCHEMA, "ordax.surface-render-lifecycle/5");
 });
 
-test("Files primary journey consumes shared localization and live locale", async () => {
-  const files = await readFile(
-    new URL("../system/surface/ui/file-space-controls.mjs", import.meta.url),
-    "utf8",
-  );
-  assert.match(files, /const localization = lifecycle\.localization/);
-  assert.match(files, /const locale = \(\) => localization\.getLocale\(\)/);
-  assert.match(files, /t\("files\.location\.recents"\)/);
-  assert.match(files, /t\("files\.location\.trash"\)/);
-  assert.match(files, /t\("files\.recents\.boundary"\)/);
-  assert.match(files, /t\("files\.trash\.boundary"\)/);
-  assert.match(files, /localeCompare\(right\.name, locale\(\)/);
-  assert.doesNotMatch(files, /FILE_SEARCH_LOCALE/);
-});
-
 test("Settings and System navigation consume the same localization owner", async () => {
   const settings = await readFile(
     new URL("../system/surface/ui/settings-overview-controls.mjs", import.meta.url),
@@ -108,11 +93,7 @@ test("Account consumes the shared localization owner end to end", async () => {
   );
 });
 
-test("English catalog contains primary Files, Settings and System entries", async () => {
-  const filesCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/files.mjs", import.meta.url),
-    "utf8",
-  );
+test("English catalog retains primary Settings and System while Files is external", async () => {
   const settingsCatalog = await readFile(
     new URL("../system/services/i18n/catalog/settings.mjs", import.meta.url),
     "utf8",
@@ -126,9 +107,6 @@ test("English catalog contains primary Files, Settings and System entries", asyn
     "utf8",
   );
 
-  assert.match(filesCatalog, /"files\.location\.trash": "Trash"/);
-  assert.match(filesCatalog, /"files\.recents\.clearHistory": "Clear history"/);
-  assert.match(filesCatalog, /"files\.trash\.restore": "Restore"/);
   assert.match(settingsCatalog, /"settings\.section\.regional": "Language and region"/);
   assert.match(settingsCatalog, /"settings\.notifications\.dnd\.title": "Do Not Disturb"/);
   assert.match(settingsCatalog, /"settings\.notifications\.sources\.title": "Sources that actually notify"/);
