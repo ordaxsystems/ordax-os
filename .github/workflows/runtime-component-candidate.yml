@@ -176,7 +176,7 @@ jobs:
           python -m unittest tests.test_native_app_lifecycle_executor -v
           python -m unittest tests.test_native_store_catalog_host -v
           python -m unittest tests.test_native_store_lifecycle_host -v
-          python tools/component-package/build.py check --component internet
+          test ! -d system/apps/internet
           python tools/component-package/build.py check --component local-ai-service
           python tools/component-package/build.py check --component ordax-intelligence
           (
@@ -184,32 +184,21 @@ jobs:
             go test -count=1 ./...
           )
 
-      - name: Build deterministic Internet candidate twice
+      - name: Prove removed Internet cannot produce a platform package
         run: |
           set -euo pipefail
-          mkdir -p out/runtime-components "$RUNNER_TEMP/runtime-components-repeat"
-          python tools/component-package/build.py build \
+          test ! -d system/apps/internet
+          test ! -e system/services/i18n/catalog/internet.mjs
+          if python tools/component-package/build.py build \
             --component internet \
             --source-commit "$GITHUB_SHA" \
-            --out out/runtime-components/internet.zip
-          python tools/component-package/build.py verify \
-            --package out/runtime-components/internet.zip
-
-          python tools/component-package/build.py build \
-            --component internet \
-            --source-commit "$GITHUB_SHA" \
-            --out "$RUNNER_TEMP/runtime-components-repeat/internet.zip"
-          python tools/component-package/build.py verify \
-            --package "$RUNNER_TEMP/runtime-components-repeat/internet.zip"
-
-          cmp out/runtime-components/internet.zip "$RUNNER_TEMP/runtime-components-repeat/internet.zip"
-          sha256sum out/runtime-components/internet.zip
-          python tools/component-package/build.py describe \
-            --package out/runtime-components/internet.zip \
-            --out out/runtime-components/runtime-component-release.json
-          echo 'RUNTIME_COMPONENT_REPEATABILITY=PASS'
-          echo 'RUNTIME_COMPONENT_DIRECT_ACTIVATION_ALLOWED=NO'
-          echo 'RUNTIME_COMPONENT_PUBLISHED=NO'
+            --out "$RUNNER_TEMP/invalid-internet.zip"; then
+            echo "Removed Internet unexpectedly packaged from the OS" >&2
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/invalid-internet.zip"
+          echo 'INTERNET_PLATFORM_SOURCE_ABSENT=PASS'
+          echo 'INTERNET_DISTRIBUTION_ACTIVATION_ALLOWED=NO'
 
       - name: Build deterministic Intelligence package candidates twice
         run: |
