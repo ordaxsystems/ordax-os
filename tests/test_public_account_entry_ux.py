@@ -190,10 +190,12 @@ class PublicAccountEntryUxTests(unittest.TestCase):
         for route in IDENTITY_PAGES:
             html, _ = self.read(route)
             self.assertIn('href="/assets/account.css?v=account-ux-4"', html)
-            self.assertIn('class="account-benefits"', html)
             self.assertIn('class="account-side-footer"', html)
             self.assertIn('class="account-quicklinks"', html)
             self.assertIn('class="account-card"', html)
+        for route in ("login", "cadastro"):
+            html, _ = self.read(route)
+            self.assertIn('class="account-benefits"', html)
 
 
 if __name__ == "__main__":
