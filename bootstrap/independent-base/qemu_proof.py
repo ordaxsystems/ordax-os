@@ -33,7 +33,7 @@ def parse_guest_metrics(log: str) -> dict:
     observed = {}
     for key in keys:
         values = re.findall(
-            rf"^ORDAX_INDEPENDENT_METRIC_{key}=([0-9]+(?:\\.[0-9]+)?)\\r?$",
+            rf"^ORDAX_INDEPENDENT_METRIC_{key}=([0-9]+(?:\.[0-9]+)?)\r?$",
             log, flags=re.MULTILINE,
         )
         if len(values) != 1:
