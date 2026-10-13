@@ -17,10 +17,25 @@ POLICY = ROOT / "docs/contracts/runtime-component-package.json"
 OUTPUT = ROOT / "system/surface/runtime/native_store_metadata_policy.py"
 APP_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 SOURCE_OWNER = "ordaxsystems/ordax-apps"
+PROBE_MODES = frozenset({"import-contract", "mount-contract"})
 
 
 class MetadataPolicyError(ValueError):
     pass
+
+
+def _probation_probe_modes(payload: dict, probation_ids: list[str]) -> dict[str, str]:
+    modes = payload.get("runtime_health_bridge_probe_mode_by_component")
+    if (
+        not isinstance(modes, dict)
+        or set(modes) != set(probation_ids)
+        or any(not isinstance(component_id, str) or not APP_ID_RE.fullmatch(component_id) for component_id in modes)
+        or any(mode not in PROBE_MODES for mode in modes.values())
+    ):
+        raise MetadataPolicyError(
+            "Native probation probe modes must exactly cover the canonical probation scope"
+        )
+    return modes
 
 
 def render(payload: dict) -> str:
@@ -66,18 +81,24 @@ def render(payload: dict) -> str:
         raise MetadataPolicyError("Native health mutation cannot exceed signed module-read scope")
     if not set(probation_ids).issubset(health_ids):
         raise MetadataPolicyError("Native probation cannot exceed health mutation scope")
-    if payload.get("runtime_health_bridge_probe_mode") != "import-contract":
-        raise MetadataPolicyError("Native probation requires the canonical import-contract probe mode")
+    probation_modes = _probation_probe_modes(payload, probation_ids)
     metadata_ids = sorted(set(package_sources) | set(module_ids))
 
     def format_ids(ids: list[str]) -> str:
         return "\n".join(f'    "{app_id}",' for app_id in ids)
+
+    def format_probe_modes(modes: dict[str, str], indent: str = "    ") -> str:
+        return "\n".join(
+            f'{indent}"{component_id}": "{modes[component_id]}",'
+            for component_id in sorted(modes)
+        )
 
     return (
         "# GENERATED FILE. DO NOT EDIT BY HAND.\n"
         "# Source of truth: docs/contracts/runtime-component-package.json\n"
         "# Generator: tools/app-policy/render_native_store_metadata_policy.py\n"
         "# Metadata queries, verified executable file reads and health mutations have DISTINCT scopes.\n\n"
+        "from types import MappingProxyType\n\n"
         "STORE_METADATA_COMPONENT_IDS = frozenset({\n"
         + format_ids(metadata_ids) + "\n})\n\n"
         "NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({\n"
@@ -85,23 +106,31 @@ def render(payload: dict) -> str:
         "NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({\n"
         + format_ids(sorted(health_ids)) + "\n})\n\n"
         "NATIVE_PROBATION_COMPONENT_IDS = frozenset({\n"
-        + format_ids(sorted(probation_ids)) + "\n})\n"
+        + format_ids(sorted(probation_ids)) + "\n})\n\n"
+        "NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({\n"
+        + format_probe_modes(probation_modes) + "\n})\n"
     )
 
 
 def render_surface_probation_policy(payload: dict) -> str:
     # The Native and WebKit host consume the same canonical probation scope.
     # This module describes probes; it does not grant install or promote rights.
-    render(payload)  # Validate IDs, owner/read/health subsets and probe mode once.
+    render(payload)  # Validate IDs, owner/read/health subsets and probe modes once.
     ids = sorted(payload["runtime_health_bridge_supported_components"])
+    modes = _probation_probe_modes(payload, ids)
     members = "\n".join(f'  "{component_id}",' for component_id in ids)
+    mode_members = "\n".join(
+        f'  "{component_id}": "{modes[component_id]}",'
+        for component_id in ids
+    )
     return (
         "// GENERATED FILE. DO NOT EDIT BY HAND.\n"
         "// Source of truth: docs/contracts/runtime-component-package.json\n"
         "// Generator: tools/app-policy/render_native_store_metadata_policy.py\n\n"
         "export const NATIVE_COMPONENT_PROBATION_IDS = Object.freeze([\n"
         + members + "\n]);\n"
-        'export const NATIVE_COMPONENT_PROBE_MODE = "import-contract";\n'
+        "export const NATIVE_COMPONENT_PROBE_MODE_BY_ID = Object.freeze({\n"
+        + mode_members + "\n});\n"
     )
 
 
