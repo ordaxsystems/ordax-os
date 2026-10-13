@@ -204,7 +204,7 @@ test("Files mount-health timeout releases the root and destroys a late mount", a
   assert.equal(surfaceRoot.childNodes.length, 0);
 });
 
-test("Files mount-health rejects stale identity and non-pending module URLs before mount", async () => {
+test("Files mount-health rejects stale identity and non-canonical module URLs before mount", async () => {
   const surfaceRoot = makeSurfaceRoot();
   let mounts = 0;
   const healthCheck = createRuntimeMountHealthCheck({
@@ -225,14 +225,17 @@ test("Files mount-health rejects stale identity and non-pending module URLs befo
     }),
     /exact unknown-health pending slot/,
   );
-  await assert.rejects(
-    () => healthCheck({
-      runtime: candidate,
-      resolution: RESOLUTION,
-      runtimeUrl: RUNTIME_URL.replace("/pending/", "/current/"),
-    }),
-    /not pending-slot bound/,
-  );
+  for (const runtimeUrl of [
+    RUNTIME_URL.replace("/pending/", "/current/"),
+    RUNTIME_URL.replace("127.0.0.1:8765", "evil.example"),
+    RUNTIME_URL.replace(`/0.1.0/${COMMIT}/`, `/0.1.0/${"d".repeat(40)}/`),
+    `${RUNTIME_URL}?candidate=forged`,
+  ]) {
+    await assert.rejects(
+      () => healthCheck({ runtime: candidate, resolution: RESOLUTION, runtimeUrl }),
+      /not exact pending-slot identity/,
+    );
+  }
   assert.equal(mounts, 0);
   assert.equal(surfaceRoot.childNodes.length, 0);
 });
