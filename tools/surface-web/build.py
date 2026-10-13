@@ -56,6 +56,7 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
                       for p in (root / subtree).rglob("*") if p.is_file())
     for entry in ("system/surface/ui/boot-screen.mjs", "system/surface/ui/boot-screen.css",
                   "system/surface/ui/tokens.css", "system/services/i18n/surface.mjs",
+                  "system/surface/ui/notification-center-controls.mjs", "system/surface/ui/notification-center.css",
                   "system/contracts/app-store.mjs", "system/services/local-ai/model-candidate.generated.mjs",
                   "system/composition/web/account-session.mjs",
                   "system/adapters/web/preferences.mjs",

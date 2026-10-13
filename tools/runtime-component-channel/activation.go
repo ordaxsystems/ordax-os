@@ -602,7 +602,7 @@ func armPendingStateAtRevision(
 			// A first install must not skip signed dependency verification.
 			// Bundled providers are not authenticated by this Native graph.
 			if err := verifyFirstInstallNativeRequirementsUnderGraphLock(
-				root, release.Component.ID, identity, trustBytes,
+				root, release.Component.ID, identity, state.UserRemoved, trustBytes,
 			); err != nil {
 				return activationState{}, err
 			}
@@ -728,7 +728,7 @@ func promotePendingStateAtRevision(
 			// Installed providers might have been removed after probation.
 			// Revalidate first-install requirements under the graph lock.
 			if err := verifyFirstInstallNativeRequirementsUnderGraphLock(
-				root, componentID, identity, trustBytes,
+				root, componentID, identity, state.UserRemoved, trustBytes,
 			); err != nil {
 				return activationState{}, err
 			}

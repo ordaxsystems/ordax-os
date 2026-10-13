@@ -388,3 +388,33 @@ errada, prova ausente, corrupção do pacote após o commit e nova
 reinstalação; release/1 permanece sujeito às verificações assinadas
 canônicas existentes. Nenhum novo grant, caminho de armazenamento ou
 exceção para stateful upgrade/rollback foi introduzido.
+
+
+
+### Reinstalação com estado após remoção explícita
+
+Uma desinstalação **não apaga App Data** e preserva no próprio
+`activation-state.json` a intenção `user_removed` e, quando disponível,
+a identidade assinada `removed_identity`. A ausência de `current`
+após essa remoção **não equivale** a uma primeira instalação sobre
+armazenamento vazio. O writer Go, no caminho existente de first-install,
+revalida o release/2 assinado e impede a preparação e a promoção de
+candidatos que declaram `compatibility.state` persistente enquanto
+`user_removed=true`. Isso inclui reinstalar o mesmo slot, trocar a
+versão, reintroduzir estado após remover uma versão stateless e reabrir
+tombstones antigos sem identidade gravada. Não há migração presumida.
+
+A primeira instalação genuína (sem remoção anterior no estado
+autoritativo) mantém o comportamento atual. Reinstalações com descritor
+assinado `state=null` continuam possíveis; nenhuma delas ganha
+autorização geral para atualização pública ou garantia sobre dados
+privados que outro owner possa manter. O bloqueio ocorre sob o mesmo
+lock do grafo de ativação e é reavaliado após a probation antes da
+promoção. Não existe novo registro paralelo, grant adicional ou
+parâmetro externo para contornar a condição.
+
+Para voltar a instalar um componente com estado conservando dados, o
+futuro fluxo transacional deve comprovar o estado real via owner App
+Data, a quiescência do Supervisor e a decisão do writer canônico. Esta
+entrega **não** ativa ainda esse fluxo e não altera as restrições de
+upgrade/rollback stateful presentes.

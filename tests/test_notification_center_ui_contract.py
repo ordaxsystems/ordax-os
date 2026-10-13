@@ -42,13 +42,13 @@ class NotificationCenterUiContractTest(unittest.TestCase):
     def test_notification_center_owns_only_its_dynamic_tray_and_panel_markup(self):
         controls = read("system/surface/ui/notification-center-controls.mjs")
         shell = read("system/surface/ui/desktop-shell.mjs")
-        css = read("system/surface/ui/surface.css")
+        css = read("system/surface/ui/notification-center.css")
 
         self.assertIn('requireHost(root, "[data-sidebar-notification-slot]"', controls)
         self.assertIn('requireHost(root, "[data-quick-panel-layer]"', controls)
         self.assertIn('tray.dataset.quickPanelToggle = "notifications"', controls)
         self.assertIn('panel.dataset.quickPanel = "notifications"', controls)
-        self.assertIn('doNotDisturb.dataset.notificationDoNotDisturb = ""', controls)
+        self.assertIn('button("data-notification-do-not-disturb")', controls)
         self.assertIn("center.setDoNotDisturb(!snapshot.doNotDisturb)", controls)
         self.assertIn("const attentionVisible = unread > 0 && !snapshot.doNotDisturb", controls)
         self.assertIn("notificationSourceLabel", controls)
@@ -56,7 +56,8 @@ class NotificationCenterUiContractTest(unittest.TestCase):
         self.assertIn("assertSurfaceRenderLifecycle", controls)
         self.assertIn("localization.subscribe", controls)
         self.assertIn("unsubscribeLocalization", controls)
-        self.assertIn('panel.addEventListener("ordax:quick-panel-open", onPanelOpen)', controls)
+        self.assertNotIn("onPanelOpen", controls)
+        self.assertIn("mountNotificationCenterView", controls)
         self.assertIn("activation.publish(entry.destination)", controls)
         self.assertIn("textContent", controls)
         self.assertNotIn("innerHTML", controls)
@@ -70,6 +71,16 @@ class NotificationCenterUiContractTest(unittest.TestCase):
             ".ordax-notification-footer",
         ]:
             self.assertIn(selector, css)
+
+    def test_web_and_native_load_the_same_view_and_styles_without_remote_feed(self):
+        web_view = read("system/surface/workspace/components/central/notifications.tsx")
+        self.assertIn("mountNotificationCenterView(root.current, null, null", web_view)
+        self.assertNotIn("createNotificationsRuntime", web_view)
+        self.assertNotIn("localStorage", web_view)
+        self.assertIn("view.destroy(); localization.dispose()", web_view)
+        for path in ["system/composition/web/main.tsx", "system/composition/native/index.html"]:
+            self.assertIn("notification-center.css", read(path))
+        self.assertNotIn(".ordax-notification-entry", read("system/surface/ui/surface.css"))
 
     def test_native_notification_runtime_wires_settings_and_center(self):
         web = read("system/composition/web/main.tsx")

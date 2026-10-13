@@ -1,5 +1,12 @@
 # Current State
 
+Notification UX (2026-10-13): Web/USB now share the notification center renderer
+and CSS. Explicit read/filter/dismiss/Do Not Disturb actions consume the existing
+port. Native updater events retain their original runtime/store/bridge owners;
+Web has no authorized remote notification adapter and displays that absence
+without seeded data or a second service. [Scope and acceptance](DESKTOP-IDENTITY.md#shared-notification-center--2026-10-13).
+
+
 ## Reconciliação dos gates Surface — 2026-10-12
 
 As cinco reprovações de contratos em main 9a84bbd eram expectativas de templates

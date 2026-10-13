@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
 import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
-const ROOT_MODULES = ['system/surface/ui/surface.mjs'];
+const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
 const STATIC_IMPORT_RE = /\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
 const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
@@ -11,6 +11,7 @@ const CSS_FILES = [
   'system/surface/ui/tokens.css',
   'system/surface/ui/color-palettes.css',
   'system/surface/ui/surface.css',
+  'system/surface/ui/notification-center.css',
   'system/surface/ui/boot-screen.css',
   'system/surface/ui/workspace-areas.css',
   'system/surface/ui/files.css',
@@ -274,6 +275,59 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.dockRemovedAfterClose = root.querySelector('[data-open-window="settings"]') === null;
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
 
+    const { createNotificationsRuntime } = await import(urls['system/services/notifications/runtime.mjs']);
+    const { mountNotificationCenterControls } = await import(urls['system/surface/ui/notification-center-controls.mjs']);
+    const { mountSystemTrayQuickPanels } = await import(urls['system/surface/ui/system-tray-quick-panels.mjs']);
+    const notifications = createNotificationsRuntime();
+    const destinations = [];
+    let rejectDestination = false;
+    const activation = { schema: 'ordax.app-activation/1', subscribe: () => () => {}, publish(value) {
+      if (rejectDestination) throw new Error('fixture unavailable destination');
+      destinations.push(value);
+    } };
+    const center = mountNotificationCenterControls(root, notifications, activation, surface);
+    const panels = mountSystemTrayQuickPanels(root);
+    const first = notifications.publish({ sourceId: 'system-updates', level: 'info', title: '<script>untrusted</script>', message: 'Read me', destination: { appId: 'system', target: 'updates' } });
+    const second = notifications.publish({ sourceId: 'system-updates', level: 'warning', title: 'Second', message: 'Keep unread' });
+    const tray = root.querySelector('[data-notification-tray]');
+    tray.click();
+    result.notificationsOpeningKeepsUnread = notifications.getSnapshot().unreadCount === 2;
+    const notificationPanel = root.querySelector('[data-quick-panel="notifications"]');
+    const panelBounds = notificationPanel.getBoundingClientRect();
+    result.notificationsFitViewport = panelBounds.left >= 0 && panelBounds.top >= 0
+      && panelBounds.right <= innerWidth + 1 && panelBounds.bottom <= innerHeight + 1
+      && notificationPanel.scrollWidth <= notificationPanel.clientWidth + 1;
+    const notificationList = root.querySelector('.ordax-notification-scroll');
+    result.notificationsNoHorizontalOverflow = notificationList.scrollWidth <= notificationList.clientWidth + 1;
+
+    result.notificationsNoHtmlExecution = root.querySelector('[data-notification-title]').textContent === 'Second'
+      && !root.querySelector('[data-notification-list] script');
+    const unreadFilter = root.querySelector('[data-notification-filter="unread"]');
+    unreadFilter.click();
+    const read = root.querySelector('[data-notification-mark-read]');
+    read.focus(); read.click();
+    result.notificationsIndividualRead = notifications.getSnapshot().unreadCount === 1
+      && root.querySelectorAll('[data-notification-id]').length === 1;
+    result.notificationsFocusSurvivesRemoval = root.contains(document.activeElement) && document.activeElement !== document.body;
+    root.querySelector('[data-notification-do-not-disturb]').click();
+    result.notificationsDndPreservesHistory = notifications.getSnapshot().entries.length === 2
+      && notifications.getSnapshot().doNotDisturb && tray.querySelector('[data-notification-unread-count]').hidden;
+    root.querySelector('[data-notification-filter="all"]').click();
+    root.querySelector('[data-notification-clear-read]').click();
+    result.notificationsClearOnlyRead = notifications.getSnapshot().entries.length === 1
+      && notifications.getSnapshot().entries[0].id === first.id;
+    rejectDestination = true;
+    root.querySelector('[data-notification-open]').click();
+    result.notificationsFailureKeepsUnread = notifications.getSnapshot().unreadCount === 1
+      && !root.querySelector('.ordax-notification-error').hidden;
+    rejectDestination = false;
+    root.querySelector('[data-notification-open]').click();
+    result.notificationsDestinationUsesPort = destinations.length === 1 && destinations[0].target === 'updates'
+      && notifications.getSnapshot().unreadCount === 0;
+    center.destroy(); panels.destroy();
+    notifications.publish({ sourceId: 'system-updates', level: 'info', title: 'After destroy', message: 'No UI listener' });
+    result.notificationsCleanup = !root.querySelector('[data-notification-center]') && !root.querySelector('[data-notification-tray]');
+
     const required = [
       'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
@@ -287,6 +341,10 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'maximizedDatasetAfterUnmaximize', 'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize',
       'launcherFocusBeforeSnapshot', 'sameLauncherNodeAfterSnapshot', 'launcherFocusPreserved', 'windowRemovedAfterClose',
       'dockRemovedAfterClose', 'focusMovedToWorkspaceOnClose',
+      'notificationsOpeningKeepsUnread', 'notificationsNoHtmlExecution', 'notificationsIndividualRead',
+      'notificationsFitViewport', 'notificationsNoHorizontalOverflow',
+      'notificationsFocusSurvivesRemoval', 'notificationsDndPreservesHistory', 'notificationsClearOnlyRead',
+      'notificationsFailureKeepsUnread', 'notificationsDestinationUsesPort', 'notificationsCleanup',
     ];
     result.requiredAssertions = Object.fromEntries(required.map((name) => [name, Boolean(result[name])]));
     result.allCoreAssertions = result.launcherApps >= 4 && Object.values(result.requiredAssertions).every(Boolean);
@@ -343,4 +401,13 @@ bundleDirGlobal = resolve('.');
 const modules = await collectModules(bundleDirGlobal);
 const assetUrls = await loadComponentAssetUrls(bundleDirGlobal);
 const styles = await loadStyles(bundleDirGlobal);
-runBrowser(client => evaluateProof(client, buildProofExpression(modules, styles, assetUrls), 'Native shared shell')).then(() => console.log('NATIVE_SHARED_SHELL_PROOF=PASS')).catch(error => {console.error(error); process.exitCode = 1;});
+try {
+  for (const viewport of [{width:1280,height:800},{width:390,height:844},{width:320,height:568},{width:844,height:390}]) {
+    await runBrowser(async client => {
+      await client.send('Emulation.setDeviceMetricsOverride', {...viewport,deviceScaleFactor:1,mobile:false});
+      await evaluateProof(client, buildProofExpression(modules, styles, assetUrls), 'Native shared shell');
+    });
+    console.log('NATIVE_SHARED_SHELL_VIEWPORT=PASS ' + viewport.width + 'x' + viewport.height);
+  }
+  console.log('NATIVE_SHARED_SHELL_PROOF=PASS');
+} catch (error) { console.error(error); process.exitCode = 1; }

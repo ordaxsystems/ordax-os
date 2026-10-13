@@ -15,6 +15,7 @@ import { SURFACE_BOOT_SOURCE_MESSAGES } from '../../services/i18n/catalog/boot.m
 import '../../surface/ui/tokens.css';
 import '../../surface/ui/color-palettes.css';
 import '../../surface/ui/settings.css';
+import '../../surface/ui/notification-center.css';
 import '../../surface/ui/sidebar-hints.css';
 import '../../surface/workspace/components/central/styles.css';
 import '../../surface/ui/sidebar-layout.css';

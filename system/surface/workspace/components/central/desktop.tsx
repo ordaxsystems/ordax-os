@@ -2,6 +2,7 @@ import { SIDEBAR_LAYOUT, sidebarNavigationCapacity, sidebarIsExpanded } from "..
 import { mountSidebarHints } from "../../../ui/sidebar-hints.mjs";
 import { presentationDestination } from "../../presentation.mjs";
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
+import { WebNotificationCenter } from './notifications';
 import { createElement, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
 import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,8 @@ export function DesktopContent({ title, open, onCentral, initialPrompt }: Presen
   if (title === 'Minha conta') return <AccountPanel/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
   if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;
-  if (title === 'Notificações' || title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p></Panel>;
+  if (title === 'Notificações') return <WebNotificationCenter/>;
+  if (title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p></Panel>;
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>;
   if (title === 'Espaços') return <SpacesPanel/>;
   if (title === 'Configurações') return <Suspense fallback={<p className="service-state" role="status">Carregando Ajustes…</p>}><SettingsExperience/></Suspense>;

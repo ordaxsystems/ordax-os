@@ -1,5 +1,12 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Notificações Web/USB — 13/10/2026:** incremento de UX solicitado.
+> Renderer/CSS únicos para filtros, leitura explícita, dispensa e Não perturbe.
+> USB mantém runtime/store/bridge do atualizador; Web mostra ausência de adapter
+> remoto, sem eventos fictícios ou segundo serviço. [Owner, contratos, riscos e
+> aceite](docs/DESKTOP-IDENTITY.md#shared-notification-center--2026-10-13).
+
+
 > **Reconciliação dos gates Surface — 12/10/2026:** continuidade solicitada
 > após a reprovação da main por expectativas de UI anteriores à sidebar compartilhada.
 > Prova de navegador da PR #1713 reutilizada e alinhada ao source atual; renderização

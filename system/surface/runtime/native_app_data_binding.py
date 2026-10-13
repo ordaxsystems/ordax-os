@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import secrets
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from native_app_data import (
@@ -18,6 +19,8 @@ from native_app_data import (
     DEFAULT_APP_DATA_ROOT,
     MAX_APP_DATA_PARTITION_BYTES,
     MAX_APP_DATA_PARTITION_KEYS,
+    validate_app_data_maintenance_request,
+    assert_app_data_recovery_resolved,
 )
 from native_app_data_endpoint import handle_app_data_request
 from native_app_install_identity import (
@@ -101,6 +104,7 @@ class NativeAppDataBindingRegistry:
         receipt_root: str = DEFAULT_RECEIPT_ROOT,
         expected_uid: int,
         max_bindings: int = DEFAULT_MAX_APP_DATA_BINDINGS,
+        app_data_root: str = DEFAULT_APP_DATA_ROOT,
     ) -> None:
         if (
             not isinstance(expected_uid, int)
@@ -117,13 +121,19 @@ class NativeAppDataBindingRegistry:
             raise TypeError("App Data binding max_bindings is invalid")
         if not isinstance(receipt_root, str) or not receipt_root:
             raise TypeError("App Data binding receipt_root is invalid")
+        if not isinstance(app_data_root, str) or not app_data_root.startswith("/"):
+            raise TypeError("App Data binding app_data_root is invalid")
 
         self._receipt_root = receipt_root
+        self._app_data_root = app_data_root
         self._expected_uid = expected_uid
         self._max_bindings = max_bindings
         self._lock = threading.Lock()
+        self._condition = threading.Condition(self._lock)
         self._by_endpoint: dict[str, NativeAppDataBinding] = {}
         self._endpoint_by_identity: dict[tuple[str, str, str], str] = {}
+        self._inflight: dict[tuple[str, str, str], int] = {}
+        self._suspended: set[tuple[str, str, str]] = set()
 
     def _new_capability_locked(self, reserved_endpoints: set[str]) -> str:
         for _ in range(32):
@@ -153,6 +163,14 @@ class NativeAppDataBindingRegistry:
             for receipt_sha256 in receipt_sha256s
         ]
 
+        # Boot/restart admission must not treat an unretired checkpoint
+        # as an authorization to run a different version of the app.
+        # Validate *all* requested identities before mutating this registry.
+        for verified in verified_receipts:
+            assert_app_data_recovery_resolved(
+                verified.app_data_identity(), root=self._app_data_root,
+            )
+
         durable_keys = []
         seen_keys = set()
         for verified in verified_receipts:
@@ -170,6 +188,19 @@ class NativeAppDataBindingRegistry:
             durable_keys.append(key)
 
         with self._lock:
+            if any(key in self._suspended for key in durable_keys):
+                raise NativeAppDataBindingError("Native App Data binding is suspended for maintenance")
+            # A replacement receipt may not grant the next version access
+            # while an older version still has admitted App Data requests.
+            # Fail the entire batch before planning any new capability.
+            for key, verified in zip(durable_keys, verified_receipts, strict=True):
+                endpoint = self._endpoint_by_identity.get(key)
+                prior = self._by_endpoint.get(endpoint) if endpoint is not None else None
+                if (prior is not None and prior.receipt_sha256 != verified.receipt_sha256
+                        and self._inflight.get(key, 0)):
+                    raise NativeAppDataBindingError(
+                        "Native App Data receipt rotation requires drained requests"
+                    )
             existing_by_key: dict[tuple[str, str, str], NativeAppDataBinding | None] = {}
             new_identity_count = 0
             for key in durable_keys:
@@ -241,6 +272,92 @@ class NativeAppDataBindingRegistry:
         with self._lock:
             return self._by_endpoint.get(endpoint)
 
+    @contextmanager
+    def _admit_request(self, endpoint: str):
+        # A request must lease the exact current capability before it can
+        # cross into App Data. Resolve-then-dispatch is not sufficient: an
+        # updater could revoke while a request waits in the HTTP worker.
+        with self._condition:
+            binding = self._by_endpoint.get(endpoint)
+            if binding is None:
+                raise NativeAppDataBindingNotFoundError("Native App Data capability is unknown")
+            key = binding.identity_key()
+            self._inflight[key] = self._inflight.get(key, 0) + 1
+        try:
+            yield binding
+        finally:
+            with self._condition:
+                remaining = self._inflight[key] - 1
+                if remaining:
+                    self._inflight[key] = remaining
+                else:
+                    self._inflight.pop(key)
+                self._condition.notify_all()
+
+    @contextmanager
+    def suspend_verified_receipt_for_maintenance(
+        self, receipt_sha256: str, *, expected_source_release: dict | None = None,
+        expected_revision: object = None,
+    ):
+        """Trusted host-only admission barrier; no app-facing revocation route.
+
+        Reopens the same install receipt used to mint a capability, revokes
+        that capability, then drains already-admitted requests. No new mint
+        for the affected identity is allowed while this scope is active.
+        It must be acquired BEFORE the canonical partition flock, otherwise
+        requests blocked on flock could deadlock the drain.
+        """
+        verified = read_verified_app_install_identity(
+            receipt_sha256,
+            root=self._receipt_root,
+            expected_uid=self._expected_uid,
+        )
+        identity = verified.app_data_identity()
+        # The installer receipt is the current host's authenticated identity
+        # source. Before revocation, ensure that a proposed owner checkpoint
+        # at least correlates to this very installation, not another release
+        # version or application. A match is NECESSARY, NEVER SUFFICIENT:
+        # the receipt does not bind sourceCommit or grant signed activation.
+        if expected_source_release is not None:
+            if (
+                not isinstance(expected_source_release, dict)
+                or set(expected_source_release) != {"componentId", "version", "sourceCommit"}
+                or expected_source_release["componentId"] != verified.app_id
+                or expected_source_release["version"] != verified.source_version
+            ):
+                raise NativeAppDataBindingError(
+                    "Native App Data maintenance source release does not match verified install receipt"
+                )
+            # Reuse canonical owner validation BEFORE revoking healthy grants.
+            validate_app_data_maintenance_request(
+                identity, expected_source_release, expected_revision,
+            )
+        key = (identity["publisherId"], identity["appId"], identity["ownerScope"])
+        with self._condition:
+            if key in self._suspended:
+                raise NativeAppDataBindingError("Native App Data maintenance already active")
+            endpoint = self._endpoint_by_identity.get(key)
+            binding = self._by_endpoint.get(endpoint) if endpoint is not None else None
+            if binding is None or binding.receipt_sha256 != receipt_sha256:
+                raise NativeAppDataBindingNotFoundError(
+                    "Native App Data receipt does not match an active binding"
+                )
+            self._suspended.add(key)
+            self._by_endpoint.pop(endpoint)
+            self._endpoint_by_identity.pop(key)
+            # Drain every admitted request for this durable identity,
+            # including old caps admitted before a verified receipt rotated.
+            while self._inflight.get(key, 0):
+                self._condition.wait()
+        try:
+            yield binding
+        finally:
+            with self._condition:
+                self._suspended.discard(key)
+                self._condition.notify_all()
+        # Deliberately do not reissue the stale capability: only a new
+        # verified-install owner handoff may mint a usable binding.
+
     def active_binding_count(self) -> int:
         with self._lock:
             return len(self._by_endpoint)
@@ -257,23 +374,21 @@ def handle_bound_app_data_request(
 ) -> dict:
     if not isinstance(registry, NativeAppDataBindingRegistry):
         raise TypeError("Native App Data binding registry is required")
-    binding = registry.resolve(endpoint)
-    if binding is None:
-        raise NativeAppDataBindingNotFoundError("Native App Data capability is unknown")
-    effective_quota_bytes = (
-        binding.quota_bytes
-        if quota_bytes == DEFAULT_APP_DATA_QUOTA_BYTES
-        else quota_bytes
-    )
-    effective_max_keys = (
-        binding.max_keys
-        if max_keys == DEFAULT_APP_DATA_MAX_KEYS
-        else max_keys
-    )
-    return handle_app_data_request(
-        body,
-        identity=binding.app_data_identity(),
-        root=root,
-        quota_bytes=effective_quota_bytes,
-        max_keys=effective_max_keys,
-    )
+    with registry._admit_request(endpoint) as binding:
+        effective_quota_bytes = (
+            binding.quota_bytes
+            if quota_bytes == DEFAULT_APP_DATA_QUOTA_BYTES
+            else quota_bytes
+        )
+        effective_max_keys = (
+            binding.max_keys
+            if max_keys == DEFAULT_APP_DATA_MAX_KEYS
+            else max_keys
+        )
+        return handle_app_data_request(
+            body,
+            identity=binding.app_data_identity(),
+            root=root,
+            quota_bytes=effective_quota_bytes,
+            max_keys=effective_max_keys,
+        )
