@@ -138,19 +138,19 @@ func TestSignedStatefulReinstallAfterRemovalRequiresRecovery(t *testing.T) {
 		legacy    bool
 	}{
 		{
-			name: "same exact signed stateful slot",
+			name:   "same exact signed stateful slot",
 			source: stateful, reinstall: stateful, reuseSlot: true,
 		},
 		{
-			name: "newer compatible signed stateful version",
+			name:   "newer compatible signed stateful version",
 			source: stateful, reinstall: stateful,
 		},
 		{
-			name: "stateless removed but new signed persistent state",
+			name:   "stateless removed but new signed persistent state",
 			source: nil, reinstall: stateful,
 		},
 		{
-			name: "old removal record without removed identity",
+			name:   "old removal record without removed identity",
 			source: stateful, reinstall: stateful, legacy: true,
 		},
 	}
