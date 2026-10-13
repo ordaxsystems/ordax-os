@@ -71,7 +71,10 @@
     "verified_receipt_maintenance_admission_drain": true,
     "admitted_requests_drained_across_receipt_rotation": true,
     "old_capability_revoked_before_checkpoint": true,
-    "maintenance_requires_explicit_trusted_receipt_remint_afterward": true
+    "maintenance_requires_explicit_trusted_receipt_remint_afterward": true,
+    "maintenance_requires_receipt_component_and_version_correlation": true,
+    "receipt_correlation_is_signed_activation_authority": false,
+    "maintenance_mismatch_preserves_current_binding": true
   },
   "security": {
     "publisher_self_claim_accepted": false,
