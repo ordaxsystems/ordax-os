@@ -21,7 +21,7 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 ## Shared design-system ownership
 
-`system/surface/ui/tokens.css` is the single source of visual policy for semantic color, typography, spacing, radii, shadows, focus and motion. Surface and first-party application styles consume those semantic tokens instead of defining a separate palette per application.
+`system/surface/ui/tokens.css` owns the USB palette, typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
@@ -1115,3 +1115,290 @@ are 58.48 kB (19.27 gzip) on demand. No chunk threshold override; the >500 kB
 warning no longer appeared. Total code size and loading time were not claimed
 to improve by that percentage. Authenticated gateway/catalog, device/inference,
 signed delivery and production activation remain independent gates.
+
+
+### Single mobile compact pane — 2026-10-12
+
+Owner: OS Surface. Explicit requested responsive UX revision; supersedes earlier
+mobile equal-tiling acceptance, preserving desktop tiles and service boundaries.
+Selection is session presentation state in the same desktopReducer, not a second
+window manager or persisted account setting. CSS uses the existing 760px mobile
+breakpoint. Grid columns derive from canonical window data through CSS variables;
+mobile shows only the selected compact pane, while larger screens show all panes.
+Only the selected header renders the native switcher when multiple apps exist.
+Hidden app bodies remain mounted; changing a pane never sends a backend command.
+
+The reducer remembers compact selection while a regular app opens above it;
+closing that upper app returns focus to the visible selected compact pane.
+Minimize/close/restore reconcile selection to available windows. Focus within a
+pane is respected so clicking an input or native selector does not lose focus to
+its wrapper. Compact-body padding/cards are simplified; grids respond to actual
+pane width. Mobile actions use shared overflow menu and separate Close, both with
+44px targets. Collapsing the strip remains independent of selection.
+
+Risk and acceptance: no inaccessible hidden pane, orphaned selection, lost draft,
+focus theft or horizontal clipping; resize must reveal desktop tiles without
+remounting content. New four behavior tests cover selection across upper-window
+lifecycle, minimize/close/restore, collapsed switching and explicit dock recovery.
+Together with 19 existing workspace regressions and seven builder checks: 30
+passed. TypeScript/build and the 34-file provenance verifier passed.
+
+Observed mobile 390 x 844: one 326px compact pane, one switcher for three apps;
+upper Projects and selected lower app split available height. Closing Projects
+returned focus to Aura. Unsent draft survived switching, minimization, dock
+restore and resizing. At 320 x 568 with 125% text, Settings body clientWidth and
+scrollWidth both 239px, controls stayed inside, and visible actions measured
+44 x 44px. Applications also fit at 320px: two adaptive tile columns, no overflow.
+At desktop 1366 x 768 three panes measured 378px each; switcher hidden. A collapsed
+mobile pane measured 48px and allowed selection before expansion. Apps unavailable
+from host remain explicit; this does not implement their backend.
+
+Original standard text scale/dark theme and default viewport restored; all
+validation windows closed and browser error/warning logs empty. Screenshot:
+ordax-compact-single-mobile-20261012.jpg, local visualization artifact outside Git.
+Initial JS 483.08 kB (151.32 gzip), CSS 82.46 kB; advanced menu remains a separate
+58.48 kB chunk. No threshold override, new dependency or production activation.
+
+
+### Footer mode selector removal — 2026-10-12
+
+Owner: OS Surface; explicit removal of the lower Aura mode selector. Only its
+footer markup, unused styling and reserved responsive grid tracks were removed;
+other controls, state and service contracts remain. Existing browser-smoke check
+now asserts footer absence rather than dereferencing a removed node. Historical
+provenance retained with adapted digests. Risk/acceptance: no empty reserved row
+or page overflow. TypeScript and 34-file structural verification passed. Live
+390 x 600 and 1366 x 768 both had matching client/scroll dimensions, no footer or
+selector, and no browser error/warning entries; viewport restored. No full build
+repeated for this small removal, no backend operation or production activation.
+
+
+### Canonical favorite shortcuts — 2026-10-12
+
+Owner: OS Surface/preferences, explicit UI integration continuation rather than
+individual App polishing. The existing preference-runtime/1 and preference-store/1
+are retained. New scalar ID surface.favorite-shortcuts belongs to the preference
+catalog; bounded IDs/names are defined once in home-shortcuts.mjs. They describe
+presentation targets, not installed app identities, registry receipts or grants.
+Validation rejects unknown/duplicate/nonstring/oversized choices, preserves an
+intentional empty selection and normalizes order. No new storage key or domain.
+
+Home and Apps share FavoriteShortcutsPanel, consuming the same observed snapshot.
+The former local addedApps/hidden selection is removed. Editing uses native labeled
+checkboxes in the shared Dialog, saves on change, reports persistence outcome and
+returns focus to the actual opener. A latest-snapshot mutation prevents sequential
+edits from losing earlier changes. Empty selection offers Add; all future targets
+already present remain eligible as shortcuts with host availability explicit.
+The existing account-sync allowlist is unchanged and excludes this local preference.
+Native recognizes the catalog entry; no separate Native launcher/editor is added.
+
+Risk/acceptance: consistent cross-panel edits, persistence and empty-list recovery,
+no false install/sync success, safe failed-storage fallback, accessible narrow editor
+and keyboard/focus retention. Four new behavior tests exercise storage roundtrip,
+empty selection, two subscribers under save failure, validation/order/recovery.
+35 Node tests (preferences, first-run and sync included) and seven builder checks
+passed; eight sync tests repeated with an explicit local-shortcut assertion, not
+additional unique coverage. Final TypeScript/build and 34-file provenance checks
+passed. Initial JS 484.97 kB (151.88 gzip), CSS 81.59 kB; no chunk threshold override.
+
+Browser: removing Terminal in Home also removed it from Apps; reload retained it.
+Empty selection survived reload and retained an Add action. Escape/Conclude returned
+to Edit/Add respectively. At 390 x 600 the 530.5px dialog fit, with 48px rows and
+internal list scroll. At 390 x 844 all seven choices fit (398px client/scroll height);
+Space toggled the focused checkbox. Original choices, dark theme, Central and default
+viewport restored; temporary Apps window closed. Screenshot:
+ordax-shared-favorites-mobile-20261012.jpg, local artifact outside repository.
+
+During source hot replacement the console exposed duplicate React roots/context
+errors. Web composition now owns its root explicitly and unmounts it before disposing
+consumed ports, without caching a second root or concealing errors. After clean reload,
+a real composition update kept one workspace root, saved choices and no new errors.
+Historical error logs remain recorded; they were not cleared to claim a clean run.
+This concerns developer HMR; normal window/view transitions still retain app bodies.
+No inference, external command, installation or production activation was validated.
+
+## USB color profile in Web — 2026-10-12
+
+Owner: OrdaX OS Surface; scoped visual increment explicitly requested by the
+user under PLANO-FUNCIONAL-SURFACE-E-APPS.md. Web Settings exposes Claro, Escuro
+and OrdaX USB in one labeled native select with 44px touch height. The USB profile
+uses the existing Midnight Native semantic palette; aliases in the Web stylesheet
+reference tokens.css directly, without another palette or copied hex colors.
+The Web layout, illustrations, window lifecycle and compact behavior are retained.
+
+Dependencies: the existing preference catalog/runtime/store and Native tokens.
+The portable appearance.theme contract remains light/dark, default light.
+surface.web-palette is an independent Web presentation preference with standard/native
+values, not an execution mode or a copy of the appearance state. USB rendering
+resolves to dark while retaining the user's portable light/dark choice; selecting
+Claro or Escuro returns to the standard Web palette. Native's renderer ignores
+this Web choice. No new storage key, sync allowlist, grants or hardware adapter.
+
+Risks: CSS specificity, contrast and corrupt/blocked browser persistence.
+Acceptance: three selectable profiles, persistence on reload, equivalent computed
+Web/Native semantic colors, intact standard themes, high contrast and narrow-screen
+controls. Verified with 44 Node and 24 Python tests, TypeScript/build/reference
+verification and browser at 390x844; six computed color pairs match Native. The
+new profile remains local to the browser; no cloud continuity or physical USB boot
+is claimed by these presentation checks.
+
+## Shared color profiles and Native desktop — 2026-10-12
+
+Owner: OrdaX OS Surface, under PLANO-FUNCIONAL-SURFACE-E-APPS.md; explicitly
+requested USB integration. Shared profiles replace the Web-only color selector
+foundation above. color-palette.mjs owns surface.color-palette, derived scheme
+and three choices. The old module and ID have no runtime wrapper, redirect or
+second authority. Existing appearance.theme values/default are unchanged.
+
+The standard palette was moved out of the Web renderer into color-palettes.css;
+USB tokens stay in tokens.css. Both Web/Native compositions include these sources.
+Native's semantic aliases use standard colors for Claro/Escuro, and the original
+Midnight palette for OrdaX USB. Theme previews use the same tokens. Web layout,
+wallpapers and window behavior are preserved; no native service is replaced with
+a Web implementation.
+
+Native now has a dock toggle and desktop shortcuts alongside its existing Home.
+The existing Surface reducer owns the session presentation and window state.
+Switching views neither serializes a new workspace schema nor remounts apps;
+Home still minimizes through the original action. All app shortcuts use the same
+catalog, capability checks and activation path. Labels use the existing pt-BR/
+en-US catalog. Ports for files, accounts, network, energy and installed components
+are unchanged. No new dependency, grant, API endpoint or hardware authority.
+
+Acceptance: equivalent standard colors across renderers; three selectable profiles;
+existing native preference endpoint/atomic store; session-only view switching with
+window state intact; responsive desktop controls; unchanged Web layout/build.
+Verified: 56 Node and 44 Python tests, including the eight Native persistence tests
+on Ubuntu/WSL; TypeScript/build/34 reference assets; browser theme/reload/window
+behavior and 390x844 viewport. The local Native preview consumes canonical UI with
+browser preference persistence and unavailable host capabilities. Source readiness
+and this visual preview do not constitute a signed USB release or physical boot.
+
+## Shared settings style and sidebar policy — 2026-10-12
+
+Owner: OrdaX OS Surface, linked to the functional Surface plan; explicit user
+request to reuse USB Settings styling in Web and add a Native profile shortcut.
+Web imports settings.css and the canonical Settings message catalog. Its existing
+appearance and accessibility ports remain authoritative; no duplicate store,
+palette, grants, account runtime or device execution. Host-only Native sections
+are not advertised as implemented Web features. Settings loads on demand and uses
+the existing window resource boundary. The sidebar entry replaces its footer
+shortcut and opens the existing Configurações window.
+
+workspace/presentation.mjs owns the default sidebar policy used by both renderers.
+Desktop keeps an icon rail collapsed; expansion requests cannot override that
+policy and the expansion control is absent in that presentation. Returning to Central uses automatic responsive sizing and allows manual expansion. No
+presentation/sidebar state is added to workspace-store/2. Native's profile
+shortcut lives in the sidebar footer, targets account/overview through catalog
+availability and normal launch, and replaces header/rail duplicates. Icon names
+use localized native browser tooltips without a parallel label registry.
+It does not access the operational profile registry or bypass identity capability.
+
+Risks: layout specificity, real app-width breakpoints, and focus during view
+changes. Acceptance: intact windows, no horizontal overflow at 390x844, compact
+settings adaptation, persistent existing preferences, fixed 64px desktop rail and usable
+Central expansion/profile shortcut. Verified with 49 Node and 36 Python tests,
+TypeScript/build/reference verification and local Web/Native browser flows.
+Authenticated account, device execution, physical boot and signed release remain
+outside the local visual preview's evidence.
+
+## Shared sidebar geometry and immediate hints — 2026-10-12
+
+Owner: OS Surface, explicit user request for one Web/USB sidebar structure.
+sidebar-layout.mjs/css defines brand, home, navigation, account and auxiliary
+slots once. Tokens own 192/64px rail widths, 36px brand and 40px navigation.
+Native removes the top header and uses the sidebar brand as its existing launcher.
+Native and React retain their canonical window managers and capability-bound apps.
+
+sidebar-account.mjs shares escaped account markup and a validated Identity
+projection. Native subscribes to its existing session/host/localization ports;
+React consumes its existing context. Logout or lost capability removes stale
+public identity. Storage has an explicit unavailable state, with no invented plan
+or usage. Notifications move the original Native control into the common slot;
+Space switcher and power remain bound to their existing Native owners.
+
+Sidebar reaches the footer; app/nav tracks remain adjacent and never overlap.
+Navigation is opaque, borderless and uses app surface colors. Presentation toggle
+is on the right. Collapsed brand is centered; immediate hints are shared through
+sidebar-hints.mjs/css, with keyboard/Escape and complete cleanup. Navigation
+capacity measures button pitch and row gaps, preserving a launcher for overflow.
+Desktop stays collapsed; Central can expand. No new domain, grants or persistence.
+
+Risks: CSS inheritance, capability/session changes, focus, viewport and teardown.
+Acceptance: no duplicated header/profile owner, consistent slots/card/geometry,
+no horizontal page overflow, safe text, recovered shortcuts after resize, existing
+launcher and account destinations, preserved app/window state. 69 Node + 40 Python
+tests passed, with TypeScript/build/reference verification and local Web/Native
+browser flows. Pointer behavior is unit-tested; connected browser does not expose
+pointer movement. Local Native preview does not prove hardware execution, physical
+USB boot or signed release.
+
+
+## Contextual presentation toggle — 2026-10-12
+
+Owner: OS Surface, following the explicit shared Web/USB navigation request.
+The intermediate Web width no longer overrides the canonical sidebar token.
+The existing right-hand toggle retains its anchor and control geometry; monitor
+means Desktop destination and grid means Central destination. Both presenters
+consume the existing presentation policy, without another mode flag or store.
+Native localization updates the same button; its SVG changes only when the
+destination changes. The current desktop rail, profile, notifications and native
+auxiliary owners remain intact. Risk is limited to presentation feedback and
+responsive geometry; no authority, application lifecycle or device change.
+Acceptance: correct destination in either mode, stable control position and
+canonical expanded/collapsed widths. Automated regression checks cover invalid
+views, immutable destination metadata, localization and redundant SVG updates.
+
+
+## Surface gate reconciliation — 2026-10-12
+
+Owner: OrdaX OS Surface. User-requested continuation of the shared Web/Native
+sidebar, following the five failed Foundation/Surface test cases on main
+9a84bbd1a6ae93141126acb19ed802df7214b96a. Scope is the verification layer;
+no product layout, preference storage, identity, grants or device authority changes.
+
+The existing [PR #1713](https://github.com/ordaxsystems/ordax-os/pull/1713)
+browser proof is reused, without reverting the newer generated public-site fixture
+or copying obsolete rail assertions. Real Native shell markup is rendered in both
+complete locales to verify each pinned launch destination, its accessible name,
+the sidebar launcher and exactly one profile targeting Account overview.
+Source checks continue to enforce adapter/import boundaries and the current
+color-palette owner, whose appearance dependency remains canonical. Motion
+reduction is checked in shared tokens and the Native entrypoint loads that owner.
+
+The Chromium proof physically navigates through shared Settings, verifies
+light/dark/USB palette selection and persistence, waits for the closing dialog
+layer to unmount, and verifies compact action hit targets. Desktop retains equal
+tiles; mobile retains one selected pane with access to other mounted apps.
+No reduced coverage, skipped controls, artificial timeouts or preference mutation
+is used to make theme switching pass. The isolated profile reset between cases
+remains test setup, as in the existing proof.
+
+Local acceptance: 39 Node tests and 44 Python Surface/identity tests passed;
+34 reference assets/files and the Native shared-shell browser proof passed.
+Web Chromium passed 1440x900, 1024x768, 820x650, 760x650, 390x844,
+320x568 and 844x390, including compact lifecycle, draft retention, reserved
+workspace geometry and no horizontal document overflow. Existing hosts respond
+HTTP 200. These are source and browser proofs, not physical USB boot, cloud
+permissions, production service activation or release evidence.
+
+Risk: stale UI-template assertions could hide genuine missing controls, so
+launcher checks have moved to rendered output rather than matching template
+implementation. The broader Foundation run and remote CI are tracked separately;
+prior passing checks from other branch heads do not certify the current main.
+
+Concurrent main reconciliation: d4061166b86c6601dbf75f47ba2c5981d0586804
+integrated App SDK changes and the existing browser proof during this increment.
+Both [Foundation](https://github.com/ordaxsystems/ordax-os/actions/runs/38339460878)
+and [Surface Web](https://github.com/ordaxsystems/ordax-os/actions/runs/38339460894)
+passed on that base. No second browser proof or product implementation is added;
+this increment contributes actual rendered-launcher tests and owner/load checks.
+The existing Ctrl/Meta+K handler assertions from the incoming commit are retained.
+The broad local Windows discovery run was stopped after platform-specific receipt
+test errors; it is not claimed as passing and does not replace canonical Linux CI.
+
+The subsequent 0562491 base also includes Assistant remove-first Gate A from
+PR #1717 and signed activation retry hardening from PR #1718. Both are preserved.
+The rendered launcher tests follow the current five pinned destinations and
+require no Assistant launch control during the migration gap. No removed source,
+installation claim or parallel Assistant is restored by this increment.

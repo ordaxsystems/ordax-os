@@ -35,7 +35,7 @@ class NativePreferenceTests(unittest.TestCase):
         host = load_host_server()
         with tempfile.TemporaryDirectory() as directory:
             host.PREFERENCES_FILE = str(Path(directory) / "preferences.json")
-            expected = {"appearance.theme": "light", "feature.enabled": False}
+            expected = {"appearance.theme": "light", "surface.color-palette": "native", "feature.enabled": False}
             host.write_preferences(expected)
             self.assertEqual(host.read_preferences(), expected)
             self.assertFalse(list(Path(directory).glob("*.tmp.*")))

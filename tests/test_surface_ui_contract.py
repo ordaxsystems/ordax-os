@@ -12,7 +12,6 @@ APP_OWNERS = {
     "internet": APPS / "internet" / "app.mjs",
     "settings": APPS / "settings" / "app.mjs",
     "account": APPS / "account" / "app.mjs",
-    "assistant": APPS / "assistant" / "app.mjs",
     "system": APPS / "system" / "app.mjs",
 }
 APPEARANCE = PREFERENCES / "appearance.mjs"
@@ -152,7 +151,10 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("contracts/app-activation.mjs", surface)
         self.assertIn("../../apps/runtime-catalog.mjs", surface)
         self.assertIn("assertAppRuntimeCatalog(appCatalog)", surface)
-        self.assertIn("../../services/preferences/appearance.mjs", surface)
+        self.assertIn("../../services/preferences/color-palette.mjs", surface)
+        self.assertIn("resolveColorAppearance(state.preferences)", surface)
+        palette = (PREFERENCES / "color-palette.mjs").read_text(encoding="utf-8")
+        self.assertIn("from './appearance.mjs'", palette)
         self.assertIn("../../services/preferences/accessibility.mjs", surface)
         self.assertIn("./desktop-shell.mjs", surface)
         self.assertIn("contracts/surface-render-lifecycle.mjs", surface)
@@ -210,7 +212,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertIn(f'id: "{app_id}"', owner)
             self.assertIn("defineFirstPartyApp", owner)
             self.assertIn("component:", owner)
-            if app_id in {"assistant", "files", "internet"}:
+            if app_id in {"files", "internet"}:
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../services/components/manifests/apps.mjs", owner)
@@ -247,45 +249,32 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('.ordax-files-view', css)
         self.assertIn("../../surface/ui/files.css", native_html)
 
-    def test_assistant_is_optional_intelligence_client_without_memory_ownership(self):
-        assistant = APP_OWNERS["assistant"].read_text(encoding="utf-8")
-        conversation = (APPS / "assistant" / "conversation.mjs").read_text(encoding="utf-8")
-        runtime = (APPS / "assistant" / "runtime.mjs").read_text(encoding="utf-8")
-        controls = (APPS / "assistant" / "ui" / "conversation-controls.mjs").read_text(encoding="utf-8")
-        component = (APPS / "assistant" / "component.mjs").read_text(encoding="utf-8")
-        shell = DESKTOP_SHELL.read_text(encoding="utf-8")
-        web_main = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
-        native_main = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
-        localization = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
-        assistant_i18n = (
-            ROOT / "system" / "services" / "i18n" / "catalog" / "assistant.mjs"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn('id: "assistant"', assistant)
-        self.assertIn('extensionId: "assistant-conversation"', assistant)
-        self.assertIn('releaseMode: "git-app"', component)
-        self.assertIn('"ordax-intelligence"', component)
-        self.assertIn('ASSISTANT_CONVERSATION_SCHEMA', conversation)
-        self.assertIn('persistence: "session"', conversation)
-        self.assertIn('authority: "none"', conversation)
-        self.assertIn('toolExecution: false', conversation)
-        self.assertIn('provenance: "ordax-assistant-session"', conversation)
-        self.assertNotIn('services/memory', conversation)
-        self.assertNotIn('memory-capture', conversation)
-        self.assertNotIn('localStorage', conversation)
-        self.assertNotIn('fetch(', conversation)
-        self.assertNotIn('adapters/', conversation)
-        self.assertIn('mountAssistantConversationControls', runtime)
-        self.assertNotIn('adapters/', controls)
-        self.assertNotIn('/__ordax/native/', controls)
-        self.assertIn('railButton("assistant", t("app.assistant.title"), ICONS.assistant, t)', shell)
-        self.assertIn('ASSISTANT_SOURCE_MESSAGES', localization)
-        self.assertIn('ASSISTANT_ENGLISH_MESSAGES', localization)
-        self.assertIn('"app.assistant.title": "Assistente"', assistant_i18n)
-        self.assertIn('"app.assistant.title": "Assistant"', assistant_i18n)
-        self.assertIn('componentId: "assistant"', native_main)
-        self.assertIn('intelligence: selectedSpaceIntelligence', native_main)
-        self.assertIn('assistantComponent?.destroy()', native_main)
+    def test_assistant_remove_first_gate_is_explicit_and_never_implies_installation(self):
+        import json
+        policy = json.loads(
+            (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            policy["prelaunch_remove_first_pending"].get("assistant"),
+            {
+                "state": "platform-source-removed-app-source-pending",
+                "expected_repository": "ordaxsystems/ordax-apps",
+                "platform_source_absence_required": True,
+                "distribution_activation_allowed": False,
+            },
+        )
+        self.assertFalse((APPS / "assistant").exists())
+        self.assertFalse((ROOT / "system/services/i18n/catalog/assistant.mjs").exists())
+        self.assertNotIn('./assistant/app.mjs', APP_CATALOG.read_text(encoding="utf-8"))
+        self.assertNotIn('assistantComponent', COMPONENT_CATALOG.read_text(encoding="utf-8"))
+        native = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        self.assertNotIn('import("../../apps/assistant/runtime.mjs")', native)
+        self.assertNotIn('componentId: "assistant"', native)
+        self.assertNotIn('assistantMemoryCapture', native)
+        self.assertNotIn('railButton("assistant"', DESKTOP_SHELL.read_text(encoding="utf-8"))
+        self.assertNotIn('ASSISTANT_SOURCE_MESSAGES', SURFACE_LOCALIZATION.read_text(encoding="utf-8"))
+        self.assertNotIn("assistant", policy["native_loopback_broker_supported_components"])
+        self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
 
 
     def test_internet_uses_shared_browser_session_extension(self):
@@ -293,7 +282,6 @@ class SurfaceUiContractTests(unittest.TestCase):
         controls = INTERNET_BROWSER_CONTROLS.read_text(encoding="utf-8")
         shortcuts = INTERNET_BROWSER_SHORTCUTS.read_text(encoding="utf-8")
         css = (APPS / "internet" / "internet.css").read_text(encoding="utf-8")
-        shell = DESKTOP_SHELL.read_text(encoding="utf-8")
         web_html = (COMPOSITION / "index.html").read_text(encoding="utf-8")
         native_html = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
         web_main = (COMPOSITION / "main.tsx").read_text(encoding="utf-8")
@@ -304,7 +292,8 @@ class SurfaceUiContractTests(unittest.TestCase):
 
         self.assertIn('id: "internet"', internet)
         self.assertIn('extensionId: "internet-browser"', internet)
-        self.assertIn('railButton("internet", t("app.internet.title"), ICONS.internet, t)', shell)
+        # Rendered Internet launch controls are exercised with the live locale
+        # in test_surface_localization.mjs; browser authority is checked below.
         localization = SURFACE_LOCALIZATION.read_text(encoding="utf-8")
         self.assertIn('"app.internet.title": "Internet"', localization)
         self.assertIn("assertBrowserSessionPort", controls)
@@ -670,8 +659,12 @@ class SurfaceUiContractTests(unittest.TestCase):
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
         css = (SURFACE / "surface.css").read_text(encoding="utf-8")
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
-        for app_id in ("files", "internet", "settings", "account", "system"):
-            self.assertIn(f'railButton("{app_id}"', shell)
+        # The Node render tests assert actual controls and a single profile.
+        # Here validate delegation to their shared UI owners.
+        self.assertIn('from "./sidebar-layout.mjs"', shell)
+        self.assertIn('from "./sidebar-account.mjs"', shell)
+        self.assertIn('createSidebarMarkup(', shell)
+        self.assertIn('sidebarAccountMarkup(projectSidebarAccount(', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
         self.assertIn("data-ordax-clock", shell)
@@ -701,7 +694,9 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('const connectivityIcon = root.querySelector("[data-connectivity-icon]")', surface)
         self.assertIn("connectivityIcon.dataset.state = state.connectivity", surface)
         self.assertIn("data-launcher-query", shell)
-        self.assertIn("Ctrl + K", shell)
+        self.assertIn('event.key.toLocaleLowerCase() === "k"', surface)
+        self.assertIn("event.ctrlKey || event.metaKey", surface)
+        self.assertIn("data-launcher-toggle", shell)
         self.assertIn("ordax-brand-symbol", shell)
         self.assertIn("ordax-home-hero", shell)
         self.assertIn("data-show-desktop", shell)
@@ -822,7 +817,11 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("color-scheme: light", tokens)
         self.assertIn("@media (max-width: 760px)", css)
         self.assertIn("prefers-reduced-motion", css)
-        self.assertIn('[data-ordax-motion="reduced"] *', css)
+        self.assertIn('[data-ordax-motion="reduced"] *', tokens)
+        self.assertIn("animation: none !important", tokens)
+        self.assertIn("transition: none !important", tokens)
+        native_entry = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
+        self.assertIn('href="../../surface/ui/tokens.css"', native_entry)
         self.assertIn('[data-ordax-motion="standard"] .ordax-window', css)
         self.assertIn('html[data-ordax-text-scale="standard"]', tokens)
         self.assertIn('html[data-ordax-text-scale="large"]', tokens)

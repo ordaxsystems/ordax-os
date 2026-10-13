@@ -174,10 +174,7 @@ test("machine-readable CLI output contains every component and domain", () => {
   assert.equal(aiImpact.authority, "none");
   assert.equal(aiImpact.productionActivationAllowed, false);
   assert.equal(aiImpact.summary.direct, 1);
-  assert.equal(aiImpact.summary.transitive, 1);
-  assert.deepEqual(
-    aiImpact.consumers.find((entry) => entry.id === "assistant").dependencyPath,
-    ["local-ai-service", "ordax-intelligence", "assistant"],
-  );
-  assert.equal(aiImpact.summary.missingDescriptors, 1);
+  assert.equal(aiImpact.summary.transitive, 0);
+  assert.equal(aiImpact.consumers.some((entry) => entry.id === "assistant"), false);
+  assert.equal(aiImpact.summary.missingDescriptors, 0);
 });

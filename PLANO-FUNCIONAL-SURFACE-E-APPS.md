@@ -1,5 +1,52 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Reconciliação dos gates Surface — 12/10/2026:** continuidade solicitada
+> após a reprovação da main por expectativas de UI anteriores à sidebar compartilhada.
+> Prova de navegador da PR #1713 reutilizada e alinhada ao source atual; renderização
+> Native exercitada em pt-BR/en-US, perfil único, launcher acessível e SSOT de cores/movimento.
+> Layout e autoridades preservados; [escopo e aceite](docs/DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
+> **Alternador contextual — 12/10/2026:** Web/Native usam a política de
+> apresentação existente para monitor/grade de destino; a exceção Web de
+> largura 185 px foi removida. Posição à direita e owners preservados.
+> [Escopo, risco e aceite](docs/DESKTOP-IDENTITY.md#contextual-presentation-toggle--2026-10-12).
+
+> **Sidebar/dock — 12/10/2026:** estrutura e cartão de conta compartilhados
+> em sidebar-layout/sidebar-account, geometria 192/64 px e nav de 40 px em tokens,
+> hints imediatos e faixa opaca reservada sem borda. USB sem header; logo/launcher
+> na sidebar até o rodapé. Identidade original, quota indisponível explícita,
+> notificações/Space/energia preservados; desktop sempre recolhido.
+> [Owner, contratos, riscos e aceite](docs/DESKTOP-IDENTITY.md#shared-sidebar-geometry-and-immediate-hints--2026-10-12).
+
+> **Ajustes e sidebar Web/USB — 12/10/2026:** incremento solicitado com CSS e
+> catálogo de Ajustes compartilhados, preferências Web existentes preservadas e
+> política única de manter sidebar recolhida no desktop. Perfil no rodapé USB usa Conta
+> canônica; sem nova autoridade ou persistência de workspace. [Owner, contratos,
+> risco e aceite](docs/DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
+> **USB — temas Web e área de trabalho — 12/10/2026:** incremento solicitado,
+> com um source de cores standard/USB e um seletor de três perfis nos dois
+> renderers. Native conserva seus ports e o gerenciador de janelas; alternância
+> de apresentação é da sessão. Owner Web-only de paletas removido. [Owners,
+> contratos, risco e provas](docs/DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
+> **Paleta USB no Web — 12/10/2026:** incremento visual solicitado pelo usuário,
+> sem mudança de layout. Claro/Escuro preservados; terceira opção reutiliza os
+> tokens Native por referência. Persistência pelo mesmo catálogo/runtime/store;
+> aparência portátil e allowlist de sync preservadas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
+> **Favoritos Web — 12/10/2026:** Central/Aplicativos compartilham seleção
+> persistente pelo catálogo/runtime/store canônicos, com lista vazia e fallback
+> explícito. Atalho não concede instalação/execução; Native editor e sync continuam
+> separados. Teardown da raiz React em HMR foi corrigido após erro observado.
+> [Owner, risco e provas](docs/DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
+> **Compacto mobile — 12/10/2026:** revisão explícita substitui lado a lado no
+> mobile por um app selecionado com largura completa e troca no cabeçalho. O
+> mesmo reducer mantém seleção/drafts; desktop continua com tiles iguais. Conteúdo
+> adapta à largura real, com menos padding e ações mobile de 44px. [Owner, risco
+> e prova](docs/DESKTOP-IDENTITY.md#single-mobile-compact-pane--2026-10-12).
+
 > **Carregamento Web — 12/10/2026:** menu compacto extraído uma vez e carregado
 > sob demanda pelo mesmo WindowLayer; expansão/fechamento preservados após falha
 > de recurso. JS inicial 539,52 → 482,31 kB, CSS idêntico; prova local do bundle

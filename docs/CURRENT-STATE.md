@@ -1,5 +1,178 @@
 # Current State
 
+## Reconciliação dos gates Surface — 2026-10-12
+
+As cinco reprovações de contratos em main 9a84bbd eram expectativas de templates
+anteriores aos owners atuais. A primeira correção também revelou a expectativa
+obsoleta do texto Ctrl + K no header removido. A marca/sidebar, cada launcher
+com nome acessível e o perfil único agora são verificados no markup realmente
+gerado em pt-BR/en-US, sem restaurar UI antiga para satisfazer testes.
+Paleta e movimento reduzido continuam nos owners canônicos.
+
+A prova de browser da PR #1713 foi reconciliada com a main atual; nenhuma versão
+antiga dos arquivos gerados do site ou da UI foi reintegrada. Não foi necessário
+aplicar a alteração de produto da PR #1712: a composição atual passou fisicamente
+os sete viewports, incluindo compacto mobile selecionado e tiles desktop.
+39 testes Node, 44 Python, 34 arquivos/assets de referência, fronteiras de módulos
+e a prova de browser Native passaram. Web/USB visual continuam HTTP 200.
+Durante a validação outro chat integrou d406116, com o SDK atualizado e as
+mesmas correções de provas. Foundation e Surface Web passaram nesse SHA no Linux.
+A reconciliação preserva essas mudanças e acrescenta os testes de renderização;
+os gates do novo commit continuam distintos das provas da base e das provas locais. Ver [escopo, risco e aceite](DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
+
+A reconciliação também preserva a base 0562491: Gate A remove-first do Assistant
+(#1717) e retries de ativação assinada (#1718). Os testes de renderização seguem
+os cinco destinos atuais e exigem ausência do atalho Assistant durante o gap;
+nenhum source removido ou instalação fictícia é restaurado.
+
+## Alternância Central/Área de trabalho — 2026-10-12
+
+Owner OS Surface; incremento solicitado sobre a sidebar/dock compartilhada.
+A largura em tablets/intermediários agora usa o token canônico, retirando a
+exceção Web de 185 px. O alternador conserva posição à direita e anuncia o
+destino com monitor/grade, usando a mesma política de apresentação no Native
+e React. Rótulos Native continuam no catálogo i18n; o controle não é remontado
+em cada render. Não altera janelas, sessão, grants ou persistência.
+As regressões cobrem destinos inválidos, tradução e troca de ícone somente
+quando o destino muda. A prévia USB local continua visual, sem execução Native
+ou prova de boot físico. 71 testes Node, 41 Python, TypeScript/build Vite e
+verificação de 34 arquivos/assets passaram neste incremento. Os dois hosts
+responderam HTTP 200; não houve nova prova interativa de browser ou boot físico.
+
+## Sidebar e navegação Web/USB — SSOT — 2026-10-12
+
+Owner: OS Surface; incremento explicitamente solicitado. sidebar-layout.mjs/css
+define slots, encaixe e cartão comuns para React e Native. tokens.css fornece
+192/64 px, marca de 36 px e navegação de 40 px (controles de 32 px).
+USB não monta header de pesquisa; marca/launcher ficam na sidebar até o rodapé.
+Navegação ocupa faixa reservada só na coluna dos apps, sem borda/blur/sombra,
+com fundo opaco do app. A troca Central/Área de trabalho fica à direita.
+
+sidebar-account.mjs projeta a sessão pelo contrato Identity existente nos dois
+renderers. Logout/perda de capability retiram nome e iniciais antigos. O perfil
+abre Conta canônica; notificações Native continuam no controle original, agora
+no slot comum. Uso/quota indisponíveis são explícitos: não há plano ou GB fictícios.
+Space switcher e energia preservam seus owners Native. Nenhum grant ou sessão nova.
+
+sidebar-hints.mjs/css dá nomes imediatos por pointerover e foco/teclado, com
+Escape, limite de viewport e teardown. Sidebar não tem scroll; overflow conserva
+launcher/Mais e recupera atalhos ao crescer. Desktop mantém rail sempre recolhido.
+
+69 testes Node e 40 Python passaram, incluindo gaps/overflow, escape de nomes,
+logout, Identity, workspace, temas, localização e notificações. TypeScript/build
+e fonte de referência verificados. Browser local confirmou ausência de header,
+rail até rodapé, nav de 40 px, controles móveis de 44 px, launcher/perfil,
+layout sem overflow horizontal e desktop recolhido. Prévia Native é visual;
+não comprova boot físico, serviços autenticados de host ou release assinada.
+
+## Ajustes Web e navegação USB — 2026-10-12
+
+Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
+com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
+engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
+de recursos já existente. As outras seções Native dependentes de host não foram
+expostas como funções Web disponíveis.
+
+workspace/presentation.mjs define uma única política: entrar na Área de trabalho
+mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central
+recupera a apresentação automática e permite expansão manual. Estado é de sessão, sem novo
+registro persistido e sem recriar janelas. USB ganhou ícone de perfil no rodapé da sidebar para account/overview pelo
+catálogo e caminho de ativação existentes. O acesso na header e o item Conta
+duplicado foram removidos. Nomes dos ícones usam tooltips nativos/localizados.
+
+49 testes Node e 36 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: temas, contraste persistido em reload, largura de
+64px fixos no desktop, expansão apenas na Central, perfil USB e 390x844 sem overflow
+horizontal, inclusive Ajustes compacto. Conta autenticada/hardware e boot físico
+não são demonstrados pela prévia local. [Owner e aceite](DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
+
+## Surface Web/USB — cores compartilhadas e desktop nativo — 2026-10-12
+
+Claro/Escuro do Web e OrdaX USB usam um único catálogo de perfis. As cores
+standard foram movidas do CSS Web para system/surface/ui/color-palettes.css;
+os tokens USB seguem em tokens.css. Os dois renderers consomem a mesma fonte
+por aliases sem duplicar paletas. color-palette.mjs e surface.color-palette
+substituem o owner Web-only anterior, sem wrapper ou ID alternativo ativo.
+appearance.theme permanece light/dark; a nova paleta continua device-local,
+fora da allowlist de sync. Web preserva layout e janela; Native Ajustes ganhou
+as três opções e miniaturas dos mesmos tokens.
+
+USB agora alterna Início/Central e Área de trabalho pelo botão de quatro quadrados
+no dock. Atalhos usam o mesmo catálogo e caminho de ativação; nenhum grant novo.
+A apresentação é da sessão; janelas, alvos, geometria e workspace-store/2 não
+são recriados nem copiados. Rede, energia, arquivos e composição Native mantêm
+seus ports. A prévia local usa stores de navegador e não opera hardware.
+
+56 testes Node e 44 Python passaram (100 distintos). Oito testes de estado
+Native foram executados em Ubuntu/WSL com fcntl real, após a incompatibilidade
+do Python Windows; sem shim. TypeScript/build e 34 arquivos/assets verificados.
+Browser: cinco pares de cores Web/Native, três opções, reload, desktop/retorno,
+janela preservada, viewport 390x844 sem overflow horizontal e toggle de 44px.
+JS inicial 485,41 kB (151,98 gzip). Boot físico e release assinada não são provas
+deste incremento. [Owner e aceite](DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
+## Web — perfil de cores OrdaX USB — 2026-10-12
+
+Aparência oferece Claro, Escuro e OrdaX USB no mesmo seletor. O terceiro perfil
+mapeia variáveis Web diretamente aos tokens Native de tokens.css, sem copiar
+cores ou alterar a geometria do layout. O catálogo/runtime/store existentes persistem
+surface.web-palette; appearance.theme mantém light/dark e o default light.
+A escolha de paleta Web é local, excluída da allowlist de sync; Native ignora
+essa preferência e preserva sua composição/contrato de aparência.
+
+44 testes Node e 24 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: três escolhas e reload, igualdade de seis tokens
+Web/Native, seletor de 44 px e viewport 390 x 844 sem overflow horizontal,
+contraste reforçado com tokens canônicos. JS inicial 485,34 kB (151,98 gzip).
+[Owner, escopo, risco e aceite](DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
+## Web Central — favoritos compartilhados e persistentes — 2026-10-12
+
+Central e Aplicativos agora usam um único renderer/editor e a mesma preferência
+surface.favorite-shortcuts no catálogo/runtime/store existentes. Seleção validada,
+lista vazia, foco de retorno e fallback session-only são reais; adicionar atalho
+não instala app nem concede acesso. Metadados de targets têm um owner; estado local
+de favoritos duplicado na Central foi removido. Sync de conta mantém sua allowlist,
+sem enviar essa preferência. Native reconhece o dado, mas não ganhou outro launcher.
+
+35 testes Node e sete de builder passaram; a regressão de sync foi repetida após
+incluir a prova explícita de favoritos locais. TypeScript/build e 34 arquivos/assets
+verificados. Browser comprovou edição compartilhada, recarga/lista vazia, teclado,
+retorno de foco e editor em 390 x 600/844. Erro de HMR observado (raiz React duplicada)
+foi corrigido: a composição desmonta sua raiz antes dos ports. Uma atualização limpa
+manteve uma raiz, sete favoritos e zero novos erros. Escolhas originais, tema e
+viewport restaurados. JS inicial 484,97 kB (151,88 gzip), CSS 81,59 kB.
+Gateway autenticado, arquivos/dispositivos e IA continuam pendentes de transporte.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
+## Web Central — seletor do rodapé removido — 2026-10-12
+
+Remoção explicitamente solicitada: seletor inferior de modos da Aura, CSS próprio
+e tracks reservados ao footer retirados. Demais controles e serviços preservados.
+TypeScript e verificador dos 34 arquivos/assets passaram. Browser em 390 x 600 e
+1366 x 768 confirmou ausência do seletor/footer e documento sem overflow; logs
+sem erros/avisos. Viewport restaurado. Sem build completo repetido nesta remoção.
+
+## Web Central — compacto com seleção mobile — 2026-10-12
+
+Até 760 px de viewport, o painel compacto apresenta um app por vez, usando toda
+a largura disponível. Se há mais de um, o cabeçalho oferece seletor nativo; dock
+continua mostrando os apps abertos. Em telas maiores, os mesmos apps continuam
+lado a lado, com larguras iguais. A seleção pertence ao desktopReducer existente,
+permanece ao abrir um app superior e recupera um app disponível após fechar ou
+minimizar o selecionado. Apps ocultos continuam montados, preservando drafts.
+
+Conteúdo compacto usa menos padding e grids pela largura do painel; controles
+mobile têm 44 x 44 px. Trocar um painel recolhido preserva esse estado. Browser
+comprovou 320 x 568/390 x 844 sem overflow, texto ampliado, três apps desktop com
+378 px cada em 1366 x 768, e retenção de draft ao trocar/minimizar/restaurar.
+23 testes Node e sete de builder passaram; TypeScript/build e 34 arquivos/assets
+verificados. JS inicial 483,08 kB (151,32 gzip); menu avançado permanece sob demanda.
+Nenhuma mudança de backend, grants, conta ou execução. [Owner, risco e aceite](DESKTOP-IDENTITY.md#single-mobile-compact-pane--2026-10-12).
+
 ## Web Central — menu compacto sob demanda — 2026-10-12
 
 O menu avançado das janelas compactas carrega no primeiro uso de modo compacto,
@@ -494,7 +667,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -1442,7 +1615,7 @@ PUBLIC_ACCOUNT_CLOSE_LIFECYCLE_SERVICE=DEPLOYED_DISABLED
 PUBLIC_ACCOUNT_CLOSE_ENABLED=NO
 PUBLIC_ACCOUNT_CLOSE_DISABLED_PROOF_HARNESS=PASS_SOURCE_CREDENTIAL_FREE
 
-MEMORY_CAPTURE_POLICY_BOUND_AUTO_SAVE=PASS_SOURCE_NATIVE_ASSISTANT_INTEGRATED
+MEMORY_CAPTURE_POLICY_BOUND_AUTO_SAVE=PLATFORM_SERVICE_RETAINED_ASSISTANT_APP_NOT_MOUNTED_GATE_A
 ASSISTANT_AUTO_MEMORY_EXTRACTION=PASS_SOURCE_STRICT_JSON_FAIL_CLOSED
 ASSISTANT_AUTO_MEMORY_AUTHORITY=COMPOSITION_OWNS_DEVICE_ACCOUNT_SPACE
 ASSISTANT_AUTO_MEMORY_SECRET_FILTER=PASS_SOURCE_CREDENTIAL_SIGNAL_REJECT

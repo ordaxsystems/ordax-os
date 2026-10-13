@@ -631,7 +631,7 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !persisted.UserRemoved || persisted.Current != nil || persisted.Revision != retry.Revision {
+	if !persisted.UserRemoved || !sameSlotIdentity(persisted.Removed, &installed) || persisted.Current != nil || persisted.Revision != retry.Revision {
 		t.Fatalf("removed app intent lost across state reload: %+v", persisted)
 	}
 	_, _, bundled, err := resolveCurrentState(fixture.root, "internet", fixture.trustPath)
@@ -667,8 +667,135 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) || state.UserRemoved {
+	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) || state.UserRemoved || state.Removed != nil {
 		t.Fatalf("offline reinstall did not restore current identity or clear intent: %+v", state)
+	}
+}
+
+// Successful retries must not turn a missing or corrupt signed slot into
+// a fresh success verdict; the idempotent path is inside the same Go writer.
+func TestSignedDecisionRetriesRejectTamperedSlots(t *testing.T) {
+	t.Run("promotion", func(t *testing.T) {
+		fixture := makeActivationV2Fixture(t)
+		candidate := addActivationV2Candidate(t, fixture, "1.0.0", strings.Repeat("1", 40))
+		promoted := healthyPromoteV2(t, fixture, candidate)
+		current := *promoted.Current
+		tampered := filepath.Join(candidate.slot, candidate.release.Compatibility.Name)
+		if err := os.Chmod(tampered, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := promotePendingStateAtRevision(
+			fixture.root, "internet", current, promoted.Revision-1, fixture.trustPath,
+		); err == nil {
+			t.Fatal("promotion retry silently acknowledged a corrupt current slot")
+		}
+		persisted, err := readActivationState(fixture.root, "internet")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if persisted.Revision != promoted.Revision || !sameSlotIdentity(persisted.Current, &current) {
+			t.Fatalf("rejected retry modified activation state: %+v", persisted)
+		}
+	})
+	t.Run("rollback", func(t *testing.T) {
+		fixture := makeActivationV2Fixture(t)
+		previous := addActivationV2Candidate(t, fixture, "1.0.0", strings.Repeat("1", 40))
+		healthyPromoteV2(t, fixture, previous)
+		candidate := addActivationV2Candidate(t, fixture, "1.1.0", strings.Repeat("2", 40))
+		promoted := healthyPromoteV2(t, fixture, candidate)
+		source := *promoted.Current
+		rolled, err := rollbackCurrentStateAtRevision(
+			fixture.root, "internet", source, promoted.Revision, fixture.trustPath,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tampered := filepath.Join(previous.slot, previous.release.Compatibility.Name)
+		if err := os.Chmod(tampered, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := rollbackCurrentStateAtRevision(
+			fixture.root, "internet", source, promoted.Revision, fixture.trustPath,
+		); err == nil {
+			t.Fatal("rollback retry acknowledged a corrupt restored current slot")
+		}
+		persisted, err := readActivationState(fixture.root, "internet")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if persisted.Revision != rolled.Revision || !sameSlotIdentity(persisted.Current, rolled.Current) {
+			t.Fatalf("rejected rollback retry modified activation state: %+v", persisted)
+		}
+	})
+}
+
+// Uninstall removes Current, but the authoritative state retains the exact
+// removed slot identity. Otherwise any version could replay the same revision.
+func TestUninstallRetryRequiresDurableSignedRemovedIdentity(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2Candidate(t, fixture, "1.0.0", strings.Repeat("3", 40))
+	promoted := healthyPromoteV2(t, fixture, candidate)
+	removedIdentity := *promoted.Current
+	removed, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameSlotIdentity(removed.Removed, &removedIdentity) || !removed.UserRemoved {
+		t.Fatalf("uninstall lost durable removed identity: %+v", removed)
+	}
+	wrong := slotIdentity{Version: "1.0.1", SourceCommit: strings.Repeat("4", 40)}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", wrong, promoted.Revision, fixture.trustPath,
+	); err == nil {
+		t.Fatal("uninstall retry accepted unrelated removed identity")
+	}
+	retry, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
+	)
+	if err != nil || retry.Revision != removed.Revision {
+		t.Fatalf("signed exact uninstall retry = %+v, %v", retry, err)
+	}
+	// Old state snapshots without the tombstone remain readable and removed;
+	// no made-up identity can turn them into an acknowledged retry.
+	legacy := removed
+	legacy.Removed = nil
+	if err := writeActivationState(fixture.root, legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
+	); err == nil {
+		t.Fatal("legacy removal without identity claimed a successful retry")
+	}
+	// A separate fixture proves corruption detection independent of legacy.
+	fixture2 := makeActivationV2Fixture(t)
+	candidate2 := addActivationV2Candidate(t, fixture2, "1.0.0", strings.Repeat("5", 40))
+	promoted2 := healthyPromoteV2(t, fixture2, candidate2)
+	identity2 := *promoted2.Current
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture2.root, "internet", identity2, promoted2.Revision, fixture2.trustPath,
+	); err != nil {
+		t.Fatal(err)
+	}
+	tampered := filepath.Join(candidate2.slot, candidate2.release.Compatibility.Name)
+	if err := os.Chmod(tampered, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture2.root, "internet", identity2, promoted2.Revision, fixture2.trustPath,
+	); err == nil {
+		t.Fatal("uninstall retry acknowledged corrupt removed signed slot")
 	}
 }
 

@@ -25,10 +25,8 @@
     "rail_apps": [
       "files",
       "studio",
-      "assistant",
       "internet",
       "settings",
-      "account",
       "system"
     ],
     "rail_labels": [
@@ -41,20 +39,12 @@
         "label": "ORDAX Studio"
       },
       {
-        "id": "assistant",
-        "label": "Assistente"
-      },
-      {
         "id": "internet",
         "label": "Internet"
       },
       {
         "id": "settings",
         "label": "Ajustes"
-      },
-      {
-        "id": "account",
-        "label": "Conta"
       },
       {
         "id": "system",
@@ -76,13 +66,6 @@
       "description": "Acesse seus projetos e confira a integração do Studio com este host.",
       "monogram": "ST",
       "display_title": "ORDAX Studio"
-    },
-    {
-      "id": "assistant",
-      "title": "OrdaX Intelligence",
-      "description": "Conversa local com a OrdaX Intelligence, sem autoridade implícita para executar ações.",
-      "monogram": "IA",
-      "display_title": "Assistente"
     },
     {
       "id": "activity",
@@ -110,7 +93,7 @@
       "title": "Identidade e continuidade",
       "description": "Identidade, acesso e continuidade segura entre os modos do OrdaX.",
       "monogram": "CO",
-      "display_title": "Conta"
+      "display_title": "Identidade e continuidade"
     },
     {
       "id": "store",

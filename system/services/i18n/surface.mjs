@@ -1,3 +1,4 @@
+import { SIDEBAR_SOURCE_MESSAGES, SIDEBAR_ENGLISH_MESSAGES } from "./catalog/sidebar.mjs";
 import { SURFACE_BOOT_SOURCE_MESSAGES, SURFACE_BOOT_ENGLISH_MESSAGES } from "./catalog/boot.mjs";
 import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../contracts/localization.mjs";
 import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
@@ -10,7 +11,6 @@ import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.m
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
 import { SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES, SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES } from "./catalog/system-diagnostics.mjs";
 import { ACCOUNT_SOURCE_MESSAGES, ACCOUNT_ENGLISH_MESSAGES } from "./catalog/account.mjs";
-import { ASSISTANT_SOURCE_MESSAGES, ASSISTANT_ENGLISH_MESSAGES } from "./catalog/assistant.mjs";
 import { ACTIVITY_SOURCE_MESSAGES, ACTIVITY_ENGLISH_MESSAGES } from "./catalog/activity.mjs";
 import { NETWORK_SOURCE_MESSAGES, NETWORK_ENGLISH_MESSAGES } from "./catalog/network.mjs";
 import { POWER_SOURCE_MESSAGES, POWER_ENGLISH_MESSAGES } from "./catalog/power.mjs";
@@ -22,8 +22,16 @@ export const SURFACE_COMPLETE_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 export const SURFACE_ENGLISH_TARGET_LOCALE = "en-US";
 
 const SOURCE = Object.freeze({
+  ...SIDEBAR_SOURCE_MESSAGES,
   "shell.rail.aria": "Aplicativos principais",
   "shell.home.title": "Início",
+  "shell.profile.open": "Abrir meu perfil",
+  "shell.sidebar.expand": "Expandir sidebar",
+  "shell.sidebar.collapse": "Recolher sidebar",
+  "shell.presentation.desktop": "Abrir área de trabalho",
+  "shell.presentation.central": "Abrir Central",
+  "shell.presentation.centralTitle": "Central",
+  "shell.presentation.shortcuts": "Atalhos da área de trabalho",
   "shell.home.tagline": "Inteligência no centro.",
   "shell.home.quickAccess": "Acesso rápido",
   "shell.home.loadingDate": "Carregando data…",
@@ -145,7 +153,6 @@ const SOURCE = Object.freeze({
   ...SYSTEM_SOURCE_MESSAGES,
   ...SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES,
   ...ACCOUNT_SOURCE_MESSAGES,
-  ...ASSISTANT_SOURCE_MESSAGES,
   ...ACTIVITY_SOURCE_MESSAGES,
   ...NETWORK_SOURCE_MESSAGES,
   ...POWER_SOURCE_MESSAGES,
@@ -154,8 +161,16 @@ const SOURCE = Object.freeze({
 });
 
 const ENGLISH = Object.freeze({
+  ...SIDEBAR_ENGLISH_MESSAGES,
   "shell.rail.aria": "Main applications",
   "shell.home.title": "Home",
+  "shell.profile.open": "Open my profile",
+  "shell.sidebar.expand": "Expand sidebar",
+  "shell.sidebar.collapse": "Collapse sidebar",
+  "shell.presentation.desktop": "Open desktop",
+  "shell.presentation.central": "Open Central",
+  "shell.presentation.centralTitle": "Central",
+  "shell.presentation.shortcuts": "Desktop shortcuts",
   "shell.home.tagline": "Intelligence at the core.",
   "shell.home.quickAccess": "Quick access",
   "shell.home.loadingDate": "Loading date…",
@@ -277,7 +292,6 @@ const ENGLISH = Object.freeze({
   ...SYSTEM_ENGLISH_MESSAGES,
   ...SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES,
   ...ACCOUNT_ENGLISH_MESSAGES,
-  ...ASSISTANT_ENGLISH_MESSAGES,
   ...ACTIVITY_ENGLISH_MESSAGES,
   ...NETWORK_ENGLISH_MESSAGES,
   ...POWER_ENGLISH_MESSAGES,

@@ -9,6 +9,7 @@ const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
 const CSS_FILES = [
   'system/surface/ui/tokens.css',
+  'system/surface/ui/color-palettes.css',
   'system/surface/ui/surface.css',
   'system/surface/ui/boot-screen.css',
   'system/surface/ui/workspace-areas.css',
@@ -19,10 +20,11 @@ const CSS_FILES = [
   'system/surface/ui/settings.css',
   'system/surface/ui/store.css',
   'system/surface/ui/identity.css',
+  'system/surface/ui/sidebar-hints.css',
+  'system/surface/ui/sidebar-layout.css',
   'system/surface/ui/brand/symbol.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
-  'system/apps/assistant/assistant.css': 'text/css',
   'system/apps/studio/studio.css': 'text/css',
 });
 

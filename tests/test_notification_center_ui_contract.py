@@ -44,7 +44,7 @@ class NotificationCenterUiContractTest(unittest.TestCase):
         shell = read("system/surface/ui/desktop-shell.mjs")
         css = read("system/surface/ui/surface.css")
 
-        self.assertIn('requireHost(root, ".ordax-system-tray"', controls)
+        self.assertIn('requireHost(root, "[data-sidebar-notification-slot]"', controls)
         self.assertIn('requireHost(root, "[data-quick-panel-layer]"', controls)
         self.assertIn('tray.dataset.quickPanelToggle = "notifications"', controls)
         self.assertIn('panel.dataset.quickPanel = "notifications"', controls)
