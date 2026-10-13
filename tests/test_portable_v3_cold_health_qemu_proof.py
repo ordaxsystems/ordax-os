@@ -59,7 +59,7 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         handler = text.split("handle_portable_candidate_boot() {", 1)[1].split("\n}", 1)[0]
         commit = handler.index('portable_commit_candidate "$candidate_sha"')
         applied = handler.index('record_applied "$candidate_sha" signed-release')
-        marker = handler.index("ORDAX_PORTABLE_COLD_HEALTH_COMMIT=%s\\n")
+        marker = handler.index("ORDAX_PORTABLE_COLD_HEALTH_COMMIT=%s\n")
         health = handler.index(
             'wait_for_surface_health "$candidate_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"'
         )
@@ -143,6 +143,7 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         runner = BASE_RUNNER.read_text(encoding="utf-8")
         cold = RUNNER.read_text(encoding="utf-8")
         self.assertIn("graphical_diagnostics_dir: Path | None = None", runner)
+        self.assertIn('ordax.qemu_health_diag=1', runner)
         self.assertIn("capture_disposable_graphics(", runner)
         self.assertIn("screendump {destination}", runner)
         self.assertIn("graphical_diagnostics_dir=args.out.parent / \"graphical-evidence\"", cold)
@@ -157,7 +158,40 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
         spec.loader.exec_module(qemu)
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / "frame.ppm"
-            self.assertFalse(qemu.capture_disposable_graphics(Path(directory) / "absent.sock", destination))
+            result = qemu.capture_disposable_graphics(Path(directory) / "absent.sock", destination)
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["reason"], "monitor_socket_failure")
+            self.assertFalse(destination.exists())
+
+    def test_disposable_graphics_capture_reports_qemu_monitor_rejection(self):
+        import socket
+        import threading
+
+        spec = importlib.util.spec_from_file_location("qemu_hmp_diagnostic_test", BASE_RUNNER)
+        qemu = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qemu)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "monitor.sock"
+            destination = Path(directory) / "capture.ppm"
+            server = socket.socket(socket.AF_UNIX)
+            server.bind(str(path))
+            server.listen(1)
+            def reject():
+                with server.accept()[0] as client:
+                    client.sendall(b"QEMU monitor (qemu) ")
+                    data = client.recv(4096)
+                    self.assertIn(b"screendump", data)
+                    client.sendall(b"Error: no graphic device available\\n(qemu) ")
+            worker = threading.Thread(target=reject)
+            worker.start()
+            try:
+                result = qemu.capture_disposable_graphics(path, destination)
+            finally:
+                worker.join(timeout=4)
+                server.close()
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["reason"], "qemu_no_active_graphical_display")
+            self.assertNotIn("QEMU monitor", str(result))
             self.assertFalse(destination.exists())
 
     def test_final_state_is_inspected_read_only(self):

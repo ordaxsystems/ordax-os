@@ -456,24 +456,65 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
     return disk
 
 
-def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> bool:
-    """Observe the existing virtual VGA framebuffer; never execute guest commands.
+def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> dict[str, Any]:
+    """Host-only QEMU HMP screendump, with bounded, secret-free failure reasons.
 
-    This HMP screendump is a host-only read of the disposable QEMU framebuffer.
-    A missing monitor or screenshot is purely diagnostic, never proof of health.
+    Never sends commands to the guest or treats a framebuffer as Surface health.
     """
+    result: dict[str, Any] = {
+        "capture": destination.name, "status": "failed",
+        "reason": "unattempted",
+    }
     if destination.exists() or not destination.parent.is_dir():
-        return False
+        result["reason"] = "invalid_host_capture_destination"
+        return result
+
+    response = b""
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as monitor:
-            monitor.settimeout(1.0)
+            monitor.settimeout(2.0)
             monitor.connect(str(monitor_socket))
-            monitor.recv(1024)  # Normal HMP banner, no shell or guest interaction.
+            banner = monitor.recv(2048)
+            if not banner:
+                result["reason"] = "monitor_banner_missing"
+                return result
             monitor.sendall(f"screendump {destination}\n".encode("ascii"))
-            monitor.recv(2048)
-        return destination.is_file() and 32 <= destination.stat().st_size <= 16 * 1024 * 1024
-    except (OSError, UnicodeError):
-        return False
+            response = monitor.recv(2048)
+    except socket.timeout:
+        result["reason"] = "monitor_connection_or_response_timeout"
+        return result
+    except OSError as exc:
+        result["reason"] = "monitor_socket_failure"
+        result["socket_errno"] = exc.errno
+        return result
+
+    # Never persist HMP output verbatim: it may include host paths/other state.
+    if b"no graphic" in response.lower() or b"no display" in response.lower():
+        result["reason"] = "qemu_no_active_graphical_display"
+        return result
+    if b"error:" in response.lower() or b"error " in response.lower():
+        result["reason"] = "qemu_hmp_screendump_rejected"
+        return result
+    if not destination.is_file():
+        result["reason"] = "qemu_screendump_file_not_created"
+        return result
+    if destination.stat().st_size > 16 * 1024 * 1024:
+        destination.unlink()
+        result["reason"] = "qemu_screendump_exceeds_size_limit"
+        return result
+    try:
+        header = destination.open("rb").read(2)
+    except OSError:
+        result["reason"] = "qemu_screendump_unreadable"
+        return result
+    if header not in (b"P6", b"P3"):
+        destination.unlink()
+        result["reason"] = "qemu_screendump_invalid_ppm"
+        return result
+    result["status"] = "captured"
+    result["reason"] = "valid_ppm"
+    result["size_bytes"] = destination.stat().st_size
+    return result
 
 
 def boot_qemu_expected(
@@ -535,6 +576,8 @@ def boot_qemu_expected(
         "-no-reboot",
     ]
     if graphical_diagnostics_dir is not None and graphical_hardware:
+        # Diagnostic-only kernel argument, not an alternate health authority.
+        command[command.index("-append") + 1] += " ordax.qemu_health_diag=1"
         graphical_diagnostics_dir.mkdir(parents=True, exist_ok=True)
         monitor_socket = work / "graphical-readonly-monitor.sock"
         command[command.index("none", command.index("-monitor"))] = (
@@ -641,20 +684,21 @@ def boot_qemu_expected(
         deadline = time.monotonic() + (GRAPHICAL_BOOT_TIMEOUT_SECONDS if graphical_hardware else DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS)
         cage_observed_at: float | None = None
         captured_points: set[int] = set()
+        graphical_capture_results: list[dict[str, Any]] = []
         while time.monotonic() < deadline:
             text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
             if monitor_socket is not None and graphical_diagnostics_dir is not None:
                 if cage_observed_at is None and re.search(r"cage\[\d+\]", text):
                     cage_observed_at = time.monotonic()
                 if cage_observed_at is not None:
-                    for seconds in (12, 30):
+                    for seconds in (0, 12, 30):
                         if (seconds not in captured_points and
                             time.monotonic() - cage_observed_at >= seconds):
                             captured_points.add(seconds)
-                            capture_disposable_graphics(
+                            graphical_capture_results.append(capture_disposable_graphics(
                                 monitor_socket,
                                 graphical_diagnostics_dir / f"cage-plus-{seconds}s.ppm",
-                            )
+                            ))
             ready, checks = observe(text)
             if ready:
                 return finish_success(text, checks)
@@ -682,6 +726,24 @@ def boot_qemu_expected(
             f"stderr_tail={tail!r}, serial_tail={serial_tail!r})"
         )
     finally:
+        if graphical_diagnostics_dir is not None and monitor_socket is not None:
+            # This status is evidence of capture mechanics, never a health PASS.
+            # It is written even if QEMU exited before Cage appeared.
+            diagnostic = {
+                "$schema": "prototype-ordax.qemu-disposable-graphics-observation/1",
+                "qemu_monitor_socket_created": monitor_socket.exists(),
+                "cage_marker_seen": cage_observed_at is not None,
+                "captures": graphical_capture_results,
+                "guest_health_inferred": False,
+                "physical_device_touched": False,
+            }
+            try:
+                (graphical_diagnostics_dir / "capture-status.json").write_text(
+                    json.dumps(diagnostic, sort_keys=True, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            except OSError:
+                pass
         if process.poll() is None:
             process.terminate()
             try:
