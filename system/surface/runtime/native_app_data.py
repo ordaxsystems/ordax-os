@@ -529,7 +529,7 @@ def inspect_app_data_checkpoint(
 
 
 def _assert_recovery_resolved_locked(
-    bound: dict, installed_version: str, root: str, *, verify_pin_blobs: bool = False,
+    bound: dict, root: str, *, verify_pin_blobs: bool = False,
 ) -> None:
     """Require a completed trusted recovery decision under the data lock.
 
@@ -538,8 +538,6 @@ def _assert_recovery_resolved_locked(
     either old or new apps to mutate state would invalidate recovery. Only
     explicit trusted-owner retirement releases this fence.
     """
-    if not isinstance(installed_version, str) or not installed_version:
-        raise ValueError("App Data receipt version is invalid")
     checkpoint = _read_checkpoint(bound, root)
     if checkpoint is None:
         return
@@ -553,19 +551,16 @@ def _assert_recovery_resolved_locked(
     )
 
 
-def assert_app_data_install_receipt_compatible(
-    identity: object, installed_version: object, root: str = DEFAULT_APP_DATA_ROOT,
+def assert_app_data_recovery_resolved(
+    identity: object, root: str = DEFAULT_APP_DATA_ROOT,
 ) -> None:
-    """Fail closed on boot-time grants while any recovery pin is unresolved."""
+    """Refuse new app grants while any verified recovery pin is unresolved."""
     bound = _identity(identity)
     with _shared_partition_lock_if_present(bound, root) as locked:
-        if not locked:
-            if not isinstance(installed_version, str) or not installed_version:
-                raise ValueError("App Data receipt version is invalid")
-            return
-        _assert_recovery_resolved_locked(
-            bound, installed_version, root, verify_pin_blobs=True,
-        )
+        if locked:
+            _assert_recovery_resolved_locked(
+                bound, root, verify_pin_blobs=True,
+            )
 
 
 def _restore_app_data_checkpoint_locked(bound: dict, release: dict, expected: int, root: str) -> dict:
@@ -849,15 +844,15 @@ def _exclusive_partition_lock(identity: dict, root: str):
 
 def read_app_data(
     identity: object, key: object, root: str = DEFAULT_APP_DATA_ROOT,
-    *, receipt_version: str | None = None,
+    *, app_access: bool = False,
 ) -> dict:
     bound = _identity(identity)
     validated_key = _key(key)
     with _shared_partition_lock_if_present(bound, root) as locked:
         if not locked:
             return {"revision": 0, "found": False, "key": validated_key, "value": None}
-        if receipt_version is not None:
-            _assert_recovery_resolved_locked(bound, receipt_version, root)
+        if app_access:
+            _assert_recovery_resolved_locked(bound, root)
         manifest, _ = _read_manifest(bound, root)
         record = manifest["entries"].get(validated_key)
         if record is None:
@@ -876,13 +871,13 @@ def list_app_data(
     *,
     quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
     max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
-    receipt_version: str | None = None,
+    app_access: bool = False,
 ) -> dict:
     quota_bytes, max_keys = _quota(quota_bytes, max_keys)
     bound = _identity(identity)
     with _shared_partition_lock_if_present(bound, root):
-        if receipt_version is not None:
-            _assert_recovery_resolved_locked(bound, receipt_version, root)
+        if app_access:
+            _assert_recovery_resolved_locked(bound, root)
         # The manifest must be observed under the same flock as get and
         # mutations. A maintainer holding LOCK_EX must block list too.
         manifest, bytes_used = _read_manifest(bound, root)
@@ -904,7 +899,7 @@ def put_app_data(
     *,
     quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
     max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
-    receipt_version: str | None = None,
+    app_access: bool = False,
 ) -> dict:
     quota_bytes, max_keys = _quota(quota_bytes, max_keys)
     bound = _identity(identity)
@@ -912,8 +907,8 @@ def put_app_data(
     payload = _value(value)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
-        if receipt_version is not None:
-            _assert_recovery_resolved_locked(bound, receipt_version, root)
+        if app_access:
+            _assert_recovery_resolved_locked(bound, root)
         # A damaged recovery pin may never be bypassed by a new mutation.
         _read_checkpoint(bound, root)
         manifest, bytes_used = _read_manifest(bound, root)
@@ -945,15 +940,15 @@ def delete_app_data(
     *,
     quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
     max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
-    receipt_version: str | None = None,
+    app_access: bool = False,
 ) -> dict:
     _quota(quota_bytes, max_keys)
     bound = _identity(identity)
     validated_key = _key(key)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
-        if receipt_version is not None:
-            _assert_recovery_resolved_locked(bound, receipt_version, root)
+        if app_access:
+            _assert_recovery_resolved_locked(bound, root)
         # Keep the rollback horizon intact even during ordinary deletion.
         _read_checkpoint(bound, root)
         manifest, _ = _read_manifest(bound, root)
