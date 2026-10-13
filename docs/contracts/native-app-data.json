@@ -77,6 +77,10 @@
     "maintenance_mismatch_preserves_current_binding": true,
     "recovery_pending_refuses_new_capabilities_for_every_version": true,
     "recovery_pending_refuses_mixed_batch_without_partial_grants": true,
+    "capability_grant_holds_shared_partition_lock_through_registry_commit": true,
+    "batch_grant_lock_order": "canonical-partition-sha256-ascending",
+    "grant_of_absent_partition_does_not_create_storage": true,
+    "grant_lock_is_signed_activation_authority": false,
     "app_endpoint_always_checks_recovery_under_partition_lock": true,
     "preexisting_capability_cannot_bypass_later_checkpoint": true
   },

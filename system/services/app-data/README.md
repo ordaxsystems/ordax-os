@@ -160,6 +160,33 @@ e writer Go devem garantir quiescência global e verificação Ed25519
 sob transação canônica. Não há novo grant de update, tampouco rollback
 stateful permitido por esta função.
 
+## Linearização de permissões com checkpoint persistente
+
+A decisão do host que emite capabilities para uma versão autenticada usa
+**os locks compartilhados já existentes** do App Data até a gravação final
+no registro efêmero de permissões. Em lotes, a ordem de aquisição é
+estável pelo SHA-256 da identidade da partição; nenhum novo lock,
+registro de instalação ou fonte de estado é criado. A verificação
+de recuperação pendente e a emissão da capability ficam no mesmo escopo
+de locks, impedindo que um checkpoint seja confirmado entre as duas
+operações para partições já materializadas. O mutex do registro de
+permissões só é adquirido **depois** dos locks do armazenamento; o
+coordenador de manutenção continua revogando/drenando no registro
+**antes** de pedir lock exclusivo, evitando deadlock por requisições
+em andamento.
+
+Em partições nunca materializadas, a emissão não cria armazenamento:
+não há lock existente para manter. Uma criação posterior de checkpoint
+continua vedando imediatamente as operações App Data e as emissões
+seguintes pelo owner persistente. Em nenhuma hipótese o token é
+uma prova de slot assinado, de quiescência do processo ou de decisão
+de ativação stateful; o writer Go mantém esses gates bloqueados.
+
+As regressões exercitam as duas ordens de corrida real: checkpoint
+confirmado antes da aquisição dos locks (lote inteiro recusado) e
+checkpoint tentando confirmar após a aquisição (gravação bloqueada até
+a decisão de permissão, seguida por recusa de uso e novas emissões).
+
 ## Transport
 
 `native_app_data_endpoint.py` defines the typed JSON boundary, but it deliberately accepts the app identity as a trusted host argument rather than from JSON. Request bodies contain only `action`, keys, bytes and revisions.
