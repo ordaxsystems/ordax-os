@@ -33,6 +33,10 @@ type activationState struct {
 	Previous      *slotIdentity `json:"previous"`
 	Pending       *slotIdentity `json:"pending"`
 	Rejected      *slotIdentity `json:"rejected"`
+	// The canonical activation-state file retains the exact uninstall
+	// identity. Otherwise a retry could falsely acknowledge the removal
+	// of any release at the same revision after Current becomes nil.
+	Removed       *slotIdentity `json:"removed_identity,omitempty"`
 	PendingHealth string        `json:"pending_health"`
 	// Same SSOT as the current slot. A user-initiated uninstall must survive
 	// reboot and signed image refresh without a parallel Store preference DB.
@@ -81,13 +85,16 @@ func validateActivationState(value activationState, componentID string) error {
 	if value.PendingHealth != "unknown" && value.PendingHealth != "healthy" && value.PendingHealth != "failed" {
 		return errors.New("runtime component pending health is invalid")
 	}
-	for _, identity := range []*slotIdentity{value.Current, value.Previous, value.Pending, value.Rejected} {
+	for _, identity := range []*slotIdentity{value.Current, value.Previous, value.Pending, value.Rejected, value.Removed} {
 		if err := validateSlotIdentity(identity); err != nil {
 			return err
 		}
 	}
 	if value.UserRemoved && value.Current != nil {
 		return errors.New("runtime component explicitly removed cannot have a current slot")
+	}
+	if value.Removed != nil && !value.UserRemoved {
+		return errors.New("runtime component uninstall identity requires explicit removal state")
 	}
 	if value.Pending == nil && value.PendingHealth != "unknown" {
 		return errors.New("runtime component pending health exists without a pending slot")
@@ -680,7 +687,11 @@ func promotePendingStateAtRevision(
 		if state.Revision == expectedRevision+1 &&
 			state.Pending == nil &&
 			sameSlotIdentity(state.Current, &identity) {
-			// Safe idempotent retry of the exact promotion receipt.
+			// The durable transition is idempotent, but its signed
+			// current slot must still verify during this locked readback.
+			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -727,6 +738,7 @@ func promotePendingStateAtRevision(
 		state.Current = &promoted
 		// A verified, explicitly requested install becomes the new current owner.
 		state.UserRemoved = false
+		state.Removed = nil
 		state.Pending = nil
 		state.Rejected = nil
 		state.PendingHealth = "unknown"
@@ -790,7 +802,16 @@ func rollbackCurrentStateAtRevision(
 		if state.Revision == expectedRevision+1 &&
 			state.Pending == nil &&
 			sameSlotIdentity(state.Rejected, &identity) {
-			// Safe idempotent retry of the exact rollback receipt.
+			// The retained rejected slot and the now-current previous
+			// slot must both still verify under the canonical graph lock.
+			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
+			if state.Current != nil {
+				if _, _, err := verifyIdentitySlot(root, componentID, *state.Current, trustBytes); err != nil {
+					return activationState{}, err
+				}
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -876,8 +897,13 @@ func uninstallCurrentStateAtRevision(
 			state.Pending == nil &&
 			state.Rejected == nil &&
 			state.PendingHealth == "unknown" &&
-			state.UserRemoved {
-			// Safe idempotent retry after the exact uninstall transition.
+			state.UserRemoved &&
+			sameSlotIdentity(state.Removed, &identity) {
+			// A legacy tombstone lacking the removed identity cannot
+			// prove which uninstall occurred: it must fail closed.
+			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -911,12 +937,15 @@ func uninstallCurrentStateAtRevision(
 			}
 		}
 
+		removed := identity
 		state.Current = nil
 		state.Previous = nil
 		state.Pending = nil
 		state.Rejected = nil
 		state.PendingHealth = "unknown"
-		// Persist with the same atomic activation-state revision as removal.
+		// Bind every idempotent uninstall readback to the actual
+		// removed signed identity, in the same canonical SSOT state.
+		state.Removed = &removed
 		state.UserRemoved = true
 		state.Revision++
 		return state, nil
