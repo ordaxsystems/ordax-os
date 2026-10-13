@@ -17,6 +17,7 @@ export async function runNativePendingComponentProbation({
   windowRef = globalThis.window,
   fetchImpl = globalThis.fetch?.bind(globalThis),
   importModule = (url) => import(url),
+  mountContext = null,
   timeoutMs = 5_000,
 } = {}) {
   const {
@@ -29,6 +30,7 @@ export async function runNativePendingComponentProbation({
     source,
     fetchImpl,
     importModule,
+    mountContext,
     timeoutMs,
   });
 }
