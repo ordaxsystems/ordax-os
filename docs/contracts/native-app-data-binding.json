@@ -21,6 +21,21 @@
     "batch_capability_allocation_before_mutation": true,
     "duplicate_durable_identity_in_batch_rejected": true
   },
+  "host_lifetime_authority": {
+    "owner": "system/surface/runtime/native_app_data_runtime.py",
+    "single_instance": true,
+    "boot_scoped_lock": "/run/ordax-surface/native-host-instance.lock",
+    "lock_owner": "kernel-flock-exclusive-nonblocking",
+    "lock_directory_private": true,
+    "lock_inode_owner_private_and_single_link": true,
+    "lock_inode_never_unlinked_during_cleanup": true,
+    "lock_acquired_before_host_construction_and_receipt_mint": true,
+    "second_host_rejected": true,
+    "kernel_releases_on_process_exit": true,
+    "survives_surface_launcher_exit": false,
+    "supervisor_owns_per_app_quiescence": false,
+    "authorizes_stateful_activation_or_rollback": false
+  },
   "current_boot_receipt_index": {
     "schema": "ordax.verified-app-install-session/1",
     "path": "/run/ordax-surface/app-install-identities.json",
