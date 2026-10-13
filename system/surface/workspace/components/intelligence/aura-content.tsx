@@ -19,7 +19,7 @@ export function AuraContent({ initialPrompt }: Props) {
   const [result, setResult] = useState<ResultState>({ state: 'idle' });
   const activeRequest = useRef<AbortController | null>(null);
   const requestGeneration = useRef(0);
-  const consumedInitialPrompt = useRef<Props['initialPrompt']>();
+  const consumedInitialPrompt = useRef<Props['initialPrompt']>(undefined);
 
   useEffect(() => () => activeRequest.current?.abort(), []);
 
