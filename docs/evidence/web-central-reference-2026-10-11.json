@@ -906,8 +906,8 @@
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
-      "adaptedSha256": "fb4578dc5894a3199c766bb19cca5c700d75bf21e1558216e4f2a732f46ed291",
-      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette."
+      "adaptedSha256": "f7698b5389a968708fabe0844a3b3023c8c43c9571839889ee71a4cadebb7451",
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner."
     },
     {
       "target": "system/adapters/web/runtime.mjs",
