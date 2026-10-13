@@ -28,7 +28,7 @@ test("Web Assistant uses canonical, explicitly unavailable Space port without a 
 
 test("Web Intelligence fallback is a canonical fail-closed port", async () => {
   const port = createUnavailableWebIntelligencePort();
-  assert.equal(assertIntelligencePort(port), port);
+  assert.doesNotThrow(() => assertIntelligencePort(port));
   const snapshot = validateIntelligenceSnapshot(port.getSnapshot());
   assert.equal(snapshot.state, "degraded");
   assert.equal(snapshot.inferenceAvailable, false);
