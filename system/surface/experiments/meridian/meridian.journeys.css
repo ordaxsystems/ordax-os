@@ -1,7 +1,7 @@
 /* Round 2 presentation primitives. Scoped to Meridian; no production tokens. */
-[data-meridian] .md-operating-strip{display:flex;align-items:center;gap:12px;padding:12px 0 18px;margin-bottom:14px;border-bottom:1px solid var(--md-border);flex-wrap:wrap}
-[data-meridian] .md-operating-strip button{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--md-muted);font:inherit;font-size:12px;cursor:pointer;min-height:36px}
-[data-meridian] .md-operating-strip button:first-child{color:var(--md-ink);font-weight:650;margin-right:auto}
+[data-meridian] .md-operating-strip{display:flex;align-items:center;gap:8px 18px;padding:4px 0 14px;margin-bottom:20px;border-bottom:1px solid var(--md-border);flex-wrap:wrap}
+[data-meridian] .md-operating-strip button{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--md-muted);font:inherit;font-size:12px;cursor:pointer;min-height:40px}
+[data-meridian] .md-operating-strip button:first-child{color:var(--md-ink);font-weight:600;margin-right:auto}
 [data-meridian] .md-operating-dot{height:7px;width:7px;border-radius:50%;background:var(--md-sage)}
 [data-meridian] .md-dialog--journey{width:min(1000px,calc(100vw - 40px));max-width:none;inset:0;margin:auto;height:auto;max-height:92dvh}
 [data-meridian] .md-dialog--journey .md-panel-body{padding:0}

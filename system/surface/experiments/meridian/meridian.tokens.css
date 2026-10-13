@@ -38,6 +38,9 @@
   --md-focus:#296680;
   --md-shadow:0 20px 70px #252e291c;
   --md-shadow-small:0 3px 12px #252e2908;
+  --md-window-edge:color-mix(in srgb,var(--md-accent) 38%,var(--md-border));
+  --md-window-shadow:0 18px 42px color-mix(in srgb,var(--md-rail) 18%,transparent),var(--md-shadow-small);
+  --md-chrome-active:color-mix(in srgb,var(--md-surface) 75%,var(--md-accent-soft));
   --md-radius:16px;
   --md-radius-small:9px;
   --md-radius-large:24px;

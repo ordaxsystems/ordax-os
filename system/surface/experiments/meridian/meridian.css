@@ -356,7 +356,7 @@
   background:none;
   border:0;
   padding:8px 0;
-  font-size:10px!important;
+  font-size:12px!important;
   color:var(--md-muted)!important;
 }
 .md-demo-label .md-study-short { display:none }
@@ -1101,7 +1101,7 @@
   min-width:95px;
 }
 .md-taskbar-label {
-  font-size:10px;
+  font-size:12px;
   color:var(--md-muted);
 }
 .md-view-toggle {
@@ -1109,60 +1109,37 @@
   width:36px;
   height:36px;
 }
+/* One scroll surface for all widths; the shell reserves its own row. */
+.md-dock-frame {position:relative;min-width:0;width:max-content;max-width:100%;justify-self:center}
 .md-dock {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:9px;
-  padding:7px 11px;
-  background:var(--md-surface);
-  border:1px solid var(--md-border);
-  border-radius:15px;
-  box-shadow:var(--md-shadow-small);
+ display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:4px 12px;
+ background:var(--md-surface);border:1px solid var(--md-border);border-radius:14px;
+ box-shadow:var(--md-shadow-small);min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;
+ scrollbar-width:none;overscroll-behavior-x:contain;scroll-snap-type:x proximity;
+ scroll-padding-inline:12px;touch-action:pan-x
 }
+.md-dock::-webkit-scrollbar {display:none}
 .md-dock-app {
-  position:relative;
-  border:0;
-  background:transparent;
-  padding:0 2px 3px;
+ position:relative;border:0;background:transparent;display:grid;place-items:center;
+ width:44px;height:44px;flex:none;padding:0 4px 5px;scroll-snap-align:center;border-radius:10px
 }
-.md-dock-symbol {
-  display:grid;
-  place-items:center;
-  width:34px;
-  height:32px;
-  border-radius:8px;
+.md-dock-symbol {display:grid;place-items:center;width:32px;height:32px;border-radius:8px}
+.md-dock-app.is-running::after {
+ content:'';position:absolute;width:4px;height:3px;border-radius:50%;bottom:2px;
+ left:calc(50% - 2px);background:var(--md-accent)
 }
-.md-dock-app.is-running:after {
-  content:'';
-  position:absolute;
-  width:4px;
-  height:3px;
-  border-radius:50%;
-  bottom:-3px;
-  left:calc(50% - 2px);
-  background:var(--md-accent);
+.md-dock-app:hover {background:var(--md-subtle)}
+.md-dock-app:active {transform:scale(.95)}
+[data-meridian] .md-dock-app:focus-visible {outline-offset:-2px}
+.md-dock-edge {
+ position:absolute;top:6px;bottom:6px;width:16px;display:grid;place-items:center;
+ color:var(--md-muted);opacity:0;pointer-events:none;transition:opacity var(--md-duration)
 }
-.md-dock-app:hover {
-  transform:translateY(-2px);
-}
-.md-dock-tooltip {
-  position:absolute;
-  bottom:calc(100% + 17px);
-  left:50%;
-  transform:translateX(-50%);
-  padding:5px 9px;
-  background:var(--md-rail);
-  color:var(--md-rail-text);
-  border-radius:6px;
-  font-size:10px;
-  white-space:nowrap;
-  pointer-events:none;
-  opacity:0;
-}
-.md-dock-app:is(:hover,:focus-visible) .md-dock-tooltip {
-  opacity:1;
-}
+.md-dock-edge--start {left:1px;background:linear-gradient(90deg,var(--md-surface) 55%,transparent);border-radius:12px 0 0 12px}
+.md-dock-edge--start svg {transform:rotate(180deg)}
+.md-dock-edge--end {right:1px;background:linear-gradient(-90deg,var(--md-surface) 55%,transparent);border-radius:0 12px 12px 0}
+.md-dock-frame:is([data-overflow=start],[data-overflow=both]) .md-dock-edge--start,
+.md-dock-frame:is([data-overflow=end],[data-overflow=both]) .md-dock-edge--end {opacity:1}
 .md-dock-divider {
   height:24px;
   width:1px;
@@ -1466,9 +1443,6 @@
   .md-taskbar-label,.md-taskbar-end .md-system-summary {
     display:none
   }
-  .md-dock {
-    gap:8px
-  }
   .md-taskbar-end .md-focus-toggle>span {
     display:none
   }
@@ -1511,7 +1485,7 @@
     gap:6px
   }
   .md-demo-label {
-    font-size:9px!important
+    font-size:12px!important
   }
   .md-page {
     padding:25px 19px 32px
@@ -1656,27 +1630,12 @@
     padding:0 13px env(safe-area-inset-bottom,0px);
     gap:8px
   }
-  .md-dock {
-    border:0;
-    box-shadow:none;
-    background:none;
-    gap:7px;
-    padding:7px 0
-  }
+  .md-dock-frame {flex:1;width:100%;background:var(--md-surface);border-radius:14px}
+  .md-dock {border:0;box-shadow:none;padding:4px 12px}
   .md-dock .md-icon-button,.md-dock-divider {
     display:none
   }
-  .md-dock-app {
-    padding:3px
-  }
-  .md-dock-symbol {
-    width:32px;
-    height:33px
-  }
-  .md-taskbar-start .md-view-toggle {
-    width:38px;
-    height:38px
-  }
+  .md-taskbar-start .md-view-toggle {width:44px;height:44px}
   .md-focus-toggle {
     padding:5px
   }
@@ -1727,14 +1686,8 @@
   .md-project-story>.md-eyebrow {
     font-size:6px
   }
-  .md-dock {
-    gap:3px
-  }
   .md-taskbar-end {
     display:none
-  }
-  .md-dock-app {
-    padding:4px
   }
   .md-taskbar {
     justify-content:flex-start;
@@ -1836,46 +1789,14 @@
   }
 }
 
-/* An icon-only navigation rail retains immediate keyboard and pointer labels. */
-@media (min-width: 601px) and (max-width: 820px) {
-  .md-nav-item::after {
-    content: attr(aria-label);
-    position: absolute;
-    left: calc(100% + 17px);
-    top: 50%;
-    transform: translateY(-50%);
-    padding: 7px 11px;
-    border: 1px solid var(--md-rail-border);
-    border-radius: 7px;
-    background: var(--md-rail);
-    color: var(--md-rail-text);
-    font-size: 11px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    z-index: 40;
-  }
-  .md-nav-item:is(:hover,:focus-visible)::after { opacity: 1; }
+/* Pointer/keyboard guidance uses the same labels and placement for rail and dock. */
+.md-pointer-hint {
+ position:fixed;z-index:90;max-width:calc(100vw - 16px);padding:8px 12px;
+ border:1px solid var(--md-rail-border);border-radius:8px;background:var(--md-rail);
+ color:var(--md-rail-text);box-shadow:var(--md-shadow-small);font-size:12px;
+ line-height:1.5;pointer-events:none;animation:md-hint-enter var(--md-duration) ease-out
 }
-[data-meridian][data-presentation="desktop"] .md-nav-item::after {
-  content: attr(aria-label);
-  position: absolute;
-  left: calc(100% + 17px);
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 7px 11px;
-  border: 1px solid var(--md-rail-border);
-  border-radius: 7px;
-  background: var(--md-rail);
-  color: var(--md-rail-text);
-  font-size: 11px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 40;
-}
-[data-meridian][data-presentation="desktop"] .md-nav-item:is(:hover,:focus-visible)::after { opacity: 1; }
-
+@keyframes md-hint-enter {from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
 /* Overlay mount points do not participate in the shell's row sizing. */
 .md-panel-root { display: contents; }
 
@@ -1890,28 +1811,30 @@
   padding:0 20px;
 }
 [data-meridian][data-presentation="desktop"] .md-taskbar-start {min-width:0;gap:4px}
-[data-meridian][data-presentation="desktop"] .md-dock {justify-self:center;max-width:100%;min-width:0}
+.md-taskbar .md-icon-button {width:40px;height:44px}
+.md-taskbar .md-view-toggle {background:var(--md-subtle)}
+[data-meridian][data-presentation="desktop"] .md-dock-frame {justify-self:center;max-width:100%;min-width:0}
 .md-dock-app {flex:none}
 .md-dock-app.is-active .md-dock-symbol {outline:1px solid var(--md-accent);outline-offset:3px}
 .md-dock-app.is-active:after {width:12px;left:calc(50% - 6px);border-radius:3px}
 .md-dock-app.is-minimized:after {background:transparent;border:1px solid var(--md-muted);width:6px;height:3px;left:calc(50% - 3px)}
-.md-tray-system {display:flex;align-items:center;gap:12px;background:none;border:0;border-radius:9px;min-height:40px;padding:5px 8px;font-size:12px}
+.md-tray-system {display:flex;align-items:center;gap:10px;background:none;border:0;border-radius:9px;min-height:44px;padding:5px 10px;font-size:12px}
 .md-tray-battery {display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 .md-tray-time {display:grid;text-align:right;font-variant-numeric:tabular-nums}
-.md-tray-time small {font-size:10px;color:var(--md-muted)}
+.md-tray-time small {font-size:11px;color:var(--md-muted)}
 .md-tray-system:hover {background:var(--md-subtle)}
 .md-tray-notifications {position:relative}
 .md-tray-notifications.has-unread:after {content:'';position:absolute;right:7px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--md-accent)}
 [data-meridian][data-presentation="desktop"] .md-taskbar-end {display:flex}
-.md-taskbar .md-demo-label {white-space:nowrap;font-size:11px;flex:none}
-.md-dock-tooltip {font-size:12px;z-index:3}
+.md-taskbar .md-demo-label {white-space:nowrap;font-size:12px;flex:none;min-height:44px;padding:0 6px}
 .md-continuity {border-left:2px solid var(--md-accent);padding:0 0 0 14px;margin:16px 0}
 .md-continuity>div {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
 .md-continuity p {font-size:13px;line-height:1.6;margin:0;max-width:68ch}
 .md-continuity .md-button {flex:none;font-size:12px}
 .md-network-example {margin:18px 0;font-size:13px;line-height:1.6}
 .md-network-example summary {cursor:pointer;font-weight:550;padding:8px 0}
-.md-taskbar button:active {transform:translateY(1px)}
+.md-taskbar button:active {transform:scale(.96)}
+.md-tray-system:focus-visible {outline-offset:-2px}
 @media(max-width:1100px) {
  .md-tray-time,.md-tray-battery {display:none}
  [data-meridian][data-presentation="desktop"] .md-taskbar {gap:8px;padding:0 12px}
@@ -1920,18 +1843,43 @@
 @media(max-width:740px) {
  [data-meridian][data-presentation="desktop"] .md-context-intelligence,
  [data-meridian][data-presentation="desktop"] .md-tray-notifications {display:none}
- [data-meridian][data-presentation="desktop"] .md-dock {border:0;background:none;box-shadow:none;overflow-x:auto;justify-self:stretch;justify-content:flex-start;padding:8px 4px;gap:6px;scrollbar-width:none}
- [data-meridian][data-presentation="desktop"] .md-dock-tooltip {display:none}
- [data-meridian][data-presentation="desktop"] .md-taskbar .md-icon-button {width:34px;height:40px;flex:none}
+ [data-meridian][data-presentation="desktop"] .md-dock-frame {justify-self:stretch;width:100%}
+ [data-meridian][data-presentation="desktop"] .md-dock {border:0;box-shadow:none;padding:4px 12px}
+ [data-meridian][data-presentation="desktop"] .md-taskbar .md-icon-button {width:44px;height:44px;flex:none}
  .md-continuity>div {align-items:flex-start;flex-direction:column;gap:4px}
 }
 @media(max-width:400px) {
  [data-meridian][data-presentation="desktop"] .md-taskbar {gap:3px;padding:0 7px}
- [data-meridian][data-presentation="desktop"] .md-taskbar-start {gap:0}
- [data-meridian][data-presentation="desktop"] .md-taskbar .md-demo-label {padding:4px;font-size:10px;gap:4px}
- .md-tray-system {padding:4px}
+ [data-meridian][data-presentation="desktop"] .md-taskbar-start {gap:2px}
+ [data-meridian][data-presentation="desktop"] .md-taskbar-search {display:none}
+ [data-meridian][data-presentation="desktop"] .md-taskbar .md-demo-label {padding:0 4px;font-size:12px;gap:4px}
+ .md-tray-system {padding:4px;min-width:44px;justify-content:center}
 }
 
 [data-meridian][data-presentation-changed="true"] .md-main {animation:md-surface-change var(--md-duration) ease-out}
+[data-meridian][data-reduce-motion="true"] * {animation:none!important;scroll-behavior:auto!important}
 @keyframes md-surface-change {from {opacity:.85} to {opacity:1}}
 [data-meridian] .md-main:focus-visible {outline:2px solid var(--md-focus);outline-offset:-2px}
+
+.md-space-switch,.md-account {position:relative;border-radius:10px;min-height:44px}
+.md-space-switch:hover,.md-account:hover {background:var(--md-rail-selected)}
+.md-space-switch:active,.md-account:active,.md-nav-item:active {transform:scale(.98)}
+.md-nav-item.is-active {box-shadow:inset 3px 0 var(--md-art-clay)}
+.md-account small {font-size:11px}
+.md-nav-label {font-size:10px}
+.md-space-switch small {font-size:10px}
+@media (pointer:coarse) {
+ .md-taskbar .md-icon-button {width:44px;height:44px}
+ .md-sidebar-utilities .md-icon-button {width:44px;height:44px}
+}
+
+/* Low landscape rail prioritizes context; remaining destinations stay in menu/search. */
+@media(max-height:500px) and (min-width:601px) {
+ .md-sidebar,[data-meridian][data-presentation=desktop] .md-sidebar {padding:8px 12px}
+ .md-space-switch,[data-meridian][data-presentation=desktop] .md-space-switch {height:44px;padding:4px 0;margin:8px 0}
+ .md-sidebar .md-nav-label,.md-sidebar-context,.md-sidebar-utilities {display:none}
+ .md-sidebar .md-nav-item {height:44px}
+ .md-sidebar nav {gap:2px}
+ .md-sidebar nav :is([data-action="route:profiles"],[data-action="route:store"]) {display:none}
+ .md-sidebar-bottom {padding-top:10px}
+}

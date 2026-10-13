@@ -1633,7 +1633,7 @@
 }
 .md-preview-window {
   display:grid;
-  grid-template-rows:42px minmax(0,1fr);
+  grid-template-rows:44px minmax(0,1fr);
   background:var(--md-surface);
   color:var(--md-ink);
   border:1px solid var(--md-border);
@@ -1644,7 +1644,8 @@
   overflow:hidden;
   pointer-events:auto;
   position:absolute;
-  z-index:2
+  z-index:2;
+  transition:border-color var(--md-duration),box-shadow var(--md-duration)
 }
 .md-preview-window.is-expanded {
   inset:0;
@@ -1660,9 +1661,12 @@
   max-width:100%;
   max-height:100%
 }
-.md-preview-window.is-active {
-  z-index:5
-}
+.md-preview-window.is-active {z-index:5}
+.md-preview-window.is-active:is(.is-floating,.is-compact) {border-color:var(--md-window-edge);box-shadow:var(--md-window-shadow)}
+.md-preview-window[data-motion=enter]:is(.is-floating,.is-compact) {animation:md-window-enter var(--md-duration) ease-out}
+.md-preview-window[data-motion=enter].is-expanded,.md-preview-window[data-motion=resize] {animation:md-window-resize var(--md-duration) ease-out}
+@keyframes md-window-enter {from{opacity:.75;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes md-window-resize {from{opacity:.85}to{opacity:1}}
 .md-window-titlebar {
   display:flex;
   align-items:center;
@@ -1681,11 +1685,19 @@
   display:flex;
   align-items:center;
   gap:9px;
-  font-size:11px!important;
+  font-size:12px!important;
   flex:1;
   min-width:0;
   text-align:left
 }
+.md-window-title::before {content:'';height:16px;width:3px;border-radius:2px;background:transparent;flex:none}
+.is-active .md-window-title::before {background:var(--md-accent)}
+.is-active .md-window-title {font-weight:600}
+.is-active .md-window-title svg {color:var(--md-accent)}
+.md-preview-window:not(.is-active) .md-window-title {color:var(--md-muted)}
+.md-window-title {height:100%}
+.md-preview-window.is-active .md-window-titlebar {background:var(--md-chrome-active)}
+.md-window-titlebar {transition:background var(--md-duration)}
 .md-window-title span {
   overflow:hidden;
   text-overflow:ellipsis;
@@ -1698,8 +1710,8 @@
   flex-shrink:0
 }
 .md-window-controls .md-icon-button {
-  width:29px;
-  height:29px;
+  width:32px;
+  height:32px;
   border-radius:6px
 }
 .md-window-controls .md-icon-button svg {
@@ -1758,7 +1770,7 @@
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  font-size:10px;
+  font-size:12px;
   color:var(--md-muted);
   padding:0 6px
 }
@@ -1781,7 +1793,7 @@
 }
 .md-compact-selector button {
   white-space:nowrap;
-  font-size:10px;
+  font-size:12px;
   padding:4px 8px;
   border-radius:5px;
   min-height:28px
@@ -2541,19 +2553,12 @@
   .md-window-controls {
     gap:6px
   }
-  .md-window-controls .md-icon-button {
-    width:32px;
-    height:34px
-  }
-  .md-preview-window {
-    grid-template-rows:44px minmax(0,1fr)
-  }
+  .md-window-controls .md-icon-button {width:40px;height:44px}
+  .md-preview-window {grid-template-rows:52px minmax(0,1fr)}
   .md-desktop-context {
     padding:18px 16px
   }
-  .md-desktop-context>.md-button span {
-    display:none
-  }
+
   .md-desktop-shortcuts {
     left:14px;
     top:85px;
@@ -2580,7 +2585,7 @@
     min-height:0
   }
   .md-compact-heading {
-    font-size:9px;
+    font-size:12px;
     padding:0 2px
   }
   .md-compact-heading>span>svg {
@@ -2681,38 +2686,6 @@
 .md-panel-feedback.is-visible {
   display:block
 }
-.md-dock {
-  min-width:0;
-  overflow:visible
-}
-.md-dock-app {
-  flex-shrink:0
-}
-.md-dock:has(.md-dock-app:nth-child(7)) {
-  gap:4px
-}
-.md-dock:has(.md-dock-app:nth-child(7)) .md-dock-symbol {
-  width:30px
-}
-@media(max-width:760px) {
-  .md-dock {
-    overflow-x:auto;
-    overflow-y:hidden;
-    scrollbar-width:none;
-    justify-content:flex-start;
-    max-width:100%
-  }
-  .md-dock-tooltip {
-    display:none
-  }
-  .md-taskbar-start,.md-taskbar-end {
-    flex-shrink:0
-  }
-  .md-dock-app {
-    min-width:38px;
-    min-height:40px
-  }
-}
 @media(prefers-contrast:more) {
   [data-meridian] {
     --md-muted:var(--md-ink);
@@ -2737,4 +2710,48 @@
 .md-task-row.is-done>span:last-child {
   color:var(--md-muted);
   text-decoration:line-through
+}
+
+/* Small, recognizable chrome; document content keeps its own scroll surface. */
+.md-desktop-projects {gap:9px!important;text-align:left!important;border:1px solid #28382f20!important}
+.md-desktop-projects>span {display:grid;gap:1px;font-size:12px}
+.md-desktop-projects small {display:flex;align-items:center;gap:6px;font-size:11px}
+.md-desktop-context>button:first-child {min-width:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.md-context-presence {display:flex;align-items:center;gap:14px;margin:0 0 22px}
+.md-context-presence strong {display:block;font-size:15px;font-weight:550}
+.md-context-presence small {display:block;font-size:12px;color:var(--md-muted);margin-top:3px}
+.md-context-scope {border-top:1px solid var(--md-border)}
+.md-context-scope dd {text-align:right;font-size:14px}
+@media(pointer:coarse) {
+ .md-preview-window {grid-template-rows:52px minmax(0,1fr)}
+ .md-window-controls .md-icon-button {width:40px;height:44px}
+ .md-window-controls {gap:4px}
+ .md-compact-region {grid-template-rows:44px minmax(0,1fr)}
+ .md-compact-heading>.md-icon-button {width:44px;height:44px}
+ .md-compact-selector button {min-height:44px}
+ .md-compact-region.is-collapsed {height:44px;grid-template-rows:43px}
+}
+@media(max-height:500px) and (orientation:landscape) {
+ .md-compact-region {height:clamp(140px,40dvh,180px);min-height:0;padding:0 8px 6px;grid-template-rows:40px minmax(0,1fr)}
+ .md-compact-region.is-collapsed {height:40px;grid-template-rows:39px}
+ .md-compact-heading>.md-icon-button {width:40px;height:40px}
+ .md-compact-heading {font-size:12px;gap:8px}
+ .md-compact-selector {display:flex;max-width:76%}
+ .md-compact-heading>span {display:none}
+ .md-compact-selector button {min-height:40px}
+ .md-preview-window.is-compact:not([data-compact-selected=true]) {display:none}
+ .md-preview-window {grid-template-rows:44px minmax(0,1fr)}
+ .md-window-controls .md-icon-button {width:36px;height:40px}
+ .md-window-titlebar {gap:6px;padding-left:10px}
+ .md-window-controls {gap:6px}
+ .is-compact .md-note-app {min-height:100%;height:auto;gap:8px;padding:10px 14px}
+ .is-compact .md-note-app textarea {order:0;flex:none;height:112px;min-height:112px;font-size:14px;line-height:1.65;padding:0}
+ .is-compact .md-note-toolbar {order:1}
+ .is-compact .md-note-app>small {order:2}
+ .is-compact .md-window-page {padding:14px 18px}
+ .is-compact .md-window-page>h2 {font-size:22px;margin:8px 0 14px}
+ .is-compact .md-page {padding:16px 18px}
+ .is-compact .md-page-heading {margin-bottom:16px;gap:8px}
+ .md-desktop-context {padding:14px 20px}
+ .md-desktop-shortcuts {top:74px}
 }

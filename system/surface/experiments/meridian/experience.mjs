@@ -1,5 +1,6 @@
 import { newStoryboard, moveStoryboard, previousStoryboard, storyboardKey } from './journeys/navigation.mjs';
 import { journeyView, journeyFrame, lockScreen, storyboardFields } from './journeys/view.mjs';
+import { createPresentationFeedback, windowAppearance, applyWindowAppearance } from './interactions.mjs';
 import { shell } from './views/shell.mjs';
 import { central } from './views/central.mjs';
 import { explore } from './views/explore.mjs';
@@ -17,6 +18,7 @@ export function mountMeridianExperience(root,source,options={}){
  // Unsent form text belongs to this preview session and its Space/conversation.
  // It is neither Memory nor a persisted document.
  const formDrafts=new Map();
+ const feedback=createPresentationFeedback(root,life.signal);
  const draftKey=(form,field)=>JSON.stringify([root.dataset.subject,root.dataset.space,form.dataset.form,form.dataset.conversation??form.dataset.file??'',field.name,field.id]);
  function rememberForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]'))if(!field.dataset.draft)formDrafts.set(draftKey(form,field),field.value);}
  function restoreForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]')){const key=draftKey(form,field);if(!field.dataset.draft&&formDrafts.has(key))field.value=formDrafts.get(key);}}
@@ -26,6 +28,7 @@ export function mountMeridianExperience(root,source,options={}){
  if(sections.some(item=>item.id===options.route))ui.route=options.route;
  function render(resetScroll=false){
   if(destroyed)return;
+  const previousWindows=windowAppearance(root);
   rememberForms();const previousSpace=root.dataset.space;const previousSubject=root.dataset.subject;
   const data=readData();
   ui.pendingDraftCount=Object.values(ui.drafts).filter(value=>String(value).trim()).length+[...formDrafts].filter(([key,value])=>{const scope=JSON.parse(key);return scope[0]===contextSubject()&&scope[1]===String(data.activeSpace)&&value.trim();}).length;
@@ -42,6 +45,8 @@ export function mountMeridianExperience(root,source,options={}){
   if(ui.stage&&ui.currentStory){const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];root.innerHTML=journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),true);restoreForms();return;}
   const view=ui.presentation==='desktop'?desktop(data,ui):ui.route==='central'?central(data,ui):ui.route==='intelligence'?intelligence(data,ui):explore(data,ui);
   root.innerHTML=shell(data,ui,view);root.querySelector('.md-main').scrollTop=scroll;
+  if(root.dataset.presentationChanged!=='true')applyWindowAppearance(root,previousWindows);
+  feedback.refresh();
   if(ui.panel){root.querySelector('.md-panel-root').innerHTML=ui.panel.type==='journey'?currentStoryMarkup(data):panelMarkup(ui.panel,data,ui);const dialog=root.querySelector('dialog');dialog.showModal();dialog.querySelector('.md-panel-body').scrollTop=panelScroll;if(ui.panel.type==='search')dialog.querySelector('input')?.focus();}
   restoreForms();
   if(previousSubject===contextSubject()&&previousSpace===data.activeSpace&&(focusId||focusAction)){const restored=focusId?root.querySelector(`#${CSS.escape(focusId)}`):root.querySelector(`[data-action="${CSS.escape(focusAction)}"]`);if(restored&&(!ui.panel||restored.closest('dialog'))){restored.focus({preventScroll:true});if(selection){restored.value=selection.value;try{restored.setSelectionRange(selection.start,selection.end);}catch{/* Search/number inputs need no text selection restoration. */}}}}
@@ -134,6 +139,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   for(const node of root.querySelectorAll('[data-window]')){node.classList.toggle('is-active',node.dataset.window===win.id);node.dataset.compactSelected=String(node.dataset.window===ui.compactActive);}
   const chrome=document.createElement('template');chrome.innerHTML=shell(readData(),ui,'');
   for(const selector of ['.md-sidebar','.md-taskbar'])root.querySelector(selector)?.replaceWith(chrome.content.querySelector(selector));
+  feedback.refresh();
  },{signal:life.signal});
  root.addEventListener('input',event=>{const target=event.target;if(target.matches('[data-search]'))filter(target.closest('dialog')??target.closest('.md-page'));if(target.dataset.draft)ui.drafts[target.dataset.draft]=target.value;if(target.dataset.range==='brightness'){ui.brightness=Number(target.value);root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));}if(target.dataset.range==='volume')ui.volume=Number(target.value);},{signal:life.signal});
  root.addEventListener('submit',event=>{const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();const values=new FormData(form);
