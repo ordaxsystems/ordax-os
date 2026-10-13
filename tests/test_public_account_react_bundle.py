@@ -12,6 +12,7 @@ assert _spec is not None and _spec.loader is not None
 public_site = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(public_site)
 DIST = ROOT / "sites/account-ui/prebuilt"
+SOURCE = ROOT / "sites/account-ui/lovable-original"
 EXPECTED_SHA = "a9dc36520f4ab31ed7a46e1fb964c38f213fdaa2"
 
 class ReactAccountBundleTests(unittest.TestCase):
@@ -26,9 +27,25 @@ class ReactAccountBundleTests(unittest.TestCase):
         self.assertIn("/auth/logout", js)
         self.assertIn("prototype-ordax.public-identity-session/1", js)
         self.assertTrue((DIST / ".vite/manifest.json").is_file())
-        source = ROOT / "sites/account-ui/lovable-original"
-        self.assertTrue((source / "src/assets/ordax-landscape.jpg").is_file())
-        self.assertTrue((source / "src/assets/ordax-mark.png").is_file())
+        self.assertTrue((SOURCE / "src/assets/ordax-landscape.jpg").is_file())
+        self.assertTrue((SOURCE / "src/assets/ordax-mark.png").is_file())
+
+    def test_account_source_loads_only_the_official_public_i18n_runtime(self):
+        index = (SOURCE / "index.html").read_text(encoding="utf-8")
+        catalog = 'src="/i18n/catalog.js"'
+        runtime = 'src="/i18n/runtime.js"'
+        entry = 'src="/src/account-entry.tsx"'
+        self.assertIn(catalog, index)
+        self.assertIn(runtime, index)
+        self.assertIn(entry, index)
+        self.assertLess(index.index(catalog), index.index(runtime))
+        self.assertLess(index.index(runtime), index.index(entry))
+        self.assertNotIn("account-i18n", index)
+
+    def test_lovable_account_model_is_a_byte_exact_mirror_of_surface_owner(self):
+        lovable_model = SOURCE / "src/lib/account/model.ts"
+        canonical_model = ROOT / "system/surface/workspace/lib/account/model.ts"
+        self.assertEqual(lovable_model.read_bytes(), canonical_model.read_bytes())
 
     def test_lovable_bundle_stages_inside_single_canonical_public_site(self):
         with tempfile.TemporaryDirectory() as d:
@@ -43,6 +60,9 @@ class ReactAccountBundleTests(unittest.TestCase):
             self.assertRegex(html, r'/assets/account/index-[A-Za-z0-9_-]+\.js')
             self.assertIn('href="/assets/account/', html)
             self.assertNotIn('src="https://', html)
+            self.assertIn('src="/i18n/catalog.js"', html)
+            self.assertIn('src="/i18n/runtime.js"', html)
+            self.assertLess(html.index('/i18n/catalog.js'), html.index('/i18n/runtime.js'))
             copied = sorted((out / "assets/account").glob("*"))
             self.assertGreaterEqual(len(copied), 4)
             self.assertTrue(any(p.suffix == ".css" for p in copied))
