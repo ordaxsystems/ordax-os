@@ -20,7 +20,7 @@ from native_app_data import (
     MAX_APP_DATA_PARTITION_BYTES,
     MAX_APP_DATA_PARTITION_KEYS,
     validate_app_data_maintenance_request,
-    assert_app_data_recovery_resolved,
+    hold_app_data_grant_admission,
 )
 from native_app_data_endpoint import handle_app_data_request
 from native_app_install_identity import (
@@ -163,14 +163,6 @@ class NativeAppDataBindingRegistry:
             for receipt_sha256 in receipt_sha256s
         ]
 
-        # Boot/restart admission must not treat an unretired checkpoint
-        # as an authorization to run a different version of the app.
-        # Validate *all* requested identities before mutating this registry.
-        for verified in verified_receipts:
-            assert_app_data_recovery_resolved(
-                verified.app_data_identity(), root=self._app_data_root,
-            )
-
         durable_keys = []
         seen_keys = set()
         for verified in verified_receipts:
@@ -187,78 +179,93 @@ class NativeAppDataBindingRegistry:
             seen_keys.add(key)
             durable_keys.append(key)
 
+        # Do not hold the registry mutex while acquiring storage locks:
+        # admitted requests need that mutex to finish and an updater needs
+        # it to revoke/drain *before* taking its exclusive App Data lock.
+        # A fast first check preserves immediate rejection of suspension.
         with self._lock:
             if any(key in self._suspended for key in durable_keys):
                 raise NativeAppDataBindingError("Native App Data binding is suspended for maintenance")
-            # A replacement receipt may not grant the next version access
-            # while an older version still has admitted App Data requests.
-            # Fail the entire batch before planning any new capability.
-            for key, verified in zip(durable_keys, verified_receipts, strict=True):
-                endpoint = self._endpoint_by_identity.get(key)
-                prior = self._by_endpoint.get(endpoint) if endpoint is not None else None
-                if (prior is not None and prior.receipt_sha256 != verified.receipt_sha256
-                        and self._inflight.get(key, 0)):
-                    raise NativeAppDataBindingError(
-                        "Native App Data receipt rotation requires drained requests"
+
+        # All partitions keep their shared recovery locks through the exact
+        # in-memory registry commit, preventing check-then-mint races.
+        # sorted lock ordering is owned by App Data, not another registry.
+        with hold_app_data_grant_admission(
+            [verified.app_data_identity() for verified in verified_receipts],
+            root=self._app_data_root,
+        ):
+            with self._lock:
+                if any(key in self._suspended for key in durable_keys):
+                    raise NativeAppDataBindingError("Native App Data binding is suspended for maintenance")
+                # A replacement receipt may not grant the next version access
+                # while an older version still has admitted App Data requests.
+                # Fail the entire batch before planning any new capability.
+                for key, verified in zip(durable_keys, verified_receipts, strict=True):
+                    endpoint = self._endpoint_by_identity.get(key)
+                    prior = self._by_endpoint.get(endpoint) if endpoint is not None else None
+                    if (prior is not None and prior.receipt_sha256 != verified.receipt_sha256
+                            and self._inflight.get(key, 0)):
+                        raise NativeAppDataBindingError(
+                            "Native App Data receipt rotation requires drained requests"
+                        )
+                existing_by_key: dict[tuple[str, str, str], NativeAppDataBinding | None] = {}
+                new_identity_count = 0
+                for key in durable_keys:
+                    previous_endpoint = self._endpoint_by_identity.get(key)
+                    if previous_endpoint is None:
+                        existing_by_key[key] = None
+                        new_identity_count += 1
+                        continue
+                    previous = self._by_endpoint.get(previous_endpoint)
+                    if previous is None:
+                        raise NativeAppDataBindingError(
+                            "Native App Data registry identity index is inconsistent"
+                        )
+                    existing_by_key[key] = previous
+
+                if len(self._by_endpoint) + new_identity_count > self._max_bindings:
+                    raise NativeAppDataBindingCapacityError(
+                        "Native App Data binding capacity exhausted"
                     )
-            existing_by_key: dict[tuple[str, str, str], NativeAppDataBinding | None] = {}
-            new_identity_count = 0
-            for key in durable_keys:
-                previous_endpoint = self._endpoint_by_identity.get(key)
-                if previous_endpoint is None:
-                    existing_by_key[key] = None
-                    new_identity_count += 1
-                    continue
-                previous = self._by_endpoint.get(previous_endpoint)
-                if previous is None:
-                    raise NativeAppDataBindingError(
-                        "Native App Data registry identity index is inconsistent"
+
+                # Plan the entire batch, including capability allocation, before
+                # mutating either registry map. Capacity or entropy failure therefore
+                # cannot leave a partially authorized set of apps.
+                reserved_endpoints: set[str] = set()
+                planned: list[tuple[tuple[str, str, str], NativeAppDataBinding, str | None]] = []
+                results: list[NativeAppDataBinding] = []
+                for key, verified in zip(durable_keys, verified_receipts, strict=True):
+                    previous = existing_by_key[key]
+                    if previous is not None and previous.receipt_sha256 == verified.receipt_sha256:
+                        planned.append((key, previous, None))
+                        results.append(previous)
+                        continue
+
+                    identity = verified.app_data_identity()
+                    capability = self._new_capability_locked(reserved_endpoints)
+                    quota_bytes, max_keys = _storage_limits_for_verified_identity(identity)
+                    binding = NativeAppDataBinding(
+                        capability=capability,
+                        receipt_sha256=verified.receipt_sha256,
+                        publisher_id=identity["publisherId"],
+                        app_id=identity["appId"],
+                        owner_scope=identity["ownerScope"],
+                        quota_bytes=quota_bytes,
+                        max_keys=max_keys,
                     )
-                existing_by_key[key] = previous
+                    reserved_endpoints.add(binding.endpoint)
+                    planned.append((key, binding, previous.endpoint if previous is not None else None))
+                    results.append(binding)
 
-            if len(self._by_endpoint) + new_identity_count > self._max_bindings:
-                raise NativeAppDataBindingCapacityError(
-                    "Native App Data binding capacity exhausted"
-                )
+                for key, binding, replaced_endpoint in planned:
+                    if replaced_endpoint is None and self._by_endpoint.get(binding.endpoint) is binding:
+                        continue
+                    if replaced_endpoint is not None:
+                        self._by_endpoint.pop(replaced_endpoint, None)
+                    self._by_endpoint[binding.endpoint] = binding
+                    self._endpoint_by_identity[key] = binding.endpoint
 
-            # Plan the entire batch, including capability allocation, before
-            # mutating either registry map. Capacity or entropy failure therefore
-            # cannot leave a partially authorized set of apps.
-            reserved_endpoints: set[str] = set()
-            planned: list[tuple[tuple[str, str, str], NativeAppDataBinding, str | None]] = []
-            results: list[NativeAppDataBinding] = []
-            for key, verified in zip(durable_keys, verified_receipts, strict=True):
-                previous = existing_by_key[key]
-                if previous is not None and previous.receipt_sha256 == verified.receipt_sha256:
-                    planned.append((key, previous, None))
-                    results.append(previous)
-                    continue
-
-                identity = verified.app_data_identity()
-                capability = self._new_capability_locked(reserved_endpoints)
-                quota_bytes, max_keys = _storage_limits_for_verified_identity(identity)
-                binding = NativeAppDataBinding(
-                    capability=capability,
-                    receipt_sha256=verified.receipt_sha256,
-                    publisher_id=identity["publisherId"],
-                    app_id=identity["appId"],
-                    owner_scope=identity["ownerScope"],
-                    quota_bytes=quota_bytes,
-                    max_keys=max_keys,
-                )
-                reserved_endpoints.add(binding.endpoint)
-                planned.append((key, binding, previous.endpoint if previous is not None else None))
-                results.append(binding)
-
-            for key, binding, replaced_endpoint in planned:
-                if replaced_endpoint is None and self._by_endpoint.get(binding.endpoint) is binding:
-                    continue
-                if replaced_endpoint is not None:
-                    self._by_endpoint.pop(replaced_endpoint, None)
-                self._by_endpoint[binding.endpoint] = binding
-                self._endpoint_by_identity[key] = binding.endpoint
-
-            return tuple(results)
+                return tuple(results)
 
     def mint_from_receipt(self, receipt_sha256: str) -> NativeAppDataBinding:
         return self.mint_many_from_receipts([receipt_sha256])[0]
