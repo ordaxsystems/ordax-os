@@ -60,6 +60,15 @@ try {
       await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
       await sleep(100);
     }
+    async function chooseColorTheme(theme) {
+      // Use the real shared Settings application and its accessible buttons.
+      // Never write preference storage or DOM theme attributes from the proof.
+      const selector='[aria-label="Janela Configurações"] [data-color-theme='+JSON.stringify(theme)+']';
+      await until("([...document.querySelectorAll("+JSON.stringify(selector)+")].some(n=>n.getClientRects().length>0))");
+      await click(selector);
+      await until("document.documentElement.dataset.theme==="+JSON.stringify(theme));
+      await until("document.querySelector("+JSON.stringify(selector)+")?.getAttribute('aria-pressed')==='true'");
+    }
     async function clickByText(selector,text){
       // Radix popup items are mounted asynchronously after the pointer event.
       // Observe their actual visible state instead of relying on a fixed delay.
@@ -95,6 +104,7 @@ try {
       assert.equal(moreVisible,true,'Short-height sidebar must expose a reachable overflow launcher');
       await click(more);
       await clickByText('.desktop-menu-apps button',title);
+      await until("!document.querySelector('.desktop-start-menu')");
     }
     const results=[];
     for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
@@ -109,13 +119,21 @@ try {
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
-      await click('[aria-label="Ajustes do espaço"]'); await click('.desktop-settings-row button');
-      await until("document.documentElement.dataset.theme==='dark'");
+      assert.equal(await evaluate("document.documentElement.dataset.theme"),'light','Clean profile starts with official light palette');
+      await openSidebarDestination('Ajustes');
+      await chooseColorTheme('dark');
       assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),before);
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("document.documentElement.dataset.theme==='dark'");
-      await click('[aria-label="Ajustes do espaço"]'); await click('.desktop-settings-row button');
-      await until("document.documentElement.dataset.theme==='light'");
+      await openSidebarDestination('Ajustes');
+      await until("document.querySelector('[aria-label=\"Janela Configurações\"] [data-color-theme=\"dark\"]')?.getAttribute('aria-pressed')==='true'");
+      await chooseColorTheme('native');
+      assert.equal(await evaluate("document.documentElement.dataset.ordaxTheme"),'dark','USB palette remains a dark accessible color scheme');
+      assert.equal(await evaluate("document.documentElement.dataset.ordaxPalette"),'native','USB palette is the canonical native palette, not a fourth app theme');
+      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await until("document.documentElement.dataset.theme==='native'");
+      await openSidebarDestination('Ajustes');
+      await chooseColorTheme('light');
       await click('[aria-label="Fechar Configurações"]');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
