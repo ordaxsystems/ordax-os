@@ -3455,6 +3455,13 @@ class NativeHostServer(ThreadingHTTPServer):
 class NativeHostHandler(SimpleHTTPRequestHandler):
     server_version = "OrdaXNativeHost/1"
 
+    def guess_type(self, path: str) -> str:
+        # ES module MIME must not depend on Alpine/Python's optional mime.types.
+        # The canonical HTTP handler already enforces request origin and paths.
+        if path.lower().endswith((".mjs", ".js")):
+            return "text/javascript"
+        return super().guess_type(path)
+
     def parse_request(self) -> bool:
         if not super().parse_request():
             return False
