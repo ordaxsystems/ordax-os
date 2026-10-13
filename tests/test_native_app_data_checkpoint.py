@@ -490,6 +490,13 @@ class NativeAppDataCheckpointTests(unittest.TestCase):
             os.chmod(old_blob, 0o600)
             with self.assertRaisesRegex(ValueError, "blob integrity"):
                 app_data.restore_app_data_checkpoint(identity(), RELEASE, 2, str(root))
+            # Retirement must not erase the only recovery metadata just
+            # because the active manifest happens to remain readable.
+            with self.assertRaisesRegex(ValueError, "blob integrity"):
+                app_data.retire_app_data_checkpoint(identity(), RELEASE, 2, str(root))
+            self.assertTrue(
+                (only_partition(root) / app_data.APP_DATA_CHECKPOINT_NAME).exists()
+            )
             self.assertEqual(app_data.read_app_data(identity(), "key", str(root))["value"], b"new")
             self.assertEqual(app_data.list_app_data(identity(), str(root))["revision"], 2)
 
@@ -769,6 +776,33 @@ print("RECOVERED", flush=True)
             with app_data.hold_app_data_maintenance(identity(), RELEASE, 2, str(root)) as held:
                 self.assertTrue(held.retire(2)["retired"])
             self.assertFalse(pin.exists())
+
+    def test_retirement_never_discards_pin_with_corrupt_live_generation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "app-data"
+            app_data.put_app_data(identity(), "key", b"old", 0, str(root))
+            app_data.create_app_data_checkpoint(identity(), RELEASE, 1, str(root))
+            app_data.put_app_data(identity(), "key", b"new", 1, str(root))
+            current_blob = blob(root, b"new")
+            current_blob.write_bytes(b"corrupted current")
+            os.chmod(current_blob, 0o600)
+
+            pin_path = only_partition(root) / app_data.APP_DATA_CHECKPOINT_NAME
+            original_pin = pin_path.read_bytes()
+            with self.assertRaisesRegex(ValueError, "blob integrity"):
+                app_data.retire_app_data_checkpoint(identity(), RELEASE, 2, str(root))
+            self.assertEqual(pin_path.read_bytes(), original_pin)
+            self.assertTrue(blob(root, b"old").exists())
+
+            # The preserved generation remains restorable after the
+            # interrupted/corrupt current has been detected.
+            recovered = app_data.restore_app_data_checkpoint(
+                identity(), RELEASE, 2, str(root),
+            )
+            self.assertEqual(recovered["revision"], 3)
+            self.assertEqual(app_data.read_app_data(
+                identity(), "key", str(root),
+            )["value"], b"old")
 
     def test_explicit_retirement_releases_pin_and_garbage_collects_only_orphans(self):
         with tempfile.TemporaryDirectory() as temporary:
