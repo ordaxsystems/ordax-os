@@ -38,6 +38,10 @@ _KEY_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 _DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
+class AppDataReceiptVersionConflictError(ValueError):
+    """Running app receipt cannot access data pinned for a different release."""
+
+
 class AppDataConflictError(ValueError):
     def __init__(self, expected_revision: int, actual_revision: int) -> None:
         super().__init__(f"App Data revision conflict: expected {expected_revision}, actual {actual_revision}")
@@ -524,32 +528,43 @@ def inspect_app_data_checkpoint(
         }
 
 
+def _assert_receipt_version_locked(
+    bound: dict, installed_version: str, root: str, *, verify_pin_blobs: bool = False,
+) -> None:
+    """Check the receipt against the durable pin while holding the data lock.
+
+    Admission-only verification cannot protect a capability minted before
+    maintenance pins a different release. This is not signed slot authority.
+    """
+    if not isinstance(installed_version, str) or not installed_version:
+        raise ValueError("App Data receipt version is invalid")
+    checkpoint = _read_checkpoint(bound, root)
+    if checkpoint is None:
+        return
+    current, _ = _read_manifest(bound, root)
+    if checkpoint["manifest"]["revision"] > current["revision"]:
+        raise ValueError("App Data retained checkpoint revision is ahead of current state")
+    if verify_pin_blobs:
+        _verify_checkpoint_blobs(root, checkpoint)
+    if checkpoint["sourceRelease"]["version"] != installed_version:
+        raise AppDataReceiptVersionConflictError(
+            "App Data retained checkpoint requires trusted recovery before another version can access it"
+        )
+
+
 def assert_app_data_install_receipt_compatible(
     identity: object, installed_version: object, root: str = DEFAULT_APP_DATA_ROOT,
 ) -> None:
-    """Fail closed on boot-time grants while another version owns a recovery pin.
-
-    A pin already belongs to the canonical App Data owner: do not invent a
-    separate installed-version registry. This only checks conservative version
-    correlation, NOT sourceCommit, Ed25519 or authorization to roll back.
-    """
+    """Fail closed on boot-time grants while another version owns a recovery pin."""
     bound = _identity(identity)
-    if not isinstance(installed_version, str) or not installed_version:
-        raise ValueError("App Data receipt version is invalid")
     with _shared_partition_lock_if_present(bound, root) as locked:
         if not locked:
+            if not isinstance(installed_version, str) or not installed_version:
+                raise ValueError("App Data receipt version is invalid")
             return
-        current, _ = _read_manifest(bound, root)
-        checkpoint = _read_checkpoint(bound, root)
-        if checkpoint is None:
-            return
-        if checkpoint["manifest"]["revision"] > current["revision"]:
-            raise ValueError("App Data retained checkpoint revision is ahead of current state")
-        _verify_checkpoint_blobs(root, checkpoint)
-        if checkpoint["sourceRelease"]["version"] != installed_version:
-            raise ValueError(
-                "App Data retained checkpoint requires trusted recovery before binding another version"
-            )
+        _assert_receipt_version_locked(
+            bound, installed_version, root, verify_pin_blobs=True,
+        )
 
 
 def _restore_app_data_checkpoint_locked(bound: dict, release: dict, expected: int, root: str) -> dict:
@@ -820,12 +835,17 @@ def _exclusive_partition_lock(identity: dict, root: str):
             os.close(descriptor)
 
 
-def read_app_data(identity: object, key: object, root: str = DEFAULT_APP_DATA_ROOT) -> dict:
+def read_app_data(
+    identity: object, key: object, root: str = DEFAULT_APP_DATA_ROOT,
+    *, receipt_version: str | None = None,
+) -> dict:
     bound = _identity(identity)
     validated_key = _key(key)
     with _shared_partition_lock_if_present(bound, root) as locked:
         if not locked:
             return {"revision": 0, "found": False, "key": validated_key, "value": None}
+        if receipt_version is not None:
+            _assert_receipt_version_locked(bound, receipt_version, root)
         manifest, _ = _read_manifest(bound, root)
         record = manifest["entries"].get(validated_key)
         if record is None:
@@ -844,10 +864,13 @@ def list_app_data(
     *,
     quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
     max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
+    receipt_version: str | None = None,
 ) -> dict:
     quota_bytes, max_keys = _quota(quota_bytes, max_keys)
     bound = _identity(identity)
     with _shared_partition_lock_if_present(bound, root):
+        if receipt_version is not None:
+            _assert_receipt_version_locked(bound, receipt_version, root)
         # The manifest must be observed under the same flock as get and
         # mutations. A maintainer holding LOCK_EX must block list too.
         manifest, bytes_used = _read_manifest(bound, root)
@@ -869,6 +892,7 @@ def put_app_data(
     *,
     quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
     max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
+    receipt_version: str | None = None,
 ) -> dict:
     quota_bytes, max_keys = _quota(quota_bytes, max_keys)
     bound = _identity(identity)
@@ -876,6 +900,8 @@ def put_app_data(
     payload = _value(value)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
+        if receipt_version is not None:
+            _assert_receipt_version_locked(bound, receipt_version, root)
         # A damaged recovery pin may never be bypassed by a new mutation.
         _read_checkpoint(bound, root)
         manifest, bytes_used = _read_manifest(bound, root)
@@ -907,12 +933,15 @@ def delete_app_data(
     *,
     quota_bytes: int = DEFAULT_APP_DATA_QUOTA_BYTES,
     max_keys: int = DEFAULT_APP_DATA_MAX_KEYS,
+    receipt_version: str | None = None,
 ) -> dict:
     _quota(quota_bytes, max_keys)
     bound = _identity(identity)
     validated_key = _key(key)
     expected = _revision(expected_revision)
     with _exclusive_partition_lock(bound, root):
+        if receipt_version is not None:
+            _assert_receipt_version_locked(bound, receipt_version, root)
         # Keep the rollback horizon intact even during ordinary deletion.
         _read_checkpoint(bound, root)
         manifest, _ = _read_manifest(bound, root)
