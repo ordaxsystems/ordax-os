@@ -102,7 +102,7 @@ class NativeAppDataHostServer(NativeHostServer):
         never authorizes a new component version or exposes HTTP commands.
         """
         with self.app_data_bindings.suspend_verified_receipt_for_maintenance(
-            receipt_sha256
+            receipt_sha256, expected_source_release=source_release,
         ) as binding:
             with hold_app_data_maintenance(
                 binding.app_data_identity(),
