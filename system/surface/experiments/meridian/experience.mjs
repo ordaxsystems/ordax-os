@@ -6,7 +6,7 @@ import { explore } from './views/explore.mjs';
 import { intelligence } from './views/intelligence.mjs';
 import { desktop } from './views/desktop.mjs';
 import { panelMarkup } from './views/panels.mjs';
-import { sections } from './catalog.mjs';
+import { sections, windowTarget } from './catalog.mjs';
 import { presentationDestination } from '../../workspace/presentation.mjs';
 /** Mount an explicitly opted-in visual study. source is a presentation-only
  * source, never a Runtime/Identity/Memory/Action Gateway port. No persistence,
@@ -58,9 +58,9 @@ export function mountMeridianExperience(root,source,options={}){
   const routes={account:'identity',login:'identity',signup:'identity',store:'store',profile:'profile',space:'space',pair:'device',device:'device',proposal:'intelligence','new-space':'space'};
   if(routes[type]){openJourney(routes[type],id||(type==='pair'?'phone':type==='new-space'?readData().activeSpace:''),type==='new-space'?'create':type==='login'?'sign-in':type==='signup'?'sign-up':type==='account'?'overview':null);return;}
 if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(focused)?{id:focused.id,action:focused.dataset.action}:null;}ui.panel={type,id,...more};render();}
- function navigate(route){clearTimeout(storyTimer);ui.currentStory=null;ui.stage=false;if(!sections.some(item=>item.id===route))return;ui.route=route;ui.presentation='central';ui.panel=null;render(true);root.querySelector('.md-main')?.focus({preventScroll:true});}
- function ask(prompt){invalidateStoryContext('intelligence');ui.currentStory=null;ui.stage=false;ui.prompt=String(prompt).trim().slice(0,1000);ui.route='intelligence';ui.presentation='central';ui.panel=null;render(true);}
- function openApp(id,fileId){if(!readData().activeSpace){openPanel('spaces');return;}const app=readData().apps.find(item=>item.id===id);if(!app)return;clearTimeout(storyTimer);ui.currentStory=null;ui.stage=false;let win=ui.windows.find(item=>item.id===id);if(win){win.minimized=false;if(fileId)win.fileId=fileId;}else{win={id,title:app.name,fileId,mode:'expanded',minimized:false,x:24,y:24};ui.windows.push(win);}ui.windows=ui.windows.filter(item=>item.id!==id).concat(win);ui.activeWindow=id;if(win.mode==='compact'){ui.compactActive=id;ui.compactCollapsed=false;}ui.presentation='desktop';ui.panel=null;render();}
+ function navigate(route){if(ui.presentation==='desktop'&&route!=='central'){if(sections.some(item=>item.id===route))openApp(['files','intelligence'].includes(route)?route:'section:'+route);return;}clearTimeout(storyTimer);ui.currentStory=null;ui.stage=false;if(!sections.some(item=>item.id===route))return;ui.route=route;ui.presentation='central';ui.panel=null;render(true);root.querySelector('.md-main')?.focus({preventScroll:true});}
+ function ask(prompt){invalidateStoryContext('intelligence');ui.currentStory=null;ui.stage=false;ui.prompt=String(prompt).trim().slice(0,1000);if(ui.presentation==='desktop'){openApp('intelligence');return;}ui.route='intelligence';ui.presentation='central';ui.panel=null;render(true);}
+ function openApp(id,fileId){if(!readData().activeSpace&&!id.startsWith('section:')){openPanel('spaces');return;}const app=windowTarget(readData(),id);if(!app)return;clearTimeout(storyTimer);ui.currentStory=null;ui.stage=false;let win=ui.windows.find(item=>item.id===id);if(win){win.minimized=false;if(fileId)win.fileId=fileId;}else{win={id,title:app.name,route:app.route,fileId,mode:'expanded',minimized:false,x:24,y:24};ui.windows.push(win);}ui.windows=ui.windows.filter(item=>item.id!==id).concat(win);ui.activeWindow=id;if(win.mode==='compact'){ui.compactActive=id;ui.compactCollapsed=false;}ui.presentation='desktop';ui.panel=null;render();}
  function windowAction(action,id){const win=ui.windows.find(item=>item.id===id);if(!win)return;
   if(action==='window-close')ui.windows=ui.windows.filter(item=>item!==win);
   if(action==='window-minimize')win.minimized=true;

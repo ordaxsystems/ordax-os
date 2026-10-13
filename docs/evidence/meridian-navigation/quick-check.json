@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "Desktop sidebar has no Central shortcut",
+    "Desktop opens spaces as a window",
+    "Desktop opens apps as a window",
+    "Desktop opens profiles as a window",
+    "Desktop opens devices as a window",
+    "Desktop opens store as a window",
+    "Desktop opens activity as a window",
+    "Desktop opens settings as a window",
+    "Repeated navigation reuses existing window",
+    "Taskbar restores destination window",
+    "Navigation preserves compact companion",
+    "Intelligence request stays in Desktop",
+    "Central remains reachable by bottom switch",
+    "Central nav also has no duplicate shortcut",
+    "Central keeps devices as a page",
+    "Central keeps apps as a page",
+    "Central keeps settings as a page",
+    "Dock restores Desktop section from Central",
+    "Navigation preserved original draft",
+    "Mobile menu keeps Desktop presentation"
+  ],
+  "uncaughtErrors": [],
+  "scope": "Focused context-sensitive navigation follow-up; not independent audit."
+}

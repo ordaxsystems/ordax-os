@@ -147,3 +147,10 @@ node tools/meridian-preview/round3-smoke.mjs
 Output defaults to `out/meridian-round3`. Uses disposable Chromium and leaves the
 host running. Does not replace independent audit. Round 2 fixes and old runners
 remain unchanged. Main is untouched; Meridian is not ready for merge.
+
+### Presentation-aware navigation follow-up
+
+Sidebar destinations stay in the current presentation: pages in Central, existing
+preview windows in Desktop. Section content is reused, not copied. The duplicate
+Central sidebar entry is removed. See [focused navigation evidence](../../docs/evidence/meridian-navigation/README.md).
+Run `node tools/meridian-preview/navigation-smoke.mjs` against the active 4203 host.

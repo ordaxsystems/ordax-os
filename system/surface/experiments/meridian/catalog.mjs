@@ -22,3 +22,12 @@ export const sceneOptions = Object.freeze([
  {id:'loading',label:'Carregando',description:'Estrutura preservada enquanto os dados chegam.'},
  {id:'error',label:'Serviço indisponível',description:'Recuperação com contexto local preservado.'},
 ]);
+
+// One metadata source for app windows and Surface destinations in the preview.
+export function windowTarget(data,id){
+ const app=data.apps.find(item=>item.id===id);
+ if(app)return {...app,route:id==='intelligence'?'intelligence':undefined};
+ if(!id.startsWith('section:'))return null;
+ const section=sections.find(item=>item.id===id.slice(8)&&item.id!=='central');
+ return section?{id,name:section.label,icon:section.icon,tone:'slate',route:section.id}:null;
+}

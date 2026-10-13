@@ -1,3 +1,4 @@
+import { windowTarget } from '../catalog.mjs';
 import { unreadNotificationCount } from './operations.mjs';
 import { currentContext } from '../context.mjs';
 import { icon, iconButton, esc } from '../ui.mjs';
@@ -9,7 +10,7 @@ export function taskbar(data,ui){
  const isDesktop=ui.presentation==='desktop';
  const {space}=currentContext(data);
  const pinned=space.featuredApps??data.apps.slice(0,5).map(app=>app.id);
- const dockApps=[...new Set([...pinned,...ui.windows.map(win=>win.id)])].map(id=>data.apps.find(app=>app.id===id)).filter(Boolean);
+ const dockApps=[...new Set([...pinned,...ui.windows.map(win=>win.id)])].map(id=>windowTarget(data,id)).filter(Boolean);
  const battery=data.devices.find(item=>item.id==='computer')?.battery;
  const destination=presentationDestination(ui.presentation);
  const unread=unreadNotificationCount(data,ui);
