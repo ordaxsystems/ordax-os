@@ -618,7 +618,18 @@ def _retire_app_data_checkpoint_locked(bound: dict, release: dict, expected: int
     checkpoint = _read_checkpoint(bound, root)
     if checkpoint is None or checkpoint["sourceRelease"] != release:
         raise ValueError("App Data verified checkpoint for source release is unavailable")
-    partition, _, _, _ = _ensure_partition_directories(root, bound)
+    if checkpoint["manifest"]["revision"] > current["revision"]:
+        raise ValueError("App Data checkpoint revision exceeds current generation")
+    # Retirement is irreversible for this recovery horizon. Verify both
+    # generations under the existing exclusive writer lock BEFORE unlink.
+    # A corrupt live or pinned blob must not cause the only rollback pin to
+    # be discarded or its referenced bytes to be garbage-collected.
+    partition, _, _, blobs = _existing_partition_paths(root, bound)
+    if not _validate_private_directory(blobs, "App Data blob directory"):
+        raise ValueError("App Data blob directory is unavailable")
+    for record in current["entries"].values():
+        _verify_blob(blobs, record)
+    _verify_checkpoint_blobs(root, checkpoint)
     os.unlink(os.path.join(partition, APP_DATA_CHECKPOINT_NAME))
     descriptor = os.open(
         partition, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
