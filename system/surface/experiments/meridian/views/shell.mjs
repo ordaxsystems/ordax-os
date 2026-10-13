@@ -1,10 +1,11 @@
+import { currentContext } from '../context.mjs';
 import { sections, findSection } from '../catalog.mjs';
 import { icon, iconButton, avatar, esc } from '../ui.mjs';
 import { presentationDestination } from '../../../workspace/presentation.mjs';
 const brand = new URL('../../../ui/brand/ordax-symbol.png',import.meta.url).href;
 function navItem(item,active){return `<button class="md-nav-item ${active===item.id?'is-active':''}" type="button" data-action="route:${item.id}" ${active===item.id?'aria-current="page"':''} title="${esc(item.label)}" aria-label="${esc(item.label)}">${icon(item.icon)}<span>${esc(item.label)}</span>${active===item.id?'<i aria-hidden="true"></i>':''}</button>`;}
 export function shell(data,ui,content){
- const space=data.spaces.find(item=>item.id===data.activeSpace)??data.spaces[0];
+ const {space}=currentContext(data);
  const dockApps=data.apps.filter((app,index)=>index<5||ui.windows.some(win=>win.id===app.id));
  const battery=data.devices.find(item=>item.id==='computer')?.battery??0;
  const guest=data.scenario==='guest';

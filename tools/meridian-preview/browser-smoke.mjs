@@ -107,8 +107,10 @@ try {
       await key('Escape','Escape');
       await viewport(1440,900);
       await action('panel:spaces'); await action('select-space:personal');
+      await action('story-next'); await click('.md-journey-consent input'); await action('story-next'); await action('story-finish');
       check('Unsent text is isolated by Space',await evaluate('document.querySelector("#md-central-prompt").value===""'));
       await action('panel:spaces'); await action('select-space:studio');
+      await action('story-next'); await click('.md-journey-consent input'); await action('story-next'); await action('story-finish');
       check('Returning to Space restores its draft',await evaluate('document.querySelector("#md-central-prompt").value==="Rascunho ainda não enviado"'));
       await click('[data-form="ask"] button[type="submit"]');
       check('Submitted prompt appears as text',await evaluate('document.querySelector(".md-request p").textContent==="Rascunho ainda não enviado"'));

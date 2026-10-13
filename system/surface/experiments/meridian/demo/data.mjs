@@ -40,7 +40,7 @@ export const demoData = {
   {id:'3d',name:'Impressão 3D',group:'Fabricação',icon:'cube',tone:'blue',description:'Da modelagem à fila de produção, com contexto do material.',modules:['Editor 3D','Produção','Materiais'],members:'Rede de fabricação'},
   {id:'business',name:'Empresas',group:'Negócios',icon:'briefcase',tone:'slate',description:'Pessoas, operações e decisões que compartilham contexto.',modules:['Equipes','Operações','Documentos'],members:'Networking empresarial'},
   {id:'pizza',name:'Pizzaria',group:'Alimentação',icon:'store',tone:'amber',description:'Pedidos, produção e atendimento em um fluxo contínuo.',modules:['Pedidos','Cozinha','Atendimento'],members:'Comunidade de gastronomia'},
-  {id:'law',name:'Advocacia',group:'Serviços',icon:'book',tone:'sage',description:'Casos, prazos e documentos com atenção à privacidade.',modules:['Casos','Agenda','Documentos'],members:'Rede profissional'},
+  {id:'law',name:'Advocacia · conceito',group:'Serviços',icon:'book',tone:'sage',description:'Proposta Legal BR. Não há pack pronto ou instalável comprovado neste estudo.',modules:['Casos','Agenda','Documentos'],members:'Rede profissional'},
   {id:'education',name:'Educação',group:'Conhecimento',icon:'book',tone:'rose',description:'Espaços para aprender, criar e compartilhar conhecimento.',modules:['Turmas','Biblioteca','Encontros'],members:'Comunidade de educadores'},
  ],
  store:[
@@ -54,15 +54,15 @@ export const demoData = {
   {id:'studio-kit',name:'Kit de criação',kind:'Recursos',icon:'folder',tone:'sage',description:'Um ponto de partida, sem página em branco.',detail:'Modelos de documentos e roteiros para criação.',permissions:[]},
  ],
  activity:[
-  {id:'a1',title:'Atlas está pronto para continuar',detail:'3 documentos, 2 aplicativos e suas referências reunidos.',time:'Há 12 min',icon:'folder',tone:'clay',action:'project:atlas'},
-  {id:'a2',title:'Um resumo para sua próxima reunião',detail:'Intelligence · proposta para revisão',time:'Há 25 min',icon:'aura',tone:'sage',action:'ask:Prepare minha próxima reunião'},
-  {id:'a3',title:'Referência adicionada ao Estúdio',detail:'Painel de formas · por Rafael',time:'Ontem',icon:'file',tone:'blue',action:'file:mood'},
-  {id:'a4',title:'O dia terminou com tudo no lugar',detail:'Contexto do Space preparado para a próxima sessão.',time:'Ontem, 18:20',icon:'check',tone:'sage',action:'route:spaces'},
+  {id:'a1',space:'studio',title:'Atlas está pronto para continuar',detail:'3 documentos, 2 aplicativos e suas referências reunidos.',time:'Há 12 min',icon:'folder',tone:'clay',action:'project:atlas'},
+  {id:'a2',space:'studio',source:'Intelligence',priority:'Revisão necessária',title:'Um resumo para sua próxima reunião',detail:'Intelligence · proposta para revisão',time:'Há 25 min',icon:'aura',tone:'sage',action:'ask:Prepare minha próxima reunião'},
+  {id:'a3',space:'studio',title:'Referência adicionada ao Estúdio',detail:'Painel de formas · por Rafael',time:'Ontem',icon:'file',tone:'blue',action:'file:mood'},
+  {id:'a4',space:'studio',title:'O dia terminou com tudo no lugar',detail:'Contexto do Space preparado para a próxima sessão.',time:'Ontem, 18:20',icon:'check',tone:'sage',action:'route:spaces'},
  ],
  messages:[
-  {id:'rafael',name:'Rafael Costa',initials:'RC',topic:'Projeto Atlas',text:'A direção ficou ótima. Podemos explorar a aplicação editorial?',time:'09:32',unread:true},
-  {id:'equipe',name:'Estúdio · Equipe',initials:'ES',topic:'Espaço compartilhado',text:'Revisão de referências às 14h. Separei algumas ideias.',time:'08:56',unread:true},
-  {id:'oficina',name:'Comunidade 3D',initials:'3D',topic:'Networking · Fabricação',text:'Novos materiais na biblioteca da comunidade.',time:'Ontem',unread:false},
+  {id:'rafael',space:'studio',name:'Rafael Costa',initials:'RC',topic:'Projeto Atlas',text:'A direção ficou ótima. Podemos explorar a aplicação editorial?',time:'09:32',unread:true},
+  {id:'equipe',space:'studio',name:'Estúdio · Equipe',initials:'ES',topic:'Espaço compartilhado',text:'Revisão de referências às 14h. Separei algumas ideias.',time:'08:56',unread:true},
+  {id:'oficina',space:'workshop',name:'Comunidade 3D',initials:'3D',topic:'Networking · Fabricação',text:'Novos materiais na biblioteca da comunidade.',time:'Ontem',unread:false},
  ],
  automations:[
   {id:'day',name:'Preparar meu dia',description:'Agenda, tarefas e contexto dos projetos, reunidos na Central.',trigger:'Ao iniciar o Space',icon:'sun',enabled:true},
