@@ -73,7 +73,6 @@ import { createProjectCatalogRuntime } from "../../services/files/projects.mjs";
 import { createProjectCloudLinksRuntime } from "../../services/projects/cloud-links.mjs";
 import { createProjectCloudLinksReader } from "../../services/projects/cloud-links-reader.mjs";
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
-import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -122,7 +121,6 @@ import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
 import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
-import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNetworkTrayControls } from "../../surface/ui/network-tray-controls.mjs";
 import { mountNotificationCenterControls } from "../../surface/ui/notification-center-controls.mjs";
@@ -823,20 +821,6 @@ async function start() {
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
-  const filesOwnerSpace = fileSpace === null
-    ? null
-    : createProjectContinuityFileSpace(fileSpace, projects, {
-        onContinuityError(error) {
-          reportClientDiagnostic("files-project-continuity", error);
-        },
-      });
-  const fileSpaceControls = mountFileSpaceControls(
-    root,
-    filesOwnerSpace,
-    appActivation,
-    surface,
-    { recentFiles, projects },
-  );
   let settingsOverviewControls;
   try {
     settingsOverviewControls = mountSettingsOverviewControls(
@@ -1023,7 +1007,6 @@ async function start() {
       notificationCenter.destroy();
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
-      fileSpaceControls.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();

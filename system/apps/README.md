@@ -9,7 +9,7 @@ Apps are product modules, not Web/Mobile/Desktop forks. The Surface imports the 
 Each first-party app has one explicit owner:
 
 ```text
-system/apps/files/app.mjs
+(Arquivos: fonte externa aguardando Gate B em ordax-apps)
 system/apps/internet/app.mjs
 system/apps/settings/app.mjs
 system/apps/account/app.mjs

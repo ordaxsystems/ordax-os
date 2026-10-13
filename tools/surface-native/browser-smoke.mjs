@@ -14,7 +14,6 @@ const CSS_FILES = [
   'system/surface/ui/notification-center.css',
   'system/surface/ui/boot-screen.css',
   'system/surface/ui/workspace-areas.css',
-  'system/surface/ui/files.css',
   'system/surface/ui/system.css',
   'system/surface/ui/account.css',
   'system/surface/ui/space-switcher.css',

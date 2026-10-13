@@ -1,12 +1,10 @@
 import { isAppAvailable } from "../contracts/first-party-app.mjs";
 import { accountApp } from "./account/app.mjs";
-import { filesApp } from "./files/app.mjs";
 import { settingsApp } from "./settings/app.mjs";
 import { studioApp } from "./studio/app.mjs";
 import { storeApp } from "./store/app.mjs";
 import { systemApp } from "./system/app.mjs";
 const APPS = Object.freeze([
-  filesApp,
   studioApp,
   settingsApp,
   accountApp,
