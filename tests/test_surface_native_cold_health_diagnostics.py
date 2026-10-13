@@ -28,6 +28,8 @@ class SurfaceColdHealthContract(unittest.TestCase):
         self.assertIn("hmac.compare_digest(supplied_token, self.server.health_token)", server)
         self.assertIn('update_state.get("sourceSha") != source_sha', server)
         self.assertIn("record_surface_health(source_sha)", server)
+        self.assertIn('("GET", UPDATE_PATH): "http-get-update"', server)
+        self.assertNotIn("UPDATE_STATE_PATH", server)
         self.assertIn("record_surface_heartbeat(payload[", server)
         self.assertNotIn("record_surface_health(", BROWSER.read_text())
 
