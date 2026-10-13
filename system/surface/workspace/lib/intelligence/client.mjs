@@ -10,7 +10,8 @@ import {
  * It owns no provider, transport discovery, Memory, authority or persistence.
  */
 export function createIntelligenceClient(input) {
-  const port = assertIntelligencePort(input);
+  assertIntelligencePort(input);
+  const port = input;
   let snapshot = validateIntelligenceSnapshot(port.getSnapshot());
 
   const read = () => {
