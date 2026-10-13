@@ -1,16 +1,11 @@
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react';
-import { createUnavailableWebIntelligencePort } from '../../../../adapters/web/intelligence.mjs';
 import { createIntelligenceClient } from '../../lib/intelligence/client.mjs';
 
-const fallbackClient = createIntelligenceClient(createUnavailableWebIntelligencePort());
-type IntelligenceClient = typeof fallbackClient;
+type IntelligenceClient = ReturnType<typeof createIntelligenceClient>;
 type IntelligenceSnapshot = ReturnType<IntelligenceClient['getSnapshot']>;
 type IntelligenceContextValue = { client: IntelligenceClient; snapshot: IntelligenceSnapshot };
 
-const IntelligenceClientContext = createContext<IntelligenceContextValue>({
-  client: fallbackClient,
-  snapshot: fallbackClient.getSnapshot(),
-});
+const IntelligenceClientContext = createContext<IntelligenceContextValue | null>(null);
 
 /** Presentation-only injection point for the canonical Intelligence port. */
 export function IntelligenceClientProvider({ port, children }: { port: unknown; children: ReactNode }) {
@@ -20,4 +15,8 @@ export function IntelligenceClientProvider({ port, children }: { port: unknown; 
   return <IntelligenceClientContext.Provider value={value}>{children}</IntelligenceClientContext.Provider>;
 }
 
-export function useIntelligenceClient() { return useContext(IntelligenceClientContext); }
+export function useIntelligenceClient() {
+  const value = useContext(IntelligenceClientContext);
+  if (value === null) throw new Error('Intelligence client provider is required');
+  return value;
+}
