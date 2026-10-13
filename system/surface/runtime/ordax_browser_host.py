@@ -53,7 +53,10 @@ from native_security_prompt_i18n import (
     read_native_security_locale,
 )
 
-from native_cold_health_diagnostic import BOOT_STAGES, emit as emit_boot_diag, enabled as boot_diag_enabled
+from native_cold_health_diagnostic import (
+    BOOT_STAGES, emit as emit_boot_diag, enabled as boot_diag_enabled,
+    same_origin_static_resource,
+)
 
 BRIDGE_NAME = "ordaxBrowser"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
@@ -266,8 +269,18 @@ class OrdaXBrowserHost:
                   };
                   stage("js-probe-installed");
                   window.addEventListener("error", event => {
-                    stage(event.target && event.target !== window
-                      ? "js-resource-load-failed" : "js-exception");
+                    const target = event.target && event.target !== window
+                      ? event.target : null;
+                    if (!target) return stage("js-exception");
+                    stage("js-resource-load-failed");
+                    const resource = target.src || target.href;
+                    if (typeof resource === "string") {
+                      try {
+                        window.webkit.messageHandlers.ordaxBrowser.postMessage(
+                          JSON.stringify({type: "boot.resource.failure", resource})
+                        );
+                      } catch {}
+                    }
                   }, true);
                   window.addEventListener("unhandledrejection",
                     () => stage("js-unhandled-rejection"));
@@ -286,6 +299,10 @@ class OrdaXBrowserHost:
         self.surface_view.set_vexpand(True)
         self.surface_view.connect("load-changed", self.on_surface_load_changed)
         self.surface_view.connect("load-failed", self.on_surface_load_failed)
+        if boot_diag_enabled():
+            self.surface_view.connect(
+                "resource-load-started", self.on_surface_resource_load_started
+            )
         self.surface_view.load_uri(self.start_uri)
 
         self.overlay = Gtk.Overlay()
@@ -530,6 +547,16 @@ class OrdaXBrowserHost:
         self.component_probation_started = True
         self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
 
+    def on_surface_resource_load_started(
+        self, _view: object, resource: object, _request: object,
+    ) -> None:
+        resource.connect("failed", self.on_surface_resource_failed)
+
+    def on_surface_resource_failed(self, resource: object, _error: object) -> None:
+        public_path = same_origin_static_resource(resource.get_uri(), self.start_uri)
+        if public_path is not None:
+            emit_boot_diag("webkit-resource-failed", resource_path=public_path)
+
     def on_surface_load_failed(
         self, _view: object, _event: object, _uri: str, _error: object,
     ) -> bool:
@@ -686,6 +713,15 @@ class OrdaXBrowserHost:
             if command == "boot.diagnostic":
                 if set(payload) == {"type", "stage"} and payload["stage"] in BOOT_STAGES:
                     emit_boot_diag(payload["stage"])
+            elif command == "boot.resource.failure":
+                if boot_diag_enabled() and set(payload) == {"type", "resource"}:
+                    public_path = same_origin_static_resource(
+                        payload["resource"], self.start_uri
+                    )
+                    if public_path is not None:
+                        emit_boot_diag(
+                            "js-resource-load-failed", resource_path=public_path
+                        )
             elif command == "app-data.bootstrap.request":
                 if set(payload) != {"type"}:
                     raise ValueError("App Data bootstrap request fields are invalid")

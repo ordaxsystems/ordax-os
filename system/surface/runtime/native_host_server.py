@@ -3456,6 +3456,12 @@ class NativeHostServer(ThreadingHTTPServer):
 class NativeHostHandler(SimpleHTTPRequestHandler):
     server_version = "OrdaXNativeHost/1"
 
+    def guess_type(self, path: str) -> str:
+        # ES-module MIME must not depend on the host's optional MIME database.
+        if path.lower().endswith((".mjs", ".js")):
+            return "text/javascript"
+        return super().guess_type(path)
+
     def parse_request(self) -> bool:
         if not super().parse_request():
             return False
@@ -5140,6 +5146,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     ):
                         resource_stage = "http-static-module-failed"
                     if resource_stage is not None:
+                        from native_cold_health_diagnostic import static_resource_path
+                        public_path = static_resource_path(request_path)
+                        if status >= 400 and public_path is not None:
+                            emit_boot_diag(
+                                "http-static-resource-failed", status,
+                                resource_path=public_path,
+                            )
                         emit_boot_diag(resource_stage, status)
             except (TypeError, ValueError):
                 pass

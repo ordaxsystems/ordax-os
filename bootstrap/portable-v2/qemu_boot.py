@@ -456,25 +456,40 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
     return disk
 
 
-def _hmp_read_complete_reply(monitor: socket.socket) -> bytes:
-    """Consume a whole HMP reply, not one arbitrary socket fragment.
+class HmpReplyError(RuntimeError):
+    """Bounded secret-free diagnostic, never the raw HMP transcript."""
 
-    The final (qemu) prompt is emitted after the synchronous screendump command
-    completes. A bounded deadline and byte limit prevent a stuck monitor.
-    """
+
+_HMP_CONTROL_SUFFIX = re.compile(rb"(?:\x1b\[[0-9;?]*[ -/]*[@-~])*\Z")
+
+
+def _hmp_prompt_complete(response: bytes) -> bool:
+    marker = response.rfind(b"(qemu) ")
+    return marker >= 0 and _HMP_CONTROL_SUFFIX.fullmatch(
+        response[marker + len(b"(qemu) "):]
+    ) is not None
+
+
+def _hmp_read_complete_reply(monitor: socket.socket, phase: str) -> bytes:
+    """Consume fragmented HMP data until its final command-completion prompt."""
+    if phase not in {"banner", "command"}:
+        raise ValueError("invalid HMP response phase")
     deadline = time.monotonic() + 2.0
     response = bytearray()
-    while not response.endswith(b"(qemu) "):
+    while not _hmp_prompt_complete(response):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise TimeoutError("HMP prompt not observed")
+            raise HmpReplyError(f"monitor_{phase}_prompt_timeout")
         monitor.settimeout(remaining)
-        chunk = monitor.recv(2048)
+        try:
+            chunk = monitor.recv(2048)
+        except socket.timeout as exc:
+            raise HmpReplyError(f"monitor_{phase}_prompt_timeout") from exc
         if not chunk:
-            raise ConnectionError("HMP disconnected before prompt")
+            raise HmpReplyError(f"monitor_{phase}_closed_before_prompt")
         response.extend(chunk)
         if len(response) > 8192:
-            raise ValueError("HMP reply exceeds diagnostic limit")
+            raise HmpReplyError(f"monitor_{phase}_reply_oversized")
     return bytes(response)
 
 
@@ -523,14 +538,14 @@ def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> dict
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as monitor:
             monitor.settimeout(2.0)
             monitor.connect(str(monitor_socket))
-            _hmp_read_complete_reply(monitor)  # initial banner and prompt
+            _hmp_read_complete_reply(monitor, "banner")
             monitor.sendall(f"screendump {destination}\n".encode("ascii"))
-            response = _hmp_read_complete_reply(monitor)
-    except (socket.timeout, TimeoutError):
-        result["reason"] = "monitor_prompt_timeout"
+            response = _hmp_read_complete_reply(monitor, "command")
+    except HmpReplyError as exc:
+        result["reason"] = str(exc)
         return result
-    except (ConnectionError, ValueError):
-        result["reason"] = "monitor_incomplete_or_oversized_reply"
+    except socket.timeout:
+        result["reason"] = "monitor_connection_timeout"
         return result
     except OSError as exc:
         result["reason"] = "monitor_socket_failure"

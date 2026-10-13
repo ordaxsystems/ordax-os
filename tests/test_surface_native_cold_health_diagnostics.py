@@ -56,6 +56,34 @@ class SurfaceColdHealthContract(unittest.TestCase):
         self.assertIn('"js-unhandled-rejection"', DIAGNOSTIC.read_text())
         self.assertIn('"http-surface-main"', SERVER.read_text())
         self.assertIn('"http-static-module-failed"', SERVER.read_text())
+        self.assertIn('def guess_type(self, path: str)', SERVER.read_text())
+        self.assertIn('return "text/javascript"', SERVER.read_text())
+        self.assertIn('resource-load-started", self.on_surface_resource_load_started', browser)
+
+    def test_bundled_resource_diagnostics_exclude_sensitive_uris(self):
+        spec = importlib.util.spec_from_file_location("native_diag_static", DIAGNOSTIC)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        start = "http://127.0.0.1:8765/composition/native/index.html?source=" + "a" * 40
+        self.assertEqual(
+            module.same_origin_static_resource(
+                "http://127.0.0.1:8765/adapters/native/runtime.mjs?secret=NEVER_LOG", start
+            ),
+            "adapters/native/runtime.mjs",
+        )
+        for uri in (
+            "https://example.com/adapters/native/runtime.mjs",
+            "http://127.0.0.1:8765/var/lib/ordax-user/private.mjs",
+            "http://127.0.0.1:8765/adapters/../private.mjs",
+            "http://127.0.0.1:8765/adapters/%2e%2e/private.mjs",
+            "http://127.0.0.1:8765/adapters/private.mjs#bad",
+            "http://127.0.0.1:8765/__ordax/native/health",
+        ):
+            self.assertIsNone(module.same_origin_static_resource(uri, start))
+        with patch.object(module, "enabled", return_value=True):
+            self.assertFalse(module.emit(
+                "webkit-resource-failed", resource_path="../private.mjs"
+            ))
 
 
 if __name__ == "__main__":

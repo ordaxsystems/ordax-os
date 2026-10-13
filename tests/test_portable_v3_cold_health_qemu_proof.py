@@ -262,6 +262,45 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
             self.assertEqual(result["reason"], "qemu_screendump_incomplete")
             self.assertFalse(destination.exists())
 
+    def test_hmp_accepts_fragmented_prompt(self):
+        import socket
+        import threading
+        spec = importlib.util.spec_from_file_location("hmp_fragments", BASE_RUNNER)
+        qemu = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qemu)
+        left, right = socket.socketpair()
+
+        def writer():
+            try:
+                for part in (b"QEMU monitor\r\n(q", b"emu) ", b"\x1b[0m"):
+                    right.sendall(part)
+            finally:
+                right.close()
+        worker = threading.Thread(target=writer)
+        worker.start()
+        try:
+            data = qemu._hmp_read_complete_reply(left, "banner")
+            self.assertIn(b"(qemu) ", data)
+        finally:
+            left.close()
+            worker.join(timeout=2)
+
+    def test_hmp_reports_command_disconnect_without_accepting_partial_reply(self):
+        import socket
+        spec = importlib.util.spec_from_file_location("hmp_closed", BASE_RUNNER)
+        qemu = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qemu)
+        left, right = socket.socketpair()
+        try:
+            right.sendall(b"QEMU monitor banner without complete prompt")
+            right.close()
+            with self.assertRaisesRegex(
+                qemu.HmpReplyError, "monitor_command_closed_before_prompt"
+            ):
+                qemu._hmp_read_complete_reply(left, "command")
+        finally:
+            left.close()
+
     def test_final_state_is_inspected_read_only(self):
         text = RUNNER.read_text(encoding="utf-8")
         self.assertIn('"mount.exfat-fuse", "-o", "ro"', text)
