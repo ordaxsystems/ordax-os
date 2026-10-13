@@ -60,7 +60,7 @@ test("Native probation composition wires adapter and pure service", async () => 
   });
 
   assert.equal(NATIVE_COMPONENT_PROBATION_SCHEMA, "ordax.native-component-probation/1");
-  assert.equal(result.componentId, "internet");
+  assert.equal(result.componentId, "notes");
   assert.equal(result.revision, 11);
   assert.equal(result.health, "healthy");
   assert.equal(result.probeMode, "import-contract");
