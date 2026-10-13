@@ -317,15 +317,22 @@ class SystemRuntimeContractTests(unittest.TestCase):
 
         self.assertIn("secrets.compare_digest", authority)
         self.assertIn("record_component_pending_health", authority)
-        self.assertIn('PROBE_MODE = "import-contract"', authority)
+        self.assertIn(
+            "PROBE_MODE_BY_COMPONENT = NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT",
+            authority,
+        )
         self.assertIn("SUPPORTED_COMPONENTS = NATIVE_PROBATION_COMPONENT_IDS", authority)
-        self.assertIn("from native_store_metadata_policy import NATIVE_PROBATION_COMPONENT_IDS", authority)
+        self.assertIn("NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT", authority)
+        self.assertNotIn('PROBE_MODE = "import-contract"', authority)
         self.assertNotIn("promote-state", authority)
         self.assertNotIn("reject-pending", authority)
         self.assertNotIn("rollback-state", authority)
 
-        self.assertIn("NATIVE_COMPONENT_PROBATION_IDS.map", orchestrator)
-        self.assertIn("NATIVE_COMPONENT_PROBE_MODE", orchestrator)
+        self.assertIn("const PROBE_MODES = NATIVE_COMPONENT_PROBE_MODE_BY_ID", orchestrator)
+        self.assertIn("NATIVE_COMPONENT_PROBE_MODE_BY_ID", orchestrator)
+        self.assertIn('if (mode !== "import-contract")', orchestrator)
+        self.assertIn("Unsupported system component probation probe mode", orchestrator)
+        self.assertNotIn("NATIVE_COMPONENT_PROBATION_IDS.map", orchestrator)
         self.assertIn("runPendingComponentProbation", orchestrator)
         self.assertNotIn("adapters/native", orchestrator)
         self.assertNotIn("record-health", orchestrator)
