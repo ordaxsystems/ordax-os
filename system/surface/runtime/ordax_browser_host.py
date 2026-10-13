@@ -53,6 +53,8 @@ from native_security_prompt_i18n import (
     read_native_security_locale,
 )
 
+from native_cold_health_diagnostic import BOOT_STAGES, emit as emit_boot_diag
+
 BRIDGE_NAME = "ordaxBrowser"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
 TRUSTED_STATE_UID = 0
@@ -255,6 +257,7 @@ class OrdaXBrowserHost:
         self.surface_view.set_hexpand(True)
         self.surface_view.set_vexpand(True)
         self.surface_view.connect("load-changed", self.on_surface_load_changed)
+        self.surface_view.connect("load-failed", self.on_surface_load_failed)
         self.surface_view.load_uri(self.start_uri)
 
         self.overlay = Gtk.Overlay()
@@ -270,6 +273,7 @@ class OrdaXBrowserHost:
             self.register_shortcut(accelerator, action, focus_surface)
         self.window.fullscreen()
         self.window.show_all()
+        emit_boot_diag("gtk-window-created")
         if self.distribution_profile == "owner-development":
             self.start_profile_consent_listener()
         self.restore_session()
@@ -469,10 +473,25 @@ class OrdaXBrowserHost:
         return True
 
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
+        for state, stage in (
+            (WebKit2.LoadEvent.STARTED, "webkit-load-started"),
+            (WebKit2.LoadEvent.COMMITTED, "webkit-load-committed"),
+            (WebKit2.LoadEvent.FINISHED, "webkit-load-finished"),
+        ):
+            if load_event == state:
+                emit_boot_diag(stage)
+                break
         if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
             return
         self.component_probation_started = True
         self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+
+    def on_surface_load_failed(
+        self, _view: object, _event: object, _uri: str, _error: object,
+    ) -> bool:
+        # Neither URI nor error messages can enter serial evidence.
+        emit_boot_diag("webkit-load-failed")
+        return False
 
     def handle_component_probation_request(self, payload: dict) -> None:
         if set(payload) != {"type", "componentId"}:
@@ -620,7 +639,10 @@ class OrdaXBrowserHost:
             return
         command = payload.get("type")
         try:
-            if command == "app-data.bootstrap.request":
+            if command == "boot.diagnostic":
+                if set(payload) == {"type", "stage"} and payload["stage"] in BOOT_STAGES:
+                    emit_boot_diag(payload["stage"])
+            elif command == "app-data.bootstrap.request":
                 if set(payload) != {"type"}:
                     raise ValueError("App Data bootstrap request fields are invalid")
                 self.emit_app_data_bootstrap()

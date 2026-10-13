@@ -28,6 +28,7 @@ _RUNTIME_DIR = os.path.dirname(os.path.abspath(__file__))
 if _RUNTIME_DIR not in sys.path:
     sys.path.insert(0, _RUNTIME_DIR)
 
+from native_cold_health_diagnostic import emit as emit_boot_diag
 from native_request_boundary import expected_surface_authority, request_is_trusted
 from native_local_ai_bridge import (
     MAX_REQUEST_BYTES as MAX_LOCAL_AI_REQUEST_BYTES,
@@ -4717,11 +4718,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if self.path == SURFACE_HEARTBEAT_PATH:
             payload = self._read_json_body(MAX_SURFACE_HEARTBEAT_BODY)
             if payload is None or not valid_surface_heartbeat_payload(payload):
+                emit_boot_diag("http-heartbeat-payload-invalid")
                 self._empty(400)
                 return
             try:
                 record_surface_heartbeat(payload["sourceSha"])
             except (OSError, ValueError) as exc:
+                emit_boot_diag("http-heartbeat-write-failed")
                 print(f"ordax-native-host: could not record Surface heartbeat: {exc}", file=sys.stderr, flush=True)
                 self._empty(500)
                 return
@@ -4731,20 +4734,24 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if self.path == HEALTH_PATH:
             supplied_token = self.headers.get(HEALTH_TOKEN_HEADER, "")
             if not hmac.compare_digest(supplied_token, self.server.health_token):
+                emit_boot_diag("http-health-token-denied")
                 self._empty(403)
                 return
             payload = self._read_json_body()
             source_sha = payload.get("sourceSha") if payload else None
             if not valid_commit_sha(source_sha):
+                emit_boot_diag("http-health-sha-invalid")
                 self._empty(400)
                 return
             update_state = read_update_state()
             if update_state is None or update_state.get("sourceSha") != source_sha:
+                emit_boot_diag("http-health-state-mismatch")
                 self._empty(409)
                 return
             try:
                 record_surface_health(source_sha)
             except OSError as exc:
+                emit_boot_diag("http-health-write-failed")
                 print(f"ordax-native-host: could not record Surface health: {exc}", file=sys.stderr, flush=True)
                 self._empty(500)
                 return
@@ -5103,7 +5110,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         self._write_json(202, {"accepted": True, "action": action})
 
     def log_message(self, fmt: str, *args) -> None:
-        if urlsplit(self.path).path == PROFILE_CONTENT_CONTEXT_PATH:
+        # Passive diagnostics of the already authenticated, official endpoints.
+        # Never copy the HMP/HTTP log line: tokens, bodies and paths are private.
+        request_path = urlsplit(self.path).path
+        kind = {
+            ("GET", UPDATE_STATE_PATH): "http-get-update",
+            ("POST", HEALTH_PATH): "http-post-health",
+            ("POST", SURFACE_HEARTBEAT_PATH): "http-post-heartbeat",
+        }.get((self.command, request_path))
+        if kind is not None and len(args) >= 2:
+            try:
+                emit_boot_diag(kind, int(args[1]))
+            except (TypeError, ValueError):
+                pass
+        if request_path == PROFILE_CONTENT_CONTEXT_PATH:
             # Query terms originate from a user's question and must never
             # enter persistent access logs, including on 4xx/5xx responses.
             print(
