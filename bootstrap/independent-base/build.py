@@ -172,6 +172,35 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
+def verify_surface_loopback_ip(target: Path) -> None:
+    """Exercise the exact IP tool required by the official Surface launcher.
+
+    Query syntax only; NEVER configure the CI host's network interface.
+    """
+    ip_tool = target / "sbin/ip"
+    if not ip_tool.is_file() or not os.access(ip_tool, os.X_OK):
+        raise BaseError("Surface requires executable /sbin/ip")
+    if not ip_tool.resolve().is_relative_to(target.resolve()):
+        raise BaseError("Surface IP tool resolves outside verified target root")
+    try:
+        version = subprocess.run(
+            [str(ip_tool), "-V"], capture_output=True, text=True,
+            check=False, timeout=5,
+        )
+        address_help = subprocess.run(
+            [str(ip_tool), "address", "help"],
+            capture_output=True, text=True, check=False, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise BaseError("Surface IP tool is not runnable on the build host") from exc
+    if (version.returncode != 0 or
+            "ip utility, iproute2-" not in (version.stdout + version.stderr)):
+        raise BaseError("Surface requires iproute2, not BusyBox ip")
+    usage = address_help.stdout + address_help.stderr
+    if not re.search(r"\\baddress.*?\\breplace\\b|\\breplace\\b", usage, re.I | re.S):
+        raise BaseError("Surface IP tool cannot prove address replace syntax")
+
+
 def verify_target(target: Path) -> None:
     if not BUSYBOX_FRAGMENT.is_file() or BUSYBOX_FRAGMENT.is_symlink():
         raise BaseError("canonical BusyBox handoff config fragment is missing or unsafe")
@@ -190,6 +219,7 @@ def verify_target(target: Path) -> None:
     for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
         if (target / name).exists():
             raise BaseError(f"Alpine/APK dependency found: {name}")
+    verify_surface_loopback_ip(target)
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
     missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
@@ -261,6 +291,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         config = (build_dir / ".config").read_text(encoding="utf-8")
         for key in ('BR2_KERNEL_HEADERS_VERSION=y', f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
                     'BR2_TOOLCHAIN_BUILDROOT_MUSL=y', 'BR2_STATIC_LIBS=y', 'BR2_INIT_NONE=y',
+                    'BR2_PACKAGE_IPROUTE2=y',
                     'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"'):
             if key not in config:
                 raise BaseError(f"Buildroot rejected required configuration {key}")
@@ -292,6 +323,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
+            "surface_loopback_iproute2_verified": True,
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
             "busybox_handoff_runtime_features_verified": True,
@@ -321,6 +353,8 @@ def verify(out: Path) -> dict:
         raise BaseError("BusyBox handoff config fragment provenance drift")
     if report.get("busybox_handoff_config_sha256") != digest(BUSYBOX_FRAGMENT):
         raise BaseError("BusyBox handoff config fragment SHA-256 drift")
+    if report.get("surface_loopback_iproute2_verified") is not True:
+        raise BaseError("Surface iproute2 capability proof missing")
     if report.get("busybox_handoff_runtime_features_verified") is not True:
         raise BaseError("BusyBox applet feature proof absent from provenance")
     if report.get("canonical_portable_handoff_source") != str(CANONICAL_HANDOFF.relative_to(ROOT)):
