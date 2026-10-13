@@ -6,44 +6,62 @@
   <meta name="description" content="Recuperação da Conta OrdaX.">
   <title>Recuperar conta — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/portal.css?v=titanium-1">
+  <link rel="stylesheet" href="/assets/account.css?v=account-ux-4">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
   <script src="/assets/site.js?v=auth-nav-1" defer></script>
 </head>
-<body data-page="recuperar">
+<body data-page="recuperar" class="account-ui">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-  <header class="site-header">
+  <header class="site-header account-header">
     <a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a>
-    <nav class="site-nav" aria-label="Navegação principal"><a href="/">Início</a><a href="/download/">Download</a><a href="/licencas/">Licenças</a><a href="/login/" data-auth-nav="login"><span data-auth-nav-label>Entrar</span></a><a class="nav-cta" href="/cadastro/" data-auth-nav="register"><span data-auth-nav-label>Criar conta</span></a></nav>
+    <div class="account-nav-actions"><a href="/">Início</a><a class="nav-cta" href="/login/" data-auth-nav="login"><span data-auth-nav-label>Entrar</span> <span aria-hidden="true">↗</span></a></div>
   </header>
-  <main id="conteudo" class="auth-shell">
-    <section class="auth-copy">
-      <p class="eyebrow">CONTA ORDA X</p>
-      <h1>Recupere o acesso sem expor sua sessão ao navegador.</h1>
-      <p>O pedido é enviado ao owner real de identidade. A conclusão usa uma sessão de recuperação protegida pelo servidor.</p>
-    </section>
-    <section class="auth-card" aria-labelledby="auth-title">
-      <p class="eyebrow">RECUPERAÇÃO</p>
-      <h2 id="auth-title">Solicitar recuperação</h2>
-      <div class="identity-state" data-identity-state="recover" aria-live="polite">
-        <strong>Recuperação ainda não configurada</strong>
-        <p>Este recurso será habilitado somente depois que o fluxo completo e o endereço HTTPS forem aprovados.</p>
-      </div>
-      <p class="identity-notice" data-identity-notice hidden aria-live="polite"></p>
 
-      <form class="identity-form" data-identity-form="recover" method="post" hidden>
-        <label class="identity-field">
-          <span>E-mail</span>
-          <input type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" required disabled>
-        </label>
-        <div class="identity-turnstile" data-turnstile aria-label="Verificação anti-automação"></div>
-        <button class="button button-primary identity-submit" type="submit" disabled>Enviar instruções</button>
-      </form>
-      <p class="auth-switch">Lembrou a senha? <a href="/login/">Voltar para entrar</a></p>
-      <p class="auth-switch">Documentação de conta: <a href="/privacidade/">Privacidade</a> · <a href="/termos/">Termos</a></p>
+  <main id="conteudo" class="account-stage">
+    <section class="account-story" aria-labelledby="recovery-story-title">
+      <div>
+        <p class="eyebrow">CONTA ORDA X / RECUPERAÇÃO</p>
+        <h1 id="recovery-story-title">Recupere o acesso.<br><span>Sem atalhos inseguros.</span></h1>
+        <p class="story-lead">A recuperação usa o mesmo owner de identidade da Conta OrdaX. O navegador não recebe tokens de sessão e o fluxo permanece fechado enquanto o backend oficial não estiver habilitado.</p>
+        <ul class="account-benefits" aria-label="Proteções do fluxo de recuperação">
+          <li><strong>01 / SOLICITAÇÃO</strong><span>Pedido enviado apenas ao serviço oficial</span></li>
+          <li><strong>02 / VALIDAÇÃO</strong><span>Link verificado no servidor</span></li>
+          <li><strong>03 / SESSÃO</strong><span>Recuperação curta e protegida</span></li>
+        </ul>
+      </div>
+      <div class="account-side-footer"><div class="account-promise"><span class="account-promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Fail-closed por padrão.</strong><p>Se a recuperação oficial não estiver pronta, o formulário continua indisponível e nenhum dado é enviado.</p></div></div>
+        <nav class="account-quicklinks" aria-label="Atalhos para sua conta"><a href="/login/">Voltar para entrar</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav>
+      </div>
+      <div class="account-orbit" aria-hidden="true"><span></span><i></i></div>
+    </section>
+
+    <section class="account-access" aria-labelledby="auth-title">
+      <div class="account-card">
+        <header class="account-card-header"><p class="eyebrow">RECUPERAÇÃO</p><span class="account-card-index" aria-hidden="true">01 / 02</span></header>
+        <h2 id="auth-title">Solicitar<br>recuperação.</h2>
+        <p class="account-intro">Informe o e-mail da sua Conta OrdaX quando o serviço oficial estiver disponível.</p>
+
+        <div class="identity-state" data-identity-state="recover" data-status="unavailable" aria-live="polite">
+          <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/></svg></span>
+          <div><strong>Recuperação ainda não configurada</strong><p>Este recurso será habilitado somente depois que o fluxo completo e o endereço HTTPS forem aprovados.</p></div>
+        </div>
+        <p class="identity-notice" data-identity-notice hidden aria-live="polite"></p>
+
+        <form class="identity-form" data-identity-form="recover" method="post" hidden>
+          <label class="identity-field"><span>E-mail</span><input type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="voce@exemplo.com" required disabled></label>
+          <div class="identity-turnstile" data-turnstile aria-label="Verificação anti-automação"></div>
+          <p class="verification-hint">Conclua a verificação de segurança para habilitar o botão quando a recuperação estiver disponível.</p>
+          <button class="button button-primary identity-submit" type="submit" disabled>Enviar instruções <span aria-hidden="true">↗</span></button>
+        </form>
+
+        <div class="gated-guidance"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/></svg></span><p>O portal não envia solicitações enquanto o endpoint canônico de recuperação permanecer desabilitado.</p></div>
+        <div class="account-entry"><div><span>LEMBROU A SENHA?</span><strong>Volte ao acesso normal.</strong></div><a href="/login/">Ir para entrar <span aria-hidden="true">↗</span></a></div>
+        <nav class="account-legal" aria-label="Documentação da conta"><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav>
+      </div>
     </section>
   </main>
-  <footer class="site-footer"><a class="brand brand-small" href="/"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a><p>Recuperação sem tokens de sessão no JavaScript.</p><nav><a href="/">Início</a><a href="/login/">Entrar</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav></footer>
+
+  <footer class="site-footer"><div><a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a><p>Recuperação sem tokens de sessão no JavaScript.</p></div><nav aria-label="Rodapé"><a href="/">Início</a><a href="/login/">Entrar</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav></footer>
 </body>
 </html>
