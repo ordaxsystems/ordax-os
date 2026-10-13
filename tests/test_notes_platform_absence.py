@@ -35,7 +35,7 @@ class NotesPlatformAbsenceTests(unittest.TestCase):
 
     def test_web_and_native_compositions_do_not_load_local_notes_runtime(self):
         for relative in (
-            "system/composition/web/main.mjs",
+            "system/composition/web/main.tsx",
             "system/composition/native/main.mjs",
         ):
             source = (ROOT / relative).read_text(encoding="utf-8")

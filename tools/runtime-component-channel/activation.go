@@ -9,12 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 const (
 	activationStateSchema   = "prototype-ordax.runtime-component-activation-state/1"
 	activationStateName     = "activation-state.json"
 	activationLockName      = ".activation-state-lock"
+	activationGraphLockName = ".activation-graph-lock"
 	maxActivationStateBytes = 64 << 10
 )
 
@@ -24,14 +26,21 @@ type slotIdentity struct {
 }
 
 type activationState struct {
-	Schema        string        `json:"$schema"`
-	ComponentID   string        `json:"component_id"`
-	Revision      int64         `json:"revision"`
-	Current       *slotIdentity `json:"current"`
-	Previous      *slotIdentity `json:"previous"`
-	Pending       *slotIdentity `json:"pending"`
-	Rejected      *slotIdentity `json:"rejected"`
+	Schema      string        `json:"$schema"`
+	ComponentID string        `json:"component_id"`
+	Revision    int64         `json:"revision"`
+	Current     *slotIdentity `json:"current"`
+	Previous    *slotIdentity `json:"previous"`
+	Pending     *slotIdentity `json:"pending"`
+	Rejected    *slotIdentity `json:"rejected"`
+	// The canonical activation-state file retains the exact uninstall
+	// identity. Otherwise a retry could falsely acknowledge the removal
+	// of any release at the same revision after Current becomes nil.
+	Removed       *slotIdentity `json:"removed_identity,omitempty"`
 	PendingHealth string        `json:"pending_health"`
+	// Same SSOT as the current slot. A user-initiated uninstall must survive
+	// reboot and signed image refresh without a parallel Store preference DB.
+	UserRemoved bool `json:"user_removed,omitempty"`
 }
 
 func emptyActivationState(componentID string) activationState {
@@ -76,10 +85,16 @@ func validateActivationState(value activationState, componentID string) error {
 	if value.PendingHealth != "unknown" && value.PendingHealth != "healthy" && value.PendingHealth != "failed" {
 		return errors.New("runtime component pending health is invalid")
 	}
-	for _, identity := range []*slotIdentity{value.Current, value.Previous, value.Pending, value.Rejected} {
+	for _, identity := range []*slotIdentity{value.Current, value.Previous, value.Pending, value.Rejected, value.Removed} {
 		if err := validateSlotIdentity(identity); err != nil {
 			return err
 		}
+	}
+	if value.UserRemoved && value.Current != nil {
+		return errors.New("runtime component explicitly removed cannot have a current slot")
+	}
+	if value.Removed != nil && !value.UserRemoved {
+		return errors.New("runtime component uninstall identity requires explicit removal state")
 	}
 	if value.Pending == nil && value.PendingHealth != "unknown" {
 		return errors.New("runtime component pending health exists without a pending slot")
@@ -246,6 +261,29 @@ func writeActivationState(root string, state activationState) error {
 	return syncDirectory(componentRoot)
 }
 
+// All writers to the canonical activation-state files acquire this graph lock
+// before their existing per-component lock. A read-only active-catalog scan
+// takes the same lock, so native writers cannot move another component's
+// current/pending identity halfway through a graph inspection.
+// The lock is synchronization metadata, NOT an additional installed-state
+// registry, persisted revision, proof of bundled coverage, or activation grant.
+func acquireActivationGraphLock(root string) (func(), error) {
+	rootPath, err := ensureSecureDirectory(root, 0o755)
+	if err != nil {
+		return nil, err
+	}
+	lockPath := filepath.Join(rootPath, activationGraphLockName)
+	if err := os.Mkdir(lockPath, 0o700); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, errors.New("runtime component activation graph is already locked; stale locks require explicit recovery")
+		}
+		return nil, err
+	}
+	return func() {
+		_ = os.Remove(lockPath)
+	}, nil
+}
+
 func acquireActivationLock(root, componentID string) (func(), error) {
 	componentRoot, err := componentActivationRoot(root, componentID, true)
 	if err != nil {
@@ -346,7 +384,7 @@ func resolveRuntimeSlot(root, componentID, trustPath, target string) (activation
 	case "current":
 		identity = state.Current
 		if identity == nil {
-			bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+			bundledFallback := !state.UserRemoved && canonicalSourceRepository(componentID) == sourceRepository
 			return state, "", componentPackageManifest{}, bundledFallback, nil
 		}
 	case "pending":
@@ -441,6 +479,14 @@ func readVerifiedRuntimeFile(root, componentID, trustPath, target, requestedPath
 }
 
 func mutateActivationState(root, componentID string, mutate func(activationState) (activationState, error)) (activationState, error) {
+	// One global ordering point for all installed-slot mutations:
+	// graph first, then component. This prevents write/read skew across
+	// components without replacing the existing component-local writer.
+	releaseGraph, err := acquireActivationGraphLock(root)
+	if err != nil {
+		return activationState{}, err
+	}
+	defer releaseGraph()
 	releaseLock, err := acquireActivationLock(root, componentID)
 	if err != nil {
 		return activationState{}, err
@@ -464,6 +510,20 @@ func mutateActivationState(root, componentID string, mutate func(activationState
 }
 
 func armPendingState(slot, trustPath, root string) (activationState, error) {
+	return armPendingStateAtRevision(slot, trustPath, root, nil)
+}
+
+// The expected revision is optional for existing local development callers.
+// Native activation orchestration can pass its observed revision, including
+// revision zero for a first installation. This does not approve production
+// activation: the semantic compatibility gate is still required.
+func armPendingStateAtRevision(
+	slot, trustPath, root string,
+	expectedRevision *int64,
+) (activationState, error) {
+	if expectedRevision != nil && *expectedRevision < 0 {
+		return activationState{}, errors.New("runtime component arm expected revision must be non-negative")
+	}
 	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
 	if err != nil {
 		return activationState{}, err
@@ -489,17 +549,63 @@ func armPendingState(slot, trustPath, root string) (activationState, error) {
 	}
 
 	return mutateActivationState(root, release.Component.ID, func(state activationState) (activationState, error) {
+		if expectedRevision != nil && state.Revision != *expectedRevision {
+			return activationState{}, errors.New("runtime component arm revision is stale")
+		}
 		if sameSlotIdentity(state.Current, &identity) {
 			return activationState{}, errors.New("runtime component candidate already matches current slot")
 		}
 		if sameSlotIdentity(state.Rejected, &identity) {
 			return activationState{}, errors.New("runtime component candidate was previously rejected; a new signed identity is required")
 		}
+		// The first verification is for ID/path discovery only. Reverify the
+		// exact canonical signed slot *inside* the one activation writer lock.
+		// A changed/missing slot cannot be armed between discovery and commit.
+		lockedRelease, _, err := verifyIdentitySlot(root, release.Component.ID, identity, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if lockedRelease.SourceCommit != release.SourceCommit ||
+			lockedRelease.Component.ID != release.Component.ID ||
+			lockedRelease.Component.Version != release.Component.Version {
+			return activationState{}, errors.New("runtime component candidate changed before locked activation")
+		}
+		// The legacy Go package regex is less strict than the canonical
+		// component-manifest SemVer contract. Even the first installation
+		// (without an active version to compare) must fail closed.
+		if _, err := parseRuntimeComponentVersion(identity.Version); err != nil {
+			return activationState{}, err
+		}
 		if state.Pending != nil {
 			if sameSlotIdentity(state.Pending, &identity) {
 				return state, nil
 			}
 			return activationState{}, errors.New("runtime component already has a different pending slot")
+		}
+		if state.Current != nil {
+			precedence, err := compareRuntimeComponentVersions(identity.Version, state.Current.Version)
+			if err != nil {
+				return activationState{}, err
+			}
+			if precedence <= 0 {
+				return activationState{}, errors.New("runtime component candidate must have a newer semantic version; use explicit rollback for older versions")
+			}
+			// No unsigned compatibility JSON or invented migration plan:
+			// read both signed release/2 state contracts inside the only
+			// activation writer lock, before recording pending.
+			if err := verifyArmPendingStateCompatibility(
+				root, release.Component.ID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		} else {
+			// A first install must not skip signed dependency verification.
+			// Bundled providers are not authenticated by this Native graph.
+			if err := verifyFirstInstallNativeRequirementsUnderGraphLock(
+				root, release.Component.ID, identity, state.UserRemoved, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
 		}
 		candidate := identity
 		state.Pending = &candidate
@@ -581,7 +687,11 @@ func promotePendingStateAtRevision(
 		if state.Revision == expectedRevision+1 &&
 			state.Pending == nil &&
 			sameSlotIdentity(state.Current, &identity) {
-			// Safe idempotent retry of the exact promotion receipt.
+			// The durable transition is idempotent, but its signed
+			// current slot must still verify during this locked readback.
+			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -596,9 +706,39 @@ func promotePendingStateAtRevision(
 		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 			return activationState{}, err
 		}
+		// Pending health proves process liveness, not data or ABI safety.
+		// Recheck the exact current and pending signed release contracts
+		// under the shared graph lock immediately before promotion.
+		// This closes the window between arm-pending and healthy promotion,
+		// but does not claim full bundled-consumer or pinned-trust coverage.
+		if state.Current != nil {
+			precedence, err := compareRuntimeComponentVersions(identity.Version, state.Current.Version)
+			if err != nil {
+				return activationState{}, err
+			}
+			if precedence <= 0 {
+				return activationState{}, errors.New("runtime component promotion candidate is no longer newer than current")
+			}
+			if err := verifyArmPendingStateCompatibility(
+				root, componentID, *state.Current, identity, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		} else {
+			// Installed providers might have been removed after probation.
+			// Revalidate first-install requirements under the graph lock.
+			if err := verifyFirstInstallNativeRequirementsUnderGraphLock(
+				root, componentID, identity, state.UserRemoved, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		}
 		promoted := identity
 		state.Previous = state.Current
 		state.Current = &promoted
+		// A verified, explicitly requested install becomes the new current owner.
+		state.UserRemoved = false
+		state.Removed = nil
 		state.Pending = nil
 		state.Rejected = nil
 		state.PendingHealth = "unknown"
@@ -662,7 +802,16 @@ func rollbackCurrentStateAtRevision(
 		if state.Revision == expectedRevision+1 &&
 			state.Pending == nil &&
 			sameSlotIdentity(state.Rejected, &identity) {
-			// Safe idempotent retry of the exact rollback receipt.
+			// The retained rejected slot and the now-current previous
+			// slot must both still verify under the canonical graph lock.
+			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
+			if state.Current != nil {
+				if _, _, err := verifyIdentitySlot(root, componentID, *state.Current, trustBytes); err != nil {
+					return activationState{}, err
+				}
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -676,6 +825,36 @@ func rollbackCurrentStateAtRevision(
 		}
 		if state.Previous != nil {
 			if _, _, err := verifyIdentitySlot(root, componentID, *state.Previous, trustBytes); err != nil {
+				return activationState{}, err
+			}
+		}
+		// Signature alone cannot authorize a rollback that would strand
+		// migrated state. Enforce signed state readability under the same
+		// canonical activation writer lock, before changing current/previous.
+		if err := verifyRollbackStateReadable(root, componentID, identity, state.Previous, trustBytes); err != nil {
+			return activationState{}, err
+		}
+		// The same graph lock protects every Native current-slot writer.
+		// A rollback must not remove an interface still required by any
+		// other signed release/2 current installation.
+		currentSlot, err := canonicalSlotPath(root, componentID, identity)
+		if err != nil {
+			return activationState{}, err
+		}
+		currentSchema, err := signedActivationSlotSchema(currentSlot, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if currentSchema == releaseSchemaV2 {
+			replacement, err := signedReplacementProvidesForRollback(
+				root, componentID, state.Previous, trustBytes,
+			)
+			if err != nil {
+				return activationState{}, err
+			}
+			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
+				root, componentID, replacement, trustBytes,
+			); err != nil {
 				return activationState{}, err
 			}
 		}
@@ -717,8 +896,14 @@ func uninstallCurrentStateAtRevision(
 			state.Previous == nil &&
 			state.Pending == nil &&
 			state.Rejected == nil &&
-			state.PendingHealth == "unknown" {
-			// Safe idempotent retry after the exact uninstall transition.
+			state.PendingHealth == "unknown" &&
+			state.UserRemoved &&
+			sameSlotIdentity(state.Removed, &identity) {
+			// A legacy tombstone lacking the removed identity cannot
+			// prove which uninstall occurred: it must fail closed.
+			if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
+				return activationState{}, err
+			}
 			return state, nil
 		}
 		if state.Revision != expectedRevision {
@@ -733,12 +918,35 @@ func uninstallCurrentStateAtRevision(
 		if _, _, err := verifyIdentitySlot(root, componentID, identity, trustBytes); err != nil {
 			return activationState{}, err
 		}
+		// Removing an installed release/2 provider may strand an already
+		// installed signed consumer. Do not rely on the health of the
+		// provider or any stale read-only inventory receipt.
+		currentSlot, err := canonicalSlotPath(root, componentID, identity)
+		if err != nil {
+			return activationState{}, err
+		}
+		currentSchema, err := signedActivationSlotSchema(currentSlot, trustBytes)
+		if err != nil {
+			return activationState{}, err
+		}
+		if currentSchema == releaseSchemaV2 {
+			if err := verifySignedNativeConsumerContinuityUnderGraphLock(
+				root, componentID, nil, trustBytes,
+			); err != nil {
+				return activationState{}, err
+			}
+		}
 
+		removed := identity
 		state.Current = nil
 		state.Previous = nil
 		state.Pending = nil
 		state.Rejected = nil
 		state.PendingHealth = "unknown"
+		// Bind every idempotent uninstall readback to the actual
+		// removed signed identity, in the same canonical SSOT state.
+		state.Removed = &removed
+		state.UserRemoved = true
 		state.Revision++
 		return state, nil
 	})
@@ -750,7 +958,7 @@ func resolveCurrentState(root, componentID, trustPath string) (activationState, 
 		return activationState{}, "", false, err
 	}
 	if state.Current == nil {
-		bundledFallback := canonicalSourceRepository(componentID) == sourceRepository
+		bundledFallback := !state.UserRemoved && canonicalSourceRepository(componentID) == sourceRepository
 		return state, "", bundledFallback, nil
 	}
 	trustBytes, err := readRegular(trustPath, maxTrustBytes, false)
@@ -778,13 +986,18 @@ func armPendingCommand(args []string) error {
 	slot := flags.String("slot", "", "verified runtime component slot")
 	trust := flags.String("trust", "", "runtime component public trust")
 	root := flags.String("root", defaultSlotRoot, "runtime component slot root")
+	revision := flags.Int64("expected-revision", -1, "optional exact observed activation revision, including zero")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *slot == "" || *trust == "" || flags.NArg() != 0 {
-		return errors.New("arm-pending requires --slot and --trust")
+	if *slot == "" || *trust == "" || *revision < -1 || flags.NArg() != 0 {
+		return errors.New("arm-pending requires --slot and --trust, and a non-negative --expected-revision when supplied")
 	}
-	state, err := armPendingState(*slot, *trust, *root)
+	var expectedRevision *int64
+	if *revision >= 0 {
+		expectedRevision = revision
+	}
+	state, err := armPendingStateAtRevision(*slot, *trust, *root, expectedRevision)
 	if err != nil {
 		return err
 	}
@@ -886,6 +1099,14 @@ func rejectPendingCommand(args []string) error {
 	return nil
 }
 
+// Project the same canonical current resolution used by resolve-current into
+// the existing lowercase rollback CLI contract. An external app with no
+// previous slot is ABSENT, never a fabricated bundled fallback.
+func rollbackResolutionTarget(state activationState) string {
+	bundled := canonicalSourceRepository(state.ComponentID) == sourceRepository
+	return strings.ToLower(currentResolutionSource(state, bundled))
+}
+
 func rollbackStateCommand(args []string) error {
 	flags := flag.NewFlagSet("rollback-state", flag.ContinueOnError)
 	component := flags.String("component", "", "runtime component id")
@@ -910,11 +1131,10 @@ func rollbackStateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	target := "bundled"
+	target := rollbackResolutionTarget(state)
 	versionOut := ""
 	commitOut := ""
 	if state.Current != nil {
-		target = "slot"
 		versionOut = state.Current.Version
 		commitOut = state.Current.SourceCommit
 	}
@@ -956,6 +1176,21 @@ func uninstallStateCommand(args []string) error {
 	return nil
 }
 
+// This classification is derived exclusively from the canonical activation
+// state; a user's removal intent outranks any bundled fallback.
+func currentResolutionSource(state activationState, bundled bool) string {
+	if state.Current != nil {
+		return "SLOT"
+	}
+	if state.UserRemoved {
+		return "REMOVED"
+	}
+	if bundled {
+		return "BUNDLED"
+	}
+	return "ABSENT"
+}
+
 func resolveCurrentCommand(args []string) error {
 	flags := flag.NewFlagSet("resolve-current", flag.ContinueOnError)
 	component := flags.String("component", "", "runtime component id")
@@ -972,10 +1207,7 @@ func resolveCurrentCommand(args []string) error {
 		return err
 	}
 	if state.Current == nil {
-		source := "ABSENT"
-		if bundled {
-			source = "BUNDLED"
-		}
+		source := currentResolutionSource(state, bundled)
 		fmt.Printf(
 			"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\nCOMPONENT_ID=%s\nREVISION=%d\nSOURCE=%s\nRUNTIME_SERVED_FROM_SLOT=NO\n",
 			state.ComponentID, state.Revision, source,

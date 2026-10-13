@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { defineComponentManifest } from "../system/contracts/component-manifest.mjs";
-import { internetComponent } from "../system/apps/internet/component.mjs";
+// Synthetic, contract-only component fixture: the Internet product is no longer bundled.
+const internetComponent = defineComponentManifest({
+  id: "test-probation", title: "Synthetic Component", kind: "app", version: "0.3.0",
+  releaseMode: "git-app", criticality: "optional", failureDomain: "app",
+  restartScope: "component", healthMode: "runtime", owner: "test-fixture",
+  dependencies: ["surface-shell"],
+});
 import {
   COMPONENT_PROMOTION_DECISION_SCHEMA,
   decidePendingComponentAction,
@@ -27,7 +33,7 @@ test("failed pending health is a rejection decision, not promotion", () => {
   assert.equal(result.schema, COMPONENT_PROMOTION_DECISION_SCHEMA);
   assert.equal(result.action, "reject");
   assert.equal(result.reason, "pending-health-failed");
-  assert.equal(result.componentId, "internet");
+  assert.equal(result.componentId, "test-probation");
   assert.equal(Object.isFrozen(result), true);
 });
 
@@ -42,7 +48,7 @@ test("unknown pending health always holds", () => {
   assert.equal(result.reason, "pending-health-unknown");
 });
 
-test("healthy git-app Internet cannot be promoted", () => {
+test("healthy git-app synthetic git-app cannot be promoted", () => {
   const result = decidePendingComponentAction({
     manifest: internetComponent,
     health: "healthy",

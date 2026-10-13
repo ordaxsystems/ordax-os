@@ -7,7 +7,7 @@ ADAPTER = ROOT / "system" / "adapters" / "web" / "network-transport-v2.mjs"
 SEND = ROOT / "system" / "services" / "professional-network" / "send.mjs"
 DRAFT = ROOT / "system" / "services" / "professional-network" / "draft.mjs"
 NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
 
 
 class NetworkTransportV2BoundaryTests(unittest.TestCase):

@@ -19,7 +19,7 @@ class PolicyGenerationError(RuntimeError):
     pass
 
 
-def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...]]:
+def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str, ...]]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -65,14 +65,27 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...]]:
     # These IDs are a necessary (not sufficient) runtime module-read gate.
     # Presence in Store policy or the signed catalog must never invent it.
     module_ready = tuple(sorted(set(normalized).intersection(native_ids)))
-    return normalized, module_ready
+    health_ids = value.get("native_loopback_broker_health_mutation_components")
+    probation_ids = value.get("runtime_health_bridge_supported_components")
+    for label, ids in (("Native health", health_ids), ("probation", probation_ids)):
+        if (
+            not isinstance(ids, list)
+            or any(not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id) for app_id in ids)
+            or len(ids) != len(set(ids))
+        ):
+            raise PolicyGenerationError(f"{label} scope in canonical policy is invalid")
+    if not set(health_ids).issubset(native_ids) or not set(probation_ids).issubset(health_ids):
+        raise PolicyGenerationError("probation/health scope exceeds Native module-read scope")
+    probation_ready = tuple(sorted(set(module_ready).intersection(health_ids, probation_ids)))
+    return normalized, module_ready, probation_ready
 
 
-def render_module(sources: dict[str, str], module_ready: tuple[str, ...]) -> str:
+def render_module(sources: dict[str, str], module_ready: tuple[str, ...], probation_ready: tuple[str, ...]) -> str:
     mapping_lines = "\n".join(
         f'  "{app_id}": "{repository}",' for app_id, repository in sources.items()
     )
     ready_lines = "\n".join(f'  "{app_id}",' for app_id in module_ready)
+    probation_lines = "\n".join(f'  "{app_id}",' for app_id in probation_ready)
     return f'''// GENERATED FILE. DO NOT EDIT BY HAND.
 // Source of truth: docs/contracts/runtime-component-package.json
 // Generator: tools/app-policy/render_external_first_party_policy.py
@@ -92,9 +105,17 @@ export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
 export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
 {ready_lines}
 ]);
+export const EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([
+{probation_lines}
+]);
 
 const IDS = new Set(EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
 const MODULE_READ_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
+const PROBATION_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS);
+if (PROBATION_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS.length
+  || [...PROBATION_IDS].some((appId) => !MODULE_READ_IDS.has(appId))) {{
+  throw new TypeError("External first-party probation ids disagree with canonical Native read scope");
+}}
 if (MODULE_READ_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS.length
   || [...MODULE_READ_IDS].some((appId) => !IDS.has(appId))) {{
   throw new TypeError("External first-party module-read ids disagree with canonical owners");
@@ -130,6 +151,15 @@ export function hasNativeExternalFirstPartyModuleRead(value) {{
     return false;
   }}
 }}
+
+// Required, never sufficient for production activation.
+export function hasNativeExternalFirstPartyProbation(value) {{
+  try {{
+    return PROBATION_IDS.has(validateComponentId(value));
+  }} catch {{
+    return false;
+  }}
+}}
 '''
 
 
@@ -148,8 +178,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
     try:
-        sources, module_ready = load_policy(args.policy)
-        rendered = render_module(sources, module_ready)
+        sources, module_ready, probation_ready = load_policy(args.policy)
+        rendered = render_module(sources, module_ready, probation_ready)
         if args.check:
             try:
                 current = args.out.read_text(encoding="utf-8")

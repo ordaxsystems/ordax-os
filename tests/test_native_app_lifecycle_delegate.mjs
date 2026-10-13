@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import {
+  EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
+  hasNativeExternalFirstPartyProbation,
+} from "../system/services/apps/external-first-party-policy.mjs";
 
 import {
   APP_LIFECYCLE_DELEGATE_SCHEMA,
@@ -9,6 +14,24 @@ import {
 } from "../system/adapters/native/app-lifecycle-delegate.mjs";
 
 const COMMIT = "a".repeat(40);
+
+test("Native Store probation eligibility is generated from the canonical OS policy", () => {
+  const policy = JSON.parse(readFileSync(
+    new URL("../docs/contracts/runtime-component-package.json", import.meta.url),
+    "utf8",
+  ));
+  const expected = new Set(policy.runtime_health_bridge_supported_components);
+  for (const appId of EXTERNAL_FIRST_PARTY_COMPONENT_IDS) {
+    assert.equal(
+      hasNativeExternalFirstPartyProbation(appId),
+      expected.has(appId),
+      appId,
+    );
+  }
+  assert.equal(hasNativeExternalFirstPartyProbation("network"), false);
+  assert.equal(hasNativeExternalFirstPartyProbation("studio"), false);
+});
+
 
 function artifact(name, char) {
   return { name, sha256: char.repeat(64), size: 123 };

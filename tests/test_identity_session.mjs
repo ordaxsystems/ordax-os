@@ -98,3 +98,112 @@ test("identity gateway failure remains explicitly unavailable", async () => {
   assert.equal(port.getSnapshot().state, "unavailable");
   port.dispose();
 });
+
+function controlledIdentityGateway() {
+  const requests = [];
+  const windowRef = {
+    fetch: () => new Promise((resolve, reject) => requests.push({ resolve, reject })),
+  };
+  const reply = ({ subject = null } = {}) => ({
+    ok: true,
+    json: async () => ({
+      $schema: "prototype-ordax.public-identity-session/1",
+      provider: "supabase",
+      authenticated: subject !== null,
+      status: subject === null ? "anonymous" : "authenticated",
+      ...(subject === null ? {} : { subject, email: "pessoa@example.com" }),
+    }),
+  });
+  return { requests, windowRef, reply };
+}
+
+test("stale session responses never overwrite the latest completed refresh", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  const states = [];
+  port.subscribe((snapshot) => states.push(snapshot.state));
+  const older = port.refresh();
+  const latest = port.refresh();
+  assert.equal(gateway.requests.length, 2);
+
+  gateway.requests[1].resolve(gateway.reply({ subject: "user-current" }));
+  await latest;
+  assert.equal(port.getSnapshot().subjectId, "user-current");
+  gateway.requests[0].resolve(gateway.reply({ subject: "user-stale" }));
+  await older;
+  assert.equal(port.getSnapshot().subjectId, "user-current");
+  assert.deepEqual(states, ["unavailable", "signed-in"]);
+
+  // A late network failure must not overwrite the signed-out state either.
+  const staleFailure = port.refresh();
+  const loggedOut = port.refresh();
+  gateway.requests[3].resolve(gateway.reply());
+  await loggedOut;
+  gateway.requests[2].reject(new Error("old transport failure"));
+  await staleFailure;
+  assert.deepEqual(port.getSnapshot(), {
+    state: "signed-out", subjectId: null, displayName: null,
+  });
+  assert.deepEqual(states, ["unavailable", "signed-in", "signed-out"]);
+  port.dispose();
+});
+
+test("pending identity refresh cannot resurrect a disposed session", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  const observations = [];
+  port.subscribe((snapshot) => observations.push(snapshot.state));
+  const pending = port.refresh();
+  port.dispose();
+  gateway.requests[0].resolve(gateway.reply({ subject: "user-after-disposal" }));
+  await pending;
+  assert.equal(port.getSnapshot().state, "unavailable");
+  assert.deepEqual(observations, ["unavailable"]);
+});
+
+test("unchanged verified identity retains the same snapshot for external-store subscriptions", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  try {
+    const initial = port.refresh();
+    gateway.requests[0].resolve(gateway.reply({ subject: "same-account" }));
+    await initial;
+    const snapshot = port.getSnapshot();
+    const observed = [];
+    const release = port.subscribe(value => observed.push(value));
+    const refreshed = port.refresh();
+    gateway.requests[1].resolve(gateway.reply({ subject: "same-account" }));
+    await refreshed;
+    assert.equal(port.getSnapshot(), snapshot);
+    assert.deepEqual(observed, [snapshot]);
+    release();
+  } finally { port.dispose(); }
+});
+
+test("cancellation releases a pending identity read and preserves last-known identity", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  try {
+    const initial = port.refresh();
+    gateway.requests[0].resolve(gateway.reply({ subject: "known-account" }));
+    await initial;
+    const known = port.getSnapshot();
+    const pending = port.refresh();
+    port.cancelRefresh();
+    await pending;
+    assert.equal(port.getSnapshot(), known);
+    gateway.requests[1].resolve(gateway.reply({ subject: "stale-account" }));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(port.getSnapshot(), known);
+  } finally { port.dispose(); }
+});
+
+test("disposed identity does not retain new subscribers or start network work", async () => {
+  const gateway = controlledIdentityGateway();
+  const port = createWebIdentitySession(gateway.windowRef);
+  port.dispose();
+  port.subscribe(() => { throw Error("Disposed identity subscriber called"); });
+  await port.refresh();
+  assert.equal(gateway.requests.length, 0);
+});

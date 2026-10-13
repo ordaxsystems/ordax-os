@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { defineComponentManifest } from "../system/contracts/component-manifest.mjs";
-import { internetComponent } from "../system/apps/internet/component.mjs";
+// Synthetic, contract-only component fixture: the Internet product is no longer bundled.
+const internetComponent = defineComponentManifest({
+  id: "test-probation", title: "Synthetic Component", kind: "app", version: "0.3.0",
+  releaseMode: "git-app", criticality: "optional", failureDomain: "app",
+  restartScope: "component", healthMode: "runtime", owner: "test-fixture",
+  dependencies: ["surface-shell"],
+});
 import {
   COMPONENT_PENDING_DECISION_PLAN_SCHEMA,
   createComponentPendingDecisionPlan,
@@ -22,7 +28,7 @@ function slotInternet(version = "0.4.0") {
 function receipt({
   health = "healthy",
   version = "0.4.0",
-  componentId = "internet",
+  componentId = "test-probation",
   sourceCommit = COMMIT,
   revision = 7,
 } = {}) {
@@ -48,7 +54,7 @@ test("failed exact probation identity plans rejection without authority", () => 
   assert.equal(plan.action, "reject");
   assert.equal(plan.reason, "pending-health-failed");
   assert.equal(plan.authority, "none");
-  assert.equal(plan.componentId, "internet");
+  assert.equal(plan.componentId, "test-probation");
   assert.equal(plan.version, "0.4.0");
   assert.equal(plan.sourceCommit, COMMIT);
   assert.equal(plan.revision, 7);

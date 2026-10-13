@@ -160,3 +160,79 @@ test("registration policy errors fail closed", async () => {
   actions.dispose();
   session.dispose();
 });
+
+test("older registration policy reply cannot re-enable or disable a newer decision", async () => {
+  const windowRef = {
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false, provider: "supabase", status: "anonymous",
+      }),
+    }),
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  const pending = [];
+  const actions = createWebIdentityActions(windowRef, session, {
+    registrationPolicy: () => new Promise((resolve) => pending.push(resolve)),
+  });
+  const snapshots = [];
+  actions.subscribe((snapshot) => snapshots.push(snapshot.supportedActions.join(",")));
+
+  const oldEnable = actions.refresh();
+  const latestDisable = actions.refresh();
+  pending[1]({ registrationEnabled: false });
+  await latestDisable;
+  pending[0]({ registrationEnabled: true });
+  await oldEnable;
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in"]);
+
+  const oldDisable = actions.refresh();
+  const latestEnable = actions.refresh();
+  pending[3]({ registrationEnabled: true });
+  await latestEnable;
+  pending[2]({ registrationEnabled: false });
+  await oldDisable;
+  assert.deepEqual(actions.getSnapshot().supportedActions, ["sign-in", "register"]);
+  assert.deepEqual(snapshots, ["sign-in", "sign-in,register"]);
+
+  // A disposed instance must never publish a delayed registration capability.
+  const orphaned = actions.refresh();
+  actions.dispose();
+  pending[4]({ registrationEnabled: false });
+  await orphaned;
+  assert.deepEqual(snapshots, ["sign-in", "sign-in,register"]);
+  session.dispose();
+});
+
+test("disposed identity actions reject commands and do not query registration policy", async () => {
+  const requests = [], assigned = [];
+  const windowRef = {
+    location: { assign: path => assigned.push(path) },
+    fetch: async path => {
+      requests.push(path);
+      return { ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        provider: "supabase", authenticated: true, status: "authenticated",
+        subject: "account-a", email: "person@example.invalid",
+      }) };
+    },
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  let policies = 0;
+  const actions = createWebIdentityActions(windowRef, session, {
+    registrationPolicy: async () => { policies++; return { registrationEnabled: true }; },
+  });
+  actions.dispose();
+  actions.dispose();
+  actions.subscribe(() => { throw Error("Disposed actions subscriber called"); });
+  await actions.refresh();
+  await assert.rejects(actions.execute("sign-out"), /disposed/);
+  await assert.rejects(actions.execute("sign-in"), /disposed/);
+  assert.equal(policies, 0);
+  assert.deepEqual(assigned, []);
+  assert.deepEqual(requests, ["/auth/session"]);
+  session.dispose();
+});

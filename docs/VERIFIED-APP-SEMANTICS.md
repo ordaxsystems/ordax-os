@@ -45,7 +45,7 @@ O host nativo continua sendo responsável por revalidar assinatura, trust anchor
 
 ## Estado ausente
 
-Apps externos não instalados são representados por `SOURCE=ABSENT`.
+Apps externos nunca instalados são representados por `SOURCE=ABSENT`. Uma remoção explícita registrada no `activation-state.json` gera `SOURCE=REMOVED` pelo mesmo helper Go e pelo mesmo endpoint Native de metadados de componente; isso não altera a capacidade de ler um slot nem concede instalação. `REMOVED` permanece desinstalado na Loja, mas pode receber **solicitação manual** de reinstalação a partir de catálogo assinado.
 
 Nesse caso nenhum `ai/manifest.json` é lido e nenhuma semântica é inventada.
 

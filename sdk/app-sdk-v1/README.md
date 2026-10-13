@@ -2,6 +2,28 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.18.0
+
+Esta versão publica **contratos de dados do Assistente e Personal OrdaX**: capacidades
+tipadas de conversa, Work/Activity/Result, decisões/aprovações e snapshots do
+runtime/armazenamento de trabalho. São validações e esquemas do owner OS;
+não concedem persistência, execução, tokens, grants nem acesso a serviços
+privados. Seus módulos continuam canônicos em `system/contracts/` e só são
+exportados pelo gerador do App SDK, com hashes Git verificados.
+
+### Evolução anterior — 1.17.0
+
+Publicação aditiva de `ordax.network-draft/1` diretamente de
+`system/contracts/network-draft.mjs`. O app Rede precisa validar o
+remetente (Conta + Space), rascunhos e alterações explícitas de Space
+sem importar `system/services/professional-network/draft.mjs`.
+
+A publicação expõe somente schema, validação de snapshot e assinatura da
+porta de rascunho. Não concede credenciais, autorização, nem a capacidade
+de envio de mensagens; o serviço permanece no OrdaX OS. Migração de código
+e pacote assinado são verificações independentes — não declaradas prontas
+por este contrato.
+
 ## Bundle 1.16.0
 
 This additive SDK release publishes the **single canonical first-party

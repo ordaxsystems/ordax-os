@@ -15,7 +15,7 @@ CAPABILITIES = ROOT / "docs" / "contracts" / "product-capabilities.json"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "keyboard-layout.mjs"
 RUNTIME = ROOT / "system" / "adapters" / "native" / "runtime.mjs"
 NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
 SETTINGS = ROOT / "system" / "surface" / "ui" / "settings-overview-controls.mjs"
 SETTINGS_CSS = ROOT / "system" / "surface" / "ui" / "settings.css"
 

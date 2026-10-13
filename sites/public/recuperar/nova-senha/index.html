@@ -6,45 +6,55 @@
   <meta name="description" content="Definição de nova senha da Conta OrdaX.">
   <title>Nova senha — OrdaX</title>
   <link rel="stylesheet" href="/assets/site.css">
-  <link rel="stylesheet" href="/assets/portal.css?v=titanium-1">
+  <link rel="stylesheet" href="/assets/account.css?v=account-ux-4">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
   <script src="/assets/site.js?v=auth-nav-1" defer></script>
 </head>
-<body data-page="recuperar-nova-senha">
+<body data-page="recuperar-nova-senha" class="account-ui">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-  <header class="site-header">
+  <header class="site-header account-header">
     <a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a>
-    <nav class="site-nav" aria-label="Navegação principal"><a href="/">Início</a><a href="/download/">Download</a><a href="/licencas/">Licenças</a><a href="/login/" data-auth-nav="login"><span data-auth-nav-label>Entrar</span></a></nav>
+    <div class="account-nav-actions"><a href="/">Início</a><a class="nav-cta" href="/login/" data-auth-nav="login"><span data-auth-nav-label>Entrar</span> <span aria-hidden="true">↗</span></a></div>
   </header>
-  <main id="conteudo" class="auth-shell">
-    <section class="auth-copy">
-      <p class="eyebrow">CONTA ORDA X</p>
-      <h1>Defina uma nova senha para sua conta.</h1>
-      <p>Esta etapa só funciona depois que o servidor valida o link enviado por e-mail e cria uma sessão de recuperação curta e protegida.</p>
-    </section>
-    <section class="auth-card" aria-labelledby="auth-title">
-      <p class="eyebrow">NOVA SENHA</p>
-      <h2 id="auth-title">Atualizar senha</h2>
-      <div class="identity-state" data-identity-state="recover-complete" aria-live="polite">
-        <strong>Conclusão da recuperação ainda não ativada</strong>
-        <p>O formulário será habilitado somente quando o fluxo de recuperação estiver aprovado de ponta a ponta.</p>
+
+  <main id="conteudo" class="account-stage">
+    <section class="account-story" aria-labelledby="new-password-story-title">
+      <div>
+        <p class="eyebrow">CONTA ORDA X</p>
+        <h1 id="new-password-story-title">Defina uma nova senha para sua conta.</h1>
+        <p class="story-lead">Esta etapa só funciona depois que o servidor valida o link enviado por e-mail e cria uma sessão de recuperação curta e protegida.</p>
       </div>
-      <form class="identity-form" data-identity-form="recover-complete" method="post" hidden>
-        <label class="identity-field">
-          <span>Nova senha</span>
-          <input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="256" aria-describedby="recovery-password-help" required disabled>
-        </label>
-        <label class="identity-field">
-          <span>Confirmar nova senha</span>
-          <input type="password" name="password_confirmation" autocomplete="new-password" minlength="12" maxlength="256" required disabled>
-        </label>
-        <small id="recovery-password-help">Use pelo menos 12 caracteres e repita exatamente o mesmo valor.</small>
-        <button class="button button-primary identity-submit" type="submit" disabled>Salvar nova senha</button>
-      </form>
-      <p class="auth-switch">O link expirou? <a href="/recuperar/">Solicitar novamente</a></p>
+      <div class="account-side-footer">
+        <nav class="account-quicklinks" aria-label="Atalhos para sua conta"><a href="/recuperar/">Solicitar novamente</a><a href="/login/">Voltar para entrar</a><a href="/privacidade/">Privacidade</a></nav>
+      </div>
+      <div class="account-orbit" aria-hidden="true"><span></span><i></i></div>
+    </section>
+
+    <section class="account-access" aria-labelledby="auth-title">
+      <div class="account-card">
+        <header class="account-card-header"><p class="eyebrow">NOVA SENHA</p></header>
+        <h2 id="auth-title">Atualizar senha</h2>
+
+        <div class="identity-state" data-identity-state="recover-complete" data-status="unavailable" aria-live="polite">
+          <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/></svg></span>
+          <div><strong>Conclusão da recuperação ainda não ativada</strong><p>O formulário será habilitado somente quando o fluxo de recuperação estiver aprovado de ponta a ponta.</p></div>
+        </div>
+        <p class="identity-notice" data-identity-notice hidden aria-live="polite"></p>
+
+        <form class="identity-form" data-identity-form="recover-complete" method="post" hidden>
+          <label class="identity-field"><span>Nova senha</span><input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="256" aria-describedby="recovery-password-help" required disabled></label>
+          <label class="identity-field"><span>Confirmar nova senha</span><input type="password" name="password_confirmation" autocomplete="new-password" minlength="12" maxlength="256" required disabled></label>
+          <small id="recovery-password-help">Use pelo menos 12 caracteres e repita exatamente o mesmo valor.</small>
+          <button class="button button-primary identity-submit" type="submit" disabled>Salvar nova senha</button>
+        </form>
+
+        <div class="account-entry"><div><span>O link expirou?</span></div><a href="/recuperar/">Solicitar novamente</a></div>
+        <nav class="account-legal" aria-label="Documentação da conta"><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav>
+      </div>
     </section>
   </main>
-  <footer class="site-footer"><a class="brand brand-small" href="/"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a><p>Sessão de recuperação curta e server-side.</p><nav><a href="/">Início</a><a href="/login/">Entrar</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav></footer>
+
+  <footer class="site-footer"><div><a class="brand" href="/" aria-label="OrdaX — início"><span class="brand-mark" aria-hidden="true"><span></span><i></i></span><span class="brand-name">OrdaX</span></a><p>Sessão de recuperação curta e server-side.</p></div><nav aria-label="Rodapé"><a href="/">Início</a><a href="/login/">Entrar</a><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav></footer>
 </body>
 </html>

@@ -3,6 +3,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SURFACE_I18N = ROOT / "system/services/i18n/surface.mjs"
+BOOT_I18N = ROOT / "system/services/i18n/catalog/boot.mjs"
 POWER_I18N = ROOT / "system/services/i18n/catalog/power.mjs"
 SYSTEM_I18N = ROOT / "system/services/i18n/catalog/system.mjs"
 HOME_CONTINUATION = ROOT / "system/surface/ui/home-continuation.mjs"
@@ -12,7 +13,7 @@ UPDATES = ROOT / "system/surface/ui/update-controls.mjs"
 BOOT = ROOT / "system/surface/ui/boot-screen.mjs"
 DESKTOP = ROOT / "system/surface/ui/desktop-shell.mjs"
 NATIVE_MAIN = ROOT / "system/composition/native/main.mjs"
-WEB_MAIN = ROOT / "system/composition/web/main.mjs"
+WEB_MAIN = ROOT / "system/composition/web/main.tsx"
 NATIVE_HTML = ROOT / "system/composition/native/index.html"
 WEB_HTML = ROOT / "system/composition/web/index.html"
 
@@ -94,6 +95,7 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
 
     def test_boot_copy_uses_same_surface_catalog_and_neutral_pre_js_markup(self):
         i18n = SURFACE_I18N.read_text(encoding="utf-8")
+        boot_catalog = BOOT_I18N.read_text(encoding="utf-8")
         native = NATIVE_MAIN.read_text(encoding="utf-8")
         web = WEB_MAIN.read_text(encoding="utf-8")
         boot = BOOT.read_text(encoding="utf-8")
@@ -104,10 +106,18 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
             '"surface.boot.loadingApps": "Loading applications…"',
             '"surface.boot.failed": "Não foi possível iniciar a interface"',
             '"surface.boot.failed": "The interface could not be started"',
+        ):
+            self.assertIn(marker, boot_catalog)
+        # Boot strings have one canonical data owner. The complete Surface
+        # imports and spreads it; no second copy of the messages is needed.
+        for marker in (
+            'from "./catalog/boot.mjs";',
+            "...SURFACE_BOOT_SOURCE_MESSAGES,",
+            "...SURFACE_BOOT_ENGLISH_MESSAGES,",
             "export function translateSurfaceMessage",
         ):
             self.assertIn(marker, i18n)
-        for composition in (native, web):
+        for composition in (native,):
             self.assertIn("translateSurfaceMessage", composition)
             self.assertIn('"surface.boot.loadingSurface"', composition)
             self.assertIn('"surface.boot.loadingApps"', composition)
@@ -116,7 +126,10 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
         self.assertNotIn("Não foi possível iniciar a interface", boot)
         for html_path in (NATIVE_HTML, WEB_HTML):
             html = html_path.read_text(encoding="utf-8")
-            self.assertIn('<html lang="und">', html)
+            self.assertIn(
+                '<html lang="und">' if html_path == NATIVE_HTML else '<html lang="pt-BR">',
+                html,
+            )
             self.assertIn("data-ordax-boot-status>OrdaX</span>", html)
             self.assertNotIn("Preparando OrdaX…", html)
 

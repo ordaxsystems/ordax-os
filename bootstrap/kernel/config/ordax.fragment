@@ -1,4 +1,4 @@
-# Canonical OrdaX kernel fragment for Linux 6.6.52.
+# Canonical OrdaX kernel fragment for the selected Linux 6.6 LTS source.
 # Applied over `make defconfig` by the repository-owned kernel build recipe.
 
 CONFIG_64BIT=y

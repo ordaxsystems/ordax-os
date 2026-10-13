@@ -557,7 +557,7 @@ def main() -> int:
     build_parser.add_argument(
         "--kernel-modules",
         type=Path,
-        default=ROOT / "out/kernel/kernel-modules-6.6.52.tar",
+        default=CORE.kernel_module_archive_path(),
     )
     build_parser.add_argument("--out-dir", type=Path, default=ROOT / "out/stable-base")
     build_parser.add_argument("--cache-dir", type=Path, default=ROOT / "out/stable-base-cache")

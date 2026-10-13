@@ -1,0 +1,22 @@
+{
+  "$schema": "prototype-ordax.kernel-source/1",
+  "version": "6.6.158",
+  "archive_url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.158.tar.xz",
+  "signature_url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.158.tar.sign",
+  "archive_sha256": "9eb33173b0e04e898d431587c78c47ee6e19e3fdf2ea007323de82af14bb2a4f",
+  "configuration": {
+    "base": "defconfig",
+    "fragment": "bootstrap/kernel/config/ordax.fragment",
+    "embedded_initramfs": false
+  },
+  "build": {
+    "canonical_entrypoint": "bootstrap/kernel/build.py",
+    "pinned_environment_resolved": false,
+    "physical_artifact_authorized": false
+  },
+  "upstream_signature": {
+    "algorithm": "openpgp-detached-tar",
+    "trusted_primary_fingerprint": "647F28654894E3BD457199BE38DBBDC86092693E",
+    "trusted_public_key_url": "https://kernel.googlesource.com/pub/scm/docs/kernel/pgpkeys/+/9518bddaef900dd832e3e16be1d88923c620b749/keys/38DBBDC86092693E.asc?format=TEXT"
+  }
+}

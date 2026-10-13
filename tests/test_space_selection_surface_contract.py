@@ -7,7 +7,7 @@ RUNTIME = ROOT / "system" / "services" / "spaces" / "selection.mjs"
 NATIVE_STORE = ROOT / "system" / "adapters" / "native" / "space-selection.mjs"
 ACCOUNT_UI = ROOT / "system" / "surface" / "ui" / "account-overview-controls.mjs"
 NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
 WORKSPACE = ROOT / "system" / "contracts" / "workspace-store.mjs"
 ACCOUNT_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "account.mjs"
 

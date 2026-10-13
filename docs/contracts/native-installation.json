@@ -186,5 +186,6 @@
     "source_boot_media_must_not_be_target": true,
     "existing_target_data_is_erased": true,
     "explicit_destructive_confirmation_required": true
-  }
+  },
+  "user_consent_contract": "docs/contracts/user-consent-experience.json"
 }

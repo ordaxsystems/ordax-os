@@ -31,7 +31,8 @@
     "nofollow": true,
     "unreferenced_blob_is_not_authoritative": true,
     "orphan_temp_is_not_authoritative": true,
-    "orphan_cleanup_on_next_successful_mutation": true
+    "orphan_cleanup_on_next_successful_mutation": true,
+    "durable_genesis_manifest_before_first_mutation": true
   },
   "bounds": {
     "value_bytes_max": 1048576,
@@ -66,7 +67,22 @@
     "signing_key_is_binding_source": false,
     "authorized_key_rotation_preserves_publisher_binding": true,
     "trusted_composition_receives_opaque_bound_endpoint": true,
-    "port_injection_to_first_party_component_context": true
+    "port_injection_to_first_party_component_context": true,
+    "verified_receipt_maintenance_admission_drain": true,
+    "admitted_requests_drained_across_receipt_rotation": true,
+    "old_capability_revoked_before_checkpoint": true,
+    "maintenance_requires_explicit_trusted_receipt_remint_afterward": true,
+    "maintenance_requires_receipt_component_and_version_correlation": true,
+    "receipt_correlation_is_signed_activation_authority": false,
+    "maintenance_mismatch_preserves_current_binding": true,
+    "recovery_pending_refuses_new_capabilities_for_every_version": true,
+    "recovery_pending_refuses_mixed_batch_without_partial_grants": true,
+    "capability_grant_holds_shared_partition_lock_through_registry_commit": true,
+    "batch_grant_lock_order": "canonical-partition-sha256-ascending",
+    "grant_of_absent_partition_does_not_create_storage": true,
+    "grant_lock_is_signed_activation_authority": false,
+    "app_endpoint_always_checks_recovery_under_partition_lock": true,
+    "preexisting_capability_cannot_bypass_later_checkpoint": true
   },
   "security": {
     "publisher_self_claim_accepted": false,
@@ -78,7 +94,11 @@
     "blob_digest_mismatch_fails_closed": true,
     "cross_partition_access": false,
     "package_or_manifest_mints_data_capability": false,
-    "store_ui_has_data_capability": false
+    "store_ui_has_data_capability": false,
+    "existing_partition_without_authoritative_manifest_fails_closed": true,
+    "existing_partition_without_lock_fails_closed": true,
+    "existing_partition_without_blob_directory_fails_closed": true,
+    "existing_partition_without_lock_rejects_read_and_list": true
   },
   "lifecycle": {
     "uninstall_deletes_data": false,
@@ -88,5 +108,42 @@
     "notes_uses_app_data": true,
     "legacy_notes_seed_required": false,
     "legacy_notes_payload_migrated": false
+  },
+  "owner_recovery": {
+    "checkpoint_schema": "ordax.native-app-data-checkpoint/1",
+    "checkpoint_location": "private-same-partition-checkpoint.json",
+    "checkpoint_is_authoritative_current_manifest": false,
+    "checkpoint_binds_identity_source_release_and_exact_manifest": true,
+    "checkpoint_max_active_per_partition": 1,
+    "checkpoint_blobs_referenced_by_garbage_collector": true,
+    "verified_blob_readback_required_before_checkpoint_and_restore": true,
+    "restore_requires_owner_only_cas_and_monotonic_revision": true,
+    "checkpoint_retirement_requires_owner_only_cas": true,
+    "app_facing_checkpoint_actions_available": false,
+    "pinned_trust_or_release_activation_authorized_by_checkpoint": false,
+    "activation_writer_integration_complete": false,
+    "automatic_rewind_on_app_rollback": false,
+    "user_data_backup_completed": false,
+    "empty_generation_checkpoint_supported": true,
+    "empty_generation_checkpoint_requires_zero_entries": true,
+    "read_only_owner_inspection_available": true,
+    "read_only_inspection_verifies_active_and_pinned_blobs": true,
+    "read_only_inspection_exposes_user_values": false,
+    "read_only_inspection_activation_authority": "none",
+    "read_only_inspection_sha256_for_active_manifest": true,
+    "read_only_inspection_holds_shared_lock_through_blob_verification": true,
+    "exclusive_maintenance_scope_supported": true,
+    "exclusive_maintenance_scope_reuses_partition_flock": true,
+    "public_get_list_put_delete_block_during_maintenance": true,
+    "maintenance_scope_rechecks_revision_and_active_and_pinned_blob_integrity": true,
+    "maintenance_scope_offers_owner_checkpoint_restore_retire": true,
+    "maintenance_scope_is_update_authority": false,
+    "maintenance_scope_quiesces_external_side_effects": false,
+    "native_host_composes_verified_receipt_drain_with_partition_flock": true,
+    "host_maintenance_verifies_signed_release_and_quiesces_app_process": false,
+    "pending_checkpoint_blocks_original_and_replacement_app_access": true,
+    "recovery_pending_fence_uses_existing_partition_checkpoint": true,
+    "retirement_verifies_current_and_retained_blob_integrity_before_unlink": true,
+    "checkpoint_retirement_is_activation_proof": false
   }
 }

@@ -55,6 +55,9 @@ on:
       - 'system/contracts/update-status.mjs'
       - 'system/contracts/update-history.mjs'
       - 'system/contracts/app-activation.mjs'
+      - 'system/contracts/app-store.mjs'
+      - 'system/services/local-ai/model-candidate.generated.mjs'
+      - 'system/services/local-ai/source-lock.json'
       - 'system/contracts/component-*.mjs'
       - 'system/contracts/recent-files.mjs'
       - 'system/contracts/recent-files-store.mjs'
@@ -101,6 +104,10 @@ on:
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
+      - 'tools/browser-proof/**'
+      - 'tools/surface-native/**'
+      - 'package.json'
+      - 'package-lock.json'
       - 'tools/source_graph.py'
       - 'tests/test_surface_ui_contract.py'
       - 'tests/test_surface_visual_identity.py'
@@ -116,10 +123,15 @@ on:
       - 'tests/test_surface_boot_screen.py'
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
+      - 'tests/test_preference_runtime.mjs'
+      - 'tests/test_color_palette.mjs'
+      - 'tests/test_web_account_session.mjs'
+      - 'tests/test_web_identity_capability_refresh.mjs'
       - 'tests/test_surface_localization.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
       - 'tests/test_surface_workspace.mjs'
+      - 'tests/test_web_store_catalog.mjs'
       - 'tests/test_surface_external_app_catalog.mjs'
       - 'tests/test_recent_files.mjs'
       - 'tests/test_recent_files_ui_contract.py'
@@ -145,7 +157,6 @@ on:
       - 'tests/test_native_browser_page_selection.mjs'
       - 'tests/test_internet_native_page_selection.py'
       - 'tests/test_internet_history_contract.py'
-      - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
@@ -169,7 +180,6 @@ on:
       - 'tests/test_native_component_state.py'
       - 'tests/test_browser_session_integration_contract.py'
       - 'tests/test_browser_session_store.py'
-      - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
       - 'tests/test_internet_sdk_readiness.py'
       - 'tools/verify/internet_sdk_readiness.py'
@@ -178,11 +188,13 @@ on:
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_account_gateway.py'
       - 'tests/test_native_request_boundary.py'
+      - 'tests/test_first_run_native_http.py'
       - 'tests/test_native_capability_adapter.py'
       - 'tests/test_native_profile_content_context_contract.py'
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
+      - 'tests/test_web_json_read.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
       - 'tests/test_account_lifecycle.mjs'
@@ -270,6 +282,9 @@ on:
       - 'system/contracts/update-status.mjs'
       - 'system/contracts/update-history.mjs'
       - 'system/contracts/app-activation.mjs'
+      - 'system/contracts/app-store.mjs'
+      - 'system/services/local-ai/model-candidate.generated.mjs'
+      - 'system/services/local-ai/source-lock.json'
       - 'system/contracts/component-*.mjs'
       - 'system/contracts/recent-files.mjs'
       - 'system/contracts/recent-files-store.mjs'
@@ -316,6 +331,10 @@ on:
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
+      - 'tools/browser-proof/**'
+      - 'tools/surface-native/**'
+      - 'package.json'
+      - 'package-lock.json'
       - 'tools/source_graph.py'
       - 'tests/test_surface_ui_contract.py'
       - 'tests/test_surface_visual_identity.py'
@@ -328,10 +347,15 @@ on:
       - 'tests/test_surface_boot_screen.py'
       - 'tests/test_surface_web_builder.py'
       - 'tests/test_surface_preferences.mjs'
+      - 'tests/test_preference_runtime.mjs'
+      - 'tests/test_color_palette.mjs'
+      - 'tests/test_web_account_session.mjs'
+      - 'tests/test_web_identity_capability_refresh.mjs'
       - 'tests/test_surface_localization.mjs'
       - 'tests/test_surface_app_localization.mjs'
       - 'tests/test_surface_residual_localization.py'
       - 'tests/test_surface_workspace.mjs'
+      - 'tests/test_web_store_catalog.mjs'
       - 'tests/test_surface_external_app_catalog.mjs'
       - 'tests/test_recent_files.mjs'
       - 'tests/test_recent_files_ui_contract.py'
@@ -357,7 +381,6 @@ on:
       - 'tests/test_native_browser_page_selection.mjs'
       - 'tests/test_internet_native_page_selection.py'
       - 'tests/test_internet_history_contract.py'
-      - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
@@ -380,7 +403,6 @@ on:
       - 'tests/test_native_component_state.py'
       - 'tests/test_browser_session_integration_contract.py'
       - 'tests/test_browser_session_store.py'
-      - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
       - 'tests/test_internet_sdk_readiness.py'
       - 'tools/verify/internet_sdk_readiness.py'
@@ -388,11 +410,13 @@ on:
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
       - 'tests/test_native_request_boundary.py'
+      - 'tests/test_first_run_native_http.py'
       - 'tests/test_native_capability_adapter.py'
       - 'tests/test_native_profile_content_context_contract.py'
       - 'tests/test_system_runtime_contract.py'
       - 'tests/test_third_party_inventory.py'
       - 'tests/test_identity_session.mjs'
+      - 'tests/test_web_json_read.mjs'
       - 'tests/test_identity_actions.mjs'
       - 'tests/test_identity_credentials.mjs'
       - 'tests/test_account_lifecycle.mjs'
@@ -442,6 +466,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install locked Web build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -482,7 +509,7 @@ jobs:
             -type f -name '*.mjs' -print0 \
             | sort -z \
             | xargs -0 -n1 node --check
-          node --test tests/test_surface_preferences.mjs
+          node --test tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs tests/test_color_palette.mjs
           node --test tests/test_surface_localization.mjs
           node --test tests/test_surface_app_localization.mjs
           node --test tests/test_surface_workspace.mjs
@@ -513,7 +540,6 @@ jobs:
           node --test tests/test_device_agent_contracts.mjs
           node --test tests/test_operational_realtime_contracts.mjs
           node --test tests/test_mobile_companion_contracts.mjs
-          node --test tests/test_assistant_conversation.mjs
           node --test tests/test_app_activation.mjs
           node --test tests/test_app_contract.mjs
           node --test tests/test_component_manager.mjs
@@ -523,7 +549,7 @@ jobs:
           node --test tests/test_component_probation_orchestrator.mjs
           node --test tests/test_native_component_probation_composition.mjs
           node --test tests/test_component_promotion_policy.mjs
-          node --test tests/test_identity_session.mjs
+          node --test tests/test_identity_session.mjs tests/test_web_json_read.mjs
           node --test tests/test_identity_actions.mjs
           node --test tests/test_identity_credentials.mjs
           node --test tests/test_account_lifecycle.mjs
@@ -590,10 +616,11 @@ jobs:
           python -m unittest tests.test_native_component_probation -v
           python -m unittest tests.test_browser_session_integration_contract -v
           python -m unittest tests.test_browser_session_store -v
-          python -m unittest tests.test_internet_accessibility_contract -v
+          python -m unittest tests.test_internet_remove_first_cutover -v
           python -m unittest tests.test_internet_browser_contract -v
           python -m unittest tests.test_internet_sdk_readiness -v
-          python tools/verify/internet_sdk_readiness.py --check
+          # Full product SDK-closure auditing belongs to the external Internet package.
+          # The preceding unit tests prove that an absent OS source fails closed.
           python -m unittest tests.test_internet_popup_policy -v
           python -m unittest tests.test_internet_native_page_selection -v
           python -m unittest tests.test_internet_native_page_find -v
@@ -602,10 +629,10 @@ jobs:
           python -m unittest tests.test_internet_project_context_contract -v
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v
-          python -m unittest tests.test_internet_deep_localization -v
           python -m unittest tests.test_native_host_module_integrity -v
           python -m unittest tests.test_native_account_gateway -v
           python -m unittest tests.test_native_request_boundary -v
+          python -m unittest tests.test_first_run_native_http -v
           python -m unittest tests.test_native_capability_adapter -v
           python -m unittest tests.test_native_profile_content_context_contract -v
           python -m unittest tests.test_native_install_runtime -v
@@ -630,6 +657,10 @@ jobs:
       - name: Run real Chromium Surface smoke
         run: |
           set -euo pipefail
+          node --test tests/test_web_store_catalog.mjs tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs
+          npm run verify --workspace tools/surface-web
+          node tools/surface-native/browser-smoke.mjs
+          node tools/surface-native/first-run-browser-smoke.mjs
           node tools/surface-web/browser-smoke.mjs --bundle-dir out/web-client
 
       - name: Upload Web client candidate

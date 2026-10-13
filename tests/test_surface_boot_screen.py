@@ -10,7 +10,7 @@ BOOT_SCREEN = ROOT / "system" / "surface" / "ui" / "boot-screen.mjs"
 BOOT_CSS = ROOT / "system" / "surface" / "ui" / "boot-screen.css"
 WEB_HTML = ROOT / "system" / "composition" / "web" / "index.html"
 NATIVE_HTML = ROOT / "system" / "composition" / "native" / "index.html"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
 NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
 KERNEL = ROOT / "bootstrap" / "kernel" / "config" / "ordax.fragment"
 
@@ -43,18 +43,24 @@ class SurfaceBootScreenTests(unittest.TestCase):
     def test_both_compositions_render_loading_before_javascript_mount(self):
         for path in (WEB_HTML, NATIVE_HTML):
             html = path.read_text(encoding="utf-8")
-            self.assertIn('href="../../surface/ui/boot-screen.css"', html)
+            if path == NATIVE_HTML:
+                self.assertIn('href="../../surface/ui/boot-screen.css"', html)
+            else:
+                self.assertIn("../../surface/ui/boot-screen.css", WEB_MAIN.read_text(encoding="utf-8"))
             self.assertIn('id="ordax-boot-screen"', html)
             self.assertIn('data-ordax-boot-status', html)
             self.assertIn('data-ordax-boot-status>OrdaX</span>', html)
-            self.assertIn('<html lang="und">', html)
+            self.assertIn(
+                '<html lang="und">' if path == NATIVE_HTML else '<html lang="pt-BR">',
+                html,
+            )
             self.assertLess(
                 html.index('id="ordax-boot-screen"'),
                 html.index('id="ordax-root"'),
             )
             self.assertLess(
                 html.index('id="ordax-boot-screen"'),
-                html.index('src="./main.mjs"'),
+                html.index('src="./main.mjs"' if path == NATIVE_HTML else 'src="./main.tsx"'),
             )
 
     def test_loading_controller_has_ready_and_visible_failure_states(self):
@@ -71,8 +77,8 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn(".ordax-boot-spinner", css)
         self.assertIn("prefers-reduced-motion", css)
 
-    def test_compositions_finish_loading_only_after_optional_apps_are_attempted(self):
-        for path in (WEB_MAIN, NATIVE_MAIN):
+    def test_native_finishes_loading_after_optional_apps_are_attempted(self):
+        for path in (NATIVE_MAIN,):
             source = path.read_text(encoding="utf-8")
             self.assertIn("createSurfaceBootScreen", source)
             self.assertIn('"surface.boot.loadingSurface"', source)
@@ -81,10 +87,23 @@ class SurfaceBootScreenTests(unittest.TestCase):
             self.assertIn("bootScreen.ready()", source)
             self.assertIn('"surface.boot.failed"', source)
             self.assertNotIn('componentId: "notes"', source)
+            self.assertNotIn('componentId: "internet"', source)
             self.assertLess(
-                source.index('componentId: "internet"'),
+                source.index('"surface.boot.loadingApps"'),
                 source.index("bootScreen.ready()"),
             )
+
+    def test_web_finishes_boot_after_workspace_mount_and_uses_shared_failure_copy(self):
+        source = WEB_MAIN.read_text(encoding="utf-8")
+        self.assertIn("createSurfaceBootScreen", source)
+        self.assertIn("useEffect(() => { boot.ready(); }, [])", source)
+        self.assertIn("boot.fail", source)
+        self.assertIn("surface.boot.failed", source)
+        self.assertIn("RouterProvider", source)
+        self.assertIn("StoreCatalogProvider", source)
+        self.assertIn("createUnavailableAppStoreCatalogPort", source)
+        self.assertRegex(source, r"<Central(?:\s|/>)")
+        self.assertNotIn("WebShell", source)
 
     def test_kernel_keeps_framebuffer_capability_for_future_early_graphics(self):
         config = KERNEL.read_text(encoding="utf-8")

@@ -1,0 +1,226 @@
+name: Canonical v4 Signed Handoff Proof (no publication)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        required: true
+        type: string
+      signing_request_run_id:
+        required: true
+        type: string
+      signing_request_artifact_id:
+        required: true
+        type: string
+      envelope_sha256:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-linux-release-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Validate exact frozen source input
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Check out the signed source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_commit }}
+          persist-credentials: false
+
+      - name: Configure pinned Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+          check-latest: false
+
+      - name: Prove exact Linux release-agent write durability and regressions
+        working-directory: bootstrap/release-acquisition
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          go test -count=1 ./...
+          echo 'FROZEN_RELEASE_AGENT_LINUX_REGRESSIONS=PASS'
+
+  verify-exact-signed-v4:
+    needs: verify-linux-release-agent
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      PACKAGE_RUN_ID: ${{ inputs.signing_request_run_id }}
+      PACKAGE_ARTIFACT_ID: ${{ inputs.signing_request_artifact_id }}
+      ENVELOPE_SHA256: ${{ inputs.envelope_sha256 }}
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Configure frozen Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+          check-latest: false
+      - name: Read-only frozen source and live request admission
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REPOSITORY -cne 'ordaxsystems/ordax-os') {throw 'Wrong repository'}
+          if ($env:SOURCE_COMMIT -cnotmatch '^[0-9a-f]{40}$' -or $env:ENVELOPE_SHA256 -cnotmatch '^[0-9a-f]{64}$') {throw 'Invalid source or hash'}
+          if ($env:PACKAGE_RUN_ID -notmatch '^[1-9][0-9]*$' -or $env:PACKAGE_ARTIFACT_ID -notmatch '^[1-9][0-9]*$') {throw 'Invalid artifact identifiers'}
+          $request = Get-Content 'docs/contracts/canonical-v4-signing-request-active.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($request.source_commit -cne $env:SOURCE_COMMIT -or $request.operator_ref -cne ('release-candidate/' + $env:SOURCE_COMMIT)) {throw 'Frozen source request mismatch'}
+          $probeResult = @(python tools/release-operator/probe_active_operator_artifacts.py)
+          if ($LASTEXITCODE -ne 0) {throw 'Live artifact preflight execution failed'}
+          $probe = ($probeResult -join [Environment]::NewLine) | ConvertFrom-Json
+          if ($probe.active -ne $true) {throw 'No valid live artifacts'}
+          Write-Output 'EXACT_FROZEN_OPERATOR_REQUEST=VERIFIED'
+
+      - name: Verify original Git blob export is immune to Windows CRLF
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_exact_signed_envelope_git_blob.py -v
+
+      - name: Download only exact immutable GitHub artifacts and signed public envelope
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repo = 'ordaxsystems/ordax-os'
+          $sha = $env:SOURCE_COMMIT
+          $ref = 'release-candidate/' + $sha
+          $base = Join-Path $env:RUNNER_TEMP 'signed-handoff'
+          $package = Join-Path $base 'package'
+          New-Item -ItemType Directory -Path $package -Force | Out-Null
+          $headers = @{ Authorization = 'Bearer ' + $env:GH_TOKEN; Accept = 'application/vnd.github+json'; 'X-GitHub-Api-Version' = '2022-11-28' }
+          $request = Get-Content 'docs/contracts/canonical-v4-signing-request-active.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+
+          function Download-Exact([string]$kind, [long]$runId, [long]$artifactId, [string]$name, [string]$output) {
+            $meta = Invoke-RestMethod -Uri ("https://api.github.com/repos/$repo/actions/artifacts/$artifactId") -Headers $headers
+            $run = Invoke-RestMethod -Uri ("https://api.github.com/repos/$repo/actions/runs/$runId") -Headers $headers
+            if ($meta.id -ne $artifactId -or $meta.name -cne $name -or $meta.expired -ne $false -or
+                $meta.workflow_run.id -ne $runId -or $meta.workflow_run.repository_id -ne 1371063347 -or
+                $meta.workflow_run.head_repository_id -ne 1371063347 -or $run.status -cne 'completed' -or
+                $run.conclusion -cne 'success') {throw ('Untrusted metadata: ' + $kind)}
+            if ($kind -eq 'package') {
+              if ($run.event -cne 'push') {throw 'Unsigned package must come from canonical main push'}
+            } elseif ($run.event -cne 'workflow_dispatch' -or $run.head_sha -cne $sha -or
+                      $run.head_branch -cne $ref -or $meta.workflow_run.head_sha -cne $sha -or
+                      $meta.workflow_run.head_branch -cne $ref) {
+              throw ('Operator run is not from frozen source: ' + $kind)
+            }
+            $zip = Join-Path $base ($kind + '.zip')
+            Invoke-WebRequest -Uri ("https://api.github.com/repos/$repo/actions/artifacts/$artifactId/zip") -Headers $headers -OutFile $zip -MaximumRedirection 5
+            $actual = 'sha256:' + (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
+            if ($actual -cne [string]$meta.digest) {throw ('ZIP digest mismatch: ' + $kind)}
+            New-Item -ItemType Directory -Path $output -Force | Out-Null
+            Expand-Archive -LiteralPath $zip -DestinationPath $output
+            Remove-Item -LiteralPath $zip -Force
+            Write-Output ('IMMUTABLE_ZIP_VERIFIED=' + $kind)
+          }
+
+          Download-Exact 'package' ([long]$env:PACKAGE_RUN_ID) ([long]$env:PACKAGE_ARTIFACT_ID) ('canonical-v4-signing-request-' + $sha) $package
+          $manifest = Get-Content (Join-Path $package 'release-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($manifest.'$schema' -cne 'prototype-ordax.release-manifest/4' -or $manifest.source_commit -cne $sha) {throw 'Wrong manifest source'}
+          foreach ($pair in @(@{kind='system';name='system.erofs'},@{kind='surface';name='native-surface-runtime.erofs'},@{kind='local-ai';name='local-ai-runtime.erofs'})) {
+            $kind = [string]$pair.kind
+            $fileName = [string]$pair.name
+            $binding = $request.operator_artifacts.$kind
+            $out = Join-Path $base $kind
+            Download-Exact $kind ([long]$binding.run_id) ([long]$binding.artifact_id) ([string]$binding.artifact_name) $out
+            $files = @(Get-ChildItem -LiteralPath $out -File -Recurse -Filter $fileName)
+            if ($files.Count -ne 1) {throw ('EROFS cardinality mismatch: ' + $fileName)}
+            Copy-Item -LiteralPath $files[0].FullName -Destination (Join-Path $package $fileName)
+          }
+          # Windows checkout may turn LF into CRLF, even for a signed envelope.
+          # Read immutable Git object bytes, never hash/copy the worktree text.
+          python tools/release-operator/export_exact_signed_envelope.py --repo-root . --source-commit $sha --expected-sha256 $env:ENVELOPE_SHA256 --output (Join-Path $package 'release-envelope.json')
+          if ($LASTEXITCODE -ne 0) {throw 'Exact approved Git envelope export failed'}
+          Write-Output 'CANONICAL_SIGNED_PAYLOAD_STAGED_FOR_READ_ONLY_VERIFICATION=YES'
+
+      - name: Build exact release-agent and execute official Windows Step 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sha = $env:SOURCE_COMMIT
+          $source = Join-Path $env:RUNNER_TEMP 'exact-v4-source'
+          $package = Join-Path $env:RUNNER_TEMP 'signed-handoff/package'
+          git fetch --no-tags origin $sha
+          if ($LASTEXITCODE -ne 0) {throw 'Exact Git fetch failed'}
+          git worktree add --detach $source $sha
+          if ($LASTEXITCODE -ne 0) {throw 'Exact-source worktree unavailable'}
+          if ((git -C $source rev-parse HEAD).Trim() -cne $sha) {throw 'Frozen source not checked out'}
+          $trustFromSource = Join-Path $source 'bootstrap/trust/release-ed25519.json'
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $trustFromSource).Hash -cne
+              (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $package 'release-ed25519.json')).Hash) {throw 'Trust differs from frozen source'}
+          Push-Location (Join-Path $source 'bootstrap/release-acquisition')
+          try {
+            # The full write/fsync suite passed on the exact frozen Linux
+            # revision. Windows is used for read-only signature and artifact
+            # verification, not Linux filesystem materialization.
+            go build -trimpath -buildvcs=false -o (Join-Path $package 'ordax-release-agent.exe') .
+            if ($LASTEXITCODE -ne 0) {throw 'Release-agent build failed'}
+          } finally {Pop-Location}
+          Copy-Item -LiteralPath (Join-Path $source 'tools/release-signing/windows/5-Verify-PortableV4-SignedHandoff.ps1') -Destination $package
+          & (Join-Path $package '5-Verify-PortableV4-SignedHandoff.ps1') -ExpectedCommit $sha
+          $receipt = Get-Content (Join-Path $package 'signed-handoff-verification.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($receipt.signature_verified_by_release_agent -ne $true -or
+              $receipt.signed_payload_matches_manifest_bytes -ne $true -or
+              $receipt.local_artifacts_match_signed_manifest -ne $true -or
+              $receipt.release_published -ne $false -or
+              $receipt.release_activated -ne $false -or
+              $receipt.physical_write_performed -ne $false) {throw 'Signed receipt not fail-closed'}
+          Write-Output 'CANONICAL_V4_EXACT_SIGNED_EROFS=PASS'
+          Write-Output 'RELEASE_PUBLISHED=NO'
+          Write-Output 'PHYSICAL_WRITE_AUTHORIZED=NO'
+
+      - name: Validate canonical public staging against signed handoff
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Join-Path $env:RUNNER_TEMP 'signed-handoff/package'
+          $validatorArgs = @(
+            'tools/release-operator/validate_v4_publication_staging.py',
+            '--bundle-dir', $package,
+            '--signing-request', 'docs/contracts/canonical-v4-signing-request-active.json',
+            '--signed-receipt', (Join-Path $package 'signed-handoff-verification.json'),
+            '--trust', (Join-Path $package 'release-ed25519.json'),
+            '--source-commit', $env:SOURCE_COMMIT
+          )
+          $lines = @(python @validatorArgs)
+          if ($LASTEXITCODE -ne 0) {throw 'Canonical v4 publication staging rejected'}
+          $plan = ($lines -join [Environment]::NewLine) | ConvertFrom-Json
+          if ($plan.status -cne 'ready-for-explicit-publication-review' -or
+              $plan.release_publication_performed -ne $false -or
+              $plan.physical_write_authorized -ne $false -or
+              @($plan.assets).Count -ne 5) {throw 'Unsafe publication staging plan'}
+          $path = Join-Path $package 'canonical-v4-publication-staging.json'
+          [IO.File]::WriteAllText($path, (($lines -join [Environment]::NewLine) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
+          Write-Output 'CANONICAL_V4_PUBLICATION_STAGING=VERIFIED_NO_PUBLICATION'
+
+      - name: Upload only the signed verification receipt (no EROFS)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: canonical-v4-signed-handoff-proof-${{ inputs.source_commit }}
+          path: |
+            ${{ runner.temp }}/signed-handoff/package/signed-handoff-verification.json
+            ${{ runner.temp }}/signed-handoff/package/canonical-v4-publication-staging.json
+          if-no-files-found: error
+          retention-days: 14

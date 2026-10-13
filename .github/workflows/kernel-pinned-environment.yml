@@ -5,14 +5,22 @@ on:
     branches: [main]
     paths:
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tests/test_kernel_build_environment_contract.py'
+      - 'tests/test_kernel_reproducibility_ssot.py'
       - '.github/workflows/kernel-pinned-environment.yml'
   pull_request:
     paths:
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tests/test_kernel_build_environment_contract.py'
+      - 'tests/test_kernel_reproducibility_ssot.py'
       - '.github/workflows/kernel-pinned-environment.yml'
   workflow_dispatch:
 
@@ -40,6 +48,7 @@ jobs:
         run: |
           python -m json.tool docs/contracts/kernel-build-environment.json >/dev/null
           python -m unittest discover -s tests -p 'test_kernel_build_environment_contract.py' -v
+          python -m unittest discover -s tests -p 'test_kernel_reproducibility_ssot.py' -v
 
       - name: Resolve immutable environment inputs
         id: env
@@ -121,6 +130,12 @@ jobs:
               apt-cache policy $PACKAGES > /repo/out/kernel-pinned-observation/package-policy.txt
               sha256sum /etc/ssl/certs/ca-certificates.crt > /repo/out/kernel-pinned-observation/ca-bundle.sha256
 
+              # GnuPG must be executable inside the exact digest- and
+              # package-version-pinned build environment, not on the host.
+              command -v gpg
+              command -v gpg-agent
+              gpg --version
+              gpg-agent --version
               python3 bootstrap/kernel/verify_environment.py \
                 docs/contracts/kernel-build-environment.json \
                 --base-image "$BASE_IMAGE" \
@@ -174,12 +189,16 @@ jobs:
           def digest(path):
               return hashlib.sha256(path.read_bytes()).hexdigest()
 
+          kernel_source = json.loads(pathlib.Path('bootstrap/kernel/source.json').read_text(encoding='utf-8'))
+          if kernel_source.get('$schema') != 'prototype-ordax.kernel-source/1':
+              raise SystemExit('invalid canonical kernel source schema')
+          version = kernel_source['version']
           artifacts = {
               name: digest(root / 'kernel-pinned' / name)
               for name in (
-                  'kernel-6.6.52.config',
-                  'kernel-modules-6.6.52.tar',
-                  'vmlinuz-6.6.52',
+                  f'kernel-{version}.config',
+                  f'kernel-modules-{version}.tar',
+                  f'vmlinuz-{version}',
               )
           }
           provenance = root / 'kernel-pinned' / 'kernel-provenance.json'

@@ -62,7 +62,10 @@ The repository must contain or identify:
 
 The developer host does not compile the kernel as a prerequisite. A repository CI runner executes the canonical recipe in a pinned environment.
 
-Initial selected baseline remains Linux 6.6.52 until an explicit architecture decision changes it.
+The active release identity and upstream archive hash are read exclusively from
+`bootstrap/kernel/source.json`. The build-autonomy contract references that
+source instead of copying its version or checksum. Historical build observations
+remain immutable evidence, not another active version authority.
 
 ## Pinned build environment
 

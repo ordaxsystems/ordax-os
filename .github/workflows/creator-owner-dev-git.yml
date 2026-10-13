@@ -6,6 +6,9 @@ on:
     paths:
       - 'boot/esp/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
@@ -52,11 +55,17 @@ jobs:
           check-latest: false
           cache: false
 
+      - name: Resolve signed kernel version from canonical source
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
+
       - name: Test Creator core
         run: |
           set -euo pipefail
           (cd tools/creator && go test -count=1 ./...)
           python -m unittest tests.test_owner_dev_bundle_verifier -v
+          python -m unittest tests.test_owner_published_release -v
 
       - name: Install build dependencies
         run: |
@@ -65,6 +74,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             gcc gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
             dwarves kmod xz-utils pkg-config musl-tools binutils bzip2 \
+            gpg gpg-agent \
             meson ninja-build gperf libcap-dev libmount-dev libblkid-dev \
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
             gdisk dosfstools e2fsprogs mtools util-linux proot
@@ -86,7 +96,7 @@ jobs:
           python bootstrap/initramfs/build.py verify
           proot --version
           sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules out/kernel/kernel-modules-6.6.52.tar \
+            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
             --out-dir out/dev-base
           rootfs=out/dev-base/rootfs
           sudo touch "$rootfs/dev/null"
@@ -114,17 +124,24 @@ jobs:
           )
           signer="$PWD/out/owner-prototype/ordax-release-signing"
           private="$RUNNER_TEMP/owner-prototype-private.pem"
+          trust="$RUNNER_TEMP/owner-prototype-trust.json"
+          # Source-pinned public release trust must never be overwritten by a
+          # temporary Owner/Development identity generated during CI.
+          test ! -e "$private"
+          test ! -e "$trust"
           "$signer" generate-key \
             --private-key "$private" \
-            --trust bootstrap/trust/release-ed25519.json \
+            --trust "$trust" \
             --key-id owner-dev-${GITHUB_SHA::12}
+          test -s "$private"
+          test -s "$trust"
           echo "$private" > "$RUNNER_TEMP/owner-prototype-private-path"
 
       - name: Derive development Git bootstrap manifest
         run: |
           set -euo pipefail
           python - "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json" <<'PY'
-          import hashlib, json, pathlib, sys
+          import hashlib, json, os, pathlib, sys
           def digest(path):
               return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
           output = pathlib.Path(sys.argv[1])
@@ -132,7 +149,15 @@ jobs:
           keep = {'uefi-boot', 'kernel', 'initramfs', 'bootstrap-orchestrator', 'bootstrap-recovery'}
           manifest['artifact_groups'] = [group for group in manifest['artifact_groups'] if group['id'] in keep]
           groups = {group['id']: group for group in manifest['artifact_groups']}
-          groups['kernel']['artifacts'][0]['sha256'] = digest('out/kernel/vmlinuz-6.6.52')
+          kernel_version = os.environ['ORDAX_KERNEL_VERSION']
+          kernel_artifacts = groups['kernel']['artifacts']
+          if len(kernel_artifacts) != 1:
+              raise SystemExit('owner-development kernel artifact inventory must contain one artifact')
+          kernel_artifact = kernel_artifacts[0]
+          expected_source = f'bootstrap/kernel/vmlinuz-{kernel_version}'
+          if kernel_artifact['source_path'] != expected_source:
+              raise SystemExit('owner-development kernel source differs from canonical manifest')
+          kernel_artifact['sha256'] = digest(f'out/kernel/vmlinuz-{kernel_version}')
           groups['initramfs']['artifacts'][0]['sha256'] = digest('out/initramfs/initramfs.cpio.gz')
           orchestrator = groups['bootstrap-orchestrator']
           orchestrator['source_owner'] = 'bootstrap/dev'
@@ -239,19 +264,25 @@ jobs:
           release="$GITHUB_WORKSPACE/out/owner-prototype/release"
           bundle="$RUNNER_TEMP/OrdaX-Creator"
           mkdir -p "$release" "$bundle"
+          python3 tools/creator/theme_bridge.py --out "$bundle/ordax-design-theme.json"
+          cp system/surface/ui/brand/ordax-symbol.png "$bundle/ordax-symbol.png"
+          python3 tools/creator/theme_bridge.py --out "$bundle/ordax-design-theme.json" --check
+          symbol_sha="$(sha256sum "$bundle/ordax-symbol.png" | cut -d' ' -f1)"
+          theme_sha="$(sha256sum "$bundle/ordax-design-theme.json" | cut -d' ' -f1)"
 
-          trust_sha="$(sha256sum bootstrap/trust/release-ed25519.json | cut -d' ' -f1)"
+          trust_sha="$(sha256sum "$RUNNER_TEMP/owner-prototype-trust.json" | cut -d' ' -f1)"
           manifest_sha="$(sha256sum "$manifest" | cut -d' ' -f1)"
           seed_sha="$(sha256sum "$seed" | cut -d' ' -f1)"
           seed_size="$(stat -c '%s' "$seed")"
           cp "$seed" "$bundle/ordax-bootstrap-seed.raw"
 
-          python - "$bundle/provenance.json" "$trust_sha" "$manifest_sha" "$seed_sha" "$seed_size" <<'PY'
+          python - "$bundle/provenance.json" "$trust_sha" "$manifest_sha" "$seed_sha" "$seed_size" "$symbol_sha" "$theme_sha" <<'PY'
           import json, os, pathlib, sys
           data = {
               '$schema': 'prototype-ordax.creator-owner-physical/1',
               'status': 'owner-prototype-write-enabled',
               'source_commit': os.environ['GITHUB_SHA'],
+              'creator_version': json.loads(pathlib.Path('tools/creator/version.json').read_text(encoding='utf-8'))['version'],
               'canonical_public_release': False,
               'ephemeral_prototype_trust': True,
               'private_key_in_package': False,
@@ -264,7 +295,9 @@ jobs:
               'trust_sha256': sys.argv[2],
               'prototype_manifest_sha256': sys.argv[3],
               'seed_sha256': sys.argv[4],
-              'seed_size': int(sys.argv[5])
+              'seed_size': int(sys.argv[5]),
+              'symbol_sha256': sys.argv[6],
+              'theme_sha256': sys.argv[7]
           }
           pathlib.Path(sys.argv[1]).write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           PY
@@ -273,7 +306,7 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
               -tags 'ordax_raw_backend' \
-              -ldflags="-s -w -X main.buildSourceCommit=$GITHUB_SHA -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildPhysicalWriteAuthorized=YES" \
+              -ldflags="-s -w -X main.buildSourceCommit=$GITHUB_SHA -X main.buildReleaseSourceCommit=$GITHUB_SHA -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildPhysicalWriteAuthorized=YES" \
               -o "$bundle/ordax-creator-physical-test.exe" \
               ./cmd/ordax-creator-physical-test
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
@@ -288,6 +321,8 @@ jobs:
           test -s "$bundle/ordax-creator-physical-test.exe"
           test -s "$bundle/ordax-bootstrap-seed.raw"
           test -s "$bundle/provenance.json"
+          test -s "$bundle/ordax-symbol.png"
+          test -s "$bundle/ordax-design-theme.json"
 
           cat > "$bundle/LEIA-ME.txt" <<'TXT'
           OrdaX Creator - Development Git USB
@@ -320,6 +355,8 @@ jobs:
               'ordax-creator-physical-test.exe',
               'ordax-bootstrap-seed.raw',
               'provenance.json',
+              'ordax-symbol.png',
+              'ordax-design-theme.json',
               'LEIA-ME.txt',
           ]
           with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
@@ -333,7 +370,7 @@ jobs:
           zip_sha="$(sha256sum "$release/OrdaX-Creator-Owner-Prototype.zip" | cut -d' ' -f1)"
           zip_size="$(stat -c '%s' "$release/OrdaX-Creator-Owner-Prototype.zip")"
           printf '%s  %s\n' "$zip_sha" 'OrdaX-Creator-Owner-Prototype.zip' > "$release/SHA256SUMS.txt"
-          version="owner-${GITHUB_SHA:0:12}"
+          version="$(python3 -c 'import json; print(json.load(open("tools/creator/version.json", encoding="utf-8"))["version"])')"
           python - "$release/creator-owner-update.json" "$GITHUB_SHA" "$version" "$zip_sha" "$zip_size" <<'PY'
           import json, pathlib, sys
           output, source, version, digest, size = sys.argv[1:]
@@ -351,6 +388,8 @@ jobs:
           pathlib.Path(output).write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           PY
 
+          echo "OWNER_CREATOR_THEME_SHA256=$theme_sha"
+          echo "OWNER_CREATOR_SYMBOL_SHA256=$symbol_sha"
           echo "OWNER_BUNDLE_SOURCE=$GITHUB_SHA"
           echo "OWNER_BUNDLE_SHA256=$zip_sha"
           echo "OWNER_SEED_SHA256=$seed_sha"
@@ -373,6 +412,7 @@ jobs:
           private="$(cat "$RUNNER_TEMP/owner-prototype-private-path")"
           rm -f "$private"
           test ! -e "$private"
+          rm -f "$RUNNER_TEMP/owner-prototype-trust.json"
           rm -f out/owner-prototype/ordax-release-signing
 
       - name: Publish development Creator bundle
@@ -393,9 +433,18 @@ jobs:
             --repo "$repo" --clobber
           gh release delete-asset creator-owner-prototype 'OrdaX-Creator.exe' \
             --repo "$repo" --yes || true
-          gh release edit creator-owner-prototype --repo "$repo" --target "$GITHUB_SHA" \
-            --title 'OrdaX Creator - Development Git USB' \
-            --notes 'Development bundle: extract the ZIP and run OrdaX-Creator.exe. GUI and privileged RAW writer are separate. Ordinary OrdaX changes remain remote main -> ordax-pull -> ordax-run.'
+          # The tag is the stable address of the Owner/Development channel, not
+          # the source identity of the mutable asset. GitHub may deny release
+          # metadata PATCH (HTTP 403) even when authorized asset upload succeeds.
+          # Never depend on moving the historical tag or updating its target.
+          gh api "repos/$repo/releases/tags/creator-owner-prototype" > "$RUNNER_TEMP/owner-published-release.json"
+          python3 tools/creator/verify_owner_published_release.py \
+            --release "$RUNNER_TEMP/owner-published-release.json" \
+            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
+            --metadata "$release/creator-owner-update.json" \
+            --checksums "$release/SHA256SUMS.txt" \
+            --readme "$release/LEIA-ME.txt" \
+            --source-commit "$GITHUB_SHA"
           echo 'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE'
           echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
           echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=YES'
@@ -408,4 +457,7 @@ jobs:
             private="$(cat "$RUNNER_TEMP/owner-prototype-private-path")"
             rm -f "$private"
           fi
+          # Covers failure between exclusive private-key creation and pointer creation.
+          rm -f "$RUNNER_TEMP/owner-prototype-private.pem"
+          rm -f "$RUNNER_TEMP/owner-prototype-trust.json"
           rm -f out/owner-prototype/ordax-release-signing

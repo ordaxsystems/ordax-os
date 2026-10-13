@@ -8,9 +8,9 @@ This adapter may use browser APIs, authorized remote APIs or explicit unsupporte
 
 `preferences.mjs` implements `ordax.preference-store/1` from `system/contracts/preference-store.mjs`. Browser storage is contained here: the shared app, Surface and preference service do not access `localStorage`. The adapter keeps a last-good in-memory snapshot and degrades to session-only behavior if browser storage is unavailable or denied. Corrupt persisted bytes are ignored instead of overriding validated preference semantics.
 
-`identity.mjs` implements the neutral `ordax.identity-session/1` port. Its current snapshot is deliberately `unavailable`: there is no provider-specific authentication integration yet, so the adapter must not claim a signed-out or signed-in account state that it cannot actually establish. A future provider implementation replaces this adapter behavior without changing the shared Account app or Surface contract.
+Identity implements the neutral ordax.identity-session/1 port by reading /auth/session with same-origin credentials and no cache. Missing, malformed or unconfigured responses remain unavailable; only a validated authenticated response provides subject/display identity. Refresh sequence and disposal suppress late responses.
 
-`identity-actions.mjs` implements the separate `ordax.identity-actions/1` command port. It currently advertises no supported commands and rejects execution, because Web has no real authentication provider yet. The contract exposes only provider-neutral `sign-in` / `sign-out` command families; OAuth redirects, passkeys, Google, Microsoft or another provider remain adapter/integration choices rather than shared product semantics.
+Identity actions implement ordax.identity-actions/1 and derive supported commands from that same session. Sign-in delegates to /login/; sign-out posts to /auth/logout and refreshes the canonical session. Provider credentials remain in the existing server/adapter boundary; unavailable identity advertises no commands.
 
 Session state and command support are intentionally separate ports. `system/services/account/` validates their relationship with runtime capabilities so adapters cannot advertise account actions while identity itself is unavailable. The Surface chooses the context-appropriate action from the current session and never needs provider-specific branches.
 
@@ -19,3 +19,24 @@ The Web preference store currently persists only the shared preference snapshot 
 This adapter deliberately does **not** claim that account or sync services are implemented merely because those capabilities belong to the Web product baseline. Runtime capability snapshots describe what the current host actually exposes.
 
 `system/composition/web/` is responsible for wiring Web adapters to the shared Surface. Adapter modules never import the Surface.
+
+The Web account composition now binds these same adapters to Central. Spaces is a read-only catalog from /account/spaces, refreshed only with an authenticated session and reset on subject changes. Explicit selection now composes the same ordax.space-selection/1 domain runtime used by Native with createWebSpaceSelectionStore. This adapter holds only a validated subject/Space record in session memory; it never grants access to devices/files, activates storage or enables inference. The unavailable port remains the fail-closed contract for hosts without this composition.
+
+Central also consumes the existing ordax.surface-host/1 connectivity snapshot.
+Snapshots are stable across unchanged reads and subscriptions stop on disposal.
+Offline hints suppress account actions/refresh and abort/invalidate Spaces
+using the existing catalog; reconnect revalidates session/context and never
+replays commands. The UI labels cached identity as potentially stale.
+Unknown browser connectivity stays unknown. Online hints are not evidence of
+gateway/device access. Layout and appearance are unchanged; transition
+regression source/CI were updated without local test/build/npm/browser runs.
+
+Identity/Spaces GET transports now share json-read.mjs with a single 10-second
+deadline including JSON body reads, same-origin/no-store and redirect:error.
+Cancellation, supersession and disposal settle pending reads independently of
+late fetch/body completion. Domain validation and refresh ordinals remain in
+their existing adapters. Composition cancels identity reads on offline without
+asserting logout, then revalidates on reconnect. Commands remain outside this
+transport and are never replayed. Disposed adapters accept no new work/listeners;
+unchanged identity/action snapshots keep their reference identity for React.
+Regression source/CI updated without local execution; layout remains unchanged.

@@ -35,6 +35,7 @@ export function createWebIdentityActions(
   });
   const listeners = new Set();
   let disposed = false;
+  let policyRefreshSequence = 0;
 
   const emit = () => {
     if (disposed) return;
@@ -47,13 +48,16 @@ export function createWebIdentityActions(
     });
     const before = snapshot.supportedActions.join(",");
     const after = next.supportedActions.join(",");
+    if (before === after) return;
     snapshot = next;
-    if (before !== after) emit();
+    emit();
   };
 
   const unsubscribe = session?.subscribe(update) ?? (() => {});
 
   const refreshRegistration = async () => {
+    if (disposed) return snapshot;
+    const sequence = ++policyRefreshSequence;
     let nextAllowed = registrationEnabled;
     if (registrationPolicy !== null) {
       try {
@@ -63,7 +67,7 @@ export function createWebIdentityActions(
         nextAllowed = false;
       }
     }
-    if (disposed) return snapshot;
+    if (disposed || sequence !== policyRefreshSequence) return snapshot;
     if (nextAllowed !== registrationAllowed) {
       registrationAllowed = nextAllowed;
       update(session?.getSnapshot() ?? { state: "unavailable" });
@@ -83,11 +87,13 @@ export function createWebIdentityActions(
       if (typeof listener !== "function") {
         throw new TypeError("Identity actions listener must be a function");
       }
+      if (disposed) return () => {};
       listeners.add(listener);
       listener(snapshot);
       return () => listeners.delete(listener);
     },
     async execute(action) {
+      if (disposed) throw new Error("Identity actions are disposed");
       if (!snapshot.supportedActions.includes(action)) {
         throw new Error(`Identity action is unavailable: ${String(action)}`);
       }
@@ -116,7 +122,9 @@ export function createWebIdentityActions(
       throw new Error(`Unsupported identity action: ${String(action)}`);
     },
     dispose() {
+      if (disposed) return;
       disposed = true;
+      policyRefreshSequence += 1;
       unsubscribe();
       listeners.clear();
     },

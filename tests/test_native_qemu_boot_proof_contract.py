@@ -66,7 +66,9 @@ class NativeQemuBootProofContractTests(unittest.TestCase):
 
     def test_workflow_reuses_native_esp_job_instead_of_second_artifact_pipeline(self):
         self.assertIn("Prove Native UEFI and PID1 handoff on disposable QEMU disk", WORKFLOW)
-        self.assertIn("out/native-esp-kernel/vmlinuz-6.6.52", WORKFLOW)
+        self.assertIn("out/native-esp-kernel/vmlinuz-$ORDAX_KERNEL_VERSION", WORKFLOW)
+        self.assertIn('python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"', WORKFLOW)
+        self.assertNotIn("out/native-esp-kernel/vmlinuz-6.6.52", WORKFLOW)
         self.assertIn("out/native-esp-initramfs/native-initramfs.cpio.gz", WORKFLOW)
         self.assertIn("out/native-esp-bootloader/systemd-bootx64.efi", WORKFLOW)
         self.assertIn("out/native-esp-proof/proof.json", WORKFLOW)

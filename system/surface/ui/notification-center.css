@@ -1,0 +1,167 @@
+.ordax-tray-notifications {
+  position: relative;
+}
+
+.ordax-notification-bell-shape {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 13px;
+  border: 1.7px solid currentColor;
+  border-bottom: 0;
+  border-radius: 8px 8px 3px 3px;
+}
+
+.ordax-notification-bell-shape::before {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  height: 1.7px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.ordax-notification-bell-shape::after {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.ordax-notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border: 2px solid var(--ordax-surface-strong);
+  border-radius: 999px;
+  background: var(--ordax-accent);
+  color: var(--ordax-accent-ink);
+  font-size: 0.55rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 11px;
+  text-align: center;
+}
+
+.ordax-tray-notifications[data-unread="true"] {
+  color: var(--ordax-accent);
+}
+
+/* One notification presentation for Native quick panels and Web app panes. */
+.ordax-quick-panel-notifications {
+  position: fixed;
+  inset-inline-start: calc(var(--notification-sidebar-edge, 0px) + 12px);
+  bottom: calc(var(--ordax-navigation-height) + 12px);
+  width: min(380px, calc(100dvw - var(--notification-sidebar-edge, 0px) - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: min(660px, calc(100dvh - 88px));
+  overflow: hidden;
+}
+.ordax-quick-panel-notifications > [data-notification-content] {
+  display: flex; flex-direction: column; min-height: 0; flex: 1;
+}
+.ordax-quick-panel-notifications .ordax-notification-center { height: 100%; }
+.ordax-quick-panel-notifications .ordax-notification-scroll { flex: 1; max-height: none; }
+.ordax-notification-center {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 12px;
+  color: var(--ordax-text);
+  text-align: start;
+}
+.ordax-notification-center [hidden] { display: none !important; }
+.ordax-notification-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ordax-notification-status { flex: 1 1 170px; margin: 0; font-size: .8rem; line-height: 1.5; }
+.ordax-notification-filters, .ordax-notification-actions, .ordax-notification-footer-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.ordax-notification-filters { padding-bottom: 4px; }
+.ordax-notification-filters [aria-pressed="true"] {
+  border-color: var(--ordax-accent);
+  background: var(--ordax-selected-bg);
+  font-weight: 700;
+}
+.ordax-notification-scroll {
+  min-height: 0;
+  max-height: min(360px, 42dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 2px;
+}
+.ordax-notification-list { display: grid; gap: 10px; }
+.ordax-notification-entry {
+  display: grid; min-width: 0; gap: 8px; padding: 14px;
+  border: 1px solid var(--ordax-border-soft);
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--ordax-radius-md);
+  background: var(--ordax-subtle-bg);
+  overflow-wrap: anywhere;
+}
+.ordax-notification-entry[data-read="false"] { border-inline-start-color: var(--ordax-accent); }
+.ordax-notification-entry[data-level="warning"] { border-inline-start-style: dashed; }
+.ordax-notification-entry[data-level="error"] { border-inline-start-color: var(--ordax-danger); }
+.ordax-notification-entry-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
+.ordax-notification-source, .ordax-notification-time, .ordax-notification-persistence {
+  color: var(--ordax-muted); font-size: .72rem; line-height: 1.45;
+}
+.ordax-notification-source { font-weight: 650; }
+.ordax-notification-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ordax-notification-title { font-size: .9rem; line-height: 1.4; }
+.ordax-notification-message { margin: 0; color: var(--ordax-muted); font-size: .8rem; line-height: 1.55; }
+.ordax-notification-action {
+  min-height: 40px; max-width: 100%; padding: 8px 12px;
+  border: 1px solid var(--ordax-border); border-radius: var(--ordax-radius-sm);
+  background: transparent; color: var(--ordax-text);
+  cursor: pointer; font: inherit; font-size: .76rem; line-height: 1.35;
+}
+.ordax-notification-action:hover:not(:disabled) { background: var(--ordax-hover-bg); }
+.ordax-notification-action:focus-visible { outline: 2px solid var(--ordax-focus); outline-offset: 2px; }
+.ordax-notification-action:disabled { opacity: .5; cursor: default; }
+.ordax-notification-footer { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--ordax-border-soft); }
+.ordax-notification-persistence { margin: 0; overflow-wrap: anywhere; }
+.ordax-notification-empty {
+  margin: 0; padding: 24px 12px; color: var(--ordax-muted);
+  font-size: .85rem; line-height: 1.65;
+  border: 1px dashed var(--ordax-border); border-radius: var(--ordax-radius-md);
+}
+.ordax-notification-error { color: var(--ordax-danger); margin: 0; font-size: .8rem; }
+.web-notifications { width: 100%; max-width: 780px; margin-inline: auto; }
+@container (max-width: 360px) {
+  .ordax-notification-center .ordax-notification-action { min-height: 44px; }
+  .ordax-notification-center .ordax-notification-summary { display: grid; }
+}
+@media (max-height: 540px) {
+  .ordax-quick-panel-notifications { overflow: auto; height: auto; }
+  .ordax-notification-scroll { max-height: 28dvh; }
+}
+
+@media (max-width: 620px) {
+  .ordax-quick-panel-notifications { inset-inline: 8px; width: auto; }
+}
+
+.ordax-notification-level {
+  border: 1px solid var(--ordax-border-soft); border-radius: 999px;
+  padding: 2px 7px; font-size: .65rem; color: var(--ordax-muted);
+}
+.ordax-notification-entry[data-level="error"] .ordax-notification-level { color: var(--ordax-danger); }
+
+.ordax-notification-center[data-availability="unavailable"] .ordax-notification-status {
+  font-size: .95rem; font-weight: 650;
+}

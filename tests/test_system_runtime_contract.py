@@ -126,7 +126,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("runtime/native-surface", text)
         self.assertIn("run_bounded_apk()", text)
         self.assertIn('/bin/busybox timeout -k 10 "$timeout_seconds" /sbin/apk', text)
-        self.assertIn('RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-180}', text)
+        self.assertIn('RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-600}', text)
         self.assertIn('RUNTIME_UPGRADE_TIMEOUT=${ORDAX_RUNTIME_UPGRADE_TIMEOUT_SECONDS:-120}', text)
         self.assertIn('run_bounded_apk "$RUNTIME_INSTALL_TIMEOUT"', text)
         self.assertIn("--keys-dir /etc/apk/keys", text)
@@ -294,7 +294,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         composition = NATIVE_COMPONENT_PROBATION_COMPOSITION.read_text(encoding="utf-8")
 
         self.assertIn("component_probation_nonces", browser_host)
-        self.assertIn('SUPPORTED_PROBATION_COMPONENTS = ("internet", "notes")', browser_host)
+        self.assertIn(
+            "SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))",
+            browser_host,
+        )
         self.assertIn("self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)", browser_host)
         self.assertIn("component_probation_rerun_requested", browser_host)
         self.assertIn("self.component_probation_rerun_requested.add(component_id)", browser_host)

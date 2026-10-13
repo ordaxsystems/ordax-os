@@ -41,6 +41,9 @@ RELEASE_HISTORY_MAX_ENTRIES=80
 DELIVERY_EPOCH_SHA=2361b9e74c02d97c4d907417d7e1b2836062e5e7
 DELIVERY_EPOCH_NUMBER=220
 UPDATE_RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat
+SURFACE_RUNTIME_PROVISION_MARKER=/run/ordax-surface/runtime-provisioning-source-sha
+OWNER_PROVISION_TIMEOUT=${ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}
 ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
@@ -91,6 +94,14 @@ SURFACE_STALE_RECOVERY_ARMED=1
 
 log() {
     echo "ordax-system: $*" >&2
+}
+
+supervisor_heartbeat() {
+    # Liveness is independent from update-state transitions and Surface health.
+    # The guardian verifies that this beat belongs to its current child PID.
+    temporary=$SUPERVISOR_HEARTBEAT_FILE.tmp.$$
+    printf '%s\n' "$$" >"$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$SUPERVISOR_HEARTBEAT_FILE"
 }
 
 is_sha() {
@@ -169,6 +180,12 @@ case "$SURFACE_STALE_SECONDS" in
     ''|*[!0-9]*) SURFACE_STALE_SECONDS=90 ;;
 esac
 [ "$SURFACE_STALE_SECONDS" -ge 45 ] 2>/dev/null || SURFACE_STALE_SECONDS=90
+
+case "$OWNER_PROVISION_TIMEOUT" in
+    ''|*[!0-9]*) OWNER_PROVISION_TIMEOUT=660 ;;
+esac
+[ "$OWNER_PROVISION_TIMEOUT" -ge 60 ] 2>/dev/null || OWNER_PROVISION_TIMEOUT=660
+[ "$OWNER_PROVISION_TIMEOUT" -le 1800 ] 2>/dev/null || OWNER_PROVISION_TIMEOUT=1800
 
 GIT_TERMINAL_PROMPT=0
 export GIT_TERMINAL_PROMPT
@@ -932,6 +949,7 @@ stop_surface() {
 surface_stays_running() {
     seconds=${1:-4}
     while [ "$seconds" -gt 0 ]; do
+        supervisor_heartbeat || return 1
         [ -n "$SURFACE_PID" ] && kill -0 "$SURFACE_PID" >/dev/null 2>&1 || return 1
         /bin/busybox sleep 1
         seconds=$((seconds - 1))
@@ -1018,6 +1036,7 @@ wait_for_surface_health() {
     expected_sha=$1
     seconds=${2:-12}
     while [ "$seconds" -gt 0 ]; do
+        supervisor_heartbeat || return 1
         if [ -n "$SURFACE_PID" ] && ! kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
             return 1
         fi
@@ -1028,6 +1047,49 @@ wait_for_surface_health() {
         seconds=$((seconds - 1))
     done
     surface_health_matches "$expected_sha"
+}
+
+wait_for_owner_initial_surface_health() {
+    expected_sha=$1
+    normal_budget=$2
+    if [ "$DISTRIBUTION_PROFILE" != "owner-development" ]; then
+        wait_for_surface_health "$expected_sha" "$normal_budget"
+        return $?
+    fi
+
+    # Provisioning APKs and displaying a healthy Surface are separate phases.
+    # Only a marker from the current SHA extends the initial health wait.
+    normal_elapsed=0
+    provisioning_elapsed=0
+    provisioning_phase=0
+    while :; do
+        supervisor_heartbeat || return 1
+        [ -n "$SURFACE_PID" ] && kill -0 "$SURFACE_PID" >/dev/null 2>&1 || return 1
+        surface_health_matches "$expected_sha" && return 0
+
+        marker_source=""
+        if [ -r "$SURFACE_RUNTIME_PROVISION_MARKER" ]; then
+            IFS= read -r marker_source <"$SURFACE_RUNTIME_PROVISION_MARKER" || true
+        fi
+        if [ "$marker_source" = "$expected_sha" ]; then
+            provisioning_phase=1
+            provisioning_elapsed=$((provisioning_elapsed + 1))
+            if [ "$provisioning_elapsed" -gt "$OWNER_PROVISION_TIMEOUT" ]; then
+                log "first-boot runtime provisioning exceeded bounded budget"
+                return 1
+            fi
+        else
+            if [ "$provisioning_phase" -eq 1 ]; then
+                # The packages were installed; the actual graphical health
+                # contract now gets its usual strict, independent time budget.
+                provisioning_phase=2
+                normal_elapsed=0
+            fi
+            normal_elapsed=$((normal_elapsed + 1))
+            [ "$normal_elapsed" -le "$normal_budget" ] || return 1
+        fi
+        /bin/busybox sleep 1
+    done
 }
 
 recover_reload_with_surface_restart() {
@@ -2196,6 +2258,7 @@ case "$DISTRIBUTION_PROFILE" in
 esac
 
 [ -x "$SURFACE_ENTRYPOINT" ] || fail_closed "surface entrypoint is missing"
+supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
 
 initial_sha=$(current_sha)
 boot_runtime_sha=$(read_state_value "$RUNTIME_SURFACE_SHA_FILE")
@@ -2248,7 +2311,7 @@ else
     write_update_state "$initial_sha" applied initial
     log "validating cold-boot Surface health for $initial_sha"
 
-    if surface_stays_running 4 && wait_for_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"; then
+    if surface_stays_running 4 && wait_for_owner_initial_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"; then
         record_runtime_surface_sha "$initial_sha"
         clear_update_context
         write_update_state "$initial_sha" running initial
@@ -2262,7 +2325,7 @@ else
         clear_surface_health
         stop_surface
         start_surface || fail_closed "cold-boot Surface retry could not be started"
-        if ! surface_stays_running 4 || ! wait_for_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"; then
+        if ! surface_stays_running 4 || ! wait_for_owner_initial_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"; then
             fail_closed "cold-boot Surface failed health after one retry"
         fi
         record_runtime_surface_sha "$initial_sha"
@@ -2273,6 +2336,7 @@ else
 fi
 
 while :; do
+    supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
     /bin/busybox sleep "$UPDATE_INTERVAL"
 
     if [ -n "$SURFACE_PID" ] && ! kill -0 "$SURFACE_PID" >/dev/null 2>&1; then

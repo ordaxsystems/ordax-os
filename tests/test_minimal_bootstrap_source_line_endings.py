@@ -20,7 +20,12 @@ ATTRIBUTES = ROOT / ".gitattributes"
 # source text files; changes to this list require review of the source owner.
 BINARY_SOURCES = frozenset({
     "boot/esp/EFI/BOOT/BOOTX64.EFI",
-    "bootstrap/kernel/vmlinuz-6.6.52",
+    next(
+        artifact["source_path"]
+        for group in json.loads(MANIFEST.read_text(encoding="utf-8"))["artifact_groups"]
+        if group["id"] == "kernel"
+        for artifact in group["artifacts"]
+    ),
     "bootstrap/initramfs/initramfs.cpio.gz",
     "bootstrap/network/bin/netbox",
     "bootstrap/release-acquisition/ordax-release-agent",

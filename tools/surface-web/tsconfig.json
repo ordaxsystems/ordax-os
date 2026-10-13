@@ -1,0 +1,36 @@
+{
+  "include": [
+    "../../system/surface/workspace/**/*.ts",
+    "../../system/surface/workspace/**/*.tsx",
+    "../../system/composition/web/main.tsx",
+    "vite.config.ts"
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "vite/client",
+      "node"
+    ],
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "../../system/surface/workspace/*"
+      ],
+      "@ordax-brand/*": [
+        "../../system/surface/ui/brand/*"
+      ]
+    },
+    "allowJs": true
+  }
+}

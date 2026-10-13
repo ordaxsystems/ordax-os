@@ -6,6 +6,8 @@ import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
   EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS,
+  EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
+  hasNativeExternalFirstPartyProbation,
   hasNativeExternalFirstPartyModuleRead,
   EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT,
   isExternalFirstPartyComponentId,
@@ -37,7 +39,13 @@ test("generated external first-party runtime policy exposes one canonical owner 
   assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS, expectedModuleRead);
   assert.equal(hasNativeExternalFirstPartyModuleRead("notes"), true);
   assert.equal(hasNativeExternalFirstPartyModuleRead("studio"), true);
-  assert.equal(hasNativeExternalFirstPartyModuleRead("calculator"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("calculator"), true);
+  assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS, ["notes"]);
+  assert.equal(hasNativeExternalFirstPartyProbation("notes"), true);
+  assert.equal(hasNativeExternalFirstPartyProbation("calculator"), false);
+  assert.equal(hasNativeExternalFirstPartyProbation("studio"), false);
+  assert.equal(hasNativeExternalFirstPartyProbation("unknown"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("clock"), false);
   assert.equal(hasNativeExternalFirstPartyModuleRead("unknown"), false);
   assert.equal(hasNativeExternalFirstPartyModuleRead("../notes"), false);
   assert.strictEqual(listExternalFirstPartyComponentIds(), EXTERNAL_FIRST_PARTY_COMPONENT_IDS);

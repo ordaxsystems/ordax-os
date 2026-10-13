@@ -1,392 +1,174 @@
 # OrdaX Public Site
 
-## Migração da Conta Lovable — distribuição e gates (2026-10-10)
+Este documento descreve **arquitetura, ownership e invariantes atuais** do site público OrdaX.
+Ele não é um diário de deploy nem substitui contratos machine-readable ou evidências datadas.
 
-A UI de `/conta/` passa a ter código React estático e assets originais em
-`sites/account-ui/lovable-original/`, com bundle compilado verificável em
-`sites/account-ui/prebuilt/`. O builder canônico
-`tools/public-site/build.py` seleciona `--account-ui lovable` no
-`vercel.json`; somente esse perfil substitui o HTML da Conta no artefato
-de produção, enquanto as rotas de login, cadastro, políticas e landing
-continuam pertencendo a `sites/public/`. O TanStack Router usa
-`/conta/` e subseções por URL; a autenticação segue exclusivamente
-`GET /auth/session` e `POST /auth/logout` no mesmo domínio.
+## Autoridades canônicas
 
-Os recursos não verificados (assinatura, faturamento, consumo e dispositivos)
-permanecem explicitamente indisponíveis. Não foram implantados um novo
-provedor, novas contas, tokens persistidos em JS ou uma segunda origem.
-A prova Chromium do candidato abrange sete viewports, navegação,
-menu de perfil, um cenário de sessão autenticada **simulado apenas em
-teste** e expiração da identidade. Essa fixture não substitui um E2E
-com sessão verdadeira no domínio publicado.
+A ordem de autoridade é:
 
-O `ignoreCommand` agora acompanha `sites/account-ui` e o
-`git.deploymentEnabled` limita deploy automático à branch `main`.
-Previews das branches de trabalho continuam homologados localmente pelo
-CI, sem consumir quota de deploy para cada commit. A evidência de
-`build-rate-limit` da Vercel é um bloqueio de quota externa e **não**
-é licença para publicar em outro projeto ou usar outra origem como paliativo.
-Quando a quota permitir, deve ser observado um deployment de produção
-READY no único projeto `ordax-os-public` apontando para o commit
-atualizado da `main`, seguido de revalidação HTTP e sessão real.
+1. contratos machine-readable em `docs/contracts/`;
+2. código e testes que implementam esses contratos;
+3. evidências datadas em `docs/evidence/`;
+4. este documento, como explicação humana da arquitetura vigente.
 
-A UI copiada apresenta atualmente textos de pt-BR; a tradução de todos os
-componentes React para en-US ainda precisa consumir o catálogo existente
-do site, sem criar um dicionário paralelo. Não apresentar paridade de
-idiomas do React como pronta antes dessa prova. O restante do portal mantém
-seu dono canônico `sites/public/i18n`.
+Estado histórico não deve ser copiado para cá como se ainda fosse atual. Quando uma prova de runtime muda, preserve a evidência em `docs/evidence/` e atualize o contrato proprietário correspondente.
 
-## Evidencia de producao anonima — 2026-10-10
+Contratos principais:
 
-O dominio canonico `https://ordax.com.br` foi observado apos a publicacao do
-commit `0e8ed671` na Vercel. O portal utiliza dois gates independentes:
-`legal.auth_only_source_enabled=true` admite os formularios de login/cadastro
-somente apos a confirmacao da sessao pelo gateway e, no cadastro, da politica
-legal ativa pelo servidor; `legal.account_activation_ready=false` preserva o
-bloqueio da Conta completa, sincronizacao e recuperacao publica.
+- `docs/contracts/public-site.json` — superfície, rotas e capacidades do portal;
+- `docs/contracts/public-site-deployment.json` — hosting, domínio, roteamento e observações de deploy;
+- `docs/contracts/public-identity.json` — fronteira pública de identidade;
+- `docs/contracts/public-auth-hardening.json` — endurecimento e evidências do owner de Conta;
+- `docs/contracts/public-legal-readiness.json` — gates legais;
+- `docs/contracts/public-release-catalog.json` — catálogo de releases públicas;
+- `docs/contracts/release-compliance.json` — conformidade de distribuição.
 
-A prova sem credenciais (`python tools/public-site/prove_deployment.py --origin
-https://ordax.com.br`) agora diferencia `gated`, `disabled-unconfigured`, `auth-only` e `full` e verifica
-headers, paginas estaticas, sessao anonima, policy de registro no modo
-`auth-only`, sincronizacao anonima negada e POST de recuperacao negado pela
-borda. A classificacao da sessao permanece `auth-only` com sync bloqueada.
-**Atualizacao critica:** a prova completa agora inclui hashes legais imutaveis
-e retorna `FAIL reason=public-legal-integrity:published-legal-document-hash-mismatch:privacy`
-em producao (2026-10-10). A antiga prova HTTP `PASS` nao abrangia
-integridade dos dois documentos. Um `403 bot-verification-required` na borda
-comprova apenas o bloqueio de POST nao verificado; nao comprova que a
-recuperacao funcione. O browser continua sem `recovery_url` configurada.
+## Fronteiras de produto
 
-No Supabase de producao foi observada uma politica legal ativa com documentos
-`2026.10.09`, mas ha indicadores historicos de registro ainda desativado nos
-contratos de readiness. Conciliar os owners e executar E2E credenciado antes de
-promover a Conta completa, recovery, sync, exportacao e fechamento. Nenhuma
-mudanca de gate e implicita nesta prova. As seções historicas abaixo descrevem
-etapas anteriores e nao substituem esta evidencia de runtime.
-
-Status atual: PORTAL PUBLICADO / AUTH-ONLY / HASH LEGAL DIVERGENTE / MVP PUBLICO BLOQUEADO (2026-10-10). Evidencia: `docs/evidence/public-legal-integrity-2026-10-10.md`. A protecao de cadastro foi publicada no deploy Vercel `dpl_GFtqgXd9TTbfz7QeDN5eh3i9vK7J` (`7d5b4d4`): o navegador valida os hashes dos dois HTML juridicos antes de liberar novo aceite, mas a rotacao versionada da politica no owner continua pendente.
-
-The public OrdaX site is a separate delivery surface from the OrdaX Web product mode.
-
-The public portal presents the **Stable/MVP** distribution only. Owner/Development may use Git-first workflows internally, but Git, branches, pull requests and repository mechanics are not part of the normal public product experience. See `MVP.md`.
-
-`OrdaX Web` is the shared OrdaX Surface rendered for a Web-capable host. The public site is the product portal that presents OrdaX, exposes public release downloads, and provides entry points for account creation and sign-in.
-
-## Repository boundary
-
-The public portal stays in this repository while the product is still evolving quickly:
+O site público é uma superfície de entrega independente do runtime do OrdaX OS e do produto OrdaX Web.
 
 ```text
-sites/public/
-  index.html
-  download/index.html
-  login/index.html
-  cadastro/index.html
-  licencas/index.html
-  privacidade/index.html
-  termos/index.html
-  assets/
-  config/public-site.json
+ordax.com.br
+  ├─ site público / marketing / download
+  ├─ entrada pública de identidade
+  ├─ portal autenticado /conta/
+  └─ entrada do produto /web/ quando autorizada
 ```
 
-It is built as the independent `public-site` artifact class. A site-only change must not rebuild the kernel, bootstrap, shared Surface or native release.
+O portal apresenta o **Stable/MVP** ao usuário final. Operações Owner/Development, Git, branches, PRs e mecanismos internos não fazem parte da experiência pública normal.
 
-Keeping the portal in the monorepo does not make it part of the operating-system runtime. It has its own build recipe, candidate artifact and deployment boundary.
+Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface compartilhada ou release Native.
 
-## Localization boundary
+## Ownership de rotas
 
-The public portal has its own localization owner under `sites/public/i18n/`; it does not import the OrdaX Surface localization runtime.
+| Família | Rotas principais | Owner de apresentação | Owner funcional |
+| --- | --- | --- | --- |
+| Landing/marketing | `/` | `sites/public/` + assets próprios | public-site |
+| Download | `/download/` | `assets/download.css` | catálogo público de releases |
+| Identidade pública | `/login/`, `/cadastro/`, `/recuperar/`, `/recuperar/nova-senha/` | **`assets/account.css`** | `assets/site.js` + gateway público de Identity |
+| Conta autenticada | `/conta/` e subrotas autorizadas | implementação canônica de Conta vigente | `GET /auth/session` + APIs server-side autorizadas |
+| Legal | `/privacidade/`, `/termos/`, `/licencas/` | public-site | contratos legais e de compliance |
+| Produto Web | `/web/` | Surface Web quando habilitada | owner do OrdaX Web |
 
-PT-BR is the source/default locale and en-US is a complete bundled locale for the public MVP. The two catalogs must have exact message-key parity and interpolation-placeholder parity. Locale resolution is deterministic: a valid persisted explicit choice wins, then a supported browser locale, then PT-BR. The explicit selector persists to `ordax.public.locale`; unsupported values fall back safely to PT-BR.
+### Família pública de identidade
 
-The same canonical routes serve both locales. Language selection changes presentation only: `<html lang>`, title/description metadata, visible copy, form labels/placeholders, status/empty/error messages, ARIA labels and the marketing playground follow the active locale. Identity availability, legal readiness, release authorization, same-origin policy and every fail-closed security decision are locale-independent.
-
-No remote translation service, remote CSS or remote font is part of this boundary. The only remote JavaScript permitted is Cloudflare Turnstile, lazy-loaded exclusively for public login, registration and recovery abuse protection from the exact allowlisted `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` URL. Its browser token never grants access by itself: the same-origin server must validate it with Siteverify before forwarding the credential request. `tests/test_public_site_localization.mjs` is run by the Public Site Candidate workflow and rejects missing catalog coverage, key drift, placeholder drift, residual Portuguese in en-US and dynamic copy that escapes the locale owner.
-
-The machine-readable invariant is recorded in `docs/contracts/public-site.json`.
-
-## Route ownership
-
-### Minha Conta — composição e owners atuais (2026-10-10)
-
-`sites/public/conta/index.html` define uma central de identidade e serviços;
-`assets/account-dashboard.css` é o owner da composição e
-`assets/account-portal.js` controla apenas apresentação, busca, hash e foco.
-A reformulação consome a `main` e mantém um único frontend. O cabeçalho
-fixo, a paisagem na abertura, a identidade translúcida e a separação entre
-resumo e gerenciamento reutilizam os assets oficiais. Espaçamentos são
-exportados dos mesmos tokens da Surface pelo bridge de branding existente.
-
-A grade desktop tem três cartões prioritários alinhados (assinatura, consumo,
-faturamento), banner compacto e cartões de gerenciamento. O mobile apresenta
-perfil compacto, assinatura e consumo em largura total, pagamentos/segurança
-lado a lado e serviços em linhas. Os mesmos elementos e IDs atendem resumo,
-busca e detalhes. Os 12 serviços permanecem alcançáveis pela rolagem natural;
-não há recorte por altura nem catálogo paralelo para Mais.
-
-O cabeçalho mantém uma linha nos celulares, busca sob demanda, atividade e
-perfil. A barra mobile pertence à Conta: Resumo / Assinatura / Consumo / Mais.
-Mais reutiliza a navegação lateral e inclui acesso ao site e à entrada `/web/`,
-que mantém autenticação e disponibilidade próprias. Escape fecha Mais/busca
-e restaura foco. A sessão nativa e os controles de dados pessoais ficam
-juntos ao lado da identidade no desktop e abaixo no mobile; abrir a sessão
-expande os dados sem sobreposição. Mais funciona como diálogo modal no mobile,
-com fechamento explícito, foco contido e fundo inerte. A busca revela os
-detalhes que corresponderam ao termo, em vez de localizar conteúdo oculto.
-Todos os alvos de ação mantêm área de toque de pelo menos 44px.
-
-Símbolo, paisagem, fonte e cores vêm do pipeline canônico de branding da
-Surface. Não existe paleta ou imagem de usuário paralela. A sessão, e-mail,
-saída e catálogo comercial pertencem aos owners existentes; nome/foto,
-assinatura ativa, preços, créditos, quotas, uso, cobrança, dispositivos e
-permissões não são presumidos. Indicadores decorativos não representam
-percentuais de consumo. Indisponibilidade aparece explicitamente quando o
-respectivo serviço não está confirmado. Sem JavaScript, o conteúdo continua
-legível. Dados de sessão são apagados antes de revalidação/bfcache.
-
-A suíte existente de Chromium/CDP contempla desktop, tablet, quatro tamanhos de
-celular (incluindo 320x568) e orientação horizontal, com PNGs e relatório.
-Verifica alinhamento, ausência de overflow horizontal, cobertura de seções,
-banner, menu, sessão, busca, deep links, detalhes e foco. Os testes de sessão
-validam os gates e a limpeza de dados. Essas evidências não homologam serviços
-pagos nem ativam o produto Web em produção. Nesta reformulação, por instrução
-expressa, não foram executados builds nem testes automatizados: as evidências
-anteriores não validam a nova composição. Publicação e conferência visual do
-artefato atualizado permanecem pendentes.
-
-The same entrypoint is reproducible locally after building the public artifact:
-
-```bash
-python tools/public-site/preview_server.py --site-root out/public-site --bind 127.0.0.1 --port 4178
-# In another terminal; ORDAX_CHROME_BIN may select an installed Chromium browser.
-node tools/surface-web/browser-smoke.mjs --public-account-url http://127.0.0.1:4178/conta/ --evidence-dir out/account-viewport-proof
-```
-
-The existing brand compiler exports typography, material and brand-fill tokens
-from `system/surface/ui/tokens.css`. Public build copies the exact original
-Surface symbol, landscape and Inter bytes and derives its local font declaration;
-no artwork or type palette is authored again in the portal. Marketing and
-credential pages retain their independent existing composition, while all
-public mark containers now use the same approved transparent symbol. Its
-presentation comes from `system/surface/ui/brand/symbol.css`, compiled together
-with the existing public token export; legacy CSS drawings have been removed.
-The legal HTML rendering transform stays unchanged. The plan list
-is derived at build from `docs/contracts/entitlements.json`, not an additional
-commercial catalog. Locale selection uses the existing public i18n owner;
-it changes this browser's portal language, never device preferences.
-Account/Web CSS and presentation URLs receive a deterministic content hash in
-the build, so cached assets cannot retain an older layout after source updates.
-
-This is the explicit account-page request in the current product cycle, not
-activation of backend capabilities. Risks include narrow layouts, focus/history,
-contrast over art and drift between visual assets. Acceptance covers desktop,
-tablet, narrow mobile, search/no-results, section/menu keyboard behavior, locale,
-identity revalidation and deterministic build with byte-exact canonical assets.
-
-`/conta/` now presents a responsive account overview, the existing verified
-session/email and native sign-out action, an entry to `/web/`, and honest
-availability for plans, storage and device management. Personal data is hidden
-and cleared before session revalidation, including back-forward navigation.
-No usage meter, device catalog, assigned plan or billing data is inferred from
-login or local browser state. Plan names remain the defined structure, with
-paid subscriptions unavailable.
-
-`/web/` is a product-entry page, not the Surface runtime or a marketing demo.
-It shares the existing single same-origin session lookup and exposes a launch
-link only for a verified authenticated session and a configured product path.
-Runtime configuration lives in `config/public-site.json` under `product.web`;
-the approved destination/availability lives in this topic's structured
-`account_area.web_entry` contract. Build rejects an unapproved activation and
-external, ambiguous or reserved destinations. Missing configuration/session
-shows an explicit pending/error/sign-in state, with no localhost/public link
-fabrication. The actual product host must independently authorize its own
-requests; portal navigation is never an authentication boundary.
-
-Owner: public portal in OS; Identity/session, entitlements, storage, device
-execution and Surface remain their existing owners. PT-BR/en-US use the
-existing public locale owner; dashboard styles consume compiled brand tokens.
-The portal does not import/copy the Surface, issue grants or store credentials.
-Acceptance covers launch admission, session failures, back navigation,
-localization, desktop/mobile rendering and deterministic public-site build.
-Public Web runtime remains unavailable in config/contract. Live identity
-activation, legal consistency, hosted Surface delivery and account E2E remain
-separate gates; this increment does not provision or deploy them.
-
-- `/`: public landing page. It must never become the authenticated OrdaX workspace.
-- `/download/`: public release discovery and verified download links.
-- `/login/`: sign-in entry point.
-- `/cadastro/`: account-creation entry point.
-- `/conta/`: authenticated user area. Until real identity/session integration is enabled, it remains fail-closed and must not simulate user data.
-- `/web/`: authenticated product-entry navigation when the approved Web host is available; otherwise sign-in/pending/error state.
-- `/licencas/`: release-specific license, SBOM and source-compliance entry point.
-- `/privacidade/`: privacy-readiness page; not a final policy while account activation is blocked.
-- `/termos/`: terms-readiness page; not final terms while account activation is blocked.
-
-The public landing and the authenticated product experience are deliberately separate:
+Login, cadastro e recuperação são uma única família visual e usam o mesmo owner:
 
 ```text
-/               -> public product landing
-/login/         -> authentication entry
-/conta/         -> authenticated account area
-OrdaX Web       -> product runtime reached from an appropriate authenticated/product entry point
+sites/public/assets/account.css
 ```
 
-The OrdaX Web Surface must not be mounted over `/`. The account area may expose profile, devices, session, synchronized preferences and product-entry actions only when their backing services are real. OrdaX Web remains a separate product mode from the marketing portal even when the account links to it.
+Não existem owners visuais independentes `login.css` ou `cadastro.css`, e recuperação não pertence a `portal.css`.
+As quatro rotas usam primitives `account-*` compartilhados e mantêm o fluxo mobile **task-first**: acesso/formulário antes do conteúdo institucional.
 
-Future routes such as support, docs and additional legal surfaces may be added here only when they have a real owner and service contract.
+`assets/site.js` continua sendo o owner do comportamento de readiness, navegação autenticada, política de registro, Turnstile e habilitação dos formulários. CSS não decide disponibilidade de autenticação.
+
+### `/conta/` é um portal, não um formulário de entrada
+
+`/conta/` pertence ao mesmo modelo de Conta OrdaX, mas é uma superfície autenticada de aplicação. Ela não deve ser fundida artificialmente ao CSS dos formulários públicos apenas por compartilhar o conceito de Conta.
+
+A implementação atualmente promovida na `main` continua sendo a autoridade até uma substituição **atômica** ser aprovada. O candidato React/Lovable do PR `#1596` não é fonte de verdade enquanto permanecer draft/bloqueado; não mantenha duas UIs de Conta ativas no produto depois de uma eventual promoção.
 
 ## Identity boundary
 
-The browser pages do not implement an identity provider and must not store passwords, tokens or session secrets themselves.
+O navegador não implementa um provedor de identidade e não armazena senha, access token, refresh token, session ID ou segredo de serviço.
 
-The static site exposes a configurable same-origin handoff:
-
-```text
-public site
- -> configured identity route/service
- -> OrdaX identity/session owner
-```
-
-The real identity backend and same-origin public gateway exist. The current canonical runtime config advertises a narrowly scoped **auth-only** rollout (`legal.auth_only_source_enabled=true`) while **full Account/Cloud activation remains disabled** (`legal.account_activation_ready=false`). Login becomes available only after a verified live anonymous Supabase session; signup additionally requires the server-owned active registration policy and Turnstile. Browser forms submit natively to the same-origin gateway; site JavaScript does not read credential values. Recovery, sync, export and account closure must be validated and activated separately, never inferred from auth-only availability.
-
-The identity service may use an external infrastructure provider behind an OrdaX-owned service/adapter, but the browser contract does not couple product UI directly to that provider. Do not ship a fake form or local-only account database.
-
-The machine-readable entry boundary is `docs/contracts/public-identity.json`. It requires one account model across product modes, forbids browser/service secrets and keeps login/cadastro unavailable until a real same-origin identity route is configured.
-
-Public credential entry points also use a dedicated Cloudflare Turnstile widget bound to the canonical production hostname. The sitekey is public configuration; the secret key is never stored in this repository or exposed to browser JavaScript. Login, registration and recovery requests are accepted by the server boundary only after Siteverify returns success for the exact hostname and action. Missing configuration, invalid/expired/replayed tokens, hostname/action mismatch or verification outage fail closed; the Turnstile token is removed before the request reaches the inner identity gateway.
-
-The account service source remains owned by `services/public-identity/` and `infra/supabase/`. The destination Supabase project is `ordax-platform` (`jhfphsjptrpmtnzkpwud`), not the former `ordax-control-plane` destination. The public Vercel-to-Supabase gateway is reachable in production for anonymous sessions and registration policy lookup; this proves neither credentialed end-to-end signup/login nor signed production OIDC/revocation/recovery. The full Account gate remains disabled until the owner completes the stronger preflight and real E2E evidence. See `docs/contracts/public-auth-hardening.json` for the account owner's deployment observations.
-
-## Download boundary
-
-The site never hard-codes a "latest" image or fabricates release availability.
-
-The download page consumes the same-origin catalog at `/releases/catalog.json`. The public-site build generates that file deterministically from `platform/releases/publications.json`; the page does not manufacture release metadata.
-
-The publication source is intentionally empty while `PRODUCTION_RELEASE_PUBLISHED=NO`. A release can enter it only with explicit per-release and per-target public authorization, exact source commit, artifact size and SHA-256. The generator rejects unknown fields, duplicate identities and non-same-origin download paths. See `docs/contracts/public-release-catalog.json`.
-
-Minimum intended flow:
+A fronteira é same-origin:
 
 ```text
-source commit
- -> canonical build
- -> tests + provenance + SHA-256
- -> authorized public release
- -> public release catalog
- -> download page
+browser
+  -> /auth/* no domínio público canônico
+  -> adapter/gateway OrdaX
+  -> owner real de Identity
 ```
 
-When there is no authorized release, the generated catalog is valid but empty; the page says so and exposes no download button. A missing or malformed catalog still fails closed.
+Invariantes:
 
-The user-facing MVP path is USB-only and does not require an online account:
+- formulários nativos permanecem ocultos/desabilitados até o serviço autoritativo declarar readiness;
+- `site.js` não lê valores de senha;
+- cookies de sessão são responsabilidade server-side e devem respeitar os contratos de segurança;
+- nenhuma rota pública pode criar uma conta apenas no navegador;
+- nenhum provider externo é exposto como API privilegiada direta do browser;
+- sessão anônima, política legal e disponibilidade de recuperação são gates distintos.
+
+### Auth-only não é Full Account
+
+O rollout público pode admitir login/cadastro em modo `auth-only` sem declarar a Conta/Cloud completa pronta.
+
+`legal.auth_only_source_enabled` e `legal.account_activation_ready` têm responsabilidades diferentes. Uma sessão anônima válida ou uma política de registro ativa não prova recovery, sync, exportação, fechamento de conta, revogação global ou demais funções de Cloud.
+
+Recuperação permanece **fail-closed** enquanto `recovery_url` / `recovery_complete_url` e as provas E2E correspondentes não estiverem configuradas e aprovadas. As páginas podem existir e explicar o estado, mas o formulário não pode ser habilitado por apresentação ou mock.
+
+## Turnstile
+
+Cloudflare Turnstile é a única dependência JavaScript remota permitida nessa fronteira e deve ser carregada apenas quando exigida pelos fluxos públicos protegidos.
+
+O sitekey é configuração pública. O secret nunca pertence ao repositório ou ao browser. O token do widget não concede acesso sozinho: o servidor precisa validar Siteverify, hostname e action antes de encaminhar a operação.
+
+Falha de configuração, timeout, token inválido/expirado/reutilizado ou mismatch de hostname/action deve falhar fechado.
+
+## Brand e design SSOT
+
+A linguagem visual pública deriva dos tokens canônicos da Surface através do pipeline de brand. O bundle público recebe `assets/ordax-design-tokens.css`; páginas públicas não devem manter uma segunda paleta literal concorrente.
+
+Para identidade pública:
 
 ```text
-public landing
- -> /download/ (authorized OrdaX Creator download)
- -> Creator selects an authorized Stable/MVP release
- -> Creator verifies release trust and integrity
- -> user confirms the identified USB target, knowing its contents will be erased
- -> Creator prepares and verifies the USB
- -> user boots and runs OrdaX from USB
+system/surface/ui/tokens.css
+  -> pipeline de brand
+  -> ordax-design-tokens.css
+  -> account.css
+  -> login / cadastro / recuperação
 ```
 
-`/login/` and `/cadastro/` remain optional entry points; they do not gate public downloads or first use. This follows the MVP's offline and no-account path. The Creator must not offer internal-disk installation or writing. The page must distinguish the Creator download from the OS release selected by the Creator, and must state that there is no public download while the catalog is empty.
+`account.css` pode definir aliases semânticos locais, mas não pode se tornar uma segunda autoridade de cor, raio, tipografia ou estado.
 
-A public release must also pass the release-compliance gate in `docs/RELEASE-COMPLIANCE.md` and `docs/contracts/release-compliance.json`. Each listed release must expose an integrity-bound SBOM, third-party notices and release-specific source-compliance bundle before the Download or Licenças page can render it.
+O portal autenticado `/conta/` pode ter composição própria de aplicação, desde que continue consumindo os mesmos tokens e contratos. Compartilhar identidade visual não significa compartilhar markup ou CSS monolítico.
 
-The Download presentation uses `assets/download.css` and the local conceptual
-hero artwork `assets/download-hero.png`. All headings, steps, warnings and release
-links remain semantic HTML. Availability is rendered exclusively through the
-existing catalog consumer; the illustration does not assert artifact signing,
-OS compatibility or publication. The layout includes USB erasure confirmation,
-optional account access and a link to release compliance.
+## Localização
 
-The Login presentation uses `assets/login.css` and reuses the local titanium
-artwork only as atmosphere. The native POST form, same-origin identity owner and
-fail-closed availability remain controlled by the existing runtime configuration;
-the presentation must never expose a credential field while that owner is gated.
+O owner de localização do portal é:
 
-The remaining account, recovery, compliance and legal routes share
-`assets/portal.css` for the graphite and titanium presentation. Their existing
-fail-closed states, catalog consumer and legal wording remain the source of
-truth.
+```text
+sites/public/i18n/
+```
 
-The registration presentation follows the same fail-closed rule with
-`assets/cadastro.css`; its password guidance remains visible only as part of the
-native form contract and does not create a browser-only account.
+PT-BR é locale fonte/default e en-US deve manter paridade de chaves e placeholders para o escopo declarado como bilíngue.
 
-## Security invariants
+Locale altera somente apresentação. Ele nunca altera:
 
-- no private keys, service-role keys, passwords or bearer tokens in `sites/public/`;
-- no direct browser access to privileged release storage;
-- identity and download targets are same-origin by default;
-- no remote CSS or font runtime dependencies; remote JavaScript is restricted to the exact Cloudflare Turnstile allowlist for account abuse protection;
-- client code never treats telemetry as an account/control API;
-- release SHA-256/provenance data is displayed from the release owner, not generated by the page;
-- account and download availability fail closed.
+- readiness de Identity;
+- política legal;
+- autorização de release;
+- same-origin policy;
+- gates fail-closed.
 
-## Visual direction
+Não crie um segundo dicionário dentro de componentes React ou páginas isoladas. Novas implementações da Conta devem consumir o catálogo oficial antes de alegar paridade en-US.
 
-### Interactive landing demonstration
+## Download e execução USB
 
-The landing includes an explicitly labeled, disposable marketing playground in
-`assets/playground.js` and `assets/playground.css`. It is not OrdaX Web and does
-not import or fork the product Surface. The default notebook and phone view is a conceptual Aurora project workspace.
-Visitors can explore its overview, three fixed context documents and a clearly
-labeled, predefined Intelligence response, then add its suggestion to the
-fictional project plan. This is not inference, an actual project-management
-capability claim or a second product runtime. Surface Home remains explorable.
+O site nunca hardcodeia uma release como “latest” nem fabrica disponibilidade.
 
-The playground's labels, app order and Home spaces come from the generated
-`assets/playground-fixture.json`. Run
-`python tools/public-site/playground_fixture.py --write` after changing the
-Surface app catalog or Home shell. `python tools/public-site/build.py check`
-validates that the committed JSON and the inline browser fixture are current;
-this keeps the public demonstration aligned with the product source without
-mounting the product runtime on the public site.
+`/download/` consome o catálogo same-origin gerado deterministicamente a partir do owner de publicações. Sem release explicitamente autorizada, o catálogo válido permanece vazio e a UI não apresenta download inventado.
 
-The fixture is used only to render a disposable, anonymous example. Note edits,
-a checklist and appearance changes are mirrored locally in either direction;
-file browsing reads fixed examples only. This demonstrates intended continuity,
-not production cloud sync.
+Fluxo público do MVP:
 
-There are no requests, account credentials, user-file access, persistence,
-analytics or external dependencies in this demonstration. Reload/reset discards
-edits. Device navigation remains independent. The notebook uses a fixed 1120 × 700
-virtual desktop, scaled by its container with ResizeObserver; the phone uses its
-own 340 × 690 layout. Page breakpoints never turn the notebook into a phone.
-A native modal provides a larger notebook, with horizontal scrolling on narrow
-screens, Escape dismissal and focus restoration. Device entrance motion respects
-prefers-reduced-motion. Recipe buttons open Home, Projects, Intelligence or Context in
-both devices while retaining the explicitly simulated continuity notice.
-Login, registration and
-download continue through the existing fail-closed routes and owners.
+```text
+site público
+  -> OrdaX Creator autorizado
+  -> release Stable/MVP autorizada
+  -> verificação de integridade/confiança
+  -> confirmação destrutiva do USB correto
+  -> preparação e verificação do USB
+  -> boot e execução direta do USB
+```
 
-Handoff: the marketing demonstration is not evidence of product runtime or public account readiness. The protected Vercel preview proves the static public-site build, but a production HTTPS origin, configured identity route and authorized release publication remain separate requirements. Do not promote the demonstration into a second
-product runtime or treat its fixtures as real user data.
+Conta online não é requisito para download público autorizado nem para o primeiro uso do MVP. Instalação em disco interno permanece fora do MVP enquanto o owner de produto não mudar esse contrato.
 
-The portal shares OrdaX brand language, not the desktop shell implementation:
+## Build e validação
 
-- midnight graphite landing canvas with pearl text;
-- titanium device frames, keyboard deck and trackpad;
-- ice-blue landing accents; existing supporting pages keep their own palette;
-- editorial display type with restrained sans-serif controls;
-- architectural rules and negative space;
-- responsive layout.
-
-It must not copy the Surface desktop markup or make the marketing site look like a fake operating-system screenshot.
-
-Public copy should explain user-facing product behavior: Creator, **USB execution**, apps, official updates, rollback/recovery and account availability. The MVP must not advertise internal-disk installation as available. Native installation may be described only as a future/post-MVP direction. Web, Mobile, synchronization, backup and cross-device continuity may appear only as **Em breve** while unavailable. Do not use the landing page to explain Owner/Development Git operations.
-
-No public page may invent prices, billing, commercial tier names or device-count limits before those policies exist. The provisional two-private-Space architecture default is an internal capacity foundation, not a public commercial offer and must not be advertised as a finalized free-plan quota.
-
-The approved titanium landing concept uses a local generated project artwork at
-`sites/public/assets/aurora-titanium.png`. Device frames and screens remain live
-HTML/CSS, with desktop project overview and adjacent illustrative Intelligence
-panel; the phone has a separate compact composition. No real inference is
-performed by the public demo.
-
-## Build
+Comandos canônicos do artefato:
 
 ```bash
 python tools/public-site/build.py check
@@ -394,242 +176,84 @@ python tools/public-site/build.py build --source-commit <40-hex-sha> --out-dir o
 python tools/public-site/build.py verify --out-dir out/public-site
 ```
 
-The candidate workflow builds the site twice and compares outputs to protect deterministic packaging.
+O `Public Site Candidate` é o gate de PR da superfície pública. Ele deve validar build determinístico, contratos, localização e testes de browser/viewport aplicáveis.
 
-
-## Runtime preview and deployment boundary
-
-### Canonical Vercel project and DNS cutover — historical 2026-10-08 snapshot
-
-The Vercel team is `ordaxsystems` (`team_E3bdE137ZG3fhCGMmYuGKJ8o`), with the **single** public-site project `ordax-os-public` (`prj_mA9ew6hOfjdqlBr1cC757iMLPQJC`) linked to `ordaxsystems/ordax-os` on `main`. The project has a verified Vercel-assigned hostname (`ordax-os-public-tau.vercel.app`) and **only `ORDAX_PUBLIC_ORIGIN=https://ordax.com.br`** as the observed production environment variable; the public Account transport is not configured. Static public-site production deployment `dpl_66jvy7HYTzGyevgnNawtTJfH2Bgq` is `READY` at source SHA `ddbaa362e2d586f76fd1ed878eb81414a5dee78a`, with `PUBLIC_SITE_BUILD=PASS` and `PUBLIC_SITE_VERIFY=PASS`; its deterministic artifact is `out/public-site`, including the empty authorized-release catalog. External HTTPS smoke tests of the assigned hostname returned `200` for the landing, download, runtime config and release catalog. `/auth/session` and `/sync/snapshot` both returned `503` (intentionally fail-closed); no signed production OIDC or public-account end-to-end runtime proof exists. The production deployment is **not evidence of the canonical custom-domain cutover or Account activation**.
-
-On 2026-10-08, `ordax.com.br` and `www.ordax.com.br` were attached to the new project; Vercel reported an ownership conflict because two TXT challenges from the former project remained at `_vercel.ordax.com.br`. The two *former* project TXT records were removed, while both new project TXT challenges and every traffic DNS record (apex, `www`, media) were preserved. **Vercel subsequently reported `verified=true` for both custom domains.** External HTTPS checks on `https://ordax.com.br/` returned 200 with the new site's exact CSP/cache policy, and the delivered HTML SHA-256 matched the assigned new project's production hostname byte-for-byte. `https://www.ordax.com.br/` returned HTTP 308 redirecting to the canonical apex. HTTPS certificate verification passed; config and release catalog returned 200, anonymous auth/sync returned 503 fail-closed, and an unknown path returned 404. The previous site's content no longer serves the apex or `www`. The former Vercel team remains inaccessible through the linked integration (403), so explicit deletion of domain settings *inside its historical project dashboard* was not independently verified; routing is confirmed on the new project.
-
-The historical `ordax-os-public.vercel.app` alias remains owned by another Vercel team (409). It is *not* the new canonical public address: `ordax.com.br` now routes to the new static site and is verified on the OrdaX Systems project. Do not reuse the historical Vercel team's OIDC issuer, audience or subject. **The authoritative OrdaX OS DNS zone is now `active` in the dedicated Cloudflare account** (`42586bf13b61436219d21def299833e4`, zone `f7273428d0643fab66349dc0cbd9d244`); Cloudflare reports the earlier zone as `moved`. The user confirmed updating the registrar nameservers, and Cloudflare activated `martin.ns.cloudflare.com` / `meg.ns.cloudflare.com`. The new zone contains only the apex Vercel A, `www` Vercel CNAME and two verification TXT records; there are no catalog-media CNAMEs, old Worker routes or legacy cache rules. The unrelated website's R2/Workers/DNS data remain intact in the older account. **Independent parent-registry NS lookup and post-delegation HTTPS/redirect/auth checks were not available during this verification**: those final runtime proofs remain pending, and the old zone must not be deleted yet.
-
-Before enabling public accounts, changing Cloudflare zone ownership or re-enabling automatic Git production deployments:
-
-1. The new Cloudflare DNS zone is `active` and the old zone `moved`. Reconfirm delegation directly against `.br` parent NS, then test `https://ordax.com.br/` (200/TLS), `https://www.ordax.com.br/` (308 to apex), config/catalog, and `/auth/session` plus `/sync/snapshot` (fail-closed). These independent post-cutover checks were unavailable at the time of this update; do **not** retire the old Cloudflare zone before they pass. The new zone deliberately excludes the unrelated old catalog media, Workers and R2; preserve those resources with their original project.
-2. Keep `ordax.com.br` and `www.ordax.com.br` verified and routed to the unique official project. The former team's project settings are outside this connection's access; do not delete that project or infer it was administratively removed.
-3. Coordinate with the Account/Supabase owner to provision the **named** internal service credential and public gateway in the canonical destination, with fail-closed transport tests. Do not use a legacy `service_role` fallback.
-4. Bind `ORDAX_PUBLIC_ORIGIN`, `ORDAX_ACCOUNT_GATEWAY_URL` and production-only OIDC issuer/audience/subject to the deployed project and exact origin; prove signed tokens, cookies, session/recovery boundaries and rate limits in runtime.
-5. Rebind Cloudflare Turnstile to the verified production hostname and validate Siteverify; require final legal/provider gates before enabling account controls.
-6. Run `tools/public-site/prove_deployment.py` against the **real** final HTTPS origin. Only after runtime evidence is recorded should the owner consider lifting the versioned `git.deploymentEnabled=false` freeze.
-
-The authoritative machine-readable deployment and Account state live in `docs/contracts/public-site-deployment.json` and `docs/contracts/public-auth-hardening.json`. This paragraph is an operational explanation, not an independent SSOT.
-
-`tools/public-site/preview_server.py` is a loopback-only development/test adapter for the built artifact. It serves the static portal and mounts the fail-closed public identity gateway under the same `/auth/*` origin so CI can exercise the complete route boundary without deploying a provider.
-
-It refuses non-loopback binds and is **not** the production server.
-
-Production hosting remains provider-neutral. A production-shaped Nginx adapter now exists at `deploy/public-site/nginx.conf`: it serves the deterministic static artifact from loopback and forwards only `/auth/*` and `/sync/*` to the deployed OrdaX account gateway. A public HTTPS terminator must sit in front of that loopback listener, so browser requests remain same-origin and provider-specific CORS is not part of the product contract.
-
-The required route shape, cache policy and security headers are machine-readable in `docs/contracts/public-site-deployment.json`. The adapter preserves account status codes and `Set-Cookie`, applies the declared CSP, anti-framing, MIME-sniffing, referrer and permissions policies, and keeps account/sync responses `no-store`. Source readiness is not deployment evidence: production HTTPS now exposes the separate `auth-only` gate, but the broader Account features remain disabled pending stronger proofs.
-
-
-## Legal readiness before live accounts
-
-The public account entry points are also gated by `docs/contracts/public-legal-readiness.json`. This contract is **not** full-Account ready. The site builder permits the two exact same-origin login/signup routes under the narrower `auth_only_source_enabled=true` switch only with versioned published legal documents; it rejects recovery routes and independently rejects any premature full activation. The live gateway and registration-policy projection remain authoritative, not the static switch.
-
-The documents under `/privacidade/` and `/termos/` have stable published versions `2026.10.09`, and production's active legal policy reports those versions. A static contract with historical negative booleans is not proof that the current database is disabled; equally, a live active policy is not proof that full Account/recovery/session-revocation E2E has passed. Complete and reconcile the owner preflight before setting full readiness.
-
-
-### Production deployment proof
-
-After a conforming HTTPS origin is deployed, validate it without account
-credentials:
+Para provar o domínio real sem credenciais:
 
 ```bash
-python tools/public-site/prove_deployment.py --origin https://example.invalid
+python tools/public-site/prove_deployment.py --origin https://ordax.com.br
 ```
 
-The proof checks the public landing/cache/security headers, runtime config,
-anonymous `/auth/session`, fail-closed anonymous `/sync/snapshot`, and real
-404 behavior. It uses `tools/public-site/public_identity_state.py`, the same
-canonical state machine used by the independent DNS/HTTPS probe, to reject a
-gated or unconfigured gateway when login/signup is advertised. In `auth-only`
-mode it also requires an active same-origin registration policy whose
-server-owned SHA-256 values match the exact HTML bytes of both published legal
-pages, absent recovery routes and a denied unchallenged recovery POST.
-The browser registration surface independently verifies both same-origin HTML
-digests with Web Crypto (bounded 2 MiB each) **before** showing the consent
-controls and sending a signup; login remains separately available.
-The latter tests only the boundary, not that recovery works. A passing local build is not production
-or credentialed E2E evidence.
+Uma prova anônima verde não substitui E2E credenciado de login, cadastro, logout, expiração, recovery ou outras mutações de Conta.
 
+## Deployment canônico
 
-### Public account activation preflight
+Há um único projeto oficial de produção do site público:
 
-Public identity is intentionally fail-closed. CI runs:
-
-```bash
-python tools/public-site/auth_activation_preflight.py check
+```text
+Vercel team:    ordaxsystems
+Project:        ordax-os-public
+Git repository: ordaxsystems/ordax-os
+Production:     main
+Domain:         https://ordax.com.br
 ```
 
-The normal check accepts a coherently disabled account surface and prints every
-remaining blocker. It rejects partial activation immediately. Before a real
-public rollout, operators must also run:
+Não crie segundo projeto Vercel, domínio alternativo ou proxy paralelo para contornar quota, proteção, OIDC ou indisponibilidade temporária.
 
-```bash
-python tools/public-site/auth_activation_preflight.py require-ready
+PRs são validados pelo `Public Site Candidate`. Deploy Git automático deve ficar restrito à `main`; previews automáticos de branches não são owner de validação.
+
+**Merge não significa deploy.** O domínio só pode ser declarado atualizado depois que o deployment da `main` estiver `READY` e a prova externa confirmar o conteúdo esperado.
+
+### Estado operacional observado em 2026-10-13
+
+Após a consolidação da família pública de identidade, a Vercel registrou no commit da `main`:
+
+```text
+Deployment rate limited — retry in 24 hours.
 ```
 
-That stricter mode requires legal readiness, provider hardening evidence,
-same-origin deployment, real-IP rate limiting, recovery configuration and
-end-to-end proofs before the public account controls may be enabled together.
+Isso é um bloqueio externo de publicação, não autorização para criar hosting paralelo. A `main` continua sendo a fonte de código; produção pode permanecer temporariamente atrás dela até um deployment canônico concluir.
 
+Detalhes operacionais e observações de runtime pertencem a `docs/contracts/public-site-deployment.json` e às evidências datadas, não devem ser duplicados indefinidamente aqui.
 
-### Independent hourly public-site availability proof
+## Segurança
 
-The `OrdaX Public DNS and HTTPS Proof` GitHub Actions workflow runs every
-hour (UTC, at minute 17 on GitHub's best-effort schedule), on changes to the
-deployment proof, and on manual dispatch. It checks the canonical external
-DNS A address resolves **directly to Vercel**, the five important public HTML
-pages return HTTP 200 over valid HTTPS, and `www` returns the canonical
-308 redirect. It also makes **anonymous GET requests only** to
-`/config/public-site.json` and `/auth/session`: their schemas, cache
-controls, and anonymous identity service state must agree. An HTTP 200
-`/auth/session` must report `provider: supabase` and an anonymous session,
-**regardless of** `legal.account_activation_ready`: the supported
-`auth_only_source_enabled` path may expose real sign-in/sign-up before
-unrelated cloud/account capabilities are activated. The probe emits
-`ORDAX_PUBLIC_ACCOUNT_GATE=supabase` and the **separate**
-`ORDAX_PUBLIC_LEGAL_ACTIVATION=ready|not-ready` diagnostic. Neither proves
-that registration, current consent policy or login E2E works; those are
-server-side gates requiring their own evidence. When the identity service is
-unconfigured and legal activation is not ready, `/auth/session` may instead
-return **HTTP 503 with only**
-`prototype-ordax.public-site-proxy-error/1` /
-`account-gateway-unconfigured`. The probe logs this as
-`ORDAX_PUBLIC_ACCOUNT_GATE=disabled-unconfigured`, never as a working
-login service. A different 503 is an outage; once legal activation is true,
-**any** 503 is a failure.
+Invariantes permanentes do portal:
 
-The probe never uses account credentials or changes account data. A green
-`ORDAX_PUBLIC_NETWORK_PROOF=PASS` is uptime evidence, **not** proof
-that registration, passwords, e-mail delivery, or service-to-service OAuth
-works. A failure is recorded in GitHub Actions; notifications require the
-repository's GitHub Actions notification settings or a dedicated alerting
-integration. Scheduled runs can be delayed or skipped by GitHub, so this is a
-regression guard rather than a contractual uptime SLA.
+- nenhum private key, service-role key, password ou bearer token em `sites/public/`;
+- nenhum token de sessão legível pelo JavaScript público;
+- nenhum acesso browser direto a storage privilegiado;
+- Identity e Sync same-origin por padrão;
+- state changes exigem as proteções de origem/CSRF declaradas pelo gateway;
+- responses de Conta/Sync sensíveis permanecem `no-store`;
+- `Set-Cookie` só pode atravessar adapters conforme allowlist e atributos do contrato;
+- disponibilidade de Conta e download falham fechado;
+- fixtures, playgrounds e mocks nunca contam como prova de runtime;
+- conteúdo legal aceito é versionado e ligado a digest; não reescreva receipts históricos.
 
-Commands for operators:
+## Regras para evolução
 
-```bash
-python -m unittest tests.test_public_site_network_proof -v
-python tools/public-site/probe_public_network.py
-```
+Ao alterar o site:
 
-If the portal fails externally, compare Cloudflare DNS-only records with
-`docs/contracts/public-site-deployment.json`, validate Vercel production
-aliases and the exact deployed Git SHA, and inspect GitHub Actions failures.
-Do not silently restore Cloudflare proxying or disable Auth security checks.
+1. identifique o owner existente antes de criar arquivo, stylesheet, catálogo ou serviço novo;
+2. reutilize o owner quando o conceito for o mesmo;
+3. se uma nova superfície tiver responsabilidade distinta, documente a fronteira em vez de compartilhar estado implicitamente;
+4. não use CSS/JS para contornar um gate server-authoritative;
+5. não duplique estado do contrato em documentação narrativa;
+6. preserve evidência histórica em `docs/evidence/`, mas mantenha este arquivo descrevendo somente a arquitetura vigente;
+7. não promova `/conta/` React ou qualquer substituição grande sem remoção atômica da implementação anterior e gates equivalentes ou mais fortes;
+8. não declare produção atualizada sem prova do deployment canônico.
 
+## Referências
 
-### Canonical DNS upgrade for connectivity incident — 2026-10-09
-
-The user continued to experience `ERR_CONNECTION_TIMED_OUT` even after
-Cloudflare proxying was disabled, and independent runners could reach the old
-address. Vercel's authenticated domain configuration reported the old apex
-`76.76.21.21` as IPv4 *rank 2*, while the **rank 1** destination is the
-pair `216.198.79.1` and `64.29.17.1`.
-
-The exclusive OrdaX Cloudflare zone now publishes those two rank-1 IPv4
-addresses as separate unproxied A records for `ordax.com.br` (TTL 60).
-The existing `www` CNAME remains untouched, as it was independently verified
-and the Vercel domain configuration reported no required change for it.
-
-The Vercel domain-config check after the edit reported both addresses and
-`ipStatus: no-change`, `misconfigured: false`. These are **configuration
-checks, not independent proof that the affected user's ISP can connect**.
-The [independent post-change proof](https://github.com/ordaxsystems/ordax-os/actions/runs/37887216529)
-passed with both IPv4 addresses resolved, public pages returning 200 and
-`www` returning 308. The current
-`destination_dns_only_independent_http_proof_passed` is now true for
-the **runner's network only**. Previous run evidence remains preserved
-separately under the preceding legacy IPv4 address.
-
-If a particular ISP still times out, obtain the client-side
-`Resolve-DnsName ordax.com.br`, `Test-NetConnection ordax.com.br -Port 443`
-and a mobile-network comparison before making another risky DNS change.
-Do not touch any other sites, the old Cloudflare account, registration
-switches, or account secrets as part of this DNS diagnosis.
-
-## Área autenticada da Conta OrdaX (2026-10-09)
-
-A rota pública `/conta/` é um **portal de identidade**, distinto da landing
-`/` e do produto OrdaX Web. Depois do login, o servidor direciona para essa
-rota. A interface pede `GET /auth/session` (mesma origem, `no-store`), valida
-o contrato `prototype-ordax.public-identity-session/1` e mostra o e-mail
-somente se o Supabase Auth confirmar uma sessão válida. Estado anônimo
-oferece login; resposta inválida/indisponível falha fechada. Campos remotos
-usam exclusivamente `textContent`, nunca `innerHTML`.
-
-O botão `Encerrar sessão` usa formulário nativo `POST /auth/logout` do
-owner existente, com cookies `HttpOnly; Secure; SameSite=Lax`, verificação
-de origem e revogação local no provedor. Nenhum JWT, refresh token, senha ou
-session ID entra em JavaScript, armazenamento local ou parâmetros de URL.
-Sincronização, dispositivos, cobrança e OrdaX Web não são simulados nem
-habilitados por essa página. Recuperação de senha e revogação global ainda
-exigem homologação E2E separada.
-
-
-## Cabeçalho e autenticação (2026-10-09)
-
-O cabeçalho público de todas as rotas usa `data-auth-nav` e o owner
-`sites/public/assets/site.js`. A única autoridade do estado é
-`GET /auth/session` sem cache e com schema validado. A área `/conta/`
-e os formulários compartilham a mesma promessa por documento.
-Após autenticação: `Entrar` vira `Minha conta`; CTA de cadastro é
-ocultado se também existir o link de conta (se só houver CTA, ele se torna
-o link da conta). Sem sessão ou com erro, apenas os links públicos aparecem.
-Retorno por bfcache refaz a verificação. Tokens nunca são expostos ao JS.
-
-## Brand SSOT bridge (2026-10-09)
-
-Public Site builds now derive and inject `assets/ordax-design-tokens.css`
-from the canonical Surface token owner. Each page receives a local stylesheet
-link in the **generated bundle**, not the in-progress HTML source; no second
-palette is edited. Supabase email templates use the same colors through
-`tools/brand/build.py` and verified generated HTML. See `docs/BRAND-SSOT.md`.
-
-### Independent public legal-policy digest audit — 2026-10-09
-
-The **single server-owned public registration-policy projection** at
-`/auth/registration-policy` provides the current policy version, canonical
-privacy/terms URLs and their immutable SHA-256 content digests. The source
-`legal.account_activation_ready` describes a separate, broader product gate;
-it must not be inferred from the policy endpoint or an anonymous Supabase
-session. Do not invent a second local policy authority.
-
-`.github/workflows/public-legal-integrity.yml` runs bounded unit tests on
-relevant PRs, and performs a **read-only, anonymous, six-hourly** check of the
-live policy and both HTML documents. The live check never follows redirects,
-accepts only the canonical HTTPS host, restricts payload sizes and response
-types, and refuses mismatched hashes. A failing live audit is a **legal
-integrity** failure, not evidence of DNS/HTTPS downtime; therefore the
-independent uptime probe retains its distinct green/red signal.
-
-```bash
-python -m unittest tests.test_public_site_network_proof tests.test_public_legal_hash_consistency -v
-python tools/public-site/probe_public_network.py --legal-consistency
-```
-
-On 2026-10-09, a read-only PostgreSQL inspection confirmed one active
-`2026.10.09` legal-policy record and the public policy projection returned
-`active:true, registrationEnabled:true`. **Both recorded digests differed
-from the currently served HTML** at `/privacidade/` and `/termos/`.
-The public pages contained a design-token stylesheet injection absent from
-the corresponding raw source HTML, while the persisted digests also did not
-match either representation. To prevent recurrence, the public builder and the
-legal activation candidate now consume the **same pure render_public_html()**
-owner. Activation hashes the exact bytes produced by this shared public build
-transform, not the unrendered HTML. This does **not** rewrite the currently
-active database policy; treat the existing mismatch as a **release blocker
-for legal-policy consistency** until the actual live documents, reviewed/new
-legal version, published artifact SHA and stored policy can be reconciled with
-fresh evidence.
-Do not mutate historical acceptance receipts, patch production hashes in
-place, or flip `account_activation_ready` to conceal the drift. Changes to
-document bytes require a reviewed/versioned policy activation using the
-existing operator-owned workflow and its exact-publication proof.
+- `MVP.md`
+- `docs/BRAND-SSOT.md`
+- `docs/RELEASE-COMPLIANCE.md`
+- `docs/contracts/public-site.json`
+- `docs/contracts/public-site-deployment.json`
+- `docs/contracts/public-identity.json`
+- `docs/contracts/public-auth-hardening.json`
+- `docs/contracts/public-legal-readiness.json`
+- `docs/contracts/public-release-catalog.json`
+- `docs/contracts/release-compliance.json`
+- `docs/evidence/`

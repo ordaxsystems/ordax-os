@@ -27,10 +27,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.vercel["ignoreCommand"],
             "sh tools/public-site/should_skip_vercel_build.sh",
         )
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {
-            "main": True,
-            "*": False,
-        })
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"*": False, "main": True})
         script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
         self.assertTrue(script.is_file())
 
@@ -108,18 +105,6 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             builder_change = commit("canonical site builder changed")
             self.assertEqual(ignored(releases_change, builder_change), 1)
 
-            # React account is part of this single public-site artifact.
-            # Both source and the reviewed prebuilt output must trigger Vercel.
-            write("sites/account-ui/lovable-original/src/account-entry.tsx", "export const account = true;")
-            account_source = commit("account React source changed")
-            self.assertEqual(ignored(builder_change, account_source), 1)
-            self.assertEqual(ignored(builder_change, account_source, "production"), 1)
-
-            write("sites/account-ui/prebuilt/index.html", "<div id='root'></div>")
-            account_bundle = commit("account React bundle changed")
-            self.assertEqual(ignored(account_source, account_bundle), 1)
-            self.assertEqual(ignored(account_source, account_bundle, "production"), 1)
-
     def test_cloudflare_exclusive_zone_is_active_with_independent_runtime_proof_pending(self):
         migration = self.contract["cloudflare_dns_migration"]
         self.assertEqual(migration["purpose"], "ordax-os-only")
@@ -178,7 +163,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         migration = self.contract["vercel_migration"]
         self.assertEqual(
             migration["status"],
-            "target-static-production-canonical-domain-live-identity-runtime-pending",
+            "target-static-production-canonical-domain-auth-only-runtime-observed-full-identity-e2e-pending",
         )
         self.assertTrue(migration["target_project_provisioned"])
         self.assertEqual(migration["target_project_id"], "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC")
@@ -194,6 +179,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(migration["target_project_production_deployment_id"], "dpl_66jvy7HYTzGyevgnNawtTJfH2Bgq")
         self.assertEqual(migration["target_project_production_deployment_commit"], "ddbaa362e2d586f76fd1ed878eb81414a5dee78a")
         self.assertTrue(migration["target_project_production_http_smoke_verified"])
+        # Auth-only reachability is intentionally narrower than the complete
+        # account-route rollout gate below.
         self.assertFalse(migration["target_project_production_public_account_routes_available"])
         self.assertEqual(migration["target_canonical_domain"], "ordax.com.br")
         self.assertTrue(migration["target_canonical_domain_attached_to_project"])
@@ -212,11 +199,22 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["target_www_redirect_https_verified"])
         self.assertEqual(migration["target_canonical_domain_http_status"], 200)
         self.assertEqual(migration["target_www_redirect_http_status"], 308)
-        self.assertEqual(migration["target_canonical_domain_account_session_http_status"], 503)
+        self.assertEqual(migration["target_canonical_domain_account_session_http_status"], 200)
+        self.assertEqual(migration["target_canonical_domain_registration_policy_http_status"], 200)
         self.assertEqual(migration["target_canonical_domain_sync_http_status"], 503)
         self.assertEqual(migration["target_canonical_domain_unknown_route_http_status"], 404)
+        self.assertEqual(migration["target_canonical_domain_identity_mode_observed"], "auth-only")
+        self.assertFalse(migration["target_canonical_domain_account_activation_ready_observed"])
+        self.assertTrue(migration["target_canonical_domain_auth_only_source_enabled_observed"])
+        self.assertFalse(migration["target_canonical_domain_recovery_configured_observed"])
+        self.assertEqual(
+            migration["target_canonical_domain_observation_source"],
+            "read-only-canonical-http-observation",
+        )
+        self.assertEqual(migration["target_canonical_domain_proof_observed_date"], "2026-10-13")
         self.assertFalse(migration["target_legacy_project_dashboard_detachment_verified"])
-        self.assertFalse(migration["target_runtime_oidc_e2e_verified"])
+        # Anonymous session and registration-policy reachability do not prove
+        # signed production OIDC end-to-end provenance.
         self.assertFalse(migration["target_runtime_oidc_e2e_verified"])
         self.assertTrue(migration["target_project_environment_variables_present"])
         self.assertEqual(migration["target_account_email"], "ordaxos@gmail.com")
@@ -239,10 +237,12 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["runtime_proof_required_before_public_auth"])
         self.assertFalse(migration["automatic_git_deployments_frozen"])
         self.assertFalse(migration["reenable_git_deployments_only_after_new_team_runtime_proof"])
-        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {
-            "main": True,
-            "*": False,
-        })
+        self.assertFalse(migration["automatic_preview_git_deployments_enabled"])
+        self.assertTrue(migration["automatic_production_git_deployments_enabled"])
+        self.assertEqual(migration["production_git_branch"], "main")
+        self.assertEqual(migration["git_deployment_branch_policy"], "production-only")
+        self.assertEqual(migration["pull_request_validation_owner"], "github-actions-public-site-candidate")
+        self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"*": False, "main": True})
         self.assertEqual(
             migration["target_team_slug"],
             self.contract["vercel_adapter"]["team"],
@@ -422,12 +422,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
         self.assertEqual(self.vercel["outputDirectory"], "out/public-site")
         self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-site")
-        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --account-ui lovable --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
+        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
         self.assertEqual(rewrites["/account/:path*"], "/api/account-proxy?ordax_path=/account/:path*")
-        self.assertEqual(rewrites["/conta/:section"], "/conta/index.html")
         self.assertIn('const MAX_BODY_BYTES = 64 * 1024;', self.vercel_proxy)
         self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.vercel_proxy)
         self.assertNotIn('const PUBLIC_ACCOUNT_ROUTES = new Map([', self.vercel_proxy)

@@ -19,6 +19,8 @@
       "flex",
       "gcc",
       "gcc-13",
+      "gpg",
+      "gpg-agent",
       "kmod",
       "libelf-dev",
       "libssl-dev",
@@ -38,6 +40,8 @@
       "flex": "2.6.4-8.2build1",
       "gcc": "4:13.2.0-7ubuntu1",
       "gcc-13": "13.3.0-6ubuntu2~24.04.1",
+      "gpg": "2.4.4-2ubuntu17.6",
+      "gpg-agent": "2.4.4-2ubuntu17.6",
       "kmod": "31+20240202-2ubuntu7.2",
       "libelf-dev": "0.190-1.1ubuntu0.1",
       "libssl-dev": "3.0.13-0ubuntu3.15",
@@ -59,14 +63,15 @@
     }
   },
   "repeat_proof": {
-    "source_commit": "01a10ab7abb9c6f5985e4c4c6a807802b14b0f8d",
-    "workflow_run_id": 34982193218,
+    "source_commit": "1f0ee7efaa5eb60f786221a1053ce91464759993",
+    "workflow_run_id": 38094493855,
     "result": "pass",
+    "kernel_version": "6.6.158",
     "ca_bundle_sha256": "9481fcd95f41b221f02f14d896535fe500bec539bc563c4cdca1acee483a8bdd",
     "artifacts": {
-      "kernel-6.6.52.config": "c83a86c2bf87a6f052c8485cfbdc36a1f904216cdc79b542205e3010d3392841",
-      "kernel-modules-6.6.52.tar": "0056f8bd6a1ea02b9aa0b0f35a30adc27060888b6ae6124804e96b6740de72f2",
-      "vmlinuz-6.6.52": "e080323be390b2e921ed34286794cbce18642b653fc6790ae308f61720c90ba1"
+      "kernel-6.6.158.config": "b43c817ebdfd703266670461759252cbf4efb3de6b746f3eed720feb83f5d855",
+      "kernel-modules-6.6.158.tar": "b8c23a0c04672191a7855249956e0a12f8989ac9b2a5bc9c68f6ccc873f5c81d",
+      "vmlinuz-6.6.158": "16d1b7a190d7a11f748aa65fa7f6e940a0e7f5c79641f38bb2c98354918ec87f"
     }
   },
   "proof": {
@@ -79,6 +84,21 @@
     "current_source_or_config_may_change_artifact_bytes": true,
     "historical_reference_artifacts_are_environment_observation_only": true,
     "promotion_requires_same_current_source_repeat_build_match": true,
-    "historical_artifact_digest_is_not_a_permanent_current_build_oracle": true
-  }
+    "historical_artifact_digest_is_not_a_permanent_current_build_oracle": true,
+    "historical_proof_does_not_authorize_new_signed_source": true
+  },
+  "historical_repeat_proofs": [
+    {
+      "source_commit": "01a10ab7abb9c6f5985e4c4c6a807802b14b0f8d",
+      "workflow_run_id": 34982193218,
+      "result": "pass",
+      "ca_bundle_sha256": "9481fcd95f41b221f02f14d896535fe500bec539bc563c4cdca1acee483a8bdd",
+      "artifacts": {
+        "kernel-6.6.52.config": "c83a86c2bf87a6f052c8485cfbdc36a1f904216cdc79b542205e3010d3392841",
+        "kernel-modules-6.6.52.tar": "0056f8bd6a1ea02b9aa0b0f35a30adc27060888b6ae6124804e96b6740de72f2",
+        "vmlinuz-6.6.52": "e080323be390b2e921ed34286794cbce18642b653fc6790ae308f61720c90ba1"
+      },
+      "kernel_version": "6.6.52"
+    }
+  ]
 }

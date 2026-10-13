@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the dependency-free OrdaX Web client from the shared Surface graph."""
+"""Compile and receipt the canonical OrdaX Web Surface with locked, bundled dependencies."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import sys
+import subprocess
 import tempfile
 from pathlib import Path, PurePosixPath
 
@@ -18,10 +19,8 @@ if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
 from source_graph import (
-    HTML_REF_RE,
     SourceGraphError,
     discover_graph as discover_source_graph,
-    resolve_local as resolve_source_local,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,41 +37,59 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def resolve_local(source: PurePosixPath, specifier: str) -> PurePosixPath | None:
-    try:
-        return resolve_source_local(source, specifier, allowed_prefixes=("system",))
-    except SourceGraphError as exc:
-        raise BundleError(str(exc)) from exc
+def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
+    """Build inputs owned by Surface, thin composition, shared boot/i18n and one lock."""
+    inputs = {
+        ENTRYPOINT, PurePosixPath("system/composition/web/main.tsx"),
+        PurePosixPath("package.json"), PurePosixPath("package-lock.json"),
+        PurePosixPath("tools/surface-web/package.json"),
+        PurePosixPath("tools/surface-web/vite.config.ts"),
+        PurePosixPath("tools/surface-web/tsconfig.json"),
+        PurePosixPath("docs/evidence/web-layout-reference-2026-10-10.json"),
+        PurePosixPath("docs/evidence/web-central-reference-2026-10-11.json"),
+        PurePosixPath("system/surface/ui/brand/ordax-symbol.png"),
+        PurePosixPath("system/services/local-ai/source-lock.json"),
+        PurePosixPath("third_party/licenses/Inter-OFL-1.1.txt"),
+    }
+    for subtree in ("system/surface/workspace",):
+        inputs.update(PurePosixPath(p.relative_to(root).as_posix())
+                      for p in (root / subtree).rglob("*") if p.is_file())
+    for entry in ("system/surface/ui/boot-screen.mjs", "system/surface/ui/boot-screen.css",
+                  "system/surface/ui/tokens.css", "system/services/i18n/surface.mjs",
+                  "system/surface/ui/notification-center-controls.mjs", "system/surface/ui/notification-center.css",
+                  "system/contracts/app-store.mjs", "system/services/local-ai/model-candidate.generated.mjs",
+                  "system/composition/web/account-session.mjs",
+                  "system/adapters/web/preferences.mjs",
+                  "system/services/preferences/runtime.mjs",
+                  "system/services/spaces/authorized-view.mjs"):
+        inputs.update(discover_source_graph(root, PurePosixPath(entry),
+                                           allowed_prefixes=("system",)))
+    for relative in inputs:
+        path = root / relative
+        if not path.is_file() or path.is_symlink():
+            raise BundleError(f"missing or linked Web input: {relative}")
+    root_package = json.loads((root / "package.json").read_text(encoding="utf-8"))
+    lock = json.loads((root / "package-lock.json").read_text(encoding="utf-8"))
+    for group in ("dependencies", "devDependencies"):
+        if root_package.get(group, {}) != lock["packages"][""].get(group, {}):
+            raise BundleError(f"root package/lock mismatch: {group}")
+    if (root / "tools/web2-preview").exists():
+        raise BundleError("test workspace must be removed after canonical cutover")
+    return sorted(inputs, key=str)
 
 
-def discover_graph(
-    root: Path = ROOT,
-    entrypoint: PurePosixPath = ENTRYPOINT,
-) -> list[PurePosixPath]:
-    try:
-        return discover_source_graph(
-            root,
-            entrypoint,
-            allowed_prefixes=("system",),
-        )
-    except SourceGraphError as exc:
-        raise BundleError(str(exc)) from exc
-
-
-def render_root_index(root: Path = ROOT, entrypoint: PurePosixPath = ENTRYPOINT) -> bytes:
-    source = (root / entrypoint).read_text(encoding="utf-8")
-
-    def replace(match: re.Match[str]) -> str:
-        attribute, quote, specifier = match.groups()
-        dependency = resolve_local(entrypoint, specifier)
-        if dependency is None:
-            return match.group(0)
-        return f"{attribute}={quote}./{dependency.as_posix()}{quote}"
-
-    rendered = HTML_REF_RE.sub(replace, source)
-    if "../" in rendered:
-        raise BundleError("generated root index still contains parent-directory traversal")
-    return rendered.encode("utf-8")
+def compile_frontend(root: Path = ROOT) -> Path:
+    npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
+    if npm is None:
+        raise BundleError("Node/npm are required only on the build host")
+    result = subprocess.run([npm, "run", "build", "--workspace", "tools/surface-web"],
+                            cwd=root, check=False)
+    if result.returncode:
+        raise BundleError("canonical Web typecheck/build failed")
+    compiled = root / "out/web-ui"
+    if not (compiled / "index.html").is_file():
+        raise BundleError("canonical frontend build did not emit index.html")
+    return compiled
 
 
 def build_bundle(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
@@ -82,15 +99,18 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
         raise BundleError(f"refusing to replace non-empty output directory: {out_dir}")
 
     graph = discover_graph(root)
+    compiled = compile_frontend(root)
     out_dir.parent.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=".ordax-web-client-", dir=out_dir.parent))
     try:
-        for relative in graph:
-            destination = stage / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(root / relative, destination)
-
-        (stage / "index.html").write_bytes(render_root_index(root))
+        for source in compiled.rglob("*"):
+            if source.is_symlink():
+                raise BundleError(f"linked compiled asset: {source}")
+            if source.is_file():
+                destination = stage / source.relative_to(compiled)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, destination)
+        shutil.copyfile(root / "third_party/licenses/Inter-OFL-1.1.txt", stage / "Inter-LICENSE.txt")
 
         records = []
         for path in sorted((p for p in stage.rglob("*") if p.is_file()), key=lambda item: item.relative_to(stage).as_posix()):
@@ -105,7 +125,10 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
             "source_graph_entrypoint": ENTRYPOINT.as_posix(),
             "entrypoint": "index.html",
             "remote_runtime_dependencies": False,
-            "framework_runtime_dependency": False,
+            "framework_runtime_dependency": True,
+            "framework_runtime_delivery": "bundled-local-assets",
+            "node_required_at_client": False,
+            "source_inputs": [{"path": str(path), "sha256": sha256_bytes((root / path).read_bytes())} for path in graph],
             "files": records,
         }
         (stage / MANIFEST_NAME).write_text(
@@ -159,7 +182,6 @@ def verify_bundle(out_dir: Path) -> dict:
 
 def command_check() -> int:
     graph = discover_graph(ROOT)
-    render_root_index(ROOT)
     print("WEB_CLIENT_SOURCE_GRAPH=PASS")
     print(f"WEB_CLIENT_SOURCE_FILE_COUNT={len(graph)}")
     return 0

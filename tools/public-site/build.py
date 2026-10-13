@@ -22,6 +22,7 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 from public_html_render import render_public_html
+from legal_snapshots import validate_immutable_legal_snapshots, LegalSnapshotError
 
 # Load the brand compiler by an isolated module identity. Importing a generic
 # "build" module or prepending to sys.path shadows the component-package
@@ -45,6 +46,7 @@ PUBLIC_SYMBOL_PATH = "assets/ordax-symbol.png"
 CANONICAL_WALLPAPER = ROOT / "system/surface/ui/brand/midnight-landscape.png"
 CANONICAL_FONT = ROOT / "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
 CANONICAL_FONT_LICENSE = ROOT / "third_party/licenses/Inter-OFL-1.1.txt"
+ACCOUNT_LAYOUT_PROVENANCE = ROOT / "docs/evidence/public-account-layout-reference-2026-10-10.json"
 PUBLICATIONS = ROOT / "platform" / "releases" / "publications.json"
 LEGAL_READINESS = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
 AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
@@ -88,9 +90,11 @@ REQUIRED_FILES = (
     "recuperar/index.html",
     "recuperar/nova-senha/index.html",
     "conta/index.html",
+    "assets/account-landscape.jpg",
     "web/index.html",
     "assets/account-dashboard.css",
     "assets/account-portal.js",
+    "assets/web-entry.css",
     "licencas/index.html",
     "privacidade/index.html",
     "termos/index.html",
@@ -109,6 +113,11 @@ class PublicSiteError(RuntimeError):
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def public_page_routes(paths) -> list[str]:
+    return sorted("/" + path[:-len("index.html")] for path in paths
+                  if path == "index.html" or path.endswith("/index.html"))
 
 
 def same_origin_path(value: object) -> bool:
@@ -139,6 +148,10 @@ def source_files(root: Path = SOURCE) -> list[Path]:
 
 def validate_source(root: Path = SOURCE) -> list[Path]:
     files = source_files(root)
+    try:
+        validate_immutable_legal_snapshots(root)
+    except LegalSnapshotError as exc:
+        raise PublicSiteError(str(exc)) from exc
     relative = {path.relative_to(root).as_posix() for path in files}
     missing = sorted(set(REQUIRED_FILES) - relative)
     if missing:
@@ -167,8 +180,23 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             if path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
                 raise PublicSiteError("invalid canonical PNG symbol")
             continue
-        if suffix == ".jpg":
-            if not relative_path.startswith("assets/account/") or path.read_bytes()[:3] != bytes((255, 216, 255)):
+        # The approved classic Account presentation owns one source-pinned
+        # illustration. Keep its exact provenance proof stronger than the
+        # generated candidate asset check below.
+        if suffix == ".jpg" and relative_path == "assets/account-landscape.jpg":
+            payload = path.read_bytes()
+            if not payload.startswith(b"\xff\xd8\xff"):
+                raise PublicSiteError("invalid account layout JPEG")
+            illustration = json.loads(ACCOUNT_LAYOUT_PROVENANCE.read_text(encoding="utf-8"))["illustration"]
+            if (len(payload) != illustration["size"]
+                    or sha256_bytes(payload) != illustration["sha256"]):
+                raise PublicSiteError("account layout illustration differs from recorded provenance")
+            continue
+        # The optional Lovable build profile emits source-owned raster assets
+        # below assets/account/. They remain local bundle inputs and must at
+        # minimum be valid JPEG bytes; no other public JPG path is accepted.
+        if suffix == ".jpg" and relative_path.startswith("assets/account/"):
+            if not path.read_bytes().startswith(b"\xff\xd8\xff"):
                 raise PublicSiteError("unverified account JPEG asset")
             continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
@@ -377,18 +405,32 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE, account
         shutil.copyfile(CANONICAL_FONT_LICENSE, font_dir / CANONICAL_FONT_LICENSE.name)
         (stage / "assets/ordax-font.css").write_text(render_site_font_css(), encoding="utf-8")
         for page in stage.rglob("*.html"):
+            relative = page.relative_to(stage).parts
+            if relative[0] == "legal":
+                # Versioned consent snapshots must be bit-for-bit stable even
+                # when the design-token bridge or JS cache versions change.
+                # Never re-render or rewrite an already reviewed legal page.
+                if (len(relative) != 4 or relative[2] not in ("privacidade", "termos")
+                        or relative[3] != "index.html"
+                        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", relative[1])):
+                    raise PublicSiteError("legal snapshot path must be version and document scoped")
+                try:
+                    page.read_bytes().decode("utf-8")
+                except UnicodeError as exc:
+                    raise PublicSiteError("immutable legal snapshot must be valid UTF-8") from exc
+                continue
             try:
                 markup = render_public_html(page.read_text(encoding="utf-8"))
-                if page.relative_to(stage).as_posix() in ("conta/index.html", "web/index.html"):
-                    # A new account layout must never reuse stale cached CSS or
-                    # presentation code. Stable bytes keep a stable URL; no clock.
-                    for asset in (
-                        "assets/account-dashboard.css", "assets/account-portal.js",
-                        "assets/ordax-design-tokens.css", "assets/ordax-font.css",
-                    ):
-                        version = sha256_bytes((stage / asset).read_bytes())[:16]
-                        pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
-                        markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
+                # Shared portal consumers must never reuse stale cached CSS or
+                # presentation code. Stable bytes keep a stable URL; no clock.
+                for asset in (
+                    "assets/account-dashboard.css", "assets/account-portal.js",
+                    "assets/ordax-design-tokens.css", "assets/ordax-font.css",
+                    "assets/web-entry.css", "assets/site.js",
+                ):
+                    version = sha256_bytes((stage / asset).read_bytes())[:16]
+                    pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
+                    markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
                 marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
                 if marker in markup:
                     plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
@@ -438,7 +480,7 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE, account
             ],
             "framework_runtime_dependency": account_ui == "lovable",
             "account_ui_source": "sites/account-ui/lovable-original" if account_ui == "lovable" else "sites/public/conta",
-            "routes": ["/", "/download/", "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/", "/conta/", "/licencas/", "/privacidade/", "/termos/"],
+            "routes": public_page_routes(record["path"] for record in records),
             "public_release_catalog": {
                 "path": "/" + PUBLIC_CATALOG_RELATIVE.as_posix(),
                 "status": catalog["status"],
@@ -498,6 +540,8 @@ def verify_bundle(out_dir: Path) -> dict:
         raise PublicSiteError(
             f"bundle file set mismatch: expected={sorted(expected)} actual={sorted(actual)}"
         )
+    if manifest.get("routes") != public_page_routes(actual):
+        raise PublicSiteError("public route inventory differs from built pages")
     if PUBLIC_SYMBOL_PATH not in actual or actual[PUBLIC_SYMBOL_PATH].read_bytes() != CANONICAL_SYMBOL.read_bytes():
         raise PublicSiteError("canonical OrdaX public symbol asset missing or stale")
     for relative, canonical in (

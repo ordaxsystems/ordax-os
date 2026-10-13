@@ -56,17 +56,74 @@ func addActivationV2Candidate(
 	version string,
 	sourceCommit string,
 ) activationV2Candidate {
+	return addActivationV2CandidateWithState(t, fixture, version, sourceCommit, nil)
+}
+
+func addActivationV2CandidateWithState(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+) activationV2Candidate {
+	return addActivationV2CandidateWithContracts(
+		t, fixture, version, sourceCommit, state,
+		[]providedCompatibilityContract{{ID: "ordax.internet", Major: 1}},
+	)
+}
+
+// Contract alterations in these fixtures must be separately signed, not
+// injected into already verified JSON or the activation state.
+func addActivationV2CandidateWithContracts(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+) activationV2Candidate {
+	return addActivationV2CandidateWithFullContracts(
+		t, fixture, version, sourceCommit, state, provided, nil,
+	)
+}
+
+func addActivationV2CandidateWithFullContracts(
+	t *testing.T,
+	fixture activationV2Fixture,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+	requires []requiredCompatibilityContract,
+) activationV2Candidate {
+	return addActivationV2CandidateForComponent(
+		t, fixture, "internet", version, sourceCommit, state, provided, requires,
+	)
+}
+
+// This fixture writes a real separately signed release/2 for any app ID;
+// cross-component regressions must not fabricate active graph descriptors.
+func addActivationV2CandidateForComponent(
+	t *testing.T,
+	fixture activationV2Fixture,
+	componentID string,
+	version string,
+	sourceCommit string,
+	state *compatibilityState,
+	provided []providedCompatibilityContract,
+	requires []requiredCompatibilityContract,
+) activationV2Candidate {
 	t.Helper()
 
-	runtimePath := "system/apps/internet/runtime.mjs"
+	runtimePath := "system/apps/" + componentID + "/runtime.mjs"
 	runtimeBytes := []byte("export const runtimeVersion = \"" + version + "\";\n")
 	runtimeDigest := sha256.Sum256(runtimeBytes)
 	manifest := componentPackageManifest{
 		Schema: packageSchema,
 		Status: "candidate",
 		Component: packageComponent{
-			ID:            "internet",
-			Title:         "Internet",
+			ID:            componentID,
+			Title:         "Component " + componentID,
 			Kind:          "app",
 			Version:       version,
 			ReleaseMode:   "component-slot",
@@ -74,7 +131,7 @@ func addActivationV2Candidate(
 			FailureDomain: "app",
 			RestartScope:  "component",
 			HealthMode:    "runtime",
-			Owner:         "system/apps/internet",
+			Owner:         "system/apps/" + componentID,
 			Dependencies:  []string{"surface-shell"},
 		},
 		SourceCommit:                      sourceCommit,
@@ -99,7 +156,7 @@ func addActivationV2Candidate(
 	}
 	manifestDigest := sha256.Sum256(manifestBytes)
 
-	packagePath := filepath.Join(fixture.dir, "internet.zip")
+	packagePath := filepath.Join(fixture.dir, componentID+".zip")
 	if err := os.Remove(packagePath); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
@@ -121,40 +178,64 @@ func addActivationV2Candidate(
 		t.Fatal(err)
 	}
 
+	// Preserve canonical JSON key ordering for the *signed* compatibility
+	// sidecar; a Go struct would serialize its fields in declaration order.
+	var signedState any
+	if state != nil {
+		signedState = map[string]any{
+			"id":              state.ID,
+			"writeVersion":    state.WriteVersion,
+			"readableFrom":    state.ReadableFrom,
+			"readableThrough": state.ReadableThrough,
+		}
+	}
+	signedProvided := make([]any, 0, len(provided))
+	for _, contract := range provided {
+		signedProvided = append(signedProvided, map[string]any{
+			"id": contract.ID, "major": contract.Major,
+		})
+	}
+	signedRequirements := make([]any, 0, len(requires))
+	for _, contract := range requires {
+		signedRequirements = append(signedRequirements, map[string]any{
+			"id":       contract.ID,
+			"minMajor": contract.MinMajor,
+			"maxMajor": contract.MaxMajor,
+			"optional": contract.Optional,
+		})
+	}
 	compatibility := map[string]any{
 		"schema":           compatibilitySchemaV1,
-		"componentId":      "internet",
+		"componentId":      componentID,
 		"componentVersion": version,
-		"provides": []any{
-			map[string]any{"id": "ordax.internet", "major": 1},
-		},
-		"requires":  []any{},
-		"state":     nil,
-		"authority": "none",
+		"provides":         signedProvided,
+		"requires":         signedRequirements,
+		"state":            signedState,
+		"authority":        "none",
 	}
 	compatibilityBytes, err := marshalJSON(compatibility)
 	if err != nil {
 		t.Fatal(err)
 	}
 	compatibilityDigest := sha256.Sum256(compatibilityBytes)
-	compatibilityPath := filepath.Join(fixture.dir, "internet.compatibility.json")
+	compatibilityPath := filepath.Join(fixture.dir, componentID+".compatibility.json")
 	if err := os.WriteFile(compatibilityPath, compatibilityBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	release := releaseDescriptorV2{
 		Schema:            releaseSchemaV2,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository(componentID),
 		SourceCommit:      sourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{
-			ID:            "internet",
+			ID:            componentID,
 			Version:       version,
 			ReleaseMode:   "component-slot",
 			PackageSchema: packageSchema,
 		},
 		Package: packageBinding{
-			Name:           "internet.zip",
+			Name:           componentID + ".zip",
 			SHA256:         packageHash,
 			Size:           packageSize,
 			ManifestSHA256: hex.EncodeToString(manifestDigest[:]),
@@ -164,7 +245,7 @@ func addActivationV2Candidate(
 			PendingHealthRequired:   true,
 		},
 		Compatibility: compatibilityBinding{
-			Name:   "internet.compatibility.json",
+			Name:   componentID + ".compatibility.json",
 			Schema: compatibilitySchemaV1,
 			SHA256: hex.EncodeToString(compatibilityDigest[:]),
 			Size:   int64(len(compatibilityBytes)),
@@ -174,11 +255,11 @@ func addActivationV2Candidate(
 	if err != nil {
 		t.Fatal(err)
 	}
-	releasePath := filepath.Join(fixture.dir, "release-"+version+".json")
+	releasePath := filepath.Join(fixture.dir, "release-"+componentID+"-"+version+"-"+sourceCommit+".json")
 	if err := os.WriteFile(releasePath, releaseBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	envelopePath := filepath.Join(fixture.dir, "envelope-"+version+".json")
+	envelopePath := filepath.Join(fixture.dir, "envelope-"+componentID+"-"+version+"-"+sourceCommit+".json")
 	if _, err := signReleaseV2(
 		releasePath,
 		compatibilityPath,
@@ -417,7 +498,8 @@ func TestReleaseV2UninstallMakesComponentAbsentAndKeepsVerifiedSlotCache(t *test
 		state.Previous != nil ||
 		state.Pending != nil ||
 		state.Rejected != nil ||
-		state.PendingHealth != "unknown" {
+		state.PendingHealth != "unknown" ||
+		!state.UserRemoved {
 		t.Fatalf("unexpected uninstall state: %+v", state)
 	}
 
@@ -429,7 +511,7 @@ func TestReleaseV2UninstallMakesComponentAbsentAndKeepsVerifiedSlotCache(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bundled || slot != "" || resolved.Current != nil {
+	if bundled || slot != "" || resolved.Current != nil || !resolved.UserRemoved {
 		t.Fatalf("uninstalled component remained active: bundled=%t slot=%q state=%+v", bundled, slot, resolved)
 	}
 
@@ -542,16 +624,27 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatalf("idempotent uninstall retry failed: %v", err)
 	}
-	if retry.Revision != state.Revision {
-		t.Fatalf("idempotent uninstall changed revision: %d -> %d", state.Revision, retry.Revision)
+	if retry.Revision != state.Revision || !retry.UserRemoved {
+		t.Fatalf("idempotent uninstall changed removal intent or revision: %+v", retry)
+	}
+	persisted, err := readActivationState(fixture.root, "internet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !persisted.UserRemoved || !sameSlotIdentity(persisted.Removed, &installed) || persisted.Current != nil || persisted.Revision != retry.Revision {
+		t.Fatalf("removed app intent lost across state reload: %+v", persisted)
+	}
+	_, _, bundled, err := resolveCurrentState(fixture.root, "internet", fixture.trustPath)
+	if err != nil || bundled {
+		t.Fatalf("removed app must not silently restore bundled fallback: bundled=%t err=%v", bundled, err)
 	}
 
 	state, err = armPendingState(candidate.slot, fixture.trustPath, fixture.root)
 	if err != nil {
 		t.Fatalf("verified cached release could not be rearmed offline: %v", err)
 	}
-	if state.Pending == nil || !sameSlotIdentity(state.Pending, &installed) {
-		t.Fatalf("offline reinstall armed wrong identity: %+v", state)
+	if state.Pending == nil || !sameSlotIdentity(state.Pending, &installed) || !state.UserRemoved {
+		t.Fatalf("offline reinstall armed wrong identity or erased intent before promotion: %+v", state)
 	}
 	probationRevision := state.Revision
 	state, err = recordPendingHealthAtRevision(
@@ -574,8 +667,135 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) {
-		t.Fatalf("offline reinstall did not restore current identity: %+v", state)
+	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) || state.UserRemoved || state.Removed != nil {
+		t.Fatalf("offline reinstall did not restore current identity or clear intent: %+v", state)
+	}
+}
+
+// Successful retries must not turn a missing or corrupt signed slot into
+// a fresh success verdict; the idempotent path is inside the same Go writer.
+func TestSignedDecisionRetriesRejectTamperedSlots(t *testing.T) {
+	t.Run("promotion", func(t *testing.T) {
+		fixture := makeActivationV2Fixture(t)
+		candidate := addActivationV2Candidate(t, fixture, "1.0.0", strings.Repeat("1", 40))
+		promoted := healthyPromoteV2(t, fixture, candidate)
+		current := *promoted.Current
+		tampered := filepath.Join(candidate.slot, candidate.release.Compatibility.Name)
+		if err := os.Chmod(tampered, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := promotePendingStateAtRevision(
+			fixture.root, "internet", current, promoted.Revision-1, fixture.trustPath,
+		); err == nil {
+			t.Fatal("promotion retry silently acknowledged a corrupt current slot")
+		}
+		persisted, err := readActivationState(fixture.root, "internet")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if persisted.Revision != promoted.Revision || !sameSlotIdentity(persisted.Current, &current) {
+			t.Fatalf("rejected retry modified activation state: %+v", persisted)
+		}
+	})
+	t.Run("rollback", func(t *testing.T) {
+		fixture := makeActivationV2Fixture(t)
+		previous := addActivationV2Candidate(t, fixture, "1.0.0", strings.Repeat("1", 40))
+		healthyPromoteV2(t, fixture, previous)
+		candidate := addActivationV2Candidate(t, fixture, "1.1.0", strings.Repeat("2", 40))
+		promoted := healthyPromoteV2(t, fixture, candidate)
+		source := *promoted.Current
+		rolled, err := rollbackCurrentStateAtRevision(
+			fixture.root, "internet", source, promoted.Revision, fixture.trustPath,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tampered := filepath.Join(previous.slot, previous.release.Compatibility.Name)
+		if err := os.Chmod(tampered, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := rollbackCurrentStateAtRevision(
+			fixture.root, "internet", source, promoted.Revision, fixture.trustPath,
+		); err == nil {
+			t.Fatal("rollback retry acknowledged a corrupt restored current slot")
+		}
+		persisted, err := readActivationState(fixture.root, "internet")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if persisted.Revision != rolled.Revision || !sameSlotIdentity(persisted.Current, rolled.Current) {
+			t.Fatalf("rejected rollback retry modified activation state: %+v", persisted)
+		}
+	})
+}
+
+// Uninstall removes Current, but the authoritative state retains the exact
+// removed slot identity. Otherwise any version could replay the same revision.
+func TestUninstallRetryRequiresDurableSignedRemovedIdentity(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	candidate := addActivationV2Candidate(t, fixture, "1.0.0", strings.Repeat("3", 40))
+	promoted := healthyPromoteV2(t, fixture, candidate)
+	removedIdentity := *promoted.Current
+	removed, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameSlotIdentity(removed.Removed, &removedIdentity) || !removed.UserRemoved {
+		t.Fatalf("uninstall lost durable removed identity: %+v", removed)
+	}
+	wrong := slotIdentity{Version: "1.0.1", SourceCommit: strings.Repeat("4", 40)}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", wrong, promoted.Revision, fixture.trustPath,
+	); err == nil {
+		t.Fatal("uninstall retry accepted unrelated removed identity")
+	}
+	retry, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
+	)
+	if err != nil || retry.Revision != removed.Revision {
+		t.Fatalf("signed exact uninstall retry = %+v, %v", retry, err)
+	}
+	// Old state snapshots without the tombstone remain readable and removed;
+	// no made-up identity can turn them into an acknowledged retry.
+	legacy := removed
+	legacy.Removed = nil
+	if err := writeActivationState(fixture.root, legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
+	); err == nil {
+		t.Fatal("legacy removal without identity claimed a successful retry")
+	}
+	// A separate fixture proves corruption detection independent of legacy.
+	fixture2 := makeActivationV2Fixture(t)
+	candidate2 := addActivationV2Candidate(t, fixture2, "1.0.0", strings.Repeat("5", 40))
+	promoted2 := healthyPromoteV2(t, fixture2, candidate2)
+	identity2 := *promoted2.Current
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture2.root, "internet", identity2, promoted2.Revision, fixture2.trustPath,
+	); err != nil {
+		t.Fatal(err)
+	}
+	tampered := filepath.Join(candidate2.slot, candidate2.release.Compatibility.Name)
+	if err := os.Chmod(tampered, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture2.root, "internet", identity2, promoted2.Revision, fixture2.trustPath,
+	); err == nil {
+		t.Fatal("uninstall retry acknowledged corrupt removed signed slot")
 	}
 }
 
@@ -684,5 +904,47 @@ func TestSchemaAwareActivationVerifierKeepsReleaseV1Working(t *testing.T) {
 	}
 	if release.Schema != releaseSchema || release.Component.ID != "internet" {
 		t.Fatalf("release/1 activation compatibility regressed: %+v", release)
+	}
+}
+
+func TestExplicitRemovalCannotCoexistWithCurrentSlot(t *testing.T) {
+	state := emptyActivationState("internet")
+	state.UserRemoved = true
+	state.Current = &slotIdentity{
+		Version:      "1.0.0",
+		SourceCommit: "1111111111111111111111111111111111111111",
+	}
+	if err := validateActivationState(state, "internet"); err == nil ||
+		!strings.Contains(err.Error(), "explicitly removed cannot have a current slot") {
+		t.Fatalf("contradictory installed and removed state was accepted: %v", err)
+	}
+}
+
+func TestCurrentResolutionSourcePreservesExplicitRemoval(t *testing.T) {
+	absent := emptyActivationState("internet")
+	removed := emptyActivationState("internet")
+	removed.UserRemoved = true
+	installed := emptyActivationState("internet")
+	installed.Current = &slotIdentity{
+		Version:      "1.0.0",
+		SourceCommit: "1111111111111111111111111111111111111111",
+	}
+	for _, tc := range []struct {
+		name    string
+		state   activationState
+		bundled bool
+		want    string
+	}{
+		{"never-installed-bundled", absent, true, "BUNDLED"},
+		{"never-installed-external", absent, false, "ABSENT"},
+		{"removed-platform-component", removed, false, "REMOVED"},
+		{"removed-bundled-fallback", removed, true, "REMOVED"},
+		{"installed-current", installed, false, "SLOT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := currentResolutionSource(tc.state, tc.bundled); got != tc.want {
+				t.Fatalf("source = %q, expected %q", got, tc.want)
+			}
+		})
 	}
 }

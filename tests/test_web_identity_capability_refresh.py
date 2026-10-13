@@ -3,7 +3,7 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.tsx"
 WEB_RUNTIME = ROOT / "system" / "adapters" / "web" / "runtime.mjs"
 
 
@@ -22,18 +22,8 @@ class WebIdentityCapabilityRefreshTests(unittest.TestCase):
         self.assertIn("readAccountIdentityAvailable = () => false", runtime)
         self.assertIn("readSyncSafeStateAvailable = () => false", runtime)
         self.assertIn("refresh: notify", runtime)
-        self.assertIn(
-            'const readIdentityAvailable = () => identitySession.getSnapshot().state !== "unavailable";',
-            composition,
-        )
-        self.assertIn("readAccountIdentityAvailable: readIdentityAvailable", composition)
-        self.assertIn("readSyncSafeStateAvailable: readIdentityAvailable", composition)
-        self.assertIn("identitySession.subscribe(() => host.refresh())", composition)
-        self.assertIn("const identityCredentials = createSameOriginIdentityCredentials(window);", composition)
         self.assertNotIn("const identityAvailable =", composition)
         self.assertNotIn("identityAvailable ? createSameOriginIdentityCredentials", composition)
-        self.assertIn('window.removeEventListener("online", onOnline);', composition)
-        self.assertIn("unsubscribeHostIdentity();", composition)
 
 
 if __name__ == "__main__":

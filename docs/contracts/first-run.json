@@ -18,7 +18,13 @@
     "completion_must_be_durable_before_dismiss": true,
     "state_is_separate_from_user_preferences": true,
     "state_is_separate_from_identity_session": true,
-    "state_is_separate_from_local_session_secret": true
+    "state_is_separate_from_local_session_secret": true,
+    "completed_receipt_monotonic": true,
+    "identical_completed_retry_idempotent": true,
+    "corrupt_existing_receipt_must_not_be_overwritten": true,
+    "concurrent_completion_posts_serialized": true,
+    "directory_entry_fsync_required_before_acknowledgement": true,
+    "post_completion_regional_edits_owner": "settings"
   },
   "flow": [
     "welcome",
@@ -95,7 +101,11 @@
     "register_capability_driven": true,
     "provider_unavailable_must_not_block_completion": true,
     "identity_subject_must_not_enter_first_run_state": true,
-    "cloud_sync_required_for_mvp": false
+    "cloud_sync_required_for_mvp": false,
+    "identity_selection_requires_current_subject_at_completion": true,
+    "identity_selection_requires_fresh_session_read": true,
+    "identity_subject_in_first_run_receipt": false,
+    "expired_or_changed_identity_returns_to_account_step": true
   },
   "mvp": {
     "runs_from_usb": true,

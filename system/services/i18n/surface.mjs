@@ -1,3 +1,5 @@
+import { SIDEBAR_SOURCE_MESSAGES, SIDEBAR_ENGLISH_MESSAGES } from "./catalog/sidebar.mjs";
+import { SURFACE_BOOT_SOURCE_MESSAGES, SURFACE_BOOT_ENGLISH_MESSAGES } from "./catalog/boot.mjs";
 import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../contracts/localization.mjs";
 import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
@@ -8,13 +10,9 @@ import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/s
 import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
 import { SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES, SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES } from "./catalog/system-diagnostics.mjs";
-import { INTERNET_SOURCE_MESSAGES, INTERNET_ENGLISH_MESSAGES } from "./catalog/internet.mjs";
-import { PROJECTS_SOURCE_MESSAGES, PROJECTS_ENGLISH_MESSAGES } from "./catalog/projects.mjs";
 import { ACCOUNT_SOURCE_MESSAGES, ACCOUNT_ENGLISH_MESSAGES } from "./catalog/account.mjs";
-import { ASSISTANT_SOURCE_MESSAGES, ASSISTANT_ENGLISH_MESSAGES } from "./catalog/assistant.mjs";
 import { ACTIVITY_SOURCE_MESSAGES, ACTIVITY_ENGLISH_MESSAGES } from "./catalog/activity.mjs";
 import { NETWORK_SOURCE_MESSAGES, NETWORK_ENGLISH_MESSAGES } from "./catalog/network.mjs";
-import { NETWORK_APP_SOURCE_MESSAGES, NETWORK_APP_ENGLISH_MESSAGES } from "./catalog/network-app.mjs";
 import { POWER_SOURCE_MESSAGES, POWER_ENGLISH_MESSAGES } from "./catalog/power.mjs";
 import { NOTIFICATIONS_SOURCE_MESSAGES, NOTIFICATIONS_ENGLISH_MESSAGES } from "./catalog/notifications.mjs";
 import { LOCAL_SESSION_SOURCE_MESSAGES, LOCAL_SESSION_ENGLISH_MESSAGES } from "./catalog/local-session.mjs";
@@ -24,8 +22,16 @@ export const SURFACE_COMPLETE_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 export const SURFACE_ENGLISH_TARGET_LOCALE = "en-US";
 
 const SOURCE = Object.freeze({
+  ...SIDEBAR_SOURCE_MESSAGES,
   "shell.rail.aria": "Aplicativos principais",
   "shell.home.title": "Início",
+  "shell.profile.open": "Abrir meu perfil",
+  "shell.sidebar.expand": "Expandir sidebar",
+  "shell.sidebar.collapse": "Recolher sidebar",
+  "shell.presentation.desktop": "Abrir área de trabalho",
+  "shell.presentation.central": "Abrir Central",
+  "shell.presentation.centralTitle": "Central",
+  "shell.presentation.shortcuts": "Atalhos da área de trabalho",
   "shell.home.tagline": "Inteligência no centro.",
   "shell.home.quickAccess": "Acesso rápido",
   "shell.home.loadingDate": "Carregando data…",
@@ -57,10 +63,7 @@ const SOURCE = Object.freeze({
   "shell.quick.dateTimeClose": "Fechar data e hora",
   "shell.quick.timeZone": "Fuso horário",
   "shell.clock.timeZone": "Fuso horário: {timeZone}",
-  "surface.boot.loadingSurface": "Carregando superfície…",
-  "surface.boot.loadingApps": "Carregando aplicativos…",
-  "surface.boot.preparingFirstRun": "Preparando primeiro uso…",
-  "surface.boot.failed": "Não foi possível iniciar a interface",
+  ...SURFACE_BOOT_SOURCE_MESSAGES,
   "home.continuation.heading": "Continuar trabalho",
   "home.continuation.activityUnknown": "atividade desconhecida",
   "home.continuation.sessionSuffix": " · somente nesta sessão",
@@ -114,11 +117,6 @@ const SOURCE = Object.freeze({
   "app.files.panel.0.label": "Espaço do usuário",
   "app.files.panel.0.title": "Arquivos",
   "app.files.panel.0.body": "Este host não expõe um espaço local de arquivos para esta Surface.",
-  "app.projects.title": "Projetos",
-  "app.projects.description": "Organize projetos locais, conexões e continuidade entre dispositivos.",
-  "app.projects.panel.0.label": "Projetos",
-  "app.projects.panel.0.title": "Seu trabalho",
-  "app.projects.panel.0.body": "O catálogo de projetos não está disponível nesta composição.",
   "app.studio.title": "ORDAX Studio",
   "app.studio.description": "Acesse seus projetos e confira a integração do Studio com este host.",
   "app.studio.panel.0.label": "Studio",
@@ -129,16 +127,6 @@ const SOURCE = Object.freeze({
   "app.notes.panel.0.label": "Notas",
   "app.notes.panel.0.title": "Seu espaço de escrita",
   "app.notes.panel.0.body": "O espaço local de Notas não está disponível nesta composição.",
-  "app.internet.title": "Internet",
-  "app.internet.description": "Navegue, organize referências e conecte pesquisa ao seu trabalho.",
-  "app.internet.panel.0.label": "Navegador",
-  "app.internet.panel.0.title": "Internet",
-  "app.internet.panel.0.body": "A navegação integrada depende de um engine isolado fornecido pelo host.",
-  "app.network.title": "Rede",
-  "app.network.description": "Comunidades profissionais e mensagens vinculadas explicitamente ao Space remetente.",
-  "app.network.panel.0.label": "Rede",
-  "app.network.panel.0.title": "Rede profissional",
-  "app.network.panel.0.body": "O backend da Rede ainda não está ativo nesta composição.",
   "app.settings.title": "Ajustes",
   "app.settings.description": "Preferências compartilhadas, aparência e rede do OrdaX.",
   "app.settings.panel.0.label": "Ajustes",
@@ -165,20 +153,24 @@ const SOURCE = Object.freeze({
   ...SYSTEM_SOURCE_MESSAGES,
   ...SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES,
   ...ACCOUNT_SOURCE_MESSAGES,
-  ...ASSISTANT_SOURCE_MESSAGES,
   ...ACTIVITY_SOURCE_MESSAGES,
-  ...INTERNET_SOURCE_MESSAGES,
-  ...PROJECTS_SOURCE_MESSAGES,
   ...NETWORK_SOURCE_MESSAGES,
-  ...NETWORK_APP_SOURCE_MESSAGES,
   ...POWER_SOURCE_MESSAGES,
   ...NOTIFICATIONS_SOURCE_MESSAGES,
   ...LOCAL_SESSION_SOURCE_MESSAGES
 });
 
 const ENGLISH = Object.freeze({
+  ...SIDEBAR_ENGLISH_MESSAGES,
   "shell.rail.aria": "Main applications",
   "shell.home.title": "Home",
+  "shell.profile.open": "Open my profile",
+  "shell.sidebar.expand": "Expand sidebar",
+  "shell.sidebar.collapse": "Collapse sidebar",
+  "shell.presentation.desktop": "Open desktop",
+  "shell.presentation.central": "Open Central",
+  "shell.presentation.centralTitle": "Central",
+  "shell.presentation.shortcuts": "Desktop shortcuts",
   "shell.home.tagline": "Intelligence at the core.",
   "shell.home.quickAccess": "Quick access",
   "shell.home.loadingDate": "Loading date…",
@@ -210,10 +202,7 @@ const ENGLISH = Object.freeze({
   "shell.quick.dateTimeClose": "Close date and time",
   "shell.quick.timeZone": "Time zone",
   "shell.clock.timeZone": "Time zone: {timeZone}",
-  "surface.boot.loadingSurface": "Loading Surface…",
-  "surface.boot.loadingApps": "Loading applications…",
-  "surface.boot.preparingFirstRun": "Preparing first use…",
-  "surface.boot.failed": "The interface could not be started",
+  ...SURFACE_BOOT_ENGLISH_MESSAGES,
   "home.continuation.heading": "Continue working",
   "home.continuation.activityUnknown": "unknown activity",
   "home.continuation.sessionSuffix": " · this session only",
@@ -267,11 +256,6 @@ const ENGLISH = Object.freeze({
   "app.files.panel.0.label": "User space",
   "app.files.panel.0.title": "Files",
   "app.files.panel.0.body": "This host does not expose local file storage to this Surface.",
-  "app.projects.title": "Projects",
-  "app.projects.description": "Organize local projects, connections, and continuity across devices.",
-  "app.projects.panel.0.label": "Projects",
-  "app.projects.panel.0.title": "Your work",
-  "app.projects.panel.0.body": "The project catalog is unavailable in this composition.",
   "app.studio.title": "ORDAX Studio",
   "app.studio.description": "Access your projects and check Studio integration with this host.",
   "app.studio.panel.0.label": "Studio",
@@ -282,16 +266,6 @@ const ENGLISH = Object.freeze({
   "app.notes.panel.0.label": "Notes",
   "app.notes.panel.0.title": "Your writing space",
   "app.notes.panel.0.body": "The local Notes workspace is unavailable in this composition.",
-  "app.internet.title": "Internet",
-  "app.internet.description": "Browse, organize references, and connect research to your work.",
-  "app.internet.panel.0.label": "Browser",
-  "app.internet.panel.0.title": "Internet",
-  "app.internet.panel.0.body": "Integrated browsing depends on an isolated engine supplied by the host.",
-  "app.network.title": "Network",
-  "app.network.description": "Professional communities and messages explicitly bound to the sender Space.",
-  "app.network.panel.0.label": "Network",
-  "app.network.panel.0.title": "Professional network",
-  "app.network.panel.0.body": "The Network backend is not active in this composition yet.",
   "app.settings.title": "Settings",
   "app.settings.description": "Shared preferences, appearance, and OrdaX network settings.",
   "app.settings.panel.0.label": "Settings",
@@ -318,12 +292,8 @@ const ENGLISH = Object.freeze({
   ...SYSTEM_ENGLISH_MESSAGES,
   ...SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES,
   ...ACCOUNT_ENGLISH_MESSAGES,
-  ...ASSISTANT_ENGLISH_MESSAGES,
   ...ACTIVITY_ENGLISH_MESSAGES,
-  ...INTERNET_ENGLISH_MESSAGES,
-  ...PROJECTS_ENGLISH_MESSAGES,
   ...NETWORK_ENGLISH_MESSAGES,
-  ...NETWORK_APP_ENGLISH_MESSAGES,
   ...POWER_ENGLISH_MESSAGES,
   ...NOTIFICATIONS_ENGLISH_MESSAGES,
   ...LOCAL_SESSION_ENGLISH_MESSAGES

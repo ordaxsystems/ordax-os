@@ -161,7 +161,7 @@ class ProjectFilesUiContractTests(unittest.TestCase):
         self.assertIn("createProjectCatalogRuntime", composition)
         self.assertIn("const projects = fileSpace === null ? null", composition)
         self.assertIn("{ recentFiles, projects }", composition)
-        self.assertNotIn("createNativeProjectStore", (ROOT / "system" / "composition" / "web" / "main.mjs").read_text(encoding="utf-8"))
+        self.assertNotIn("createNativeProjectStore", (ROOT / "system" / "composition" / "web" / "main.tsx").read_text(encoding="utf-8"))
 
     def test_surface_candidate_owns_project_catalog_regressions(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

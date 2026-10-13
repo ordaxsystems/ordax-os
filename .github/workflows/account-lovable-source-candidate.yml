@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'sites/account-ui/**'
-      - '.github/workflows/account-lovable-source-candidate.yml'
+      - 'sites/public/i18n/catalog.js'
+      - 'sites/public/i18n/runtime.js'
   workflow_dispatch:
 
 permissions:

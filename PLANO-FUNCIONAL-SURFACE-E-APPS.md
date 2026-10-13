@@ -1,5 +1,125 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Notificações Web/USB — 13/10/2026:** incremento de UX solicitado.
+> Renderer/CSS únicos para filtros, leitura explícita, dispensa e Não perturbe.
+> USB mantém runtime/store/bridge do atualizador; Web mostra ausência de adapter
+> remoto, sem eventos fictícios ou segundo serviço. [Owner, contratos, riscos e
+> aceite](docs/DESKTOP-IDENTITY.md#shared-notification-center--2026-10-13).
+
+
+> **Reconciliação dos gates Surface — 12/10/2026:** continuidade solicitada
+> após a reprovação da main por expectativas de UI anteriores à sidebar compartilhada.
+> Prova de navegador da PR #1713 reutilizada e alinhada ao source atual; renderização
+> Native exercitada em pt-BR/en-US, perfil único, launcher acessível e SSOT de cores/movimento.
+> Layout e autoridades preservados; [escopo e aceite](docs/DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
+> **Alternador contextual — 12/10/2026:** Web/Native usam a política de
+> apresentação existente para monitor/grade de destino; a exceção Web de
+> largura 185 px foi removida. Posição à direita e owners preservados.
+> [Escopo, risco e aceite](docs/DESKTOP-IDENTITY.md#contextual-presentation-toggle--2026-10-12).
+
+> **Sidebar/dock — 12/10/2026:** estrutura e cartão de conta compartilhados
+> em sidebar-layout/sidebar-account, geometria 192/64 px e nav de 40 px em tokens,
+> hints imediatos e faixa opaca reservada sem borda. USB sem header; logo/launcher
+> na sidebar até o rodapé. Identidade original, quota indisponível explícita,
+> notificações/Space/energia preservados; desktop sempre recolhido.
+> [Owner, contratos, riscos e aceite](docs/DESKTOP-IDENTITY.md#shared-sidebar-geometry-and-immediate-hints--2026-10-12).
+
+> **Ajustes e sidebar Web/USB — 12/10/2026:** incremento solicitado com CSS e
+> catálogo de Ajustes compartilhados, preferências Web existentes preservadas e
+> política única de manter sidebar recolhida no desktop. Perfil no rodapé USB usa Conta
+> canônica; sem nova autoridade ou persistência de workspace. [Owner, contratos,
+> risco e aceite](docs/DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
+> **USB — temas Web e área de trabalho — 12/10/2026:** incremento solicitado,
+> com um source de cores standard/USB e um seletor de três perfis nos dois
+> renderers. Native conserva seus ports e o gerenciador de janelas; alternância
+> de apresentação é da sessão. Owner Web-only de paletas removido. [Owners,
+> contratos, risco e provas](docs/DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
+> **Paleta USB no Web — 12/10/2026:** incremento visual solicitado pelo usuário,
+> sem mudança de layout. Claro/Escuro preservados; terceira opção reutiliza os
+> tokens Native por referência. Persistência pelo mesmo catálogo/runtime/store;
+> aparência portátil e allowlist de sync preservadas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
+> **Favoritos Web — 12/10/2026:** Central/Aplicativos compartilham seleção
+> persistente pelo catálogo/runtime/store canônicos, com lista vazia e fallback
+> explícito. Atalho não concede instalação/execução; Native editor e sync continuam
+> separados. Teardown da raiz React em HMR foi corrigido após erro observado.
+> [Owner, risco e provas](docs/DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
+> **Compacto mobile — 12/10/2026:** revisão explícita substitui lado a lado no
+> mobile por um app selecionado com largura completa e troca no cabeçalho. O
+> mesmo reducer mantém seleção/drafts; desktop continua com tiles iguais. Conteúdo
+> adapta à largura real, com menos padding e ações mobile de 44px. [Owner, risco
+> e prova](docs/DESKTOP-IDENTITY.md#single-mobile-compact-pane--2026-10-12).
+
+> **Carregamento Web — 12/10/2026:** menu compacto extraído uma vez e carregado
+> sob demanda pelo mesmo WindowLayer; expansão/fechamento preservados após falha
+> de recurso. JS inicial 539,52 → 482,31 kB, CSS idêntico; prova local do bundle
+> cobre download e HTTP 503 sem perda de draft. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#lazy-compact-actions--2026-10-12).
+
+> **Acessibilidade Web — 12/10/2026:** Configurações expõe contraste, movimento
+> e tamanho do texto pelo mesmo catálogo/runtime/store, com tokens compartilhados
+> e tipografia relativa. Prova local inclui persistência, dois temas e janelas
+> compactas; sync/gateway e Native físico continuam fora do aceite. [Owner,
+> risco e evidência](docs/DESKTOP-IDENTITY.md#canonical-web-accessibility--2026-10-12).
+
+> **Lifecycle de consultas Web — 12/10/2026:** continuação solicitada da
+> integração. Identidade/Spaces usam o mesmo transporte GET cancelável,
+> limitado a 10 segundos até o JSON. Offline/descarte liberam consultas
+> pendentes; reconexão não depende de resposta antiga. Sessão, catálogo e
+> permissões mantêm seus owners; nenhum backend ou estado visual paralelo.
+> Layout preservado; source/CI atualizado sem build/npm/testes locais.
+> [Owner e aceite](docs/DESKTOP-IDENTITY.md#web-account-bounded-read-lifecycle--2026-10-12).
+
+
+> **Conectividade da Central — 12/10/2026:** continuação solicitada do
+> alinhamento ao backend. UI assina o host canônico, pausa consultas e ações
+> de conta offline e revalida Spaces ao reconectar, sem repetir comandos.
+> Nenhum novo serviço, grant ou store de conectividade. Layout preservado;
+> online no navegador não representa dispositivo/serviço disponível.
+> Source/CI atualizado; sem build/npm/testes.
+> [Owner e aceite](docs/DESKTOP-IDENTITY.md#web-central-canonical-connectivity--2026-10-12).
+
+
+> **Preferências da Central — 12/10/2026:** tema usa catálogo, runtime e store
+> canônicos no Web, sem chave de tema/estado duplicado na UI; mantém o layout
+> aprovado e avisa quando só consegue manter a escolha nesta sessão.
+> Persistência local não representa sync cloud; sem build/npm/testes.
+> [Owner e aceite](docs/DESKTOP-IDENTITY.md#web-central-canonical-appearance-preferences--2026-10-12).
+
+> **Integração solicitada — 12/10/2026:** Central usa as portas canônicas de
+> sessão/comandos e consulta dos Spaces autorizados no source, preservando o
+> layout aprovado e o lifecycle de janelas. Dados de demonstração cedem a
+> estados reais de disponibilidade. Seleção explícita de Space agora reutiliza
+> o domínio canônico, somente nesta sessão; demais transports e E2E continuam pendentes; sem build, npm ou testes locais por restrição do
+> usuário. [Owner e aceite](docs/DESKTOP-IDENTITY.md#web-central-account-and-spaces-binding--2026-10-12).
+
+> **Sidebar recolhível — 11/10/2026:** estado de apresentação único, controles acessíveis, sino junto aos ajustes do cartão e rodapé sem os textos solicitados; overflow permanece acessível. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#collapsible-sidebar-and-lower-account-utilities--2026-10-11).
+
+> **Central sem rolagem — 11/10/2026:** estrutura por container e viewport disponível, com seleção de painéis em larguras menores, resumos por altura e acesso ao restante em Mais opções; sem escala da página ou backend novo. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#central-viewport-layout-without-page-scrolling--2026-10-11).
+
+> **Controles e conta na sidebar — 11/10/2026:** Iniciar e troca por quatro quadrados na mesma linha; cartão inferior conforme imagem, com fixture única de plano/armazenamento e ações existentes. [Owner, limites e aceite](docs/DESKTOP-IDENTITY.md#sidebar-launcher-row-and-account-card--2026-10-11).
+
+> **Sidebar integral — 11/10/2026:** sidebar compartilhada até o rodapé, sem rolagem, com Iniciar/troca dentro dela; overflow em Mais, apps abertos no dock inferior. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#full-height-shared-sidebar--2026-10-11).
+
+> **Navegação inferior compartilhada — 11/10/2026:** botão Central/Área de trabalho ao lado de Iniciar, na mesma posição nas duas visualizações, seguido de todos os apps abertos. Um único componente e o mesmo estado de janelas. [Owner, risco e aceite](docs/DESKTOP-IDENTITY.md#shared-bottom-navigation--2026-10-11).
+
+> **Janelas da Central — 11/10/2026:** incremento explícito solicitado: controle compartilhado para minimizar, compactar, recolher, expandir e restaurar, com divisão mobile e instâncias estáveis. Owner Surface; sem backend novo e sem build/npm/testes locais. [Risco, escopo e aceite](docs/DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).
+
+> **Central Web principal — 11/10/2026:** pedido explícito para tornar a composição de `ordaxsystems/lovable-core-ui` a única página Web ativa. Central/área de trabalho e temas usam uma fonte de apresentação; backend fica para a etapa seguinte. Substitui as decisões visuais Web listadas abaixo, preservando capacidades e consumidores existentes. Sem build, npm ou testes locais nesta entrega; [owner, risco, proveniência e aceite](docs/DESKTOP-IDENTITY.md#canonical-web-central--2026-10-11).
+
+ > **Dock Web — 11/10/2026:** pedido explícito: sidebar até o rodapé e dock central flutuante, sem faixa/linha inferior; preserva lifecycle e navegação mobile. [Owner, riscos e aceite](docs/DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
+
+
+> **Navegação Web — 11/10/2026:** ajuste explícito solicitado: controles do header passam à navegação compartilhada (perfil/notificações na sidebar; relógio Web removido), liberando o topo para apps; sem outro gerenciador, serviços ou estado de identidade. Exceção de UX ao piso MVP, com riscos e aceite em [Desktop Identity](docs/DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
+
+
+> **Loja Web — 11/10/2026:** pedido explícito de continuidade após a atualização do Lovable. Apresentação única conectada ao port público de catálogo; candidato de IA usa o source-lock do OS. Modo oficial é o padrão e a demonstração exige escolha explícita. Transporte Web e lifecycle reais permanecem pendentes; [owner, contratos, risco e aceite](docs/STORE-WEB-CATALOG-PRESENTATION.md).
+
+> **Composição Web — 10/10/2026:** pedido explícito de adaptar o workspace do Account Hub. Reimplementação no shell compartilhado existente, sem importar serviços ou estado simulado. Header, sidebar, Home e dock usam tokens, catálogo e eventos canônicos; [owner, limites e aceite](docs/DESKTOP-IDENTITY.md#account-hub-workspace-composition--2026-10-10).
+
 > **Incremento de 09/10/2026 — Studio na navegação:** pedido explícito do usuário, exceção à rodada de polimento. Sidebar compartilhada usa o app/lifecycle existente. O painel de host informa a ausência da interface completa e não concede execução. Integração da UI canônica continua pendente; [owners, risco e aceite](docs/STUDIO-WEB-AVAILABILITY.md).
 
 > **Revisão mobile do Studio — 09/10/2026:** hierarquia única, ações com descrições e alvos de toque, ajuda progressiva e layout por largura da janela. Usa os tokens do OS; não cria outro source Studio. Disclosures permanecem abertos durante reconciliação. [Escopo e critérios](docs/STUDIO-WEB-AVAILABILITY.md).
@@ -935,7 +1055,7 @@ Histórico não oferece “Instalar qualquer commit”. Uma ação de rollback p
 | Semântica de identidade/sync | `system/services/account/`, `system/services/sync/`. | Serviços não conhecem fornecedor de banco, UI ou APIs concretas de host. |
 | Portas neutras | `system/contracts/`. | Contratos pequenos ligados a uma necessidade real, sem criar framework especulativo. |
 | Implementação por ambiente | `system/adapters/*/`. | Permissão, acesso físico, transporte e integração; sem duplicar política de produto. |
-| Montagem das dependências | `system/composition/web/main.mjs`, `system/composition/native/main.mjs`. | Injetar portas; UI não importa adapter concreto. |
+| Montagem das dependências | `system/composition/web/main.tsx`, `system/composition/native/main.mjs`. | Injetar portas; UI não importa adapter concreto. |
 | Host nativo | `system/surface/runtime/native_host_server.py`. | Preservar fronteiras de origem, autorização, caminhos delimitados e validação no servidor. |
 | Atualização e energia | Watcher, controles e serviços existentes. | Observação separada de comando; menu e página compartilham um dono. |
 
@@ -1359,3 +1479,52 @@ endossa ou participa da OrdaX.
 
 A política detalhada de licença, proveniência e modos de adoção fica em
 `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md`, seção 4.
+
+## Apresentação Web canônica aprovada — 2026-10-10
+
+Incremento autorizado: layout Account Hub aprovado como única interface Web,
+em system/surface/workspace/, com composição fina e build oficial. Owner,
+proveniência, dependências, riscos e aceite: docs/DESKTOP-IDENTITY.md.
+Não existe workspace/rota de avaliação ou redirect. Recursos pendentes
+permanecem na interface; serviços reais serão conectados no próximo incremento.
+Autoridades de Apps, Runtime, Identity, Memory, Intelligence e sync preservadas.
+
+
+### Divisão responsiva das janelas compactas — 2026-10-11
+
+Incremento de geometria/interação da apresentação Web canônica: área atual
+na parte superior e janelas compactas na inferior, cada uma com rolagem própria.
+Recolher expande a área principal; minimizar/fechar a última compacta remove
+a reserva inferior. Uma composição, reducer existente e instâncias preservadas.
+Owner, dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
+Sem mudança de autoridade, contratos de serviço, Native ou ativação de produção.
+
+### Usabilidade mobile do workspace Web — 2026-10-11
+
+Incremento autorizado pelo pedido de melhorar o mobile: navegação compartilhada
+com o desktop, menu modal rolável, seleção correta na barra inferior, texto e
+alvos de toque maiores e controles de Arquivos disponíveis em telas estreitas.
+Menus/launcher mantêm título e fechar acessíveis durante rolagem; foco por
+capacidade de toque, busca limpa e estado dos filtros são verificados no browser.
+Divisão compacta e estado das janelas mantidos no reducer existente. Owner,
+dependências, riscos e critérios de aceite: docs/DESKTOP-IDENTITY.md.
+Não cria outro source mobile, backend, contrato de execução ou estado global.
+
+Home adapta a estrutura do HTML responsivo fornecido pelo usuário: composição
+única, coluna móvel, grade de apps 3/2, atalhos do ambiente e continuação.
+Referência estrutural com digest na evidência existente; scripts simulados e
+dados ilustrativos não importados. Shell touch até 820 px e scroll restrito ao
+pane principal; reducer, modos compactos e rascunho Intelligence preservados.
+Barra inferior segue Início, Aura, Apps, Space e Menu. Aura usa a sessão
+Intelligence existente; a visão geral de janelas fica acessível no Menu.
+Verificação inclui os dois lados do breakpoint 820/821 px e os cinco destinos.
+
+### Abertura de apps na área útil completa — 2026-10-11
+
+Incremento explícito solicitado: novas janelas e destaque de compactas abrem
+maximizados sobre os dois tracks, preservando header/rail/navegação. Projetos,
+Spaces, Loja, Apps e Intelligence ocupam a área completa ao entrar. O reducer
+existente preserva escolhas posteriores de modo/geometria e estado montado;
+a ordem de foco não satura e fica isolada abaixo do chrome. Sem segundo window
+manager ou ativação de serviços. Owner, risco, dependências e aceite por viewport:
+docs/DESKTOP-IDENTITY.md.

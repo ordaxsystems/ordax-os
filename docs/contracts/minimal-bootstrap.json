@@ -86,12 +86,12 @@
       "resolved": true,
       "artifacts": [
         {
-          "source_path": "bootstrap/kernel/vmlinuz-6.6.52",
+          "source_path": "bootstrap/kernel/vmlinuz-6.6.158",
           "target_path": "/ordax/vmlinuz",
-          "sha256": "cbe9b7421d6d4ece48b6025866c371557e6301fef981336a52a949544e925205",
+          "sha256": "16d1b7a190d7a11f748aa65fa7f6e940a0e7f5c79641f38bb2c98354918ec87f",
           "mode": "0644",
           "logical_owner": "kernel",
-          "reason": "Shared Linux 6.6.52 candidate with built-in portable USB v2 exFAT/EROFS/loop/OverlayFS prerequisites plus retained post-MVP Native dm-crypt/AES-XTS/Btrfs prerequisites"
+          "reason": "Kernel Linux 6.6 LTS selected by bootstrap/kernel/source.json, with Portable v2 and Native boot prerequisites; hash provisionally bound to authenticated candidate build, requiring exact active-source boot and repeat proofs before release."
         }
       ]
     },
@@ -104,7 +104,7 @@
         {
           "source_path": "bootstrap/initramfs/initramfs.cpio.gz",
           "target_path": "/ordax/initrd.gz",
-          "sha256": "63a504c4349aebc43d9ed642ff14384191fd9804e8a657691ffe997441a9edf0",
+          "sha256": "774a6f659eb217503cc44e65cc98e36edb22d93cbfede8a719c3eede7d8c2a3f",
           "mode": "0644",
           "logical_owner": "initramfs",
           "reason": "Fixed clean-room capsule with legacy physical boot unchanged plus isolated Portable helpers, armed one-shot activation-state transactions, rejected-candidate persistence, exact candidate/current/known-good selection, loop/exFAT/FAT-volume-ID primitives, BusyBox mount security-flag parsing, POSIX test/[ support and fail-closed candidate PID1 support plus verified read-only Stable v4 local-AI runtime mounting"
@@ -239,7 +239,7 @@
         {
           "source_path": "bootstrap/recovery/entrypoint",
           "target_path": "/ordax/bootstrap/recovery/entrypoint",
-          "sha256": "c2ec724432903723092bb755cda62526810a3659bb5edfefc4357b49ca883deb",
+          "sha256": "a06fd7dbaf624226d6d8cb4da4a2f2508cf98e30fd423fb6445f9420cdd47676",
           "mode": "0755",
           "logical_owner": "bootstrap-recovery",
           "reason": "Local read-only recovery shell without automatic networking or mutation"

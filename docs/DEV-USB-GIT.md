@@ -13,6 +13,25 @@ The exact asset is `OrdaX-Creator-Owner-Prototype.zip`. The complete
 folder (GUI, privileged RAW writer, seed, provenance and README) must be
 extracted before running `OrdaX-Creator.exe`.
 
+### Identidade da release de desenvolvimento (SSOT)
+
+A tag fixa `creator-owner-prototype` serve **apenas como endereço do canal**.
+A referência `target_commitish` da release pode preservar o commit de sua
+criação; ela **não identifica** os bytes atualmente publicados e não deve ser
+usada como versão do Creator. A fonte de verdade por publicação é
+`creator-owner-update.json` (`source_commit`, `version`, `sha256`, `size`).
+A proveniência dentro do ZIP deve corresponder ao manifesto e ao SHA-256 dos
+assets publicados. O publicador agora faz *readback* do endpoint GitHub da
+release para validar os quatro assets e seus digests **após** o upload; nunca
+depende de `gh release edit` ou da movimentação da tag histórica.
+
+Em 11/10/2026, o GitHub permitiu publicar/repor assets, porém recusou
+`gh release edit` com HTTP 403. Esse resultado **não autoriza ignorar um
+upload não confirmado**: a validação remota de hashes, tamanhos, canal e
+commit continua obrigatória para CI passar. O canal continua exclusivamente
+de desenvolvimento, sem alterar autorização Stable/MVP nem gravações físicas.
+
+
 Before this bundle is published, `tools/creator/verify_owner_dev_bundle.py`
 checks its exact source commit, ZIP/hash manifest, member allowlist and seed
 digest. This is a **developer-only** test channel; it uses ephemeral prototype
@@ -46,6 +65,105 @@ UEFI
 ```
 
 The OrdaX source itself is **not** preseeded on the USB. `main` remains the source authority.
+
+## Recuperação do primeiro runtime gráfico (11/10/2026)
+
+Em um notebook Owner/Development, a instalação inicial do Cage/WebKit pode
+registrar `Installing (218/247)` e ser interrompida antes da confirmação de
+saúde da Surface. Esse progresso **não é conclusão** da instalação.
+A fase de aquisição do runtime e a verificação posterior da Surface possuem
+orçamentos/heartbeats separados na `main`.
+
+Uma base de desenvolvimento anterior à correção do PATH de recuperação pode
+mostrar `sh: ordax-pull: not found`, apesar de ter o helper em
+`/usr/local/bin/ordax-pull`. Isso decorre do PATH mínimo compartilhado da
+recuperação, não prova falta de checkout nem requer novo flash. Para mídia
+já inicializada, no shell local de recuperação:
+
+```sh
+ls -l /usr/local/bin/ordax-pull /usr/local/bin/ordax-run
+/usr/local/bin/ordax-pull
+/usr/local/bin/ordax-run
+```
+
+Execute `ordax-run` apenas depois de o pull ter sido concluído com sucesso.
+Caso os arquivos não existam, registre o resultado e não tente copiar
+arquivos de terceiros nem reformatar o USB. A recuperação agora expõe os
+comandos no PATH **somente** no perfil `owner-development` USB e somente quando
+ambos os helpers já estão presentes e executáveis. No Stable/MVP o PATH mínimo
+permanece intocado; nenhum desses fluxos inicia rede, Git ou mutação automática
+ao entrar no shell de recuperação. O sistema Development atualiza a cópia
+pré-instalada do helper de recuperação por meio do bridge de helpers após
+o supervisor se tornar operacional; a imagem física antiga não se altera
+automaticamente apenas porque o repositório recebeu a correção.
+
+## Dimensionamento do Creator Development — 11/10/2026
+
+O teste físico identificou `/dev/sdb2` com **1,9 GiB usados de 1,9 GiB
+(100%)**. `/`, `/state`, `/run` e `/tmp` compartilham essa partição
+ext4. Ao instalar a Surface (Cage/WebKit), o APK mostrou
+`No space left on device`, e a instalação parou antes de finalizar.
+Isso não é um problema resolvido aumentando o timeout ou o heartbeat.
+
+O Creator Owner/Development reserva **no mínimo 5 GiB para a partição ext4**
+em um dispositivo capaz de suportá-los, usando o máximo disponível até
+16 GiB e preservando pelo menos 1 GiB para `ORDAX-DATA`.
+Um USB de aproximadamente 8 GB recebe uma raiz ext4 de mais de 6 GiB.
+Dispositivos menores que o limite explícito são recusados antes de gravar.
+O perfil público/Stable continua usando `PlanPhysicalStorage` e sua própria
+política de distribuição sem modificação.
+
+O gerador da imagem, a validação da geometria GPT, o hash/readback do plano
+de escrita, o backend elevado do Creator e a formatação da `ORDAX-DATA`
+consomem **a mesma política Owner/Development**. Não basta mostrar uma
+capacidade maior na UI; os bytes e os limites de partição devem corresponder
+antes e depois da escrita.
+
+**Mídia já preparada não cresce pelo Git**: a tabela GPT antiga mantém a
+`ORDAX-DATA` imediatamente após `ORDAX`. Não tente alterar a tabela em uma
+partição montada nem mover dados com comandos ad hoc. Recriar a mídia com
+o Creator atualizado apaga o pendrive de destino e exige confirmação explícita
+do dispositivo correto e cópia externa de qualquer dado importante.
+Após regravar, o Development poderá baixar a `main` novamente.
+Não mexe no SSD interno. CI de imagem descartável não prova boot físico.
+
+Para diagnóstico sem mudança de estado:
+
+```sh
+df -h / /state /run /tmp
+lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS
+```
+
+O futuro agente de diagnóstico remoto deve iniciar no substrato Development,
+antes de Cage/WebKit, e reutilizar os contratos da Platform/Runtime; **não**
+deve ser instalado como dependência do runtime gráfico nem como um segundo
+executor ou autoridade de permissão.
+
+## Diagnóstico sem Surface e sem conexão remota
+
+O Developer USB inclui `/usr/local/bin/ordax-diagnose`, um leitor local
+somente de consulta executável no shell de manutenção **antes do Cage/WebKit**:
+
+```sh
+/usr/local/bin/ordax-diagnose
+```
+
+Retorna `ordax.dev-boot-diagnostics/1`: commit Git local (quando disponível),
+versão do kernel, capacidade/uso/livre dos pontos fixos `/`, `/state`,
+`/run` e `/tmp`, existência dos marcadores de saúde e classificações
+binárias de erros conhecidos no Guardian/Surface. Não imprime logs brutos,
+credenciais, senhas Wi-Fi nem comandos arbitrários. Não instala pacotes,
+altera discos, busca código, abre rede ou envia nada para outro computador.
+Argumentos são recusados. Falta de dados é reportada como indisponível,
+não como sucesso.
+
+Este é o produtor **local** de observações, não um agente remoto completo.
+O plugin e o Runtime oficiais só poderão receber esse diagnóstico de um
+notebook depois de a Platform autorizar um dispositivo real e um grant
+específico; a mera observação por `ordax_targets` não autentica o Linux.
+Não criar um segundo transportador remoto nem ativar uma sessão de shell
+arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
+independente da Surface gráfica.
 
 ## Daily loop
 
@@ -161,6 +279,31 @@ The development rootfs is materialized under `/ordax/dev-base/versions/<commit>`
 A candidate that cannot select its exact rootfs or cannot satisfy health never becomes the known-good current entry. Disposable CI now proves physical inactive-slot staging and healthy post-boot promotion; exact one-try systemd-boot fallback and real-notebook activation remain separate gates. The UEFI fallback loader remains the final explicitly physical self-update gap.
 
 Early boot branding follows the same rule. Anything displayed only after the development base hands control to `system/` may update with the normal Git loop. A logo/splash shown before Git exists is part of the base/initramfs path and therefore changes on the next base boot. The current prototype still uses text-mode early boot; a branded graphical splash renderer has not yet been implemented.
+
+## First-boot graphical runtime provisioning (2026-10-11)
+
+The Owner/Development notebook may need to install the replaceable native
+Cage/WebKit graphical runtime after its first Git checkout. Alpine APK can
+report hundreds of packages; `Installing (218/247)` is **progress**, not a
+Surface health acknowledgement or proof of a finished installation.
+
+The native launcher writes a current-boot, exact-source-SHA provisioning marker
+only while its development graphical runtime is being provisioned. The system
+supervisor distinguishes this bounded acquisition phase (default maximum 660s)
+from the normal 30s graphical health deadline; once provisioning completes,
+actual Cage/WebKit/Surface heartbeat verification must still pass independently.
+The package acquisition itself is bounded (default 600s). Stable/MVP never
+uses this development APK acquisition path and keeps its separately governed
+health budget. The Guardian verifies a process-owned supervisor liveness marker
+independently of `state.json` updates, so an active first-run install cannot be
+misinterpreted as an idle/crashed supervisor.
+
+These are source/CI changes, **not yet a new physical boot proof**. A developer
+USB that has a working checkout can receive the fix via `ordax-pull` and try
+`ordax-run` without reflashing the USB. If it still enters recovery, inspect
+`/run/ordax-surface/host.log`, `/run/ordax-update/guardian.log` and the
+runtime's `http.log` for the actual failed phase; do not remove the physical
+USB safety gates or treat the historical partial APK output as proof of success.
 
 ## Network behavior
 

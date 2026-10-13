@@ -17,19 +17,23 @@ function item() {
 }
 
 function fixture({ page = "cadastro", altered = null, oversized = false,
-                   redirected = false, unavailable = false } = {}) {
+                   redirected = false, unavailable = false,
+                   versioned = false, wrongRoute = false } = {}) {
   const privacy = Buffer.from("<!doctype html><title>Privacy approved</title>");
   const terms = Buffer.from("<!doctype html><title>Terms approved</title>");
-  const documents = { "/privacidade/": privacy, "/termos/": terms };
-  const purl = origin + "/privacidade/";
-  const turl = origin + "/termos/";
+  const prefix = versioned ? "/legal/2026.10.12" : "";
+  const pRoute = prefix + "/privacidade/";
+  const tRoute = prefix + "/termos/";
+  const documents = { [pRoute]: privacy, [tRoute]: terms };
+  const purl = origin + (wrongRoute ? "/privacidade/" : pRoute);
+  const turl = origin + tRoute;
   const policy = {
     $schema: "prototype-ordax.registration-legal-policy/1",
     active: true, registrationEnabled: true,
     policyId: "2b4e5863-26a5-4d0a-b7be-48782e9b9082",
-    privacy: { version: "2026.10.09", effectiveDate: "2026-10-09",
+    privacy: { version: versioned ? "2026.10.12" : "2026.10.09", effectiveDate: "2026-10-09",
                url: purl, sha256: digest(privacy) },
-    terms: { version: "2026.10.09", effectiveDate: "2026-10-09",
+    terms: { version: versioned ? "2026.10.12" : "2026.10.09", effectiveDate: "2026-10-09",
              url: turl, sha256: digest(terms) },
   };
   const sitekey = "0x" + "A".repeat(24);
@@ -151,6 +155,26 @@ test("matching published bytes allow signup with same-origin policy and Turnstil
     assert.equal(doc.options.redirect, "error");
     assert.equal(doc.options.cache, "no-store");
   }
+});
+
+test("future consent verifies its immutable versioned snapshots without fetching mutable pages", async () => {
+  const f = fixture({ versioned: true }); await f.settle();
+  assert.equal(f.state.dataset.status, "ready");
+  assert.equal(f.form.hidden, false);
+  assert.equal(f.challenges, 1);
+  const docs = f.requests.filter(r => typeof r.url === "string" && r.url.startsWith(origin));
+  assert.deepEqual(docs.map(d => d.url), [
+    origin + "/legal/2026.10.12/privacidade/",
+    origin + "/legal/2026.10.12/termos/",
+  ]);
+});
+
+test("future consent cannot redirect to mutable privacy URL", async () => {
+  const f = fixture({ versioned: true, wrongRoute: true }); await f.settle();
+  assert.equal(f.state.dataset.status, "unavailable");
+  assert.equal(f.form.hidden, true);
+  assert.equal(f.challenges, 0);
+  assert.equal(f.requests.some(r => typeof r.url === "string" && r.url.startsWith(origin)), false);
 });
 
 test("altered privacy document blocks signup before consent or Turnstile", async () => {

@@ -163,6 +163,37 @@ func TestExecutePortableApplicationRejectsMutatedPlanAndSourceSet(t *testing.T) 
 	}
 }
 
+func TestExecutePortableApplicationRejectsOvercommittedPlanBeforeDiskIO(t *testing.T) {
+	plan, sources, grant := portableExecutionFixture(t)
+	layout, err := PlanPortableTargetStorage(plan.TargetBytes)
+	if err != nil { t.Fatal(err) }
+	var changedID string
+	for i := range plan.Operations {
+		op := &plan.Operations[i]
+		if op.Kind == "materialize-artifact" && op.ArtifactID == "surface-runtime-image" {
+			op.SizeBytes = layout.PayloadBytes
+			changedID = op.ArtifactID
+		}
+	}
+	for i := range plan.Operations {
+		if plan.Operations[i].Kind == "readback-sha256-size" && plan.Operations[i].ArtifactID == changedID {
+			plan.Operations[i].SizeBytes = layout.PayloadBytes
+		}
+	}
+	for i := range sources {
+		if sources[i].ArtifactID == changedID { sources[i].SizeBytes = layout.PayloadBytes }
+	}
+	grant.ApplicationPlanSHA256, err = PortableApplicationPlanSHA256(plan)
+	if err != nil { t.Fatal(err) }
+	runtime := &portableExecutorFakeRuntime{}
+	if _, err := ExecutePortableApplication(plan, sources, grant, runtime); err == nil {
+		t.Fatal("executor accepted the overcommitted data partition")
+	}
+	if len(runtime.events) != 0 {
+		t.Fatalf("executor touched disk before capacity rejection: %v", runtime.events)
+	}
+}
+
 func TestExecutePortableApplicationStopsOnFirstRuntimeFailure(t *testing.T) {
 	plan, sources, grant := portableExecutionFixture(t)
 	runtime := &portableExecutorFakeRuntime{failOn: "format:ORDAX-DATA"}

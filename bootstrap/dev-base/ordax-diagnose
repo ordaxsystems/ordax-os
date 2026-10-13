@@ -1,0 +1,91 @@
+#!/bin/sh
+# Local read-only Development diagnostics: no network, device writes or Surface.
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if [ "$#" -ne 0 ]; then
+    printf 'Usage: ordax-diagnose (no arguments)\n' >&2
+    exit 2
+fi
+
+WORKTREE=/workspace/ordax
+SURFACE_LOG=/run/ordax-surface/host.log
+GUARDIAN_LOG=/run/ordax-update/guardian.log
+HEALTH_MARKER=/run/ordax-update/healthy-sha
+SURFACE_MARKER=/run/ordax-surface/runtime-provisioning-source-sha
+
+show_fs() {
+    label=$1
+    mount=$2
+    data=$(df -Pk "$mount" 2>/dev/null || true)
+    if [ -z "$data" ]; then
+        printf 'fs.%s.state=unavailable\n' "$label"
+        return
+    fi
+    parsed=$(printf '%s\n' "$data" | /bin/busybox awk 'NR==2 {print $2, $3, $4, $5}')
+    set -- $parsed
+    if [ "$#" -ne 4 ]; then
+        printf 'fs.%s.state=unavailable\n' "$label"
+        return
+    fi
+    case "$1:$2:$3:$4" in
+        *[!0-9:%]*|'') printf 'fs.%s.state=unavailable\n' "$label"; return ;;
+    esac
+    printf 'fs.%s.state=ok\n' "$label"
+    printf 'fs.%s.total_kib=%s\n' "$label" "$1"
+    printf 'fs.%s.used_kib=%s\n' "$label" "$2"
+    printf 'fs.%s.available_kib=%s\n' "$label" "$3"
+    printf 'fs.%s.used_percent=%s\n' "$label" "$(printf '%s' "$4" | /bin/busybox tr -d '%')"
+}
+
+mark_if_log_contains() {
+    name=$1
+    logfile=$2
+    needle=$3
+    outcome=not_observed
+    if [ -f "$logfile" ] && [ ! -L "$logfile" ] && [ -r "$logfile" ]; then
+        if /bin/busybox grep -Fq "$needle" "$logfile" 2>/dev/null; then
+            outcome=observed
+        fi
+    fi
+    printf '%s=%s\n' "$name" "$outcome"
+}
+
+printf 'schema=ordax.dev-boot-diagnostics/1\n'
+printf 'scope=owner-development-local-only\n'
+printf 'network_actions=none\n'
+printf 'device_writes=none\n'
+if [ -r /proc/sys/kernel/osrelease ]; then
+    release=$(/bin/busybox head -n 1 /proc/sys/kernel/osrelease)
+    case "$release" in
+        ''|*[!0-9A-Za-z._+-]*) release=unavailable ;;
+    esac
+    printf 'kernel.release=%s\n' "$release"
+fi
+sha=""
+if [ -d "$WORKTREE/.git" ] && [ -x /usr/bin/git ]; then
+    sha=$(/usr/bin/git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+fi
+case "$sha" in
+    ''|*[!0-9a-f]*) sha=unavailable ;;
+esac
+if [ "$(printf '%s' "$sha" | /bin/busybox wc -c)" -ne 40 ]; then sha=unavailable; fi
+printf 'checkout.sha=%s\n' "$sha"
+show_fs root /
+show_fs state /state
+show_fs run /run
+show_fs tmp /tmp
+if [ -f "$HEALTH_MARKER" ] && [ ! -L "$HEALTH_MARKER" ]; then
+    printf 'surface.health_marker=present\n'
+else
+    printf 'surface.health_marker=absent\n'
+fi
+if [ -f "$SURFACE_MARKER" ] && [ ! -L "$SURFACE_MARKER" ]; then
+    printf 'surface.provision_marker=present\n'
+else
+    printf 'surface.provision_marker=absent\n'
+fi
+mark_if_log_contains surface.disk_full "$SURFACE_LOG" "No space left on device"
+mark_if_log_contains surface.apk_failed "$SURFACE_LOG" "graphical runtime provisioning timed out or failed"
+mark_if_log_contains guardian.stale_heartbeat "$GUARDIAN_LOG" "supervisor heartbeat stale"
+mark_if_log_contains guardian.crash_budget "$GUARDIAN_LOG" "supervisor exceeded crash budget"

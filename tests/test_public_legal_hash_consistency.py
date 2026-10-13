@@ -93,6 +93,28 @@ class PublicLegalHashProofTests(unittest.TestCase):
             "/auth/registration-policy", "/privacidade/",
         ])
 
+    def test_new_version_uses_only_its_immutable_same_origin_snapshot(self):
+        privacy = self.documents.pop("/privacidade/")
+        terms = self.documents.pop("/termos/")
+        self.documents["/legal/2026.10.12/privacidade/"] = privacy
+        self.documents["/legal/2026.10.12/termos/"] = terms
+        self.policy["privacy"]["version"] = "2026.10.12"
+        self.policy["terms"]["version"] = "2026.10.12"
+        self.policy["privacy"]["url"] = "https://ordax.com.br/legal/2026.10.12/privacidade/"
+        self.policy["terms"]["url"] = "https://ordax.com.br/legal/2026.10.12/termos/"
+        result, output = self.run_proof()
+        self.assertEqual(result, 0)
+        self.assertIn("ORDAX_PUBLIC_LEGAL_INTEGRITY=PASS", output)
+        self.assertEqual(self.requested_paths, [
+            "/auth/registration-policy", "/legal/2026.10.12/privacidade/",
+            "/legal/2026.10.12/termos/",
+        ])
+        self.requested_paths.clear()
+        self.policy["privacy"]["url"] = "https://ordax.com.br/privacidade/"
+        with self.assertRaisesRegex(SystemExit, "document-fields:privacy"):
+            self.run_proof()
+        self.assertEqual(self.requested_paths, ["/auth/registration-policy"])
+
     def test_second_document_drift_is_detected(self):
         self.documents["/termos/"] += b" altered"
         with self.assertRaisesRegex(SystemExit, "hash-mismatch:terms"):

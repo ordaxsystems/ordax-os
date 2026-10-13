@@ -1,5 +1,483 @@
 # Current State
 
+Notification UX (2026-10-13): Web/USB now share the notification center renderer
+and CSS. Explicit read/filter/dismiss/Do Not Disturb actions consume the existing
+port. Native updater events retain their original runtime/store/bridge owners;
+Web has no authorized remote notification adapter and displays that absence
+without seeded data or a second service. [Scope and acceptance](DESKTOP-IDENTITY.md#shared-notification-center--2026-10-13).
+
+
+## Reconciliação dos gates Surface — 2026-10-12
+
+As cinco reprovações de contratos em main 9a84bbd eram expectativas de templates
+anteriores aos owners atuais. A primeira correção também revelou a expectativa
+obsoleta do texto Ctrl + K no header removido. A marca/sidebar, cada launcher
+com nome acessível e o perfil único agora são verificados no markup realmente
+gerado em pt-BR/en-US, sem restaurar UI antiga para satisfazer testes.
+Paleta e movimento reduzido continuam nos owners canônicos.
+
+A prova de browser da PR #1713 foi reconciliada com a main atual; nenhuma versão
+antiga dos arquivos gerados do site ou da UI foi reintegrada. Não foi necessário
+aplicar a alteração de produto da PR #1712: a composição atual passou fisicamente
+os sete viewports, incluindo compacto mobile selecionado e tiles desktop.
+39 testes Node, 44 Python, 34 arquivos/assets de referência, fronteiras de módulos
+e a prova de browser Native passaram. Web/USB visual continuam HTTP 200.
+Durante a validação outro chat integrou d406116, com o SDK atualizado e as
+mesmas correções de provas. Foundation e Surface Web passaram nesse SHA no Linux.
+A reconciliação preserva essas mudanças e acrescenta os testes de renderização;
+os gates do novo commit continuam distintos das provas da base e das provas locais. Ver [escopo, risco e aceite](DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
+
+A reconciliação também preserva a base 0562491: Gate A remove-first do Assistant
+(#1717) e retries de ativação assinada (#1718). Os testes de renderização seguem
+os cinco destinos atuais e exigem ausência do atalho Assistant durante o gap;
+nenhum source removido ou instalação fictícia é restaurado.
+
+## Alternância Central/Área de trabalho — 2026-10-12
+
+Owner OS Surface; incremento solicitado sobre a sidebar/dock compartilhada.
+A largura em tablets/intermediários agora usa o token canônico, retirando a
+exceção Web de 185 px. O alternador conserva posição à direita e anuncia o
+destino com monitor/grade, usando a mesma política de apresentação no Native
+e React. Rótulos Native continuam no catálogo i18n; o controle não é remontado
+em cada render. Não altera janelas, sessão, grants ou persistência.
+As regressões cobrem destinos inválidos, tradução e troca de ícone somente
+quando o destino muda. A prévia USB local continua visual, sem execução Native
+ou prova de boot físico. 71 testes Node, 41 Python, TypeScript/build Vite e
+verificação de 34 arquivos/assets passaram neste incremento. Os dois hosts
+responderam HTTP 200; não houve nova prova interativa de browser ou boot físico.
+
+## Sidebar e navegação Web/USB — SSOT — 2026-10-12
+
+Owner: OS Surface; incremento explicitamente solicitado. sidebar-layout.mjs/css
+define slots, encaixe e cartão comuns para React e Native. tokens.css fornece
+192/64 px, marca de 36 px e navegação de 40 px (controles de 32 px).
+USB não monta header de pesquisa; marca/launcher ficam na sidebar até o rodapé.
+Navegação ocupa faixa reservada só na coluna dos apps, sem borda/blur/sombra,
+com fundo opaco do app. A troca Central/Área de trabalho fica à direita.
+
+sidebar-account.mjs projeta a sessão pelo contrato Identity existente nos dois
+renderers. Logout/perda de capability retiram nome e iniciais antigos. O perfil
+abre Conta canônica; notificações Native continuam no controle original, agora
+no slot comum. Uso/quota indisponíveis são explícitos: não há plano ou GB fictícios.
+Space switcher e energia preservam seus owners Native. Nenhum grant ou sessão nova.
+
+sidebar-hints.mjs/css dá nomes imediatos por pointerover e foco/teclado, com
+Escape, limite de viewport e teardown. Sidebar não tem scroll; overflow conserva
+launcher/Mais e recupera atalhos ao crescer. Desktop mantém rail sempre recolhido.
+
+69 testes Node e 40 Python passaram, incluindo gaps/overflow, escape de nomes,
+logout, Identity, workspace, temas, localização e notificações. TypeScript/build
+e fonte de referência verificados. Browser local confirmou ausência de header,
+rail até rodapé, nav de 40 px, controles móveis de 44 px, launcher/perfil,
+layout sem overflow horizontal e desktop recolhido. Prévia Native é visual;
+não comprova boot físico, serviços autenticados de host ou release assinada.
+
+## Ajustes Web e navegação USB — 2026-10-12
+
+Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
+com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
+engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
+de recursos já existente. As outras seções Native dependentes de host não foram
+expostas como funções Web disponíveis.
+
+workspace/presentation.mjs define uma única política: entrar na Área de trabalho
+mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central
+recupera a apresentação automática e permite expansão manual. Estado é de sessão, sem novo
+registro persistido e sem recriar janelas. USB ganhou ícone de perfil no rodapé da sidebar para account/overview pelo
+catálogo e caminho de ativação existentes. O acesso na header e o item Conta
+duplicado foram removidos. Nomes dos ícones usam tooltips nativos/localizados.
+
+49 testes Node e 36 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: temas, contraste persistido em reload, largura de
+64px fixos no desktop, expansão apenas na Central, perfil USB e 390x844 sem overflow
+horizontal, inclusive Ajustes compacto. Conta autenticada/hardware e boot físico
+não são demonstrados pela prévia local. [Owner e aceite](DESKTOP-IDENTITY.md#shared-settings-style-and-sidebar-policy--2026-10-12).
+
+
+## Surface Web/USB — cores compartilhadas e desktop nativo — 2026-10-12
+
+Claro/Escuro do Web e OrdaX USB usam um único catálogo de perfis. As cores
+standard foram movidas do CSS Web para system/surface/ui/color-palettes.css;
+os tokens USB seguem em tokens.css. Os dois renderers consomem a mesma fonte
+por aliases sem duplicar paletas. color-palette.mjs e surface.color-palette
+substituem o owner Web-only anterior, sem wrapper ou ID alternativo ativo.
+appearance.theme permanece light/dark; a nova paleta continua device-local,
+fora da allowlist de sync. Web preserva layout e janela; Native Ajustes ganhou
+as três opções e miniaturas dos mesmos tokens.
+
+USB agora alterna Início/Central e Área de trabalho pelo botão de quatro quadrados
+no dock. Atalhos usam o mesmo catálogo e caminho de ativação; nenhum grant novo.
+A apresentação é da sessão; janelas, alvos, geometria e workspace-store/2 não
+são recriados nem copiados. Rede, energia, arquivos e composição Native mantêm
+seus ports. A prévia local usa stores de navegador e não opera hardware.
+
+56 testes Node e 44 Python passaram (100 distintos). Oito testes de estado
+Native foram executados em Ubuntu/WSL com fcntl real, após a incompatibilidade
+do Python Windows; sem shim. TypeScript/build e 34 arquivos/assets verificados.
+Browser: cinco pares de cores Web/Native, três opções, reload, desktop/retorno,
+janela preservada, viewport 390x844 sem overflow horizontal e toggle de 44px.
+JS inicial 485,41 kB (151,98 gzip). Boot físico e release assinada não são provas
+deste incremento. [Owner e aceite](DESKTOP-IDENTITY.md#shared-color-profiles-and-native-desktop--2026-10-12).
+
+## Web — perfil de cores OrdaX USB — 2026-10-12
+
+Aparência oferece Claro, Escuro e OrdaX USB no mesmo seletor. O terceiro perfil
+mapeia variáveis Web diretamente aos tokens Native de tokens.css, sem copiar
+cores ou alterar a geometria do layout. O catálogo/runtime/store existentes persistem
+surface.web-palette; appearance.theme mantém light/dark e o default light.
+A escolha de paleta Web é local, excluída da allowlist de sync; Native ignora
+essa preferência e preserva sua composição/contrato de aparência.
+
+44 testes Node e 24 Python passaram, além de TypeScript/build e verificação de
+34 arquivos/assets. Browser: três escolhas e reload, igualdade de seis tokens
+Web/Native, seletor de 44 px e viewport 390 x 844 sem overflow horizontal,
+contraste reforçado com tokens canônicos. JS inicial 485,34 kB (151,98 gzip).
+[Owner, escopo, risco e aceite](DESKTOP-IDENTITY.md#usb-color-profile-in-web--2026-10-12).
+
+## Web Central — favoritos compartilhados e persistentes — 2026-10-12
+
+Central e Aplicativos agora usam um único renderer/editor e a mesma preferência
+surface.favorite-shortcuts no catálogo/runtime/store existentes. Seleção validada,
+lista vazia, foco de retorno e fallback session-only são reais; adicionar atalho
+não instala app nem concede acesso. Metadados de targets têm um owner; estado local
+de favoritos duplicado na Central foi removido. Sync de conta mantém sua allowlist,
+sem enviar essa preferência. Native reconhece o dado, mas não ganhou outro launcher.
+
+35 testes Node e sete de builder passaram; a regressão de sync foi repetida após
+incluir a prova explícita de favoritos locais. TypeScript/build e 34 arquivos/assets
+verificados. Browser comprovou edição compartilhada, recarga/lista vazia, teclado,
+retorno de foco e editor em 390 x 600/844. Erro de HMR observado (raiz React duplicada)
+foi corrigido: a composição desmonta sua raiz antes dos ports. Uma atualização limpa
+manteve uma raiz, sete favoritos e zero novos erros. Escolhas originais, tema e
+viewport restaurados. JS inicial 484,97 kB (151,88 gzip), CSS 81,59 kB.
+Gateway autenticado, arquivos/dispositivos e IA continuam pendentes de transporte.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-favorite-shortcuts--2026-10-12).
+
+## Web Central — seletor do rodapé removido — 2026-10-12
+
+Remoção explicitamente solicitada: seletor inferior de modos da Aura, CSS próprio
+e tracks reservados ao footer retirados. Demais controles e serviços preservados.
+TypeScript e verificador dos 34 arquivos/assets passaram. Browser em 390 x 600 e
+1366 x 768 confirmou ausência do seletor/footer e documento sem overflow; logs
+sem erros/avisos. Viewport restaurado. Sem build completo repetido nesta remoção.
+
+## Web Central — compacto com seleção mobile — 2026-10-12
+
+Até 760 px de viewport, o painel compacto apresenta um app por vez, usando toda
+a largura disponível. Se há mais de um, o cabeçalho oferece seletor nativo; dock
+continua mostrando os apps abertos. Em telas maiores, os mesmos apps continuam
+lado a lado, com larguras iguais. A seleção pertence ao desktopReducer existente,
+permanece ao abrir um app superior e recupera um app disponível após fechar ou
+minimizar o selecionado. Apps ocultos continuam montados, preservando drafts.
+
+Conteúdo compacto usa menos padding e grids pela largura do painel; controles
+mobile têm 44 x 44 px. Trocar um painel recolhido preserva esse estado. Browser
+comprovou 320 x 568/390 x 844 sem overflow, texto ampliado, três apps desktop com
+378 px cada em 1366 x 768, e retenção de draft ao trocar/minimizar/restaurar.
+23 testes Node e sete de builder passaram; TypeScript/build e 34 arquivos/assets
+verificados. JS inicial 483,08 kB (151,32 gzip); menu avançado permanece sob demanda.
+Nenhuma mudança de backend, grants, conta ou execução. [Owner, risco e aceite](DESKTOP-IDENTITY.md#single-mobile-compact-pane--2026-10-12).
+
+## Web Central — menu compacto sob demanda — 2026-10-12
+
+O menu avançado das janelas compactas carrega no primeiro uso de modo compacto,
+consumindo os mesmos controles e dispatch do WindowLayer. Falha de recurso fica
+isolada ao menu: expandir/fechar continuam disponíveis e não remontam o app.
+Carregamento/falha não repetem comandos ou prometem recuperar um import rejeitado.
+
+Build/TypeScript e verificação dos 34 arquivos/assets passaram; 19 regressões de
+workspace e sete de builder passaram. JS inicial caiu de 539,52 para 482,31 kB
+(10,60%); gzip de 170,34 para 151,17 kB. CSS é idêntico. Sem ajuste de limite, o
+aviso de chunk >500 kB deixou de ocorrer; não é prova de tempo de carregamento.
+Menu separado: 58,48 kB (19,27 gzip). Browser com bundle de produção confirmou
+zero downloads do menu no início e um HTTP 200 ao compactar. HTTP 503 controlado
+manteve apps/draft utilizáveis e expansão/minimização/restauração sem novo download.
+Fixture/abas temporárias encerradas; host original preservado. Gateway autenticado
+continua pendente. [Owner, risco e aceite](DESKTOP-IDENTITY.md#lazy-compact-actions--2026-10-12).
+
+## Web Central — acessibilidade canônica — 2026-10-12
+
+Configurações do Web agora expõe Contraste, Movimento e Tamanho do texto do
+catálogo existente. O mesmo runtime/store valida e salva as escolhas; a UI
+não cria IDs ou armazenamento novos. A aplicação usa atributos/tokens comuns,
+com restauração no teardown. Tipografia relativa mantém os tamanhos padrão e
+responde à escala canônica de 100%/112,5%/125%. Política de movimento reduzido
+fica em tokens.css, compartilhada com a Surface Native, respeitando também a
+preferência do ambiente. Contraste reforçado é opt-in; temas padrão preservados.
+
+15 testes Node e sete de builder Python passaram. TypeScript/build e verificador
+de 34 arquivos/assets passaram. Browser comprovou persistência após recarga,
+os dois temas, texto ampliado e controles em 390 x 844/480. Duas janelas compactas
+mantiveram Configurações sem overflow horizontal (144 px de conteúdo). As escolhas
+originais e viewport foram restaurados. JS inicial 539,52 kB (170,34 kB gzip),
+com aviso >500 kB preservado. Isso é preferência local, não sync de conta ou
+prova de gateway autenticado. [Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-web-accessibility--2026-10-12).
+
+## Web Central — menu e foco compartilhados — 2026-10-12
+
+Menu de destinos reutiliza o Dialog existente para semântica modal e foco;
+overlay e listener global próprios foram removidos. Busca informa resultado
+vazio. Central volta ao início, mantendo os apps minimizados e montados. O
+gerenciador de janelas existente trata também reabertura do mesmo app; fechar
+o menu retorna ao botão de origem ou ao Início se o botão saiu do viewport.
+Sem novo serviço, catálogo, store de identidade ou autoridade de execução.
+
+36 regressões de workspace/sessão e sete de localização passaram; build com
+TypeScript e verificação de 34 arquivos/assets passaram. A validação local no
+navegador foi concluída em mobile curto, mobile alto e desktop: Tab/Shift-Tab,
+Escape, clique fora, reabertura e retenção de rascunho passaram. Busca usa label
+nativo e o botão de fechar tem área de toque de 44 x 44 px. Menu e controles
+couberam nos viewports observados; ao desaparecer o botão de origem, o foco
+voltou ao Início. Catálogo/gateway autenticado e dispositivos continuam fora
+dessa prova. Bundle inicial: 538,76 kB (170,06 kB gzip), ainda com aviso >500 kB.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#destination-menu-focus--2026-10-12).
+
+
+## Web Central — Loja canônica e recuperação por janela — 2026-10-12
+
+A janela Loja monta o StoreExperience existente, pelo mesmo catálogo público
+ordax.app-store-catalog-port/2. A importação é sob demanda; a composição mantém
+o port indisponível quando o host não oferece catálogo. Demonstração continua
+explícita e isolada; não representa instalação, grants ou sessão real.
+O CSS da Loja foi movido para um único arquivo no componente, com tokens da
+Surface e responsividade pela largura da janela. O shell anterior não guarda
+uma segunda cópia dos estilos.
+
+Boundary de conteúdo mantém erros dentro da janela. Falhas de recursos têm
+diagnóstico tipado e recarga de página somente por ação explícita, com aviso
+de perda de rascunhos. Outros erros oferecem reinício apenas do conteúdo local.
+A prova de falha constatou que o browser guarda imports rejeitados; não se
+promete nova descarga por simplesmente recriar o componente React.
+Validação após merge da main: 24 testes Node e oito testes Python passaram;
+a última regressão da Loja repetiu seis testes com sucesso. Build/TypeScript e
+verificação de 34 arquivos/assets passaram. Em 390 x 844, dois painéis compactos
+iguais mantêm os controles da Loja dentro da sua largura útil de 112 px. A
+navegação estreita usa as mesmas seções em um seletor nativo. Prova controlada
+de recurso HTTP 503 isolou a falha e recuperou a Loja por recarga explícita,
+enquanto Ajustes continuou disponível. O bundle inicial final é 537,86 kB
+(169,81 kB gzip); a Loja carrega em um chunk separado de 49,59 kB.
+Catálogo autenticado, instalação e ativação de produção continuam pendentes.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#canonical-store-window--2026-10-12).
+
+## Web Central — catálogo de boot compartilhado e carregamento inicial — 2026-10-12
+
+Owner: catálogo canônico de localização do OS e composição Web. As quatro
+mensagens de boot foram extraídas para system/services/i18n/catalog/boot.mjs;
+o catálogo completo importa esses mesmos textos, sem duplicação de português
+ou inglês. A composição atual pt-BR importa apenas esse catálogo de dados.
+Portas, serviços, idioma atual, rotas, temas e geometria permanecem preservados.
+
+Build local com TypeScript passou: JavaScript inicial de 776,99 para 533,40 kB
+(redução de 31,35%); gzip de 220,94 para 167,96 kB. O CSS emitido é idêntico.
+Ainda existe aviso acima de 500 kB; não foi elevado o limite nem alegada uma
+medição de tempo de carregamento. Mais 18 testes de tradução e sete de builder
+passaram. Verificador de 34 arquivos/assets passou após corrigir o checksum
+registrado com quebra de linha Windows para o formato LF canônico.
+Browser recarregado: Central preservada, sem entradas de erro/aviso nos logs.
+A validação autenticada com gateway real continua pendente.
+
+Testes/builds foram locais, sem deploy Vercel. A configuração existente para
+ignorar builds públicos não afetados foi apenas consultada. Uma revisão automática falhou por limite de uso; a janela de retomada
+passou e o envio agrupado será revalidado com a main. Nenhum gate foi contornado.
+[Evidência e comparação](evidence/web-central-reference-2026-10-11.json).
+
+## Web Central — consultas de conta canceláveis e limitadas — 2026-10-12
+
+Identidade e catálogo de Spaces reutilizam um único transporte JSON GET nos
+adapters Web, com credenciais same-origin, no-store, redirects recusados e
+prazo de 10 segundos incluindo a leitura do corpo. Reset, supersessão e
+descarte encerram a espera mesmo se o transporte não respeitar AbortSignal.
+Desconexão cancela a consulta de identidade sem alterar a última sessão
+conhecida; reconexão pode iniciar nova leitura sem aguardar a resposta antiga.
+Ordinais e validações dos adapters continuam sendo a autoridade de publicação.
+Timeout real mantém os estados indisponível/erro, sem simular logout.
+Snapshots de identidade/comandos permanecem estáveis quando não mudam; portas
+descartadas não retêm novos assinantes nem iniciam comandos/consultas.
+Layout e serviços pendentes permanecem preservados. Validação local autorizada
+em 2026-10-12: 64 testes passaram; build com TypeScript e verificação de 34
+arquivos/assets passaram. Browser conferido em 390 x 844, 768 x 600 e
+1366 x 768, incluindo temas, viewport, compacto, minimizar e restaurar pelo dock.
+Não houve mudança de source funcional nesta rodada de validação.
+Gateway autenticado não está configurado neste Vite local: o fluxo com conta,
+Spaces e dispositivos reais permanece pendente. Bundle inicial de 776,99 kB
+(220,94 kB gzip) gerou aviso de desempenho; testes não provam prontidão de release.
+[Evidência datada](evidence/web-central-reference-2026-10-11.json).
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-account-bounded-read-lifecycle--2026-10-12).
+
+
+## Web Central — conectividade pelo host canônico — 2026-10-12
+
+A UI assina ordax.surface-host/1, com snapshots estáveis e sem store paralelo.
+O sinal offline do navegador bloqueia ações de conta e novas consultas, aborta
+o catálogo de Spaces pela porta existente e invalida o contexto até revalidar.
+Reconexão retoma somente consultas; comandos não são repetidos. Uma reconexão
+durante uma consulta anterior solicita nova leitura ao terminar essa consulta,
+suprimindo resultados antigos pelo ordinal canônico do catálogo. A última
+identidade conhecida permanece identificada como possivelmente desatualizada.
+Conectividade desconhecida não é apresentada como offline. O sinal online
+não comprova acesso ao gateway, computador ou serviço remoto.
+Layout, temas, sidebar, dock e lifecycle de janelas foram preservados.
+Casos de regressão foram atualizados no source/CI; sem build, npm, testes,
+typecheck ou browser locais.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-central-canonical-connectivity--2026-10-12).
+
+
+## Web Central — preferências canônicas de aparência no source — 2026-10-12
+
+Tema da Central/Desktop e Ajustes usa ordax.preference-runtime/1 com o catálogo
+existente e o adapter ordax.preference-store/1. A UI não lê/grava localStorage
+nem mantém uma segunda escolha de tema. Inicialização recupera valores válidos;
+falha de persistência mantém a escolha na sessão com aviso em Ajustes. Temas,
+paisagens, cores e geometria aprovados foram preservados. Central/Desktop
+continua sendo estado de apresentação da sessão, separado das preferências
+da conta. Persistência é local ao navegador; sync cloud e E2E não foram ativados.
+Casos de regressão foram acrescentados no source, sem execução de build, npm,
+testes ou browser por restrição do usuário.
+[Owner, risco e aceite](DESKTOP-IDENTITY.md#web-central-canonical-appearance-preferences--2026-10-12).
+
+## Web Central — integração de conta e Spaces no source — 2026-10-12
+
+A composição Web reutiliza os adapters existentes de sessão, comandos de
+identidade e consulta de Spaces no mesmo contexto da Central/sidebar.
+Nome e ações vêm da sessão validada; Spaces só é consultado com conta
+autenticada. Logout/troca de sujeito limpa catálogo e contexto local anterior.
+Geometria responsiva, temas, dock e janelas permanecem no owner existente.
+Dados fictícios de plano/cota, projetos, atividade e dispositivos foram
+substituídos por estados honestos nos mesmos cards/destinos. Os transports
+desses serviços continuam pendentes. A seleção explícita de Space agora usa
+ordax.space-selection/1 e o mesmo serviço de domínio do Native, com registro
+somente em memória da sessão Web. A escolha é revalidada pelo catálogo,
+limpa em logout/troca de conta e removida se o Space desaparecer/for arquivado;
+não é persistência cloud, grant ou ativação de serviço.
+
+Fonte conectada aos contratos não comprova gateway ativo, implantação nem
+E2E autenticado. No preview Vite sem rotas same-origin de conta, a interface
+permanece indisponível. Testes adicionados/ajustados apenas no source;
+build, npm, testes e browser não executados por restrição explícita do usuário.
+[Owner, contratos, risco e aceite](DESKTOP-IDENTITY.md#web-central-account-and-spaces-binding--2026-10-12).
+
+## Web Central principal — 2026-10-11
+
+Incremento de janelas: Central e Desktop agora compartilham o lifecycle ativo de minimizar, compacto, recolher, expandir, maximizar/restaurar e fechar. Instâncias e rascunhos permanecem montados durante essas transições; no mobile, compacto reserva a metade inferior do viewport. Backend e validação automatizada continuam pendentes. [Owner, risco e aceite](DESKTOP-IDENTITY.md#shared-central-window-lifecycle--2026-10-11).
+
+Pedido explícito do usuário: promover a referência `ordaxsystems/lovable-core-ui`
+(`89438133b322e3ef87e862c80af3a3dbe18251f5`) à página Web principal. A entrada
+canônica monta somente `Central`; não há rota alternativa, redirect ou montagem
+da Home/WebShell anterior. Central e área de trabalho clássica compartilham
+dados de apresentação, componentes e temas claro/escuro da referência.
+
+Serviços, Native e Conta pública permanecem sob seus owners. Dados da referência
+estão identificados como demonstração; conexão ao backend é a etapa seguinte.
+Componentes de aplicativos e estado de janelas existentes foram preservados
+após rejeição automática da exclusão ampla. Nenhum build de produção, comando
+npm ou teste local foi executado, por restrição explícita do usuário. Fonte e
+checks atualizados não equivalem a release ou implantação comprovada.
+Owner, limitações e proveniência: [Desktop Identity](DESKTOP-IDENTITY.md#canonical-web-central--2026-10-11).
+As notas anteriores sobre Home, dock, panes e navegação Web abaixo ficam
+substituídas por essa decisão; seus consumidores de serviços continuam em source.
+
+## Stable v4 — handoff assinado validado, publicação pendente (2026-10-11)
+
+A candidata congelada `03f88eeaf382a59aaefbcf4943d0639d2730741b` passou no workflow oficial [Canonical v4 Signed Handoff Proof, run 38156353913](https://github.com/ordaxsystems/ordax-os/actions/runs/38156353913). A suíte Go completa executou com sucesso em Ubuntu 24.04 na revisão exata; o verificador Windows executou Step 5 e confirmou a assinatura Ed25519, a igualdade byte a byte do payload/manifesto e os hashes e tamanhos reais dos três EROFS. Recibo `prototype-ordax.portable-v4-signed-handoff-verification/1` baixado e conferido: os três indicadores de assinatura, payload e artefatos são `true`, enquanto `release_published`, `release_activated` e `physical_write_performed` são `false`.
+
+O erro de CRLF do checkout Windows foi corrigido pela PR #1656; a separação entre teste de materialização Linux e verificador Windows pela PR #1657. Ambos os arquivos e checks pertencem à `main`, sem mudança dos bytes assinados, do manifesto ou da custódia da chave. Evidências detalhadas: [registro de handoff e correções](evidence/canonical-v4-signed-handoff-git-bytes-2026-10-11.md).
+
+**Bloqueio operacional seguinte:** a candidata ainda não tem os três EROFS e o envelope publicados juntos por HTTPS canônico. Sem a publicação verificada não existe recibo válido de materialização pelo release-agent, portanto `canonical_v4_release_proof_bound=false` e `physical_write_allowed=false` permanecem. Autorizar um USB físico, executar boot e provar rollback são gates distintos e ainda pendentes. Esta prova não lança a release Stable.
+
+
+Web layout: full-height desktop sidebar and centered floating app dock replace the full-width footer strip; mobile navigation remains unchanged. Owner/acceptance: [Desktop Identity](DESKTOP-IDENTITY.md#full-height-sidebar-and-floating-dock--2026-10-11).
+
+
+## Web navigation utilities — 2026-10-11
+
+Source preview moves shell search/profile/notifications to shared navigation chrome (desktop sidebar search/profile/notifications; mobile Menu; no Web clock). Apps occupy the top edge; only safe area/sidebar/bottom navigation remain outside. Existing reducers, dialogs and app instances are retained. Services and release gates are unchanged. Acceptance and risks: [Desktop Identity](DESKTOP-IDENTITY.md#system-utilities-in-navigation--2026-10-11).
+
+
+## Web app opening — 2026-10-11
+
+New and detached app windows open maximized across the workspace, outside the
+shared header/sidebar/navigation. Page entries use the full content area. The
+existing reducers preserve user-selected normal geometry, compact layouts and
+mounted app state; isolated stacking keeps the latest app above older windows
+without saturating focus order. No pending service port is activated.
+Owner, risks and acceptance: docs/DESKTOP-IDENTITY.md.
+
+## Web mobile usability — 2026-10-11
+
+The canonical workspace now shares its navigation component between the desktop
+sidebar and a scrollable mobile Dialog. Bottom navigation reflects the active
+area, app switching closes the overview, window actions remain reachable through
+the existing menu, and narrow File views retain grid/list controls. Mobile text,
+search fields and touch targets are enlarged without duplicating state or
+service authority. Menu and launcher headers/close stay visible while content
+scrolls; the launcher avoids forced keyboard focus for coarse-pointer devices
+and exposes clear-search, filter state and no-results feedback. Home now follows the user-provided responsive HTML structure through one
+React composition and the existing tokens/catalog: one-column mobile content,
+3/2-column app grid, environment shortcuts, projects and activity. The touch
+shell boundary is 820 px; prototype scripts and illustrative data are excluded.
+Home scrolls in the primary pane and preserves its shared Intelligence draft.
+Bottom navigation follows Início, Aura, Apps, Space and Menu. Aura reuses
+Intelligence; the existing window overview remains available within Menu.
+Split-pane geometry and mounted app state are preserved.
+Owner, dependencies, risks and browser acceptance: docs/DESKTOP-IDENTITY.md.
+This remains a Web presentation candidate; pending service integrations are
+unchanged.
+
+## Web compact panes — 2026-10-11
+
+The canonical Web workspace now reserves two responsive tracks for primary
+content and compact windows. Floating apps fit the primary pane rather than
+covering the carousel. Collapsing releases its content space; no compact windows
+means no reserved row. App nodes remain mounted across mode changes. Owner,
+dependencies, risks and browser acceptance: docs/DESKTOP-IDENTITY.md. This is a
+Web source/candidate change; Native and production activation are independent.
+
+## Web Store catalog presentation — 2026-10-11
+
+Store now consumes the existing authority-free catalog port through one React
+presentation. It opens in official mode; demonstration requires an explicit
+action and is disposed when leaving it. The local AI candidate comes from the
+OS source-lock/generated catalog. Snapshot revocation or invalidation clears
+old entries. Web transport and real lifecycle remain unavailable; no package
+installation, authenticated catalog or model compatibility is claimed.
+Owner, public dependencies, risk and acceptance: docs/STORE-WEB-CATALOG-PRESENTATION.md.
+
+
+## Canonical Web presentation cutover — 2026-10-10
+
+The approved workspace presentation lives under system/surface/workspace and
+uses the official Web build. One composition, one root dependency lock and
+shared symbol/font sources remain, with no evaluation route or redirect.
+Pending app interfaces are preserved. Real service wiring is the next phase:
+presentation asserts no authenticated session, user files, inference, sync,
+package installation or remote-device access. Native operational UI, services,
+contracts and public Account are preserved. See docs/DESKTOP-IDENTITY.md and
+migration ledger 007. This is a source/candidate change, not production activation.
+
+
+
+## Stable v4 — candidata 03f88eea assinada offline, sem publicação (2026-10-11)
+
+A nova candidata de lançamento foi congelada no SHA
+`03f88eeaf382a59aaefbcf4943d0639d2730741b`, em
+`release-candidate/<SHA40>`. Os três builds oficiais do mesmo commit
+concluíram com sucesso, o builder canônico reconstruiu o pedido ativo e a
+montagem não assinada [run 38127644552](https://github.com/ordaxsystems/ordax-os/actions/runs/38127644552)
+verificou os artefatos e produziu o pacote público pequeno. No computador
+autorizado, os 11 hashes do kit passaram, a assinatura Ed25519 foi gerada com
+a chave em custódia local, o verificador conferiu a confiança pública e o
+payload assinado corresponde aos bytes do manifesto v4.
+
+`CANONICAL_V4_OFFLINE_SIGNATURE=PASS_VERIFIED_NOT_PUBLISHED`.
+Faltam a conferência dos três EROFS do handoff, a publicação HTTPS
+controlada dos bytes exatos, materialização, prova física atual e o gate
+do Creator público. Nenhum USB foi selecionado, autorizado ou gravado.
+A evidência exata está em
+[canonical-v4-offline-signing-2026-10-11.md](evidence/canonical-v4-offline-signing-2026-10-11.md).
+A assinatura histórica abaixo continua válida somente para seu commit antigo.
+
 ## Canonical v4 — assinatura offline verificada, ainda não publicada (2026-10-10)
 
 O candidato v4 com origem congelada em `6128e2c` passou nos três builds de
@@ -109,7 +587,7 @@ See `docs/PUBLIC-SITE.md` for ownership, acceptance and remaining gates.
 
 ## Studio Web availability — 2026-10-09 source candidate
 
-The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates Projects to its existing app owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).
+The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates project data to its canonical platform service owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).
 
 
 ## Surface visual identity — 2026-10-09 source candidate
@@ -196,7 +674,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,PROJECTS,STUDIO,NETWORK,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,ACTIVITY,SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -224,9 +702,6 @@ FIRST_PARTY_APP_PRE_1_0_MATURITY=BETA
 APP_FILES_VERSION=0.1.0
 APP_FILES_MATURITY=BETA
 APP_FILES_RELEASE_MODE=bundled
-APP_PROJECTS_VERSION=0.1.0
-APP_PROJECTS_MATURITY=BETA
-APP_PROJECTS_RELEASE_MODE=git-app
 APP_SETTINGS_VERSION=0.1.0
 APP_SETTINGS_MATURITY=BETA
 APP_SETTINGS_RELEASE_MODE=bundled
@@ -239,9 +714,9 @@ APP_STORE_RELEASE_MODE=bundled
 APP_SYSTEM_VERSION=0.1.0
 APP_SYSTEM_MATURITY=BETA
 APP_SYSTEM_RELEASE_MODE=bundled
-APP_INTERNET_VERSION=0.3.0
-APP_INTERNET_MATURITY=BETA
-APP_INTERNET_RELEASE_MODE=git-app
+INTERNET_GATE_A=PLATFORM_SOURCE_REMOVED
+INTERNET_PORTABLE_SOURCE=NOT_YET_IN_ORDAX_APPS
+INTERNET_DISTRIBUTION_ENABLED=NO
 APP_NOTES_DELIVERY=ON_DEMAND_STORE_ONLY
 APP_NOTES_LOCAL_PAYLOAD=ABSENT_PRELAUNCH_EXTERNALIZATION
 PRODUCTION_INDEPENDENT_APP_UPDATES_ENABLED=NO
@@ -283,11 +758,11 @@ CANONICAL_SYSTEM_RUNTIME_COMPLETE=NO
 
 The canonical prototype trust ceremony and public handoff are complete. The eligible toolkit bound to `2172eb6a18430910afd036199ec492ad63dc185d` passed read-only preflight; canonical Ed25519 key material was generated locally, independent public derivation matched, the proof signature passed, recovery was verified from a distinct restored copy, and the recovered signing envelope passed public verification. The exact public anchor is pinned in Git and the minimal-bootstrap trust binding remains resolved. An earlier owner authorization existed for the first Stable/MVP USB proof, release sequence 1, but it was bound to a previous physical-writer context and is no longer valid after the writer changed. On 2026-09-26 the owner-controlled v4 candidate was signed and published as a prerelease, then materialized and verified from its exact versioned HTTPS URL in CI run `36234573905`; aggregate proof SHA-256 `2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b` is bound in the repository. This prerelease did not become GitHub's stable `latest` release. The authorization contract is now `blocked-explicit-physical-authorization-pending`, with `physical_write_allowed=false`, `explicit_owner_authorization=false` and no authorization-context hash. A fresh explicit owner authorization must be recorded against the current writer context before any destructive physical flow becomes eligible. No target-specific consent has been recorded and no USB is selected or authorized for a new write; live target revalidation, Windows UAC and target-specific destructive confirmation remain separate later gates. The local PEM remains a controlled prototype signing backend rather than the intended long-term production custody model; independent off-device custody and managed non-exportable KMS/HSM remain broad-distribution hardening requirements, with signed trust rotation required before broad public distribution.
 
-The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and component/app versions are separate identities: v0.1.0 identifies the prototype product milestone, Entrega identifies the notebook-facing delivery sequence, the SHA remains the exact technical build identity, and each component may evolve its own SemVer. First-party apps on the `0.x` line are **Beta**; `1.0.0` remains reserved for the first stable release of each app. Internet is currently `0.3.0 Beta` and Projetos is `0.1.0 Beta`; both use `git-app` in Owner/Development. Notes remains a known first-party product identity but its local payload is intentionally absent during the pre-launch externalization gate. Arquivos, Ajustes, Conta and Sistema are `0.1.0 Beta` and remain `bundled`. A component having its own version does not mean it already has a production-independent update channel: `git-app` is a development delivery mode, while production-independent activation remains gated behind the signed `component-slot` path with pending health, promotion and rollback. Product v1.0 remains reserved for the stable product rather than being inferred from prototype maturity, component versions or delivery count.
+The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and component/app versions are separate identities: v0.1.0 identifies the prototype product milestone, Entrega identifies the notebook-facing delivery sequence, the SHA remains the exact technical build identity, and each component may evolve its own SemVer. First-party apps on the `0.x` line are **Beta**; `1.0.0` remains reserved for the first stable release of each app. Internet is currently `0.3.0 Beta` and uses `git-app` in Owner/Development. Projetos is a remove-first externalization target: its original 0.1.0 app source is pinned in `ordax-apps`, and its bundled UI/runtime is absent until a signed package is verified. Notes remains a known first-party product identity but its local payload is intentionally absent during the pre-launch externalization gate. Arquivos, Ajustes, Conta and Sistema are `0.1.0 Beta` and remain `bundled`. A component having its own version does not mean it already has a production-independent update channel: `git-app` is a development delivery mode, while production-independent activation remains gated behind the signed `component-slot` path with pending health, promotion and rollback. Product v1.0 remains reserved for the stable product rather than being inferred from prototype maturity, component versions or delivery count.
 
 `system/` is the shared product source. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI also proves that the actual `system/` tree can be bundled deterministically as `system.tar`.
 
-The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projects is a first-party application with stable app id `projects`, version `0.1.0 Beta` and `git-app` delivery in Owner/Development. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. During the pre-launch remove-first externalization gate its payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its future package is sourced from `ordax-apps` and will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet`, version `0.3.0 Beta` and `git-app` delivery in Owner/Development; this version identity does not claim a production Store/updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
+The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projetos remains a first-party product identity, but no longer has a bundled application source in the OS during Gate A; its future portable runtime belongs to `ordax-apps` and installation is still blocked. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. During the pre-launch remove-first externalization gate its payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its future package is sourced from `ordax-apps` and will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet`, version `0.3.0 Beta` and `git-app` delivery in Owner/Development; this version identity does not claim a production Store/updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
 
 ### Nova OrdaX pre-USB functional closure
 
@@ -351,14 +826,14 @@ CANONICAL_V4_OPERATOR_RECEIPTS=PASS_CI_SAME_SHA_SHA256_SIZE_REVERIFIED
 CANONICAL_V4_OPERATOR_RECEIPT_TAMPER_REJECTION=PASS_CI_WRONG_COMMIT_AND_BYTE_TAMPER
 CANONICAL_V4_OPERATOR_RECEIPT_WORKFLOW_RUN_ID=36166653548
 CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_VERSIONED_PRERELEASE_PRE_HARDENING
-CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PASS_POST_HARDENING_SIGNED_HTTPS_MATERIALIZED_AND_BOUND
 STABLE_MVP_USB_READINESS_GATE=PASS_SOURCE_AGGREGATES_PRE_USB_AND_PHYSICAL_PROMOTION
-STABLE_MVP_USB_READINESS_CURRENT_STAGE=CANONICAL_V4_RELEASE_PROOF_PENDING
-CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=NO_SUPERSEDED_HISTORY_RETAINED
+STABLE_MVP_USB_READINESS_CURRENT_STAGE=EXPLICIT_OWNER_AUTHORIZATION_PENDING
+CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=PASS
 PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO
-PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED
-FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING
-PHYSICAL_WRITE_AUTHORITY=BLOCKED_CANONICAL_V4_RELEASE_PROOF_PENDING
+PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_EXPLICIT_OWNER_CONSENT_REQUIRED
+FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
+PHYSICAL_WRITE_AUTHORITY=BLOCKED_EXPLICIT_OWNER_AUTHORIZATION_PENDING
 ```
 
 ### Pre-MVP ecosystem foundation
@@ -502,7 +977,7 @@ PUBLIC_IDENTITY=DISABLED_FAIL_CLOSED
 BILLING=NO
 PUBLIC_STORE=NO
 PRODUCT_MCP_DEPLOYED=NO
-FIRST_STABLE_MVP_USB_WRITE=HOLD_CANONICAL_V4_RELEASE_PROOF_PENDING
+FIRST_STABLE_MVP_USB_WRITE=HOLD_EXPLICIT_PHYSICAL_AUTHORIZATION_PENDING
 ```
 
 ### System diagnostics and recovery presentation
@@ -590,7 +1065,7 @@ SETTINGS_NOTIFICATIONS_EN_US=PASS_SOURCE
 SETTINGS_SECURITY_EN_US=PASS_SOURCE
 LOCAL_SESSION_LOCK_EN_US=PASS_SOURCE
 ACCOUNT_EN_US=PASS_SOURCE
-PROJECTS_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
+PROJECTS_PRIMARY_JOURNEY_EN_US=EXTERNALIZATION_SOURCE_PENDING
 NOTES_PRIMARY_JOURNEY_EN_US=PASS_SOURCE
 NOTES_DEEP_EN_US=PASS_SOURCE
 NOTES_SEMANTIC_ASYNC_MESSAGES=PASS_SOURCE
@@ -916,14 +1391,14 @@ PUBLIC_TRUST_PROMOTION=PASS_PUBLIC_HANDOFF_VALIDATED
 MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
 PHYSICAL_AUTHORIZATION_ELIGIBLE_BY_TRUST=YES
 CANONICAL_V4_HISTORICAL_SOURCE_COMMIT=b924ff8d74d1761232381ae3f9604bba17497cfd
-CANONICAL_V4_RELEASE_STATUS=PUBLIC_PRERELEASE_NOT_LATEST_HISTORICAL
+CANONICAL_V4_RELEASE_STATUS=PUBLIC_PRERELEASE_NOT_LATEST_CURRENT_CANDIDATE
 CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_EXACT_PRE_HARDENING
 CANONICAL_V4_RELEASE_PROOF_HISTORY_SHA256=2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b
-CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PENDING_POST_HARDENING_REPLACEMENT
-CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=NO
+CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PASS_POST_HARDENING_SIGNED_HTTPS_MATERIALIZED_AND_BOUND
+CANONICAL_V4_RELEASE_PROOF_BINDING_CURRENT_MAIN=PASS
 PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO
-PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=NO_REPLACEMENT_PROOF_REQUIRED
-PHYSICAL_WRITE_ALLOWED=NO_CANONICAL_V4_RELEASE_PROOF_PENDING
+PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_EXPLICIT_OWNER_CONSENT_REQUIRED
+PHYSICAL_WRITE_ALLOWED=NO_EXPLICIT_OWNER_AUTHORIZATION
 PHYSICAL_WRITE_SCOPE=first-real-stable-mvp-usb-proof
 PHYSICAL_WRITE_RELEASE_SEQUENCE=1
 PHYSICAL_TARGET_SELECTED=NO
@@ -1007,7 +1482,7 @@ CANONICAL_SIGNED_RELEASE_BOOT_PROVEN=NO_PHYSICAL_STABLE_MVP_PENDING
 CANONICAL_NATIVE_DISK_INSTALL_PROVEN=NO_POST_MVP
 CREATOR_PUBLIC_PHYSICAL_APPLY_IMPLEMENTED=NO
 RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED
-PHYSICAL_AUTHORIZATION_ELIGIBLE=NO_REPLACEMENT_CANONICAL_V4_PROOF_REQUIRED
+PHYSICAL_AUTHORIZATION_ELIGIBLE=YES_PREFLIGHT_ONLY_EXPLICIT_OWNER_CONSENT_PENDING
 PHYSICAL_WRITE_AUTHORIZED=NO_CANONICAL_V4_RELEASE_PROOF_PENDING
 PHYSICAL_TARGET_SELECTED=NO
 PHYSICAL_TARGET_DESTRUCTIVE_CONFIRMATION=PENDING
@@ -1147,7 +1622,7 @@ PUBLIC_ACCOUNT_CLOSE_LIFECYCLE_SERVICE=DEPLOYED_DISABLED
 PUBLIC_ACCOUNT_CLOSE_ENABLED=NO
 PUBLIC_ACCOUNT_CLOSE_DISABLED_PROOF_HARNESS=PASS_SOURCE_CREDENTIAL_FREE
 
-MEMORY_CAPTURE_POLICY_BOUND_AUTO_SAVE=PASS_SOURCE_NATIVE_ASSISTANT_INTEGRATED
+MEMORY_CAPTURE_POLICY_BOUND_AUTO_SAVE=PLATFORM_SERVICE_RETAINED_ASSISTANT_APP_NOT_MOUNTED_GATE_A
 ASSISTANT_AUTO_MEMORY_EXTRACTION=PASS_SOURCE_STRICT_JSON_FAIL_CLOSED
 ASSISTANT_AUTO_MEMORY_AUTHORITY=COMPOSITION_OWNS_DEVICE_ACCOUNT_SPACE
 ASSISTANT_AUTO_MEMORY_SECRET_FILTER=PASS_SOURCE_CREDENTIAL_SIGNAL_REJECT

@@ -75,27 +75,29 @@ test("Space switcher clears identities and catalog items on logout or stale cata
   }
 });
 
-test("Native and Web compose the same visible shell UI using real ports", () => {
+test("Native shell uses real ports; canonical Web preserves the Spaces interface", () => {
   const shell = read("system/surface/ui/desktop-shell.mjs");
   const native = read("system/composition/native/main.mjs");
-  const web = read("system/composition/web/main.mjs");
+  const web = read("system/composition/web/main.tsx");
   const account = read("system/services/i18n/catalog/account.mjs");
   const component = read("system/surface/ui/space-switcher-controls.mjs");
   assert.match(shell, /data-space-switcher-slot/);
-  for (const composition of [native, web]) {
+  for (const composition of [native]) {
     assert.match(composition, /mountSpaceSwitcherControls\(/);
     assert.match(composition, /spaceSwitcherControls\.destroy\(\)/);
     assert.match(composition, /identitySession,\s*spaces,/);
     assert.match(composition, /appActivation,\s*surface,/);
   }
   assert.match(native, /spaces,\s*spaceSelection,\s*appActivation/);
-  assert.match(web, /spaces,\s*null,\s*appActivation/);
   assert.match(component, /assertSpaceSelectionPort/);
+  assert.match(web, /<Central key=/);
+  assert.doesNotMatch(web, /WebShell/);
+  assert.doesNotMatch(web, /adapters\/native/);
   assert.match(component, /selectionPort\.select\(match\.id\)/);
   assert.match(component, /activationPort\.publish\(\{ appId: "account", target: "spaces" \}\)/);
   assert.doesNotMatch(component, /\.createSpace\(|\.create\(|localStorage|sessionStorage/);
   assert.equal(account.split('"account.spaces.switcher.manage"').length - 1, 2);
-  for (const composition of ["native", "web"]) {
+  for (const composition of ["native"]) {
     assert.match(read(`system/composition/${composition}/index.html`), /space-switcher\.css/);
   }
 });
@@ -143,10 +145,9 @@ test("Professional Profile derives only from current activation on authorized Sp
 
 test("Native wires canonical Profile state to shell while Web remains without it", () => {
   const native = read("system/composition/native/main.mjs");
-  const web = read("system/composition/web/main.mjs");
+  const web = read("system/composition/web/main.tsx");
   const selector = read("system/surface/ui/space-switcher-controls.mjs");
   assert.match(native, /spaceSelection,\s*appActivation,\s*surface,\s*profileActivationState/);
-  assert.match(web, /spaces,\s*null,\s*appActivation,\s*surface,\s*null/);
   assert.match(selector, /assertProfileActivationStatePort/);
   assert.match(selector, /lifecycle\.subscribeRender\(render\)/);
   assert.match(selector, /profilePort\?\.subscribe\?\.\(render\)/);
@@ -165,7 +166,7 @@ test("Space selector retains catalog choices after transient selection failure",
 
 test("Space selector keeps navigable, dismissible, focus-safe popup on updates", () => {
   const component = read("system/surface/ui/space-switcher-controls.mjs");
-  const smoke = read("tools/surface-web/browser-smoke.mjs");
+  const smoke = read("tools/surface-native/browser-smoke.mjs");
   assert.match(component, /aria-haspopup", "dialog"/);
   assert.match(component, /menu\.setAttribute\("role", "dialog"\)/);
   assert.match(component, /const focusOption = \(key\) =>/);
@@ -173,9 +174,6 @@ test("Space selector keeps navigable, dismissible, focus-safe popup on updates",
   assert.match(component, /doc\.addEventListener\("focusin", onFocusIn\)/);
   assert.match(component, /doc\.removeEventListener\("focusin", onFocusIn\)/);
   assert.match(component, /focusedSpaceId/);
-  assert.match(smoke, /spaceSwitcherKeyboardOpens/);
-  assert.match(smoke, /spaceSwitcherKeyboardFocusesAction/);
-  assert.match(smoke, /spaceSwitcherKeyboardRestoresFocus/);
 });
 
 

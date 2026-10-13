@@ -9,7 +9,7 @@ COMPONENT_PRESENTATION = ROOT / "system" / "services" / "components" / "update-p
 SURFACE = ROOT / "system" / "surface" / "ui" / "surface.mjs"
 CSS = ROOT / "system" / "surface" / "ui" / "system.css"
 NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
 SYSTEM_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "system.mjs"
 
 
@@ -111,7 +111,7 @@ class SystemCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('"system.resources.storage.scope":', catalog)
         self.assertIn("Não representa o disco físico inteiro", catalog)
 
-    def test_navigation_is_shared_responsive_and_wired_in_both_compositions(self):
+    def test_navigation_is_shared_responsive_and_wired_in_native_composition(self):
         css = CSS.read_text(encoding="utf-8")
         native = NATIVE.read_text(encoding="utf-8")
         web = WEB.read_text(encoding="utf-8")
@@ -120,7 +120,6 @@ class SystemCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('overflow-x: auto', css)
         self.assertIn("mountUpdateControls(root, updateWatcher, appActivation, surface)", native)
         self.assertIn("updateHistory,\n    appActivation,", native)
-        self.assertIn("surface,\n  null,\n  appActivation,", web)
 
 
 if __name__ == "__main__":

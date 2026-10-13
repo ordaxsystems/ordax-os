@@ -44,9 +44,12 @@ class ThirdPartyInventoryTests(unittest.TestCase):
     def test_kernel_input_matches_canonical_source_file(self):
         source = json.loads(KERNEL_SOURCE.read_text(encoding="utf-8"))
         item = self.by_id["linux-kernel"]
-        self.assertEqual(item["version"], source["version"])
-        self.assertEqual(item["archive_url"], source["archive_url"])
-        self.assertEqual(item["archive_sha256"], source["archive_sha256"])
+        self.assertEqual(item["source_authority"], "bootstrap/kernel/source.json")
+        self.assertEqual(source["$schema"], "prototype-ordax.kernel-source/1")
+        self.assertRegex(source["version"], r"^[0-9]+[.][0-9]+[.][0-9]+$")
+        self.assertRegex(source["archive_sha256"], r"^[0-9a-f]{64}$")
+        for duplicated in ("version", "archive_url", "archive_sha256"):
+            self.assertNotIn(duplicated, item)
 
     def test_development_base_input_matches_selected_packages(self):
         core = assignment_literals(DEV_CORE)

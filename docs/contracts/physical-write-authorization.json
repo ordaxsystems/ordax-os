@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.physical-write-authorization/3",
-  "status": "blocked-canonical-v4-release-proof-pending",
+  "status": "blocked-explicit-physical-authorization-pending",
   "physical_write_allowed": false,
   "explicit_owner_authorization": false,
   "scope": "first-real-stable-mvp-usb-proof",
@@ -8,11 +8,11 @@
   "release_sequence": 1,
   "authorization_context_sha256": null,
   "bindings": {
-    "minimal_bootstrap_sha256": "5b71a0a520818ecf55f8e18de2938401ee5cb2d6fc636bcaf175da9995242f57",
+    "minimal_bootstrap_sha256": "a22d9963ee9d24dfb20810262e7d273fcdd3abb60522ad8da8b378e0345bb9d1",
     "release_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
     "portable_usb_contract_sha256": "d5f28c165b07c4d1201ac79f542a494f87ad520b31c98baa836313162f47c4c0",
     "creator_portable_media_contract_sha256": "59864ea3ae8d48896c7576fd64accb6c462cf5192cbdd7b70b6667dfb13eafc1",
-    "canonical_v4_release_proof_sha256": "2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b"
+    "canonical_v4_release_proof_sha256": "768e24011afc5cc20dd5f5e2bf8d2462359d2c348b51a6d81135aeca31475049"
   },
   "requirements": {
     "pre_usb_nova_ordax_audit_passed": true,
@@ -32,7 +32,7 @@
     "end_user_destructive_confirmation_required": true,
     "windows_uac_required": true,
     "post_write_readback_required": true,
-    "canonical_v4_release_proof_bound": false
+    "canonical_v4_release_proof_bound": true
   },
   "consumer_policy": {
     "user_selects_image_file": false,
@@ -44,9 +44,9 @@
   "release_binding": {
     "proof_path": "docs/evidence/canonical-v4-release-proof.json",
     "proof_schema": "prototype-ordax.portable-v4-canonical-release-proof/1",
-    "source_commit": "b924ff8d74d1761232381ae3f9604bba17497cfd",
-    "canonical_envelope_url": "https://github.com/washingtonmsdj/prototipo-ordax-os/releases/download/ordax-stable-v4-b924ff8d74d1761232381ae3f9604bba17497cfd/release-envelope.json",
-    "release_manifest_sha256": "ddab1681ffecacca000ff1014d3b354978c1f4a785985998b673816e18e65b85",
-    "release_envelope_sha256": "cc89cf7436357c5d479624d74e32325d4eb249a6fc1334385fb55827c313f5c9"
+    "source_commit": "03f88eeaf382a59aaefbcf4943d0639d2730741b",
+    "canonical_envelope_url": "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-03f88eeaf382a59aaefbcf4943d0639d2730741b/release-envelope.json",
+    "release_manifest_sha256": "5dc9213b65eaffa7adf67c0addc7dbe32af1e06ae4b9a4f5a8dea37aa8ee99d6",
+    "release_envelope_sha256": "d9ab389cd55c481785491cb1c3881936e47e7347bdc69ccea5c76a7437969a90"
   }
 }

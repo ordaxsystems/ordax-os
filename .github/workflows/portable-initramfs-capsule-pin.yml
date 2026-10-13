@@ -6,6 +6,9 @@ on:
     paths:
       - 'bootstrap/initramfs/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/portable-v2/capsule/**'
       - 'bootstrap/release-acquisition/**'
       - 'bootstrap/recovery/entrypoint'
@@ -20,6 +23,9 @@ on:
     paths:
       - 'bootstrap/initramfs/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/portable-v2/capsule/**'
       - 'bootstrap/release-acquisition/**'
       - 'bootstrap/recovery/entrypoint'

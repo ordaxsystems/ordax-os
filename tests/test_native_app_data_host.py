@@ -23,6 +23,10 @@ from native_app_data_host import (  # noqa: E402
     NativeAppDataHostHandler,
     NativeAppDataHostServer,
 )
+from native_app_data import (  # noqa: E402
+    create_app_data_checkpoint,
+    retire_app_data_checkpoint,
+)
 from native_app_install_identity import (  # noqa: E402
     canonical_verified_app_install_identity_bytes,
 )
@@ -175,6 +179,166 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
                 server.activate_private_listener()
         finally:
             server.server_close()
+
+    def test_verified_receipt_host_maintenance_revokes_http_capability_and_recovers_data(self):
+        original = self.binding.endpoint
+        release = {
+            "componentId": "notes",
+            "version": "0.4.1",
+            "sourceCommit": "1" * 40,
+        }
+        status, _headers, data = self.json_post(original, {
+            "action": "put", "key": "note.alpha.0",
+            "valueBase64": "b2xk", "expectedRevision": 0,
+        })
+        self.assertEqual((status, data["revision"]), (200, 1))
+        with self.server.hold_verified_app_data_maintenance(
+            self.digest, release, 1,
+        ) as maintenance:
+            self.assertEqual(maintenance.revision(), 1)
+            self.assertEqual(maintenance.checkpoint(1)["pinnedRevision"], 1)
+            self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
+            status, _headers, body = self.json_post(original, {"action": "list"})
+            self.assertEqual(status, 404)
+            self.assertEqual(body["error"], "Native App Data capability is unknown")
+            self.assertEqual(maintenance.restore(1)["revision"], 2)
+        self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
+        status, _headers, _body = self.json_post(original, {"action": "list"})
+        self.assertEqual(status, 404)
+        # Restoring data is not the same as a durable final activation
+        # decision. Both old and new receipts stay fenced until the trusted
+        # owner explicitly retires the recovery checkpoint.
+        with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
+            self.server.bind_app_data_receipt(self.digest)
+        identity = self.binding.app_data_identity()
+        self.assertTrue(retire_app_data_checkpoint(
+            identity, release, 2, root=str(self.data_root),
+        )["retired"])
+        reissued = self.server.bind_app_data_receipt(self.digest)
+        self.assertNotEqual(reissued.endpoint, original)
+        status, _headers, listing = self.json_post(reissued.endpoint, {"action": "list"})
+        self.assertEqual(status, 200)
+        self.assertEqual(listing["revision"], 2)
+        self.assertEqual(listing["keys"], ["note.alpha.0"])
+        self.assertNotIn("checkpoint", listing)
+
+    def test_maintenance_release_mismatch_never_revokes_healthy_binding(self):
+        original = self.binding.endpoint
+        status, _headers, data = self.json_post(original, {
+            "action": "put", "key": "private.note",
+            "valueBase64": "b3JpZ2luYWw=", "expectedRevision": 0,
+        })
+        self.assertEqual((status, data["revision"]), (200, 1))
+        matching_release = {
+            "componentId": "notes",
+            "version": "0.4.1",
+            "sourceCommit": "1" * 40,
+        }
+        for mismatch in (
+            {"componentId": "other-app"},
+            {"version": "0.4.2"},
+            {"componentId": "other-app", "version": "0.4.2"},
+        ):
+            with self.subTest(mismatch=mismatch):
+                proposed = {**matching_release, **mismatch}
+                with self.assertRaisesRegex(
+                    RuntimeError, "source release does not match verified install receipt"
+                ):
+                    with self.server.hold_verified_app_data_maintenance(
+                        self.digest, proposed, 1,
+                    ):
+                        self.fail("mismatched release entered maintenance")
+                self.assertEqual(self.server.app_data_bindings.active_binding_count(), 1)
+                status, _headers, listing = self.json_post(original, {"action": "list"})
+                self.assertEqual(status, 200)
+                self.assertEqual(listing["revision"], 1)
+                self.assertEqual(listing["keys"], ["private.note"])
+                self.assertEqual(self.binding.endpoint, original)
+
+        # Invalid maintenance arguments cannot strand a healthy grant.
+        for bad_release, bad_revision in (
+            ({**matching_release, "sourceCommit": "invalid"}, 1),
+            (matching_release, -1),
+            (matching_release, None),
+        ):
+            with self.subTest(bad_release=bad_release, bad_revision=bad_revision):
+                with self.assertRaises(ValueError):
+                    with self.server.hold_verified_app_data_maintenance(
+                        self.digest, bad_release, bad_revision,
+                    ):
+                        self.fail("invalid request entered maintenance")
+                self.assertEqual(self.server.app_data_bindings.active_binding_count(), 1)
+                status, _headers, listing = self.json_post(original, {"action": "list"})
+                self.assertEqual((status, listing["revision"]), (200, 1))
+
+        # Once the trusted caller supplies the matching release correlation,
+        # the genuine maintenance path must remain usable and revoke the cap.
+        with self.server.hold_verified_app_data_maintenance(
+            self.digest, matching_release, 1,
+        ) as maintenance:
+            self.assertEqual(maintenance.checkpoint(1)["pinnedRevision"], 1)
+            self.assertEqual(self.server.app_data_bindings.active_binding_count(), 0)
+        status, _headers, response = self.json_post(original, {"action": "list"})
+        self.assertEqual(status, 404)
+        self.assertEqual(response["error"], "Native App Data capability is unknown")
+
+    def test_live_http_capability_cannot_access_data_after_foreign_version_pin(self):
+        """A token issued before a checkpoint cannot bypass its version fence."""
+        endpoint = self.binding.endpoint
+        identity = self.binding.app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.2", "sourceCommit": "2" * 40}
+        status, _, written = self.json_post(endpoint, {
+            "action": "put", "key": "note.alpha",
+            "valueBase64": "b2xk", "expectedRevision": 0,
+        })
+        self.assertEqual((status, written["revision"]), (200, 1))
+        pinned = create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        self.assertEqual(pinned["pinnedRevision"], 1)
+
+        for body in (
+            {"action": "list"},
+            {"action": "get", "key": "note.alpha"},
+            {"action": "put", "key": "note.alpha", "valueBase64": "bmV3", "expectedRevision": 1},
+            {"action": "delete", "key": "note.alpha", "expectedRevision": 1},
+        ):
+            with self.subTest(action=body["action"]):
+                status, _, response = self.json_post(endpoint, body)
+                self.assertEqual(status, 409)
+                self.assertIn("requires trusted recovery", response["error"])
+
+        # The only way to release the pin is a trusted owner's explicit
+        # decision; failed requests must not mutate the durable revision.
+        retired = retire_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        self.assertTrue(retired["retired"])
+        status, _, value = self.json_post(endpoint, {"action": "get", "key": "note.alpha"})
+        self.assertEqual((status, value["revision"], value["valueBase64"]), (200, 1, "b2xk"))
+
+    def test_original_version_token_is_also_fenced_by_unresolved_checkpoint(self):
+        endpoint = self.binding.endpoint
+        identity = self.binding.app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        status, _, written = self.json_post(endpoint, {
+            "action": "put", "key": "note.beta",
+            "valueBase64": "b3JpZw==", "expectedRevision": 0,
+        })
+        self.assertEqual((status, written["revision"]), (200, 1))
+        create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        for body in (
+            {"action": "list"},
+            {"action": "get", "key": "note.beta"},
+            {"action": "put", "key": "note.beta", "valueBase64": "bmV3", "expectedRevision": 1},
+            {"action": "delete", "key": "note.beta", "expectedRevision": 1},
+        ):
+            with self.subTest(action=body["action"]):
+                status, _, response = self.json_post(endpoint, body)
+                self.assertEqual(status, 409)
+                self.assertIn("requires trusted recovery", response["error"])
+        # Owner decisions remain out of the HTTP capability boundary.
+        self.assertTrue(retire_app_data_checkpoint(
+            identity, release, 1, root=str(self.data_root),
+        )["retired"])
+        status, _, value = self.json_post(endpoint, {"action": "get", "key": "note.beta"})
+        self.assertEqual((status, value["revision"], value["valueBase64"]), (200, 1, "b3JpZw=="))
 
     def test_bound_route_persists_and_cas_conflict_reports_actual_revision(self):
         status, _headers, stored = self.json_post(

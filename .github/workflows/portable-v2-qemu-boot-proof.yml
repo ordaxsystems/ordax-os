@@ -7,6 +7,9 @@ on:
       - 'system/**'
       - 'bootstrap/base/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/local-ai-runtime/**'
@@ -15,6 +18,7 @@ on:
       - 'docs/contracts/minimal-bootstrap.json'
       - 'tests/test_bootstrap_current_verification.py'
       - 'tests/test_portable_verified_boot_selection.py'
+      - 'tests/test_portable_media_discovery.py'
       - 'tests/test_portable_activation_state_helper.py'
       - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
@@ -38,6 +42,9 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_initramfs_upstream_authentication.py'
+      - 'tests/test_portable_qemu_kernel_source_ssot.py'
+      - 'tests/test_kernel_ci_env.py'
       - 'tests/test_portable_v2_uefi_boot_proof_contract.py'
       - 'tests/test_portable_v3_cold_health_qemu_proof.py'
       - 'tests/test_stable_release_activation_transaction.py'
@@ -48,6 +55,9 @@ on:
       - 'system/**'
       - 'bootstrap/base/**'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/local-ai-runtime/**'
@@ -56,6 +66,7 @@ on:
       - 'docs/contracts/minimal-bootstrap.json'
       - 'tests/test_bootstrap_current_verification.py'
       - 'tests/test_portable_verified_boot_selection.py'
+      - 'tests/test_portable_media_discovery.py'
       - 'tests/test_portable_activation_state_helper.py'
       - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
@@ -79,15 +90,28 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_initramfs_upstream_authentication.py'
+      - 'tests/test_portable_qemu_kernel_source_ssot.py'
+      - 'tests/test_kernel_ci_env.py'
       - 'tests/test_portable_v2_uefi_boot_proof_contract.py'
       - 'tests/test_portable_v3_cold_health_qemu_proof.py'
       - 'tests/test_stable_release_activation_transaction.py'
       - 'tests/test_portable_v4_ai_handoff_contract.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      base_source:
+        type: string
+        description: 'stable (default) or isolated independent Buildroot candidate'
+        required: false
+        default: stable
+
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  # Called workflows inherit github.workflow from their caller. Use a distinct
+  # namespace so the official proof cannot cancel its invoking workflow.
+  group: canonical-portable-v2-${{ inputs.base_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
@@ -111,6 +135,11 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Resolve canonical kernel ABI for build artifacts
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -129,10 +158,14 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.test_portable_v2_qemu_boot_proof_contract -v
+          python -m unittest tests.test_initramfs_upstream_authentication -v
+          python -m unittest tests.test_portable_qemu_kernel_source_ssot -v
+          python -m unittest tests.test_kernel_ci_env -v
           python -m unittest tests.test_portable_v4_ai_handoff_contract -v
           python -m unittest tests.test_portable_v3_cold_health_qemu_proof -v
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
           python -m unittest discover -s tests -p 'test_portable_verified_boot_selection.py' -v
+          python -m unittest discover -s tests -p 'test_portable_media_discovery.py' -v
           python -m unittest discover -s tests -p 'test_portable_activation_state_helper.py' -v
           python -m unittest discover -s tests -p 'test_portable_exact_runtime_handoff.py' -v
           sh -n bootstrap/entrypoint
@@ -182,28 +215,55 @@ jobs:
             --work-dir "$work/kernel-work" \
             --out-dir "$work/kernel"
           python bootstrap/kernel/verify.py "$work/kernel"
-          test -s "$work/kernel/vmlinuz-6.6.52"
-          test -s "$work/kernel/kernel-modules-6.6.52.tar"
-          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-6.6.52.config"
-          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-6.6.52.config"
-          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-6.6.52.config"
+          test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
+          test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
 
-      - name: Build and verify exact Stable Base
+      - name: Build and verify exact Stable Base or experimental independent candidate
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
-            python bootstrap/stable-base/build.py build \
-              --kernel-modules "$work/kernel/kernel-modules-6.6.52.tar" \
-              --out-dir "$work/stable-base" \
-              --cache-dir "$work/stable-base-cache" \
-              > "$work/metadata/stable-base-build.json"
-          sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
-          python bootstrap/stable-base/build.py verify \
-            --out-dir "$work/stable-base" \
-            > "$work/metadata/stable-base-verify.json"
+          case "$ORDAX_BASE_PROOF_SOURCE" in
+            stable)
+              sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
+                python bootstrap/stable-base/build.py build \
+                  --kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
+                  --out-dir "$work/stable-base" \
+                  --cache-dir "$work/stable-base-cache" \
+                  > "$work/metadata/stable-base-build.json"
+              sudo chown -R "$(id -u):$(id -g)" "$work/stable-base"
+              python bootstrap/stable-base/build.py verify \
+                --out-dir "$work/stable-base" \
+                > "$work/metadata/stable-base-verify.json"
+              ;;
+            independent)
+              # Disposable CI adapter; the current Stable owner is never mutated.
+              sudo apt-get install -y --no-install-recommends \
+                gawk cpio unzip rsync file wget patch
+              python3 bootstrap/independent-base/build.py build \
+                --out "$work/independent-base" \
+                --cache "$work/independent-base-cache" --jobs 4 \
+                > "$work/metadata/independent-base-build.json"
+              python3 bootstrap/independent-base/build.py verify \
+                --out "$work/independent-base" \
+                > "$work/metadata/independent-base-verify.json"
+              mkdir -p "$work/stable-base"
+              cp -- "$work/independent-base/independent-base.erofs" \
+                "$work/stable-base/stable-base.erofs"
+              test "$(sha256sum "$work/stable-base/stable-base.erofs" | awk '{print $1}')" = \
+                "$(sha256sum "$work/independent-base/independent-base.erofs" | awk '{print $1}')"
+              echo 'ORDAX_INDEPENDENT_OFFICIAL_BOOT_SOURCE=BUILDROOT_VERIFIED'
+              ;;
+            *)
+              echo "unsupported portable base proof source" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Build and verify exact offline Surface runtime
         env:
@@ -476,8 +536,15 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           rm -rf "$work/qemu-proof"
           mkdir -p "$work/qemu-proof"
-          sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+          proof_runner=bootstrap/portable-v2/qemu_boot.py
+          proof_extra=()
+          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+            proof_runner=bootstrap/independent-base/portable_boot_proof.py
+            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-proof/bridge")
+            echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
+          fi
+          sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -523,8 +590,15 @@ jobs:
           rm -rf "$work/qemu-one-shot-proof"
           mkdir -p "$work/qemu-one-shot-proof"
 
-          sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+          proof_runner=bootstrap/portable-v2/qemu_boot.py
+          proof_extra=()
+          if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
+            proof_runner=bootstrap/independent-base/portable_boot_proof.py
+            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-one-shot-proof/bridge")
+            echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
+          fi
+          sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -565,6 +639,36 @@ jobs:
           print('PORTABLE_V4_PHYSICAL_BOOT_PROVEN=NO')
           PY
 
+      - name: Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU
+        if: ${{ inputs.base_source == 'independent' }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          previous="$(cat "$work/previous-commit.txt")"
+          mkdir -p "$work/qemu-signed-fault-proof"
+          sudo -E python3 bootstrap/independent-base/signed_release_failure_qemu.py \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
+            --initramfs "$work/initramfs/initramfs.cpio.gz" \
+            --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
+            --capsule "$work/capsule/bootstrap.erofs" \
+            --stable-base "$work/stable-base/stable-base.erofs" \
+            --state-image "$work/persistent-state-one-shot.img" \
+            --portable-root "$work/portable/.ordax" \
+            --trust "$work/release-trust.json" \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --previous-commit "$previous" \
+            --out "$work/qemu-signed-fault-proof/proof.json"
+          sudo chown -R "$(id -u):$(id -g)" "$work/qemu-signed-fault-proof"
+          python3 - "$work/qemu-signed-fault-proof/proof.json" <<'PY'
+          import json, pathlib, sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert proof['status'] == 'pass'
+          assert all(proof['checks'].values())
+          assert proof['physical_device_touched'] is False
+          assert proof['physical_promotion_authorized'] is False
+          print('ORDAX_INDEPENDENT_SIGNED_RELEASE_FAILURE_QEMU=PASS')
+          PY
+
       - name: Keep cold-health promotion as physical Stable/MVP gate
         run: |
           set -euo pipefail
@@ -594,7 +698,7 @@ jobs:
           rm -rf "$work/uefi-proof"
           mkdir -p "$work/uefi-proof"
           sudo -E python3 bootstrap/portable-v2/uefi_boot.py \
-            --kernel "$work/kernel/vmlinuz-6.6.52" \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
             --initramfs "$work/initramfs/initramfs.cpio.gz" \
             --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
             --capsule "$work/capsule/bootstrap.erofs" \
@@ -641,6 +745,8 @@ jobs:
           path: |
             ${{ runner.temp }}/portable-v2-qemu/qemu-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/qemu-one-shot-proof/proof.json
+            ${{ runner.temp }}/portable-v2-qemu/qemu-signed-fault-proof/proof.json
+            ${{ runner.temp }}/portable-v2-qemu/qemu-signed-fault-proof/serial/*.log
             ${{ runner.temp }}/portable-v2-qemu/qemu-cold-health-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/uefi-proof/proof.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/

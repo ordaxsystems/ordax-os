@@ -106,13 +106,13 @@ SEPARATE_HOME_PARTITION=NO
 
 ```text
 OrdaX Web
- -> OrdaX Mobile (Android / iPhone)
+ -> OrdaX Mobile (Android / iPhone; Tablet responsivo)
  -> OrdaX Desktop
- -> OrdaX USB
- -> OrdaX Native (SSD/HD)
+ -> OrdaX OS — USB
+ -> OrdaX OS — Nativo (SSD/HD)
 ```
 
-Sao modos de capacidade do mesmo produto, nao forks.
+Sao modos de capacidade do mesmo produto, nao forks. Nomes publicos e vinculo de versoes: `system/contracts/product-family.mjs`; IDs de modo permanecem `web`, `mobile`, `desktop`, `usb`, `native-disk`. Tablet nao e um sexto modo; Studio e app. Nao inventar versao de APK/Web/Desktop nao publicado.
 
 Surface, apps e logica compartilhada possuem uma unica fonte em `system/`. Diferencas de ambiente vivem apenas em adapters de capacidade.
 

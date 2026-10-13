@@ -19,6 +19,7 @@ import {
 
 import {
   hasNativeExternalFirstPartyModuleRead,
+  hasNativeExternalFirstPartyProbation,
 } from "./external-first-party-policy.mjs";
 
 export const APP_LIFECYCLE_DELEGATE_SCHEMA = "ordax.app-lifecycle-delegate/1";
@@ -171,6 +172,12 @@ export function createAppLifecycleRequestService({
     ) {
       return rejectAndRemember(request, fingerprint, "runtime-module-read-unavailable");
     }
+    if (
+      ["install", "update"].includes(request.operation)
+      && !hasNativeExternalFirstPartyProbation(request.appId)
+    ) {
+      return rejectAndRemember(request, fingerprint, "runtime-probation-unavailable");
+    }
 
     let plan;
     try {
@@ -205,7 +212,8 @@ export function createAppLifecycleRequestService({
         const latestCandidate = latestCatalog.entries.find((value) => value.appId === request.appId) ?? null;
         if (["install", "update"].includes(request.operation)) {
           if (!candidateMatchesProjection(latestCandidate, currentEntry)
-              || !hasNativeExternalFirstPartyModuleRead(request.appId)) return false;
+              || !hasNativeExternalFirstPartyModuleRead(request.appId)
+              || !hasNativeExternalFirstPartyProbation(request.appId)) return false;
         }
 
         // createAppLifecyclePlan() already owns canonical normalization for

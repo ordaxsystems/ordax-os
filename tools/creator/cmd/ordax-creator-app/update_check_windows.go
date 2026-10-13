@@ -65,8 +65,8 @@ func validateOwnerUpdateManifest(manifest ownerUpdateManifest) error {
 	if !validLowerHexString(manifest.SourceCommit, 40) {
 		return errors.New("Creator update source_commit is invalid")
 	}
-	if manifest.Version != "owner-"+manifest.SourceCommit[:12] {
-		return errors.New("Creator update version does not match its source commit")
+	if !validCreatorVersion(manifest.Version) {
+		return errors.New("Creator update version is invalid")
 	}
 	if manifest.Artifact != "OrdaX-Creator-Owner-Prototype.zip" {
 		return errors.New("Creator update artifact is unexpected")
@@ -248,7 +248,7 @@ func renderUpdateDone() {
 	renderUpdateUI()
 
 	if state.Available && state.Error == "" {
-		setText(versionLabel, "OrdaX Creator • "+state.Version+" "+creatorT(msgVersionAvailable))
+		setCreatorVersion("OrdaX Creator • "+state.Version+" "+creatorT(msgVersionAvailable))
 		if state.Manual {
 			messageBox(creatorT(msgUpdateBundleManualBody), creatorT(msgUpdateAvailableTitle), mbOK|mbIconInformation)
 		}

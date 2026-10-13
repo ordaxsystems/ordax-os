@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/apps/files/**'
+      - 'system/apps/projects/**'
+      - 'system/apps/internet/**'
+      - 'system/apps/assistant/**'
+      - 'system/apps/activity/**'
+      - 'system/apps/network/**'
+      - 'tests/test_first_party_portable_boundary.py'
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/file-association-manifest.mjs'
       - 'system/contracts/app-presentation-manifest.mjs'
@@ -25,6 +32,12 @@ on:
       - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/first-run-selection.mjs'
+      - 'system/surface/ui/first-run.mjs'
+      - 'system/services/i18n/first-run.mjs'
+      - 'tests/test_first_run_contract.py'
+      - 'tests/test_first_run_selection.mjs'
+      - 'docs/APP-PORTFOLIO-AND-PREINSTALL.md'
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'tools/app-policy/render_external_first_party_policy.py'
       - 'tools/app-policy/render_native_store_metadata_policy.py'
@@ -61,6 +74,13 @@ on:
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
+      - 'system/apps/files/**'
+      - 'system/apps/projects/**'
+      - 'system/apps/internet/**'
+      - 'system/apps/assistant/**'
+      - 'system/apps/activity/**'
+      - 'system/apps/network/**'
+      - 'tests/test_first_party_portable_boundary.py'
       - 'system/contracts/first-party-app-delivery.mjs'
       - 'system/contracts/file-association-manifest.mjs'
       - 'system/contracts/app-presentation-manifest.mjs'
@@ -82,6 +102,12 @@ on:
       - 'system/contracts/component-runtime-metadata.mjs'
       - 'system/contracts/verified-app-store-catalog.mjs'
       - 'system/services/apps/delivery-policy.mjs'
+      - 'system/services/apps/first-run-selection.mjs'
+      - 'system/surface/ui/first-run.mjs'
+      - 'system/services/i18n/first-run.mjs'
+      - 'tests/test_first_run_contract.py'
+      - 'tests/test_first_run_selection.mjs'
+      - 'docs/APP-PORTFOLIO-AND-PREINSTALL.md'
       - 'system/services/apps/external-first-party-policy.mjs'
       - 'tools/app-policy/render_native_store_metadata_policy.py'
       - 'system/surface/runtime/native_store_metadata_policy.py'
@@ -129,6 +155,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prove six-app portable source boundaries
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_first_party_portable_boundary -v
+
       - name: Validate contract syntax
         run: |
           set -euo pipefail
@@ -151,6 +182,10 @@ jobs:
           node --check system/contracts/component-runtime-metadata.mjs
           node --check system/contracts/verified-app-store-catalog.mjs
           node --check system/services/apps/delivery-policy.mjs
+          node --check system/services/apps/first-run-selection.mjs
+          node --check tests/test_first_run_selection.mjs
+          node --check system/surface/ui/first-run.mjs
+          node --check system/services/i18n/first-run.mjs
           node --check system/services/apps/external-first-party-policy.mjs
           python -m py_compile tools/app-policy/render_external_first_party_policy.py
           python tools/app-policy/render_external_first_party_policy.py --check
@@ -189,6 +224,8 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_first_party_app_delivery.mjs
+          node --test tests/test_first_run_selection.mjs
+          python -m unittest tests/test_first_run_contract.py
           node --test tests/test_file_association_manifest.mjs
           node --test tests/test_file_open_registry.mjs
           node --test tests/test_app_presentation_manifest.mjs

@@ -64,3 +64,19 @@ func TestPlanPhysicalStorageRejectsUnusableGeometry(t *testing.T) {
 		t.Fatal("USB that cannot leave at least 1GiB for ORDAX-DATA must be rejected")
 	}
 }
+
+func TestOwnerDevelopmentStorageOnEightGB(t *testing.T) {
+  dev,err:=PlanOwnerDevelopmentStorage(8_000_000_000)
+  if err!=nil {t.Fatal(err)}
+  public,err:=PlanPhysicalStorage(8_000_000_000)
+  if err!=nil {t.Fatal(err)}
+  if dev.MainBytes < ownerDevelopmentMainMinBytes || dev.DataBytes < storageDataMinBytes {t.Fatalf("too small: %+v",dev)}
+  if dev.MainLastLBA >= dev.DataStartLBA {t.Fatal("overlap")}
+  if public.MainBytes != 2*1024*1024*1024 {t.Fatal("public layout drift")}
+}
+
+func TestOwnerDevelopmentSmallUSBRejected(t *testing.T) {
+  for _,size:=range []uint64{0, 3_400_000_000, 6_000_000_000, 6_300_000_000} {
+    if _,err:=PlanOwnerDevelopmentStorage(size); err==nil {t.Fatalf("accepted %d",size)}
+  }
+}

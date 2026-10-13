@@ -1,0 +1,14 @@
+{
+  "$schema": "prototype-ordax.public-legal-snapshots/1",
+  "status": "no-approved-snapshots",
+  "policy": "append-only-versioned-content",
+  "snapshots": [],
+  "requirements": {
+    "public_route": "legal/<version>/<privacidade|termos>/index.html",
+    "sha256_and_size_must_match_exact_source_bytes": true,
+    "public_builder_may_rewrite_snapshot": false,
+    "snapshot_requires_reviewed_new_policy_version": true,
+    "active_policy_and_receipts_are_server_owned": true,
+    "automated_activation_allowed": false
+  }
+}

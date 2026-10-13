@@ -1,1713 +1,247 @@
 #!/usr/bin/env node
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:net';
+import assert from 'node:assert/strict';
+import {readFile, mkdir, writeFile} from 'node:fs/promises';
+import {createServer} from 'node:http';
+import {resolve, relative, isAbsolute, sep, join, extname} from 'node:path';
+import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
 
-const STATIC_IMPORT_RE = /\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
-const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
-const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
-const SURFACE_ROOT_MODULE = 'system/surface/ui/surface.mjs';
-const WEB_COMPOSITION_ROOT_MODULE = 'system/composition/web/main.mjs';
-const ROOT_MODULES = [SURFACE_ROOT_MODULE, WEB_COMPOSITION_ROOT_MODULE];
-const CSS_FILES = [
-  'system/surface/ui/tokens.css',
-  'system/surface/ui/surface.css',
-  'system/surface/ui/boot-screen.css',
-  'system/surface/ui/workspace-areas.css',
-  'system/surface/ui/files.css',
-  'system/surface/ui/system.css',
-  'system/surface/ui/account.css',
-  'system/surface/ui/space-switcher.css',
-  'system/surface/ui/settings.css',
-  'system/surface/ui/store.css',
-  'system/surface/ui/identity.css',
-  'system/surface/ui/brand/symbol.css',
-];
-const COMPONENT_ASSET_FILES = Object.freeze({
-  'system/apps/assistant/assistant.css': 'text/css',
-  'system/apps/internet/internet.css': 'text/css',
-  'system/apps/network/network.css': 'text/css',
-  'system/apps/projects/projects.css': 'text/css',
-  'system/apps/studio/studio.css': 'text/css',
+const args=process.argv.slice(2);
+if (args.some((value,index)=>index%2===0&&!['--bundle-dir','--evidence-dir'].includes(value))) throw Error('Unsupported argument');
+const value=(key,fallback)=>args.includes(key)?args[args.indexOf(key)+1]:fallback;
+const bundle=resolve(value('--bundle-dir','out/web-client'));
+const evidence=resolve(value('--evidence-dir','out/web-viewport-proof'));
+const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.jpg':'image/jpeg','.woff2':'font/woff2','.json':'application/json'};
+const server=createServer(async(request,response)=>{
+  try {
+    const pathname=decodeURIComponent(new URL(request.url,'http://127.0.0.1').pathname);
+    const path=resolve(bundle,'.'+(pathname==='/'?'/index.html':pathname));
+    const rel=relative(bundle,path);
+    if(rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel))throw Error('Outside bundle');
+    // Resolve the file before emitting HTTP 200. A missing asset must never
+    // commit success headers and then crash the entire Chromium smoke server.
+    const bytes = await readFile(path);
+    response.writeHead(200,{'content-type':mime[extname(path)]??'application/octet-stream'});
+    response.end(bytes);
+  } catch {
+    if (!response.headersSent) {
+      response.writeHead(404);
+      response.end();
+    } else {
+      response.destroy();
+    }
+  }
 });
-
-function parseArgs(argv) {
-  let bundleDir = 'out/web-client';
-  let publicAccountUrl = null;
-  let evidenceDir = 'out/account-viewport-proof';
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index];
-    if (value === '--public-account-url') { publicAccountUrl = argv[++index]; continue; }
-    if (value === '--evidence-dir') { evidenceDir = argv[++index]; continue; }
-    if (value === '--bundle-dir') {
-      bundleDir = argv[index + 1];
-      index += 1;
-      continue;
+await new Promise(done=>server.listen(0,'127.0.0.1',done));
+const origin='http://127.0.0.1:'+server.address().port;
+await mkdir(evidence,{recursive:true});
+try {
+  for (const path of ['/web2','/web2/','/preview/']) assert.equal((await fetch(origin+path)).status,404,'Only the canonical root is mounted');
+  const reports=await runBrowser(async client=>{
+    async function evaluate(expression){
+      const reply=await client.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
+      if(reply.exceptionDetails)throw Error(reply.exceptionDetails.exception?.description??'Evaluation failed');
+      return reply.result?.value;
     }
-    throw new Error(`unsupported argument: ${value}`);
-  }
-  if (publicAccountUrl) {
-    const url = new URL(publicAccountUrl);
-    if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/conta/' || url.search || url.hash || url.username || url.password) {
-      throw new Error('public account proof requires the local canonical /conta/ preview');
-    }
-    assertInside(resolve('out'), resolve(evidenceDir));
-  }
-  return { bundleDir: resolve(bundleDir), publicAccountUrl, evidenceDir: resolve(evidenceDir) };
-}
-
-function assertInside(root, candidate) {
-  const rel = relative(root, candidate);
-  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-    throw new Error(`bundle dependency escapes bundle root: ${candidate}`);
-  }
-}
-
-function resolveModule(bundleDir, sourcePath, specifier) {
-  if (!specifier.startsWith('.')) {
-    throw new Error(`browser smoke only accepts relative local ESM dependencies: ${sourcePath} -> ${specifier}`);
-  }
-  const candidate = normalize(join(dirname(sourcePath), specifier)).replaceAll('\\', '/');
-  const absolute = resolve(bundleDir, candidate);
-  assertInside(bundleDir, absolute);
-  if (!existsSync(absolute)) {
-    throw new Error(`missing browser smoke dependency: ${candidate}`);
-  }
-  return candidate;
-}
-
-function moduleSpecifiers(source) {
-  const values = new Set();
-  for (const match of source.matchAll(STATIC_IMPORT_RE)) values.add(match[1]);
-  for (const match of source.matchAll(DYNAMIC_IMPORT_RE)) values.add(match[1]);
-  return [...values];
-}
-
-function moduleKey(path, namespace = 'shell') {
-  return `ordax-module/${namespace}/${path.split('/').map(encodeURIComponent).join('/')}`;
-}
-
-function rewriteModule(source, sourcePath, bundleDir, namespace = 'shell', assetUrls = {}) {
-  const rewrite = (full, specifier) => {
-    const dependency = resolveModule(bundleDir, sourcePath, specifier);
-    return full.replace(specifier, moduleKey(dependency, namespace));
-  };
-  const rewriteAssetHref = (_full, specifier) => {
-    const dependency = resolveModule(bundleDir, sourcePath, specifier);
-    const assetUrl = assetUrls[dependency];
-    if (!assetUrl) {
-      throw new Error(`browser smoke asset is not registered: ${sourcePath} -> ${dependency}`);
-    }
-    return JSON.stringify(assetUrl);
-  };
-  return source
-    .replace(STATIC_IMPORT_RE, rewrite)
-    .replace(DYNAMIC_IMPORT_RE, rewrite)
-    .replace(ASSET_HREF_RE, rewriteAssetHref);
-}
-
-async function collectModules(bundleDir) {
-  const pending = [...ROOT_MODULES];
-  const sources = new Map();
-  while (pending.length > 0) {
-    const path = pending.pop();
-    if (sources.has(path)) continue;
-    const source = await readFile(join(bundleDir, path), 'utf8');
-    sources.set(path, source);
-    for (const specifier of moduleSpecifiers(source)) {
-      pending.push(resolveModule(bundleDir, path, specifier));
-    }
-  }
-  return sources;
-}
-
-async function loadComponentAssetUrls(bundleDir) {
-  const entries = await Promise.all(
-    Object.entries(COMPONENT_ASSET_FILES).map(async ([path, mediaType]) => {
-      const bytes = await readFile(join(bundleDir, path));
-      return [path, `data:${mediaType};base64,${bytes.toString('base64')}`];
-    }),
-  );
-  return Object.freeze(Object.fromEntries(entries));
-}
-
-// The proof injects CSS into about:blank. Resolve bundled assets locally so
-// masks and fonts exercise the same offline resources as the compositions.
-async function loadStyles(bundleDir) {
-  return (await Promise.all(CSS_FILES.map(async (path) => {
-    let css = await readFile(join(bundleDir, path), 'utf8');
-    const urls = [...css.matchAll(/url\(\s*["']?([^"'\s)]+)["']?\s*\)/g)];
-    for (const match of urls) {
-      const asset = resolveModule(bundleDir, path, match[1]);
-      const mediaType = asset.endsWith('.svg') ? 'image/svg+xml'
-        : asset.endsWith('.woff2') ? 'font/woff2'
-        : asset.endsWith('.png') ? 'image/png' : null;
-      if (!mediaType) throw new Error(`unsupported local CSS asset: ${asset}`);
-      const bytes = await readFile(join(bundleDir, asset));
-      css = css.replace(match[0], `url("data:${mediaType};base64,${bytes.toString('base64')}")`);
-    }
-    return css;
-  }))).join('\n');
-}
-
-function which(command) {
-  const result = spawnSync('sh', ['-lc', `command -v ${JSON.stringify(command)}`], { encoding: 'utf8' });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-
-function findBrowser() {
-  const candidates = [
-    process.env.ORDAX_CHROME_BIN,
-    which('google-chrome'),
-    which('google-chrome-stable'),
-    which('chromium'),
-    which('chromium-browser'),
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-  throw new Error('Chrome/Chromium not found; set ORDAX_CHROME_BIN to an executable browser');
-}
-
-const STARTUP_TIMEOUT_MS = 60_000;
-const CDP_PROBE_TIMEOUT_MS = 3_000;
-const STDERR_LIMIT = 8_000;
-
-const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
-
-function appendDiagnostic(current, chunk) {
-  const combined = current + chunk;
-  return combined.length <= STDERR_LIMIT ? combined : combined.slice(-STDERR_LIMIT);
-}
-
-function exitSummary(exitState) {
-  if (!exitState) return 'still running';
-  const fields = [];
-  if (exitState.code !== null) fields.push(`code=${exitState.code}`);
-  if (exitState.signal !== null) fields.push(`signal=${exitState.signal}`);
-  return fields.length > 0 ? fields.join(', ') : 'exited';
-}
-
-async function reserveLoopbackPort() {
-  return new Promise((resolvePromise, reject) => {
-    const server = createServer();
-    server.unref();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      if (!address || typeof address === 'string') {
-        server.close();
-        reject(new Error('could not allocate a loopback CDP port'));
-        return;
-      }
-      const { port } = address;
-      server.close((error) => {
-        if (error) reject(error);
-        else resolvePromise(port);
-      });
-    });
-  });
-}
-
-async function waitForDevTools(
-  port,
-  getExitState,
-  getSpawnError,
-  getStderr,
-  timeoutMs = STARTUP_TIMEOUT_MS,
-) {
-  const endpoint = `http://127.0.0.1:${port}/json/version`;
-  const deadline = Date.now() + timeoutMs;
-  let lastError = null;
-
-  while (true) {
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) break;
-
-    const spawnError = getSpawnError();
-    if (spawnError) {
-      throw new Error(`failed to spawn Chromium: ${spawnError.message}`);
-    }
-    const exitState = getExitState();
-    if (exitState) {
-      throw new Error(
-        `Chromium exited before CDP became ready (${exitSummary(exitState)}); stderr=${JSON.stringify(getStderr())}`,
-      );
-    }
-
-    const controller = new AbortController();
-    const requestTimeoutMs = Math.min(CDP_PROBE_TIMEOUT_MS, remainingMs);
-    const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
-    try {
-      const response = await fetch(endpoint, { signal: controller.signal });
-      if (response.ok) return;
-      lastError = new Error(`HTTP ${response.status}`);
-    } catch (error) {
-      lastError = error;
-    } finally {
-      clearTimeout(timer);
-    }
-
-    const pauseMs = Math.min(50, deadline - Date.now());
-    if (pauseMs > 0) await sleep(pauseMs);
-  }
-
-  throw new Error(
-    `timed out waiting for Chromium CDP at ${endpoint}; process=${exitSummary(getExitState())}; last=${lastError?.message ?? 'none'}; stderr=${JSON.stringify(getStderr())}`,
-  );
-}
-
-class CdpClient {
-  constructor(url) {
-    this.socket = new WebSocket(url);
-    this.nextId = 1;
-    this.pending = new Map();
-    this.events = [];
-  }
-
-  async open() {
-    await new Promise((resolvePromise, reject) => {
-      const timer = setTimeout(() => reject(new Error('timed out opening DevTools WebSocket')), 10_000);
-      this.socket.addEventListener('open', () => {
-        clearTimeout(timer);
-        resolvePromise();
-      }, { once: true });
-      this.socket.addEventListener('error', (event) => {
-        clearTimeout(timer);
-        reject(new Error(`DevTools WebSocket error: ${event?.message ?? 'unknown error'}`));
-      }, { once: true });
-    });
-    this.socket.addEventListener('message', (event) => {
-      const message = JSON.parse(event.data);
-      if (message.id) {
-        const pending = this.pending.get(message.id);
-        if (!pending) return;
-        this.pending.delete(message.id);
-        if (message.error) pending.reject(new Error(`${pending.method}: ${message.error.message}`));
-        else pending.resolve(message.result ?? {});
-        return;
-      }
-      this.events.push(message);
-    });
-  }
-
-  send(method, params = {}) {
-    const id = this.nextId;
-    this.nextId += 1;
-    return new Promise((resolvePromise, reject) => {
-      this.pending.set(id, { resolve: resolvePromise, reject, method });
-      this.socket.send(JSON.stringify({ id, method, params }));
-    });
-  }
-
-  close() {
-    this.socket.close();
-  }
-}
-
-// Keep raster URLs short in the about:blank fixture, while decoding the exact
-// offline bundle bytes. CSS variable substitution need not carry megabytes of
-// base64 inside a declaration. The private proof page owns the Blob lifetime.
-function injectedStylesExpression(styles) {
-  return `(() => {
-    const localPngUrls = new Map();
-    return (${JSON.stringify(styles)}).replace(/url\\("data:image\\/png;base64,([^\"]+)"\\)/g, (_, encoded) => {
-      if (!localPngUrls.has(encoded)) {
-        const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-        localPngUrls.set(encoded, URL.createObjectURL(new Blob([bytes], { type: 'image/png' })));
-      }
-      return 'url("' + localPngUrls.get(encoded) + '")';
-    });
-  })()`;
-}
-
-function buildProofExpression(moduleSources, styles, assetUrls) {
-  const namespace = 'shell';
-  const rewritten = Object.fromEntries(
-    [...moduleSources.entries()].map(([path, source]) => [
-      path,
-      rewriteModule(source, path, bundleDirGlobal, namespace, assetUrls),
-    ]),
-  );
-  const moduleKeys = Object.fromEntries(
-    [...moduleSources.keys()].map((path) => [path, moduleKey(path, namespace)]),
-  );
-  return `(async () => {
-    const sources = ${JSON.stringify(rewritten)};
-    const keys = ${JSON.stringify(moduleKeys)};
-    document.open();
-    document.write('<!doctype html><html><head></head><body><div id="ordax-proof-root"></div></body></html>');
-    document.close();
-    const style = document.createElement('style');
-    style.textContent = ${injectedStylesExpression(styles)};
-    document.head.append(style);
-
-    const urls = Object.create(null);
-    for (const [path, source] of Object.entries(sources)) {
-      urls[path] = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-    }
-    const imports = Object.create(null);
-    for (const [path, key] of Object.entries(keys)) imports[key] = urls[path];
-    const importMap = document.createElement('script');
-    importMap.type = 'importmap';
-    importMap.textContent = JSON.stringify({ imports });
-    document.head.append(importMap);
-
-    const { mountSurface } = await import(urls[${JSON.stringify('system/surface/ui/surface.mjs')}]);
-    let snapshot = { capabilityIds: [], connectivity: 'offline' };
-    const listeners = new Set();
-    const host = {
-      schema: 'ordax.surface-host/1',
-      getSnapshot() { return snapshot; },
-      subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
-      emit(next) { snapshot = next; for (const listener of [...listeners]) listener(snapshot); },
-    };
-    const savedWorkspaces = [];
-    const workspaceStore = {
-      schema: 'ordax.workspace-store/2',
-      load() { return null; },
-      save(value) { savedWorkspaces.push(value); },
-    };
-    const root = document.querySelector('#ordax-proof-root');
-    const surface = mountSurface(root, host, null, workspaceStore);
-    const result = {};
-    result.shellMounted = Boolean(root.querySelector('[data-workspace]'));
-    result.launcherApps = root.querySelectorAll('[data-launch-app]').length;
-
-    root.querySelector('[data-launcher-toggle]').click();
-    const settingsLaunch = root.querySelector('[data-launch-app="settings"]');
-    result.settingsLaunchPresent = Boolean(settingsLaunch);
-    settingsLaunch.click();
-
-    const windowBefore = root.querySelector('[data-window-id="settings"]');
-    const slotBefore = windowBefore?.querySelector('[data-app-extension="settings-overview"]');
-    const bodyBefore = windowBefore?.querySelector('.ordax-window-body');
-    result.settingsWindowCreated = Boolean(windowBefore && slotBefore && bodyBefore);
-
-    bodyBefore.style.height = '120px';
-    bodyBefore.style.maxHeight = '120px';
-    const input = document.createElement('input');
-    input.dataset.proofDraft = '';
-    input.value = 'rascunho-nao-persistido';
-    const spacer = document.createElement('div');
-    spacer.style.height = '1200px';
-    spacer.textContent = 'proof spacer';
-    slotBefore.append(input, spacer);
-    bodyBefore.scrollTop = 90;
-    input.focus({ preventScroll: true });
-    const scrollBefore = bodyBefore.scrollTop;
-    result.focusBeforeSnapshot = document.activeElement === input;
-    result.scrollBeforeSnapshot = scrollBefore;
-
-    host.emit({ capabilityIds: [], connectivity: 'online' });
-    const windowAfterSnapshot = root.querySelector('[data-window-id="settings"]');
-    const slotAfterSnapshot = windowAfterSnapshot?.querySelector('[data-app-extension="settings-overview"]');
-    const bodyAfterSnapshot = windowAfterSnapshot?.querySelector('.ordax-window-body');
-    result.sameWindowAfterSnapshot = windowAfterSnapshot === windowBefore;
-    result.sameSlotAfterSnapshot = slotAfterSnapshot === slotBefore;
-    result.sameInputAfterSnapshot = slotAfterSnapshot?.querySelector('[data-proof-draft]') === input;
-    result.focusAfterSnapshot = document.activeElement === input;
-    result.scrollPreservedAfterSnapshot = bodyAfterSnapshot?.scrollTop === scrollBefore;
-    result.draftPreservedAfterSnapshot = input.value === 'rascunho-nao-persistido';
-
-    surface.preferences.set('appearance.theme', 'dark');
-    const windowAfterPreference = root.querySelector('[data-window-id="settings"]');
-    result.sameWindowAfterPreference = windowAfterPreference === windowBefore;
-    result.sameInputAfterPreference = windowAfterPreference?.querySelector('[data-proof-draft]') === input;
-    result.focusAfterPreference = document.activeElement === input;
-    result.scrollPreservedAfterPreference = windowAfterPreference?.querySelector('.ordax-window-body')?.scrollTop === scrollBefore;
-
-    const minimize = windowBefore.querySelector('[data-window-action="minimize"]');
-    minimize.click();
-    result.savedAfterMinimize = savedWorkspaces.at(-1)?.areas?.[0]?.windows?.find((item) => item.id === 'settings')?.minimized === true;
-    result.sameWindowWhileMinimized = root.querySelector('[data-window-id="settings"]') === windowBefore;
-    result.windowHiddenWhenMinimized = windowBefore.hidden === true;
-    result.minimizedDatasetAfterClick = windowBefore.dataset.minimized === 'true';
-    result.dockOffersRestore = root.querySelector('[data-open-window="settings"]')?.getAttribute('aria-label') === 'Restaurar Ajustes';
-    result.draftPreservedWhileMinimized = input.value === 'rascunho-nao-persistido';
-    result.focusMovedToWorkspaceOnMinimize = document.activeElement === root.querySelector('[data-workspace]');
-
-    root.querySelector('[data-open-window="settings"]').click();
-    result.sameWindowAfterRestore = root.querySelector('[data-window-id="settings"]') === windowBefore;
-    result.windowVisibleAfterRestore = windowBefore.hidden === false;
-    result.sameInputAfterRestore = windowBefore.querySelector('[data-proof-draft]') === input;
-    result.draftPreservedAfterRestore = input.value === 'rascunho-nao-persistido';
-    result.scrollPreservedAfterRestore = bodyBefore.scrollTop === scrollBefore;
-    result.maximizedDatasetAfterRestore = windowBefore.dataset.maximized === 'true';
-
-    const maximize = windowBefore.querySelector('[data-window-action="maximize"]');
-    maximize.click();
-    result.sameWindowAfterUnmaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
-    result.maximizedDatasetAfterUnmaximize = windowBefore.dataset.maximized === 'false';
-    maximize.click();
-    result.sameWindowAfterRemaximize = root.querySelector('[data-window-id="settings"]') === windowBefore;
-    result.maximizedDatasetAfterRemaximize = windowBefore.dataset.maximized === 'true';
-
-    root.querySelector('[data-launcher-toggle]').click();
-    const systemLaunchBefore = root.querySelector('[data-launcher] [data-launch-app="system"]');
-    systemLaunchBefore.focus({ preventScroll: true });
-    result.launcherFocusBeforeSnapshot = document.activeElement === systemLaunchBefore;
-    host.emit({ capabilityIds: [], connectivity: 'offline' });
-    const systemLaunchAfter = root.querySelector('[data-launcher] [data-launch-app="system"]');
-    result.sameLauncherNodeAfterSnapshot = systemLaunchAfter === systemLaunchBefore;
-    result.launcherFocusPreserved = document.activeElement === systemLaunchBefore;
-
-    windowBefore.querySelector('[data-window-action="close"]').click();
-    result.windowRemovedAfterClose = root.querySelector('[data-window-id="settings"]') === null;
-    result.dockRemovedAfterClose = root.querySelector('[data-open-window="settings"]') === null;
-    result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
-
-    const required = [
-      'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
-      'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
-      'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
-      'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',
-      'scrollPreservedAfterPreference', 'savedAfterMinimize', 'sameWindowWhileMinimized',
-      'windowHiddenWhenMinimized', 'minimizedDatasetAfterClick', 'dockOffersRestore',
-      'draftPreservedWhileMinimized', 'focusMovedToWorkspaceOnMinimize', 'sameWindowAfterRestore',
-      'windowVisibleAfterRestore', 'sameInputAfterRestore', 'draftPreservedAfterRestore',
-      'scrollPreservedAfterRestore', 'maximizedDatasetAfterRestore', 'sameWindowAfterUnmaximize',
-      'maximizedDatasetAfterUnmaximize', 'sameWindowAfterRemaximize', 'maximizedDatasetAfterRemaximize',
-      'launcherFocusBeforeSnapshot', 'sameLauncherNodeAfterSnapshot', 'launcherFocusPreserved', 'windowRemovedAfterClose',
-      'dockRemovedAfterClose', 'focusMovedToWorkspaceOnClose',
-    ];
-    result.requiredAssertions = Object.fromEntries(required.map((name) => [name, Boolean(result[name])]));
-    result.allCoreAssertions = result.launcherApps >= 4 && Object.values(result.requiredAssertions).every(Boolean);
-
-    surface.destroy();
-    for (const url of Object.values(urls)) URL.revokeObjectURL(url);
-    return result;
-  })()`;
-}
-
-function buildCompositionProofExpression(moduleSources, styles, assetUrls) {
-  const namespaces = ['composition-first', 'composition-remount'];
-  const namespaceSources = Object.fromEntries(
-    namespaces.map((namespace) => [
-      namespace,
-      Object.fromEntries(
-        [...moduleSources.entries()].map(([path, source]) => [
-          path,
-          rewriteModule(source, path, bundleDirGlobal, namespace, assetUrls),
-        ]),
-      ),
-    ]),
-  );
-  const namespaceKeys = Object.fromEntries(
-    namespaces.map((namespace) => [
-      namespace,
-      Object.fromEntries(
-        [...moduleSources.keys()].map((path) => [path, moduleKey(path, namespace)]),
-      ),
-    ]),
-  );
-
-  return `(async () => {
-    const namespaceSources = ${JSON.stringify(namespaceSources)};
-    const namespaceKeys = ${JSON.stringify(namespaceKeys)};
-    const rootModule = ${JSON.stringify(WEB_COMPOSITION_ROOT_MODULE)};
-    const storageRecords = new Map();
-    const storage = {
-      get length() { return storageRecords.size; },
-      clear() { storageRecords.clear(); },
-      getItem(key) { return storageRecords.has(String(key)) ? storageRecords.get(String(key)) : null; },
-      key(index) { return [...storageRecords.keys()][index] ?? null; },
-      removeItem(key) { storageRecords.delete(String(key)); },
-      setItem(key, value) { storageRecords.set(String(key), String(value)); },
-    };
-    Object.defineProperty(window, 'localStorage', {
-      configurable: true,
-      enumerable: true,
-      value: storage,
-    });
-
-    document.open();
-    document.write('<!doctype html><html><head></head><body><div id="ordax-boot-screen" class="ordax-boot-screen" data-state="loading"><span data-ordax-boot-status>Preparando OrdaX…</span></div><div id="ordax-root"></div></body></html>');
-    document.close();
-    const style = document.createElement('style');
-    style.textContent = ${injectedStylesExpression(styles)};
-    document.head.append(style);
-
-    const namespaceUrls = Object.create(null);
-    const imports = Object.create(null);
-    for (const [namespace, sources] of Object.entries(namespaceSources)) {
-      const urls = Object.create(null);
-      namespaceUrls[namespace] = urls;
-      for (const [path, source] of Object.entries(sources)) {
-        urls[path] = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-      }
-      for (const [path, key] of Object.entries(namespaceKeys[namespace])) {
-        imports[key] = urls[path];
-      }
-    }
-    const importMap = document.createElement('script');
-    importMap.type = 'importmap';
-    importMap.textContent = JSON.stringify({ imports });
-    document.head.append(importMap);
-
-    const result = {};
-
-    const parsedStorage = (key) => {
-      const raw = storage.getItem(key);
-      return raw === null ? null : JSON.parse(raw);
-    };
-    const launch = async (appId) => {
-      const root = document.querySelector('#ordax-root');
-      const launcher = root.querySelector('[data-launcher]');
-      if (launcher?.hidden !== false) root.querySelector('[data-launcher-toggle]').click();
-      const button = root.querySelector('[data-launch-app="' + appId + '"]');
-      if (!button) throw new Error('composition smoke could not find launcher app: ' + appId);
-      button.click();
-      await Promise.resolve();
-    };
-
-    await import(namespaceUrls['composition-first'][rootModule]);
-    await Promise.resolve();
-    let root = document.querySelector('#ordax-root');
-    result.compositionMounted = Boolean(root?.querySelector('[data-workspace]'));
-    root.querySelector('.ordax-rail [data-launch-app="studio"]')?.click();
-    await Promise.resolve();
-    const studioWorkspace = root.querySelector('[data-studio-workspace="true"]');
-    result.studioNavigationOpensSharedApp = Boolean(studioWorkspace);
-    result.studioWebAvailabilityIsHonest = /ainda não está integrado|not yet integrated/.test(studioWorkspace?.textContent || '');
-    result.studioUnavailableDoesNotDisplayZeroMetrics = studioWorkspace?.querySelector('.ordax-studio-metrics') === null;
-    const studioChatLink = studioWorkspace?.querySelector('a');
-    result.studioChatUsesExternalPublicSite = studioChatLink?.href === 'https://chatgpt.com/' && studioChatLink?.rel === 'noopener noreferrer';
-    const studioAbout = studioWorkspace?.querySelector('[data-studio-disclosure="about"]');
-    if (studioAbout) studioAbout.open = true;
-    result.studioHasSingleContentHeading = [...root.querySelectorAll('[data-app-extension="studio-workspace"] h3')].filter((heading) => getComputedStyle(heading).display !== 'none').length === 1;
-    studioWorkspace?.querySelector('[data-launch-app="projects"]')?.click();
-    await Promise.resolve();
-    result.studioProjectsUsesExistingOwner = Boolean(root.querySelector('[data-window-id="projects"]'));
-    result.studioDisclosureSurvivesNavigation = root.querySelector('[data-studio-workspace="true"] [data-studio-disclosure="about"]')?.open === true;
-    const homeSettings = root.querySelector('.ordax-home-actions [data-launch-app="settings"]');
-    homeSettings?.click();
-    await Promise.resolve();
-    result.homeShortcutOpensRealOwner = root.querySelector('[data-window-id="settings"] [data-app-extension="settings-overview"]')?.dataset.ordaxSettingsOverviewView !== undefined;
-    root.querySelector('[data-show-desktop]')?.click();
-    await Promise.resolve();
-    result.homeRestoresDesktopWithoutDeletingWindows = parsedStorage('ordax.workspace.v2')?.areas?.[0]?.windows?.some((item) => item.appId === 'settings' && item.minimized === true) === true;
-    result.homeNavigationReflectsWorkspace = root.querySelector('[data-show-desktop]')?.getAttribute('aria-current') === 'page';
-    root.querySelector('.ordax-dock-shortcuts [data-launch-app="files"]')?.click();
-    await Promise.resolve();
-    result.dockShortcutOpensRealOwner = Boolean(root.querySelector('[data-window-id="files"]'));
-    result.homeNavigationClearsWhenAppIsActive = root.querySelector('[data-show-desktop]')?.hasAttribute('aria-current') === false;
-
-    result.sharedShortcutLabels = [...root.querySelectorAll('.ordax-home-action, .ordax-dock-shortcut')].every((button) => button.getAttribute('aria-label') === root.querySelector('.ordax-rail [data-sidebar-app="' + button.dataset.sidebarApp + '"]')?.getAttribute('aria-label'));
-    const wallpaper = getComputedStyle(root.querySelector('[data-workspace]'), '::before').backgroundImage;
-    const wallpaperUrl = wallpaper.match(/url\\("?(blob:[^"\\)]+)"?\\)/)?.[1];
-    result.localWallpaperBundled = Boolean(wallpaperUrl);
-    result.localWallpaperDecoded = await new Promise((resolve) => {
-      const image = new Image();
-      image.onload = () => resolve(image.naturalWidth >= 1000 && image.naturalHeight >= 500);
-      image.onerror = () => resolve(false);
-      image.src = wallpaperUrl ?? '';
-    });
-    const spaceTrigger = root.querySelector('[data-space-switcher-toggle]');
-    result.spaceSwitcherMounted = Boolean(spaceTrigger);
-    spaceTrigger?.click();
-    result.spaceSwitcherOpens = spaceTrigger?.getAttribute('aria-expanded') === 'true'
-      && root.querySelector('#ordax-space-switcher-menu')?.hidden === false;
-    result.spaceSwitcherWebFailsClosed = root.querySelectorAll('[data-space-switcher-select]').length === 0;
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    result.spaceSwitcherEscapeCloses = spaceTrigger?.getAttribute('aria-expanded') === 'false';
-    spaceTrigger?.focus();
-    spaceTrigger?.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'ArrowDown', bubbles: true, cancelable: true,
-    }));
-    const manageSpaces = root.querySelector('[data-space-switcher-manage]');
-    result.spaceSwitcherKeyboardOpens = spaceTrigger?.getAttribute('aria-expanded') === 'true';
-    result.spaceSwitcherKeyboardFocusesAction = Boolean(manageSpaces)
-      && document.activeElement === manageSpaces;
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    result.spaceSwitcherKeyboardRestoresFocus = spaceTrigger?.getAttribute('aria-expanded') === 'false'
-      && document.activeElement === spaceTrigger;
-
-    // Exercise a real interactive Native-style port in Chromium, with a
-    // transient selection failure. This fixture never touches product storage.
-    const pickerModule = await import(namespaceUrls['composition-first']['system/surface/ui/space-switcher-controls.mjs']);
-    const pickerHost = document.createElement('div');
-    pickerHost.innerHTML = '<div data-space-switcher-slot></div>';
-    document.body.append(pickerHost);
-    const pickerSpace = {
-      id: 'picker-space', name: 'Pizzaria teste', kind: 'professional',
-      state: 'active', ownerId: 'picker-subject', profilePack: null,
-    };
-    const pickerSession = { state: 'signed-in', subjectId: 'picker-subject', displayName: 'Teste' };
-    const pickerCatalog = { schema: 'ordax.spaces-snapshot/1', state: 'ready', spaces: [pickerSpace] };
-    let pickerSelection = {
-      schema: 'ordax.space-selection/1', state: 'unselected',
-      subjectId: 'picker-subject', selectedSpace: null,
-    };
-    let pickerFailures = 1;
-    const pickerPort = {
-      schema: 'ordax.space-selection/1',
-      getSnapshot() { return pickerSelection; },
-      subscribe(listener) { listener(pickerSelection); return () => {}; },
-      select(spaceId) {
-        if (pickerFailures-- > 0) throw new Error('selection temporarily unavailable');
-        if (spaceId !== pickerSpace.id) throw new Error('invalid selection');
-        pickerSelection = { ...pickerSelection, state: 'selected', selectedSpace: pickerSpace };
-        return pickerSelection;
-      },
-      clear() {},
-    };
-    const pickerControls = pickerModule.mountSpaceSwitcherControls(
-      pickerHost,
-      {
-        schema: 'ordax.identity-session/1',
-        getSnapshot() { return pickerSession; },
-        subscribe(listener) { listener(pickerSession); return () => {}; },
-      },
-      {
-        schema: 'ordax.spaces/1',
-        getSnapshot() { return pickerCatalog; },
-        subscribe(listener) { listener(pickerCatalog); return () => {}; },
-        async refresh() { return pickerCatalog; },
-        reset() {},
-      },
-      pickerPort,
-      { schema: 'ordax.app-activation/1', publish() {}, subscribe() { return () => {}; } },
-      {
-        schema: 'ordax.surface-render-lifecycle/5',
-        getAppTarget() { return null; },
-        setAppTarget() {},
-        subscribeRender() { return () => {}; },
-        localization: {
-          schema: 'ordax.localization/2',
-          getLocale() { return 'pt-BR'; },
-          getProfile() {
-            return { schema: 'ordax.locale-profile/1', locale: 'pt-BR',
-              language: 'pt', script: 'Latn', region: 'BR', direction: 'ltr' };
-          },
-          translate(key) { return key; },
-          subscribe() { return () => {}; },
-        },
-      },
-    );
-    pickerHost.querySelector('[data-space-switcher-toggle]').click();
-    pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
-    result.spaceSwitcherFailedOptionEnabled =
-      pickerHost.querySelector('[data-space-switcher-select="picker-space"]')?.disabled === false;
-    result.spaceSwitcherFailedFeedback = Boolean(pickerHost.querySelector('[role="alert"]'));
-    result.spaceSwitcherFailureMenuOpen =
-      pickerHost.querySelector('#ordax-space-switcher-menu')?.hidden === false;
-    result.spaceSwitcherFailureKeepsOptions =
-      result.spaceSwitcherFailedOptionEnabled
-      && result.spaceSwitcherFailedFeedback
-      && result.spaceSwitcherFailureMenuOpen;
-    pickerHost.querySelector('[data-space-switcher-select="picker-space"]').click();
-    result.spaceSwitcherRetrySucceeds = pickerSelection.state === 'selected'
-      && pickerHost.querySelector('[data-space-switcher-toggle]')?.getAttribute('aria-expanded') === 'false';
-    // Simulate a new authenticated subject arriving before the old Space
-    // catalog has been invalidated; no foreign names or actions may appear.
-    pickerSession.subjectId = 'second-picker-subject';
-    pickerHost.querySelector('[data-space-switcher-toggle]').click();
-    result.spaceSwitcherSubjectMismatchFailsClosed =
-      pickerHost.querySelectorAll('[data-space-switcher-select]').length === 0
-      && !pickerHost.querySelector('.ordax-space-switcher-trigger-label')
-        ?.textContent?.includes('Pizzaria teste')
-      && pickerHost.querySelector('#ordax-space-switcher-menu')?.hidden === false;
-    pickerControls.destroy();
-    result.spaceSwitcherFixtureCleaned = pickerHost.querySelector('[data-space-switcher-toggle]') === null;
-    pickerHost.remove();
-
-    const bootScreen = document.querySelector('#ordax-boot-screen');
-    result.bootScreenCompleted = bootScreen?.hidden === true
-      && bootScreen?.dataset.state === 'ready';
-    const firstInternetStyle = document.querySelector(
-      'link[data-ordax-component-style="internet"]',
-    );
-    result.internetComponentStyleMounted = Boolean(
-      firstInternetStyle?.href?.startsWith('data:text/css;base64,'),
-    );
-    const firstProjectsStyle = document.querySelector(
-      'link[data-ordax-component-style="projects"]',
-    );
-    result.projectsComponentStyleMounted = Boolean(
-      firstProjectsStyle?.href?.startsWith('data:text/css;base64,'),
-    );
-    const firstNetworkStyle = document.querySelector(
-      'link[data-ordax-component-style="network"]',
-    );
-    result.networkComponentStyleMounted = Boolean(
-      firstNetworkStyle?.href?.startsWith('data:text/css;base64,'),
-    );
-
-    await launch('network');
-    const networkWindow = root.querySelector('[data-window-id="network"]');
-    const networkSlot = networkWindow?.querySelector('[data-app-extension="network-workspace"]');
-    const networkBackend = networkSlot?.querySelector('[data-network-backend]');
-    result.networkOwnerMounted = networkSlot?.dataset.ordaxNetworkMounted === 'true';
-    result.networkWebUnavailableHonest = networkBackend?.dataset.networkBackend === 'unavailable';
-
-    await launch('projects');
-    const projectsWindow = root.querySelector('[data-window-id="projects"]');
-    const projectsSlot = projectsWindow?.querySelector('[data-app-extension="projects-workspace"]');
-    const projectsView = projectsSlot?.querySelector('[data-ordax-projects-view]');
-    result.projectsOwnerMounted = projectsSlot?.dataset.ordaxProjectsMounted === 'true';
-    result.projectsWebUnavailableHonest = projectsView?.dataset.projectsAvailable === 'false';
-
-    await launch('settings');
-    let settingsWindow = root.querySelector('[data-window-id="settings"]');
-    let settingsSlot = settingsWindow?.querySelector('[data-app-extension="settings-overview"]');
-    result.settingsWindowMounted = Boolean(settingsWindow);
-    result.settingsOwnerMounted = Boolean(settingsSlot?.dataset.ordaxSettingsOverviewView !== undefined);
-    result.settingsStartsAppearance = settingsSlot?.dataset.settingsActiveSection === 'appearance';
-    result.globalHeaderClearOfWindows = settingsWindow?.getBoundingClientRect().top
-      >= root.querySelector('.ordax-brandbar').getBoundingClientRect().bottom;
-    const previewMatchesRoot = (theme) => {
-      const preview = settingsSlot?.querySelector('[data-theme-preview="' + theme + '"]');
-      if (!preview) return false;
-      return ['--ordax-accent', '--ordax-text', '--ordax-app-bg'].every((token) =>
-        getComputedStyle(preview).getPropertyValue(token).trim()
-        === getComputedStyle(root).getPropertyValue(token).trim());
-    };
-    result.lightPreviewFollowsTokens = previewMatchesRoot('light');
-    const brand = root.querySelector('.ordax-brand-symbol');
-    const brandImageUrl = brand && getComputedStyle(brand).backgroundImage.match(/^url\\(["']?([^"')]+)["']?\\)$/)?.[1];
-    const brandImage = new Image();
-    if (brandImageUrl) brandImage.src = brandImageUrl;
-    if (brandImageUrl) await brandImage.decode();
-    result.localBrandImageLoaded = Boolean(brandImageUrl?.startsWith('blob:') &&
-      brandImage.naturalWidth === 1254 && brandImage.naturalHeight === 1254);
-    const previousContrast = root.dataset.ordaxContrast;
-    root.dataset.ordaxContrast = 'high';
-    result.brandHighContrastUsesSameImage = Boolean(brandImageUrl &&
-      getComputedStyle(brand).maskImage.includes(brandImageUrl));
-    if (previousContrast === undefined) delete root.dataset.ordaxContrast;
-    else root.dataset.ordaxContrast = previousContrast;
-    await document.fonts.ready;
-    result.localFontLoaded = [...document.fonts].some((font) => font.family === 'Inter' && font.status === 'loaded');
-
-    const darkButton = settingsSlot?.querySelector(
-      '[data-settings-preference-id="appearance.theme"][data-settings-preference-value="dark"]',
-    );
-    result.darkActionPresent = Boolean(darkButton);
-    darkButton?.click();
-    await Promise.resolve();
-    result.darkThemeApplied = root.dataset.ordaxTheme === 'dark';
-    result.darkThemePersisted = parsedStorage('ordax.preferences.v1')?.['appearance.theme'] === 'dark';
-    result.darkPreviewFollowsTokens = previewMatchesRoot('dark');
-
-    const accessibilityButton = settingsSlot?.querySelector('[data-settings-section="accessibility"]');
-    result.accessibilityNavigationPresent = Boolean(accessibilityButton);
-    accessibilityButton?.click();
-    await Promise.resolve();
-    settingsWindow = root.querySelector('[data-window-id="settings"]');
-    settingsSlot = settingsWindow?.querySelector('[data-app-extension="settings-overview"]');
-    result.accessibilityTargetApplied = settingsSlot?.dataset.settingsActiveSection === 'accessibility';
-
-    const extraLargeButton = settingsSlot?.querySelector(
-      '[data-settings-preference-id="accessibility.text-scale"][data-settings-preference-value="extra-large"]',
-    );
-    result.extraLargeActionPresent = Boolean(extraLargeButton);
-    extraLargeButton?.click();
-    await Promise.resolve();
-    result.textScaleApplied = document.documentElement.dataset.ordaxTextScale === 'extra-large';
-    const preferences = parsedStorage('ordax.preferences.v1');
-    result.textScalePersisted = preferences?.['accessibility.text-scale'] === 'extra-large';
-
-    const workspace = parsedStorage('ordax.workspace.v2');
-    const firstArea = workspace?.areas?.find((area) => area.id === workspace.activeAreaId) ?? workspace?.areas?.[0];
-    const storedSettings = firstArea?.windows?.find((item) => item.appId === 'settings');
-    result.workspaceTargetPersisted = storedSettings?.target === 'accessibility';
-
-    result.notesAbsentFromLauncher = root.querySelector('[data-launch-app="notes"]') === null;
-    result.notesLocalWindowAbsent = root.querySelector('[data-window-id="notes"]') === null;
-
-    await launch('store');
-    const storeSlot = root.querySelector(
-      '[data-window-id="store"] [data-app-extension="store-overview"]',
-    );
-    result.storeOwnerMounted = storeSlot?.dataset.ordaxStoreOverviewView === 'true';
-    result.storeFailsClosedWithoutVerifiedCatalog = storeSlot?.dataset.storeState === 'unavailable'
-      && storeSlot?.querySelector('[data-store-operation]') === null
-      && storeSlot?.querySelector('[data-store-authority="none"]') !== null;
-
-
-    // Exercise the Store in Chromium against a verified contract fixture.
-    // This fixture is isolated from the real composition and cannot authorize installs.
-    const { mountStoreOverviewControls } = await import(
-      namespaceUrls['composition-first']['system/surface/ui/store-overview-controls.mjs']
-    );
-    const { createLocaleProfile } = await import(
-      namespaceUrls['composition-first']['system/contracts/locale-profile.mjs']
-    );
-    const storeProofRoot = document.createElement('div');
-    storeProofRoot.style.width = '1100px';
-    storeProofRoot.innerHTML = '<section data-window-id="store"><div class="ordax-app-extension" data-app-extension="store-overview"></div></section>';
-    document.body.append(storeProofRoot);
-    const verifiedStoreEntries = [
-      {
-        appId: 'audio', title: 'Áudio', state: 'available',
-        installedVersion: null, availableVersion: '1.0.0',
-        installable: true, updatable: false, removable: false, blockedReason: null,
-        artifactIdentityVerified: true, provenanceVerified: true,
-      },
-      {
-        appId: 'files', title: 'Arquivos', state: 'installed',
-        installedVersion: '1.0.0', availableVersion: null,
-        installable: false, updatable: false, removable: true, blockedReason: null,
-        artifactIdentityVerified: false, provenanceVerified: false,
-      },
-      {
-        appId: 'studio', title: 'OrdaX Studio', state: 'installed',
-        installedVersion: '1.0.0', availableVersion: '1.0.1',
-        installable: false, updatable: true, removable: true, blockedReason: null,
-        artifactIdentityVerified: true, provenanceVerified: true,
-      },
-    ];
-    // Deliberately unsorted incoming SSOT: presentation must order it without mutation.
-    verifiedStoreEntries.reverse();
-    const verifiedStoreSnapshot = {
-      schema: 'ordax.app-store-catalog/2', state: 'ready', entries: verifiedStoreEntries,
-      reason: null, authority: 'none',
-    };
-    let notifyStore = null;
-    const proofCatalog = {
-      schema: 'ordax.app-store-catalog-port/2', authority: 'none',
-      getSnapshot() { return verifiedStoreSnapshot; },
-      subscribe(listener) { notifyStore = listener; return () => { notifyStore = null; }; },
-    };
-    const localeProfile = createLocaleProfile('pt-BR');
-    const proofLifecycle = {
-      schema: 'ordax.surface-render-lifecycle/5',
-      getAppTarget() { return null; },
-      setAppTarget() {},
-      subscribeRender() { return () => {}; },
-      localization: {
-        schema: 'ordax.localization/2',
-        getLocale() { return 'pt-BR'; },
-        getProfile() { return localeProfile; },
-        translate(messageId, parameters) {
-          if (typeof parameters?.reason === 'string') return messageId + ': ' + parameters.reason;
-          return messageId;
-        },
-        subscribe() { return () => {}; },
-      },
-    };
-    const proofRequests = [];
-    let deferStoreInstall = false;
-    let resolveStoreInstall = null;
-    const proofRequestsPort = {
-      schema: 'ordax.app-lifecycle-request-port/1', authority: 'none',
-      requestLifecycle(request) {
-        proofRequests.push(request);
-        if (request.operation === 'install') {
-          if (deferStoreInstall) return new Promise((resolve) => { resolveStoreInstall = resolve; });
-          return {
-            schema: 'ordax.app-lifecycle-request-result/1',
-            requestId: request.requestId, appId: request.appId,
-            operation: request.operation, source: request.source,
-            state: 'rejected', reason: 'incompatible-host-policy', authority: 'none',
-          };
-        }
-        throw new Error('intentional synchronous Store proof failure');
-      },
-    };
-    const storeProof = mountStoreOverviewControls(
-      storeProofRoot, proofCatalog, proofLifecycle, proofRequestsPort,
-    );
-    const proofStoreSlot = storeProofRoot.querySelector('[data-app-extension="store-overview"]');
-    result.storeVerifiedCatalogRendered = proofStoreSlot?.dataset.storeState === 'ready'
-      && proofStoreSlot.querySelectorAll('[data-store-app-card]').length === 3;
-    result.storeAlphabeticallySorted = Array.from(proofStoreSlot.querySelectorAll('[data-store-app-card]'))
-      .map((card) => card.dataset.storeAppId).join(',') === 'files,audio,studio';
-    storeProofRoot.style.width = '430px';
-    result.storeResizesWithWindow = getComputedStyle(
-      proofStoreSlot.querySelector('.ordax-store-layout'),
-    ).gridTemplateColumns.split(' ').length === 1;
-    storeProofRoot.style.width = '1100px';
-    const proofSearch = proofStoreSlot.querySelector('[data-store-search]');
-    proofSearch.value = 'audio';
-    proofSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    result.storeAccentInsensitiveSearch = proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="audio"]')?.hidden === false
-      && proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="files"]')?.hidden === true;
-    proofSearch.focus();
-    notifyStore(verifiedStoreSnapshot);
-    result.storePreservesSearchFocus = document.activeElement
-      === proofStoreSlot.querySelector('[data-store-search]');
-    const installedTab = proofStoreSlot.querySelector('[data-store-view="installed"]');
-    installedTab.click();
-    const installedSearch = proofStoreSlot.querySelector('[data-store-search]');
-    installedSearch.value = '';
-    installedSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    result.storeInstalledFilter = proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="audio"]')?.hidden === true
-      && proofStoreSlot.querySelector('[data-store-app-card][data-store-app-id="files"]')?.hidden === false;
-    proofStoreSlot.querySelector('[data-store-details="files"]').click();
-    const removeAction = () => proofStoreSlot.querySelector('[data-store-operation="remove"]');
-    removeAction().click();
-    result.storeRemovalRequiresConfirmation = proofRequests.length === 0
-      && proofStoreSlot.querySelector('[data-store-confirm-remove]') !== null;
-    proofStoreSlot.querySelector('[data-store-cancel-remove]').click();
-    result.storeRemovalCanCancel = proofRequests.length === 0
-      && proofStoreSlot.querySelector('[data-store-confirm-remove]') === null;
-    removeAction().click();
-    proofStoreSlot.querySelector('[data-store-confirm-remove]').click();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    result.storeSyncFailureRecovered = proofRequests.length === 1
-      && proofRequests[0].operation === 'remove'
-      && proofRequests[0].authority === 'none'
-      && proofStoreSlot.querySelector('[data-store-operation="remove"]')?.disabled === false
-      && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent === 'store.request.remove.failed';
-    proofStoreSlot.querySelector('[data-store-back]').click();
-    proofStoreSlot.querySelector('[data-store-view="discover"]').click();
-    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    result.storeShowsValidatedRejectionReason = proofRequests.length === 2
-      && proofRequests[1].operation === 'install'
-      && proofStoreSlot.querySelector('.ordax-store-request-status')?.textContent
-        ?.includes('incompatible-host-policy') === true;
-
-    // A delayed platform reply must not mark a request as accepted after a
-    // different signed catalog projection has replaced the visible candidate.
-    deferStoreInstall = true;
-    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
-    await Promise.resolve();
-    const delayedStoreRequest = proofRequests.at(-1);
-    result.storeDeferredRequestStarted = proofRequests.length === 3
-      && delayedStoreRequest?.operation === 'install'
-      && typeof resolveStoreInstall === 'function';
-    notifyStore(verifiedStoreSnapshot);
-    result.storeRetainsRequestOnIdenticalSnapshot =
-      proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === true;
-    const replacedStoreSnapshot = {
-      ...verifiedStoreSnapshot,
-      entries: verifiedStoreEntries.map((entry) => entry.appId === 'audio'
-        ? { ...entry, availableVersion: '1.0.1' } : entry),
-    };
-    notifyStore(replacedStoreSnapshot);
-    result.storeInvalidatesRequestOnCatalogChange =
-      proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
-      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
-    resolveStoreInstall({
-      schema: 'ordax.app-lifecycle-request-result/1',
-      requestId: delayedStoreRequest.requestId, appId: delayedStoreRequest.appId,
-      operation: delayedStoreRequest.operation, source: delayedStoreRequest.source,
-      state: 'accepted', reason: null, authority: 'none',
-    });
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    result.storeIgnoresStaleAcceptedResponse =
-      proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
-      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
-
-    // The microtask that would invoke Native has not run yet. If the signed
-    // catalog changes now, no obsolete request may ever cross that boundary.
-    const previousStoreRequestCount = proofRequests.length;
-    proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]').click();
-    notifyStore({
-      ...replacedStoreSnapshot,
-      entries: replacedStoreSnapshot.entries.map((entry) => entry.appId === 'audio'
-        ? { ...entry, availableVersion: '1.0.2' } : entry),
-    });
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    result.storeNeverDelegatesRevokedRequest = proofRequests.length === previousStoreRequestCount
-      && proofStoreSlot.querySelector('[data-store-app-id="audio"] [data-store-operation="install"]')?.disabled === false
-      && proofStoreSlot.querySelector('.ordax-store-request-status') === null;
-
-    storeProof.destroy();
-    storeProofRoot.remove();
-    result.storeVerifiedFixtureCleaned = notifyStore === null;
-
-    // Internet coverage must remain independent from Notes. Before the
-    // remove-first cutover this target was reached through a Notes reference,
-    // which accidentally made the browser smoke depend on the removed app.
-    const internetLaunch = root.querySelector('[data-launch-app="internet"]');
-    if (!internetLaunch) throw new Error('composition smoke could not find launcher app: internet');
-    internetLaunch.dataset.appTarget = 'https://example.com/docs?q=1';
-    internetLaunch.click();
-    await Promise.resolve();
-    delete internetLaunch.dataset.appTarget;
-
-    const internetSlot = root.querySelector(
-      '[data-window-id="internet"] [data-app-extension="internet-browser"]',
-    );
-    const internetWorkspace = parsedStorage('ordax.workspace.v2');
-    const internetArea = internetWorkspace?.areas
-      ?.find((area) => area.id === internetWorkspace.activeAreaId) ?? internetWorkspace?.areas?.[0];
-    const storedInternet = internetArea?.windows?.find((item) => item.appId === 'internet');
-    result.internetTargetPersisted = storedInternet?.target === 'https://example.com/docs?q=1';
-    result.internetFailsClosedOnWeb = internetSlot
-      ?.querySelector('.ordax-internet-unavailable')?.textContent
-      ?.includes('Navegação integrada não disponível neste host') === true;
-    result.internetDoesNotEmbedWebContent = internetSlot?.querySelector('iframe') === null
-      && internetSlot?.querySelector('[data-browser-viewport] iframe') === null;
-
-    await launch('account');
-    const accountSlot = root.querySelector(
-      '[data-window-id="account"] [data-app-extension="account-overview"]',
-    );
-    result.accountOwnerMounted = Boolean(accountSlot?.dataset.ordaxAccountOverviewView !== undefined);
-    result.accountUnavailable = accountSlot?.querySelector('.ordax-account-status')?.dataset.state === 'unavailable';
-    result.accountNoFakeIdentityAction = accountSlot?.querySelector('[data-account-identity-action]') === null;
-
-    await launch('system');
-    const systemSlot = root.querySelector(
-      '[data-window-id="system"] [data-app-extension="system-overview"]',
-    );
-    result.systemOwnerMounted = Boolean(systemSlot?.dataset.ordaxSystemOverviewView !== undefined);
-    result.systemOverviewDefault = systemSlot?.dataset.systemActiveSection === 'overview';
-    result.systemNavigationComplete = systemSlot?.querySelectorAll('[data-system-section]').length === 5;
-
-    window.dispatchEvent(new Event('pagehide'));
-    await Promise.resolve();
-    result.firstMountDestroyed = root.childElementCount === 0;
-    result.textScaleClearedOnDestroy = document.documentElement.dataset.ordaxTextScale === undefined;
-    result.internetComponentStyleRemovedOnDestroy = document.querySelector(
-      'link[data-ordax-component-style="internet"]',
-    ) === null;
-
-    document.body.replaceChildren();
-    const remountBootScreen = document.createElement('div');
-    remountBootScreen.id = 'ordax-boot-screen';
-    remountBootScreen.className = 'ordax-boot-screen';
-    remountBootScreen.dataset.state = 'loading';
-    const remountBootStatus = document.createElement('span');
-    remountBootStatus.dataset.ordaxBootStatus = '';
-    remountBootStatus.textContent = 'Preparando OrdaX…';
-    remountBootScreen.append(remountBootStatus);
-    const remountRoot = document.createElement('div');
-    remountRoot.id = 'ordax-root';
-    document.body.append(remountBootScreen, remountRoot);
-    await import(namespaceUrls['composition-remount'][rootModule]);
-    await Promise.resolve();
-    root = document.querySelector('#ordax-root');
-    result.remountCompositionMounted = Boolean(root?.querySelector('[data-workspace]'));
-    result.remountBootScreenCompleted = remountBootScreen.hidden === true
-      && remountBootScreen.dataset.state === 'ready';
-    result.internetComponentStyleRestored = Boolean(
-      document.querySelector('link[data-ordax-component-style="internet"]'),
-    );
-    result.themeRestored = root?.dataset.ordaxTheme === 'dark';
-    result.textScaleRestored = document.documentElement.dataset.ordaxTextScale === 'extra-large';
-
-    const restoredSettingsSlot = root?.querySelector(
-      '[data-window-id="settings"] [data-app-extension="settings-overview"]',
-    );
-    result.settingsWindowRestored = Boolean(restoredSettingsSlot);
-    result.settingsTargetRestored = restoredSettingsSlot?.dataset.settingsActiveSection === 'accessibility';
-
-    const restoredInternetSlot = root?.querySelector(
-      '[data-window-id="internet"] [data-app-extension="internet-browser"]',
-    );
-    const restoredWorkspace = parsedStorage('ordax.workspace.v2');
-    const restoredActiveArea = restoredWorkspace?.areas
-      ?.find((area) => area.id === restoredWorkspace.activeAreaId) ?? restoredWorkspace?.areas?.[0];
-    const restoredInternetWindow = restoredActiveArea?.windows
-      ?.find((item) => item.appId === 'internet');
-    result.internetWindowRestored = Boolean(
-      restoredInternetSlot?.dataset.ordaxInternetMounted === 'true',
-    );
-    result.internetTargetRestored = restoredInternetWindow?.target
-      === 'https://example.com/docs?q=1';
-    result.internetStillFailsClosedOnWeb = restoredInternetSlot
-      ?.querySelector('.ordax-internet-unavailable')?.textContent
-      ?.includes('Navegação integrada não disponível neste host') === true;
-
-    const restoredAccountSlot = root?.querySelector(
-      '[data-window-id="account"] [data-app-extension="account-overview"]',
-    );
-    result.accountWindowRestored = Boolean(restoredAccountSlot);
-    result.accountOwnerRestored = Boolean(restoredAccountSlot?.dataset.ordaxAccountOverviewView !== undefined);
-    result.accountStillUnavailable = restoredAccountSlot?.querySelector('.ordax-account-status')?.dataset.state === 'unavailable';
-    result.accountStillHasNoFakeIdentityAction = restoredAccountSlot?.querySelector('[data-account-identity-action]') === null;
-
-    const restoredSystemSlot = root?.querySelector(
-      '[data-window-id="system"] [data-app-extension="system-overview"]',
-    );
-    result.systemWindowRestored = Boolean(restoredSystemSlot);
-    result.systemOwnerRestored = Boolean(restoredSystemSlot?.dataset.ordaxSystemOverviewView !== undefined);
-    result.systemOverviewRestored = restoredSystemSlot?.dataset.systemActiveSection === 'overview';
-
-    const required = [
-      'compositionMounted', 'spaceSwitcherMounted', 'spaceSwitcherOpens', 'spaceSwitcherWebFailsClosed', 'spaceSwitcherEscapeCloses', 'spaceSwitcherKeyboardOpens', 'spaceSwitcherKeyboardFocusesAction', 'spaceSwitcherKeyboardRestoresFocus', 'spaceSwitcherFailureKeepsOptions', 'spaceSwitcherRetrySucceeds', 'spaceSwitcherSubjectMismatchFailsClosed', 'spaceSwitcherFixtureCleaned', 'bootScreenCompleted', 'settingsWindowMounted', 'settingsOwnerMounted', 'settingsStartsAppearance',
-      'lightPreviewFollowsTokens', 'darkPreviewFollowsTokens', 'localBrandImageLoaded', 'brandHighContrastUsesSameImage', 'localFontLoaded',
-      'globalHeaderClearOfWindows',
-      'studioNavigationOpensSharedApp', 'studioWebAvailabilityIsHonest',
-      'studioUnavailableDoesNotDisplayZeroMetrics', 'studioChatUsesExternalPublicSite',
-      'studioProjectsUsesExistingOwner',
-      'studioHasSingleContentHeading', 'studioDisclosureSurvivesNavigation',
-      'homeShortcutOpensRealOwner', 'homeRestoresDesktopWithoutDeletingWindows',
-      'homeNavigationReflectsWorkspace', 'homeNavigationClearsWhenAppIsActive',
-      'dockShortcutOpensRealOwner', 'sharedShortcutLabels', 'localWallpaperBundled', 'localWallpaperDecoded',
-      'darkActionPresent', 'darkThemeApplied', 'darkThemePersisted', 'accessibilityNavigationPresent',
-      'accessibilityTargetApplied', 'extraLargeActionPresent', 'textScaleApplied', 'textScalePersisted',
-      'workspaceTargetPersisted', 'notesAbsentFromLauncher', 'notesLocalWindowAbsent',
-      'storeOwnerMounted', 'storeFailsClosedWithoutVerifiedCatalog',
-      'storeVerifiedCatalogRendered', 'storeAlphabeticallySorted',
-      'storeResizesWithWindow', 'storeAccentInsensitiveSearch', 'storePreservesSearchFocus',
-      'storeInstalledFilter', 'storeRemovalRequiresConfirmation',
-      'storeRemovalCanCancel', 'storeSyncFailureRecovered',
-      'storeShowsValidatedRejectionReason', 'storeDeferredRequestStarted',
-      'storeRetainsRequestOnIdenticalSnapshot',
-      'storeInvalidatesRequestOnCatalogChange', 'storeIgnoresStaleAcceptedResponse',
-      'storeNeverDelegatesRevokedRequest',
-      'storeVerifiedFixtureCleaned', 'internetComponentStyleMounted',
-      'networkComponentStyleMounted', 'networkOwnerMounted', 'networkWebUnavailableHonest',
-      'projectsComponentStyleMounted', 'projectsOwnerMounted', 'projectsWebUnavailableHonest',
-      'internetFailsClosedOnWeb', 'internetDoesNotEmbedWebContent',
-      'accountOwnerMounted', 'accountUnavailable', 'accountNoFakeIdentityAction',
-      'systemOwnerMounted', 'systemOverviewDefault',
-      'systemNavigationComplete', 'firstMountDestroyed', 'textScaleClearedOnDestroy',
-      'remountCompositionMounted', 'remountBootScreenCompleted', 'themeRestored', 'textScaleRestored', 'settingsWindowRestored',
-      'internetWindowRestored', 'internetTargetRestored',
-      'internetStillFailsClosedOnWeb',
-      'accountWindowRestored', 'accountOwnerRestored', 'accountStillUnavailable', 'accountStillHasNoFakeIdentityAction', 'systemWindowRestored',
-      'systemOwnerRestored', 'systemOverviewRestored',
-    ];
-    result.requiredAssertions = Object.fromEntries(required.map((name) => [name, Boolean(result[name])]));
-    result.allCoreAssertions = Object.values(result.requiredAssertions).every(Boolean);
-
-    window.dispatchEvent(new Event('pagehide'));
-    for (const urls of Object.values(namespaceUrls)) {
-      for (const url of Object.values(urls)) URL.revokeObjectURL(url);
-    }
-    return result;
-  })()`;
-}
-
-async function waitForPageReady(client, timeoutMs = 5_000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastError = null;
-  while (Date.now() < deadline) {
-    try {
-      const evaluation = await client.send('Runtime.evaluate', {
-        expression: 'document.readyState',
-        returnByValue: true,
-      });
-      if (evaluation.result?.value === 'complete') return;
-    } catch (error) {
-      lastError = error;
-    }
-    await sleep(25);
-  }
-  throw new Error(`timed out waiting for blank browser document: ${lastError?.message ?? 'not ready'}`);
-}
-
-async function evaluateProof(client, expression, label) {
-  const evaluation = await client.send('Runtime.evaluate', {
-    expression,
-    awaitPromise: true,
-    returnByValue: true,
-    userGesture: true,
-  });
-  if (evaluation.exceptionDetails) {
-    const detail = evaluation.exceptionDetails.exception?.description
-      ?? evaluation.exceptionDetails.exception?.value
-      ?? evaluation.exceptionDetails.text
-      ?? 'unknown exception';
-    throw new Error(`${label} browser proof threw: ${detail}`);
-  }
-  const result = evaluation.result?.value;
-  if (!result || result.allCoreAssertions !== true) {
-    throw new Error(`${label} browser assertions failed: ${JSON.stringify(result, null, 2)}`);
-  }
-  return result;
-}
-
-let bundleDirGlobal = null;
-
-async function proveReactPublicAccount(client, url, evidenceDir) {
-  // Same CDP/browser runner as the canonical public account proof, but with
-  // assertions for the literal Lovable React tree rather than the old HTML UI.
-  await mkdir(evidenceDir, { recursive: true });
-  const evaluate = async (expression) => {
-    const response = await client.send('Runtime.evaluate', {
-      expression, awaitPromise: true, returnByValue: true,
-    });
-    if (response.exceptionDetails) {
-      throw new Error(response.exceptionDetails.exception?.description ?? 'React account evaluation failed');
-    }
-    return response.result?.value;
-  };
-  const reports = [];
-  const viewports = [
-    ['desktop', 1440, 900], ['tablet', 1024, 768],
-    ['mobile', 390, 844], ['narrow', 320, 740],
-    ['short', 320, 568], ['wide-phone', 430, 932], ['landscape', 844, 390],
-  ];
-  for (const [name, width, height] of viewports) {
-    await client.send('Emulation.setDeviceMetricsOverride', {
-      width, height, deviceScaleFactor: 1, mobile: width < 600,
-    });
-    await client.send('Page.navigate', { url });
-    const deadline = Date.now() + 30_000;
-    while (!await evaluate('document.readyState === "complete" && !!document.querySelector(".account-app .overview-hero")')) {
-      if (Date.now() > deadline) {
-        throw new Error(`${name} React account boot timed out: ${JSON.stringify(await evaluate('({path:location.pathname, html:document.body.innerText.slice(0,300)})'))}`);
-      }
-      await sleep(50);
-    }
-    await evaluate('document.fonts.ready.then(() => true)');
-    const report = await evaluate(`(() => {
-      const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-      const hero = document.querySelector('.overview-hero');
-      const main = document.querySelector('.account-main');
-      const nav = document.querySelector('.mobile-nav');
-      const sidebar = document.querySelector('.desktop-sidebar');
-      const logo = document.querySelector('.topbar .brand img');
-      const summary = [...document.querySelectorAll('.summary-grid > .account-card')];
-      const secondary = [...document.querySelectorAll('.dashboard-grid > .account-card')];
-      return {
-        path: location.pathname,
-        width: innerWidth,
-        noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth + 1,
-        mainVisible: visible(main),
-        heroVisible: visible(hero) && hero.getBoundingClientRect().height >= 130,
-        profileVisible: visible(document.querySelector('.profile-banner')),
-        noInventedPersonalPlan: document.querySelector('.profile-label')?.textContent !== 'Pessoal',
-        originalLogoLoaded: logo?.complete && logo?.naturalWidth > 0,
-        originalLandscapeLoaded: !!hero?.querySelector('img')?.naturalWidth,
-        threeSummaryCards: summary.length === 3 && summary.every(visible),
-        twoDashboardCards: secondary.length === 2 && secondary.every(visible),
-        noInventedConsumption: !!document.querySelector('.chart-empty') &&
-          document.querySelector('.chart-empty').innerText.includes('indisponíveis'),
-        noExposedUnverifiedIdentity: !document.querySelector('.account-session-email'),
-        mobileNavigation: innerWidth >= 600 || visible(nav),
-        sidebarDesktop: innerWidth < 1100 || visible(sidebar),
-        accountButton: visible(document.querySelector('button.account-menu')),
-        publicPrivacyLink: !!document.querySelector('.page-footer a[href="/privacidade/"]'),
-        summaryActive: !!document.querySelector('.desktop-sidebar a.sidebar-link.active[href="/conta/"]'),
-        contentWidth: main?.getBoundingClientRect().width || 0
-      };
-    })()`);
-    const required = [
-      'noHorizontalOverflow', 'mainVisible', 'heroVisible', 'profileVisible', 'noInventedPersonalPlan',
-      'originalLogoLoaded', 'originalLandscapeLoaded', 'threeSummaryCards',
-      'twoDashboardCards', 'noInventedConsumption',
-      'noExposedUnverifiedIdentity', 'mobileNavigation', 'sidebarDesktop',
-      'accountButton', 'publicPrivacyLink', 'summaryActive',
-    ];
-    if (report.path !== '/conta/' || required.some(key => !report[key])) {
-      throw new Error(`${name} React account visual contract failed: ${JSON.stringify(report)}`);
-    }
-    const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-    await writeFile(join(evidenceDir, `react-account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
-    // Radix DropdownMenu listens to genuine pointer/keyboard events, not
-    // HTMLElement.click(), which skips pointerdown and can hide regressions.
-    await evaluate('document.querySelector("button.account-menu").focus()');
-    await client.send('Input.dispatchKeyEvent', {
-      type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
-    });
-    await client.send('Input.dispatchKeyEvent', {
-      type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
-    });
-    await sleep(90);
-    if (!await evaluate("!!document.querySelector('[role=menu].ordax-account-dropdown')")) {
-      throw new Error(`${name} account menu did not open`);
-    }
-    await client.send('Input.dispatchKeyEvent', {
-      type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
-    });
-    await sleep(70);
-    if (await evaluate("!!document.querySelector('[role=menu].ordax-account-dropdown')")) {
-      throw new Error(`${name} account menu Escape did not close`);
-    }
-    if (name === 'desktop') {
-      await client.send('Input.dispatchKeyEvent', {
-        type: 'keyDown', key: 'k', code: 'KeyK', windowsVirtualKeyCode: 75, modifiers: 2,
-      });
-      await client.send('Input.dispatchKeyEvent', {
-        type: 'keyUp', key: 'k', code: 'KeyK', windowsVirtualKeyCode: 75, modifiers: 2,
-      });
-      await sleep(90);
-      if (!await evaluate('!!document.querySelector("[role=dialog] .search-field input")')) {
-        throw new Error('Ctrl+K did not open canonical account search dialog');
-      }
-      await client.send('Input.dispatchKeyEvent', {
-        type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
-      });
-      await sleep(90);
-      if (await evaluate('!!document.querySelector("[role=dialog] .search-field input")')) {
-        throw new Error('Escape did not close account search dialog');
-      }
-    }
-    if (name === 'mobile') {
-      // React's controlled native button uses click, unlike the Radix
-      // dropdown trigger which listens directly for keydown/pointerdown.
-      // Verify that it is a real button before activating its native handler.
-      if (!await evaluate('document.querySelector(".mobile-nav button")?.tagName === "BUTTON"')) {
-        throw new Error('Mobile More is not a native keyboard-accessible button');
-      }
-      await evaluate('document.querySelector(".mobile-nav button").focus(); document.querySelector(".mobile-nav button").click()');
-      const moreDeadline = Date.now() + 5000;
-      while (!await evaluate('!!document.querySelector("#account-mobile-more[role=dialog]")')) {
-        if (Date.now() > moreDeadline) {
-          const details = await evaluate(`({
-            mobileNavigation: !!document.querySelector('.mobile-nav'),
-            mobileButton: document.querySelector('.mobile-nav button')?.outerHTML,
-            dialogs: [...document.querySelectorAll('[role=dialog]')].map(node => ({ id: node.id, html: node.outerHTML.slice(0, 600) })),
-            pageError: document.body.innerText.slice(-300)
-          })`);
-          throw new Error(`Mobile More did not open the Radix accessible dialog: ${JSON.stringify(details)}`);
-        }
+    async function until(expression){
+      const deadline=Date.now()+15000;
+      while(!await evaluate(expression)){
+        if(Date.now()>deadline)throw Error('Timed out: '+expression);
         await sleep(50);
       }
-      if (!await evaluate('document.querySelector(".mobile-nav button")?.getAttribute("aria-expanded") === "true"')) {
-        throw new Error('Mobile More trigger did not announce expanded');
-      }
-      await client.send('Input.dispatchKeyEvent', {
-        type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
-      });
-      await sleep(90);
-      if (!await evaluate('!document.querySelector("#account-mobile-more[role=dialog]") && document.activeElement?.getAttribute("aria-label") === "Mais opções"')) {
-        throw new Error('Mobile More Escape failed to close and return keyboard focus');
-      }
     }
-    await evaluate('document.querySelector(".plan-button a, a.plan-button")?.click()');
-    const sectionDeadline = Date.now() + 5000;
-    while (!await evaluate('location.pathname === "/conta/assinatura" && !!document.querySelector(".detail-page-heading")')) {
-      if (Date.now() > sectionDeadline) {
-        throw new Error(`${name} React account route /conta/assinatura failed`);
-      }
-      await sleep(30);
+    async function ready(){
+      await until("!!document.querySelector('.os-shell,.classic-desktop') && document.querySelector('#ordax-boot-screen').hidden");
+      await evaluate('document.fonts.ready.then(()=>true)');
+      await evaluate("Promise.all([...document.images].filter(img=>img.getClientRects().length).map(img=>img.decode())).then(()=>true)");
     }
-    await client.send('Page.navigate', { url: new URL('/conta/seguranca', url).href });
-    const deepDeadline = Date.now() + 5000;
-    while (!await evaluate('document.readyState === "complete" && !!document.querySelector(".detail-page-heading")')) {
-      if (Date.now() > deepDeadline) {
-        throw new Error(`${name} React deep link /conta/seguranca failed`);
-      }
-      await sleep(50);
-    }
-    const deep = await evaluate('location.pathname === "/conta/seguranca" && document.querySelector(".detail-page-heading h1")?.textContent === "Segurança e acesso" && document.querySelector(".desktop-sidebar a.sidebar-link.active")?.getAttribute("href") === "/conta/seguranca" && document.querySelector(".breadcrumb")?.textContent?.includes("Segurança e acesso")');
-    if (!deep) throw new Error(`${name} React deep link did not resolve security section`);
-    reports.push({ name, ...report, menuAndEscape: true, clientRoute: true, deepLink: true });
-  }
-  // Isolated browser-only session fixture. It never enters the bundle,
-  // server, artifacts, production auth, or real credential storage. This
-  // exercises authenticated presentation without claiming a live E2E login.
-  const fixtureEmail = 'proof-account@example.invalid';
-  const fixtureSession = {
-    $schema: 'prototype-ordax.public-identity-session/1',
-    provider: 'supabase', authenticated: true, status: 'authenticated',
-    subject: 'browser-proof-subject', email: fixtureEmail,
-  };
-  await client.send('Page.addScriptToEvaluateOnNewDocument', {
-    source: `(() => {
-      window.__ordaxAccountProofAuthenticated = true;
-      const nativeFetch = window.fetch.bind(window);
-      window.fetch = (input, init) => {
-        const address = typeof input === 'string' ? input : input?.url;
-        if (typeof address === 'string' && new URL(address, location.href).pathname === '/auth/session') {
-          const authenticated = window.__ordaxAccountProofAuthenticated;
-          const session = authenticated ? ${JSON.stringify(fixtureSession)} : { $schema: 'prototype-ordax.public-identity-session/1', provider: 'supabase', authenticated: false, status: 'anonymous' };
-          return Promise.resolve(new Response(JSON.stringify(session), {
-            status: 200, headers: { 'Content-Type': 'application/json' },
-          }));
-        }
-        return nativeFetch(input, init);
-      };
-    })();`,
-  });
-  await client.send('Emulation.setDeviceMetricsOverride', {
-    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
-  });
-  await client.send('Page.navigate', { url });
-  const verifiedDeadline = Date.now() + 10000;
-  while (!await evaluate('!!document.querySelector(".account-app .overview-hero")')) {
-    if (Date.now() > verifiedDeadline) throw new Error('authenticated fixture page boot timed out');
-    await sleep(40);
-  }
-  await evaluate('document.querySelector("button.account-menu").focus()');
-  await client.send('Input.dispatchKeyEvent', {
-    type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
-  });
-  await client.send('Input.dispatchKeyEvent', {
-    type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13,
-  });
-  const authDeadline = Date.now() + 5000;
-  let authenticatedMenu = null;
-  while (!(authenticatedMenu = await evaluate(`(() => {
-    const menu = document.querySelector('[role=menu].ordax-account-dropdown');
-    const email = menu?.querySelector('.ordax-account-dropdown-email')?.textContent;
-    const logout = menu?.querySelector('form[action="/auth/logout"]');
-    const profile = menu?.querySelector('a[href="/conta/dados-pessoais"]');
-    const security = menu?.querySelector('a[href="/conta/seguranca"]');
-    return menu && email === ${JSON.stringify(fixtureEmail)} && logout?.method.toLowerCase() === 'post' && !!profile && !!security
-      && !!document.querySelector('.profile-banner a[href="/conta/dados-pessoais"]');
-  })()`))) {
-    if (Date.now() > authDeadline) throw new Error('verified fixture account menu lacks profile/security/logout');
-    await sleep(40);
-  }
-  const verifiedProfile = await evaluate(`document.querySelector(".profile-banner .profile-identity p")?.textContent === ${JSON.stringify(fixtureEmail)}`);
-  if (!verifiedProfile) throw new Error('verified session email not reflected in original Lovable profile');
-  await evaluate('window.__ordaxAccountProofAuthenticated = false; window.dispatchEvent(new Event("focus"))');
-  const expiredDeadline = Date.now() + 5000;
-  let expiredState = false;
-  while (!(expiredState = await evaluate(`(() => {
-    const menu = document.querySelector('[role=menu].ordax-account-dropdown');
-    return !!menu?.querySelector('a[href="/login/"]')
-      && !menu.querySelector('.ordax-account-dropdown-email')
-      && !menu.querySelector('form[action="/auth/logout"]')
-      && !document.querySelector('.profile-banner .profile-identity p')?.textContent?.includes(${JSON.stringify(fixtureEmail)})
-      && !!document.querySelector('.profile-banner a[href="/login/"]');
-  })()`))) {
-    if (Date.now() > expiredDeadline) throw new Error('expired session did not erase verified identity');
-    await sleep(40);
-  }
-  reports.push({ name: 'authenticated-fixture', menuAndLogout: authenticatedMenu,
-    verifiedProfile, expiryClearsIdentity: expiredState, liveLoginClaimed: false });
-  if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) {
-    throw new Error('React account emitted a JavaScript exception');
-  }
-  await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));
-  console.log(`PUBLIC_REACT_ACCOUNT_VIEWPORT_PROOF=PASS ${JSON.stringify(reports)}`);
-}
-
-async function provePublicAccount(client, url, evidenceDir) {
-  const markup = await (await fetch(url)).text();
-  if (markup.includes('<div id="root"></div>')) {
-    return proveReactPublicAccount(client, url, evidenceDir);
-  }
-  await mkdir(evidenceDir, { recursive: true });
-  async function evaluate(expression) {
-    const reply = await client.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
-    if (reply.exceptionDetails) throw new Error(reply.exceptionDetails.exception?.description ?? 'account proof evaluation failed');
-    return reply.result?.value;
-  }
-  const reports = [];
-  for (const [name, width, height] of [['desktop',1440,900],['tablet',1024,768],['mobile',390,844],['narrow',320,740],['short',320,568],['wide-phone',430,932],['landscape',844,390]]) {
-    await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
-    await client.send('Page.navigate', { url });
-    const deadline = Date.now() + 30_000;
-    while (!await evaluate('document.readyState === "complete" && document.body.classList.contains("account-enhanced") && document.querySelector("[data-account-state]")?.dataset.status !== "checking"')) {
-      if (Date.now() > deadline) {
-        const readiness = await evaluate('({ path:location.pathname, document:document.readyState, enhanced:document.body?.classList.contains("account-enhanced"), session:document.querySelector("[data-account-state]")?.dataset.status })');
-        throw new Error(`${name} account preview readiness timed out: ${JSON.stringify(readiness)}`);
-      }
-      await sleep(50);
-    }
-    await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR"); document.fonts.ready.then(() => true)');
-    await evaluate('document.querySelector(".account-session-disclosure summary").click()');
-    if (!await evaluate('document.querySelector(".account-session-disclosure").open && document.querySelector("[data-account-state]").getBoundingClientRect().height > 0')) throw new Error('session disclosure failed');
-    await evaluate('document.querySelector(".account-session-disclosure summary").click()');
-    await sleep(100);
-    const report = await evaluate(`(() => {
-      const cards = [...document.querySelectorAll('[data-account-card]')];
-      const box = element => element.getBoundingClientRect();
-      const phone = innerWidth <= 600;
-      const profile = document.querySelector('[data-account-overview]');
-      const plan = box(document.getElementById('plano'));
-      const billing = box(document.getElementById('faturamento'));
-      const usage = box(document.getElementById('consumo'));
-      const security = box(document.getElementById('seguranca'));
-      const hero = box(document.querySelector('.account-heading'));
-      const chart = document.querySelector('.account-usage-visual');
-      const dashboardChart = document.querySelector('[data-account-dashboard-activity]');
-      const cardIds = cards.map(card => card.id);
-      const nav = [...document.querySelectorAll('.account-mobile-nav > *')];
-      return {
-        width:innerWidth, height:innerHeight,
-        noOverflow:document.documentElement.scrollWidth <= innerWidth,
-        allSections:cards.length===12 && new Set(cardIds).size===12,
-        firstCards:cardIds.slice(0,3).join(',')==='plano,consumo,faturamento',
-        noHiddenServices:cards.every(card=>!card.hidden),
-        columns:getComputedStyle(document.querySelector('.account-cards')).gridTemplateColumns.split(' ').length,
-        profileHeight:box(profile).height,
-        accountBanner:!!profile.querySelector('.account-profile-intro'),
-        singleUsageChart:document.querySelectorAll('.account-usage-visual').length === 1 &&
-          chart.parentElement.matches('[data-account-dashboard-chart-slot]') &&
-          !dashboardChart.hidden && box(dashboardChart).top >= plan.bottom,
-        liveSections:cards.length===12 && !!document.querySelector('[data-account-profile-identity]'),
-        heroMinHeight:hero.height>=150 && box(profile).height>=110 && box(profile).height<=540,
-        decorativePlanSymbol:!!document.querySelector('#plano .plan-card-visual .ordax-symbol'),
-        accountCardMinHeight:box(cards[0]).height>=(phone?150:210),
-        touchTargets:!phone || [...document.querySelectorAll('.account-mobile-nav > *, .account-profile-action, .account-session-disclosure summary, .card-heading')].filter(element=>element.getClientRects().length>0).every(element=>box(element).height>=44),
-        mobileBillingPair:!phone || (plan.top < usage.top && usage.top < billing.top && billing.top < security.top),
-        desktopCardAlignment:innerWidth<1200 || Math.abs(plan.top-billing.top)<2,
-        mobileWebReachable:!!document.querySelector('#account-navigation a[href="/web/"]'),
-        managementDescriptions:[...cards.slice(3)].every(card=>card.querySelector('.card-summary')),
-        logoutHonest:document.querySelector('[data-account-logout]').hidden === true,
-        verifiedHeroEmpty:document.querySelector('[data-account-hero-email]').hidden &&
-          document.querySelector('[data-account-hero-email]').textContent.trim()==='',
-        primaryTilesAligned:innerWidth<1200 || (Math.abs(plan.top-usage.top)<2 && Math.abs(plan.top-billing.top)<2),
-        headerHeight:box(document.querySelector('.account-header')).height,
-        accountNavigation:nav.length===4 &&
-          nav[0].getAttribute('href')==='#visao-geral' &&
-          nav[1].getAttribute('href')==='#plano' &&
-          nav[2].getAttribute('href')==='#consumo' &&
-          nav[3].hasAttribute('data-account-menu'),
-        accountInMore:!phone || !document.querySelector('#account-navigation a[href="#visao-geral"]').hidden,
-        mobileSearchCollapsed:innerWidth>900 || getComputedStyle(document.querySelector('.account-search')).display==='none'
-      };
-    })()`);
-    if (!report.noOverflow || !report.allSections || !report.firstCards || !report.noHiddenServices ||
-        !report.touchTargets || !report.logoutHonest || !report.mobileBillingPair || !report.desktopCardAlignment || !report.mobileWebReachable || !report.accountBanner || !report.singleUsageChart || !report.liveSections || !report.heroMinHeight || !report.decorativePlanSymbol || !report.accountCardMinHeight || !report.managementDescriptions || !report.verifiedHeroEmpty || !report.accountNavigation || !report.accountInMore ||
-        !report.mobileSearchCollapsed || report.headerHeight > 80 ||
-        (width === 1440 && report.columns !== 12) ||
-        (width < 600 && report.columns !== 12) ||
-        (width > 1199 && !report.primaryTilesAligned)) {
-      throw new Error(`${name} account layout failed: ${JSON.stringify(report)}`);
-    }
-    const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-    await writeFile(join(evidenceDir, `account-${name}.png`), Buffer.from(screenshot.data, 'base64'));
-    if (width <= 600) {
-      await evaluate('document.querySelector("[data-account-menu]").click()');
-      if (!await evaluate('document.activeElement.matches("#account-navigation a:not([hidden])")')) throw new Error('More did not focus an available account section');
-      const moreShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
-      await writeFile(join(evidenceDir, `account-${name}-more.png`), Buffer.from(moreShot.data, 'base64'));
-      await client.send('Input.dispatchKeyEvent', { type:'keyDown', key:'Escape', code:'Escape', windowsVirtualKeyCode:27 });
-      if (!await evaluate('document.activeElement.matches("[data-account-menu]") && !document.body.classList.contains("account-menu-open")')) throw new Error('More Escape failed');
-      const overflowDetail = await evaluate(`(() => {
-        const link = document.querySelector('#account-navigation a[data-account-section]:not([hidden]):not([href="#visao-geral"])');
-        const id = link.hash.slice(1);
-        link.click();
-        return document.querySelector('[data-account-content]').dataset.view === id && !document.getElementById(id).hidden && document.activeElement.id === id+'-title';
-      })()`);
-      if (!overflowDetail) throw new Error('More account section detail was inaccessible');
-    }
-    await evaluate('document.querySelector(".account-header-actions [data-account-section]").click()');
-    if (!await evaluate('document.querySelector("[data-account-content]").dataset.view === "atividade" && document.activeElement.id === "atividade-title"')) throw new Error(`${name} notification shortcut failed`);
-    await evaluate('document.querySelector("#seguranca > .card-heading").click()');
-    const detail = await evaluate('document.querySelector("[data-account-content]").dataset.view === "seguranca" && getComputedStyle(document.querySelector("#seguranca .card-note")).display !== "none" && document.activeElement.id === "seguranca-title"');
-    if (!detail) throw new Error(`${name} account detail/focus failed`);
-    if (width <= 900) {
-      await evaluate('document.querySelector("[data-account-search-toggle]").click()');
-      if (!await evaluate('document.activeElement.matches("[data-account-search]")')) throw new Error('mobile search did not focus');
-      await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-      if (!await evaluate('document.activeElement.matches("[data-account-search-toggle]") && !document.body.classList.contains("account-search-open")')) throw new Error('mobile search Escape failed');
-    }
-    if (width <= 600) {
-      await evaluate(`document.querySelector('#account-navigation a[href="#visao-geral"]').click(); window.OrdaXPublicI18n.setLocale('en-US')`);
+    async function click(selector){
+      const point=await evaluate("(()=>{const node=[...document.querySelectorAll("+JSON.stringify(selector)+")].find(n=>n.getClientRects().length);if(!node)throw Error('Missing control');node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});const box=node.getBoundingClientRect();return{x:box.left+box.width/2,y:box.top+box.height/2};})()");
+      await client.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
+      await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
       await sleep(100);
-      const englishFits = await evaluate('document.documentElement.scrollWidth<=innerWidth && document.querySelector(".account-header").getBoundingClientRect().height<=80');
-      if (!englishFits) throw new Error(`${name} English layout overflowed`);
-      const englishShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
-      await writeFile(join(evidenceDir, `account-${name}-en.png`), Buffer.from(englishShot.data, 'base64'));
-      await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
-      report.englishFits = englishFits;
     }
-    reports.push({ name, ...report, detailAndFocus: detail });
-  }
-  if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) throw new Error('public account emitted a JavaScript exception');
-  await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));
-  console.log(`PUBLIC_ACCOUNT_VIEWPORT_PROOF=PASS ${JSON.stringify(reports)}`);
-}
+    async function chooseColorTheme(theme) {
+      // Use the real shared Settings application and its accessible buttons.
+      // Never write preference storage or DOM theme attributes from the proof.
+      const selector='[aria-label="Janela Configurações"] [data-color-theme='+JSON.stringify(theme)+']';
+      await until("([...document.querySelectorAll("+JSON.stringify(selector)+")].some(n=>n.getClientRects().length>0))");
+      await click(selector);
+      await until("document.documentElement.dataset.theme==="+JSON.stringify(theme));
+      await until("document.querySelector("+JSON.stringify(selector)+")?.getAttribute('aria-pressed')==='true'");
+    }
+    async function clickByText(selector,text){
+      // Radix popup items are mounted asynchronously after the pointer event.
+      // Observe their actual visible state instead of relying on a fixed delay.
+      const expression="([...document.querySelectorAll("+JSON.stringify(selector)+")].some(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+"))";
+      try {
+        await until(expression);
+      } catch (error) {
+        const diagnostics=await evaluate("(()=>({items:[...document.querySelectorAll("+JSON.stringify(selector)+")].map(n=>({text:n.textContent.trim(),visible:!!n.getClientRects().length})),triggers:[...document.querySelectorAll('[aria-label]')].filter(n=>n.getAttribute('aria-label')?.startsWith('Mais ações de ')).map(n=>{const r=n.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;return{label:n.getAttribute('aria-label'),state:n.getAttribute('data-state'),rect:{x,y,width:r.width,height:r.height},hit:document.elementsFromPoint(x,y).slice(0,5).map(e=>({tag:e.tagName,cls:e.className?.baseVal??e.className,aria:e.getAttribute('aria-label'),role:e.getAttribute('role')}))}}),compact:document.querySelector('.window-workspace')?.dataset.compact,viewport:[innerWidth,innerHeight]}))()");
+        throw Error('Missing visible menu action '+JSON.stringify(text)+': '+JSON.stringify(diagnostics),{cause:error});
+      }
+      const marker=await evaluate("(()=>{const nodes=[...document.querySelectorAll("+JSON.stringify(selector)+")];const node=nodes.find(n=>n.getClientRects().length&&n.textContent.trim()==="+JSON.stringify(text)+");if(!node)throw Error('Menu item changed while selecting');node.dataset.proofClick='current';return '[data-proof-click=current]';})()");
+      await click(marker);
+      await evaluate("document.querySelector('[data-proof-click=current]')?.removeAttribute('data-proof-click')");
+    }
+    await client.send('Page.navigate',{url:origin+'/'});await ready();
+    async function compactAction(title,label,menuTitle){
+      const selector='[aria-label='+JSON.stringify(label)+']';
+      const visible=await evaluate('[...document.querySelectorAll('+JSON.stringify(selector)+')].some(node=>node.getClientRects().length>0)');
+      const clickedSelector=visible?selector:'[aria-label='+JSON.stringify('Mais ações de '+title)+']';
+      const hit=await evaluate("(()=>{const n=[...document.querySelectorAll("+JSON.stringify(clickedSelector)+")].find(x=>x.getClientRects().length);if(!n)return {missing:true};const r=n.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;const target=document.elementFromPoint(x,y);return {label:n.getAttribute('aria-label'),box:r.toJSON(),reachable:n===target||n.contains(target),hitTag:target?.tagName,hitAria:target?.getAttribute('aria-label'),hitClass:target?.getAttribute('class'),mode:document.querySelector('.window-workspace')?.dataset.compact,viewport:[innerWidth,innerHeight]}})()");
+      if(!hit.reachable) throw Error('Compact action is obstructed: '+JSON.stringify(hit));
+      if(visible) await click(selector);
+      else {
+        await click(clickedSelector);
+        await clickByText('[role="menuitem"]',menuTitle);
+      }
+      if(menuTitle==='Recolher painel'||menuTitle==='Expandir painel'){
+        const expected=menuTitle==='Recolher painel'?'collapsed':'expanded';
+        try {
+          await until("document.querySelector('.window-workspace').dataset.compact==="+JSON.stringify(expected));
+        } catch(error) {
+          const details=await evaluate("(()=>({compact:document.querySelector('.window-workspace')?.dataset.compact,trigger:[...document.querySelectorAll('[aria-label]')].filter(n=>n.getAttribute('aria-label')?.startsWith('Mais ações de ')).map(n=>({label:n.getAttribute('aria-label'),open:n.getAttribute('data-state'),box:n.getBoundingClientRect().toJSON()})),visibleControls:[...document.querySelectorAll('.workspace-window[data-mode=\"compact\"] button')].filter(n=>n.getClientRects().length).map(n=>({label:n.getAttribute('aria-label'),box:n.getBoundingClientRect().toJSON()})),focus:document.activeElement?.outerHTML?.slice(0,240),viewport:[innerWidth,innerHeight]}))()");
+          throw Error('Compact action did not reach '+expected+': '+JSON.stringify({hit,details}),{cause:error});
+        }
+      }
+    }
+    async function openSidebarDestination(title) {
+      const direct='.workspace-sidebar [aria-label='+JSON.stringify(title)+']';
+      const directVisible=await evaluate('[...document.querySelectorAll('+JSON.stringify(direct)+')].some(node=>node.getClientRects().length>0)');
+      if (directVisible) return click(direct);
+      // The navigation service deliberately exposes fewer pinned destinations
+      // when the sidebar height is short; remaining apps stay in "Mais destinos".
+      const more='.workspace-sidebar [aria-label="Mais destinos"]';
+      const moreVisible=await evaluate('[...document.querySelectorAll('+JSON.stringify(more)+')].some(node=>node.getClientRects().length>0)');
+      assert.equal(moreVisible,true,'Short-height sidebar must expose a reachable overflow launcher');
+      await click(more);
+      await clickByText('.desktop-menu-apps button',title);
+      await until("!document.querySelector('.desktop-start-menu')");
+    }
+    const results=[];
+    for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
+      await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+      await evaluate("localStorage.removeItem('ordax.preferences.v1')");
+      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await until("!!document.querySelector('.os-shell')");
+      assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
+      assert.equal(await evaluate("document.querySelector('.brand-sub').textContent.trim()==='WEB'"),true);
+      assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
+      assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.scrollHeight<=main.clientHeight+1&&getComputedStyle(main).overflowY==='hidden';})()"),true,'Central fits the work area without page scrolling');
+      assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
+      assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
+      const before=await evaluate("getComputedStyle(document.body).backgroundColor");
+      assert.equal(await evaluate("document.documentElement.dataset.theme"),'light','Clean profile starts with official light palette');
+      await openSidebarDestination('Ajustes');
+      await chooseColorTheme('dark');
+      assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),before);
+      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await until("document.documentElement.dataset.theme==='dark'");
+      await openSidebarDestination('Ajustes');
+      await until("document.querySelector('[aria-label=\"Janela Configurações\"] [data-color-theme=\"dark\"]')?.getAttribute('aria-pressed')==='true'");
+      await chooseColorTheme('native');
+      assert.equal(await evaluate("document.documentElement.dataset.ordaxTheme"),'dark','USB palette remains a dark accessible color scheme');
+      assert.equal(await evaluate("document.documentElement.dataset.ordaxPalette"),'native','USB palette is the canonical native palette, not a fourth app theme');
+      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await until("document.documentElement.dataset.theme==='native'");
+      await openSidebarDestination('Ajustes');
+      await chooseColorTheme('light');
+      await click('[aria-label="Fechar Configurações"]');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
+      const initiallyExpanded=await evaluate("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')");
+      await click('.sidebar-collapse');
+      await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
+      await click('.sidebar-collapse');
+      await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
+      assert.equal(await evaluate("document.querySelectorAll('.account-actions [aria-label=\"Notificações\"]').length"),1,'Notification control sits next to account settings');
+      await openSidebarDestination('Notificações');
+      await until("!!document.querySelector('.web-notifications [data-notification-center]')");
+      assert.equal(await evaluate("document.querySelector('.web-notifications [data-notification-center]').dataset.availability"),'unavailable','Web cannot claim a connected account feed');
+      assert.equal(await evaluate("[...document.querySelectorAll('.web-notifications button')].every(button => button.disabled)"),true,'Unavailable actions fail closed');
+      assert.equal(await evaluate("document.querySelectorAll('.web-notifications [data-notification-id]').length"),0,'No fabricated events');
+      assert.equal(await evaluate("[...document.querySelectorAll('.web-notifications button')].every(button => button.getClientRects().length === 0)"),true,'Unavailable feed must not display zero counters or inactive actions');
 
-async function main() {
-  const { bundleDir, publicAccountUrl, evidenceDir } = parseArgs(process.argv.slice(2));
-  bundleDirGlobal = bundleDir;
-  if (typeof WebSocket !== 'function') {
-    throw new Error(`Node ${process.version} does not provide the global WebSocket required by the CDP smoke gate`);
-  }
-  if (!publicAccountUrl && !existsSync(bundleDir)) throw new Error(`bundle directory does not exist: ${bundleDir}`);
-  const modules = publicAccountUrl ? new Map() : await collectModules(bundleDir);
-  const assetUrls = publicAccountUrl ? {} : await loadComponentAssetUrls(bundleDir);
-  const styles = publicAccountUrl ? '' : await loadStyles(bundleDir);
-  const browser = findBrowser();
-  const cdpPort = await reserveLoopbackPort();
-  const profile = await mkdtemp(join(tmpdir(), 'ordax-browser-smoke-'));
-  const args = [
-    '--headless=new',
-    '--disable-gpu',
-    '--disable-background-networking',
-    '--disable-component-update',
-    '--disable-default-apps',
-    '--disable-sync',
-    '--metrics-recording-only',
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--remote-debugging-address=127.0.0.1',
-    `--remote-debugging-port=${cdpPort}`,
-    `--user-data-dir=${profile}`,
-    'about:blank',
-  ];
-  if (typeof process.getuid === 'function' && process.getuid() === 0) args.unshift('--no-sandbox');
+      const notificationScreenshot = await client.send('Page.captureScreenshot',{format:'png'});
+      await writeFile(join(evidence,'notifications-'+width+'x'+height+'.png'),Buffer.from(notificationScreenshot.data,'base64'));
 
-  const child = spawn(browser, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-  let stderr = '';
-  let exitState = null;
-  let spawnError = null;
-  let passed = false;
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { stderr = appendDiagnostic(stderr, chunk); });
-  child.once('exit', (code, signal) => { exitState = { code, signal }; });
-  child.once('error', (error) => { spawnError = error; });
-  let client = null;
-  try {
-    const startupStartedAt = Date.now();
-    await waitForDevTools(
-      cdpPort,
-      () => exitState,
-      () => spawnError,
-      () => stderr,
-    );
-    const startupMs = Date.now() - startupStartedAt;
-    console.log(`SURFACE_BROWSER_STARTUP_MS=${startupMs}`);
-    const pagesResponse = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
-    if (!pagesResponse.ok) {
-      throw new Error(`Chromium CDP target list failed with HTTP ${pagesResponse.status}`);
-    }
-    const pages = await pagesResponse.json();
-    const page = pages.find((item) => item.type === 'page');
-    if (!page) throw new Error('Chromium did not expose a page target');
-    client = new CdpClient(page.webSocketDebuggerUrl);
-    await client.open();
-    await client.send('Runtime.enable');
-    await client.send('Page.enable');
-    await client.send('Log.enable');
-    if (publicAccountUrl) {
-      await provePublicAccount(client, publicAccountUrl, evidenceDir);
-      passed = true;
-      return;
-    }
-    const shellResult = await evaluateProof(
-      client,
-      buildProofExpression(modules, styles, assetUrls),
-      'Surface shell',
-    );
-    await client.send('Page.navigate', { url: 'about:blank' });
-    await waitForPageReady(client);
-    const compositionResult = await evaluateProof(
-      client,
-      buildCompositionProofExpression(modules, styles, assetUrls),
-      'Web composition',
-    );
-    const runtimeErrors = client.events.filter((event) => event.method === 'Runtime.exceptionThrown');
-    const logErrors = client.events.filter((event) => event.method === 'Log.entryAdded' && event.params?.entry?.level === 'error');
-    if (runtimeErrors.length || logErrors.length) {
-      throw new Error(`browser emitted runtime errors: ${JSON.stringify([...runtimeErrors, ...logErrors], null, 2)}`);
-    }
-    passed = true;
-    console.log('SURFACE_BROWSER_SMOKE=PASS');
-    console.log(`SURFACE_BROWSER_MODULE_COUNT=${modules.size}`);
-    console.log(`SURFACE_BROWSER_EXECUTABLE=${browser}`);
-    const shellAssertions = Object.keys(shellResult.requiredAssertions).length;
-    const compositionAssertions = Object.keys(compositionResult.requiredAssertions).length;
-    console.log(`SURFACE_BROWSER_SHELL_ASSERTIONS=${shellAssertions}`);
-    console.log(`SURFACE_BROWSER_COMPOSITION_ASSERTIONS=${compositionAssertions}`);
-    console.log(`SURFACE_BROWSER_ASSERTIONS=${shellAssertions + compositionAssertions}`);
-  } finally {
-    client?.close();
-    if (child.exitCode === null) {
-      child.kill('SIGTERM');
-      await new Promise((resolvePromise) => {
-        const timer = setTimeout(() => { child.kill('SIGKILL'); resolvePromise(); }, 2_000);
-        child.once('exit', () => { clearTimeout(timer); resolvePromise(); });
-      });
-    }
-    await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    if (!passed && stderr) {
-      process.stderr.write(`CHROMIUM_STDERR_BEGIN\n${stderr}\nCHROMIUM_STDERR_END\n`);
-    }
-  }
-}
+      assert.equal(await evaluate("(()=>{const node=document.querySelector('.web-notifications');return node.scrollWidth<=node.clientWidth+1;})()"),true,'Notification content fits narrow panes');
+      await click('[aria-label="Compactar Notificações"]');
+      assert.equal(await evaluate("document.querySelectorAll('.web-notifications [data-notification-center]').length"),1,'Compact mode keeps one notification view');
+      await click('[aria-label="Fechar Notificações"]');
 
-main().catch((error) => {
-  console.error('SURFACE_BROWSER_SMOKE=FAIL');
-  console.error(error.stack ?? String(error));
-  process.exitCode = 1;
-});
+      assert.equal(await evaluate("!!document.querySelector('.home-footer,.home-mode-select')"),false,'Home footer and its mode selector are removed');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-sidebar')).overflowY"),'hidden','Sidebar does not scroll');
+      assert.equal(await evaluate("Math.abs(document.querySelector('.workspace-sidebar').getBoundingClientRect().bottom-innerHeight)<2"),true,'Sidebar reaches viewport bottom');
+      assert.equal(await evaluate("!!document.querySelector('.workspace-navigation [data-workspace-switch]') && !document.querySelector('.desktop-start-button')"),true,'View switch belongs to the dock; Start button is absent');
+      await evaluate("(()=>{const n=document.querySelector('.aura-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
+      await click('[aria-label="Enviar ao Aura"]');
+      await until("!!document.querySelector('[aria-label=\"Janela Aura\"]')");
+      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Aura\"]').textContent.includes('não está conectada')"),true,'Prompt cannot imply real inference');
+      await evaluate("window.proofAura=document.querySelector('[aria-label=\"Janela Aura\"]');window.proofAura.querySelector('input').focus()");
+      await click('[aria-label="Compactar Aura"]');
+      assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'expanded');
+      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Compact keeps the same mounted app');
+      await openSidebarDestination('Projetos');
+      await click('[aria-label="Compactar Projetos"]');
+      assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]').length"),2,'Both compact app instances remain mounted');
+      if (width <= 760) {
+        await until("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]')];const shown=panes.filter(p=>p.getClientRects().length>0);if(panes.length!==2||shown.length!==1)return false;const selected=shown[0];const bounds=selected.getBoundingClientRect();const all=strip.getBoundingClientRect();return selected.getAttribute('aria-label')==='Janela Projetos'&&selected.dataset.compactSelected==='true'&&Math.abs(bounds.width-all.width)<2&&strip.scrollWidth<=strip.clientWidth+1;})()");
+        assert.equal(await evaluate("(()=>{const pane=document.querySelector('[aria-label=\"Janela Projetos\"]');const select=pane?.querySelector('.compact-window-switcher');return !!select&&select.getClientRects().length>0&&[...select.options].some(option=>option.value==='Aura');})()"),true,'Mobile panel must expose keyboard-reachable switcher for the other mounted app');
+      } else {
+        assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]:not([hidden])').length"),2,'Both compact apps remain visible on desktop');
+        assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();const b=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,'Compact apps tile horizontally without overlap');
+        assert.equal(await evaluate("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,'Compact panels share available width equally without strip overflow');
+      }
+      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Adding a neighbor keeps the existing app node');
+      await click('[aria-label="Fechar Projetos"]');
+      if (width <= 760) await until("document.querySelector('[aria-label=\"Janela Aura\"]').getClientRects().length>0");
+      await openSidebarDestination('Arquivos');
+      await evaluate("window.proofUpperHeight=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height");
+      assert.equal(await evaluate("(()=>{const upper=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();const lower=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();return upper.bottom<=lower.top+1;})()"),true,'New app fits above compact panels without overlap');
+      await compactAction('Aura','Recolher painel Aura','Recolher painel');
+      await until("document.querySelector('.window-workspace').dataset.compact==='collapsed'");
+      await until("document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height>window.proofUpperHeight");
+      await compactAction('Aura','Expandir painel Aura','Expandir painel');
+      await until("document.querySelector('.window-workspace').dataset.compact==='expanded'");
+      await until("Math.abs(document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height-window.proofUpperHeight)<2");
+      await click('[aria-label="Fechar Arquivos"]');
+      await compactAction('Aura','Minimizar Aura','Minimizar');
+      await until("window.proofAura.hidden===true");
+      await click('[aria-label="Restaurar janela Aura"]');
+      assert.equal(await evaluate("window.proofAura.querySelector('input').value"),'Apenas demonstração','Minimize keeps the draft');
+      await compactAction('Aura','Expandir janela Aura','Expandir janela');
+      await click('[aria-label="Fechar Aura"]');
+      await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().toJSON()");
+      await click('[data-workspace-switch]');
+      assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');
+      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays at the dock edge in both views');
+      await until("!!document.querySelector('.classic-desktop')");
+      await clickByText('.desktop-shortcuts button','Projetos');
+      await click('[aria-label="Restaurar janela Projetos"]');
+      assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"Janela Projetos\"]').length"),1);
+      await click('[aria-label="Restaurar Projetos"]');
+      await click('[aria-label="Maximizar Projetos"]');
+      assert.equal(await evaluate("(()=>{const app=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();const rail=document.querySelector('.workspace-sidebar').getBoundingClientRect();const dock=document.querySelector('.workspace-navigation').getBoundingClientRect();return Math.abs(app.left-rail.right)<2&&Math.abs(app.top)<2&&Math.abs(app.right-innerWidth)<2&&Math.abs(app.bottom-dock.top)<2;})()"),true,'Maximized app fills the area between sidebar and dock');
+      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').dataset.maximized"),'true');
+      await click('[aria-label="Minimizar Projetos"]');
+      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').hidden"),true);
+      await click('[aria-label="Restaurar janela Projetos"]');
+      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Projetos\"]').dataset.maximized"),'true');
+      await click('[aria-label="Minimizar Projetos"]');
+      assert.equal(await evaluate("document.querySelectorAll('.desktop-window:not([hidden])').length"),0);
+      await click('[aria-label="Restaurar janela Projetos"]');
+      await click('[aria-label="Fechar Projetos"]');
+      assert.equal(await evaluate("!document.querySelector('[aria-label=\"Restaurar janela Projetos\"]')"),true);
+      await click('[data-workspace-switch]');
+      await until("!!document.querySelector('.os-shell')");
+      const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await writeFile(join(evidence,'central-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+      results.push({width,height,primaryCentral:true,themePersistence:true,mobileNavigation:width<=760,desktopLifecycle:true,compactLifecycle:true,stableAppNode:true,promptUnconnected:true,noHorizontalOverflow:true});
+      console.log('SURFACE_VIEWPORT=PASS '+width+'x'+height);
+    }
+    return results;
+  });
+  await writeFile(join(evidence,'report.json'),JSON.stringify(reports,null,2)+'\n');
+  console.log('SURFACE_BROWSER_SMOKE=PASS '+JSON.stringify(reports));
+}finally{await new Promise(done=>server.close(done));}

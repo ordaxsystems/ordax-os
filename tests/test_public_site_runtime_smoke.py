@@ -32,6 +32,19 @@ preview = load_module("ordax_public_site_preview_smoke", PREVIEW_PATH)
 
 
 class PublicSiteRuntimeSmokeTests(unittest.TestCase):
+    def test_route_inventory_matches_built_pages_and_rejects_a_missing_page(self):
+        manifest_path = self.out / build.MANIFEST_NAME
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertIn("/conta/", manifest["routes"])
+        self.assertIn("/web/", manifest["routes"])
+        with tempfile.TemporaryDirectory() as temporary:
+            candidate = Path(temporary) / "site"
+            shutil.copytree(self.out, candidate)
+            manifest["routes"].append("/missing-page/")
+            (candidate / build.MANIFEST_NAME).write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(build.PublicSiteError, "route inventory"):
+                build.verify_bundle(candidate)
+
     def test_account_assets_and_plan_catalog_are_derived_from_existing_owners(self):
         self.assertEqual((self.out / build.PUBLIC_SYMBOL_PATH).read_bytes(), build.CANONICAL_SYMBOL.read_bytes())
         with self.fetch('/' + build.PUBLIC_SYMBOL_PATH) as response:
@@ -49,6 +62,12 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
         for asset in ("account-dashboard.css", "account-portal.js", "ordax-design-tokens.css", "ordax-font.css"):
             fingerprint = build.sha256_bytes((self.out / "assets" / asset).read_bytes())[:16]
             self.assertIn("/assets/" + asset + "?v=" + fingerprint, account)
+        shared_version = build.sha256_bytes((self.out / "assets/site.js").read_bytes())[:16]
+        for page in self.out.rglob("*.html"):
+            markup = page.read_text(encoding="utf-8")
+            if '<script src="/assets/site.js' in markup:
+                self.assertIn('/assets/site.js?v=' + shared_version, markup, page)
+
 
     def test_web_config_cannot_activate_an_unapproved_product(self):
         with tempfile.TemporaryDirectory() as temporary:

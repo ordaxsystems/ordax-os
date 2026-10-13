@@ -22,6 +22,7 @@ type RawDiskApplyRequest struct {
 	ConfirmationToken        string           `json:"confirmation_token"`
 	Image                    VerifiedRawImage `json:"image"`
 	BootstrapSeedBytes       int64            `json:"bootstrap_seed_bytes,omitempty"`
+	StorageProfile           string           `json:"storage_profile,omitempty"`
 	CanonicalTrustResolved   bool             `json:"canonical_trust_resolved"`
 	DestructiveAuthorization string           `json:"destructive_authorization"`
 }
@@ -193,6 +194,12 @@ func validateRawDiskApplyRequestPolicy(request RawDiskApplyRequest) (Target, err
 	}
 	if request.BootstrapSeedBytes < 0 || request.BootstrapSeedBytes > request.Image.SizeBytes {
 		return Target{}, errors.New("physical write blocked: bootstrap seed size is outside the prepared image")
+	}
+	if request.StorageProfile != "" && request.StorageProfile != "owner-development" {
+		return Target{}, errors.New("physical write blocked: unknown storage profile")
+	}
+	if request.StorageProfile == "owner-development" && request.BootstrapSeedBytes <= 0 {
+		return Target{}, errors.New("physical write blocked: development layout requires an exact bootstrap seed")
 	}
 
 	expectedAuthorization := DestructiveAuthorizationToken(confirmed, request.Image)

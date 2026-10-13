@@ -18,6 +18,9 @@ export async function createNativeStoreCatalogComposition({
     return Object.freeze({
       port: unavailable,
       verifiedCatalogPort: null,
+      getCurrentObservations() {
+        return Object.freeze([]);
+      },
       async refresh() {
         return unavailable.getSnapshot();
       },
@@ -37,6 +40,9 @@ export async function createNativeStoreCatalogComposition({
   return Object.freeze({
     port: projection.port,
     verifiedCatalogPort: nativeCatalog.port,
+    getCurrentObservations() {
+      return projection.getCurrentObservations();
+    },
     async refresh() {
       if (destroyed) return projection.port.getSnapshot();
       await nativeCatalog.refresh();

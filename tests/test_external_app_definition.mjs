@@ -65,9 +65,10 @@ test("built-ins cannot be replaced and repeated external ids fail closed", () =>
     { ...component, id: "files", title: "Arquivos", dependencies: ["surface-shell"] },
     { ...presentation, appId: "files" },
   );
-  const registry = createAppRuntimeCatalog({ external: [collision, notes] });
-  assert.equal(registry.get("files"), listFirstPartyApps().find(app => app.id === "files"));
-  assert.equal(registry.list().length, listFirstPartyApps().length + 1);
+  assert.throws(
+    () => createAppRuntimeCatalog({ external: [collision, notes] }),
+    /Duplicate bundled and external app source: files/,
+  );
   assert.throws(() => createAppRuntimeCatalog({ external: [notes, notes] }), /Duplicate external app id/);
   assert.throws(() => createAppRuntimeCatalog({ builtIns: [listFirstPartyApps()[0], listFirstPartyApps()[0]] }), /Duplicate built-in app id/);
   assert.throws(() => createAppRuntimeCatalog({ external: [{ ...notes, panels: [] }] }), /descriptive component-slot data/);

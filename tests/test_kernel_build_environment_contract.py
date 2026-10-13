@@ -23,6 +23,17 @@ class KernelBuildEnvironmentContractTests(unittest.TestCase):
         self.assertIn("gcc", value["apt"]["packages"])
         self.assertIn("gcc-13", value["apt"]["packages"])
         self.assertIn("python3", value["apt"]["packages"])
+        # OpenPGP is required by the current signed kernel source; it must be
+        # installed from the exact same snapshot as the compiler and linker.
+        source = json.loads((ROOT / "bootstrap/kernel/source.json").read_text(encoding="utf-8"))
+        if source.get("upstream_signature"):
+            self.assertIn("gpg", value["apt"]["packages"])
+            self.assertIn("gpg-agent", value["apt"]["packages"])
+            self.assertEqual(value["apt"]["expected_versions"]["gpg"], value["apt"]["expected_versions"]["gpg-agent"])
+            verifier = (ROOT / "bootstrap/kernel/verify_environment.py").read_text(encoding="utf-8")
+            self.assertIn('if "gpg-agent" not in packages:', verifier)
+            self.assertIn('for tool in ("gpg", "gpg-agent"):', verifier)
+            self.assertIn('observed["gpg"] != observed["gpg-agent"]', verifier)
 
     def test_promotion_requires_pinned_versions_and_repeat_digest_proof(self):
         value = self.load()
@@ -47,6 +58,38 @@ class KernelBuildEnvironmentContractTests(unittest.TestCase):
             self.assertTrue(proof["repeat_build_digest_match"])
             self.assertTrue(proof["promotable_to_physical"])
 
+    def test_current_pinned_repeat_proof_matches_the_selected_kernel(self):
+        source = json.loads((ROOT / "bootstrap/kernel/source.json").read_text(encoding="utf-8"))
+        env = self.load()
+        proof = env["repeat_proof"]
+        version = source["version"]
+        expected_names = {
+            f"kernel-{version}.config",
+            f"kernel-modules-{version}.tar",
+            f"vmlinuz-{version}",
+        }
+
+        self.assertEqual(bool(source["build"]["pinned_environment_resolved"]), bool(env["proof"]["repeat_build_digest_match"]))
+        if not source["build"]["pinned_environment_resolved"]:
+            self.assertFalse(env["proof"]["promotable_to_physical"])
+            return
+
+        self.assertEqual(env["status"], "pinned-repeat-proof-complete")
+        self.assertEqual(proof["kernel_version"], version)
+        self.assertEqual(proof["result"], "pass")
+        self.assertRegex(proof["source_commit"], COMMIT_RE)
+        self.assertIsInstance(proof["workflow_run_id"], int)
+        self.assertGreater(proof["workflow_run_id"], 0)
+        self.assertEqual(set(proof["artifacts"]), expected_names)
+        for digest in proof["artifacts"].values():
+            self.assertRegex(digest, SHA256_RE)
+        manifest = json.loads((ROOT / "docs/contracts/minimal-bootstrap.json").read_text(encoding="utf-8"))
+        kernel = next(g for g in manifest["artifact_groups"] if g["id"] == "kernel")["artifacts"]
+        self.assertEqual(len(kernel), 1)
+        self.assertEqual(proof["artifacts"][f"vmlinuz-{version}"], kernel[0]["sha256"])
+        self.assertFalse(source["build"]["physical_artifact_authorized"])
+        self.assertFalse(manifest["physical_write_allowed"])
+
     def test_artifact_reproducibility_compares_same_current_source(self):
         value = self.load()
         policy = value["artifact_digest_policy"]
@@ -54,6 +97,7 @@ class KernelBuildEnvironmentContractTests(unittest.TestCase):
         self.assertTrue(policy["historical_reference_artifacts_are_environment_observation_only"])
         self.assertTrue(policy["promotion_requires_same_current_source_repeat_build_match"])
         self.assertTrue(policy["historical_artifact_digest_is_not_a_permanent_current_build_oracle"])
+        self.assertTrue(policy["historical_proof_does_not_authorize_new_signed_source"])
 
         verifier = (
             ROOT / "bootstrap/kernel/verify_reproducibility.py"

@@ -9,8 +9,7 @@ WEB_INDEX = ROOT / "system" / "composition" / "web" / "index.html"
 NATIVE_INDEX = ROOT / "system" / "composition" / "native" / "index.html"
 APPEARANCE = ROOT / "system" / "services" / "preferences" / "appearance.mjs"
 DESKTOP_IDENTITY = ROOT / "docs" / "DESKTOP-IDENTITY.md"
-BROWSER_SMOKE = ROOT / "tools" / "surface-web" / "browser-smoke.mjs"
-PROJECTS_CSS = ROOT / "system" / "apps" / "projects" / "projects.css"
+BROWSER_SMOKE = ROOT / "tools" / "surface-native" / "browser-smoke.mjs"
 INTERNET_CSS = ROOT / "system" / "apps" / "internet" / "internet.css"
 SETTINGS_CSS = SURFACE / "settings.css"
 ACCOUNT_CSS = SURFACE / "account.css"
@@ -72,7 +71,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertIn(".ordax-launcher-panel", css)
         self.assertIn("prefers-reduced-motion", css)
 
-        for index in (WEB_INDEX, NATIVE_INDEX):
+        for index in (NATIVE_INDEX,):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
@@ -125,40 +124,13 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertIn(".ordax-system-navigation-item[data-active=\"true\"]", system)
         self.assertIn("box-shadow: 0 0 10px", system)
 
-    def test_projects_consumes_semantic_tokens_in_component_css(self):
-        css = PROJECTS_CSS.read_text(encoding="utf-8")
-        for declaration in (
-            "color: var(--ordax-text)",
-            "color: var(--ordax-muted)",
-            "border: 1px solid var(--ordax-border-soft)",
-            "border-radius: var(--ordax-radius-lg)",
-            "background: color-mix(in srgb, var(--ordax-panel) 66%, transparent)",
-            "box-shadow: var(--ordax-shadow-soft)",
-            "border: 1px solid var(--ordax-border)",
-            "outline: 2px solid var(--ordax-focus)",
-            "var(--ordax-accent)",
-            "prefers-reduced-motion",
-        ):
-            self.assertIn(declaration, css)
+    def test_projects_styles_are_not_bundled_after_remove_first_cutover(self):
+        self.assertFalse((ROOT / "system/apps/projects/projects.css").exists())
 
-
-    def test_internet_consumes_semantic_tokens_in_component_css(self):
-        css = INTERNET_CSS.read_text(encoding="utf-8")
-        for legacy in ("#ed4b25", "#9d2f18", "#5f5b54", "#efede6", "#171613"):
-            self.assertNotIn(legacy, css)
-        self.assertNotIn("border-color: var(--ordax-danger)", css)
-        self.assertGreaterEqual(css.count("border-color: var(--ordax-focus)"), 2)
-        for declaration in (
-            "background: var(--ordax-app-bg)",
-            "color: var(--ordax-text)",
-            "var(--ordax-accent)",
-            "var(--ordax-muted)",
-            "var(--ordax-focus)",
-            "background: var(--ordax-button-bg)",
-            "color: var(--ordax-button-text)",
-            "var(--ordax-danger)",
-        ):
-            self.assertIn(declaration, css)
+    def test_internet_app_css_is_absent_during_remove_first_gate(self):
+        self.assertFalse(INTERNET_CSS.exists())
+        tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
+        self.assertIn("--ordax-accent", tokens)
 
     def test_settings_previews_match_canonical_light_and_dark_palettes(self):
         css = SETTINGS_CSS.read_text(encoding="utf-8")
@@ -217,7 +189,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertIn('background: url("./ordax-symbol.png")', css)
         self.assertIn('@media (forced-colors: active)', css)
         self.assertIn('[data-ordax-contrast="high"]', css)
-        for composition in (WEB_INDEX, NATIVE_INDEX):
+        for composition in (NATIVE_INDEX,):
             self.assertIn('../../surface/ui/brand/symbol.css', composition.read_text(encoding='utf-8'))
         for stylesheet in ('identity.css', 'boot-screen.css'):
             self.assertNotIn('ordax-symbol.png', (SURFACE / stylesheet).read_text(encoding='utf-8'))
@@ -240,7 +212,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         smoke = BROWSER_SMOKE.read_text(encoding="utf-8")
         self.assertIn("'system/surface/ui/identity.css'", smoke)
         self.assertNotIn("'system/surface/ui/app-identity.css'", smoke)
-        self.assertIn("'system/apps/internet/internet.css'", smoke)
+        self.assertNotIn("'system/apps/internet/internet.css'", smoke)
 
     def test_inter_font_is_local_offline_and_source_bound(self):
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")

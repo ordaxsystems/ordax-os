@@ -40,7 +40,10 @@ License identifiers are intentionally unresolved in this inventory.
 
 That is safer than copying assumptions into a machine-readable file. Before a public release, license metadata must be resolved against the exact final component versions and captured in the real SBOM/notices workflow.
 
-The CI test rejects drift between this inventory and the repository's actual selected versions/package lists. It also rejects adding an SPDX identifier here while the record still says its license is unresolved.
+The kernel entry references `bootstrap/kernel/source.json` and never re-authors
+its version, source URL or digest. The CI test validates that source owner and
+checks other declared input versions/packages against their respective owners.
+It also rejects adding an SPDX identifier while a license remains unresolved.
 
 ## Machine-readable contract
 

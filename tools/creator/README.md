@@ -105,6 +105,8 @@ ORDAX-DATA  exFAT
 
 The Creator Core already owns the v2 geometry through `PlanPortableTargetStorage` and the final 39-operation application plan. Physical v2 apply remains disabled until the disposable Portable media/runtime-v4 QEMU+UEFI proof, canonical trust, fresh Stable/MVP owner authorization for the 17-artifact v4 payload and physical USB gates close in order.
 
+The complete 17-artifact media plan also enforces per-partition aggregate capacity **before** the destructive writer is reached: ESP reserves 32 MiB, and ORDAX-DATA reserves the greater of 128 MiB and 2% of its physical extent for FAT32/exFAT metadata, cluster rounding and free-space headroom. The same Core rule is checked when accepting a parsed media plan and again at the application executor boundary. This deterministic conservative preflight rejects impossible payloads; it does **not** replace disposable actual-filesystem verification, live USB revalidation, UAC or the required 17/17 physical readback.
+
 ## Release bootstrap inputs
 
 The release-channel pointer is now canonical and hash-bound in the minimal-bootstrap manifest:
@@ -255,4 +257,27 @@ The durable Native target geometry, target-identity binding, boot assets and non
 `ordax-creator plan-native` and related Native commands belong to the **engineering CLI/proof surface**, not to the public Stable/MVP Creator experience. The official MVP Creator UI prepares removable OrdaX USB media only and must not advertise or authorize internal-disk installation.
 
 Native code remains in the same Creator Core so a later product promotion can activate it deliberately without creating a second installer or divergent storage policy.
+
+
+
+## Creator Windows — camada visual unificada (11/10/2026)
+
+O layout Windows passou a desenhar somente conteúdo **não interativo** no
+`WM_PAINT` da janela: título, descrição, status, progresso, versão e trilha.
+Os textos pertencem a um único modelo de apresentação atualizado pela própria
+thread UI. Não criar `STATIC` ou `msctls_progress32` sobre os cards: a mistura
+de controle nativo (fundo do Windows) com GDI customizado causava campos brancos,
+texto sem contraste e conteúdo sobreposto na máquina física.
+
+O desenho ocorre em bitmap/DC compatível, transferido em uma operação
+`BitBlt`; `InvalidateRect` não apaga o fundo na tela. Ações continuam usando
+`BUTTON` owner-drawn, e os dois `COMBOBOX` recebem `CBS_OWNERDRAWFIXED`
+com item mensurado, fonte e cores do tema exportado do SSOT da Surface.
+A autoridade de confirmação do destino e do backend elevado permanece
+independente do render visual; nenhum estado visual autoriza gravação USB.
+
+CI: `python -m unittest tests.test_creator_single_paint -v` e
+`Creator UX Baseline`, que também faz cross-build Go Windows. Aprovação do
+CI prova as âncoras e compilação; legibilidade real em várias escalas DPI
+exige captura física da nova build antes de classificar UX como homologada.
 

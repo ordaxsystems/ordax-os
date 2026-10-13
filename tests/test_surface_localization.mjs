@@ -116,6 +116,55 @@ test("desktop shell is born in English when regional locale is English", () => {
   localization.dispose();
 });
 
+for (const locale of SURFACE_COMPLETE_LOCALES) {
+  test(`desktop shell renders usable launch destinations and one profile in ${locale}`, () => {
+    const localization = createSurfaceLocalization(preferenceRuntime(locale));
+    try {
+      const markup = createDesktopShellMarkup(localization);
+      const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+      const launchers = buttons.filter(([, attributes]) =>
+        attributes.includes('class="ordax-sidebar-launcher-brand"'),
+      );
+      assert.equal(launchers.length, 1, "One sidebar brand opens the canonical launcher");
+      const [, launcher] = launchers[0];
+      assert.ok(launcher.includes('data-launcher-toggle'));
+      assert.ok(launcher.includes('aria-controls="ordax-launcher"'));
+      assert.ok(launcher.includes('aria-expanded="false"'));
+      assert.ok(launcher.includes(`aria-label="${localization.translate("shell.launcher.command")}"`));
+      assert.ok(markup.includes('id="ordax-launcher"'));
+      assert.ok(markup.includes('data-launcher-query'));
+      const navigation = buttons.filter(([, attributes]) =>
+        attributes.includes('class="ordax-rail-button"') &&
+        attributes.includes('data-launch-app='),
+      );
+      const expected = ["files", "studio", "settings", "system"];
+      assert.equal(navigation.length, expected.length, "Every pinned destination has one launch control");
+      assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
+      assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
+      for (const id of expected) {
+        const matches = navigation.filter(([, attributes]) => attributes.includes(`data-launch-app="${id}"`));
+        assert.equal(matches.length, 1, `One sidebar launcher for ${id}`);
+        const [, attributes, content] = matches[0];
+        const title = localization.translate(`app.${id}.title`);
+        assert.ok(attributes.includes(`data-sidebar-app="${id}"`));
+        assert.ok(attributes.includes(`title="${title}"`));
+        assert.ok(attributes.includes(`aria-label="${localization.translate("surface.launcher.open", { app: title })}"`));
+        assert.ok(content.includes(`<span>${title}</span>`));
+        assert.ok(content.includes('<svg'), "The collapsed rail retains a visible icon");
+      }
+      const account = buttons.filter(([, attributes]) => attributes.includes('data-launch-app="account"'));
+      assert.equal(account.length, 1, "Account has a single profile launcher, outside pinned app navigation");
+      const [, profile] = account[0];
+      assert.ok(profile.includes('data-sidebar-account-open'));
+      assert.ok(profile.includes('data-app-target="overview"'));
+      assert.ok(profile.includes(`aria-label="${localization.translate("sidebar.account.open")}"`));
+      assert.ok(!navigation.some(([, attributes]) => attributes.includes('data-launch-app="account"')));
+    } finally {
+      localization.dispose();
+    }
+  });
+}
+
 test("unknown Surface message ids fail closed", () => {
   const localization = createSurfaceLocalization(preferenceRuntime("en-US"));
   assert.throws(
@@ -178,4 +227,22 @@ test("shared Surface is wired to localization instead of hardcoded locale render
   assert.match(shell, /syncDesktopShellLocalization/);
   assert.match(shell, /shell\.launcher\.search/);
   assert.match(shell, /surface\.launcher\.open/);
+});
+
+test("thin Web boot catalog remains identical to the full localization owner", async () => {
+  const { SURFACE_BOOT_SOURCE_MESSAGES, SURFACE_BOOT_ENGLISH_MESSAGES } =
+    await import("../system/services/i18n/catalog/boot.mjs");
+  const { translateSurfaceMessage } = await import("../system/services/i18n/surface.mjs");
+  assert.deepEqual(Object.keys(SURFACE_BOOT_SOURCE_MESSAGES), Object.keys(SURFACE_BOOT_ENGLISH_MESSAGES));
+  assert.ok(Object.isFrozen(SURFACE_BOOT_SOURCE_MESSAGES));
+  for (const [id, message] of Object.entries(SURFACE_BOOT_SOURCE_MESSAGES)) {
+    assert.equal(translateSurfaceMessage("pt-BR", id), message);
+    assert.equal(translateSurfaceMessage("en-US", id), SURFACE_BOOT_ENGLISH_MESSAGES[id]);
+    assert.equal(translateSurfaceMessage("es-ES", id), message, "Existing source-locale fallback is preserved");
+  }
+  const main = await readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8");
+  assert.ok(main.includes("services/i18n/catalog/boot.mjs"));
+  assert.ok(!main.includes("services/i18n/surface.mjs"), "Boot cannot eagerly import every application catalog");
+  const bootSource = await readFile(new URL("../system/services/i18n/catalog/boot.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(bootSource, /^import\s/m, "Boot catalog is data only");
 });

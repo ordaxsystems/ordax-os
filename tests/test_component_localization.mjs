@@ -46,7 +46,9 @@ function validReleaseSpec() {
 
 test("first-party apps expose one validated component-localization contract", () => {
   const apps = listFirstPartyApps();
-  assert.ok(apps.length >= 10);
+  assert.ok(apps.length > 0, "bundled component-localization catalog cannot be empty");
+  assert.equal(apps.some((app) => app.id === "projects"), false,
+    "Projects localized copy is external after Gate A");
   for (const app of apps) {
     assert.equal(app.localization.schema, COMPONENT_LOCALIZATION_SCHEMA, app.id);
     assert.equal(app.localization.targetId, app.id, app.id);

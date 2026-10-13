@@ -9,8 +9,8 @@ import {
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 
 /**
- * Native only: verified 'current' slot discovery is the SSOT. A built-in
- * app always wins collisions while its source still belongs to the OS.
+ * Native only: verified 'current' slot discovery is the SSOT. A verified
+ * slot cannot be silently masked by a bundled app with the same stable ID.
  */
 export function createNativeVerifiedInstalledAppCatalog(
   verifiedEntries, { builtIns = listFirstPartyApps() } = {},
@@ -25,7 +25,9 @@ export function createNativeVerifiedInstalledAppCatalog(
       throw new TypeError("Verified installed app entry is incomplete");
     }
     const id = entry.component.id;
-    if (bundledIds.has(id)) continue;
+    if (bundledIds.has(id)) {
+      throw new TypeError(`Duplicate bundled and signed-slot app source: ${id}`);
+    }
     if (!hasNativeExternalFirstPartyModuleRead(id)
       || entry.metadata.componentId !== id
       || entry.metadata.state !== "current"

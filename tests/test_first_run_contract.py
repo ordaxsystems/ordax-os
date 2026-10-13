@@ -4,6 +4,8 @@ from pathlib import Path
 import stat
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
@@ -15,7 +17,7 @@ CSS = ROOT / "system" / "surface" / "ui" / "first-run.css"
 SETTINGS = ROOT / "system" / "surface" / "ui" / "settings-overview-controls.mjs"
 NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
 NATIVE_HTML = ROOT / "system" / "composition" / "native" / "index.html"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
 WEB_HTML = ROOT / "system" / "composition" / "web" / "index.html"
 
 
@@ -121,6 +123,86 @@ class FirstRunContractTests(unittest.TestCase):
                     0o600,
                 )
 
+    def test_first_run_completion_is_monotonic_and_exact_retry_is_idempotent(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            host.FIRST_RUN_FILE = str(Path(directory) / "first-run.json")
+            initial = host.initial_first_run_state()
+            completed = {**initial, "completed": True, "accountMode": "local-only"}
+            host.write_first_run_state(completed)
+            host.write_first_run_state(completed)
+            self.assertEqual(host.read_first_run_state(), completed)
+            for rejected in (
+                initial,
+                {**completed, "locale": "en-US"},
+                {**completed, "accountMode": "identity"},
+            ):
+                with self.assertRaisesRegex(ValueError, "cannot be overwritten"):
+                    host.write_first_run_state(rejected)
+                self.assertEqual(host.read_first_run_state(), completed)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def test_corrupted_or_linked_existing_receipt_cannot_be_reset_by_post(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            receipt = Path(directory) / "first-run.json"
+            host.FIRST_RUN_FILE = str(receipt)
+            completed = {**host.initial_first_run_state(), "completed": True, "accountMode": "local-only"}
+            for corrupted in ("{broken", '{"schema":"invalid"}'):
+                receipt.write_text(corrupted, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "unreadable|invalid"):
+                    host.write_first_run_state(completed)
+                self.assertEqual(receipt.read_text(encoding="utf-8"), corrupted)
+            receipt.unlink()
+            external = Path(directory) / "external.json"
+            external.write_text("keep-original", encoding="utf-8")
+            receipt.symlink_to(external)
+            with self.assertRaisesRegex(ValueError, "cannot be a symlink"):
+                host.write_first_run_state(completed)
+            self.assertEqual(external.read_text(encoding="utf-8"), "keep-original")
+            self.assertTrue(receipt.is_symlink())
+
+    def test_parallel_conflicting_completion_requests_cannot_overwrite_each_other(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            host.FIRST_RUN_FILE = str(Path(directory) / "first-run.json")
+            initial = host.initial_first_run_state()
+            choices = [
+                {**initial, "completed": True, "accountMode": "local-only"},
+                {**initial, "completed": True, "accountMode": "identity"},
+            ]
+            def attempt(value):
+                try:
+                    host.write_first_run_state(value)
+                    return "written"
+                except ValueError:
+                    return "blocked"
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(attempt, choices))
+            self.assertEqual(sorted(results), ["blocked", "written"])
+            self.assertIn(host.read_first_run_state(), choices)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def test_directory_fsync_failure_does_not_report_completion_success(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            host.FIRST_RUN_FILE = str(Path(directory) / "first-run.json")
+            completed = {**host.initial_first_run_state(), "completed": True, "accountMode": "local-only"}
+            real_fsync = host.os.fsync
+            count = 0
+            def fail_directory_only(fd):
+                nonlocal count
+                count += 1
+                if count == 2:
+                    raise OSError("directory fsync failed")
+                return real_fsync(fd)
+            with patch.object(host.os, "fsync", side_effect=fail_directory_only):
+                with self.assertRaisesRegex(OSError, "directory fsync failed"):
+                    host.write_first_run_state(completed)
+            self.assertEqual(count, 2)
+            self.assertEqual(host.read_first_run_state(), completed)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
     def test_native_adapter_and_host_use_separate_first_run_endpoint(self):
         adapter = ADAPTER.read_text(encoding="utf-8")
         host = HOST_SERVER.read_text(encoding="utf-8")
@@ -160,6 +242,29 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("await store.save(completeFirstRunState(draft))", ui)
         self.assertNotIn("localStorage", ui)
         self.assertNotIn("sessionStorage", ui)
+
+    def test_first_run_essentials_reuses_native_store_and_never_installs_by_presentation(self):
+        native = NATIVE_MAIN.read_text(encoding="utf-8")
+        first_run = UI.read_text(encoding="utf-8")
+        composition = (ROOT / "system" / "composition" / "native" / "store-catalog.mjs").read_text(encoding="utf-8")
+        projection = (ROOT / "system" / "services" / "apps" / "verified-store-projection.mjs").read_text(encoding="utf-8")
+        translated = (ROOT / "system" / "services" / "i18n" / "first-run.mjs").read_text(encoding="utf-8")
+        self.assertIn("planFirstRunAppSelectionFromStore", native)
+        self.assertIn("initialProvisioning: !firstRunStateStore.load().completed", native)
+        self.assertIn("storeCatalogComposition?.getCurrentObservations()", native)
+        self.assertIn("getCurrentObservations()", composition)
+        self.assertIn("currentObservations = Object.freeze([])", projection)
+        self.assertIn('firstRunAppSelection.installedByThisPlan !== false', first_run)
+        self.assertIn("Nenhum aplicativo adicional foi instalado.", first_run)
+        self.assertNotIn("installApp(", first_run)
+        for text in (
+            "Aplicativos essenciais",
+            "Pacotes independentes confirmados:",
+            "Candidatos verificados para futura distribuição:",
+            "Remoção preservada ou fora do primeiro uso:",
+            "Ainda sem comprovação de distribuição:",
+        ):
+            self.assertEqual(translated.count(json.dumps(text, ensure_ascii=False) + ":"), 4)
 
     def test_branding_records_first_run_without_claiming_early_graphics(self):
         branding = json.loads(BRANDING.read_text(encoding="utf-8"))

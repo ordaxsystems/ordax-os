@@ -5,6 +5,10 @@
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
   "rewrites": [
     {
+      "source": "/oauth/consent",
+      "destination": "/api/oauth-consent"
+    },
+    {
       "source": "/auth/:path*",
       "destination": "/api/account-proxy?ordax_path=/auth/:path*"
     },
@@ -15,10 +19,6 @@
     {
       "source": "/account/:path*",
       "destination": "/api/account-proxy?ordax_path=/account/:path*"
-    },
-    {
-      "source": "/conta/:section",
-      "destination": "/conta/index.html"
     }
   ],
   "headers": [
@@ -214,13 +214,26 @@
           "value": "public, max-age=300"
         }
       ]
+    },
+    {
+      "source": "/oauth/consent",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
     }
   ],
   "git": {
     "deploymentEnabled": {
-      "main": true,
-      "*": false
+      "*": false,
+      "main": true
     }
   },
-  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --account-ui lovable --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
+  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
 }

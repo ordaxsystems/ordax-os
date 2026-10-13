@@ -18,17 +18,11 @@ type physicalProgressDocument struct {
 }
 
 func setProgressPercent(percent int) {
-	if progressBar == 0 {
-		return
-	}
-	if percent < 0 {
-		percent = 0
-	}
-	if percent > 100 {
-		percent = 100
-	}
-	send(progressBar, pbmSetMarquee, 0, 0)
-	send(progressBar, pbmSetPos, uintptr(percent), 0)
+    if percent < 0 { percent = 0 }
+    if percent > 100 { percent = 100 }
+    creatorProgressValue = percent
+    creatorProgressBusy = false
+    invalidateGuidedVisual()
 }
 
 func readPhysicalProgress(path string) (physicalProgressDocument, error) {

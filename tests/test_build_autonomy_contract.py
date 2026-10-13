@@ -38,8 +38,12 @@ class BuildAutonomyContractTest(unittest.TestCase):
 
     def test_kernel_is_built_by_ci_not_developer_machine(self):
         kernel = CONTRACT["kernel"]
-        self.assertEqual(kernel["baseline_version"], "6.6.52")
-        self.assertRegex(kernel["source_archive_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(kernel["source_contract"], "bootstrap/kernel/source.json")
+        self.assertNotIn("baseline_version", kernel)
+        self.assertNotIn("source_archive_sha256", kernel)
+        source = json.loads((ROOT / kernel["source_contract"]).read_text(encoding="utf-8"))
+        self.assertEqual(source["$schema"], "prototype-ordax.kernel-source/1")
+        self.assertRegex(source["archive_sha256"], r"^[0-9a-f]{64}$")
         self.assertTrue(kernel["canonical_config_required"])
         self.assertTrue(kernel["pinned_toolchain_required"])
         self.assertTrue(kernel["ci_compilation_required"])

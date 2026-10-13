@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST_SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 NATIVE_ADAPTER = ROOT / "system" / "adapters" / "native" / "component-state.mjs"
 NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
 MANIFEST = ROOT / "system" / "contracts" / "component-manifest.mjs"
 STATE_STORE = ROOT / "system" / "contracts" / "component-state-store.mjs"
 MANAGER_CONTRACT = ROOT / "system" / "contracts" / "component-manager.mjs"
@@ -109,7 +109,6 @@ class NativeComponentStateTests(unittest.TestCase):
         contract = MANAGER_CONTRACT.read_text(encoding="utf-8")
         catalog = CATALOG.read_text(encoding="utf-8")
         app_manifests = APP_MANIFESTS.read_text(encoding="utf-8")
-        internet_component = INTERNET_COMPONENT.read_text(encoding="utf-8")
         manager = MANAGER.read_text(encoding="utf-8")
         adapter = NATIVE_ADAPTER.read_text(encoding="utf-8")
         native = NATIVE_MAIN.read_text(encoding="utf-8")
@@ -126,11 +125,9 @@ class NativeComponentStateTests(unittest.TestCase):
         self.assertIn('ordax.component-manager/1', contract)
         self.assertIn("appComponentManifests", catalog)
         self.assertIn("coreComponentManifests", catalog)
-        self.assertIn("./internet/component.mjs", catalog)
+        self.assertNotIn("./internet/component.mjs", catalog)
+        self.assertFalse(INTERNET_COMPONENT.exists())
         self.assertNotIn('id: "internet"', app_manifests)
-        self.assertIn('id: "internet"', internet_component)
-        self.assertIn('releaseMode: "git-app"', internet_component)
-        self.assertIn('owner: "system/apps/internet"', internet_component)
         self.assertIn("stageCandidate", manager)
         self.assertIn("markPendingHealthy", manager)
         self.assertIn("promotePending", manager)
@@ -147,7 +144,6 @@ class NativeComponentStateTests(unittest.TestCase):
         self.assertIn("createComponentManager", native)
         self.assertIn("listSystemComponents", native)
         self.assertIn("componentManager.destroy()", native)
-        self.assertIn("createComponentManager", web)
         self.assertNotIn("createNativeComponentStateStore", web)
 
         self.assertIn("assertComponentManager", view)

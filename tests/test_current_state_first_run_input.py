@@ -153,7 +153,7 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
         )
         self.assertEqual(
             self.authorization["release_binding"]["source_commit"],
-            "b924ff8d74d1761232381ae3f9604bba17497cfd",
+            "03f88eeaf382a59aaefbcf4943d0639d2730741b",
         )
         self.assertIn(
             "CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_SIGNED_MATERIALIZED_EXACT_PRE_HARDENING",
@@ -165,11 +165,11 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
                 self.current,
             )
             self.assertIn(
-                "PHYSICAL_AUTHORIZATION_ELIGIBLE=YES_CURRENT_BOUND_PROOF",
+                "PHYSICAL_AUTHORIZATION_ELIGIBLE=YES_PREFLIGHT_ONLY_EXPLICIT_OWNER_CONSENT_PENDING",
                 self.current,
             )
             self.assertIn(
-                "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_FRESH_CONSENT_REQUIRED",
+                "PHYSICAL_OWNER_AUTHORIZATION_REACHABLE=YES_EXPLICIT_OWNER_CONSENT_REQUIRED",
                 self.current,
             )
             self.assertIn(

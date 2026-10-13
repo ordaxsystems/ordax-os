@@ -30,7 +30,6 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 # silently replace physical-seed bytes whenever the refresh agent evolves.
 GENERATED_SOURCES = {
     "boot/esp/EFI/BOOT/BOOTX64.EFI": "out/esp/systemd-bootx64.efi",
-    "bootstrap/kernel/vmlinuz-6.6.52": "out/kernel/vmlinuz-6.6.52",
     "bootstrap/initramfs/initramfs.cpio.gz": "out/initramfs/initramfs.cpio.gz",
     "bootstrap/network/bin/netbox": "out/network-bootstrap/netbox",
 }
@@ -38,6 +37,26 @@ GENERATED_SOURCES = {
 
 class AssembleError(RuntimeError):
     pass
+
+
+def canonical_kernel_sources(repository_root: Path) -> dict[str, str]:
+    """Use the kernel owner's pinned identity, never an assembler version fork."""
+    source = repository_root / "bootstrap/kernel/source.json"
+    if source.is_symlink() or not source.is_file():
+        raise AssembleError("kernel source contract is missing or unsafe")
+    try:
+        contract = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AssembleError(f"cannot parse kernel source contract: {exc}") from exc
+    version = contract.get("version")
+    if (
+        contract.get("$schema") != "prototype-ordax.kernel-source/1"
+        or not isinstance(version, str)
+        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None
+    ):
+        raise AssembleError("kernel source contract version is invalid")
+    name = f"vmlinuz-{version}"
+    return {f"bootstrap/kernel/{name}": f"out/kernel/{name}"}
 
 
 def sha256_file(path: Path) -> str:
@@ -250,7 +269,16 @@ def assemble(
     allow_unresolved: bool,
     generated_sources: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    generated_sources = dict(GENERATED_SOURCES if generated_sources is None else generated_sources)
+    if generated_sources is None:
+        kernel_sources = canonical_kernel_sources(repository_root)
+        expected_kernel_source = next(iter(kernel_sources))
+        for group in manifest.get("artifact_groups", []):
+            if group.get("id") == "kernel" and group.get("resolved") is True:
+                if [a.get("source_path") for a in group.get("artifacts", [])] != [expected_kernel_source]:
+                    raise AssembleError("bootstrap kernel artifact differs from canonical kernel source version")
+        generated_sources = {**GENERATED_SOURCES, **kernel_sources}
+    else:
+        generated_sources = dict(generated_sources)
 
     # Entire manifest, source topology and every input digest are validated before
     # any payload output directory is created or modified.

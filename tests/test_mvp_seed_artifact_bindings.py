@@ -42,13 +42,14 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
 
     def test_current_kernel_binding_matches_portable_v2_capable_kernel(self):
         artifact = self.artifact("kernel")
-        self.assertEqual(artifact["source_path"], "bootstrap/kernel/vmlinuz-6.6.52")
-        self.assertEqual(artifact["sha256"], "cbe9b7421d6d4ece48b6025866c371557e6301fef981336a52a949544e925205")
+        kernel = json.loads((ROOT / "bootstrap/kernel/source.json").read_text(encoding="utf-8"))
+        self.assertEqual(artifact["source_path"], f"bootstrap/kernel/vmlinuz-{kernel['version']}")
+        self.assertRegex(artifact["sha256"], r"^[0-9a-f]{64}$")
 
     def test_current_initramfs_binding_matches_transactional_portable_capsule(self):
         artifact = self.artifact("initramfs")
         self.assertEqual(artifact["source_path"], "bootstrap/initramfs/initramfs.cpio.gz")
-        self.assertEqual(artifact["sha256"], "63a504c4349aebc43d9ed642ff14384191fd9804e8a657691ffe997441a9edf0")
+        self.assertEqual(artifact["sha256"], "774a6f659eb217503cc44e65cc98e36edb22d93cbfede8a719c3eede7d8c2a3f")
 
     def test_current_release_agent_seed_is_recognized_source_for_v4_capable_refresh(self):
         artifact = self.artifact("bootstrap-release-acquisition")

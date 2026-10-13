@@ -21,6 +21,8 @@ export function createWebSurfaceHost(
   }
 
   const listeners = new Set();
+  let current = null;
+  let disposed = false;
   const readSnapshot = () => {
     const accountIdentityAvailable = readAccountIdentityAvailable();
     const syncSafeStateAvailable = readSyncSafeStateAvailable();
@@ -39,16 +41,27 @@ export function createWebSurfaceHost(
         ...(accountIdentityAvailable ? ["account.identity"] : []),
         ...(syncSafeStateAvailable ? ["sync.safe-state"] : []),
       ],
-      connectivity: windowRef.navigator.onLine ? "online" : "offline",
+      // A browser hint only; this does not prove server or device availability.
+      connectivity: windowRef.navigator.onLine === true ? "online"
+        : windowRef.navigator.onLine === false ? "offline" : "unknown",
     });
   };
 
+  const getSnapshot = () => {
+    if (current === null) current = readSnapshot();
+    return current;
+  };
   const notify = () => {
-    const snapshot = readSnapshot();
-    for (const listener of [...listeners]) {
-      listener(snapshot);
+    if (disposed) return getSnapshot();
+    const next = readSnapshot();
+    if (current !== null && current.connectivity === next.connectivity
+      && current.capabilityIds.length === next.capabilityIds.length
+      && current.capabilityIds.every((id, index) => id === next.capabilityIds[index])) {
+      return current;
     }
-    return snapshot;
+    current = next;
+    for (const listener of [...listeners]) listener(current);
+    return current;
   };
 
   windowRef.addEventListener("online", notify);
@@ -56,16 +69,19 @@ export function createWebSurfaceHost(
 
   return Object.freeze({
     schema: SURFACE_HOST_SCHEMA,
-    getSnapshot: readSnapshot,
+    getSnapshot,
     refresh: notify,
     subscribe(listener) {
       if (typeof listener !== "function") {
         throw new TypeError("Surface host listener must be a function");
       }
+      if (disposed) return () => {};
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
       listeners.clear();
       windowRef.removeEventListener("online", notify);
       windowRef.removeEventListener("offline", notify);

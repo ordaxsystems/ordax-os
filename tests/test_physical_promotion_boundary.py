@@ -295,7 +295,33 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         self.assertFalse(auth["physical_write_allowed"])
         self.assertFalse(auth["explicit_owner_authorization"])
         self.assertIsNone(auth["authorization_context_sha256"])
-        self.assertFalse(auth["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertTrue(auth["requirements"]["canonical_v4_release_proof_bound"])
+        self.assertEqual(auth["status"], "blocked-explicit-physical-authorization-pending")
+        self.assertEqual(auth["release_binding"]["source_commit"],
+                         "03f88eeaf382a59aaefbcf4943d0639d2730741b")
+
+    def test_real_preconsent_contract_hashes_match_current_repository_bytes(self):
+        # A valid signed proof is insufficient if the current minimal bootstrap
+        # differs from the bytes bound into destructive-owner authorization.
+        status = promotion.evaluate(ROOT)
+        self.assertTrue(status["pre_authorization_ready"], status["pre_authorization_blockers"])
+        self.assertTrue(status["canonical_v4_release_proof_valid"])
+        self.assertTrue(status["canonical_v4_release_binding_resolved"])
+        self.assertTrue(status["physical_authorization_bindings_resolved"],
+                        status["computed_bindings"])
+        self.assertTrue(status["owner_authorization_required"])
+        self.assertEqual(
+            status["authorization_blockers"],
+            ["explicit-physical-write-authorization-missing"],
+        )
+        self.assertFalse(status["ready"])
+        self.assertFalse(status["authorized_candidate_materialization_allowed"])
+        auth = json.loads(
+            (ROOT / "docs/contracts/physical-write-authorization.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(auth["bindings"], status["computed_bindings"])
+        self.assertFalse(auth["physical_write_allowed"])
+        self.assertFalse(auth["explicit_owner_authorization"])
 
     def test_pending_owner_authorization_fixture_remains_fail_closed(self):
         with tempfile.TemporaryDirectory() as temporary:

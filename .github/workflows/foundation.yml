@@ -17,6 +17,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install locked Web build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -44,3 +47,6 @@ jobs:
 
       - name: Run foundation regressions
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Validate product family version identities
+        run: node --test tests/test_product_family.mjs

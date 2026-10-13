@@ -24,13 +24,8 @@
     ],
     "rail_apps": [
       "files",
-      "projects",
       "studio",
-      "assistant",
-      "internet",
-      "network",
       "settings",
-      "account",
       "system"
     ],
     "rail_labels": [
@@ -39,32 +34,12 @@
         "label": "Arquivos"
       },
       {
-        "id": "projects",
-        "label": "Projetos"
-      },
-      {
         "id": "studio",
         "label": "ORDAX Studio"
       },
       {
-        "id": "assistant",
-        "label": "Assistente"
-      },
-      {
-        "id": "internet",
-        "label": "Internet"
-      },
-      {
-        "id": "network",
-        "label": "Rede"
-      },
-      {
         "id": "settings",
         "label": "Ajustes"
-      },
-      {
-        "id": "account",
-        "label": "Conta"
       },
       {
         "id": "system",
@@ -81,13 +56,6 @@
       "display_title": "Arquivos"
     },
     {
-      "id": "projects",
-      "title": "Seu trabalho",
-      "description": "Organize projetos locais, conexões e continuidade entre dispositivos.",
-      "monogram": "PR",
-      "display_title": "Projetos"
-    },
-    {
       "id": "studio",
       "title": "ORDAX Studio",
       "description": "Acesse seus projetos e confira a integração do Studio com este host.",
@@ -95,32 +63,11 @@
       "display_title": "ORDAX Studio"
     },
     {
-      "id": "network",
-      "title": "Rede profissional",
-      "description": "Comunidades profissionais e mensagens vinculadas explicitamente ao Space remetente.",
-      "monogram": "RE",
-      "display_title": "Rede"
-    },
-    {
-      "id": "assistant",
-      "title": "OrdaX Intelligence",
-      "description": "Conversa local com a OrdaX Intelligence, sem autoridade implícita para executar ações.",
-      "monogram": "IA",
-      "display_title": "Assistente"
-    },
-    {
       "id": "activity",
       "title": "Atividade",
       "description": "Trabalho explícito do Personal OrdaX, com progresso e resultados visíveis.",
       "monogram": "AT",
       "display_title": "Atividade"
-    },
-    {
-      "id": "internet",
-      "title": "Internet",
-      "description": "Navegue, organize referências e conecte pesquisa ao seu trabalho.",
-      "monogram": "IN",
-      "display_title": "Internet"
     },
     {
       "id": "settings",
@@ -134,7 +81,7 @@
       "title": "Identidade e continuidade",
       "description": "Identidade, acesso e continuidade segura entre os modos do OrdaX.",
       "monogram": "CO",
-      "display_title": "Conta"
+      "display_title": "Identidade e continuidade"
     },
     {
       "id": "store",

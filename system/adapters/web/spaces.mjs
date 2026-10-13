@@ -6,6 +6,8 @@ import {
   validateSpacesSnapshot,
 } from "../../contracts/spaces.mjs";
 
+import { createWebJsonReader } from "./json-read.mjs";
+
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
 
 function snapshot(state, spaces = []) {
@@ -37,7 +39,7 @@ export function createWebSpacesCatalog(windowRef = globalThis.window) {
   let current = snapshot("idle");
   let refreshOrdinal = 0;
   let disposed = false;
-  let activeController = null;
+  const reader = createWebJsonReader(windowRef);
   const listeners = new Set();
 
   const publish = (next) => {
@@ -63,26 +65,15 @@ export function createWebSpacesCatalog(windowRef = globalThis.window) {
     reset() {
       if (disposed) return;
       refreshOrdinal += 1;
-      activeController?.abort();
-      activeController = null;
+      reader.cancel();
       publish(snapshot("unavailable"));
     },
     async refresh() {
       if (disposed) throw new Error("Spaces catalog is disposed");
       const ordinal = ++refreshOrdinal;
-      activeController?.abort();
-      const controller = new AbortController();
-      activeController = controller;
       publish(snapshot("loading"));
       try {
-        const response = await windowRef.fetch("/account/spaces", {
-          method: "GET",
-          credentials: "same-origin",
-          cache: "no-store",
-          redirect: "error",
-          headers: { Accept: "application/json" },
-          signal: controller.signal,
-        });
+        const response = await reader.read("/account/spaces");
         if (ordinal !== refreshOrdinal || disposed) return current;
         if (response.status === 401) {
           publish(snapshot("unavailable"));
@@ -92,25 +83,21 @@ export function createWebSpacesCatalog(windowRef = globalThis.window) {
           publish(snapshot("error"));
           return current;
         }
-        const spaces = normalizeResponse(await response.json());
+        const spaces = normalizeResponse(response.value);
         if (ordinal !== refreshOrdinal || disposed) return current;
         publish(snapshot("ready", spaces));
         return current;
-      } catch (error) {
+      } catch {
         if (ordinal !== refreshOrdinal || disposed) return current;
-        if (controller.signal.aborted) return current;
         publish(snapshot("error"));
         return current;
-      } finally {
-        if (activeController === controller) activeController = null;
       }
     },
     dispose() {
       if (disposed) return;
       disposed = true;
       refreshOrdinal += 1;
-      activeController?.abort();
-      activeController = null;
+      reader.dispose();
       listeners.clear();
       current = snapshot("unavailable");
     },

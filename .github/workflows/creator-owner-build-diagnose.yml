@@ -51,6 +51,11 @@ jobs:
           python boot/esp/build.py build
           python boot/esp/build.py verify
 
+      - name: Resolve canonical active kernel artifact filenames
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
+
       - name: Build and verify kernel
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -63,7 +68,7 @@ jobs:
       - name: Verify kernel modules input for development base
         run: |
           set -euo pipefail
-          modules=out/kernel/kernel-modules-6.6.52.tar
+          modules="out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
           test -s "$modules"
           stat "$modules"
           tar -tf "$modules" >/dev/null
@@ -105,7 +110,7 @@ jobs:
           set -euo pipefail
           mkdir -p out/diagnostic
           sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules out/kernel/kernel-modules-6.6.52.tar \
+            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
             --out-dir out/dev-base \
             2>&1 | tee out/diagnostic/dev-base-build.log
           rootfs=out/dev-base/rootfs

@@ -47,7 +47,7 @@ STATIC=YES
 
 ## Kernel prerequisites
 
-The kernel must expose the network device before this owner runs. The canonical Linux 6.6.52 fragment builds common first-acquisition paths directly into the kernel, including USB networking, CDC Ethernet/NCM and RNDIS host support. The current candidate configuration verifies those selectors as built-in, so this bootstrap does not need a module loader for its engineering Ethernet/USB-tether path.
+The kernel must expose the network device before this owner runs. The canonical Linux 6.6 LTS fragment selected by `bootstrap/kernel/source.json` builds common first-acquisition paths directly into the kernel, including USB networking, CDC Ethernet/NCM and RNDIS host support. The current candidate configuration verifies those selectors as built-in, so this bootstrap does not need a module loader for its engineering Ethernet/USB-tether path.
 
 Wi-Fi drivers may remain modules because Wi-Fi authentication and firmware policy are outside this minimum first-acquisition owner.
 

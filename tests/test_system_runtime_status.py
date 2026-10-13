@@ -8,7 +8,7 @@ HISTORY_CONTRACT = ROOT / "system" / "contracts" / "update-history.mjs"
 HISTORY_ADAPTER = ROOT / "system" / "adapters" / "native" / "update-history.mjs"
 CONTROLS = ROOT / "system" / "surface" / "ui" / "system-overview-controls.mjs"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.tsx"
 SYSTEM_APP = ROOT / "system" / "apps" / "system" / "app.mjs"
 SYSTEM_CSS = ROOT / "system" / "surface" / "ui" / "system.css"
 UPDATE_PRESENTATION = ROOT / "system" / "services" / "update" / "presentation.mjs"
@@ -105,9 +105,6 @@ class SystemRuntimeStatusTests(unittest.TestCase):
 
     def test_web_mounts_same_system_overview_without_native_ports(self):
         composition = WEB_COMPOSITION.read_text(encoding="utf-8")
-        self.assertIn("mountSystemOverviewControls(", composition)
-        self.assertIn("root,\n  host,\n  null,\n  null,\n  surface,\n  null,\n  appActivation,", composition)
-        self.assertIn("systemOverviewControls.destroy()", composition)
         self.assertNotIn("adapters/native", composition)
 
 

@@ -1,0 +1,1016 @@
+{
+  "schema": "ordax.web-central-reference/2",
+  "repository": "https://github.com/ordaxsystems/lovable-core-ui",
+  "commit": "89438133b322e3ef87e862c80af3a3dbe18251f5",
+  "owner": "OrdaX OS Surface",
+  "canonical_entry": "system/composition/web/main.tsx",
+  "scope": "One active Web presentation with canonical account, read-only catalog and explicit session-only Space selection; other backend integrations deferred",
+  "authorization": "User explicitly requested this reference as the primary Web interface",
+  "license_review": "User-supplied OrdaX repository; no upstream LICENSE found; distribution review pending",
+  "validation": {
+    "local_build_executed": true,
+    "local_tests_executed": true,
+    "npm_executed": true,
+    "validated_on": "2026-10-12",
+    "source_commit": "73b409a78909061c58247947ed8ebf11049bb571",
+    "node_version": "v26.7.0",
+    "unit_tests": {
+      "command": "node --test tests/test_identity_session.mjs tests/test_identity_actions.mjs tests/test_web_json_read.mjs tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs tests/test_preference_runtime.mjs tests/test_web_store_catalog.mjs tests/test_account_runtime.mjs",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    "surface_build": {
+      "command": "npm.cmd run build --workspace tools/surface-web",
+      "result": "passed-including-typescript",
+      "warning": "Initial JavaScript chunk is 776.99 kB (220.94 kB gzip); startup code splitting remains a performance follow-up."
+    },
+    "surface_structure": {
+      "command": "npm.cmd run verify --workspace tools/surface-web",
+      "result": "passed",
+      "reference_files_and_assets": 34
+    },
+    "browser": {
+      "origin": "http://127.0.0.1:4201/",
+      "viewports": [
+        {
+          "width": 390,
+          "height": 844
+        },
+        {
+          "width": 768,
+          "height": 600
+        },
+        {
+          "width": 1366,
+          "height": 768
+        }
+      ],
+      "result": "passed-for-observed-local-flows",
+      "checks": [
+        "Central document matches viewport dimensions without page scrolling",
+        "Hero landscape loads in light and dark themes",
+        "Account reports unavailable instead of inventing authentication",
+        "Maximized app occupies upper track above a compact app",
+        "Two compact apps divide available width equally without horizontal overflow",
+        "Compact action menu is hittable and minimizes its app",
+        "Dock explicitly restores the minimized app",
+        "Theme controls set the document color scheme through canonical preferences",
+        "No warning/error entries returned by browser dev logs at start and finish",
+        "Temporary windows closed, original dark theme and default viewport restored"
+      ],
+      "authenticated_gateway_e2e": "pending-not-configured-on-this-local-vite-origin",
+      "scope_excludes": [
+        "production activation",
+        "device grants",
+        "real device execution",
+        "signed catalog installation"
+      ]
+    },
+    "boot_catalog_optimization": {
+      "date": "2026-10-12",
+      "source_state": "local-working-tree-based-on-73b409a",
+      "build": {
+        "command": "npm.cmd run build --workspace tools/surface-web",
+        "result": "passed-including-typescript",
+        "initial_javascript_before_kb": 776.99,
+        "initial_javascript_after_kb": 533.4,
+        "gzip_before_kb": 220.94,
+        "gzip_after_kb": 167.96,
+        "javascript_reduction_percent": 31.35,
+        "css_asset_unchanged": "index-C9eGjKFp.css",
+        "warning": "Initial JavaScript remains above 500 kB. No threshold override or transfer/time guarantee.",
+        "note": "Build duration comparison is not a controlled performance benchmark."
+      },
+      "localization": {
+        "command": "node --test tests/test_surface_localization.mjs tests/test_surface_app_localization.mjs",
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "builder": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0,
+        "runtime": "bundled Python on Windows"
+      },
+      "structure": {
+        "command": "npm.cmd run verify --workspace tools/surface-web",
+        "result": "passed-after-correcting-recorded-main-checksum-to-LF",
+        "initial_failure": "Recorded main checksum incorrectly included Windows line endings; verifier caught drift. Historical source digest retained, adapted digest corrected.",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "boot_reload": "Central rendered with the same layout and services after reload",
+        "dev_logs": "No warning/error entries returned after reload",
+        "authenticated_gateway_e2e": "still-pending"
+      },
+      "react_review": "One canonical data-only catalog replaces an eager application-catalog import. Stable mounted providers, cleanup, hooks, window nodes and presentation unchanged; TypeScript restricts boot message IDs.",
+      "vercel": {
+        "deployment_triggered": false,
+        "configuration_read": "vercel.json uses tools/public-site/should_skip_vercel_build.sh; uncertain history builds",
+        "configuration_changed": false
+      },
+      "publication": "Source committed locally as 9ca2840 after the review usage-limit window expired; origin/main reconciled in 25b8174078c5ce58b33fa18494b0c49fda5426ab. Final corrections are prepared for one grouped source push; production gates unchanged."
+    },
+    "store_integration": {
+      "date": "2026-10-12",
+      "source_base_commit": "25b8174078c5ce58b33fa18494b0c49fda5426ab",
+      "owner": "OS Surface / canonical structural Store",
+      "contracts": [
+        "ordax.app-store-catalog-port/2"
+      ],
+      "node_tests": {
+        "command": "node --test tests/test_surface_localization.mjs tests/test_surface_app_localization.mjs tests/test_web_store_catalog.mjs",
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder tests.test_first_party_portable_boundary -v",
+        "passed": 8,
+        "failed": 0
+      },
+      "final_store_regression": {
+        "command": "node --test tests/test_web_store_catalog.mjs",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "note": "Repeat after final responsive correction; not six additional unique tests."
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 537.86,
+        "initial_gzip_kb": 169.81,
+        "store_javascript_kb": 49.59,
+        "store_css_kb": 15.11,
+        "warning": "Initial JavaScript remains above 500 kB; no threshold override or loading-time benchmark."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "checks": [
+          "Canonical Store mounted on demand in Central",
+          "Official catalog unavailable remains explicit; no invented installation",
+          "Search preserved through compact/minimize/dock restore",
+          "390 x 844: two equal compact panes; Store useful width and scrollWidth both 112 px",
+          "No Store controls outside bounds in Discover or Library",
+          "Native narrow selector uses the same eight canonical sections",
+          "No main-page error/warning entries returned; theme/viewport restored"
+        ],
+        "resource_failure_proof": {
+          "fixture": "Temporary localhost static production bundle; Store JavaScript returns HTTP 503",
+          "result": "Typed per-window failure, Settings remains usable, explicit warned page reload recovers after resource restored",
+          "automatic_retry": false,
+          "cleanup": "Temporary fixture server and tab closed"
+        },
+        "screenshot": "ordax-store-integrated-20261012.png"
+      },
+      "limits": [
+        "Live authenticated gateway and catalog not configured on local Vite",
+        "No signed installation, device action or production activation proof"
+      ],
+      "vercel": {
+        "deployment_invoked": false,
+        "configuration_changed": false,
+        "publication_policy": "One grouped source push; existing automatic deployment policy remains."
+      },
+      "remote_reconciliation": {
+        "main_commit": "93ec5bbefeb9d2c2f00c9ab8a4525590c8a25454",
+        "merged_commit": "34094685efe4c9700525d2968fe3ab9394cd9aa7",
+        "conflicts": false,
+        "changes_preserved": [
+          "Projects remove-first Gate A and canonical domain",
+          "Native signed component continuity and update inventory",
+          "Isolated independent base experiment"
+        ],
+        "localization_regression": {
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0
+        },
+        "builder_and_boundary_regression": {
+          "passed": 8,
+          "failed": 0
+        },
+        "note": "Repeats affected checks after the later concurrent main update; not additional unique coverage.",
+        "build": "passed-including-typescript; same emitted JS/CSS assets and sizes",
+        "structure": {
+          "result": "passed",
+          "reference_files_and_assets": 34
+        }
+      }
+    },
+    "destination_navigation": {
+      "date": "2026-10-12",
+      "source_base_commit": "256a3dd",
+      "owner": "OS Surface shared Dialog / WindowLayer",
+      "scope": "Structural navigation and focus; existing service boundaries preserved",
+      "node_tests": {
+        "command": "node --test tests/test_surface_workspace.mjs tests/test_web_account_session.mjs",
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_residual_localization -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 538.76,
+        "initial_gzip_kb": 170.05,
+        "warning": "Initial JavaScript remains above 500 kB; plugin timing warning also reported. No threshold override or loading-time benchmark."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "react_review": [
+        "Existing Dialog owns modality, focus trap and listener cleanup",
+        "Portal uses workspace container and existing tokens",
+        "WindowLayer observes immutable active-window identity",
+        "No app body remount through mode/view transitions",
+        "No new service, provider, dependency, credentials or grant",
+        "Workspace portal container is bound after DOM commit; rendering does not read mutable DOM refs."
+      ],
+      "browser": {
+        "result": "pending-tool-unavailable",
+        "reason": "Browser control setup and a minimal runtime probe timed out; kernel reset automatically. No browser UI actions completed.",
+        "required_checks": [
+          "Tab/Shift-Tab remain in menu",
+          "Escape/backdrop/close restore trigger or Home",
+          "Selecting/reopening app transfers focus to canonical active pane",
+          "Central shows Home and retains drafts",
+          "Mobile viewport and menu controls fit"
+        ],
+        "superseded_by": "touch_target_validation.browser"
+      },
+      "publication_policy": "One grouped source push; no direct deployment or production activation.",
+      "preview": {
+        "origin": "http://127.0.0.1:4201/",
+        "initial_state": "connection-refused",
+        "recovery": "Existing Vite restarted hidden, without npm install or production deployment",
+        "startup": "VITE v8.1.5 ready",
+        "http_status": 200,
+        "ui_e2e": "passed-local-navigation; authenticated-gateway-still-pending"
+      },
+      "remote_reconciliation": {
+        "main_commit": "a22b441c875f1b250ca6643fdda14fd124a84bfd",
+        "merge_commit": "b133547e8034ed134ca74dcbff64411b64a2a0e3",
+        "conflicts": false,
+        "web_source_delta": "git diff --exit-code cff2a39 HEAD -- system/composition/web system/surface/workspace returned 0",
+        "portable_boundary_regression": {
+          "command": "python -m unittest tests.test_first_party_portable_boundary -v",
+          "passed": 1,
+          "failed": 0
+        },
+        "note": "Concurrent Runtime/Projects changes retained; frontend build inputs under composition/Surface unchanged."
+      },
+      "touch_target_validation": {
+        "date": "2026-10-12",
+        "source_base_commit": "2f224d7c4e3c22c483652edca2a9f5def920a1fb",
+        "owner": "OS Surface shared Dialog / WindowLayer",
+        "change": "Native search label and scoped 44 x 44 close target; existing descriptors, tokens and window state retained",
+        "browser": {
+          "result": "passed-for-observed-local-flows",
+          "origin": "http://127.0.0.1:4201/",
+          "viewports": [
+            {
+              "width": 390,
+              "height": 480
+            },
+            {
+              "width": 390,
+              "height": 600
+            },
+            {
+              "width": 390,
+              "height": 844
+            },
+            {
+              "width": 1366,
+              "height": 480
+            }
+          ],
+          "checks": [
+            "Tab/Shift-Tab contained in shared menu",
+            "Escape, close and backdrop restored trigger; backdrop opened no app",
+            "Search label padding tap focused input; close target measured 44 x 44 px",
+            "Trimmed empty search announced result; reopening cleared query",
+            "Selected and explicitly reopened Aura focused canonical active pane",
+            "Unsent local draft survived Central/minimize/dock restore",
+            "Resizing removed trigger; closing focused Home",
+            "Document stayed within tested viewport dimensions; no controls horizontally outside menu"
+          ],
+          "cleanup": "Temporary Aura closed without submitting; original dark theme, Central and default viewport restored; user tabs retained",
+          "dev_logs": "No warning/error entries returned",
+          "screenshot": {
+            "filename": "ordax-navigation-mobile-20261012.jpg",
+            "format": "JPEG",
+            "width": 390,
+            "height": 600,
+            "sha256": "b58b03198afd827abbb11dbccb997b11ba825ed54fc5060ac2f4f6a14c852e5d",
+            "scope": "local visualization artifact outside repository; not publicly published"
+          },
+          "authenticated_gateway_e2e": "pending-not-configured-on-local-Vite"
+        },
+        "build": {
+          "command": "npm.cmd run build --workspace tools/surface-web",
+          "result": "passed-including-typescript",
+          "initial_javascript_kb": 538.76,
+          "initial_gzip_kb": 170.06,
+          "initial_css_kb": 79.17,
+          "warning": "Initial JavaScript remains above 500 kB; no threshold override or loading-time benchmark."
+        },
+        "structure": {
+          "command": "npm.cmd run verify --workspace tools/surface-web",
+          "result": "passed",
+          "reference_files_and_assets": 34
+        },
+        "limits": [
+          "Local UI proof only; no inference or backend commands submitted",
+          "No authenticated catalog, device execution, signed install or production activation proof"
+        ],
+        "publication_policy": "One grouped source push; no direct deployment or production activation",
+        "remote_reconciliation": {
+          "main_commit": "7c0b97e",
+          "scope": "Concurrent signed native provider validation retained; seven Runtime/release files",
+          "web_source_delta": "git diff HEAD origin/main -- system/surface/workspace system/composition/web tools/surface-web package.json package-lock.json was empty before merge",
+          "note": "No frontend build inputs changed; no additional full build required solely for this Runtime merge."
+        }
+      }
+    },
+    "accessibility_integration": {
+      "date": "2026-10-12",
+      "source_base_commit": "31c973c041d04b8c01ac97b97fa4af1c0926f89a",
+      "owner": "OS Surface / canonical preference catalog and runtime",
+      "contracts": [
+        "ordax.preference-runtime/1",
+        "ordax.preference-store/1"
+      ],
+      "scope": "Local browser preferences; no new IDs, storage keys, authority or account synchronization",
+      "node_tests": {
+        "command": "node --test tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 539.52,
+        "initial_gzip_kb": 170.34,
+        "initial_css_kb": 81.04,
+        "warning": "Initial JavaScript remains above 500 kB; no threshold override."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "result": "passed-observed-local-preference-flows",
+        "viewports": [
+          {
+            "width": 390,
+            "height": 844
+          },
+          {
+            "width": 390,
+            "height": 480
+          }
+        ],
+        "checks": [
+          "High contrast uses existing tokens in light and dark themes",
+          "Reduced motion observed with computed transitionDuration 0s",
+          "Extra-large text observed: root 20px and body 16.25px",
+          "Reload retained high/reduced/extra-large without reading browser storage",
+          "Narrow settings selects measured 44px height and stayed inside window",
+          "Two compact apps: Settings clientWidth/scrollWidth both 144px after narrow-row correction",
+          "Original standard preferences and dark theme restored via real controls; temporary windows closed; viewport reset",
+          "No error/warning entries returned by browser dev logs"
+        ],
+        "screenshot": {
+          "filename": "ordax-accessibility-mobile-20261012.jpg",
+          "sha256": "6c6ccb3205a777a2e770b5a2fffbf3a0edfbc084ad39545ceed31e5f9e05b520",
+          "width": 390,
+          "height": 844,
+          "scope": "Local visualization artifact outside repository; not publicly published"
+        },
+        "limits": [
+          "No authenticated gateway or account synchronization proof",
+          "No Native hardware, inference, device action, signed installation or production activation proof"
+        ]
+      },
+      "react_review": "Stable canonical snapshot subscription; primitive effect dependencies; DOM writes confined to layout effect and reversible cleanup; native labels/selects; no new component-local preference state",
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "lazy_compact_actions": {
+      "date": "2026-10-12",
+      "source_base_commit": "b1c8353baa63238ff7a1632a2e51d3302c3dbc0d",
+      "owner": "OS Surface / WindowLayer and shared DropdownMenu",
+      "scope": "One extracted menu presentation; existing app nodes, state, dispatch, services and palette retained",
+      "node_tests": {
+        "command": "node --test tests/test_surface_workspace.mjs",
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_before_kb": 539.52,
+        "initial_after_kb": 482.31,
+        "initial_reduction_percent": 10.6,
+        "gzip_before_kb": 170.34,
+        "gzip_after_kb": 151.17,
+        "compact_javascript_kb": 58.48,
+        "compact_gzip_kb": 19.27,
+        "css_identical": "index-yPkoIz1_.css",
+        "css_kb": 81.04,
+        "warning": "No >500 kB chunk warning reported; threshold unchanged; not a loading-time benchmark."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "result": "passed-observed-local-flows",
+        "viewport": {
+          "width": 390,
+          "height": 600
+        },
+        "checks": [
+          "Two compact apps retained existing actions",
+          "Escape returned focus to menu trigger",
+          "Menu minimization/dock restore retained unsent local draft",
+          "User document remained 390 x 600 without page overflow"
+        ],
+        "production_resource_proof": {
+          "fixture": "Two loopback origins serving generated production bundle; failure origin returns HTTP 503 only for compact-actions asset",
+          "initial_compact_requests": 0,
+          "healthy_compact_requests": [
+            {
+              "path": "/assets/compact-actions-BEW4bw1G.js",
+              "status": 200
+            }
+          ],
+          "failed_compact_requests": [
+            {
+              "path": "/assets/compact-actions-BEW4bw1G.js",
+              "status": 503
+            }
+          ],
+          "result": "Menu failure isolated; expand restored same Aura maximized; draft survived minimize/dock restore; Settings stayed visible",
+          "automatic_retry": false,
+          "cleanup": "Both temporary tabs closed; fixture process identity verified and stopped"
+        },
+        "user_origin_cleanup": "Temporary Aura/Settings closed; original dark Central and default viewport restored; user tabs kept; error/warning logs empty",
+        "screenshot": {
+          "filename": "ordax-compact-lazy-mobile-20261012.jpg",
+          "sha256": "4c32096857f5caf6b5d32d6fa420422af37d0bc4a6930be0f198f975ca7760dc",
+          "width": 390,
+          "height": 600,
+          "scope": "Local visualization artifact outside repository; not published CI evidence"
+        }
+      },
+      "react_review": "Stable lazy component declared outside render; menu only is suspended/caught; WindowContent remains sibling and mounted; original controlled menu state and descriptors reused; no subscription/service changes",
+      "limits": [
+        "No real backend commands submitted",
+        "No authenticated gateway, account sync, device/inference, signed install or production activation proof"
+      ],
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "single_mobile_compact_pane": {
+      "date": "2026-10-12",
+      "source_base_commit": "0dc2b82beb64593dfe3925ea53b8e99f370347c7",
+      "owner": "OS Surface / existing desktopReducer and WindowLayer",
+      "scope": "Explicit mobile UX revision; single selected compact pane below 761px, same mounted app bodies and desktop equal tiles",
+      "supersedes": "Earlier equal side-by-side mobile compact layout; historical test evidence retained",
+      "node_tests": {
+        "command": "node --experimental-strip-types --test tests/test_web_central_windows.mjs tests/test_surface_workspace.mjs",
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "new_behavior_tests": 4
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 483.08,
+        "initial_gzip_kb": 151.32,
+        "css_kb": 82.46,
+        "compact_chunk_kb": 58.48,
+        "note": "Advanced menu stays lazy; no chunk threshold override."
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "result": "passed-observed-responsive-flows",
+        "viewports": [
+          {
+            "width": 320,
+            "height": 568
+          },
+          {
+            "width": 390,
+            "height": 844
+          },
+          {
+            "width": 1366,
+            "height": 768
+          }
+        ],
+        "checks": [
+          "Mobile showed one compact pane using all 326px available width at 390px viewport",
+          "One native selector exposed all three compact apps; others remained mounted and inaccessible through CSS display:none",
+          "Switch/minimize/dock restore retained unsent Aura draft",
+          "Opening Projects above preserved selection; closing returned focus to selected Aura",
+          "Collapsed panel stayed 48px and allowed switching before expansion",
+          "320px with 125% text: body clientWidth/scrollWidth both 239px, controls inside panel, visible actions 44 x 44px",
+          "Applications at 320px used two adaptive columns without horizontal overflow",
+          "Desktop three panes all 378px; resizing revealed the same app nodes",
+          "No page overflow in tested dimensions"
+        ],
+        "cleanup": "Validation apps closed; standard text scale, original dark Central and default viewport restored; user tabs retained; no error/warning logs",
+        "screenshot": {
+          "filename": "ordax-compact-single-mobile-20261012.jpg",
+          "width": 390,
+          "height": 844,
+          "sha256": "e89514c998b55fc01018045b1b5df13ee9b226aefff5b393b05905bf959f5e41",
+          "scope": "Local visualization artifact outside repository; not public CI evidence"
+        }
+      },
+      "react_review": "Existing state owner only; CSS handles responsive visibility; stable keyed app siblings preserve bodies; focus effect respects active descendants; selector uses canonical compact list and native semantics",
+      "limits": [
+        "No backend command sent",
+        "No new account, device, inference, grant, installation or production proof"
+      ],
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "footer_mode_removal": {
+      "date": "2026-10-12",
+      "source_base_commit": "001420d28a46401893ef5a8497ecf4157f2b9a91",
+      "owner": "OS Surface",
+      "scope": "Explicit footer selector removal; related CSS/tracks and existing smoke assertion cleaned; other controls unchanged",
+      "typecheck": "passed",
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "full_build_repeated": false,
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "viewports": [
+          {
+            "width": 390,
+            "height": 600
+          },
+          {
+            "width": 1366,
+            "height": 768
+          }
+        ],
+        "result": "Footer/selector absent; matching client/scroll dimensions; no error/warning logs; viewport restored",
+        "screenshot": {
+          "filename": "ordax-home-no-footer-mode-20261012.jpg",
+          "sha256": "c638c3e68b034325310af99ea0b00df133cdbef6a3443ad36d76c891de9de583",
+          "scope": "Local visualization artifact outside Git"
+        }
+      },
+      "publication_policy": "One grouped source push; no direct deployment or production activation"
+    },
+    "favorite_shortcuts_integration": {
+      "date": "2026-10-12",
+      "source_base_commit": "54258a743ae4f5fbf3dd50eac506c1e63fb15b29",
+      "owner": "OS Surface / preferences",
+      "contracts": [
+        "ordax.preference-runtime/1",
+        "ordax.preference-store/1"
+      ],
+      "preference_id": "surface.favorite-shortcuts",
+      "scope": "Browser-local Surface targets, not app installation or authority; existing account sync allowlist unchanged",
+      "node_tests": {
+        "command": "node --test tests/test_home_shortcuts.mjs tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs tests/test_first_run_state.mjs tests/test_account_sync_runtime.mjs",
+        "passed": 35,
+        "failed": 0,
+        "skipped": 0,
+        "new_behavior_tests": 4
+      },
+      "final_sync_regression": {
+        "command": "node --test tests/test_account_sync_runtime.mjs",
+        "passed": 8,
+        "failed": 0,
+        "note": "Repeat with explicit local-shortcut mutation assertion; not additional unique coverage"
+      },
+      "python_tests": {
+        "command": "python -m unittest tests.test_surface_web_builder -v",
+        "passed": 7,
+        "failed": 0
+      },
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 484.97,
+        "initial_gzip_kb": 151.88,
+        "css_kb": 81.59,
+        "advanced_menu_still_lazy": true
+      },
+      "structure": {
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "browser": {
+        "origin": "http://127.0.0.1:4201/",
+        "result": "passed-observed-local-flows",
+        "viewports": [
+          {
+            "width": 390,
+            "height": 600
+          },
+          {
+            "width": 390,
+            "height": 844
+          }
+        ],
+        "checks": [
+          "Home edits update Apps via the same snapshot",
+          "Reload retains selection and intentionally empty list",
+          "Empty list offers Add; re-adding is possible",
+          "Escape returns to Edit; Conclude returns to Add after close animation",
+          "Native checkbox Space toggles; rows measured 48px",
+          "390 x 600 dialog height 530.5 fits with internal list scrolling",
+          "390 x 844 seven choices fit: list clientHeight/scrollHeight both 398px",
+          "Original choices, dark Central and default viewport restored; temporary window closed"
+        ],
+        "hmr": {
+          "observed_failure": "Source hot update recreated React root while retaining old tree; duplicate-root/context errors logged",
+          "correction": "Composition unmounts its one root before disposing ports",
+          "clean_probe": "Real composition update after clean reload retained one root and seven selected choices; no new error/warning logs since probe start",
+          "historical_logs_cleared": false
+        },
+        "screenshot": {
+          "filename": "ordax-shared-favorites-mobile-20261012.jpg",
+          "width": 390,
+          "height": 844,
+          "sha256": "2062b834184a178aae4d872b4f6e8e0bf147cdf56c3072dd63f10791f176a35d",
+          "scope": "Local artifact outside repository, not public CI evidence"
+        }
+      },
+      "react_review": "One shared renderer and port; only modal state/ref is local; mutations read latest snapshot; native labels and bounded IDs; opener ref written in event and read only on dialog close; root HMR cleanup precedes port disposal",
+      "limits": [
+        "Gateway authenticated E2E not configured",
+        "No inference/device command, signed install or production activation proof",
+        "Native launcher editor not included"
+      ],
+      "publication_policy": "One grouped source push; no direct deployment or activation",
+      "remote_reconciliation": {
+        "main_commit": "c47a781e2549ca3cba81f19428c1ec78ca425213",
+        "scope": "Concurrent Independent Base Phase 2 portable/signed QEMU proof changes retained",
+        "web_source_delta": "git diff --exit-code HEAD origin/main -- system/composition/web system/surface/workspace system/services/preferences package.json package-lock.json tools/surface-web returned 0 before merge",
+        "note": "No Web build inputs changed in concurrent main update."
+      }
+    },
+    "settings_sidebar_2026_10_12": {
+      "owner": "OrdaX OS Surface",
+      "source_base": "9a387a4",
+      "node_tests": 49,
+      "python_tests": 36,
+      "build": "passed-including-typescript",
+      "reference_files": 34,
+      "initial_js_kb": 484.26,
+      "initial_js_gzip_kb": 151.75,
+      "browser": [
+        "Shared Native Settings styling in Web; appearance and accessibility use existing preference ports",
+        "Contrast persists after reload; three color profiles selectable",
+        "Desktop sidebar fixed at 64px in Web and Native; expansion control absent",
+        "Central returns to automatic layout; manual expansion remains available there",
+        "Native profile icon is inside sidebar footer, intact after localization, opens canonical account overview",
+        "390x844 Web settings and compact panel have no horizontal overflow; narrow section controls have 44px targets",
+        "Native sidebar icon names carry localized hover titles; profile duplicates removed"
+      ],
+      "limits": [
+        "Native preview exposes no authenticated identity or hardware capabilities",
+        "No physical USB boot, media rewrite or signed release"
+      ]
+    },
+    "sidebar_navigation_refinement_2026_10_12": {
+      "owner": "OS Surface",
+      "base_commit": "c79e6d4",
+      "node_tests": 69,
+      "python_tests": 40,
+      "browser": [
+        "Native header removed; brand/launcher in sidebar",
+        "Sidebar reaches viewport bottom; nav only content column and 40px high",
+        "Narrow Native 480x844 viewport has 44px sidebar controls and no horizontal overflow",
+        "Existing launcher opens and all toggle aria states agree",
+        "Account shortcut opens canonical account with explicit preview host unavailability",
+        "Desktop stays collapsed; Web card consumes existing identity context"
+      ],
+      "pointer_validation": "four synchronous event/lifecycle tests; connected browser exposes no pointer movement",
+      "limits": [
+        "Visual Native preview only, no authenticated host capabilities",
+        "No physical USB rewrite/boot or signed release"
+      ],
+      "structure": "Single shared sidebar slots, account markup/Identity projection and geometry; Native header removed",
+      "build": {
+        "result": "passed-including-typescript",
+        "initial_javascript_kb": 489.54,
+        "initial_gzip_kb": 153.59,
+        "css_kb": 102.12
+      }
+    },
+    "presentation_toggle_2026_10_12": {
+      "based_on_commit": "2a04dc52fb69d1ccdbd7e232f6880dbba64fb538",
+      "scope": "Working-tree increment: canonical sidebar width and shared contextual toggle; preserves main Router basepath fix",
+      "node_tests": {
+        "passed": 71,
+        "failed": 0,
+        "skipped": 0,
+        "command": "node --test tests/test_surface_workspace.mjs tests/test_color_palette.mjs tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs tests/test_surface_localization.mjs tests/test_sidebar_hints.mjs tests/test_sidebar_layout.mjs tests/test_identity_session.mjs"
+      },
+      "python_tests": {
+        "passed": 41,
+        "failed": 0,
+        "command": "python -m unittest tests.test_surface_web_builder tests.test_surface_visual_identity tests.test_settings_canonical_navigation tests.test_settings_deep_localization tests.test_notification_center_ui_contract"
+      },
+      "build": {
+        "command": "npm.cmd run build --workspace tools/surface-web",
+        "result": "passed-including-typescript",
+        "initial_js_kb": 490.01,
+        "initial_js_gzip_kb": 153.73
+      },
+      "provenance_verification": {
+        "command": "npm.cmd run verify --workspace tools/surface-web",
+        "result": "passed",
+        "reference_files_and_assets": 34
+      },
+      "host_checks": {
+        "web": "http://127.0.0.1:4201/",
+        "native_visual_preview": "http://127.0.0.1:57987/",
+        "http_status": 200
+      },
+      "interactive_browser_proof": "not-executed-in-this-increment",
+      "physical_usb_boot": "not-executed"
+    }
+  },
+  "files": [
+    {
+      "source": "src/components/central/central.tsx",
+      "target": "system/surface/workspace/components/central/central.tsx",
+      "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
+      "adaptedSha256": "c000e5b75a9c6946c674953b9a547a1e580f36ca437f36b9652c267cd81a82fd",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+    },
+    {
+      "source": "src/components/central/config.ts",
+      "target": "system/surface/workspace/components/central/config.ts",
+      "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
+      "adaptedSha256": "262ff42f2892bf0f09425f1df1b8ddbf369f837f42ccbd19f57088b2470b05d0",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+    },
+    {
+      "source": "src/components/central/primitives.tsx",
+      "target": "system/surface/workspace/components/central/primitives.tsx",
+      "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
+      "adaptedSha256": "7224aea796e80545360098973abb44e655b57777759d3f357dd4121583ea555d",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+    },
+    {
+      "source": "src/components/central/desktop.tsx",
+      "target": "system/surface/workspace/components/central/desktop.tsx",
+      "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
+      "adaptedSha256": "e0d57a35cf93d66bd734cc4a4ea3f668c7ebf30a380fbc82519f353efe9b8295",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged."
+    },
+    {
+      "source": "src/components/central/desktop-state.ts",
+      "target": "system/surface/workspace/components/central/desktop-state.ts",
+      "sha256": "29495a38b755ce63ab6938a605edb2eb0f6a7e6e4e10ede7dabdf25a85c08728",
+      "adaptedSha256": "3ed5b00d9a7a707b3e5a5bee5d2e49ee0e9b3fd6538f0ed4bc65b98d2aae9c5e",
+      "adaptation": "The desktop reducer distinguishes focus from explicit open: popup focus return cannot revive a minimized app, while the dock restores via open. Preserve previous window mode and canonical single reducer. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
+    },
+    {
+      "source": "src/styles.css",
+      "target": "system/surface/workspace/components/central/styles.css",
+      "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
+      "adaptedSha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12)"
+    },
+    {
+      "source": "src/assets/alpine-day.jpg",
+      "target": "system/surface/workspace/assets/alpine-day.jpg",
+      "sha256": "80c205cfa78aff01adfa3ef87e6a20da626354114424a153bbdef05bb6188b0e"
+    },
+    {
+      "source": "src/assets/alpine-night.jpg",
+      "target": "system/surface/workspace/assets/alpine-night.jpg",
+      "sha256": "9ac18bd3aaed4fccc7249d31c722faad5eb8b9dee638ae556e56d47157bf8afe"
+    }
+  ],
+  "textChanges": {
+    "src/styles.css": [
+      {
+        "from": "@source \"../src\";",
+        "to": "@source \".\";\n@source \"../ui\";"
+      }
+    ],
+    "src/components/central/primitives.tsx": [
+      {
+        "from": "aria-label=\"OrdaX OS Web\"",
+        "to": "aria-label=\"OrdaX OS Web — demonstração visual\""
+      },
+      {
+        "from": "<span className=\"brand-sub\">WEB</span>",
+        "to": "<span className=\"brand-sub\">WEB · DEMONSTRAÇÃO</span>"
+      }
+    ]
+  },
+  "integration_adjustments": [
+    "Mount Central in the existing canonical boot/error boundary and root route",
+    "Reuse shared UI components and local Inter font; no upstream SSR or telemetry imported",
+    "Mark example account, devices, activity and storage as presentation data",
+    "Preserve existing app/service consumers and window code without mounting the previous Web page",
+    "Shared active window state and stable app nodes across Central/Desktop and responsive compact mode",
+    "One mounted bottom navigation in both views, with Start, fixed view toggle and shared open-app list",
+    "Full-height non-scrolling shared sidebar owns Start/view switch, with measured navigation overflow and running apps in the separate bottom dock",
+    "Horizontal Start/four-square view toggle and shared AccountCard matching user reference; quota/plan remain presentation fixtures",
+    "Notification icon placed alongside pinned Home in the same shared sidebar row",
+    "Start removed; single four-square view switch replaces Minimize All at the bottom dock right edge",
+    "Shared dock reduced to 40px; control height and workspace clearance derived from canonical CSS tokens",
+    "Maximized app uses the complete shared work-area track without outer margins or desktop header clearance",
+    "Central container-sized grid without page scrolling; responsive panel selection, bounded summaries and existing actions through overflow",
+    "Collapsible responsive sidebar, account bell beside settings, and icon-only Home overflow without visible footer labels",
+    "Home-footer ellipsis and More-modal branch removed explicitly; footer track only reserved for responsive Aura mode control",
+    "Collapse control moved out of sidebar content flow to a directional chevron on the divider edge",
+    "Single-line used/limit GB caption; compact rail shows derived usage percentage with full quota tooltip",
+    "Account card and Avatar consume shared demo user display identity; account title remains single-line with full-name tooltip",
+    "Edge chevron vertically aligned to the logo row using shared sidebar inset and header-height CSS tokens",
+    "Logo-aligned edge chevron gains opaque theme surface, contrasting border, larger heavier icon and accent hover for visibility",
+    "Neutral active window borders; automatic window focus does not paint an outline, keyboard focus remains visible; divider arrow aligned to Home using shared row geometry",
+    "Home-aligned divider control reduced to 24 by 32 pixels with a 16-pixel chevron; shared contrast tokens retained",
+    "Desktop header duplicate Brand removed; shared sidebar remains the desktop brand owner and header actions remain right aligned",
+    "Duplicate desktop profile and theme header removed; existing sidebar Settings opens canonical Appearance control, and desktop header clearance is zero",
+    "Central duplicated hero/mobile controls removed; sidebar Settings remains theme entry and mobile grid drops unused header track",
+    "Hero landscape visible at all widths; one theme-selected image replaces overlapping day/night nodes and removes legacy responsive hiding",
+    "Central greeting follows local time and shared demo user; date refreshes each minute and on window focus, independent of visual theme",
+    "Sidebar current destination derives from shared active visible window; Home no longer remains selected over an app, overflow reflects hidden current destination",
+    "All compact apps divide the available width equally without strip scrolling; narrow headers and content adapt inside each division, stable nodes and focus order retained",
+    "Compact titlebar reduced to a single 40px row with spaced 28px controls; below 260px secondary actions use shared accessible dropdown, driven by the same action descriptors",
+    "Window layer uses shared upper/lower grid tracks: regular app spans all columns above compact panes; panel collapse/expand/minimize reallocates height automatically without absolute app sizing",
+    "Shared window icon resolver consumes existing app/project metadata in dock and titlebar; dock minimized marker and current-window semantics derive from reducer state",
+    "Running-app labels hide only when measured natural widths exceed the dock; ResizeObserver/font readiness restore labels when space permits, accessible names and tooltips remain",
+    "Central narrow layouts consider available container height: tall areas stack all three existing summaries, short areas keep tabs; lower summaries and Aura modes depend on actual capacity, without a duplicate layout or page scrolling",
+    "Canonical Web identity/session/actions and read-only Spaces adapters feed one context; subject changes abort/reset catalogs and remount local session workspace, while same-subject refresh preserves app nodes",
+    "Removed demo user/subscription/storage/projects/activity/online devices from active Central; existing cards and destinations show explicit unavailable transports without removing future features or changing responsive geometry",
+    "Explicit active-Space choice and clear action reuse the Native domain selection service; session-only Web adapter holds a validated subject-bound record, while the service owns invalidation instead of duplicated composition reset",
+    "Central/Desktop and Appearance consume one mounted canonical preference-runtime/catalog and existing Web preference-store; direct localStorage/theme state and duplicate window theme callbacks removed, saved versus session-only persistence remains honest, approved palette/geometry retained",
+    "Central subscribes to the existing Surface host connectivity; offline guards account actions and read lifecycle, canonical Spaces reset aborts/invalidates catalog and context, reconnect revalidates without replaying commands; approved geometry unchanged",
+    "Canonical identity/Spaces adapters share one bounded cancellable same-origin JSON GET transport; offline/disposal release stalled reads without replaying commands or creating auth/domain state; stable no-op snapshots and disposed action guards preserve approved UI",
+    "Thin Web boot consumes a data-only canonical boot message catalog also spread into the full Surface localization owner; no duplicate translations, dependencies or presentation change",
+    "Central Loja reuses StoreExperience/catalog context through an on-demand import; one extracted Store stylesheet consumes Surface tokens/container geometry; per-window content boundary supports explicit retry without resetting other windows or executing commands",
+    "Destination menu reuses the shared Dialog in the existing workspace container; canonical active-window changes restore app focus, while Escape/backdrop return to the menu trigger or Home. No second focus trap, listener or navigation catalog."
+  ],
+  "native_files": [
+    {
+      "target": "system/surface/workspace/components/central/window-layer.tsx",
+      "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Stable shared app window rendering and restoration controls",
+      "adaptedSha256": "4257638b094fd117eb866da33540ecac7bd29abb6018c17fa0bc90c22ba8a48a",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
+    },
+    {
+      "target": "system/composition/web/account-session.mjs",
+      "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle"
+    },
+    {
+      "target": "system/surface/workspace/components/central/account-context.tsx",
+      "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
+      "owner": "OrdaX OS Surface",
+      "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
+      "adaptedSha256": "250216ac5958882b2cf6209057c73f97ad98fc6bb3d53e25043c7de6fec98e1c",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
+    },
+    {
+      "target": "system/adapters/web/space-selection.mjs",
+      "sha256": "8f25ed2aa6e3f5c44fd2febcec639901fc46022003c25e9262897daa11336d1a",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Session-only validated record for the canonical selection service and unavailable port for unconfigured hosts"
+    },
+    {
+      "target": "system/services/preferences/runtime.mjs",
+      "owner": "OrdaX OS preferences",
+      "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
+      "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c"
+    },
+    {
+      "target": "system/surface/workspace/components/central/preferences-context.tsx",
+      "owner": "OrdaX OS Surface",
+      "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
+      "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74",
+      "adaptedSha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
+      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged."
+    },
+    {
+      "target": "system/composition/web/main.tsx",
+      "owner": "OrdaX OS Web composition",
+      "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
+      "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
+      "adaptedSha256": "af90409f53f7248e043236f70f72ff559ec29b8edec36ec9059e5f0118b5df66",
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged."
+    },
+    {
+      "target": "system/adapters/web/runtime.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Stable canonical Surface snapshots for browser connectivity and advertised capabilities; no network probing or duplicate store",
+      "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894"
+    },
+    {
+      "target": "system/adapters/web/json-read.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "69500fca30658ed33d32bb29a8615ca42be9e329916369110a647033c9daeff0"
+    },
+    {
+      "target": "system/adapters/web/identity.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c"
+    },
+    {
+      "target": "system/adapters/web/identity-actions.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133"
+    },
+    {
+      "target": "system/adapters/web/spaces.mjs",
+      "owner": "OrdaX OS Web adapter",
+      "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
+      "sha256": "90244c1c0a1f7d68d4a2ed5bfcc9654545ce3077f49e1c6bd239eac48066ee33"
+    },
+    {
+      "target": "system/services/i18n/catalog/boot.mjs",
+      "owner": "OrdaX OS localization",
+      "purpose": "Single data-only boot catalog shared by full Surface localization and thin pt-BR Web startup",
+      "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9"
+    },
+    {
+      "target": "system/surface/workspace/components/central/window-content.tsx",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
+      "sha256": "8b23ed58a8c8ab15dd04d6142e5d8ec27e80d548eeec464693d063c79508a31a",
+      "adaptedSha256": "dbd4b44d072471728a9b5445ea755321dfb77a2f30fbb12c431bd25b42cce731",
+      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window."
+    },
+    {
+      "target": "system/surface/workspace/components/store/styles.css",
+      "owner": "OrdaX OS Store presentation",
+      "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
+      "sha256": "128c7ac686b647635b0d4ab795066c123f14e999de853d46f621f39ccff3c551",
+      "adaptedSha256": "b429133d1eb0ad82d33ace2b543042b8df5f761d57f170f3baeff0b8e6e8b4d7",
+      "adaptation": "In very narrow equal-width panes, the Store consumes the same section descriptors via a native selector and wraps hero/card actions without clipping. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+    },
+    {
+      "target": "system/surface/workspace/components/central/window-resource-error.mjs",
+      "owner": "OrdaX OS Surface",
+      "purpose": "Typed diagnostic distinguishes a failed UI resource from rendering errors without guessing browser error messages",
+      "sha256": "1cb90b6989ace2a8b4c54ce079759831e61d861ade3143236637b3a6929bf3f3"
+    },
+    {
+      "target": "system/surface/workspace/components/central/compact-actions.tsx",
+      "sha256": "2f681892823122a3f210c0d84a0edab5f47394bad687c8040cda956218785221",
+      "purpose": "Canonical lazy compact-menu presentation; consumes existing shared DropdownMenu and WindowLayer controls, without local window state or authority."
+    },
+    {
+      "target": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
+      "sha256": "ba1112f5f0d0183722be14224a40f1665fc34f3f266bbb92b9501f727992f8b2",
+      "purpose": "Single favorite-shortcut renderer/editor for Home and Apps using existing preference runtime/store and shared Dialog.",
+      "adaptedSha256": "4b974822eac73ab82bf5f307c33a3f9bdcd754c9ba0f47b9d78dcefef3fb6aab",
+      "adaptation": "Editor list fits tall phones; concise help and same preference/focus owner retained."
+    }
+  ]
+}

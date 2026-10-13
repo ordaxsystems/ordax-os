@@ -1,6 +1,6 @@
 # Kernel Provenance
 
-Status: CLEAN-ROOM BUILD ENTRYPOINT IMPLEMENTED / PINNED REPEAT PROOF COMPLETE
+Status: KERNEL 6.6.158 AUTENTICADO E REPRODUZIDO EM CI / PROMOÇÃO EM PR / SEM AUTORIZAÇÃO FÍSICA
 
 ## Canonical prototype source
 
@@ -8,18 +8,22 @@ Machine-readable source identity:
 
 `bootstrap/kernel/source.json`
 
-```text
-KERNEL_RELEASE=6.6.52
-OFFICIAL_ARCHIVE=https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.52.tar.xz
-OFFICIAL_SOURCE_ARCHIVE_SHA256=1591ab348399d4aa53121158525056a69c8cf0fe0e90935b0095e9a58e37b4b8
-BASE_CONFIG=defconfig
-ORDAX_FRAGMENT=bootstrap/kernel/config/ordax.fragment
-BUILD_ENTRYPOINT=bootstrap/kernel/build.py
-PINNED_ENVIRONMENT_RESOLVED=YES
-PHYSICAL_ARTIFACT_AUTHORIZED=NO
-```
+O único contrato ativo é `bootstrap/kernel/source.json`, inclusive para a
+versão, a URL e o SHA-256 do upstream. A configuração é
+`bootstrap/kernel/config/ordax.fragment`, e o builder oficial é
+`bootstrap/kernel/build.py`. A proposta assinada preserva a sua identidade
+revisada sob `bootstrap/kernel/candidates/`, mas não é fonte ativa paralela.
 
-The official 6.6.52 archive remains available from kernel.org. The repository build entrypoint downloads it when needed, verifies the pinned SHA-256 before extraction, builds only from a fresh isolated source tree, and never trusts a pre-extracted developer-machine kernel tree.
+Na PR #1616, a revisão assinada 6.6.158 foi compilada em ambiente imutável
+com 19 pacotes fixados. O run GitHub Actions [38094493855](https://github.com/ordaxsystems/ordax-os/actions/runs/38094493855)
+verificou OpenPGP, dois builds independentes e digests idênticos dos três
+artefatos. O source passa a declarar `pinned_environment_resolved=true`;
+`physical_artifact_authorized=false` permanece bloqueado e a main só adota
+o novo pin após o merge com CI verde do head final.
+
+Os arquivos abaixo sobre 6.6.52 e seus digests são registros históricos de
+provas executadas, **não** identidade atual, autorização de hardware ou
+observações reproduzíveis automaticamente para qualquer nova revisão.
 
 ## Legacy source of evidence
 
@@ -91,7 +95,7 @@ EXACT_APT_PACKAGE_VERSIONS=17
 CA_BUNDLE_SHA256=9481fcd95f41b221f02f14d896535fe500bec539bc563c4cdca1acee483a8bdd
 ```
 
-The image tag is informational only; the manifest digest is the immutable image identity. The build environment verifier requires exact architecture, snapshot, package set, package versions and CA-bundle digest before the build is accepted.
+The image tag is informational only; the manifest digest is the immutable image identity. The build environment verifier requires exact architecture, snapshot, package set, package versions and CA-bundle digest before the build is accepted. The 17-package observation above is historical for Linux 6.6.52. The signed Linux 6.6.158 source requires **gpg and gpg-agent pinned as direct packages**, for 19 direct packages total, from the same Ubuntu 20260910 snapshot. Both pins are `2.4.4-2ubuntu17.6` (published 2026-09-03). With `--no-install-recommends`, the `gpg` package alone installs its command but not the agent required to import an independently pinned public signing key. A new build must prove actual OpenPGP authentication and identical output digests, never skip either check. This 19-package environment completed its exact-source two-build proof in run [38094493855](https://github.com/ordaxsystems/ordax-os/actions/runs/38094493855) against source commit `1f0ee7efaa5eb60f786221a1053ce91464759993`: `KERNEL_REPRODUCIBILITY=PASS`, `REPEAT_BUILD_DIGEST_MATCH=YES`. The current proof and old proof are separately recorded in `docs/contracts/kernel-build-environment.json`. CI still needs to validate this final metadata reconciliation before merge.
 
 ## Repeat proof
 
@@ -107,20 +111,17 @@ KERNEL_MODULES_SHA256=0056f8bd6a1ea02b9aa0b0f35a30adc27060888b6ae6124804e96b6740
 VMLINUX_SHA256=e080323be390b2e921ed34286794cbce18642b653fc6790ae308f61720c90ba1
 ```
 
-Therefore the pinned build environment is no longer a blocker. The environment contract may mark the reproducible build output as promotable to the physical-media pipeline, but that is not the same as authorizing a physical artifact. `bootstrap/kernel/source.json` intentionally keeps `physical_artifact_authorized=false` until the independent physical-media gates are closed.
+For the historical 6.6.52 observation, the pinned build environment was reproducible. A future source revision requires an independent, current-source repeat proof; past digests cannot satisfy that gate. The environment contract does not authorize a physical artifact. `bootstrap/kernel/source.json` intentionally keeps `physical_artifact_authorized=false` until the independent physical-media gates are closed.
 
 ## CI
 
 `.github/workflows/kernel-candidate.yml` runs the build directly from repository source. Repository-owned verifiers enforce the immutable environment contract and repeat-proof expectations rather than relying on workflow YAML alone.
 
-Current semantic split:
-
-```text
-PINNED_BUILD_ENVIRONMENT=PASS
-REPEAT_BUILD_DIGEST_MATCH=PASS
-BUILD_OUTPUT_ELIGIBLE_FOR_PHYSICAL_PIPELINE=YES
-PHYSICAL_KERNEL_AUTHORIZED=NO
-```
+Historical 6.6.52 proof was PASS. The 6.6.158 exact-source repeat run
+38094493855 is also PASS, with current hashes recorded in the environment
+contract. The PR must still validate its final commit independently.
+`PHYSICAL_KERNEL_AUTHORIZED=NO` remains until explicit independent
+physical-media proof and authorization.
 
 This distinction is mandatory: reproducibility proves what bytes are built; it does not grant permission to mutate a physical USB device.
 

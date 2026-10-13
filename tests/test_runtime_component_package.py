@@ -31,7 +31,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertEqual(policy["status"], "signed-slot-staging")
         self.assertEqual(
             policy["supported_components"],
-            ["internet", "local-ai-service", "ordax-intelligence"],
+            ["local-ai-service", "ordax-intelligence"],
         )
         self.assertNotIn("notes", policy["supported_components"])
         self.assertEqual(
@@ -89,10 +89,13 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
         self.assertTrue(policy["native_loopback_broker_read_only"])
         self.assertFalse(policy["failed_pending_runtime_read_allowed"])
-        self.assertEqual(policy["native_loopback_broker_supported_components"], ["internet", "notes", "studio"])
+        self.assertEqual(policy["native_loopback_broker_supported_components"], ["calculator", "notes", "studio"])
+        self.assertNotIn("calculator", policy["native_loopback_broker_health_mutation_components"])
+        self.assertFalse(policy["slot_activation_available"])
+        self.assertFalse(policy["publish_allowed"])
         self.assertEqual(
             policy["native_loopback_broker_health_mutation_components"],
-            ["internet", "notes"],
+            ["notes"],
         )
         self.assertTrue(policy["notes_component_slot_read_available"])
         self.assertTrue(policy["notes_component_probation_available"])
@@ -104,7 +107,8 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertFalse(policy["pending_health_promotion_available"])
         self.assertFalse(policy["publish_allowed"])
         self.assertFalse(policy["rollback_slot_activation_available"])
-        self.assertEqual(policy["internet_release_mode"], "git-app")
+        self.assertNotIn("internet_release_mode", policy)
+        self.assertIn("internet", policy["prelaunch_remove_first_pending"])
         self.assertTrue(policy["pending_probation_loader_available"])
         self.assertTrue(policy["native_pending_health_recorder_adapter_available"])
         self.assertTrue(policy["native_pending_health_recorder_requires_exact_revision"])
@@ -125,7 +129,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["runtime_health_bridge_supported_components"],
-            ["internet", "notes"],
+            ["notes"],
         )
         self.assertEqual(policy["runtime_health_bridge_probe_mode"], "import-contract")
         self.assertTrue(policy["runtime_health_bridge_requires_host_nonce"])
@@ -157,19 +161,11 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertTrue(policy["rollback_requires_exact_current_identity"])
         self.assertTrue(policy["rollback_idempotent_same_decision"])
 
-    def test_internet_metadata_comes_from_canonical_component_manifest(self):
+    def test_removed_internet_metadata_has_no_local_component(self):
         builder = load_builder()
-        metadata = builder.load_component_metadata("internet")
-        component = metadata["component"]
-        self.assertEqual(component["id"], "internet")
-        self.assertEqual(component["version"], "0.3.0")
-        self.assertEqual(component["releaseMode"], "git-app")
-        self.assertEqual(component["restartScope"], "component")
-        self.assertEqual(component["healthMode"], "runtime")
-        self.assertEqual(
-            metadata["entrypoint"].as_posix(),
-            "system/apps/internet/runtime.mjs",
-        )
+        with self.assertRaises(builder.ComponentPackageError):
+            builder.load_component_metadata("internet")
+        self.assertFalse((ROOT / "system/apps/internet").exists())
 
     def test_intelligence_component_metadata_comes_from_canonical_manifests(self):
         builder = load_builder()
@@ -208,15 +204,13 @@ class RuntimeComponentPackageTests(unittest.TestCase):
                 self.assertFalse(verified["native_adapters_packaged"])
                 self.assertFalse(verified["composition_packaged"])
 
-    def test_internet_candidate_graph_is_self_contained_and_excludes_platform_code(self):
+    def test_os_owned_runtime_graph_is_self_contained_and_excludes_host_adapters(self):
         builder = load_builder()
-        metadata, graph = builder.component_graph("internet")
+        metadata, graph = builder.component_graph("local-ai-service")
         paths = {path.as_posix() for path in graph}
         self.assertIn(metadata["entrypoint"].as_posix(), paths)
-        self.assertIn("system/apps/internet/internet.css", paths)
-        self.assertIn("system/contracts/browser-session.mjs", paths)
-        self.assertIn("system/apps/internet/services/history.mjs", paths)
-        self.assertIn("system/apps/internet/ui/browser-controls.mjs", paths)
+        self.assertIn("system/components/local-ai-service/runtime.mjs", paths)
+        self.assertFalse(any(path.startswith("system/apps/internet/") for path in paths))
         self.assertFalse(any(path.startswith("system/adapters/") for path in paths))
         self.assertFalse(any(path.startswith("system/composition/") for path in paths))
         self.assertFalse(any(path.startswith("system/surface/runtime/") for path in paths))
@@ -226,16 +220,16 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         source_commit = "1" * 40
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            first = root / "internet-a.zip"
-            second = root / "internet-b.zip"
+            first = root / "local-ai-service-a.zip"
+            second = root / "local-ai-service-b.zip"
 
             first_manifest = builder.build_package(
-                "internet",
+                "local-ai-service",
                 source_commit,
                 first,
             )
             second_manifest = builder.build_package(
-                "internet",
+                "local-ai-service",
                 source_commit,
                 second,
             )
@@ -248,7 +242,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             verified = builder.verify_package(first)
             self.assertEqual(verified, first_manifest)
             self.assertEqual(verified, second_manifest)
-            self.assertEqual(verified["component"]["version"], "0.3.0")
+            self.assertEqual(verified["component"]["version"], "0.1.0")
             self.assertFalse(verified["activation_allowed"])
             self.assertTrue(verified["signature_required_before_activation"])
             self.assertFalse(verified["native_adapters_packaged"])
@@ -259,10 +253,10 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         source_commit = "4" * 40
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            package = root / "internet.zip"
+            package = root / "local-ai-service.zip"
             first = root / "release-a.json"
             second = root / "release-b.json"
-            builder.build_package("internet", source_commit, package)
+            builder.build_package("local-ai-service", source_commit, package)
 
             first_descriptor = builder.write_release_descriptor(package, first)
             second_descriptor = builder.write_release_descriptor(package, second)
@@ -278,10 +272,10 @@ class RuntimeComponentPackageTests(unittest.TestCase):
                 "ordaxsystems/ordax-os",
             )
             self.assertEqual(first_descriptor["source_commit"], source_commit)
-            self.assertEqual(first_descriptor["component"]["id"], "internet")
-            self.assertEqual(first_descriptor["component"]["version"], "0.3.0")
-            self.assertEqual(first_descriptor["component"]["release_mode"], "git-app")
-            self.assertEqual(first_descriptor["package"]["name"], "internet.zip")
+            self.assertEqual(first_descriptor["component"]["id"], "local-ai-service")
+            self.assertEqual(first_descriptor["component"]["version"], "0.1.0")
+            self.assertEqual(first_descriptor["component"]["release_mode"], "bundled")
+            self.assertEqual(first_descriptor["package"]["name"], "local-ai-service.zip")
             self.assertEqual(
                 first_descriptor["package"]["sha256"],
                 hashlib.sha256(package.read_bytes()).hexdigest(),
@@ -302,16 +296,16 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         source_commit = "2" * 40
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            original = root / "internet.zip"
+            original = root / "local-ai-service.zip"
             tampered = root / "tampered.zip"
-            builder.build_package("internet", source_commit, original)
+            builder.build_package("local-ai-service", source_commit, original)
 
             with zipfile.ZipFile(original, "r") as source:
                 entries = {
                     info.filename: source.read(info.filename)
                     for info in source.infolist()
                 }
-            runtime = "system/apps/internet/runtime.mjs"
+            runtime = "system/components/local-ai-service/runtime.mjs"
             entries[runtime] += b"\n// tampered\n"
 
             with zipfile.ZipFile(tampered, "w", compression=zipfile.ZIP_STORED) as target:
@@ -329,9 +323,9 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         source_commit = "3" * 40
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            original = root / "internet.zip"
+            original = root / "local-ai-service.zip"
             malicious = root / "malicious.zip"
-            builder.build_package("internet", source_commit, original)
+            builder.build_package("local-ai-service", source_commit, original)
 
             with zipfile.ZipFile(original, "r") as source:
                 entries = [

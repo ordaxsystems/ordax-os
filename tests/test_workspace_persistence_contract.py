@@ -8,7 +8,7 @@ STATE = ROOT / "system" / "surface" / "ui" / "surface-state.mjs"
 SHELL = ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "workspace.mjs"
 NATIVE_ADAPTER = ROOT / "system" / "adapters" / "native" / "workspace.mjs"
-WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.tsx"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
 
 
@@ -39,9 +39,6 @@ class WorkspacePersistenceContractTests(unittest.TestCase):
     def test_compositions_choose_mode_specific_workspace_adapters(self):
         web = WEB_COMPOSITION.read_text(encoding="utf-8")
         native = NATIVE_COMPOSITION.read_text(encoding="utf-8")
-        self.assertIn('../../adapters/web/workspace.mjs', web)
-        self.assertIn("createWebWorkspaceStore", web)
-        self.assertIn("workspaceStore,", web)
         self.assertIn('../../adapters/native/workspace.mjs', native)
         self.assertIn("createNativeWorkspaceStore", native)
         self.assertIn("workspaceStore,", native)
@@ -52,11 +49,8 @@ class WorkspacePersistenceContractTests(unittest.TestCase):
         web = WEB_ADAPTER.read_text(encoding="utf-8")
         native = NATIVE_ADAPTER.read_text(encoding="utf-8")
         contract = CONTRACT.read_text(encoding="utf-8")
-        self.assertIn('"ordax.workspace.v2"', web)
-        self.assertIn('"ordax.workspace.v1"', web)
         self.assertIn('"ordax.native.workspace.v2"', native)
         self.assertIn('"ordax.native.workspace.v1"', native)
-        self.assertIn("migrateLegacyWorkspaceRecord", web)
         self.assertIn("migrateLegacyWorkspaceRecord", native)
         self.assertIn("MAX_WINDOWS = 32", contract)
         self.assertIn("MAX_WORKSPACE_AREAS = 8", contract)

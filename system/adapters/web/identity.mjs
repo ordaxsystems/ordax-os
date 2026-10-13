@@ -3,6 +3,8 @@ import {
   validateIdentitySessionSnapshot,
 } from "../../contracts/identity-session.mjs";
 
+import { createWebJsonReader } from "./json-read.mjs";
+
 const SESSION_ENDPOINT = "/auth/session";
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 
@@ -18,8 +20,10 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
   }
 
   let snapshot = validateIdentitySessionSnapshot({ state: "unavailable" });
+  const reader = createWebJsonReader(windowRef);
   const listeners = new Set();
   let disposed = false;
+  let refreshSequence = 0;
 
   const emit = () => {
     if (disposed) return;
@@ -32,44 +36,46 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
       validated.state !== snapshot.state
       || validated.subjectId !== snapshot.subjectId
       || validated.displayName !== snapshot.displayName;
+    if (!changed) return snapshot;
     snapshot = validated;
-    if (changed) emit();
+    emit();
     return snapshot;
   };
 
   const refresh = async () => {
     if (disposed) return snapshot;
+    // Ignore late responses from earlier requests. One session port owns the
+    // ordering for every consumer (OOBE, Surface and account actions).
+    const sequence = ++refreshSequence;
+    const apply = (next) => (
+      disposed || sequence !== refreshSequence ? snapshot : setSnapshot(next)
+    );
     try {
-      const response = await windowRef.fetch(SESSION_ENDPOINT, {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
+      const response = await reader.read(SESSION_ENDPOINT);
       if (!response.ok) {
-        return setSnapshot({ state: "unavailable" });
+        return apply({ state: "unavailable" });
       }
-      const value = await response.json();
+      const value = response.value;
       if (!value || value.$schema !== SESSION_SCHEMA) {
-        return setSnapshot({ state: "unavailable" });
+        return apply({ state: "unavailable" });
       }
       if (value.provider === "unconfigured") {
-        return setSnapshot({ state: "unavailable" });
+        return apply({ state: "unavailable" });
       }
       if (value.authenticated === true && value.status === "authenticated") {
         const displayName = publicDisplayName(value.email);
         if (typeof value.subject !== "string" || !value.subject || !displayName) {
-          return setSnapshot({ state: "unavailable" });
+          return apply({ state: "unavailable" });
         }
-        return setSnapshot({
+        return apply({
           state: "signed-in",
           subjectId: value.subject,
           displayName,
         });
       }
-      return setSnapshot({ state: "signed-out" });
+      return apply({ state: "signed-out" });
     } catch {
-      return setSnapshot({ state: "unavailable" });
+      return apply({ state: "unavailable" });
     }
   };
 
@@ -82,13 +88,23 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
       if (typeof listener !== "function") {
         throw new TypeError("Identity session listener must be a function");
       }
+      if (disposed) return () => {};
       listeners.add(listener);
       listener(snapshot);
       return () => listeners.delete(listener);
     },
     refresh,
+    // Adapter lifecycle extension; the neutral identity-session port is unchanged.
+    cancelRefresh() {
+      if (disposed) return;
+      refreshSequence += 1;
+      reader.cancel();
+    },
     dispose() {
+      if (disposed) return;
       disposed = true;
+      refreshSequence += 1;
+      reader.dispose();
       listeners.clear();
     },
   });

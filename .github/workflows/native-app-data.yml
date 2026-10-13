@@ -7,10 +7,15 @@ on:
       - 'system/services/app-data/**'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/adapters/native/app-data.mjs'
       - 'docs/contracts/app-data.json'
       - 'docs/contracts/native-app-data.json'
       - 'tests/test_native_app_data.py'
+      - 'tests/test_native_app_data_checkpoint.py'
+      - 'tests/test_native_app_data_binding.py'
+      - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_app_data_adapter.mjs'
       - '.github/workflows/native-app-data.yml'
   push:
@@ -20,10 +25,15 @@ on:
       - 'system/services/app-data/**'
       - 'system/surface/runtime/native_app_data.py'
       - 'system/surface/runtime/native_app_data_endpoint.py'
+      - 'system/surface/runtime/native_app_data_binding.py'
+      - 'system/surface/runtime/native_app_data_host.py'
       - 'system/adapters/native/app-data.mjs'
       - 'docs/contracts/app-data.json'
       - 'docs/contracts/native-app-data.json'
       - 'tests/test_native_app_data.py'
+      - 'tests/test_native_app_data_checkpoint.py'
+      - 'tests/test_native_app_data_binding.py'
+      - 'tests/test_native_app_data_host.py'
       - 'tests/test_native_app_data_adapter.mjs'
       - '.github/workflows/native-app-data.yml'
 
@@ -42,12 +52,39 @@ jobs:
       - name: Validate source and contract syntax
         run: |
           set -euo pipefail
-          python3 -m py_compile system/surface/runtime/native_app_data.py system/surface/runtime/native_app_data_endpoint.py
+          python3 -m py_compile system/surface/runtime/native_app_data.py system/surface/runtime/native_app_data_endpoint.py system/surface/runtime/native_app_data_binding.py system/surface/runtime/native_app_data_host.py
           node --check system/adapters/native/app-data.mjs
           python3 -m json.tool docs/contracts/native-app-data.json >/dev/null
 
       - name: Prove filesystem owner crash CAS quota and isolation
         run: python3 -m unittest tests.test_native_app_data -v
 
+      - name: Prove owner-only durable checkpoint, retained blobs, rollback and crash recovery
+        run: python3 -m unittest tests.test_native_app_data_checkpoint -v
+
+      - name: Prove verified receipt admission drain and real Native HTTP recovery
+        run: python3 -m unittest tests.test_native_app_data_binding tests.test_native_app_data_host -v
+
       - name: Prove async bound transport without identity self-claims
         run: node --test tests/test_native_app_data_adapter.mjs
+
+  native-state-recovery-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go for canonical runtime component writer
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: tools/runtime-component-channel/go.mod
+          cache: false
+
+      - name: Ensure App Data diagnostic cannot silently authorize stateful activation or rollback
+        working-directory: tools/runtime-component-channel
+        run: |
+          set -euo pipefail
+          go test ./... -count=1 -timeout 3m -run '^(TestSignedUpgradeWithUnchangedStateFormatRequiresRecoveryProof|TestSignedUpgradeCannotIntroducePersistentStateWithoutRollbackProof|TestStatefulReleaseV2UpgradeCannotBecomeOneWayWithoutRecovery|TestReleaseV2RollbackReadabilityDoesNotAuthorizeRecovery)$'

@@ -1,0 +1,43 @@
+name: OrdaX Platform OAuth Consent
+
+on:
+  pull_request:
+    paths:
+      - "api/oauth-consent.mjs"
+      - "vercel.json"
+      - "infra/supabase/functions/_shared/account_email_confirmation.mjs"
+      - "tests/test_platform_oauth_consent_vercel.mjs"
+      - "scripts/probe_public_oauth_consent.py"
+      - "tests/test_live_oauth_consent_probe.py"
+      - ".github/workflows/platform-oauth-consent.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/oauth-consent.mjs"
+      - "vercel.json"
+      - "tests/test_platform_oauth_consent_vercel.mjs"
+      - "scripts/probe_public_oauth_consent.py"
+      - "tests/test_live_oauth_consent_probe.py"
+      - ".github/workflows/platform-oauth-consent.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  first-party-consent:
+    name: Canonical Supabase Consent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate OAuth consent origin, server and request boundaries
+        run: node --test tests/test_platform_oauth_consent_vercel.mjs
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6 (approved SSOT)
+        with:
+          python-version: "3.12"
+      - name: Validate HTTP probe classification without contacting users
+        run: python -m unittest tests.test_live_oauth_consent_probe
+      - name: Probe official ordax.com.br OAuth consent presentation over real HTTPS
+        run: python -m scripts.probe_public_oauth_consent

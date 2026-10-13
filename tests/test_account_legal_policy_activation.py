@@ -86,13 +86,13 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                             "privacy": {
                                 "route": "/privacidade/",
                                 "final": True,
-                                "version": "privacy-2026-10-07",
+                                "version": "2026.10.09",
                                 "effective_date": "2026-10-07",
                             },
                             "terms": {
                                 "route": "/termos/",
                                 "final": True,
-                                "version": "terms-2026-10-07",
+                                "version": "2026.10.09",
                                 "effective_date": "2026-10-07",
                             },
                         },
@@ -127,6 +127,69 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
         self.assertRegex(candidate["privacy"]["sha256"], r"^[0-9a-f]{64}$")
         self.assertRegex(candidate["terms"]["sha256"], r"^[0-9a-f]{64}$")
         self.assertNotEqual(candidate["privacy"]["sha256"], candidate["terms"]["sha256"])
+
+    def test_versioned_consent_snapshot_hash_does_not_follow_changing_homepage_theme(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            legal = root / "legal.json"
+            site = root / "public"
+            privacy = site / "legal" / "2026.10.12" / "privacidade"
+            terms = site / "legal" / "2026.10.12" / "termos"
+            privacy.mkdir(parents=True)
+            terms.mkdir(parents=True)
+            (privacy / "index.html").write_bytes(b"<html><head>approved-privacy</head><body>fixed</body></html>\\n")
+            (terms / "index.html").write_bytes(b"<html><head>approved-terms</head><body>fixed</body></html>\\n")
+            (site / "privacidade").mkdir()
+            (site / "privacidade" / "index.html").write_text("<html>changing UI</html>", encoding="utf-8")
+            operator = {
+                "legal_form": "natural_person",
+                "legal_name": "Operador Exemplo",
+                "privacy_contact_email": "privacy@example.invalid",
+                "identity_reviewed": True,
+                "privacy_contact_verified": True,
+            }
+            legal.write_text(json.dumps({
+                "$schema": "prototype-ordax.public-legal-readiness/1",
+                "status": "ready", "account_activation_ready": True,
+                "operator": operator,
+                "documents": {
+                    "privacy": {"route": "/legal/2026.10.12/privacidade/", "final": True,
+                                "version": "2026.10.12", "effective_date": "2026-10-12"},
+                    "terms": {"route": "/legal/2026.10.12/termos/", "final": True,
+                              "version": "2026.10.12", "effective_date": "2026-10-12"},
+                },
+            }), encoding="utf-8")
+            ledger = root / "snapshots.json"
+            import hashlib
+            ledger.write_text(json.dumps({
+                "$schema": "prototype-ordax.public-legal-snapshots/1",
+                "status": "approved-versioned-snapshots",
+                "snapshots": [
+                    {
+                        "kind": kind, "version": "2026.10.12",
+                        "size": path.stat().st_size,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+                    for kind, path in (("privacy", privacy / "index.html"),
+                                       ("terms", terms / "index.html"))
+                ],
+            }), encoding="utf-8")
+            from unittest.mock import patch
+            with (patch.object(activation, "LEGAL", legal),
+                  patch.object(activation, "SITE", site),
+                  patch.object(activation, "SNAPSHOT_LEDGER", ledger)):
+                candidate = activation.build_candidate("https://ordax.com.br")
+                previous = candidate["privacy"]["sha256"]
+                (site / "privacidade" / "index.html").write_text("<html>new layout</html>", encoding="utf-8")
+                self.assertEqual(activation.build_candidate("https://ordax.com.br")["privacy"]["sha256"], previous)
+                self.assertEqual(candidate["privacy"]["url"], "https://ordax.com.br/legal/2026.10.12/privacidade/")
+                self.assertEqual(candidate["terms"]["url"], "https://ordax.com.br/legal/2026.10.12/termos/")
+                # A new policy cannot recycle a mutable presentation route.
+                contract = json.loads(legal.read_text(encoding="utf-8"))
+                contract["documents"]["privacy"]["route"] = "/privacidade/"
+                legal.write_text(json.dumps(contract), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "route must be version-bound"):
+                    activation.build_candidate("https://ordax.com.br")
 
     def test_operator_identity_is_required_even_when_documents_are_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -308,9 +371,9 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 "status": "ready",
                 "account_activation_ready": True,
                 "documents": {
-                    "privacy": {"route": "/privacidade/", "version": "p1",
+                    "privacy": {"route": "/privacidade/", "version": "2026.10.09",
                                 "effective_date": "2026-10-09", "final": True},
-                    "terms": {"route": "/termos/", "version": "t1",
+                    "terms": {"route": "/termos/", "version": "2026.10.09",
                               "effective_date": "2026-10-09", "final": True},
                 },
             }), encoding="utf-8")
@@ -325,12 +388,12 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
             candidate = {
                 "origin": "https://ordax.com.br",
                 "privacy": {
-                    "version": "p1", "effective_date": "2026-10-09",
+                    "version": "2026.10.09", "effective_date": "2026-10-09",
                     "url": "https://ordax.com.br/privacidade/",
                     "sha256": hashlib.sha256(emitted["privacy"]).hexdigest(),
                 },
                 "terms": {
-                    "version": "t1", "effective_date": "2026-10-09",
+                    "version": "2026.10.09", "effective_date": "2026-10-09",
                     "url": "https://ordax.com.br/termos/",
                     "sha256": hashlib.sha256(emitted["terms"]).hexdigest(),
                 },

@@ -1,3 +1,4 @@
+import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs";
 import {
   createNativeClientDiagnostics,
   renderedSourceSha,
@@ -19,6 +20,8 @@ import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
+import { createPersonalActivityExportDocument } from "../../services/personal-ordax/export.mjs";
+import { projectPersonalWorkCanvas } from "../../services/intelligence/work-canvas.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -56,6 +59,7 @@ import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { createAppLifecycleRequestService } from "../../services/apps/store-lifecycle-request-service.mjs";
+import { listFirstRunDefaultAppIds, planFirstRunAppSelectionFromStore } from "../../services/apps/first-run-selection.mjs";
 import { createUnavailableAppStoreCatalogPort } from "../../contracts/app-store.mjs";
 import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
@@ -97,8 +101,6 @@ import {
 import { createSelectedSpaceProfileContentIntelligence } from "../../services/intelligence/profile-content.mjs";
 import { createMemoryRuntime } from "../../services/memory/runtime.mjs";
 import { createMemoryMutationPort } from "../../services/memory/mutation-port.mjs";
-import { createPreferenceBoundMemoryCaptureRuntime } from "../../services/memory/capture.mjs";
-import { createAssistantAutoCaptureRuntime } from "../../services/memory/assistant-auto-capture.mjs";
 import { createIdentityBoundMemoryIntelligence } from "../../services/intelligence/authorized-memory.mjs";
 import { createMemoryReviewSession } from "../../services/memory/review-session.mjs";
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
@@ -720,19 +722,7 @@ async function start() {
     workspaceStore,
     appActivation,
   );
-  const assistantMemoryCapture = memory === null
-    ? null
-    : createAssistantAutoCaptureRuntime({
-        intelligencePort: intelligence,
-        captureRuntime: createPreferenceBoundMemoryCaptureRuntime(
-          memory,
-          surface.preferences,
-          { mutationPort: memoryMutations },
-        ),
-        preferenceRuntime: surface.preferences,
-        identitySessionPort: identitySession,
-        spaceSelectionPort: spaceSelection,
-      });
+  const sidebarAccount = mountNativeSidebarAccount(root, identitySession, host, surface);
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
   let quickPanelControls = null;
@@ -941,57 +931,6 @@ async function start() {
 
   bootScreen.setStage(surface.localization.translate("surface.boot.loadingApps"));
 
-  const projectsComponent = await loadOptionalComponentRuntime({
-    componentId: "projects",
-    importer: () => import("../../apps/projects/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      surfaceLifecycle: surface,
-      projects,
-      projectCloudLinks: projectCloudLinksReader,
-      appActivation,
-    },
-    onError(error) {
-      reportClientDiagnostic("projects-runtime", error);
-    },
-  });
-
-  const networkComponent = await loadOptionalComponentRuntime({
-    componentId: "network",
-    importer: () => import("../../apps/network/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      surfaceLifecycle: surface,
-      identitySession,
-      spaceSelection,
-    },
-    onError(error) {
-      reportClientDiagnostic("network-app-runtime", error);
-    },
-  });
-
-  const assistantComponent = await loadOptionalComponentRuntime({
-    componentId: "assistant",
-    importer: () => import("../../apps/assistant/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      surfaceLifecycle: surface,
-      intelligence: selectedSpaceIntelligence,
-      memoryCapture: assistantMemoryCapture,
-      personalOrdax,
-      identitySessionPort: identitySession,
-      spaceSelectionPort: spaceSelection,
-      profileActivationStatePort: profileActivationState,
-      appActivation,
-    },
-    onError(error) {
-      reportClientDiagnostic("assistant-runtime", error);
-    },
-  });
-
   const activityComponent = await loadOptionalComponentRuntime({
     componentId: "activity",
     importer: () => import("../../apps/activity/runtime.mjs"),
@@ -1001,39 +940,14 @@ async function start() {
       surfaceLifecycle: surface,
       personalOrdax,
       activityExport: personalActivityExport,
+      createExportDocument: createPersonalActivityExportDocument,
+      projectWorkCanvas: projectPersonalWorkCanvas,
     },
     onError(error) {
       reportClientDiagnostic("activity-runtime", error);
     },
   });
 
-  const internetComponent = await loadOptionalComponentRuntime({
-    componentId: "internet",
-    importer: () => import("../../apps/internet/runtime.mjs"),
-    componentManager,
-    context: {
-      root,
-      browserSession,
-      surfaceLifecycle: surface,
-      projects,
-      projectReferences,
-      createPageSelectionPort: () => createNativeBrowserPageSelection(window),
-      createPageFindPort: () => createNativeBrowserPageFind(window),
-      createDownloadPort: () => createNativeBrowserDownload(window),
-      intelligence: selectedSpaceIntelligence,
-      identitySessionPort: identitySession,
-      spaceSelectionPort: spaceSelection,
-      profileActivationStatePort: profileActivationState,
-      createFavoritesStore: () => createNativeBrowserFavoritesStore(window),
-      createHistoryStore: () => createNativeBrowserHistoryStore(window),
-      createSearchPreferencesStore: () => createNativeBrowserSearchPreferencesStore(window),
-      enableShortcuts: true,
-      reportDiagnostic: reportClientDiagnostic,
-    },
-    onError(error) {
-      reportClientDiagnostic("internet-runtime", error);
-    },
-  });
 
   // External app code receives only its own App Data binding and the
   // documented Surface lifecycle, never a generic host file or AI port.
@@ -1066,10 +980,27 @@ async function start() {
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
   bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
+  // First Run reads the already-verified Store projection and its matching
+  // ephemeral Native current observations. It has NO installation authority.
+  let firstRunAppSelection = null;
+  try {
+    firstRunAppSelection = planFirstRunAppSelectionFromStore({
+      initialProvisioning: !firstRunStateStore.load().completed,
+      explicitlyRemovedAppIds: [],
+      storeCatalogSnapshot: storeCatalog.getSnapshot(),
+      nativeCurrentMetadata: (storeCatalogComposition?.getCurrentObservations() ?? [])
+        .filter((entry) => listFirstRunDefaultAppIds().includes(entry.componentId)),
+    });
+  } catch (error) {
+    // Conflicting Store/Native observations must not become install intents
+    // or prevent first boot. First Run proceeds without a guessed plan.
+    reportClientDiagnostic("first-run-app-selection", error);
+  }
   let firstRun = null;
   try {
     firstRun = mountFirstRunExperience(root, {
       stateStore: firstRunStateStore,
+      firstRunAppSelection,
       preferences: surface.preferences,
       networkManagement,
       identitySession,
@@ -1115,11 +1046,7 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
-      projectsComponent?.destroy();
-      networkComponent?.destroy();
-      assistantComponent?.destroy();
       activityComponent?.destroy();
-      internetComponent?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
@@ -1149,6 +1076,7 @@ async function start() {
       localAi.dispose();
       localSession?.dispose();
       componentManager.destroy();
+      sidebarAccount.destroy();
       surface.destroy();
       identityActions.dispose();
       identitySession.dispose();

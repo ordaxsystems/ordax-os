@@ -13,11 +13,13 @@ import { assertSystemMetricsPort } from "../../contracts/system-metrics.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { appendStoreLocalAiModels } from "./store-model-catalog.mjs";
 import { createStoreUpdateRequestBatch } from "../../services/apps/store-update-request-batch.mjs";
+import { listFirstRunDefaultAppIds } from "../../services/apps/first-run-selection.mjs";
 
 const STORE_WINDOW_SELECTOR = '[data-window-id="store"]';
 const STORE_EXTENSION_SELECTOR = '[data-app-extension="store-overview"]';
 const OPERATIONS = new Set(["install", "update", "remove"]);
-const VIEWS = Object.freeze(["discover", "installed", "updates", "models"]);
+const VIEWS = Object.freeze(["discover", "essentials", "installed", "updates", "models"]);
+const ESSENTIAL_APP_IDS = new Set(listFirstRunDefaultAppIds());
 
 function node(documentObject, tag, className = "", content = undefined) {
   const element = documentObject.createElement(tag);
@@ -68,6 +70,7 @@ export function filterStoreEntries(entries, view = "discover", query = "") {
   const normalize = (value) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
   const needle = normalize(query.trim());
   return entries.filter((entry) => {
+    if (view === "essentials" && !ESSENTIAL_APP_IDS.has(entry.appId)) return false;
     if (view === "installed" && entry.installedVersion === null) return false;
     if (view === "updates" && (
       entry.installedVersion === null

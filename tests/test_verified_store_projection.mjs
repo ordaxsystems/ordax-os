@@ -150,7 +150,7 @@ test("verified Store projection offers install only from verified catalog plus e
   projection.destroy();
 });
 
-test("known optional utility is represented from verified catalog only; raw unknown stays blocked", async () => {
+test("calculator module read is ready while unsupported Native probation keeps Store installs blocked", async () => {
   const catalog = catalogPort(ready([
     candidate("calculator", "0.2.0", "Calculadora"),
     candidate("unapproved-product", "0.1.0", "Unapproved"),
@@ -168,7 +168,7 @@ test("known optional utility is represented from verified catalog only; raw unkn
   assert.equal(snapshot.state, "ready");
   const calculator = snapshot.entries.find(item => item.appId === "calculator");
   assert.equal(calculator.state, "blocked");
-  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
+  assert.equal(calculator.blockedReason, "runtime-probation-unavailable");
   assert.equal(calculator.installable, false);
   assert.equal(calculator.updatable, false);
   assert.equal(calculator.artifactIdentityVerified, true);
@@ -235,6 +235,27 @@ test("installed external app remains removable even after it disappears from cat
   assert.equal(notes.availableVersion, null);
   assert.equal(notes.removable, true);
   assert.equal(notes.artifactIdentityVerified, false);
+  projection.destroy();
+});
+
+test("explicitly removed component is absent but permits only deliberate verified Store reinstall", async () => {
+  const catalog = catalogPort(ready([candidate("notes", "0.4.3", "Notas")]));
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({
+      notes: metadata("notes", { source: "removed", revision: 9 }),
+      studio: metadata("studio"),
+    }),
+  });
+  await projection.refresh();
+  const notes = projection.port.getSnapshot().entries.find(item => item.appId === "notes");
+  assert.equal(notes.state, "available");
+  assert.equal(notes.installedVersion, null);
+  assert.equal(notes.installable, true);
+  assert.equal(notes.removable, false);
+  assert.equal(notes.artifactIdentityVerified, true);
+  assert.equal(notes.provenanceVerified, true);
   projection.destroy();
 });
 
@@ -359,7 +380,7 @@ test("Native status reads use bounded concurrency and deterministic catalog orde
   assert.equal(snapshot.entries.find((entry) => entry.appId === "notes").installable, true);
   const calculator = snapshot.entries.find((entry) => entry.appId === "calculator");
   assert.equal(calculator.installable, false);
-  assert.equal(calculator.blockedReason, "runtime-module-read-unavailable");
+  assert.equal(calculator.blockedReason, "runtime-probation-unavailable");
   projection.destroy();
 });
 
@@ -480,7 +501,7 @@ test("destroy aborts outstanding Native queries and invalid timeouts fail closed
 });
 
 
-test("Native module-read gate blocks upgrades without blocking verified uninstall", async () => {
+test("Native probation gate blocks upgrades without blocking verified uninstall", async () => {
   const catalog = catalogPort(ready([candidate("calculator", "0.4.3", "Calculadora")]));
   const projection = createVerifiedAppStoreProjection({
     verifiedCatalogPort: catalog.port,
@@ -494,7 +515,7 @@ test("Native module-read gate blocks upgrades without blocking verified uninstal
   await projection.refresh();
   const value = projection.port.getSnapshot().entries.find((item) => item.appId === "calculator");
   assert.equal(value.state, "blocked");
-  assert.equal(value.blockedReason, "runtime-module-read-unavailable");
+  assert.equal(value.blockedReason, "runtime-probation-unavailable");
   assert.equal(value.installedVersion, "0.4.2");
   assert.equal(value.availableVersion, "0.4.3");
   assert.equal(value.updatable, false);

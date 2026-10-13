@@ -213,12 +213,6 @@
 }
 
 @media (max-width: 760px) {
-  .ordax-brandbar {
-    top: 14px;
-    inset-inline: 16px;
-    gap: 8px;
-  }
-
   .ordax-brand {
     gap: 5px;
   }
@@ -238,16 +232,19 @@
   }
 
   .ordax-space-switcher {
-    width: min(166px, 45vw);
+    width: 44px;
   }
   .ordax-space-switcher-trigger {
-    min-height: 40px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 4px;
   }
   .ordax-space-switcher-mark {
     width: 28px;
     height: 28px;
   }
-  .ordax-space-switcher-trigger-label small {
+  .ordax-space-switcher-trigger-label,
+  .ordax-space-switcher-chevron {
     display: none;
   }
 }

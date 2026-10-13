@@ -1,0 +1,151 @@
+name: Kernel LTS Update Proposal
+
+on:
+  schedule:
+    - cron: '29 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write  # workflow_dispatch requires Actions write on GitHub REST API
+
+concurrency:
+  group: ordax-kernel-lts-update-proposal
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout protected canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Check the current LTS line from kernel.org
+        id: detect
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/update_engine.py discover > "$RUNNER_TEMP/kernel-discovery.json"
+          cat "$RUNNER_TEMP/kernel-discovery.json" >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          from pathlib import Path
+          value = json.loads((Path(os.environ['RUNNER_TEMP']) / 'kernel-discovery.json').read_text())
+          assert value['status'] in ('up-to-date', 'update-available', 'lts-line-upgrade-required')
+          print('update=' + str(value['status'] == 'update-available').lower())
+          print('version=' + value.get('latest', ''))
+          print('family_upgrade=' + str(value['status'] == 'lts-line-upgrade-required').lower())
+          PY
+
+      - name: File one LTS family migration notice if upstream maintenance ends
+        if: steps.detect.outputs.family_upgrade == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current="$(python3 -c 'import json,os; from pathlib import Path; print(json.loads((Path(os.environ["RUNNER_TEMP"])/"kernel-discovery.json").read_text())["current_candidate"])')"
+          series="${current%.*}"
+          title="Kernel LTS family migration required: $series"
+          if gh issue list --state open --limit 100 --json title --jq '.[].title' | grep -Fxq "$title"; then
+            echo "Existing LTS migration issue retained; no duplicate created."
+            exit 0
+          fi
+          gh issue create \
+            --title "$title" \
+            --body "The official kernel.org longterm release feed no longer lists the active LTS family ($series). A deliberate family migration is required, with ABI, UAPI, driver, QEMU, Native, Portable, rollback and physical-gate proofs. Do not auto-promote a different family or authorize physical media writes."
+
+      - name: Install upstream signature verification dependencies
+        if: steps.detect.outputs.update == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnupg xz-utils
+
+      - name: Authenticate and propose the next patch source contract
+        if: steps.detect.outputs.update == 'true'
+        run: |
+          set -euo pipefail
+          python3 bootstrap/kernel/update_engine.py prepare \
+            --version "${{ steps.detect.outputs.version }}" \
+            | tee "$RUNNER_TEMP/kernel-proposal.json"
+          python3 bootstrap/kernel/candidate_pipeline.py select
+          python3 -m unittest discover -s tests -p 'test_kernel_candidate_pipeline.py' -v
+          python3 -m unittest discover -s tests -p 'test_kernel_update_engine.py' -v
+
+      - name: Publish a reviewable candidate PR, never promote or write physical media
+        if: steps.detect.outputs.update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_VERSION: ${{ steps.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="automation/kernel-lts-$CANDIDATE_VERSION"
+          git config user.name "ordax-kernel-updater[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # GitHub CLI provides ephemeral git credentials from GH_TOKEN only here.
+          gh auth setup-git
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            # Recover from a previous successful branch push followed by a failed PR request.
+            # Fail closed if that branch no longer contains the authenticated proposal.
+            git fetch --no-tags --depth=1 origin "$branch"
+            git show "FETCH_HEAD:bootstrap/kernel/candidates/$CANDIDATE_VERSION.json" |
+              cmp - "bootstrap/kernel/candidates/$CANDIDATE_VERSION.json"
+            git show "FETCH_HEAD:bootstrap/kernel/candidates/proposal.json" |
+              cmp - bootstrap/kernel/candidates/proposal.json
+            state="$(gh pr list --state all --head "$branch" --json state --jq '.[0].state // empty')"
+            if test "$state" = "CLOSED" || test "$state" = "MERGED"; then
+              echo "Authenticated proposal already reviewed ($state); never silently reopen."
+              exit 0
+            fi
+            if test -n "$state" && test "$state" != "OPEN"; then
+              echo "Unexpected proposal PR state: $state" >&2
+              exit 1
+            fi
+            if test "$state" = "OPEN"; then
+              echo "Authenticated proposal PR already open; checking its exact-head CI."
+            else
+              echo "Recovering authenticated branch without a previous PR."
+              gh pr create \
+                --base main \
+                --head "$branch" \
+                --title "chore(kernel): authenticated LTS $CANDIDATE_VERSION candidate" \
+                --body "Machine-generated, signature-verified candidate for the current Linux LTS line. Requires the reusable Kernel LTS Candidate workflow and code review. Does not change the active kernel, authorize physical writes, rotate trust keys, or promote a release."
+            fi
+          else
+            git switch -c "$branch"
+            git add -- bootstrap/kernel/candidates/
+            if git diff --cached --quiet; then
+              echo "No source contract change; nothing to publish."
+              exit 0
+            fi
+            git commit -m "chore(kernel): propose authenticated LTS $CANDIDATE_VERSION"
+            git push origin "$branch"
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "chore(kernel): authenticated LTS $CANDIDATE_VERSION candidate" \
+              --body "Machine-generated, signature-verified candidate for the current Linux LTS line. Requires the reusable Kernel LTS Candidate workflow and code review. Does not change the active kernel, authorize physical writes, rotate trust keys, or promote a release."
+          fi
+          # GITHUB_TOKEN-created PRs do not trigger pull_request CI. Resume a missing
+          # dispatch after partial publication; never repeat a run for the exact head.
+          branch_head="$(git ls-remote --exit-code --heads origin "$branch" | awk '{print $1}')"
+          test "$branch_head" != ""
+          existing_run="$(gh run list --workflow kernel-lts-candidate.yml \
+            --branch "$branch" --limit 100 --json headSha \
+            --jq ".[] | select(.headSha == \"$branch_head\") | .headSha" | head -n 1)"
+          if test -n "$existing_run"; then
+            echo "Exact-head Kernel LTS Candidate CI already exists; not rebuilding."
+          else
+            gh workflow run kernel-lts-candidate.yml --ref "$branch"
+          fi

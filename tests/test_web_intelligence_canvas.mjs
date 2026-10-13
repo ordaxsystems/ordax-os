@@ -18,11 +18,12 @@ test("Web Assistant uses canonical, explicitly unavailable Space port without a 
   assert.deepEqual(seen, ["unavailable"]);
 });
 
-test("Web composition mounts the same Assistant UI and never invents model inference", async () => {
-  const source = await readFile(new URL("../system/composition/web/main.mjs", import.meta.url), "utf8");
-  assert.match(source, /componentId: "assistant"/);
-  assert.match(source, /identitySessionPort: identitySession/);
-  assert.match(source, /spaceSelectionPort: createUnavailableWebSpaceSelection\(\)/);
-  assert.match(source, /intelligence: null/);
-  assert.doesNotMatch(source, /fakeIntelligence|mockModel|createAssistantConversationRuntime\(/);
+test("Canonical Web preserves Intelligence entry without executing providers", async () => {
+  const source = await readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8");
+  const stub = await readFile(new URL("../system/surface/workspace/lib/intelligence/ai.functions.ts", import.meta.url), "utf8");
+  assert.match(source, /<Central key=/);
+  assert.doesNotMatch(source, /WebShell/);
+  assert.match(stub, /status: 503/);
+  assert.doesNotMatch(stub, /fetch\(|process.env|apiKey/);
+  assert.doesNotMatch(source, /adapters\/native|createAssistantConversationRuntime\(/);
 });

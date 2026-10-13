@@ -6,7 +6,7 @@ ACCOUNT = ROOT / "system" / "surface" / "ui" / "account-overview-controls.mjs"
 ACCOUNT_CATALOG = ROOT / "system" / "services" / "i18n" / "catalog" / "account.mjs"
 CSS = ROOT / "system" / "surface" / "ui" / "account.css"
 NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
 
 
 class AccountCanonicalNavigationTests(unittest.TestCase):
@@ -87,13 +87,13 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('"account.spaces.title": "Seus Spaces"', catalog)
         self.assertIn("Nenhum Space local fictício é criado.", catalog)
         self.assertIn("No fake local Space is created.", catalog)
-        for composition in (native, web):
+        for composition in (native,):
             self.assertIn("createWebSpacesCatalog", composition)
             self.assertIn("const spaces = createWebSpacesCatalog(window);", composition)
             self.assertIn("spaces,", composition)
             self.assertIn("spaces.dispose()", composition)
 
-    def test_profiles_section_uses_local_fail_closed_provisioning_in_both_compositions(self):
+    def test_profiles_section_uses_local_fail_closed_provisioning_in_native_composition(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
         catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
         native = NATIVE.read_text(encoding="utf-8")
@@ -108,7 +108,7 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('"account.section.profiles": "Profiles"', catalog)
         self.assertIn("nenhuma instalação é simulada", catalog)
         self.assertIn("installation is never simulated", catalog)
-        for composition in (native, web):
+        for composition in (native,):
             self.assertIn("createProfileProvisioningRuntime", composition)
             self.assertIn("createLocalProfileDistributions", composition)
             self.assertIn("loadBundledProfilePacks", composition)
@@ -119,8 +119,6 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("createNativeProfileComponentInventory", native)
         self.assertIn("optionalNativeProbe", native)
         self.assertIn("createSessionProfileComponentInventory", native)
-        self.assertIn("createSessionProfileComponentInventory", web)
-        self.assertIn("continuing without Profiles", web)
         self.assertIn("continuing without Profiles", native)
         self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", native)
         self.assertNotIn("LOCAL_PROFILE_DISTRIBUTIONS", web)
@@ -135,7 +133,7 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
             ROOT / "system/services/profile-packs/catalog.mjs"
         ).read_text(encoding="utf-8")
 
-        for composition in (native, web):
+        for composition in (native,):
             self.assertIn("createProfilePackCatalogFromPacks", composition)
             self.assertIn("loadBundledProfileTaxonomy", composition)
             self.assertIn("createProfileTaxonomyView", composition)
@@ -247,7 +245,6 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("memoryReviewSession?.dispose()", native)
         self.assertNotIn("createMemoryReviewSession", web)
         self.assertNotIn("createMemoryReviewViewModel", web)
-        self.assertIn("profileProvisioning,\n  null,\n  null,\n  surface.preferences,", web)
 
     def test_account_no_longer_consumes_host_capability_inventory(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
@@ -289,7 +286,7 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertNotIn("sessionStorage", controls)
         self.assertIn('"account.lifecycle.close.title": "Fechar Conta OrdaX"', catalog)
         self.assertIn('"account.lifecycle.close.title": "Close OrdaX Account"', catalog)
-        for composition in (native, web):
+        for composition in (native,):
             self.assertIn("createSameOriginAccountLifecycle", composition)
             self.assertIn("accountLifecycle,", composition)
             self.assertIn("accountLifecycle.dispose()", composition)
@@ -304,7 +301,7 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertNotIn("ordax-account-facts", css)
         self.assertNotIn("renderPrivacy", controls)
 
-    def test_both_compositions_wire_same_account_activation_channel(self):
+    def test_native_composition_wires_account_activation_channel(self):
         native = NATIVE.read_text(encoding="utf-8")
         web = WEB.read_text(encoding="utf-8")
         expected = (
@@ -330,10 +327,6 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
             "  workspaceMetadata.source,\n"
             "  appActivation,"
         )
-        self.assertIn(expected_web, web)
-        self.assertIn("const accountSync = createAccountSyncRuntime({", web)
-        self.assertIn("checkpointStore: syncCheckpointStore", web)
-        self.assertIn("createAccountSyncRuntime({", web)
         self.assertNotIn(
             "root,\n    host,\n    identitySession,",
             native,

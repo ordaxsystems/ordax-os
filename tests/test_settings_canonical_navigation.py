@@ -6,7 +6,7 @@ SETTINGS = ROOT / "system" / "surface" / "ui" / "settings-overview-controls.mjs"
 SETTINGS_CSS = ROOT / "system" / "surface" / "ui" / "settings.css"
 QUICK_NETWORK = ROOT / "system" / "surface" / "ui" / "network-quick-panel.mjs"
 NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB = ROOT / "system" / "composition" / "web" / "main.mjs"
+WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
 APP = ROOT / "system" / "apps" / "settings" / "app.mjs"
 SETTINGS_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "settings.mjs"
 NOTIFICATIONS_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "notifications.mjs"
@@ -93,7 +93,7 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("overflow-x: auto", css)
         self.assertIn("@media (max-width: 760px)", css)
 
-    def test_native_and_web_wire_same_activation_and_notification_channels(self):
+    def test_native_wires_activation_and_notification_channels(self):
         native = NATIVE.read_text(encoding="utf-8")
         web = WEB.read_text(encoding="utf-8")
         self.assertIn(
@@ -103,10 +103,6 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn(
             "networkStatus,\n      null,\n      appActivation,\n      notifications,",
             native,
-        )
-        self.assertIn(
-            "surface,\n  null,\n  null,\n  appActivation,\n  notifications,",
-            web,
         )
 
     def test_visible_product_name_remains_ajustes(self):

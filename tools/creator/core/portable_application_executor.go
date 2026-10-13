@@ -183,6 +183,15 @@ func validatePortableApplicationPlanForExecution(plan PortableApplicationPlan) e
 	if len(materialized) != artifactCount || len(readbacks) != artifactCount {
 		return errors.New("portable application does not bind exactly 17 artifact materializations and readbacks")
 	}
+	// Validate capacity again at the executor boundary: a supplied JSON plan
+	// must not evade the Core preflight that produced the original media plan.
+	artifactSizes := make([]PortableMediaArtifactPlan, 0, artifactCount)
+	for id, op := range materialized {
+		artifactSizes = append(artifactSizes, PortableMediaArtifactPlan{
+			ID: id, Partition: op.Partition, SizeBytes: op.SizeBytes,
+		})
+	}
+	if err := validatePortableArtifactCapacity(layout, artifactSizes); err != nil { return err }
 
 	finalIndex := len(plan.Operations) - 1
 	final := plan.Operations[finalIndex]

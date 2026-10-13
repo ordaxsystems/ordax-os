@@ -2,6 +2,8 @@
 
 `system/services/apps` owns application-level system services. It does not turn apps into authority owners and it does not replace the Component Manager.
 
+A [política de portfólio e pré-instalação](../../../docs/APP-PORTFOLIO-AND-PREINSTALL.md) distingue intenção de primeiro provisionamento de instalação verificada. A seleção declarativa vive em `first-run-selection.mjs`. O owner nativo de ativação persiste a remoção explícita no próprio estado canônico (`user_removed`), sem banco paralelo; o plano da primeira instalação ainda não lê esse marcador automaticamente e não executa instalações.
+
 ## External first-party product SSOT
 
 The first-party external component registry is **generated**, never hand-maintained:
@@ -10,7 +12,7 @@ The first-party external component registry is **generated**, never hand-maintai
 `tools/app-policy/render_external_first_party_policy.py` →
 `system/services/apps/external-first-party-policy.mjs`.
 
-The 14 current IDs consist of 13 unsigned component-package candidates plus Studio's separate distribution path. The older, narrower `canonical_external_source_repository_by_component` must remain a consistent subset; it **cannot** silently override the canonical package source set. Regeneration is checked in CI. This also keeps previously installed optional apps visible as potential *installed entries* even if a subsequent signed catalog omits them, once the runtime's verified activation state is available.
+The 16 current IDs consist of 15 canonical component-package sources (including Rede and Projetos, whose source cutovers are complete but whose Native probation and production activation remain blocked) plus Studio's separate distribution path. Candidate packaging is not an installed or signed release. The older, narrower `canonical_external_source_repository_by_component` must remain a consistent subset; it **cannot** silently override the canonical package source set. Regeneration is checked in CI. This also keeps previously installed optional apps visible as potential *installed entries* even if a subsequent signed catalog omits them, once the runtime's verified activation state is available.
 
 A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
 
@@ -61,7 +63,7 @@ Four concepts must stay separate:
 3. **Installed-state SSOT** — for independently delivered `component-slot` apps, the canonical truth is the verified `current` activation owned by `ordax-runtime-component-channel`. A staged or cached slot is not an installation, and Store never keeps a second installed-app database.
 4. **Delivery projection** — `verified-store-projection.mjs` combines verified catalog metadata, the read-only current activation projection and first-party delivery policy into `ordax.app-store-catalog/2`. It persists no inventory and mints no authority.
 
-The Surface may project an absent, catalogued app as `available`. That never makes it launchable. A recommended absent app can open an install/details experience, but execution requires a verified payload supplied either by the current signed Stable release or by a future verified independent component slot.
+The Surface may project an absent or explicitly removed, catalogued app as `available` for **manual** reinstall. Native `source:removed` and ordinary `source:absent` are distinct observations derived from the same signed component channel; they are never a separate installed-state database. A removed app must not become eligible for automatic first-run installation merely because Store shows a verified candidate. That never makes it launchable. A recommended absent app can open an install/details experience, but execution requires a verified payload supplied either by the current signed Stable release or by a future verified independent component slot.
 
 ## Installation authority
 
@@ -92,6 +94,14 @@ The Native catalog verifier owns signature verification **and** anti-replay pers
 The canonical `ordaxsystems/ordax-apps` repository has independent unsigned candidate packages for basic utility apps (Calculator, Clock, Converter, Text Viewer, Image Viewer, Calendar, Colors, Character Map, Paint, Media Player, PDF Viewer and Toolbox). The platform's `delivery-policy.mjs` now explicitly recognizes those product IDs as **on-demand / store-only**, so a **future signed and verified** Store catalog can project them without an accidental `first-party-delivery-policy-unavailable` blocker.
 
 This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` continues to define the six initial on-demand products, plus Files/Internet bootstrap and structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
+
+### Ampliação gradual do leitor Native de módulos
+
+A **Calculadora** é o primeiro utilitário de `ordax-apps` acrescentado ao escopo de leitura de módulos assinados, preservando seu código e manifesto na fonte oficial `apps/calculator`. O SSOT é `docs/contracts/runtime-component-package.json`; `tools/app-policy/render_native_store_metadata_policy.py` agora produz no mesmo arquivo gerado as três listas com direitos distintos: `STORE_METADATA_COMPONENT_IDS` (consultar estado), `NATIVE_MODULE_READ_COMPONENT_IDS` (solicitar arquivo ao helper assinado) e `NATIVE_HEALTH_MUTATION_COMPONENT_IDS` (registrar saúde). Não existem allowlists Python locais paralelas.
+
+A adição da Calculadora **não** altera o conjunto de health mutation (Internet e Notas), não assina/copia pacotes, não ativa o instalador, não promove a versão, não habilita a chave de produção e não prova montagem em dispositivo. O loader continua verificando fonte, caminho, identidade do slot corrente e assinatura via helper. **A Loja bloqueia a instalação/atualização da Calculadora com `runtime-probation-unavailable` enquanto não houver saúde e probation Native compatíveis**, mesmo quando existe candidato de catálogo verificado. O gerador `render_external_first_party_policy.py` deriva a lista de componentes com probation apta do mesmo SSOT, separada dos componentes somente-leitura. Os demais utilitários continuam sem permissão de leitura executável até provas equivalentes.
+
+**Gates seguintes:** caminho de saúde/probation validado para apps externos com runtime real, assinatura/publicação oficial do catálogo, pré-instalação transacional e E2E de instalação/remover/reiniciar/reinstalar. Sem esses gates, não apresentar a Calculadora como pré-instalada em produção.
 
 ## Surface da Loja: experiência e contrato
 

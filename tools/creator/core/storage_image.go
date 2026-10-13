@@ -125,7 +125,17 @@ func applyPortableDataLayout(entries []byte, entrySize, entryCount uint32, diskG
 // with ORDAX-ESP + bounded ORDAX + ORDAX-DATA. Its SHA256 field is the v1
 // physical write-plan binding, not a hash of capacity-only sparse bytes.
 func PreparePhysicalStorageImage(seedPath, outputPath string, targetBytes uint64) (prepared PreparedPhysicalImage, retErr error) {
-	layout, err := PlanPhysicalStorage(targetBytes)
+	return preparePhysicalStorageImage(seedPath, outputPath, targetBytes, false)
+}
+
+// PrepareOwnerDevelopmentStorageImage is restricted to the development
+// Creator's larger writable ext4 layout, without modifying public layout.
+func PrepareOwnerDevelopmentStorageImage(seedPath, outputPath string, targetBytes uint64) (prepared PreparedPhysicalImage, retErr error) {
+	return preparePhysicalStorageImage(seedPath, outputPath, targetBytes, true)
+}
+
+func preparePhysicalStorageImage(seedPath, outputPath string, targetBytes uint64, ownerDevelopment bool) (prepared PreparedPhysicalImage, retErr error) {
+	layout, err := planPhysicalStorage(targetBytes, ownerDevelopment)
 	if err != nil {
 		return PreparedPhysicalImage{}, err
 	}
@@ -221,7 +231,7 @@ func PreparePhysicalStorageImage(seedPath, outputPath string, targetBytes uint64
 	if !seedInfo.Mode().IsRegular() || seedInfo.Size() <= 0 {
 		return PreparedPhysicalImage{}, errors.New("authorized bootstrap seed must remain a non-empty regular file")
 	}
-	plan, err := PlanPreparedPhysicalWrite(file, targetBytes, uint64(seedInfo.Size()))
+	plan, err := planPreparedPhysicalWrite(file, targetBytes, ownerDevelopment, uint64(seedInfo.Size()))
 	if err != nil {
 		return PreparedPhysicalImage{}, fmt.Errorf("plan storage-v2 write binding: %w", err)
 	}

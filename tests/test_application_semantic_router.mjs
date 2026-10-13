@@ -23,48 +23,40 @@ test("bundled first-party semantics cover internal apps without duplicating exte
   assert.deepEqual(ids, [
     "account",
     "activity",
-    "assistant",
     "files",
-    "internet",
-    "network",
-    "projects",
     "settings",
     "system",
   ]);
   assert.equal(ids.includes("studio"), false);
+  assert.equal(ids.includes("assistant"), false, "source not transferred/installed while Gate A is pending");
   for (const manifest of manifests) {
     assert.equal(manifest.authority, "none");
     assert.equal(manifest.execution, "declarative-only");
   }
 });
 
-test("semantic router resolves YouTube/new-tab phrasing to OrdaX Internet without model inference", () => {
+test("semantic router does not invent an Internet app after remove-first Gate A", () => {
   const { router } = runtime();
   const selected = router.select("Abra uma nova aba no YouTube");
-  assert.equal(selected[0].appId, "internet");
+  assert.equal(selected.some((candidate) => candidate.appId === "internet"), false);
   const detail = router.contextItemsForPrompt("Abra uma nova aba no YouTube");
-  assert.equal(detail[0].id, "ordax-application-detail:internet");
-  const payload = JSON.parse(detail[0].text);
-  assert.equal(payload.application.appId, "internet");
-  assert.equal(
-    payload.semantics.intents.some((intent) => intent.id === "internet.navigate"),
-    true,
-  );
-  assert.equal(payload.authority, "none");
-  assert.equal(payload.toolExecution, false);
+  assert.equal(detail.some((item) => item.id === "ordax-application-detail:internet"), false);
 });
 
-test("semantic router distinguishes settings network configuration from professional Network app", () => {
+test("semantic router exposes Wi-Fi settings but cannot invent an uninstalled Network app", () => {
   const { router } = runtime();
   const selected = router.select("Abra os Ajustes de rede e configure o Wi-Fi");
   assert.equal(selected[0].appId, "settings");
-  assert.equal(selected.some((entry) => entry.appId === "network"), true);
+  assert.equal(selected.some((entry) => entry.appId === "network"), false);
 });
 
-test("semantic router recognizes file and project workflows from local examples", () => {
+test("semantic router retains Files but cannot invent an absent Projects app", () => {
   const { router } = runtime();
   assert.equal(router.select("Encontre imagens do catálogo")[0].appId, "files");
-  assert.equal(router.select("Abra o projeto Bay of All Saints")[0].appId, "projects");
+  assert.equal(
+    router.select("Abra o projeto Bay of All Saints").some((candidate) => candidate.appId === "projects"),
+    false,
+  );
 });
 
 test("unrelated questions do not inject arbitrary app details", () => {

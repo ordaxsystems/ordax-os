@@ -452,7 +452,7 @@ test("signed candidate mismatch denial cannot be replayed after catalog reconcil
   assert.equal(calls, 1);
 });
 
-test("unsigned runtime capability cannot be invented by a verified catalog for optional apps", async () => {
+test("signed module read alone cannot authorize Store install without Native probation", async () => {
   let delegated = 0;
   const executeLifecycle = async (plan) => {
     delegated += 1;
@@ -480,11 +480,28 @@ test("unsigned runtime capability cannot be invented by a verified catalog for o
     });
     const denied = await runtime.requestLifecycle(ask);
     assert.equal(denied.state,"rejected");
-    assert.equal(denied.reason,"runtime-module-read-unavailable");
+    assert.equal(denied.reason,"runtime-probation-unavailable");
     assert.strictEqual(await runtime.requestLifecycle(ask),denied,
       "same requestId remains rejected after checks change");
   }
   assert.equal(delegated,0,"Native lifecycle delegate must not be invoked");
+});
+
+test("verified catalog cannot grant Native module reads for a utility excluded by the canonical policy", async () => {
+  let calls = 0;
+  const runtime = service({
+    projection: ready(entry({
+      appId: "clock", title: "Relógio", availableVersion: "0.4.3",
+    })),
+    verified: verifiedReady([verifiedEntry({ appId: "clock" })]),
+    executeLifecycle: async (plan) => { calls++; return resultFor(plan); },
+  });
+  const result = await runtime.requestLifecycle(request("install", {
+    appId: "clock", requestId: "store:install:clock:module-scope-test",
+  }));
+  assert.equal(result.state, "rejected");
+  assert.equal(result.reason, "runtime-module-read-unavailable");
+  assert.equal(calls, 0);
 });
 
 test("store removal is not blocked by missing Native executable-read support", async () => {

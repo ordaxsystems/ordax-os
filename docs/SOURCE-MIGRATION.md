@@ -2,6 +2,26 @@
 
 Status: CANONICAL LEDGER
 
+## Web Central presentation — 2026-10-11
+
+COMPONENT=Surface Web Central and classic desktop presentation
+LEGACY_REPOSITORY=ordaxsystems/lovable-core-ui
+LEGACY_COMMIT=89438133b322e3ef87e862c80af3a3dbe18251f5
+LEGACY_PATH=src/components/central, src/styles.css, src/assets/alpine-{day,night}.jpg
+RESPONSIBILITY=Primary Web layout, responsive composition, local appearance and illustrative window state
+WHY_NEEDED=Explicit user selection of this layout as the sole active Web page
+DEPENDENCIES=Existing React, shared Button/Dialog, Lucide, Tailwind, local Inter and OS Web boot/error boundary
+SECURITY_REVIEW=Presentation-only data; no Identity, grants, execution, sync or backend introduced; no upstream SSR/telemetry imported
+TESTS=Local build/npm/tests excluded by the user; existing service/window checks preserved and new reference/browser checks prepared, not executed
+ARTIFACT_SHA256=Per-file source digests in docs/evidence/web-central-reference-2026-10-11.json
+DECISION=ADOPTED
+
+This is source adoption, not public release approval. The reference has no root
+LICENSE; final distribution review remains pending. Previous Web presentation
+components remain reusable source after automatic review rejected broad
+deletion, but the canonical root no longer mounts them. Backend connection is
+explicitly deferred; Native and public Account are not replaced.
+
 This file controls selective reuse from `washingtonmsdj/novo-ordax-os`.
 
 ## Rule
@@ -217,11 +237,27 @@ IMPLEMENTATION=COMPLETE_FOUNDATION
 NOTES=Reimplements the legacy Compatibility Manager inspection/runtime-selection invariants clean-room. Windows execution remains unavailable until a real verified runtime adapter and sandbox/profile lifecycle are implemented.
 ```
 
+## Ledger 007 — Account Hub Web presentation
+
+COMPONENT=canonical-web-presentation
+UPSTREAM_REPOSITORY=washingtonmsdj/account-hub-pro
+UPSTREAM_COMMIT=0f955ece6e570801976d8ed77d2cada101b7a3fa
+RESPONSIBILITY=Web presentation, local view/window interactions, labeled design demonstrations
+WHY_NEEDED=user approved canonical cutover before real service integration
+DEPENDENCIES=one root npm manifest/lock; locally bundled UI; shared local Inter and symbol
+SECURITY_REVIEW=no upstream credentials/providers; model requests fail closed; no filesystem/native endpoints/grants/installation authority
+LICENSE_REVIEW=README states author ownership; user approved reproduction; no LICENSE found; distribution review pending
+MAINTENANCE=OS Surface owns adopted source; fixed provenance and locked dependencies
+TESTS=typecheck + reference digests + window reducer + candidate receipt + Chromium route/viewport proof + Native/domain regressions
+DECISION=ADOPTED_PRESENTATION_ONLY
+TARGET_PATH=system/surface/workspace + system/composition/web + tools/surface-web
+IMPLEMENTATION=SOURCE_CANDIDATE
+NOTES=portal handoff/services/contracts retain ownership; no production activation or kernel/USB changes
+
 ## Current ledger state
 
-```text
-REVIEWED_COMPONENT_COUNT=6
+REVIEWED_COMPONENT_COUNT=7
 IMPLEMENTED_MIGRATION_COUNT=3
+ADOPTED_PRESENTATION_CANDIDATE_COUNT=1
 BULK_LEGACY_IMPORT=NO
 LEGACY_REPOSITORY_CHANGED_BY_MIGRATION=NO
-```

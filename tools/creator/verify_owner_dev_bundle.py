@@ -12,15 +12,19 @@ from pathlib import Path
 import re
 import sys
 import zipfile
+from theme_bridge import render_theme, SYMBOL
 
 EXPECTED = {
     "OrdaX-Creator/OrdaX-Creator.exe",
     "OrdaX-Creator/ordax-creator-physical-test.exe",
     "OrdaX-Creator/ordax-bootstrap-seed.raw",
     "OrdaX-Creator/provenance.json",
+    "OrdaX-Creator/ordax-symbol.png",
+    "OrdaX-Creator/ordax-design-theme.json",
     "OrdaX-Creator/LEIA-ME.txt",
 }
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
+CREATOR_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9]*(?:\.[0-9]+)?)?$")
 
 def fail(reason: str) -> None:
     raise ValueError(reason)
@@ -52,7 +56,10 @@ def main() -> int:
         fail("source-commit-drift")
     if metadata.get("artifact") != "OrdaX-Creator-Owner-Prototype.zip":
         fail("unexpected-artifact-name")
-    if metadata.get("version") != "owner-" + args.source_commit[:12]:
+    version = json.loads((Path(__file__).parent / "version.json").read_text(encoding="utf-8"))["version"]
+    if not isinstance(version, str) or not CREATOR_VERSION.fullmatch(version):
+        fail("invalid-canonical-creator-version")
+    if metadata.get("version") != version:
         fail("version-drift")
     digest, size = sha_file(args.archive)
     if digest != metadata.get("sha256") or size != metadata.get("size"):
@@ -73,6 +80,20 @@ def main() -> int:
             fail("incorrect-provenance-schema")
         if provenance.get("source_commit") != args.source_commit:
             fail("seed-commit-drift")
+        if provenance.get("creator_version") != version:
+            fail("creator-version-provenance-drift")
+        theme = archive.read("OrdaX-Creator/ordax-design-theme.json")
+        symbol = archive.read("OrdaX-Creator/ordax-symbol.png")
+        if len(theme) > 64 << 10 or len(symbol) > 2 << 20:
+            fail("creator-brand-assets-exceed-bounds")
+        if theme != render_theme():
+            fail("creator-theme-mismatch-with-surface-ssot")
+        if symbol != SYMBOL.read_bytes():
+            fail("creator-logo-mismatch-with-surface-ssot")
+        if hashlib.sha256(theme).hexdigest() != provenance.get("theme_sha256"):
+            fail("creator-theme-digest-mismatch")
+        if hashlib.sha256(symbol).hexdigest() != provenance.get("symbol_sha256"):
+            fail("creator-symbol-digest-mismatch")
         if provenance.get("canonical_public_release") is not False:
             fail("dev-bundle-misrepresented-as-public-release")
         if provenance.get("ephemeral_prototype_trust") is not True:

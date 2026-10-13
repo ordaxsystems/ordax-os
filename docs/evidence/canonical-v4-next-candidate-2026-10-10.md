@@ -32,8 +32,17 @@ na `main` **não** estão automaticamente incluídas.
   digest do ZIP no GitHub
   `sha256:ed92a488f1bf9f1a2f05f1868ee1b56dd146aa1cbaa141a832385b80bb8dee2a`,
   `expired=false`, expira em 24/10/2026 às 08:33 UTC.
-- **IA Local:** ainda `in_progress` na consulta dessa atualização.
-  Não há terceiro artifact válido confirmado neste registro.
+- **IA Local: SUCCESS** no run 38038185133; artifact canônico
+  `11663964587` (`canonical-v4-operator-local-ai-69032495...`),
+  digest do ZIP no GitHub
+  `sha256:3ef25b30b27679661dbd7d6cf6f98b1bd40305dceffd3e048c2edc102d6908fc`,
+  `expired=false` na consulta de 10/10/2026; criado em 10/10/2026 às 08:38 UTC.
+
+**Atualização da observação:** os três workflows concluíram com `success`
+para o mesmo `head_sha` congelado e os três artifacts do operador
+estão identificados por ID e digest de ZIP. O conteúdo interno, os
+recibos de origem e os EROFS ainda precisam de admissão independente;
+esses resultados **não** são autorização de assinatura ou escrita física.
 
 Esses digests são dos **ZIPs de artefatos do GitHub Actions**,
 não substituem o manifesto assinado nem o checksum dos EROFS
@@ -56,8 +65,9 @@ anterior; **não prova o boot completo deste candidato 69032495**.
 
 ## O que ainda falta — sem alegar conclusão
 
-1. Esperar os três **resultados reais** dos jobs, exigir sucesso;
-   comparar source commit/manifest/artefatos por SHA e IDs válidos.
+1. Os três workflows já concluíram com **success** no mesmo source commit;
+   ainda falta validar o conteúdo interno, os recibos de operador e
+   os EROFS materializados por hashes e identidade exata.
 2. Gerar a nova solicitação canônica de assinatura v4 usando
    **exatamente esses três runs**, validar admissão online, gerar
    manifest e envelope assinado fora do repositório com a chave
