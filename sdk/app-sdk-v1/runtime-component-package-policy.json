@@ -87,7 +87,9 @@
   "runtime_health_bridge_supported_components": [
     "notes"
   ],
-  "runtime_health_bridge_probe_mode": "import-contract",
+  "runtime_health_bridge_probe_mode_by_component": {
+    "notes": "import-contract"
+  },
   "runtime_health_bridge_requires_host_nonce": true,
   "runtime_health_bridge_exposed_over_http": false,
   "runtime_health_bridge_promotes_candidate": false,

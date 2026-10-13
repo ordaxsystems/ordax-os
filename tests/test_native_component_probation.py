@@ -16,7 +16,11 @@ if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
 probation = importlib.import_module("native_component_probation")
-from native_store_metadata_policy import NATIVE_PROBATION_COMPONENT_IDS, NATIVE_HEALTH_MUTATION_COMPONENT_IDS
+from native_store_metadata_policy import (
+    NATIVE_HEALTH_MUTATION_COMPONENT_IDS,
+    NATIVE_PROBATION_COMPONENT_IDS,
+    NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT,
+)
 slots = importlib.import_module("native_component_slots")
 
 COMMIT = "a" * 40
@@ -62,7 +66,16 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertNotIn("calculator", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("studio", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("internet", probation.SUPPORTED_COMPONENTS)
-        self.assertEqual(probation.PROBE_MODE, policy["runtime_health_bridge_probe_mode"])
+        self.assertNotIn("files", probation.SUPPORTED_COMPONENTS)
+        self.assertIs(
+            probation.PROBE_MODE_BY_COMPONENT,
+            NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT,
+        )
+        self.assertEqual(
+            dict(probation.PROBE_MODE_BY_COMPONENT),
+            policy["runtime_health_bridge_probe_mode_by_component"],
+        )
+        self.assertNotIn("files", probation.PROBE_MODE_BY_COMPONENT)
 
     def test_exact_nonce_and_receipt_record_health_once(self):
         record = slots.ComponentHealthRecord(
@@ -122,6 +135,21 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertEqual(recorder.call_args.kwargs["component_id"], "notes")
         self.assertEqual(recorder.call_args.kwargs["version"], "0.4.1")
         self.assertEqual(recorder.call_args.kwargs["expected_revision"], 7)
+
+    def test_files_receipt_is_rejected_before_health_recorder(self):
+        with mock.patch.object(probation, "record_component_pending_health") as recorder:
+            with self.assertRaisesRegex(
+                probation.ComponentProbationReceiptError,
+                "component is unavailable",
+            ):
+                probation.record_system_component_probation(
+                    payload=message(component_id="files", nonce="files-nonce"),
+                    expected_component_id="files",
+                    expected_nonce="files-nonce",
+                    helper_path="/signed/helper",
+                    slot_root="/var/lib/ordax/components",
+                )
+        recorder.assert_not_called()
 
     def test_nonce_mismatch_fails_before_recorder(self):
         with mock.patch.object(probation, "record_component_pending_health") as recorder:

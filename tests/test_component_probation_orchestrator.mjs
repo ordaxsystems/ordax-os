@@ -8,7 +8,10 @@ import {
 } from "../system/services/components/probation-orchestrator.mjs";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
 import { readFileSync } from "node:fs";
-import { NATIVE_COMPONENT_PROBATION_IDS, NATIVE_COMPONENT_PROBE_MODE } from "../system/services/components/probation-policy.generated.mjs";
+import {
+  NATIVE_COMPONENT_PROBATION_IDS,
+  NATIVE_COMPONENT_PROBE_MODE_BY_ID,
+} from "../system/services/components/probation-policy.generated.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 
 const COMMIT = "a".repeat(40);
@@ -70,11 +73,17 @@ test("Native and Surface probation use exactly the same canonical policy", () =>
   ));
   assert.deepEqual(NATIVE_COMPONENT_PROBATION_IDS,
     [...contract.runtime_health_bridge_supported_components].sort());
-  assert.equal(NATIVE_COMPONENT_PROBE_MODE, contract.runtime_health_bridge_probe_mode);
+  assert.deepEqual(
+    NATIVE_COMPONENT_PROBE_MODE_BY_ID,
+    contract.runtime_health_bridge_probe_mode_by_component,
+  );
   for (const id of NATIVE_COMPONENT_PROBATION_IDS) {
-    assert.equal(systemComponentProbationProbeMode(id), NATIVE_COMPONENT_PROBE_MODE);
+    assert.equal(
+      systemComponentProbationProbeMode(id),
+      NATIVE_COMPONENT_PROBE_MODE_BY_ID[id],
+    );
   }
-  for (const id of ["calculator", "studio", "assistant", "clock"]) {
+  for (const id of ["calculator", "studio", "assistant", "clock", "files"]) {
     assert.throws(() => systemComponentProbationProbeMode(id),
       /Unsupported system component probation probe/);
   }
@@ -85,6 +94,10 @@ test("system probation exposes fixed probes only for explicit supported componen
   assert.throws(() => systemComponentProbationProbeMode("internet"),
     /Unsupported system component probation probe/);
   assert.equal(systemComponentProbationProbeMode("notes"), "import-contract");
+  assert.throws(
+    () => systemComponentProbationProbeMode("files"),
+    /Unsupported system component probation probe/,
+  );
   assert.throws(
     () => systemComponentProbationProbeMode("assistant"),
     /Unsupported system component probation probe/,
@@ -109,6 +122,29 @@ test("unavailable Internet cannot trigger a probation probe or materialize nativ
       importModule: async (url) => {
         imported.push(url);
         return runtimeModule({ componentId: "internet" });
+      },
+      timeoutMs: 500,
+    }),
+    /Unsupported system component probation probe/,
+  );
+  assert.deepEqual(fetched, []);
+  assert.deepEqual(imported, []);
+});
+
+test("Files cannot trigger system probation before its explicit cutover grant", async () => {
+  const fetched = [];
+  const imported = [];
+  await assert.rejects(
+    () => runSystemPendingComponentProbation({
+      componentId: "files",
+      source: createNativeComponentSlotSource(windowRef()),
+      fetchImpl: async (url) => {
+        fetched.push(url);
+        return metadataResponse({ componentId: "files" });
+      },
+      importModule: async (url) => {
+        imported.push(url);
+        return runtimeModule({ componentId: "files" });
       },
       timeoutMs: 500,
     }),
