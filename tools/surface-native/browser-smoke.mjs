@@ -26,7 +26,6 @@ const CSS_FILES = [
   'system/surface/ui/brand/symbol.css',
 ];
 const COMPONENT_ASSET_FILES = Object.freeze({
-  'system/apps/internet/internet.css': 'text/css',
   'system/apps/studio/studio.css': 'text/css',
 });
 

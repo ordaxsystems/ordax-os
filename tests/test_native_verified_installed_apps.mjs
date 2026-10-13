@@ -47,7 +47,8 @@ const source = createNativeComponentSlotSource({
 
 test("Native installed app catalog combines OS built-ins and signed-slot presentation", () => {
   const output = createNativeVerifiedInstalledAppCatalog([item]);
-  assert.equal(output.catalog.get("internet").component.owner, "system/apps/internet");
+  assert.equal(output.catalog.get("internet"), null, "Internet cannot be treated as bundled after Gate A");
+  assert.equal(output.catalog.get("files").component.owner, "system/apps/files");
   assert.equal(output.catalog.get("notes").component.owner, "ordaxsystems/ordax-apps");
   assert.equal(output.installed.length, 1);
   assert.equal(output.catalog.get("notes").panels[0].extensionId, "notes");
@@ -61,16 +62,16 @@ test("empty installed inventory cannot create launchable external apps", () => {
 });
 
 test("bundled and signed-slot app collision fails closed during remove-first transition", () => {
-  const oldInternet = {
+  const forgedBundled = {
     ...item, component: {
-      ...component, id: "internet", title: "Internet",
+      ...component, id: "files", title: "Arquivos",
     },
-    metadata: { ...metadata, componentId: "internet" },
-    presentation: { ...presentation, appId: "internet" },
+    metadata: { ...metadata, componentId: "files" },
+    presentation: { ...presentation, appId: "files" },
   };
   assert.throws(
-    () => createNativeVerifiedInstalledAppCatalog([oldInternet, item]),
-    /Duplicate bundled and signed-slot app source: internet/,
+    () => createNativeVerifiedInstalledAppCatalog([forgedBundled, item]),
+    /Duplicate bundled and signed-slot app source: files/,
   );
 });
 

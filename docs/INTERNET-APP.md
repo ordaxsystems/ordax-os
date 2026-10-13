@@ -1,6 +1,8 @@
 # OrdaX Internet
 
-Status: PROTOTYPE IMPLEMENTATION — NATIVE HARDWARE PROOF PENDING
+Status: HISTORICAL PRODUCT DESIGN — PORTABLE SOURCE MIGRATION IN PROGRESS
+
+**Current owner:** Browser engine, native isolation and download/security controls remain in `ordaxsystems/ordax-os`. The old bundled Internet product implementation has been removed in the Gate A candidate; its application source must be transferred to `ordaxsystems/ordax-apps/apps/internet` only after the OS main absence proof. Until a verified, signed component is installed, Internet is **not installed, launchable or distributed**. The product description and `git-app` references below describe the former implementation, not a currently active runtime.
 
 ## Goal
 

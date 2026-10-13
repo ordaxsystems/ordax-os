@@ -176,7 +176,7 @@ jobs:
           python -m unittest tests.test_native_app_lifecycle_executor -v
           python -m unittest tests.test_native_store_catalog_host -v
           python -m unittest tests.test_native_store_lifecycle_host -v
-          python tools/component-package/build.py check --component internet
+          test ! -d system/apps/internet
           python tools/component-package/build.py check --component local-ai-service
           python tools/component-package/build.py check --component ordax-intelligence
           (
@@ -184,32 +184,21 @@ jobs:
             go test -count=1 ./...
           )
 
-      - name: Build deterministic Internet candidate twice
+      - name: Prove removed Internet cannot produce a platform package
         run: |
           set -euo pipefail
-          mkdir -p out/runtime-components "$RUNNER_TEMP/runtime-components-repeat"
-          python tools/component-package/build.py build \
+          test ! -d system/apps/internet
+          test ! -e system/services/i18n/catalog/internet.mjs
+          if python tools/component-package/build.py build \
             --component internet \
             --source-commit "$GITHUB_SHA" \
-            --out out/runtime-components/internet.zip
-          python tools/component-package/build.py verify \
-            --package out/runtime-components/internet.zip
-
-          python tools/component-package/build.py build \
-            --component internet \
-            --source-commit "$GITHUB_SHA" \
-            --out "$RUNNER_TEMP/runtime-components-repeat/internet.zip"
-          python tools/component-package/build.py verify \
-            --package "$RUNNER_TEMP/runtime-components-repeat/internet.zip"
-
-          cmp out/runtime-components/internet.zip "$RUNNER_TEMP/runtime-components-repeat/internet.zip"
-          sha256sum out/runtime-components/internet.zip
-          python tools/component-package/build.py describe \
-            --package out/runtime-components/internet.zip \
-            --out out/runtime-components/runtime-component-release.json
-          echo 'RUNTIME_COMPONENT_REPEATABILITY=PASS'
-          echo 'RUNTIME_COMPONENT_DIRECT_ACTIVATION_ALLOWED=NO'
-          echo 'RUNTIME_COMPONENT_PUBLISHED=NO'
+            --out "$RUNNER_TEMP/invalid-internet.zip"; then
+            echo "Removed Internet unexpectedly packaged from the OS" >&2
+            exit 1
+          fi
+          test ! -e "$RUNNER_TEMP/invalid-internet.zip"
+          echo 'INTERNET_PLATFORM_SOURCE_ABSENT=PASS'
+          echo 'INTERNET_DISTRIBUTION_ACTIVATION_ALLOWED=NO'
 
       - name: Build deterministic Intelligence package candidates twice
         run: |
@@ -235,66 +224,21 @@ jobs:
           echo 'INTELLIGENCE_COMPONENT_PACKAGING_REPEATABILITY=PASS'
           echo 'INTELLIGENCE_COMPONENT_ACTIVATION_ALLOWED=NO'
 
-      - name: Prove signed envelope and immutable slot staging
+      - name: Prove only owned runtime package outputs exist after Gate A
         run: |
           set -euo pipefail
-          release_mode="$(python -c 'import json; print(json.load(open("out/runtime-components/runtime-component-release.json", encoding="utf-8"))["component"]["release_mode"])')"
-          if [ "$release_mode" = "git-app" ]; then
-            echo 'RUNTIME_COMPONENT_SIGNED_STAGING=SKIPPED_GIT_APP'
-            echo 'RUNTIME_COMPONENT_ACTIVATED=NO'
-            exit 0
-          fi
-
-          channel="$PWD/out/runtime-components/ordax-runtime-component-channel"
-          (
-            cd tools/runtime-component-channel
-            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-              go build -trimpath -buildvcs=false -ldflags='-s -w' \
-              -o ../../out/runtime-components/ordax-runtime-component-channel .
-          )
-
-          work="$RUNNER_TEMP/runtime-component-signing-proof"
-          slots="$RUNNER_TEMP/runtime-component-slots"
-          mkdir -p "$work" "$slots"
-          chmod 0700 "$work"
-
-          "$channel" generate-key \
-            --private-key "$work/private.pem" \
-            --trust out/runtime-components/runtime-component-trust.json \
-            --key-id runtime-components-ci-test-1
-
-          "$channel" sign \
-            --release out/runtime-components/runtime-component-release.json \
-            --private-key "$work/private.pem" \
-            --trust out/runtime-components/runtime-component-trust.json \
-            --key-id runtime-components-ci-test-1 \
-            --out out/runtime-components/runtime-component-envelope.json
-
-          "$channel" verify-envelope \
-            --envelope out/runtime-components/runtime-component-envelope.json \
-            --trust out/runtime-components/runtime-component-trust.json
-
-          stage_output="$("$channel" stage \
-            --envelope out/runtime-components/runtime-component-envelope.json \
-            --trust out/runtime-components/runtime-component-trust.json \
-            --package out/runtime-components/internet.zip \
-            --root "$slots")"
-          printf '%s\n' "$stage_output"
-          grep -q 'RUNTIME_COMPONENT_STAGED=YES' <<<"$stage_output"
-          grep -q 'PENDING_HEALTH_REQUIRED=YES' <<<"$stage_output"
-          grep -q 'ACTIVATED=NO' <<<"$stage_output"
-
-          slot="$slots/internet/versions/0.3.0/$GITHUB_SHA"
-          "$channel" verify-slot \
-            --slot "$slot" \
-            --trust out/runtime-components/runtime-component-trust.json
-
-          rm -f "$work/private.pem"
-          test ! -e "$work/private.pem"
-          echo 'RUNTIME_COMPONENT_SIGNED_PROTOCOL=PASS'
-          echo 'RUNTIME_COMPONENT_IMMUTABLE_SLOT_STAGING=PASS'
-          echo 'RUNTIME_COMPONENT_PRIVATE_KEY_REMOVED=YES'
-          echo 'RUNTIME_COMPONENT_CANONICAL_TRUST=NO'
+          test ! -d system/apps/internet
+          test ! -e out/runtime-components/internet.zip
+          test ! -e out/runtime-components/runtime-component-release.json
+          for component in local-ai-service ordax-intelligence; do
+            test -s "out/runtime-components/$component.zip"
+            python tools/component-package/build.py verify \
+              --package "out/runtime-components/$component.zip"
+          done
+          # The signed-envelope and immutable-slot semantics are exercised in
+          # the Go channel suite above, independent of product-owned Internet.
+          echo 'INTERNET_PLATFORM_PACKAGE_ABSENT=PASS'
+          echo 'SIGNED_CHANNEL_PROTOCOL=GO_REGRESSION_SUITE'
           echo 'RUNTIME_COMPONENT_ACTIVATED=NO'
 
       - name: Upload runtime component candidate proof

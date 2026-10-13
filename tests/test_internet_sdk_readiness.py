@@ -43,31 +43,13 @@ def fixture(root: Path, *, sdk_paths: tuple[str, ...] = ()) -> Path:
 
 
 class InternetSdkReadinessTests(unittest.TestCase):
-    def test_real_app_has_truthful_public_sdk_blockers(self):
-        report = checker.audit(checker.ROOT)
-        self.assertEqual(report["schema"], checker.SCHEMA)
-        self.assertEqual(report["sourceOwner"], "ordaxsystems/ordax-os")
-        self.assertEqual(report["sourceCutoverAuthorized"], False)
-        self.assertEqual(report["distributionActivated"], False)
-        self.assertTrue(report["sdkBoundaryClean"], report["blockers"])
-        self.assertEqual(report["privatePlatformImports"], [])
-        self.assertEqual(report["unpublishedContracts"], [])
-        self.assertFalse(
-            (checker.ROOT / "system/apps/app-contract.mjs").exists(),
-            "single canonical contract owner required",
-        )
-        self.assertGreater(report["appModuleCount"], 0)
-        self.assertIn("system/contracts/browser-session.mjs", report["requiredContracts"])
-        sdk = json.loads((checker.ROOT / checker.SDK_PATH).read_text(encoding="utf-8"))
-        published = {entry["source_path"] for entry in sdk["contracts"]}
-        self.assertEqual(
-            report["unpublishedContracts"],
-            sorted(set(report["requiredContracts"]) - published),
-        )
-        self.assertEqual(
-            report["sdkBoundaryClean"],
-            not (report["unpublishedContracts"] or report["privatePlatformImports"]),
-        )
+    def test_removed_platform_source_cannot_be_scanned_as_still_embedded(self):
+        self.assertFalse((checker.ROOT / checker.APP_PATH).exists())
+        with self.assertRaisesRegex(checker.InternetSdkAuditError, "real app directory"):
+            checker.audit(checker.ROOT)
+        # The migration snapshot in ordax-apps pins the original app and
+        # audits its SDK closure. The OS cannot silently rebuild it here.
+        self.assertFalse((checker.ROOT / "apps/internet").exists())
 
     def test_derives_published_vs_unpublished_without_shadow_registry(self):
         with tempfile.TemporaryDirectory() as temp:

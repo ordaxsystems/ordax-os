@@ -127,23 +127,10 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
     def test_projects_styles_are_not_bundled_after_remove_first_cutover(self):
         self.assertFalse((ROOT / "system/apps/projects/projects.css").exists())
 
-    def test_internet_consumes_semantic_tokens_in_component_css(self):
-        css = INTERNET_CSS.read_text(encoding="utf-8")
-        for legacy in ("#ed4b25", "#9d2f18", "#5f5b54", "#efede6", "#171613"):
-            self.assertNotIn(legacy, css)
-        self.assertNotIn("border-color: var(--ordax-danger)", css)
-        self.assertGreaterEqual(css.count("border-color: var(--ordax-focus)"), 2)
-        for declaration in (
-            "background: var(--ordax-app-bg)",
-            "color: var(--ordax-text)",
-            "var(--ordax-accent)",
-            "var(--ordax-muted)",
-            "var(--ordax-focus)",
-            "background: var(--ordax-button-bg)",
-            "color: var(--ordax-button-text)",
-            "var(--ordax-danger)",
-        ):
-            self.assertIn(declaration, css)
+    def test_internet_app_css_is_absent_during_remove_first_gate(self):
+        self.assertFalse(INTERNET_CSS.exists())
+        tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
+        self.assertIn("--ordax-accent", tokens)
 
     def test_settings_previews_match_canonical_light_and_dark_palettes(self):
         css = SETTINGS_CSS.read_text(encoding="utf-8")
@@ -225,7 +212,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         smoke = BROWSER_SMOKE.read_text(encoding="utf-8")
         self.assertIn("'system/surface/ui/identity.css'", smoke)
         self.assertNotIn("'system/surface/ui/app-identity.css'", smoke)
-        self.assertIn("'system/apps/internet/internet.css'", smoke)
+        self.assertNotIn("'system/apps/internet/internet.css'", smoke)
 
     def test_inter_font_is_local_offline_and_source_bound(self):
         tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")

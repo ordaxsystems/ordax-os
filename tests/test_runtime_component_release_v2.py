@@ -154,16 +154,14 @@ class RuntimeComponentReleaseV2Tests(unittest.TestCase):
     def test_v2_is_not_available_for_component_without_canonical_descriptor(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            package = self.build_package(root, "internet")
             with self.assertRaisesRegex(
-                release_v2.ReleaseV2Error,
-                "could not resolve canonical component compatibility",
+                package_builder.ComponentPackageError,
+                "could not resolve canonical component metadata",
             ):
-                release_v2.build_release_v2(
-                    package,
-                    root / "internet.release-v2.json",
-                    root / "internet.compatibility.json",
-                )
+                self.build_package(root, "internet")
+            self.assertFalse((root / "internet.zip").exists())
+            self.assertFalse((root / "internet.release-v2.json").exists())
+            self.assertFalse((root / "internet.compatibility.json").exists())
 
 
 if __name__ == "__main__":

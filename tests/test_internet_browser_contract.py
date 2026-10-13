@@ -5,11 +5,8 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "system" / "apps" / "internet" / "app.mjs"
 CATALOG = ROOT / "system" / "apps" / "catalog.mjs"
 CONTRACT = ROOT / "system" / "contracts" / "browser-session.mjs"
-CONTROLS = ROOT / "system" / "apps" / "internet" / "ui" / "browser-controls.mjs"
-STYLES = ROOT / "system" / "apps" / "internet" / "internet.css"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "browser-session.mjs"
 NATIVE_ADAPTER = ROOT / "system" / "adapters" / "native" / "browser-session.mjs"
 NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "ordax_browser_host.py"
@@ -17,9 +14,6 @@ SURFACE_LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 WEB_COMPOSITION = ROOT / "system" / "composition" / "web"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native"
 CAPABILITIES = ROOT / "docs" / "contracts" / "product-capabilities.json"
-INTERNET_RUNTIME = ROOT / "system" / "apps" / "internet" / "runtime.mjs"
-INTERNET_COMPONENT = ROOT / "system" / "apps" / "internet" / "component.mjs"
-INTERNET_VERSION = ROOT / "system" / "apps" / "internet" / "version.mjs"
 
 
 class InternetBrowserContractTests(unittest.TestCase):
@@ -59,76 +53,24 @@ class InternetBrowserContractTests(unittest.TestCase):
         exec(compile(ast.Module(body=selected, type_ignores=[]), str(NATIVE_HOST), "exec"), namespace)
         return namespace
 
-    def test_browser_sources_exist(self):
-        for path in (
-            APP,
-            CONTRACT,
-            CONTROLS,
-            STYLES,
-            WEB_ADAPTER,
-            NATIVE_ADAPTER,
-            NATIVE_HOST,
-        ):
+    def test_removed_internet_product_is_absent_while_browser_host_survives(self):
+        self.assertFalse((ROOT / "system/apps/internet").exists())
+        self.assertFalse((ROOT / "system/services/i18n/catalog/internet.mjs").exists())
+        for path in (CONTRACT, WEB_ADAPTER, NATIVE_ADAPTER, NATIVE_HOST):
             self.assertTrue(path.is_file(), path)
-            self.assertGreater(path.stat().st_size, 0, path)
-
-    def test_internet_is_a_first_party_extension_app(self):
-        app = self.text(APP)
         catalog = self.text(CATALOG)
-        self.assertIn('id: "internet"', app)
-        self.assertIn('title: "Internet"', app)
-        self.assertIn('kind: "extension"', app)
-        self.assertIn('extensionId: "internet-browser"', app)
-        self.assertIn('optionalCapabilities: ["browser.web-content"]', app)
-        self.assertIn('./internet/app.mjs', catalog)
-        self.assertIn('internetApp', catalog)
+        self.assertNotIn('./internet/app.mjs', catalog)
+        native = self.text(NATIVE_COMPOSITION / "main.mjs")
+        self.assertIn("createNativeBrowserSession", native)
+        self.assertNotIn('componentId: "internet"', native)
 
-    def test_shared_chrome_does_not_embed_arbitrary_sites(self):
-        controls = self.text(CONTROLS)
-        self.assertIn('contracts/browser-session.mjs', controls)
-        self.assertIn('contracts/surface-render-lifecycle.mjs', controls)
-        self.assertIn('assertBrowserSessionPort', controls)
-        self.assertIn('data-browser-viewport', controls)
-        self.assertNotIn('<iframe', controls.lower())
-        self.assertNotIn('document.createElement("iframe")', controls)
-        self.assertNotIn('adapters/', controls)
-        self.assertNotIn('/__ordax/native/', controls)
-        self.assertNotIn('MutationObserver', controls)
-
-    def test_surface_app_activation_target_is_consumed_by_internet(self):
-        controls = self.text(CONTROLS)
-        self.assertIn('lifecycle.getAppTarget("internet")', controls)
-        self.assertIn('const syncSurfaceTarget = () => {', controls)
-        self.assertIn('handledSurfaceTarget', controls)
-        self.assertIn('port.navigate(tab.id, url)', controls)
-        self.assertIn('port.openTab(allocateTabId(), url)', controls)
-
-    def test_tab_search_is_functional_and_stays_inside_shared_chrome(self):
-        controls = self.text(CONTROLS)
-        styles = self.text(STYLES)
-        self.assertIn('searchInput.type = "search"', controls)
-        self.assertIn('searchInput.dataset.browserTabSearch = ""', controls)
-        self.assertIn('function tabMatchesQuery(tab, query, locale = "pt-BR")', controls)
-        self.assertIn('toLocaleLowerCase(locale)', controls)
-        self.assertIn('snapshot.tabs.filter((tab) => tabMatchesQuery(tab, query, locale()))', controls)
-        self.assertIn('t("internet.tabs.emptySearch")', controls)
-        self.assertIn('root.addEventListener("input", onInput)', controls)
-        self.assertIn('root.removeEventListener("input", onInput)', controls)
-        self.assertIn('.ordax-internet-tab-search-input', styles)
-
-    def test_home_reports_live_product_state_instead_of_stale_placeholders(self):
-        controls = self.text(CONTROLS)
-        styles = self.text(STYLES)
-        for key in ("session", "projects", "references", "favorites"):
-            self.assertIn(f'["{key}",', controls)
-        self.assertIn('value.dataset.browserHomeStatus = key', controls)
-        self.assertIn('const syncHomeStatus = (slot) => {', controls)
-        self.assertIn('projectSnapshot?.projects.length', controls)
-        self.assertIn('referenceSnapshot?.references.length', controls)
-        self.assertIn('favoriteSnapshot?.favorites.length', controls)
-        self.assertIn('syncHomeStatus(slot)', controls)
-        self.assertNotIn('"REFERÊNCIAS", "Persistência em preparação"', controls)
-        self.assertIn('repeat(auto-fit, minmax(140px, 1fr))', styles)
+    def test_shared_navigation_policy_is_pure_and_host_owned(self):
+        policy = self.text(ROOT / "system/contracts/browser-navigation.mjs")
+        self.assertIn('BROWSER_SEARCH_PROVIDERS = Object.freeze([', policy)
+        self.assertIn('BROWSER_SEARCH_PROVIDER = BROWSER_SEARCH_PROVIDERS[0]', policy)
+        self.assertIn('new URL(provider.origin)', policy)
+        self.assertNotIn('window.', policy)
+        self.assertNotIn('fetch(', policy)
 
     def test_web_mode_fails_closed_instead_of_claiming_embedded_navigation(self):
         adapter = self.text(WEB_ADAPTER)
@@ -244,19 +186,6 @@ class InternetBrowserContractTests(unittest.TestCase):
                 self.assertFalse(navigation(url))
                 self.assertFalse(resource(url))
 
-    def test_shared_address_policy_is_an_explicit_pure_contract(self):
-        controls = self.text(CONTROLS)
-        policy = self.text(ROOT / "system" / "contracts" / "browser-navigation.mjs")
-        self.assertIn('resolveBrowserNavigation(input.value, {', controls)
-        self.assertIn('searchProviderId: searchPreferencesPort?.getSnapshot().providerId', controls)
-        self.assertIn('resolveBrowserNavigation(target, { allowSearch: false })?.url', controls)
-        self.assertNotIn('function normalizedAddress(', controls)
-        self.assertIn('BROWSER_SEARCH_PROVIDERS = Object.freeze([', policy)
-        self.assertIn('BROWSER_SEARCH_PROVIDER = BROWSER_SEARCH_PROVIDERS[0]', policy)
-        self.assertIn('new URL(provider.origin)', policy)
-        self.assertNotIn('window.', policy)
-        self.assertNotIn('fetch(', policy)
-
     def test_invalid_native_target_fails_before_tab_creation_or_activation(self):
         host = self.text(NATIVE_HOST)
         open_tab = host.split("    def open_tab(", 1)[1].split("    def close_tab(", 1)[0]
@@ -285,40 +214,6 @@ class InternetBrowserContractTests(unittest.TestCase):
             self.assertIn("browser.web-content", modes[mode_id]["baseline_capabilities"])
         for mode_id in ("web", "mobile", "desktop"):
             self.assertNotIn("browser.web-content", modes[mode_id]["baseline_capabilities"])
-
-    def test_native_surface_health_is_acknowledged_before_optional_internet_load(self):
-        native = self.text(NATIVE_COMPOSITION / "main.mjs")
-        health_index = native.index("void updateWatcher.markHealthy()")
-        import_index = native.index('import("../../apps/internet/runtime.mjs")')
-        self.assertLess(health_index, import_index)
-        self.assertIn('componentManager.setCurrentHealth("surface-shell", "healthy")', native)
-        self.assertIn('componentId: "internet"', native)
-        self.assertIn('reportClientDiagnostic("internet-runtime", error)', native)
-        self.assertNotIn('from "../../services/internet/', native)
-        self.assertNotIn('from "../../surface/ui/internet-browser-', native)
-
-    def test_native_loads_internet_as_optional_component_runtime(self):
-        runtime = self.text(INTERNET_RUNTIME)
-        component = self.text(INTERNET_COMPONENT)
-        version = self.text(INTERNET_VERSION)
-        self.assertIn('componentId: "internet"', runtime)
-        self.assertIn('version: INTERNET_VERSION', runtime)
-        self.assertIn('INTERNET_VERSION = "0.3.0"', version)
-        self.assertIn('releaseMode: "git-app"', component)
-        self.assertIn('restartScope: "component"', component)
-        self.assertIn('healthMode: "runtime"', component)
-        self.assertIn('mountInternetBrowserControls', runtime)
-        self.assertIn('new URL("./internet.css", import.meta.url)', runtime)
-        self.assertIn('mountInternetStyles', runtime)
-        self.assertIn('releaseStyles()', runtime)
-        for composition in (NATIVE_COMPOSITION,):
-            html = self.text(composition / "index.html")
-            main = self.text(composition / "main.mjs")
-            self.assertNotIn('../../surface/ui/internet.css', html)
-            self.assertIn('import("../../apps/internet/runtime.mjs")', main)
-            self.assertIn('loadOptionalComponentRuntime', main)
-            self.assertIn('browserSession', main)
-            self.assertNotIn('from "../../surface/ui/internet-browser-controls.mjs"', main)
 
 
 if __name__ == "__main__":

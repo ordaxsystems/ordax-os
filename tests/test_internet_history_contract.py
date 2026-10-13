@@ -2,85 +2,27 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTROLS = ROOT / "system" / "apps" / "internet" / "ui" / "browser-controls.mjs"
-INTERNET_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "internet.mjs"
-CSS = ROOT / "system" / "apps" / "internet" / "internet.css"
-NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
-INTERNET_RUNTIME = ROOT / "system" / "apps" / "internet" / "runtime.mjs"
-CONTRACT = ROOT / "system" / "contracts" / "browser-history.mjs"
-STORE = ROOT / "system" / "contracts" / "browser-history-store.mjs"
-RUNTIME = ROOT / "system" / "apps" / "internet" / "services" / "history.mjs"
-BRIDGE = ROOT / "system" / "apps" / "internet" / "services" / "history-bridge.mjs"
-ADAPTER = ROOT / "system" / "adapters" / "native" / "browser-history.mjs"
 
+class NativeBrowserHistoryBoundaryTests(unittest.TestCase):
+    def test_native_history_store_is_host_owned_without_product_runtime(self):
+        native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        web = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
+        adapter = (ROOT / "system/adapters/native/browser-history.mjs").read_text(encoding="utf-8")
+        self.assertIn("createNativeBrowserHistoryStore", native)
+        self.assertNotIn("createBrowserHistoryRuntime", native)
+        self.assertNotIn("createBrowserHistoryBridge", native)
+        self.assertNotIn("createNativeBrowserHistoryStore", web)
+        self.assertNotIn("createBrowserHistoryRuntime", web)
+        self.assertIn("ordax.native.browser-history.v1", adapter)
+        self.assertFalse((ROOT / "system/apps/internet/services/history.mjs").exists())
 
-class InternetHistoryContractTests(unittest.TestCase):
-    def text(self, path):
-        return path.read_text(encoding="utf-8")
-
-    def test_shared_ui_uses_only_neutral_history_port(self):
-        controls = self.text(CONTROLS)
-        self.assertIn('contracts/browser-history.mjs', controls)
-        self.assertIn('assertBrowserHistoryPort', controls)
-        self.assertIn('history = null', controls)
-        self.assertIn('historyPort.remove(', controls)
-        self.assertIn('historyPort.clear()', controls)
-        self.assertIn('dataset.browserHistoryToggle', controls)
-        self.assertIn('dataset.browserOpenHistory', controls)
-        self.assertIn('dataset.browserClearHistory', controls)
-        self.assertNotIn('localStorage', controls)
-        self.assertNotIn('sessionStorage', controls)
-        self.assertNotIn('/__ordax/native/', controls)
-
-    def test_native_composition_owns_history_store_while_internet_runtime_owns_domain(self):
-        native = self.text(NATIVE_MAIN)
-        runtime = self.text(INTERNET_RUNTIME)
-        self.assertIn('createNativeBrowserHistoryStore', native)
-        self.assertNotIn('createBrowserHistoryRuntime', native)
-        self.assertNotIn('createBrowserHistoryBridge', native)
-        self.assertIn('createHistoryStore: () => createNativeBrowserHistoryStore(window)', native)
-        self.assertIn('createBrowserHistoryRuntime', runtime)
-        self.assertIn('createBrowserHistoryBridge', runtime)
-        self.assertIn('historyBridge?.destroy()', runtime)
-        self.assertIn('history?.destroy()', runtime)
-
-    def test_web_composition_does_not_fake_native_browser_history(self):
-        web = self.text(WEB_MAIN)
-        self.assertNotIn('createNativeBrowserHistoryStore', web)
-        self.assertNotIn('createBrowserHistoryRuntime', web)
-        self.assertNotIn('createBrowserHistoryBridge', web)
-
-    def test_history_has_bounded_independent_contract_and_privileged_store(self):
-        contract = self.text(CONTRACT)
-        store = self.text(STORE)
-        runtime = self.text(RUNTIME)
-        bridge = self.text(BRIDGE)
-        adapter = self.text(ADAPTER)
+    def test_history_contract_stays_bounded_and_privileged(self):
+        contract = (ROOT / "system/contracts/browser-history.mjs").read_text(encoding="utf-8")
+        store = (ROOT / "system/contracts/browser-history-store.mjs").read_text(encoding="utf-8")
         self.assertIn('BROWSER_HISTORY_SCHEMA = "ordax.browser-history/1"', contract)
-        self.assertIn('MAX_BROWSER_HISTORY_ENTRIES = 512', contract)
+        self.assertIn("MAX_BROWSER_HISTORY_ENTRIES = 512", contract)
         self.assertIn('BROWSER_HISTORY_STORE_SCHEMA = "ordax.browser-history-store/1"', store)
-        self.assertIn('[entry, ...state.entries].slice(0, MAX_BROWSER_HISTORY_ENTRIES)', runtime)
-        self.assertIn('tab.loading || !url', bridge)
-        self.assertIn('ordax.native.browser-history.v1', adapter)
-        self.assertNotIn('projectId', contract)
-        self.assertNotIn('projectId', runtime)
-
-    def test_history_controls_are_real_and_accessible(self):
-        controls = self.text(CONTROLS)
-        css = self.text(CSS)
-        i18n = self.text(INTERNET_I18N)
-        self.assertIn('t("internet.navigation.heading")', controls)
-        self.assertIn('t("internet.history")', controls)
-        self.assertIn('"internet.navigation.heading": "NAVIGATION"', i18n)
-        self.assertIn('"internet.history": "History"', i18n)
-        self.assertIn('aria-expanded', controls)
-        self.assertIn('aria-label', controls)
-        self.assertIn('ordax-internet-history-list', css)
-        self.assertIn('ordax-internet-history-open', css)
-        self.assertIn('ordax-internet-history-remove', css)
-        self.assertNotIn('Histórico"))\n  footer', controls)
-
+        self.assertNotIn("projectId", contract)
 
 if __name__ == "__main__":
     unittest.main()

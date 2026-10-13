@@ -152,25 +152,12 @@ test("Projects app-owned translations are absent from OS during remove-first Gat
   assert.doesNotMatch(surface, /"app\.projects\.title"/);
 });
 
-test("Internet primary journey uses the shared localization owner", async () => {
-  const internet = await readFile(
-    new URL("../system/apps/internet/ui/browser-controls.mjs", import.meta.url),
-    "utf8",
-  );
-  const internetCatalog = await readFile(
-    new URL("../system/services/i18n/catalog/internet.mjs", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(internet, /const localization = lifecycle\.localization/);
-  assert.match(internet, /createView\(documentObject, snapshot, t\)/);
-  assert.match(internet, /t\("internet\.toolbar\.aria"\)/);
-  assert.match(internet, /t\("internet\.project\.save"\)/);
-  assert.match(internet, /ordaxInternetLocale/);
-  assert.match(internet, /formatHistoryVisit\(entry\.visitedAt, locale\(\)\)/);
-  assert.doesNotMatch(internet, /toLocaleLowerCase\("pt-BR"\)/);
-  assert.match(internetCatalog, /"internet\.action\.newTab": "New tab"/);
-  assert.match(internetCatalog, /"internet\.project\.currentPage": "Current page"/);
+test("Internet product translations cannot leak back into the OS after Gate A", async () => {
+  const surface = await readFile(new URL("../system/services/i18n/surface.mjs", import.meta.url), "utf8");
+  const shell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
+  assert.ok(!surface.includes("catalog/internet.mjs"), "No product-owned Internet translations should remain in OS");
+  assert.ok(!surface.includes("...INTERNET_SOURCE_MESSAGES"), "Internet-owned localization must not be spread in OS");
+  assert.ok(!shell.includes('railButton("internet"'), "Unavailable Internet has no bundled launcher");
 });
 
 test("Network tray and quick panel consume the shared localization owner", async () => {

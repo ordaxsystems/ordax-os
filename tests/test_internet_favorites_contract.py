@@ -2,66 +2,25 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTROLS = ROOT / "system" / "apps" / "internet" / "ui" / "browser-controls.mjs"
-INTERNET_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "internet.mjs"
-NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
-WEB_MAIN = ROOT / "system" / "composition" / "web" / "main.tsx"
-INTERNET_RUNTIME = ROOT / "system" / "apps" / "internet" / "runtime.mjs"
-CONTRACT = ROOT / "system" / "contracts" / "browser-favorites.mjs"
-STORE = ROOT / "system" / "contracts" / "browser-favorites-store.mjs"
-RUNTIME = ROOT / "system" / "apps" / "internet" / "services" / "favorites.mjs"
-ADAPTER = ROOT / "system" / "adapters" / "native" / "browser-favorites.mjs"
 
+class NativeBrowserFavoritesBoundaryTests(unittest.TestCase):
+    def test_host_owns_device_store_without_bundled_internet_runtime(self):
+        native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        web = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
+        adapter = (ROOT / "system/adapters/native/browser-favorites.mjs").read_text(encoding="utf-8")
+        self.assertIn("createNativeBrowserFavoritesStore", native)
+        self.assertNotIn("createBrowserFavoritesRuntime", native)
+        self.assertNotIn("createNativeBrowserFavoritesStore", web)
+        self.assertIn("ordax.native.browser-favorites.v1", adapter)
+        self.assertFalse((ROOT / "system/apps/internet/services/favorites.mjs").exists())
 
-class InternetFavoritesContractTests(unittest.TestCase):
-    def text(self, path):
-        return path.read_text(encoding="utf-8")
-
-    def test_shared_ui_uses_neutral_favorites_port(self):
-        controls = self.text(CONTROLS)
-        self.assertIn('contracts/browser-favorites.mjs', controls)
-        self.assertIn('assertBrowserFavoritesPort', controls)
-        self.assertIn('favorites = null', controls)
-        self.assertIn('favoritePort.save({', controls)
-        self.assertIn('favoritePort.remove(', controls)
-        self.assertIn('dataset.browserFavoritesToggle', controls)
-        self.assertIn('dataset.browserOpenFavorite', controls)
-        i18n = self.text(INTERNET_I18N)
-        self.assertIn('iconButton(documentObject, "☆", t("internet.action.bookmark"), "bookmark")', controls)
-        self.assertIn('"internet.action.bookmark": "Add to favorites"', i18n)
-        self.assertNotIn('localStorage', controls)
-        self.assertNotIn('sessionStorage', controls)
-        self.assertNotIn('/__ordax/native/', controls)
-
-    def test_native_composition_owns_device_store_while_internet_runtime_owns_domain(self):
-        native = self.text(NATIVE_MAIN)
-        runtime = self.text(INTERNET_RUNTIME)
-        self.assertIn('createNativeBrowserFavoritesStore', native)
-        self.assertNotIn('createBrowserFavoritesRuntime', native)
-        self.assertIn('createFavoritesStore: () => createNativeBrowserFavoritesStore(window)', native)
-        self.assertIn('createBrowserFavoritesRuntime', runtime)
-        self.assertIn('favorites?.destroy()', runtime)
-
-    def test_web_composition_does_not_fake_browser_favorites(self):
-        web = self.text(WEB_MAIN)
-        runtime = self.text(INTERNET_RUNTIME)
-        self.assertNotIn('createNativeBrowserFavoritesStore', web)
-        self.assertNotIn('createBrowserFavoritesRuntime', web)
-        self.assertIn('createFavoritesStore = null', runtime)
-
-    def test_favorites_have_bounded_independent_contract_and_store(self):
-        contract = self.text(CONTRACT)
-        store = self.text(STORE)
-        runtime = self.text(RUNTIME)
-        adapter = self.text(ADAPTER)
+    def test_host_contract_is_bounded_and_project_independent(self):
+        contract = (ROOT / "system/contracts/browser-favorites.mjs").read_text(encoding="utf-8")
+        store = (ROOT / "system/contracts/browser-favorites-store.mjs").read_text(encoding="utf-8")
         self.assertIn('BROWSER_FAVORITES_SCHEMA = "ordax.browser-favorites/1"', contract)
-        self.assertIn('MAX_BROWSER_FAVORITES = 256', contract)
-        self.assertIn('BROWSER_FAVORITES_STORE_SCHEMA', store)
-        self.assertIn('validateBrowserFavoriteUrl', runtime)
-        self.assertIn('ordax.native.browser-favorites.v1', adapter)
-        self.assertNotIn('projectId', contract)
-        self.assertNotIn('projectId', runtime)
-
+        self.assertIn("MAX_BROWSER_FAVORITES = 256", contract)
+        self.assertIn("BROWSER_FAVORITES_STORE_SCHEMA", store)
+        self.assertNotIn("projectId", contract)
 
 if __name__ == "__main__":
     unittest.main()

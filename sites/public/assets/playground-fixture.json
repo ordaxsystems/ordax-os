@@ -25,7 +25,6 @@
     "rail_apps": [
       "files",
       "studio",
-      "internet",
       "settings",
       "system"
     ],
@@ -37,10 +36,6 @@
       {
         "id": "studio",
         "label": "ORDAX Studio"
-      },
-      {
-        "id": "internet",
-        "label": "Internet"
       },
       {
         "id": "settings",
@@ -73,13 +68,6 @@
       "description": "Trabalho explícito do Personal OrdaX, com progresso e resultados visíveis.",
       "monogram": "AT",
       "display_title": "Atividade"
-    },
-    {
-      "id": "internet",
-      "title": "Internet",
-      "description": "Navegue, organize referências e conecte pesquisa ao seu trabalho.",
-      "monogram": "IN",
-      "display_title": "Internet"
     },
     {
       "id": "settings",

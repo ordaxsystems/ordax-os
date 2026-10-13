@@ -137,8 +137,9 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
         attributes.includes('class="ordax-rail-button"') &&
         attributes.includes('data-launch-app='),
       );
-      const expected = ["files", "studio", "internet", "settings", "system"];
+      const expected = ["files", "studio", "settings", "system"];
       assert.equal(navigation.length, expected.length, "Every pinned destination has one launch control");
+      assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
       for (const id of expected) {
         const matches = navigation.filter(([, attributes]) => attributes.includes(`data-launch-app="${id}"`));

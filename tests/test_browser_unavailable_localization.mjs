@@ -39,19 +39,13 @@ test("unavailable browser snapshots expose semantic codes instead of human-langu
   assert.equal(native.reasonCode, BROWSER_UNAVAILABLE_REASONS.NATIVE_ENGINE_UNAVAILABLE);
 });
 
-test("Internet unavailable presentation remains owned by the Surface localization catalog", () => {
-  assert.equal(
-    translateSurfaceMessage("en-US", "internet.home.unavailable"),
-    "Integrated browsing is unavailable on this host",
-  );
-  assert.equal(
-    translateSurfaceMessage("pt-BR", "internet.home.unavailable"),
-    "Navegação integrada não disponível neste host",
-  );
-
-  const controls = source("system/apps/internet/ui/browser-controls.mjs");
-  assert.match(controls, /t\("internet\.home\.unavailable"\)/);
-  assert.match(controls, /snapshot\.reason/);
+test("Internet product localization is no longer silently bundled in the OS", () => {
+  assert.throws(() => translateSurfaceMessage("en-US", "internet.home.unavailable"),
+    /Unknown Surface localization message/);
+  assert.throws(() => translateSurfaceMessage("pt-BR", "internet.home.unavailable"),
+    /Unknown Surface localization message/);
+  const surface = source("system/services/i18n/surface.mjs");
+  assert.ok(!surface.includes("catalog/internet.mjs"), "No product-owned Internet translations should remain in OS");
 });
 
 test("first-party browser protocol boundaries contain no Portuguese unavailable prose", () => {

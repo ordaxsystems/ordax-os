@@ -9,7 +9,6 @@
   "source_repository": "ordaxsystems/ordax-os",
   "component_manifest_source": "system/services/components/manifests/",
   "supported_components": [
-    "internet",
     "local-ai-service",
     "ordax-intelligence"
   ],
@@ -30,7 +29,6 @@
   "pending_health_promotion_available": false,
   "rollback_slot_activation_available": false,
   "publish_allowed": false,
-  "internet_release_mode": "git-app",
   "next_gate": "Prove Local AI and Ordax Intelligence pending runtime health, promotion and rollback against canonical component trust before changing either releaseMode from bundled to component-slot; no USB reinstall may be required for later component updates.",
   "activation_state_machine_available": true,
   "activation_state_atomic_current_previous_pending_rejected": true,
@@ -50,7 +48,6 @@
   "native_loopback_broker_read_only": true,
   "native_loopback_broker_supported_components": [
     "calculator",
-    "internet",
     "notes",
     "studio"
   ],
@@ -88,7 +85,6 @@
   "runtime_health_bridge_transport": "native-webkit-message-nonce",
   "runtime_health_bridge_probe_registry": "system/services/components/probation-orchestrator.mjs",
   "runtime_health_bridge_supported_components": [
-    "internet",
     "notes"
   ],
   "runtime_health_bridge_probe_mode": "import-contract",
@@ -123,7 +119,6 @@
   },
   "source_repository_policy": "component-bound-fail-closed",
   "native_loopback_broker_health_mutation_components": [
-    "internet",
     "notes"
   ],
   "notes_component_slot_read_available": true,
@@ -151,6 +146,12 @@
   },
   "prelaunch_remove_first_pending": {
     "assistant": {
+      "state": "platform-source-removed-app-source-pending",
+      "expected_repository": "ordaxsystems/ordax-apps",
+      "platform_source_absence_required": true,
+      "distribution_activation_allowed": false
+    },
+    "internet": {
       "state": "platform-source-removed-app-source-pending",
       "expected_repository": "ordaxsystems/ordax-apps",
       "platform_source_absence_required": true,

@@ -121,14 +121,16 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIs(slots.HEALTH_MUTATION_COMPONENTS, NATIVE_HEALTH_MUTATION_COMPONENT_IDS)
         self.assertEqual(
             slots.SUPPORTED_COMPONENTS,
-            frozenset({"calculator", "internet", "notes", "studio"}),
+            frozenset({"calculator", "notes", "studio"}),
         )
-        self.assertEqual(slots.HEALTH_MUTATION_COMPONENTS, frozenset({"internet", "notes"}))
+        self.assertEqual(slots.HEALTH_MUTATION_COMPONENTS, frozenset({"notes"}))
         self.assertTrue(slots.HEALTH_MUTATION_COMPONENTS < slots.SUPPORTED_COMPONENTS)
         self.assertTrue(slots.SUPPORTED_COMPONENTS.issubset(STORE_METADATA_COMPONENT_IDS))
         self.assertNotIn("calculator", slots.HEALTH_MUTATION_COMPONENTS)
         self.assertNotIn("studio", slots.HEALTH_MUTATION_COMPONENTS)
         self.assertNotIn("clock", slots.SUPPORTED_COMPONENTS)
+        self.assertNotIn("internet", slots.SUPPORTED_COMPONENTS)
+        self.assertNotIn("internet", slots.HEALTH_MUTATION_COMPONENTS)
 
     def test_verified_calculator_module_read_requires_signed_helper_and_keeps_unknown_blocked(self):
         from native_store_metadata_policy import STORE_METADATA_COMPONENT_IDS
@@ -213,7 +215,7 @@ class NativeComponentSlotTests(unittest.TestCase):
     def test_current_bundled_resolution_is_parsed_without_slot_claim(self):
         output = (
             b"RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
-            b"COMPONENT_ID=internet\n"
+            b"COMPONENT_ID=notes\n"
             b"REVISION=0\n"
             b"SOURCE=BUNDLED\n"
             b"RUNTIME_SERVED_FROM_SLOT=NO\n"
@@ -223,7 +225,7 @@ class NativeComponentSlotTests(unittest.TestCase):
             resolution = slots.resolve_component_slot(
                 helper_path="/signed/bin/ordax-runtime-component-channel",
                 trust_path="/signed/trust/runtime-components-ed25519.json",
-                component_id="internet",
+                component_id="notes",
                 state="current",
             )
         self.assertEqual(resolution.source, "bundled")
@@ -258,7 +260,7 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIsNone(resolution.slot)
 
     def test_native_metadata_preserves_explicit_removal_without_slot_or_execution_authority(self):
-        for component_id in ("internet", "notes", "calculator"):
+        for component_id in ("notes", "notes", "calculator"):
             output = (
                 "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
                 f"COMPONENT_ID={component_id}\n"
@@ -314,27 +316,27 @@ class NativeComponentSlotTests(unittest.TestCase):
         commit = "7" * 40
         output = (
             "RUNTIME_COMPONENT_PENDING_RESOLVED=YES\n"
-            "COMPONENT_ID=internet\n"
+            "COMPONENT_ID=notes\n"
             "REVISION=3\n"
             "SOURCE=SLOT\n"
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
             "PENDING_HEALTH=unknown\n"
-            "/var/lib/ordax/components/internet/versions/0.4.0/"
+            "/var/lib/ordax/components/notes/versions/0.4.0/"
             f"{commit}"
         )
         # Insert the keyed slot field before the final entrypoint fields.
-        slot_path = f"/var/lib/ordax/components/internet/versions/0.4.0/{commit}"
+        slot_path = f"/var/lib/ordax/components/notes/versions/0.4.0/{commit}"
         output = (
             "RUNTIME_COMPONENT_PENDING_RESOLVED=YES\n"
-            "COMPONENT_ID=internet\n"
+            "COMPONENT_ID=notes\n"
             "REVISION=3\n"
             "SOURCE=SLOT\n"
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
             "PENDING_HEALTH=unknown\n"
             f"SLOT={slot_path}\n"
-            "ENTRYPOINT=system/apps/internet/runtime.mjs\n"
+            "ENTRYPOINT=system/apps/notes/runtime.mjs\n"
             "RUNTIME_SERVED_FROM_SLOT=NO\n"
         ).encode("utf-8")
         completed = subprocess.CompletedProcess([], 0, stdout=output, stderr=b"")
@@ -342,46 +344,46 @@ class NativeComponentSlotTests(unittest.TestCase):
             resolution = slots.resolve_component_slot(
                 helper_path="/signed/bin/ordax-runtime-component-channel",
                 trust_path="/signed/trust/runtime-components-ed25519.json",
-                component_id="internet",
+                component_id="notes",
                 state="pending",
             )
         self.assertEqual(resolution.source, "slot")
         self.assertEqual(resolution.version, "0.4.0")
         self.assertEqual(resolution.source_commit, commit)
         self.assertEqual(resolution.pending_health, "unknown")
-        self.assertEqual(resolution.entrypoint, "system/apps/internet/runtime.mjs")
+        self.assertEqual(resolution.entrypoint, "system/apps/notes/runtime.mjs")
         self.assertEqual(resolution.slot, slot_path)
 
     def test_component_module_path_binds_exact_identity_and_package_path(self):
         commit = "7" * 40
         request = slots.parse_component_module_path(
-            "/__ordax/native/component-module/internet/pending/0.4.0/"
+            "/__ordax/native/component-module/notes/pending/0.4.0/"
             + commit
-            + "/system/apps/internet/runtime.mjs"
+            + "/system/apps/notes/runtime.mjs"
         )
-        self.assertEqual(request.component_id, "internet")
+        self.assertEqual(request.component_id, "notes")
         self.assertEqual(request.state, "pending")
         self.assertEqual(request.version, "0.4.0")
         self.assertEqual(request.source_commit, commit)
         self.assertEqual(
             request.requested_path,
-            "system/apps/internet/runtime.mjs",
+            "system/apps/notes/runtime.mjs",
         )
 
     def test_component_module_path_rejects_encoded_or_traversal_forms(self):
         commit = "7" * 40
         bad = (
-            "/__ordax/native/component-module/internet/pending/0.4.0/"
+            "/__ordax/native/component-module/notes/pending/0.4.0/"
             + commit
-            + "/system/apps/internet/%2e%2e/runtime.mjs",
-            "/__ordax/native/component-module/internet/pending/0.4.0/"
+            + "/system/apps/notes/%2e%2e/runtime.mjs",
+            "/__ordax/native/component-module/notes/pending/0.4.0/"
             + commit
             + "/system/apps/../runtime.mjs",
-            "/__ordax/native/component-module/internet/pending/not-semver/"
+            "/__ordax/native/component-module/notes/pending/not-semver/"
             + commit
-            + "/system/apps/internet/runtime.mjs",
-            "/__ordax/native/component-module/internet/pending/0.4.0/not-a-sha/"
-            "system/apps/internet/runtime.mjs",
+            + "/system/apps/notes/runtime.mjs",
+            "/__ordax/native/component-module/notes/pending/0.4.0/not-a-sha/"
+            "system/apps/notes/runtime.mjs",
             "/__ordax/native/component-module/assistant/pending/0.4.0/"
             + commit
             + "/system/apps/assistant/runtime.mjs",
@@ -398,11 +400,11 @@ class NativeComponentSlotTests(unittest.TestCase):
             result = slots.read_component_runtime_file(
                 helper_path="/signed/bin/ordax-runtime-component-channel",
                 trust_path="/signed/trust/runtime-components-ed25519.json",
-                component_id="internet",
+                component_id="notes",
                 state="pending",
                 version="0.4.0",
                 source_commit="7777777777777777777777777777777777777777",
-                requested_path="system/apps/internet/runtime.mjs",
+                requested_path="system/apps/notes/runtime.mjs",
             )
         self.assertEqual(result, payload)
         argv = run.call_args.args[0]
@@ -412,7 +414,7 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIn("0.4.0", argv)
         self.assertIn("--source-commit", argv)
         self.assertIn("7777777777777777777777777777777777777777", argv)
-        self.assertIn("system/apps/internet/runtime.mjs", argv)
+        self.assertIn("system/apps/notes/runtime.mjs", argv)
         self.assertEqual(run.call_args.kwargs["stdin"], subprocess.DEVNULL)
         self.assertEqual(run.call_args.kwargs["stdout"], subprocess.PIPE)
         self.assertEqual(run.call_args.kwargs["stderr"], subprocess.PIPE)
@@ -433,7 +435,7 @@ class NativeComponentSlotTests(unittest.TestCase):
                 slots.read_component_runtime_file(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="internet",
+                    component_id="notes",
                     state="pending",
                     version="0.4.0",
                     source_commit="7777777777777777777777777777777777777777",
@@ -447,21 +449,21 @@ class NativeComponentSlotTests(unittest.TestCase):
                 slots.read_component_runtime_file(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="internet",
+                    component_id="notes",
                     state="pending",
                     version="not-semver",
                     source_commit="7" * 40,
-                    requested_path="system/apps/internet/runtime.mjs",
+                    requested_path="system/apps/notes/runtime.mjs",
                 )
             with self.assertRaises(slots.ComponentSlotRequestError):
                 slots.read_component_runtime_file(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="internet",
+                    component_id="notes",
                     state="pending",
                     version="0.4.0",
                     source_commit="bad-sha",
-                    requested_path="system/apps/internet/runtime.mjs",
+                    requested_path="system/apps/notes/runtime.mjs",
                 )
         run.assert_not_called()
 
@@ -472,7 +474,7 @@ class NativeComponentSlotTests(unittest.TestCase):
                 slots.resolve_component_slot(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="internet",
+                    component_id="notes",
                     state="pending",
                 )
 
@@ -485,7 +487,7 @@ class NativeComponentSlotTests(unittest.TestCase):
                 slots.resolve_component_slot(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="internet",
+                    component_id="notes",
                     state="pending",
                 )
 
@@ -493,7 +495,7 @@ class NativeComponentSlotTests(unittest.TestCase):
         commit = "a" * 40
         output = (
             "RUNTIME_COMPONENT_PENDING_HEALTH_RECORDED=YES\n"
-            "COMPONENT_ID=internet\n"
+            "COMPONENT_ID=notes\n"
             "REVISION=8\n"
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
@@ -504,13 +506,13 @@ class NativeComponentSlotTests(unittest.TestCase):
         with mock.patch.object(slots.subprocess, "run", return_value=completed) as run:
             record = slots.record_component_pending_health(
                 helper_path="/signed/bin/ordax-runtime-component-channel",
-                component_id="internet",
+                component_id="notes",
                 version="0.4.0",
                 source_commit=commit,
                 expected_revision=7,
                 health="healthy",
             )
-        self.assertEqual(record.component_id, "internet")
+        self.assertEqual(record.component_id, "notes")
         self.assertEqual(record.revision, 8)
         self.assertEqual(record.version, "0.4.0")
         self.assertEqual(record.source_commit, commit)
@@ -570,7 +572,7 @@ class NativeComponentSlotTests(unittest.TestCase):
             with self.assertRaises(slots.ComponentSlotRequestError):
                 slots.record_component_pending_health(
                     helper_path="/signed/bin/helper",
-                    component_id="internet",
+                    component_id="notes",
                     version="0.4.0",
                     source_commit="a" * 40,
                     expected_revision=0,
@@ -579,7 +581,7 @@ class NativeComponentSlotTests(unittest.TestCase):
             with self.assertRaises(slots.ComponentSlotRequestError):
                 slots.record_component_pending_health(
                     helper_path="/signed/bin/helper",
-                    component_id="internet",
+                    component_id="notes",
                     version="0.4.0",
                     source_commit="a" * 40,
                     expected_revision=7,
@@ -591,7 +593,7 @@ class NativeComponentSlotTests(unittest.TestCase):
         commit = "a" * 40
         bad = (
             "RUNTIME_COMPONENT_PENDING_HEALTH_RECORDED=YES\n"
-            "COMPONENT_ID=internet\n"
+            "COMPONENT_ID=notes\n"
             "REVISION=9\n"
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
@@ -603,7 +605,7 @@ class NativeComponentSlotTests(unittest.TestCase):
             with self.assertRaises(slots.ComponentSlotVerificationError):
                 slots.record_component_pending_health(
                     helper_path="/signed/bin/helper",
-                    component_id="internet",
+                    component_id="notes",
                     version="0.4.0",
                     source_commit=commit,
                     expected_revision=7,

@@ -157,7 +157,6 @@ on:
       - 'tests/test_native_browser_page_selection.mjs'
       - 'tests/test_internet_native_page_selection.py'
       - 'tests/test_internet_history_contract.py'
-      - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
@@ -181,7 +180,6 @@ on:
       - 'tests/test_native_component_state.py'
       - 'tests/test_browser_session_integration_contract.py'
       - 'tests/test_browser_session_store.py'
-      - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
       - 'tests/test_internet_sdk_readiness.py'
       - 'tools/verify/internet_sdk_readiness.py'
@@ -383,7 +381,6 @@ on:
       - 'tests/test_native_browser_page_selection.mjs'
       - 'tests/test_internet_native_page_selection.py'
       - 'tests/test_internet_history_contract.py'
-      - 'tests/test_internet_deep_localization.py'
       - 'tests/test_project_file_space_continuity.mjs'
       - 'tests/test_home_continuation.mjs'
       - 'tests/test_home_continuation_contract.py'
@@ -406,7 +403,6 @@ on:
       - 'tests/test_native_component_state.py'
       - 'tests/test_browser_session_integration_contract.py'
       - 'tests/test_browser_session_store.py'
-      - 'tests/test_internet_accessibility_contract.py'
       - 'tests/test_internet_browser_contract.py'
       - 'tests/test_internet_sdk_readiness.py'
       - 'tools/verify/internet_sdk_readiness.py'
@@ -620,10 +616,11 @@ jobs:
           python -m unittest tests.test_native_component_probation -v
           python -m unittest tests.test_browser_session_integration_contract -v
           python -m unittest tests.test_browser_session_store -v
-          python -m unittest tests.test_internet_accessibility_contract -v
+          python -m unittest tests.test_internet_remove_first_cutover -v
           python -m unittest tests.test_internet_browser_contract -v
           python -m unittest tests.test_internet_sdk_readiness -v
-          python tools/verify/internet_sdk_readiness.py --check
+          # Full product SDK-closure auditing belongs to the external Internet package.
+          # The preceding unit tests prove that an absent OS source fails closed.
           python -m unittest tests.test_internet_popup_policy -v
           python -m unittest tests.test_internet_native_page_selection -v
           python -m unittest tests.test_internet_native_page_find -v
@@ -632,7 +629,6 @@ jobs:
           python -m unittest tests.test_internet_project_context_contract -v
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v
-          python -m unittest tests.test_internet_deep_localization -v
           python -m unittest tests.test_native_host_module_integrity -v
           python -m unittest tests.test_native_account_gateway -v
           python -m unittest tests.test_native_request_boundary -v

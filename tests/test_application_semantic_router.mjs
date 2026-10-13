@@ -24,7 +24,6 @@ test("bundled first-party semantics cover internal apps without duplicating exte
     "account",
     "activity",
     "files",
-    "internet",
     "settings",
     "system",
   ]);
@@ -36,20 +35,12 @@ test("bundled first-party semantics cover internal apps without duplicating exte
   }
 });
 
-test("semantic router resolves YouTube/new-tab phrasing to OrdaX Internet without model inference", () => {
+test("semantic router does not invent an Internet app after remove-first Gate A", () => {
   const { router } = runtime();
   const selected = router.select("Abra uma nova aba no YouTube");
-  assert.equal(selected[0].appId, "internet");
+  assert.equal(selected.some((candidate) => candidate.appId === "internet"), false);
   const detail = router.contextItemsForPrompt("Abra uma nova aba no YouTube");
-  assert.equal(detail[0].id, "ordax-application-detail:internet");
-  const payload = JSON.parse(detail[0].text);
-  assert.equal(payload.application.appId, "internet");
-  assert.equal(
-    payload.semantics.intents.some((intent) => intent.id === "internet.navigate"),
-    true,
-  );
-  assert.equal(payload.authority, "none");
-  assert.equal(payload.toolExecution, false);
+  assert.equal(detail.some((item) => item.id === "ordax-application-detail:internet"), false);
 });
 
 test("semantic router exposes Wi-Fi settings but cannot invent an uninstalled Network app", () => {
