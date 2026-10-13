@@ -681,15 +681,21 @@ func TestSignedDecisionRetriesRejectTamperedSlots(t *testing.T) {
 		promoted := healthyPromoteV2(t, fixture, candidate)
 		current := *promoted.Current
 		tampered := filepath.Join(candidate.slot, candidate.release.Compatibility.Name)
-		if err := os.Chmod(tampered, 0o644); err != nil { t.Fatal(err) }
-		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil { t.Fatal(err) }
+		if err := os.Chmod(tampered, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := promotePendingStateAtRevision(
 			fixture.root, "internet", current, promoted.Revision-1, fixture.trustPath,
 		); err == nil {
 			t.Fatal("promotion retry silently acknowledged a corrupt current slot")
 		}
 		persisted, err := readActivationState(fixture.root, "internet")
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		if persisted.Revision != promoted.Revision || !sameSlotIdentity(persisted.Current, &current) {
 			t.Fatalf("rejected retry modified activation state: %+v", persisted)
 		}
@@ -704,17 +710,25 @@ func TestSignedDecisionRetriesRejectTamperedSlots(t *testing.T) {
 		rolled, err := rollbackCurrentStateAtRevision(
 			fixture.root, "internet", source, promoted.Revision, fixture.trustPath,
 		)
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		tampered := filepath.Join(previous.slot, previous.release.Compatibility.Name)
-		if err := os.Chmod(tampered, 0o644); err != nil { t.Fatal(err) }
-		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil { t.Fatal(err) }
+		if err := os.Chmod(tampered, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := rollbackCurrentStateAtRevision(
 			fixture.root, "internet", source, promoted.Revision, fixture.trustPath,
 		); err == nil {
 			t.Fatal("rollback retry acknowledged a corrupt restored current slot")
 		}
 		persisted, err := readActivationState(fixture.root, "internet")
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		if persisted.Revision != rolled.Revision || !sameSlotIdentity(persisted.Current, rolled.Current) {
 			t.Fatalf("rejected rollback retry modified activation state: %+v", persisted)
 		}
@@ -731,7 +745,9 @@ func TestUninstallRetryRequiresDurableSignedRemovedIdentity(t *testing.T) {
 	removed, err := uninstallCurrentStateAtRevision(
 		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
 	)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !sameSlotIdentity(removed.Removed, &removedIdentity) || !removed.UserRemoved {
 		t.Fatalf("uninstall lost durable removed identity: %+v", removed)
 	}
@@ -751,7 +767,9 @@ func TestUninstallRetryRequiresDurableSignedRemovedIdentity(t *testing.T) {
 	// no made-up identity can turn them into an acknowledged retry.
 	legacy := removed
 	legacy.Removed = nil
-	if err := writeActivationState(fixture.root, legacy); err != nil { t.Fatal(err) }
+	if err := writeActivationState(fixture.root, legacy); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := uninstallCurrentStateAtRevision(
 		fixture.root, "internet", removedIdentity, promoted.Revision, fixture.trustPath,
 	); err == nil {
@@ -764,10 +782,16 @@ func TestUninstallRetryRequiresDurableSignedRemovedIdentity(t *testing.T) {
 	identity2 := *promoted2.Current
 	if _, err := uninstallCurrentStateAtRevision(
 		fixture2.root, "internet", identity2, promoted2.Revision, fixture2.trustPath,
-	); err != nil { t.Fatal(err) }
+	); err != nil {
+		t.Fatal(err)
+	}
 	tampered := filepath.Join(candidate2.slot, candidate2.release.Compatibility.Name)
-	if err := os.Chmod(tampered, 0o644); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil { t.Fatal(err) }
+	if err := os.Chmod(tampered, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tampered, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := uninstallCurrentStateAtRevision(
 		fixture2.root, "internet", identity2, promoted2.Revision, fixture2.trustPath,
 	); err == nil {
