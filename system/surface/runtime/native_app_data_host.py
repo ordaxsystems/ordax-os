@@ -103,6 +103,7 @@ class NativeAppDataHostServer(NativeHostServer):
         """
         with self.app_data_bindings.suspend_verified_receipt_for_maintenance(
             receipt_sha256, expected_source_release=source_release,
+            expected_revision=expected_revision,
         ) as binding:
             with hold_app_data_maintenance(
                 binding.app_data_identity(),

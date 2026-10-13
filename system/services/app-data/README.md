@@ -200,3 +200,17 @@ Still deliberately incomplete:
 - Notes migration/cutover.
 
 Notes remains the first migration candidate because its current specialized Native/Web persistence demonstrates why the platform needs a generic App Data boundary instead of one core endpoint per app.
+
+
+### Admissão e manutenção anterior ao corte da versão
+
+A rotação para novo receipt da mesma identidade é recusada enquanto existir
+requisição antiga já admitida no host. Em lote, a recusa é atômica: nenhuma
+capability nova é emitida. O owner de instalação deve drenar as requisições
+antes de tentar novamente.
+
+O host também rejeita `sourceCommit` ou revisão com forma inválida
+**antes** de revogar a capability ativa, utilizando a validação do próprio
+owner App Data. A checagem CAS e de integridade continua sob `flock`
+exclusivo. Estas proteções não autenticam um slot Ed25519, não encerram
+processos via Supervisor e não autorizam ativação ou rollback stateful.

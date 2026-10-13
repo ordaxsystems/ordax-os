@@ -350,6 +350,19 @@ def _source_release(value: object, identity: dict) -> dict:
     return {"componentId": identity["appId"], "version": version, "sourceCommit": source_commit}
 
 
+def validate_app_data_maintenance_request(
+    identity: object, source_release: object, expected_revision: object,
+) -> None:
+    """Validate owner inputs before a host revokes an existing capability.
+
+    This structural preflight is not signed activation authority. Under the
+    exclusive lock, maintenance still repeats validation and checks CAS.
+    """
+    bound = _identity(identity)
+    _source_release(source_release, bound)
+    _revision(expected_revision)
+
+
 def _checkpoint_path(root: str, identity: dict) -> str:
     return os.path.join(_partition_paths(root, identity)[0], APP_DATA_CHECKPOINT_NAME)
 

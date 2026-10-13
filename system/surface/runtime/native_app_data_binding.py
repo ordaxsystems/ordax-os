@@ -19,6 +19,7 @@ from native_app_data import (
     DEFAULT_APP_DATA_ROOT,
     MAX_APP_DATA_PARTITION_BYTES,
     MAX_APP_DATA_PARTITION_KEYS,
+    validate_app_data_maintenance_request,
 )
 from native_app_data_endpoint import handle_app_data_request
 from native_app_install_identity import (
@@ -283,6 +284,7 @@ class NativeAppDataBindingRegistry:
     @contextmanager
     def suspend_verified_receipt_for_maintenance(
         self, receipt_sha256: str, *, expected_source_release: dict | None = None,
+        expected_revision: object = None,
     ):
         """Trusted host-only admission barrier; no app-facing revocation route.
 
@@ -313,6 +315,10 @@ class NativeAppDataBindingRegistry:
                 raise NativeAppDataBindingError(
                     "Native App Data maintenance source release does not match verified install receipt"
                 )
+            # Reuse canonical owner validation BEFORE revoking healthy grants.
+            validate_app_data_maintenance_request(
+                identity, expected_source_release, expected_revision,
+            )
         key = (identity["publisherId"], identity["appId"], identity["ownerScope"])
         with self._condition:
             if key in self._suspended:

@@ -244,6 +244,22 @@ class NativeAppDataHostHttpTest(unittest.TestCase):
                 self.assertEqual(listing["keys"], ["private.note"])
                 self.assertEqual(self.binding.endpoint, original)
 
+        # Invalid maintenance arguments cannot strand a healthy grant.
+        for bad_release, bad_revision in (
+            ({**matching_release, "sourceCommit": "invalid"}, 1),
+            (matching_release, -1),
+            (matching_release, None),
+        ):
+            with self.subTest(bad_release=bad_release, bad_revision=bad_revision):
+                with self.assertRaises(ValueError):
+                    with self.server.hold_verified_app_data_maintenance(
+                        self.digest, bad_release, bad_revision,
+                    ):
+                        self.fail("invalid request entered maintenance")
+                self.assertEqual(self.server.app_data_bindings.active_binding_count(), 1)
+                status, _headers, listing = self.json_post(original, {"action": "list"})
+                self.assertEqual((status, listing["revision"]), (200, 1))
+
         # Once the trusted caller supplies the matching release correlation,
         # the genuine maintenance path must remain usable and revoke the cap.
         with self.server.hold_verified_app_data_maintenance(
