@@ -21,26 +21,20 @@
   <main id="conteudo" class="account-stage">
     <section class="account-story" aria-labelledby="new-password-story-title">
       <div>
-        <p class="eyebrow">CONTA ORDA X / RECUPERAÇÃO</p>
-        <h1 id="new-password-story-title">Nova senha.<br><span>Sessão curta.</span></h1>
-        <p class="story-lead">Esta etapa só fica disponível depois que o servidor valida o link enviado por e-mail e cria uma sessão de recuperação temporária. O navegador não recebe o token de recuperação.</p>
-        <ul class="account-benefits" aria-label="Proteções para definir uma nova senha">
-          <li><strong>01 / LINK</strong><span>Validação realizada no servidor</span></li>
-          <li><strong>02 / SESSÃO</strong><span>Escopo restrito à recuperação</span></li>
-          <li><strong>03 / SENHA</strong><span>Atualização somente após readiness real</span></li>
-        </ul>
+        <p class="eyebrow">CONTA ORDA X</p>
+        <h1 id="new-password-story-title">Defina uma nova senha para sua conta.</h1>
+        <p class="story-lead">Esta etapa só funciona depois que o servidor valida o link enviado por e-mail e cria uma sessão de recuperação curta e protegida.</p>
       </div>
-      <div class="account-side-footer"><div class="account-promise"><span class="account-promise-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6ZM8 12l3 3 5-6"/></svg></span><div><strong>Nenhum token no JavaScript.</strong><p>A validação e a sessão de recuperação pertencem ao servidor; esta página apenas apresenta o formulário quando autorizado.</p></div></div>
-        <nav class="account-quicklinks" aria-label="Atalhos para sua conta"><a href="/recuperar/">Solicitar novo link</a><a href="/login/">Voltar para entrar</a><a href="/privacidade/">Privacidade</a></nav>
+      <div class="account-side-footer">
+        <nav class="account-quicklinks" aria-label="Atalhos para sua conta"><a href="/recuperar/">Solicitar novamente</a><a href="/login/">Voltar para entrar</a><a href="/privacidade/">Privacidade</a></nav>
       </div>
       <div class="account-orbit" aria-hidden="true"><span></span><i></i></div>
     </section>
 
     <section class="account-access" aria-labelledby="auth-title">
       <div class="account-card">
-        <header class="account-card-header"><p class="eyebrow">NOVA SENHA</p><span class="account-card-index" aria-hidden="true">02 / 02</span></header>
-        <h2 id="auth-title">Atualizar<br>senha.</h2>
-        <p class="account-intro">Defina uma nova senha somente quando a sessão de recuperação oficial estiver válida.</p>
+        <header class="account-card-header"><p class="eyebrow">NOVA SENHA</p></header>
+        <h2 id="auth-title">Atualizar senha</h2>
 
         <div class="identity-state" data-identity-state="recover-complete" data-status="unavailable" aria-live="polite">
           <span class="state-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/></svg></span>
@@ -49,14 +43,13 @@
         <p class="identity-notice" data-identity-notice hidden aria-live="polite"></p>
 
         <form class="identity-form" data-identity-form="recover-complete" method="post" hidden>
-          <label class="identity-field"><span>Nova senha</span><input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="256" aria-describedby="recovery-password-help" placeholder="Crie uma nova senha" required disabled></label>
-          <label class="identity-field"><span>Confirmar nova senha</span><input type="password" name="password_confirmation" autocomplete="new-password" minlength="12" maxlength="256" placeholder="Repita a nova senha" required disabled></label>
+          <label class="identity-field"><span>Nova senha</span><input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="256" aria-describedby="recovery-password-help" required disabled></label>
+          <label class="identity-field"><span>Confirmar nova senha</span><input type="password" name="password_confirmation" autocomplete="new-password" minlength="12" maxlength="256" required disabled></label>
           <small id="recovery-password-help">Use pelo menos 12 caracteres e repita exatamente o mesmo valor.</small>
-          <button class="button button-primary identity-submit" type="submit" disabled>Salvar nova senha <span aria-hidden="true">↗</span></button>
+          <button class="button button-primary identity-submit" type="submit" disabled>Salvar nova senha</button>
         </form>
 
-        <div class="gated-guidance"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/></svg></span><p>Sem uma sessão de recuperação validada pelo servidor, esta página permanece somente informativa.</p></div>
-        <div class="account-entry"><div><span>O LINK EXPIROU?</span><strong>Solicite uma nova recuperação.</strong></div><a href="/recuperar/">Solicitar novamente <span aria-hidden="true">↗</span></a></div>
+        <div class="account-entry"><div><span>O link expirou?</span></div><a href="/recuperar/">Solicitar novamente</a></div>
         <nav class="account-legal" aria-label="Documentação da conta"><a href="/privacidade/">Privacidade</a><a href="/termos/">Termos</a></nav>
       </div>
     </section>
