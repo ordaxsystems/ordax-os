@@ -215,3 +215,20 @@ owner App Data. A checagem CAS e de integridade continua sob `flock`
 exclusivo. Estas proteções não autenticam um slot Ed25519, não encerram
 processos via Supervisor e não autorizam ativação ou rollback stateful.
 \n\n### Recuperação no reinício do host: versão vinculada ao checkpoint\n\nAntes de emitir qualquer capability a partir dos receipts verificados, o host\nconsulta o **mesmo checkpoint persistente do owner App Data**, sob lock\ncompartilhado. Se existir um pin de recuperação para uma versão diferente\nda presente no receipt, toda a emissão é recusada (incluindo lotes, sem\nautorização parcial). Corrupção ou diretório parcial também são fail-closed.\nUm reinício do host não apaga a intenção de recuperação. A versão antiga\npode ser vinculada se o receipt permanecer válido; isto **não** autoriza\nrollback nem valida sourceCommit. A aposentadoria do pin é exclusiva do\nowner confiável e não é automática durante o bootstrap.\n\nEste controle é somente um **fence de inicialização**: não oferece\nquiescência entre hosts, nem substitui o lock de ativação Go, prova de slot\nEd25519, a transação de rollback, ou a política para escritas na probation.\n
+## Bloqueio de capabilities já emitidas quando o checkpoint muda
+
+A checagem na emissão da capability é insuficiente por si só: um checkpoint
+pode ser criado **depois** que uma instância do host entregou um endpoint.
+O `sourceVersion` do receipt verificado agora acompanha a binding efêmera
+do host e o endpoint o transmite somente como argumento confiável, nunca
+como metadado escolhido pelo aplicativo. Cada `get/list/put/delete` verifica
+a versão contra o checkpoint **sob o mesmo flock da própria leitura ou
+mutação**. Quando outra versão detém o pin, a operação HTTP recebe 409 sem
+acessar nem modificar os dados; o pin continua persistido para recuperação.
+
+Essa proteção continua necessária mesmo com bootstrap fail-closed, porque
+hosts antigos podem permanecer executando. Acesso direto do owner ao App
+Data não é uma capability de aplicativo e preserva suas APIs existentes.
+A condição de versão **não é prova Ed25519 nem autorização de rollback**:
+a transação com writer Go, Supervisor e decisões de pós-atualização segue
+bloqueada até provas reais.
