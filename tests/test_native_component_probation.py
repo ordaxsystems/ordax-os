@@ -24,7 +24,7 @@ COMMIT = "a" * 40
 
 def message(
     *,
-    component_id="internet",
+    component_id="notes",
     nonce="nonce-1",
     health="healthy",
     version=None,
@@ -61,13 +61,14 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertTrue(probation.SUPPORTED_COMPONENTS.issubset(NATIVE_HEALTH_MUTATION_COMPONENT_IDS))
         self.assertNotIn("calculator", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("studio", probation.SUPPORTED_COMPONENTS)
+        self.assertNotIn("internet", probation.SUPPORTED_COMPONENTS)
         self.assertEqual(probation.PROBE_MODE, policy["runtime_health_bridge_probe_mode"])
 
     def test_exact_nonce_and_receipt_record_health_once(self):
         record = slots.ComponentHealthRecord(
-            component_id="internet",
+            component_id="notes",
             revision=8,
-            version="0.4.0",
+            version="0.4.1",
             source_commit=COMMIT,
             health="healthy",
         )
@@ -78,7 +79,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         ) as recorder:
             outcome = probation.record_system_component_probation(
                 payload=message(),
-                expected_component_id="internet",
+                expected_component_id="notes",
                 expected_nonce="nonce-1",
                 helper_path="/signed/helper",
                 slot_root="/var/lib/ordax/components",
@@ -89,8 +90,8 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertEqual(outcome.reason, "recorded")
         recorder.assert_called_once_with(
             helper_path="/signed/helper",
-            component_id="internet",
-            version="0.4.0",
+            component_id="notes",
+            version="0.4.1",
             source_commit=COMMIT,
             expected_revision=7,
             health="healthy",
@@ -127,7 +128,7 @@ class NativeComponentProbationTests(unittest.TestCase):
             with self.assertRaises(probation.ComponentProbationReceiptError):
                 probation.record_system_component_probation(
                     payload=message(nonce="wrong"),
-                    expected_component_id="internet",
+                    expected_component_id="notes",
                     expected_nonce="nonce-1",
                     helper_path="/signed/helper",
                     slot_root="/var/lib/ordax/components",
@@ -150,7 +151,7 @@ class NativeComponentProbationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 probation.ComponentProbationReceiptError,
-                "attempt mismatch",
+                "invalid component probation receipt component",
             ):
                 probation.record_system_component_probation(
                     payload=message(component_id="internet", nonce="notes-nonce"),
@@ -171,7 +172,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         with mock.patch.object(probation, "record_component_pending_health") as recorder:
             outcome = probation.record_system_component_probation(
                 payload=payload,
-                expected_component_id="internet",
+                expected_component_id="notes",
                 expected_nonce="nonce-1",
                 helper_path="/signed/helper",
                 slot_root="/var/lib/ordax/components",
@@ -192,7 +193,7 @@ class NativeComponentProbationTests(unittest.TestCase):
             ):
                 probation.record_system_component_probation(
                     payload=payload,
-                    expected_component_id="internet",
+                    expected_component_id="notes",
                     expected_nonce="nonce-1",
                     helper_path="/signed/helper",
                     slot_root="/var/lib/ordax/components",
@@ -201,9 +202,9 @@ class NativeComponentProbationTests(unittest.TestCase):
 
     def test_failed_probation_is_recorded_for_complete_identity(self):
         record = slots.ComponentHealthRecord(
-            component_id="internet",
+            component_id="notes",
             revision=8,
-            version="0.4.0",
+            version="0.4.1",
             source_commit=COMMIT,
             health="failed",
         )
@@ -214,7 +215,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         ) as recorder:
             outcome = probation.record_system_component_probation(
                 payload=message(health="failed"),
-                expected_component_id="internet",
+                expected_component_id="notes",
                 expected_nonce="nonce-1",
                 helper_path="/signed/helper",
                 slot_root="/var/lib/ordax/components",
@@ -230,7 +231,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         ):
             outcome = probation.record_system_component_probation(
                 payload=message(),
-                expected_component_id="internet",
+                expected_component_id="notes",
                 expected_nonce="nonce-1",
                 helper_path="/signed/helper",
                 slot_root="/var/lib/ordax/components",
@@ -245,7 +246,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         with self.assertRaises(probation.ComponentProbationReceiptError):
             probation.record_system_component_probation(
                 payload=bad_type,
-                expected_component_id="internet",
+                expected_component_id="notes",
                 expected_nonce="nonce-1",
                 helper_path="/signed/helper",
                 slot_root="/var/lib/ordax/components",
@@ -256,7 +257,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         with self.assertRaises(probation.ComponentProbationReceiptError):
             probation.record_system_component_probation(
                 payload=bad_probe,
-                expected_component_id="internet",
+                expected_component_id="notes",
                 expected_nonce="nonce-1",
                 helper_path="/signed/helper",
                 slot_root="/var/lib/ordax/components",
