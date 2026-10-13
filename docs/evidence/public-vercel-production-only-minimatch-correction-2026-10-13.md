@@ -41,9 +41,10 @@ The machine-readable deployment contract records both the minimatch syntax and t
 After the corrected policy was pushed on slash-bearing branch `fix/vercel-production-only-minimatch-20261013` at commit `1a9cf6aa3ddcf404e546fd31c065e4eb0e35f0b6`, the GitHub Deployments API query scoped to that SHA returned an empty list. No Vercel deployment record was created for that commit.
 
 This is the direct negative-control counterpart to deployment `7032114852`: with `"*": false`, a slash-bearing branch escaped and produced a Preview; with `"**": false`, a slash-bearing branch produced no Vercel deployment while GitHub Actions validation continued normally.
+
 ## Boundaries
 
-$- The canonical Vercel project remains `ordax-os-public` under `ordaxsystems`.
+- The canonical Vercel project remains `ordax-os-public` under `ordaxsystems`.
 - The canonical public origin remains `https://ordax.com.br`.
 - Pull requests are validated by GitHub Actions `Public Site Candidate`, not by a parallel hosting project.
 - No alternate domain, account, token, deploy hook or shadow release pipeline is introduced.
