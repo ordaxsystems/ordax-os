@@ -85,6 +85,24 @@ def inputs(kind: str) -> list[Path]:
         raise CacheError("no canonical build inputs")
     return unique
 
+def identity_digest(document: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def source_snapshot(kind: str) -> dict:
+    """Revalidate current canonical source bytes without querying mutable apt state."""
+    files = {}
+    for path in inputs(kind):
+        relative = path.relative_to(ROOT).as_posix()
+        files[relative] = {
+            "sha256": sha256(path),
+            "mode": oct(stat.S_IMODE(path.stat().st_mode)),
+        }
+    return files
+
+
 def fingerprint(kind: str) -> dict:
     # Exact Ubuntu image + resolved apt dependency versions and canonical paths.
     # A new runner image or any relevant build dependency changes the key.
@@ -107,16 +125,8 @@ def fingerprint(kind: str) -> dict:
     }
     if not toolchain["runner_image_version"] or platform.system() != "Linux":
         raise CacheError("CI runner image identity is not pinned")
-    files = {}
-    for path in inputs(kind):
-        relative = path.relative_to(ROOT).as_posix()
-        files[relative] = {
-            "sha256": sha256(path),
-            "mode": oct(stat.S_IMODE(path.stat().st_mode)),
-        }
-    document = {"kind": kind, "toolchain": toolchain, "inputs": files}
-    key = hashlib.sha256(json.dumps(document, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    return {"fingerprint": key, **document}
+    document = {"kind": kind, "toolchain": toolchain, "inputs": source_snapshot(kind)}
+    return {"fingerprint": identity_digest(document), **document}
 
 def artifacts(path: Path) -> dict[str, str]:
     if path.is_symlink() or not path.is_dir():
@@ -179,19 +189,39 @@ def seal(kind: str, path: Path) -> dict:
     target.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return manifest
 
-def verify(kind: str, path: Path) -> dict:
+def verify(kind: str, path: Path, *, check_builder_environment: bool = True) -> dict:
+    """Always hash current sources and artifacts. Builder tools are checked at ingress.
+
+    Build-time packages are part of the immutable sealed identity. The consumer
+    verifies this seal and source bytes after its own unrelated apt installs;
+    it must not reinterpret its *current* packages as the build toolchain.
+    """
     target = path / MANIFEST
     if target.is_symlink() or not target.is_file():
         raise CacheError("cached build has no immutable origin identity")
-    metadata = json.loads(target.read_text())
-    expected = fingerprint(kind)
+    metadata = json.loads(target.read_text(encoding="utf-8"))
+    inputs_now = source_snapshot(kind)
+    sealed = {
+        "kind": kind,
+        "toolchain": metadata.get("toolchain"),
+        "inputs": metadata.get("inputs"),
+    }
+    actual_key = identity_digest(sealed)
     if (metadata.get("$schema") != SCHEMA or metadata.get("kind") != kind or
-        metadata.get("fingerprint") != expected["fingerprint"] or
-        metadata.get("toolchain") != expected["toolchain"] or
-        metadata.get("inputs") != expected["inputs"] or
+        not HEX64.fullmatch(metadata.get("fingerprint", "")) or
+        metadata.get("fingerprint") != actual_key or
+        not isinstance(metadata.get("toolchain"), dict) or
+        not metadata["toolchain"].get("runner_image_version") or
+        not isinstance(metadata.get("inputs"), dict) or
+        metadata.get("inputs") != inputs_now or
         metadata.get("physical_promotion_authorized") is not False or
         not HEX40.fullmatch(metadata.get("origin_commit", ""))):
-        raise CacheError("cache key, inputs, toolchain or non-promotion policy changed")
+        raise CacheError("sealed cache identity, canonical sources or non-promotion policy changed")
+    if check_builder_environment:
+        expected = fingerprint(kind)
+        if (metadata["fingerprint"] != expected["fingerprint"] or
+            metadata["toolchain"] != expected["toolchain"]):
+            raise CacheError("build toolchain or installed dependencies differ from sealed origin")
     actual_files = artifacts(path)
     if actual_files != metadata.get("artifacts"):
         raise CacheError("immutable cached bytes differ from sealed SHA-256 list")
@@ -201,6 +231,7 @@ def verify(kind: str, path: Path) -> dict:
     if sha256(path / ("kernel-provenance.json" if kind == "kernel" else "provenance.json")) != metadata["canonical_provenance_sha256"]:
         raise CacheError("cached original provenance hash differs")
     return metadata
+
 
 def bind(kind: str, path: Path, destination: Path) -> dict:
     info = verify(kind, path)
@@ -219,11 +250,14 @@ def bind(kind: str, path: Path, destination: Path) -> dict:
     destination.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
     return value
 
-def verify_binding(kind: str, path: Path, receipt: Path, current: str) -> dict:
+def verify_binding(
+    kind: str, path: Path, receipt: Path, current: str, *,
+    check_builder_environment: bool = True,
+) -> dict:
     if receipt.is_symlink() or not receipt.is_file():
         raise CacheError("current-run artifact binding is missing or unsafe")
     value = json.loads(receipt.read_text())
-    info = verify(kind, path)
+    info = verify(kind, path, check_builder_environment=check_builder_environment)
     if (value.get("$schema") != BINDING_SCHEMA or value.get("kind") != kind or
         value.get("current_commit") != current or value.get("origin_commit") != info["origin_commit"] or
         value.get("inputs_sha256") != info["fingerprint"] or

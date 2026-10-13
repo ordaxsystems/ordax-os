@@ -88,7 +88,14 @@ def prove(args: argparse.Namespace) -> dict:
         # Keep the ORIGINAL provenance unchanged. The current checkout is
         # independently bound to exact input/tool hashes and sealed bytes.
         try:
-            verify_binding("base", base_dir, args.ci_binding, args.source_commit)
+            # The signed portable job already verified the original build
+            # toolchain before its subsequent dependency installs. Here we
+            # rehash the original seal, current canonical sources, artifacts,
+            # provenance and current-commit binding, not mutable consumer apt.
+            verify_binding(
+                "base", base_dir, args.ci_binding, args.source_commit,
+                check_builder_environment=False,
+            )
         except CacheError as exc:
             raise BaseError(f"Buildroot reuse binding rejected: {exc}") from exc
     elif receipt.get("source_commit") != args.source_commit:

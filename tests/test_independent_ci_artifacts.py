@@ -31,3 +31,64 @@ class CacheIntegrity(unittest.TestCase):
                 file.write_text(json.dumps({**receipt,"artifacts":{"binary":"f"*64}}))
                 with self.assertRaises(ci.CacheError):
                     ci.verify_binding("base",path,file,"d"*40)
+
+    def test_consumption_survives_unrelated_apt_changes_but_rejects_tampering(self):
+        import hashlib
+        import stat
+
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            canonical = base / "canonical-input"
+            canonical.write_bytes(b"canonical-source")
+            destination = base / "artifacts"
+            destination.mkdir()
+            prov = destination / "provenance.json"
+            prov.write_text('{"status":"candidate"}')
+            binary = destination / "independent-base.erofs"
+            binary.write_bytes(b"verified-independent-binary")
+            manifest = destination / ci.MANIFEST
+            sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+            inputs = {"canonical-input": {
+                "sha256": sha(canonical), "mode": oct(stat.S_IMODE(canonical.stat().st_mode)),
+            }}
+            toolchain = {"runner_image_version": "build-runner-v1"}
+            fingerprint = ci.identity_digest({
+                "kind": "base", "toolchain": toolchain, "inputs": inputs,
+            })
+            sealed = {
+                "$schema": ci.SCHEMA, "kind": "base",
+                "origin_commit": "a" * 40, "fingerprint": fingerprint,
+                "toolchain": toolchain, "inputs": inputs,
+                "artifacts": {
+                    "provenance.json": sha(prov), "independent-base.erofs": sha(binary),
+                },
+                "canonical_provenance_sha256": sha(prov),
+                "physical_promotion_authorized": False,
+            }
+            manifest.write_text(json.dumps(sealed))
+            receipt = base / "binding.json"
+            receipt.write_text(json.dumps({
+                "$schema": ci.BINDING_SCHEMA, "kind": "base",
+                "origin_commit": "a" * 40, "current_commit": "b" * 40,
+                "inputs_sha256": fingerprint, "artifacts": sealed["artifacts"],
+                "physical_promotion_authorized": False,
+            }))
+            with (
+                patch.object(ci, "ROOT", base),
+                patch.object(ci, "inputs", return_value=[canonical]),
+                patch.object(ci, "verify_canonical", return_value={"source_commit": "a" * 40}),
+                patch.object(ci, "fingerprint", side_effect=ci.CacheError("consumer apt changed")),
+            ):
+                ci.verify_binding("base", destination, receipt, "b" * 40,
+                                  check_builder_environment=False)
+                with self.assertRaisesRegex(ci.CacheError, "consumer apt changed"):
+                    ci.verify_binding("base", destination, receipt, "b" * 40)
+                canonical.write_bytes(b"changed-canonical-source")
+                with self.assertRaisesRegex(ci.CacheError, "canonical sources"):
+                    ci.verify_binding("base", destination, receipt, "b" * 40,
+                                      check_builder_environment=False)
+                canonical.write_bytes(b"canonical-source")
+                binary.write_bytes(b"tampered")
+                with self.assertRaisesRegex(ci.CacheError, "sealed SHA-256"):
+                    ci.verify_binding("base", destination, receipt, "b" * 40,
+                                      check_builder_environment=False)
