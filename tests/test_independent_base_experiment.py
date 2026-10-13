@@ -106,14 +106,14 @@ class IndependentBaseTest(unittest.TestCase):
             "ORDAX_INDEPENDENT_METRIC_PROCESSES=8",
             "ORDAX_INDEPENDENT_METRIC_UPTIME_S=4.52",
         ]
-        serial = "\\r\\n".join(lines) + "\\r\\n"
+        serial = "\r\n".join(lines) + "\r\n"
         observed = qemu_proof.parse_guest_metrics(serial)
         self.assertEqual(observed["mem_used_kib"], 24000)
         self.assertEqual(observed["cpu_busy_pct"], 14)
         self.assertEqual(observed["processes"], 8)
         self.assertEqual(observed["uptime_s"], 4.52)
         with self.assertRaises(qemu_proof.BaseError):
-            qemu_proof.parse_guest_metrics(serial + lines[0] + "\\r\\n")
+            qemu_proof.parse_guest_metrics(serial + lines[0] + "\r\n")
         with self.assertRaises(qemu_proof.BaseError):
             qemu_proof.parse_guest_metrics(serial.replace("MEM_USED_KIB=24000", "MEM_USED_KIB=384001"))
         with self.assertRaises(qemu_proof.BaseError):
