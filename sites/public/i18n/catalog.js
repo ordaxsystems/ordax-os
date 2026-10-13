@@ -1037,7 +1037,7 @@
     "compliance.ready.title": ["Conformidade publicada por release", "Compliance published per release"],
     "compliance.ready.detail": ["Cada conjunto abaixo está vinculado por tamanho e SHA-256 à release pública correspondente.", "Each set below is bound by size and SHA-256 to the corresponding public release."],
     "compliance.error.title": ["Catálogo de conformidade indisponível", "Compliance catalog unavailable"],
-    "compliance.error.detail": ["Nenhum material será anunciado até a fonte autorizada responder corretamente.", "No material will be announced until the authorized source responds correctly."]
+    "compliance.error.detail": ["Nenhum material será anunciado até a fonte autorizada responder corretamente.", "No material will be announced until the authorized source responds correctly."],
     "account.activity.pendingPeriod": ["Acessos e alterações de {period} serão exibidos quando o serviço de atividade estiver conectado.", "Sign-ins and changes during {period} will be shown when the activity service is connected."],
   });
 
