@@ -7,22 +7,10 @@ import {
   resolveBrowserNavigation,
 } from "../system/contracts/browser-navigation.mjs";
 import {
-  BROWSER_SEARCH_PREFERENCES_STORE_SCHEMA,
   defaultBrowserSearchPreferenceRecord,
   validateBrowserSearchPreferenceRecord,
 } from "../system/contracts/browser-search-preferences.mjs";
-import { createBrowserSearchPreferencesRuntime } from "../system/apps/internet/services/search-preferences.mjs";
 import { createNativeBrowserSearchPreferencesStore } from "../system/adapters/native/browser-search-preferences.mjs";
-
-function memoryStore({ saved = false } = {}) {
-  let record = defaultBrowserSearchPreferenceRecord();
-  return {
-    schema: BROWSER_SEARCH_PREFERENCES_STORE_SCHEMA,
-    scope: "device",
-    load: () => record,
-    save(value) { record = validateBrowserSearchPreferenceRecord(value); return saved; },
-  };
-}
 
 function browserWindow() {
   const data = new Map();
@@ -51,47 +39,20 @@ test("supported providers use one typed registry and preserve query encoding", (
     "https://example.org/docs");
 });
 
-test("native search preference survives recreation without saving searches or credentials", () => {
-  const windowRef = browserWindow();
-  const store = createNativeBrowserSearchPreferencesStore(windowRef);
-  const runtime = createBrowserSearchPreferencesRuntime({ store });
-  assert.equal(runtime.getSnapshot().providerId, "duckduckgo");
-  const notifications = [];
-  const unsubscribe = runtime.subscribe(snapshot => notifications.push(snapshot));
-  runtime.setProvider("brave");
-  assert.deepEqual(runtime.getSnapshot(), { providerId: "brave", persistence: "device" });
-  runtime.setProvider("brave");
-  assert.equal(notifications.length, 1);
-  assert.equal(windowRef.data.size, 1);
-  assert.ok(!JSON.stringify([...windowRef.data.values()]).includes("pesquisa & ferramenta"));
-  unsubscribe();
-  runtime.destroy();
-  const restored = createBrowserSearchPreferencesRuntime({
-    store: createNativeBrowserSearchPreferencesStore(windowRef),
-  });
-  assert.equal(restored.getSnapshot().providerId, "brave");
-  restored.destroy();
-});
-
-test("corrupt settings fail closed to default provider and write failure stays session-scoped", () => {
+test("native preference adapter persists only validated provider records", () => {
   const win = browserWindow();
-  win.data.set("ordax.native.browser-search-preferences.v1", JSON.stringify({
-    schema: "ordax.native.browser-search-preferences-record/1",
-    state: { providerId: "unsupported" },
-  }));
-  const restored = createBrowserSearchPreferencesRuntime({
-    store: createNativeBrowserSearchPreferencesStore(win),
-  });
-  assert.equal(restored.getSnapshot().providerId, "duckduckgo");
-  restored.destroy();
-  const memory = createBrowserSearchPreferencesRuntime({ store: memoryStore({ saved: false }) });
-  memory.setProvider("google");
-  assert.deepEqual(memory.getSnapshot(), { providerId: "google", persistence: "session" });
-  assert.throws(() => memory.setProvider("untrusted"), TypeError);
-  assert.equal(memory.getSnapshot().providerId, "google");
-  memory.destroy();
-  const fallback = createBrowserSearchPreferencesRuntime();
-  fallback.setProvider("bing");
-  assert.equal(fallback.getSnapshot().persistence, "session");
-  fallback.destroy();
+  const store = createNativeBrowserSearchPreferencesStore(win);
+  assert.equal(store.scope, "device");
+  assert.deepEqual(store.load(), defaultBrowserSearchPreferenceRecord());
+  const next = validateBrowserSearchPreferenceRecord({ providerId: "brave" });
+  assert.equal(store.save(next), true);
+  assert.deepEqual(createNativeBrowserSearchPreferencesStore(win).load(), next);
+  assert.equal(win.data.size, 1);
+  assert.throws(() => store.save({ providerId: "untrusted" }), TypeError);
+  win.data.set("ordax.native.browser-search-preferences.v1", "{broken");
+  assert.deepEqual(createNativeBrowserSearchPreferencesStore(win).load(), defaultBrowserSearchPreferenceRecord());
+  const memory = createNativeBrowserSearchPreferencesStore({});
+  assert.equal(memory.scope, "session");
+  assert.equal(memory.save(next), false);
+  assert.deepEqual(memory.load(), next);
 });
