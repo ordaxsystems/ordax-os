@@ -15,6 +15,7 @@ import subprocess
 import sys
 
 from build import ROOT, BaseError, CANONICAL_HANDOFF, contracts, digest, verify
+from ci_artifacts import CacheError, verify_binding
 
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -83,8 +84,15 @@ def prove(args: argparse.Namespace) -> dict:
     receipt = verify(base_dir)
     if receipt.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
         raise BaseError("candidate handoff is not the canonical owner")
-    if receipt.get("source_commit") != args.source_commit:
-        raise BaseError("candidate was compiled from a different source commit")
+    if args.ci_binding is not None:
+        # Keep the ORIGINAL provenance unchanged. The current checkout is
+        # independently bound to exact input/tool hashes and sealed bytes.
+        try:
+            verify_binding("base", base_dir, args.ci_binding, args.source_commit)
+        except CacheError as exc:
+            raise BaseError(f"Buildroot reuse binding rejected: {exc}") from exc
+    elif receipt.get("source_commit") != args.source_commit:
+        raise BaseError("candidate was compiled from a different source commit without verified reuse binding")
     if receipt.get("stable_channel_authorized") is True or receipt.get("physical_artifact_authorized") is not False:
         raise BaseError("candidate is not isolated")
     kernel = regular_file(args.kernel, "kernel")
@@ -167,6 +175,9 @@ def prove(args: argparse.Namespace) -> dict:
         "independent_base_sha256": digest(candidate),
         "original_ext4_image_sha256": source_state_sha256,
         "original_ext4_image_unchanged": True,
+        "source_commit": args.source_commit,
+        "build_origin_commit": receipt["source_commit"],
+        "immutable_reuse_binding_verified": args.ci_binding is not None,
         "canonical_entrypoint_sha256": digest(CANONICAL_HANDOFF),
         "initramfs_sha256": digest(initramfs_out / "initramfs.cpio.gz"),
         "portable_qemu_result": str(qemu_result),
@@ -179,6 +190,7 @@ def prove(args: argparse.Namespace) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-out", required=True, type=Path)
+    parser.add_argument("--ci-binding", type=Path)
     parser.add_argument("--stable-base", type=Path)
     parser.add_argument("--initramfs", type=Path)
     parser.add_argument("--initramfs-provenance", type=Path)
@@ -198,7 +210,7 @@ def main() -> int:
         print("ORDAX_INDEPENDENT_PORTABLE_V2_QEMU=PASS")
         print(json.dumps(proof, sort_keys=True))
         return 0
-    except (BaseError, OSError, ValueError, KeyError) as exc:
+    except (BaseError, CacheError, OSError, ValueError, KeyError) as exc:
         print(f"ordax-independent-portable-v2: ERROR: {exc}", file=sys.stderr)
         return 1
 

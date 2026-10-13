@@ -40,3 +40,13 @@ A mesma prova valida estado ext4 persistido em dois boots com modo 0600, recusa 
 ## Evidência
 
 Pipeline reaproveitado: `.github/workflows/independent-base-experiment.yml` e `.github/workflows/independent-portable-v2-integration.yml`. Resultado esperado: provenance com `phase3_*`, recibo de QEMU e logs seriais, além do pipeline portátil oficial. Conferir os resultados da PR antes de alterar este estado.
+
+## CI por artefato imutável e execução real da Surface
+
+A única compilação pesada experimental (Buildroot + kernel canônico/módulos) é de responsabilidade do workflow `independent-base-experiment.yml`. Os testes rápidos de contratos ficam também no workflow `independent-portable-v2-integration.yml`. Mudança somente de teste ou documentação não dispara a compilação pesada.
+
+O cache é exato, sem `restore-keys`, pela SHA-256 de todas as fontes relevantes, modos de arquivo, configurações e políticas canônicas, toolchain GCC 13, pacotes da compilação e identidade da imagem Ubuntu. `ci_artifacts.py` registra separadamente a origem compilada, todos os SHA-256 dos binários e um recibo novo do checkout corrente, sem reescrever a provenance canônica. Reuso requer nova verificação dos arquivos, `bootstrap/kernel/verify.py`, `bootstrap/independent-base/build.py verify`, ABI e configuração. Mudança de qualquer insumo relevante produz uma chave diferente e exige nova compilação; resultado adulterado encerra em erro.
+
+O QEMU funcional da base roda sempre sobre os arquivos verificados. Após sucesso, um único artifact imutável da mesma execução fornece o kernel e Buildroot para o pipeline de release assinada e rollback, que **revalida** a integridade e as ligações de origem antes de usá-los. O pipeline Stable padrão não usa esse caminho.
+
+O experimento também chama o **executor canônico** `bootstrap/portable-v2/qemu_cold_health_commit.py`, mediante `healthy_services_proof.py`, para exigir a Surface Cage/Wayland/WebKit real, saúde reconhecida pelo Supervisor oficial, confirmação persistente da release assinada e segundo boot. Não há saúde simulada, nem alteração do supervisor ou PID1. Eventual falha gráfica deve bloquear a prova e ser tratada no proprietário da Surface, sem alteração deste projeto. Não converte evidência QEMU em autorização para USB físico, Stable ou Secure Boot.

@@ -106,6 +106,14 @@ on:
         description: 'stable (default) or isolated independent Buildroot candidate'
         required: false
         default: stable
+      shared_inputs:
+        type: boolean
+        required: false
+        default: false
+      independent_cold_health_diagnostic:
+        type: boolean
+        required: false
+        default: false
 
 
 concurrency:
@@ -203,7 +211,37 @@ jobs:
           test -e /usr/share/OVMF/OVMF_CODE.fd || test -e /usr/share/OVMF/OVMF_CODE_4M.fd
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
+      - name: Restore original verified inputs from independent QEMU job
+        if: ${{ inputs.shared_inputs && inputs.base_source == 'independent' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ordax-independent-verified-inputs
+          path: ${{ runner.temp }}/portable-v2-qemu/shared
+      - name: Independently reverify shared kernel, Buildroot and current-commit binding
+        if: ${{ inputs.shared_inputs && inputs.base_source == 'independent' }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends gawk cpio patch
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          mkdir -p "$work/metadata"
+          cp -a "$work/shared/ordax-kernel" "$work/kernel"
+          cp -a "$work/shared/ordax-independent" "$work/independent-base"
+          python3 bootstrap/independent-base/ci_artifacts.py bind \
+            --kind kernel --directory "$work/kernel" \
+            --receipt "$work/metadata/current-kernel-binding.json"
+          python3 bootstrap/independent-base/ci_artifacts.py bind \
+            --kind base --directory "$work/independent-base" \
+            --receipt "$work/metadata/current-base-binding.json"
+          mkdir -p "$work/stable-base"
+          cp -- "$work/independent-base/independent-base.erofs" "$work/stable-base/stable-base.erofs"
+          test "$(sha256sum "$work/stable-base/stable-base.erofs" | awk '{print $1}')" = \
+            "$(sha256sum "$work/independent-base/independent-base.erofs" | awk '{print $1}')"
+          grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          echo 'ORDAX_INDEPENDENT_OFFICIAL_BOOT_SOURCE=REUSED_VERIFIED_BUILDROOT'
       - name: Build exact kernel and kernel modules
+        if: ${{ !inputs.shared_inputs }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -222,6 +260,7 @@ jobs:
           grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
 
       - name: Build and verify exact Stable Base or experimental independent candidate
+        if: ${{ !inputs.shared_inputs }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
@@ -541,6 +580,9 @@ jobs:
           if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
             proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-proof/bridge")
+            if [ -f "$work/metadata/current-base-binding.json" ]; then
+              proof_extra+=(--ci-binding "$work/metadata/current-base-binding.json")
+            fi
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
           sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
@@ -595,6 +637,9 @@ jobs:
           if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
             proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-one-shot-proof/bridge")
+            if [ -f "$work/metadata/current-base-binding.json" ]; then
+              proof_extra+=(--ci-binding "$work/metadata/current-base-binding.json")
+            fi
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
           sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
@@ -737,6 +782,35 @@ jobs:
           print('PORTABLE_V2_PHYSICAL_BOOT_PROVEN=NO')
           print('PORTABLE_V2_PUBLIC_PROMOTION=NO')
           PY
+
+      - name: Experimental real signed Surface and Supervisor cold-health two-boot proof
+        if: ${{ inputs.independent_cold_health_diagnostic && inputs.base_source == 'independent' }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          mkdir -p "$work/qemu-cold-health-proof"
+          sudo -E python3 bootstrap/independent-base/healthy_services_proof.py \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
+            --initramfs "$work/initramfs/initramfs.cpio.gz" \
+            --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
+            --capsule "$work/capsule/bootstrap.erofs" \
+            --stable-base "$work/stable-base/stable-base.erofs" \
+            --state-image "$work/persistent-state-one-shot.img" \
+            --portable-root "$work/portable/.ordax" \
+            --trust "$work/release-trust.json" \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --previous-commit "$(cat "$work/previous-commit.txt")" \
+            --out "$work/qemu-cold-health-proof/proof.json"
+          echo 'ORDAX_INDEPENDENT_SIGNED_SUPERVISOR_HEALTH=PASS'
+      - name: Preserve actual cold-health proof or fail-closed serial diagnostics
+        if: ${{ always() && inputs.independent_cold_health_diagnostic && inputs.base_source == 'independent' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-independent-cold-health-diagnostic-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/portable-v2-qemu/qemu-cold-health-proof/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload proof metadata only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

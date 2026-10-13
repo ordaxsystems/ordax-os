@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'bootstrap/independent-base/**'
+      - 'tests/test_independent_base_experiment.py'
       - 'tests/test_independent_portable_boot_integration.py'
       - '.github/workflows/independent-portable-v2-integration.yml'
   workflow_dispatch:
@@ -29,7 +30,7 @@ jobs:
       - name: Validate official portable contracts and fail-closed bridge
         run: |
           set -euo pipefail
-          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_portable_boot_integration -v
+          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_ci_artifacts tests.test_independent_portable_boot_integration -v
           python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/portable_boot_proof.py bootstrap/independent-base/signed_release_failure_qemu.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/stable-base/ordax-stable-init
@@ -45,12 +46,5 @@ jobs:
           echo 'ORDAX_INDEPENDENT_PORTABLE_V2_CONTRACT=PASS'
           echo 'ORDAX_INDEPENDENT_PORTABLE_V2_QEMU=NOT_YET_PROVEN'
 
-  independent-real-portable-qemu:
-    # Reuse the official pipeline, build/sign/release/mount/roll back in real
-    # QEMU. The single parameter selects the isolated Buildroot candidate.
-    # Default portable-v2 workflow remains unchanged for Stable builds.
-    uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
-    with:
-      base_source: independent
-    permissions:
-      contents: read
+  # Heavy signed/QEMU proof runs only once via independent-base-experiment.yml.
+  # This workflow remains lightweight for test/documentation-only changes.

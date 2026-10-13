@@ -3,9 +3,25 @@ name: Independent Base Experiment
 on:
   pull_request:
     paths:
-      - 'bootstrap/independent-base/**'
-      - 'tests/test_independent_base_experiment.py'
+      - 'bootstrap/independent-base/source.json'
+      - 'bootstrap/independent-base/build.py'
+      - 'bootstrap/independent-base/ci_artifacts.py'
+      - 'bootstrap/independent-base/post-build.sh'
+      - 'bootstrap/independent-base/qemu_proof.py'
+      - 'bootstrap/independent-base/healthy_services_proof.py'
+      - 'bootstrap/independent-base/configs/**'
+      - 'bootstrap/independent-base/overlay/**'
+      - 'bootstrap/network/**'
+      - 'bootstrap/kernel/source.json'
+      - 'bootstrap/kernel/build.py'
+      - 'bootstrap/kernel/verify.py'
+      - 'bootstrap/kernel/config/**'
+      - 'bootstrap/stable-base/ordax-stable-init'
+      - 'bootstrap/stable-base/source.json'
+      - 'system/entrypoint'
+      - 'system/supervisor'
       - '.github/workflows/independent-base-experiment.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
 
 permissions:
@@ -38,19 +54,40 @@ jobs:
             libelf-dev dwarves kmod xz-utils pkg-config \
             gawk cpio unzip rsync file wget curl patch git \
             erofs-utils e2fsprogs util-linux qemu-system-x86
+      - name: Bind cache keys to exact canonical inputs and toolchain
+        id: inputs
+        run: |
+          set -euo pipefail
+          echo "kernel=$(python3 bootstrap/independent-base/ci_artifacts.py key --kind kernel)" >> "$GITHUB_OUTPUT"
+          echo "base=$(python3 bootstrap/independent-base/ci_artifacts.py key --kind base)" >> "$GITHUB_OUTPUT"
+      - name: Restore verified kernel cache by exact SHA-256
+        id: kernel-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/ordax-kernel
+          key: ordax-independent-kernel-${{ steps.inputs.outputs.kernel }}
+      - name: Restore verified Buildroot cache by exact SHA-256
+        id: base-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-independent-base-${{ steps.inputs.outputs.base }}
       - name: Verify isolated contract and regressions
         run: |
-          python3 -m unittest tests.test_independent_base_experiment -v
+          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_ci_artifacts -v
           python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
       - name: Build rootfs from official Buildroot source
+        if: ${{ steps.base-cache.outputs.cache-hit != 'true' }}
         run: |
           python3 bootstrap/independent-base/build.py build \
             --out "$RUNNER_TEMP/ordax-independent" \
             --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
           python3 bootstrap/independent-base/build.py verify --out "$RUNNER_TEMP/ordax-independent"
+          python3 bootstrap/independent-base/ci_artifacts.py seal --kind base --directory "$RUNNER_TEMP/ordax-independent"
       - name: Build canonical OrdaX kernel without modifying kernel source
+        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -58,12 +95,40 @@ jobs:
             --work-dir "$RUNNER_TEMP/ordax-kernel-work" \
             --out-dir "$RUNNER_TEMP/ordax-kernel" --jobs 4
           python3 bootstrap/kernel/verify.py "$RUNNER_TEMP/ordax-kernel"
+          python3 bootstrap/independent-base/ci_artifacts.py seal --kind kernel --directory "$RUNNER_TEMP/ordax-kernel"
+      - name: Verify original provenance and bind current exact checkout to both binaries
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/ci_artifacts.py bind --kind kernel             --directory "$RUNNER_TEMP/ordax-kernel" --receipt "$RUNNER_TEMP/current-kernel-binding.json"
+          python3 bootstrap/independent-base/ci_artifacts.py bind --kind base             --directory "$RUNNER_TEMP/ordax-independent" --receipt "$RUNNER_TEMP/current-base-binding.json"
       - name: QEMU real kernel, EROFS and ext4 persistence/recovery
         run: |
           python3 bootstrap/independent-base/qemu_proof.py \
             --out "$RUNNER_TEMP/ordax-independent" \
             --kernel-dir "$RUNNER_TEMP/ordax-kernel" \
             --result "$RUNNER_TEMP/ordax-independent-qemu-result.json"
+      - name: Cache kernel only after QEMU real PASS
+        if: ${{ success() && steps.kernel-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/ordax-kernel
+          key: ordax-independent-kernel-${{ steps.inputs.outputs.kernel }}
+      - name: Cache Buildroot only after QEMU real PASS
+        if: ${{ success() && steps.base-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-independent-base-${{ steps.inputs.outputs.base }}
+      - name: Upload immutable build inputs for official portable QEMU
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-independent-verified-inputs
+          path: |
+            ${{ runner.temp }}/ordax-kernel/
+            ${{ runner.temp }}/ordax-independent/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
       - name: Upload candidate/provenance and observed QEMU result
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -78,3 +143,13 @@ jobs:
             ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log
           if-no-files-found: warn
           retention-days: 7
+
+  portable-signed-qemu:
+    needs: buildroot-qemu
+    uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
+    with:
+      base_source: independent
+      shared_inputs: true
+      independent_cold_health_diagnostic: true
+    permissions:
+      contents: read
