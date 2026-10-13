@@ -1,8 +1,6 @@
 from pathlib import Path
 import fcntl
-import os
 import tempfile
-import unittest.mock
 import subprocess
 import unittest
 
@@ -679,6 +677,8 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('native_lock=/run/ordax-surface/native-host-instance.lock', helper)
         self.assertIn('/bin/busybox flock -n "$native_lock" /bin/true', helper)
         self.assertIn('[ ! -L "$native_lock" ] || return 1', helper)
+        starter = text.split("start_surface_from_system() {", 1)[1].split("\n}", 1)[0]
+        self.assertIn('if ! native_host_quiesced; then', starter)
         self.assertIn('if ! native_host_quiesced; then', stopped)
         self.assertIn('trap - EXIT HUP INT TERM', stopped)
         self.assertIn('exit 1', stopped)
