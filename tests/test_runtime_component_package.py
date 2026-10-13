@@ -131,7 +131,12 @@ class RuntimeComponentPackageTests(unittest.TestCase):
             policy["runtime_health_bridge_supported_components"],
             ["notes"],
         )
-        self.assertEqual(policy["runtime_health_bridge_probe_mode"], "import-contract")
+        self.assertEqual(
+            policy["runtime_health_bridge_probe_mode_by_component"],
+            {"notes": "import-contract"},
+        )
+        self.assertNotIn("runtime_health_bridge_probe_mode", policy)
+        self.assertNotIn("files", policy["runtime_health_bridge_probe_mode_by_component"])
         self.assertTrue(policy["runtime_health_bridge_requires_host_nonce"])
         self.assertFalse(policy["runtime_health_bridge_exposed_over_http"])
         self.assertFalse(policy["runtime_health_bridge_promotes_candidate"])
