@@ -905,31 +905,11 @@ async function start() {
       localAi,
     );
   }
-  reportQemuBootStage("store-wait");
-  const storeCatalogComposition = await storeCatalogCompositionPromise;
-  reportQemuBootStage("store-complete");
-  const storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
-  let storeLifecycleRequests = null;
-  if (storeCatalogComposition?.verifiedCatalogPort) {
-    try {
-      storeLifecycleRequests = createAppLifecycleRequestService({
-        catalogPort: storeCatalog,
-        verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
-        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
-      });
-    } catch (error) {
-      reportClientDiagnostic("store-lifecycle-composition", error);
-    }
-  }
-  const storeOverviewControls = mountStoreOverviewControls(
-    root,
-    storeCatalog,
-    surface,
-    storeLifecycleRequests,
-    (options) => readNativeHardwareInventory(window, options),
-    systemMetrics,
-    appActivation,
-  );
+  // Store is optional: do not await its remote/verified projection before
+  // the shell is visibly mounted and real health is requested.
+  let storeCatalogComposition = null;
+  let storeCatalog = createUnavailableAppStoreCatalogPort();
+  let storeOverviewControls = null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -949,6 +929,9 @@ async function start() {
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
   // import or mount failure cannot turn into a failed OrdaX cold boot.
+  // Reveal real mounted controls, not merely the loading overlay. The
+  // Supervisor still owns both authenticated health signals and SHA checks.
+  bootScreen.ready();
   reportQemuBootStage("composition-mounted");
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
@@ -963,7 +946,32 @@ async function start() {
     console.warn("OrdaX account connectivity refresh remains pending after Surface health", error);
   });
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.loadingApps"));
+  // Load the optional Store only after core shell and official health flow.
+  reportQemuBootStage("store-wait");
+  storeCatalogComposition = await storeCatalogCompositionPromise;
+  reportQemuBootStage("store-complete");
+  storeCatalog = storeCatalogComposition?.port ?? createUnavailableAppStoreCatalogPort();
+  let storeLifecycleRequests = null;
+  if (storeCatalogComposition?.verifiedCatalogPort) {
+    try {
+      storeLifecycleRequests = createAppLifecycleRequestService({
+        catalogPort: storeCatalog,
+        verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
+        lifecycleDelegate: createNativeAppLifecycleDelegate(window),
+      });
+    } catch (error) {
+      reportClientDiagnostic("store-lifecycle-composition", error);
+    }
+  }
+  storeOverviewControls = mountStoreOverviewControls(
+    root,
+    storeCatalog,
+    surface,
+    storeLifecycleRequests,
+    (options) => readNativeHardwareInventory(window, options),
+    systemMetrics,
+    appActivation,
+  );
 
   const assistantComponent = await loadOptionalComponentRuntime({
     componentId: "assistant",
@@ -1101,8 +1109,6 @@ async function start() {
       reportClientDiagnostic("local-session-lock", error);
     }
   }
-  bootScreen.ready();
-
   window.addEventListener(
     "pagehide",
     () => {
@@ -1118,7 +1124,7 @@ async function start() {
       powerControls.destroy();
       updateControls.destroy();
       systemOverviewControls.destroy();
-      storeOverviewControls.destroy();
+      storeOverviewControls?.destroy();
       storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
       networkTrayControls?.destroy();

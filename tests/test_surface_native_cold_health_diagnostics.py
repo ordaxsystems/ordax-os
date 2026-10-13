@@ -56,6 +56,10 @@ class SurfaceColdHealthContract(unittest.TestCase):
         self.assertIn('"js-unhandled-rejection"', DIAGNOSTIC.read_text())
         self.assertIn('"http-surface-main"', SERVER.read_text())
         self.assertIn('"http-static-module-failed"', SERVER.read_text())
+        self.assertLess(MAIN.read_text().index('reportQemuBootStage("health-requested")'),
+                        MAIN.read_text().index('reportQemuBootStage("store-wait")'))
+        self.assertLess(MAIN.read_text().index("bootScreen.ready()"),
+                        MAIN.read_text().index('reportQemuBootStage("composition-mounted")'))
         self.assertIn('def guess_type(self, path: str)', SERVER.read_text())
         self.assertIn('return "text/javascript"', SERVER.read_text())
         self.assertIn('resource-load-started", self.on_surface_resource_load_started', browser)
