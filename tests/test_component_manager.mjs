@@ -110,7 +110,6 @@ test("canonical component catalog has one unique owner identity per app and serv
     "ordax-intelligence",
     "clock-service",
     "files",
-    "internet",
     "settings",
     "account",
     "system",
@@ -119,10 +118,7 @@ test("canonical component catalog has one unique owner identity per app and serv
   }
   assert.equal(components.some((component) => component.id === "projects"), false,
     "Projects must not retain a parallel bundled component after Gate A");
-  const internet = components.find((component) => component.id === "internet");
-  assert.equal(internet.version, "0.3.0");
-  assert.equal(internet.releaseMode, "git-app");
-  assert.equal(internet.owner, "system/apps/internet");
+  assert.equal(ids.includes("internet"), false, "No bundled Internet owner after Gate A");
   const localAi = components.find((component) => component.id === "local-ai-service");
   assert.equal(localAi.criticality, "system");
   assert.equal(localAi.releaseMode, "bundled");
