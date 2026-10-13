@@ -1,0 +1,159 @@
+{
+  "results": [
+    {
+      "name": "Changing Space invalidates earlier approval",
+      "status": "PASS"
+    },
+    {
+      "name": "Expired session does not expose Lia personal draft",
+      "status": "PASS"
+    },
+    {
+      "name": "Reauthentication preserves original personal draft",
+      "status": "PASS"
+    },
+    {
+      "name": "Guest remains guest when network changes",
+      "status": "PASS"
+    },
+    {
+      "name": "OOBE receives focus on entry",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape leaves standalone storyboard",
+      "status": "PASS"
+    },
+    {
+      "name": "Space B no A window 0",
+      "status": "PASS"
+    },
+    {
+      "name": "A window draft restored 0",
+      "status": "PASS"
+    },
+    {
+      "name": "Space B no A window 1",
+      "status": "PASS"
+    },
+    {
+      "name": "A window draft restored 1",
+      "status": "PASS"
+    },
+    {
+      "name": "Central draft survives repeated Space",
+      "status": "PASS"
+    },
+    {
+      "name": "Revoked context no fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "Explicit return selects B",
+      "status": "PASS"
+    },
+    {
+      "name": "Other identity does not inherit Lia privacy switch",
+      "status": "PASS"
+    },
+    {
+      "name": "Guest project absent for Lia",
+      "status": "PASS"
+    },
+    {
+      "name": "Removed receipt cannot rewind to installed success",
+      "status": "PASS"
+    },
+    {
+      "name": "Removal stays absent",
+      "status": "PASS"
+    },
+    {
+      "name": "New question starts at sources, no old receipt",
+      "status": "PASS"
+    },
+    {
+      "name": "Create does not silently become rename",
+      "status": "PASS"
+    },
+    {
+      "name": "Unsaved prompt and minimized window counted",
+      "status": "PASS"
+    },
+    {
+      "name": "Other identity has no Lia message",
+      "status": "PASS"
+    },
+    {
+      "name": "Lia message is retained after identity return",
+      "status": "PASS"
+    },
+    {
+      "name": "Initial focus update",
+      "status": "PASS"
+    },
+    {
+      "name": "Tab contained update",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape closes update",
+      "status": "PASS"
+    },
+    {
+      "name": "Initial focus intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Tab contained intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape closes intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Initial focus store",
+      "status": "PASS"
+    },
+    {
+      "name": "Tab contained store",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape closes store",
+      "status": "PASS"
+    },
+    {
+      "name": "Initial focus space",
+      "status": "PASS"
+    },
+    {
+      "name": "Tab contained space",
+      "status": "PASS"
+    },
+    {
+      "name": "Escape closes space",
+      "status": "PASS"
+    },
+    {
+      "name": "Revoked source is excluded on retry",
+      "status": "FAIL"
+    },
+    {
+      "name": "Undo restores previous setting",
+      "status": "FAIL"
+    },
+    {
+      "name": "No uncaught browser errors",
+      "status": "PASS"
+    },
+    {
+      "name": "No external requests",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [],
+  "requests": [],
+  "exceptions": []
+}

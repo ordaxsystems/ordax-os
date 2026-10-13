@@ -1,5 +1,10 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Auditoria independente Meridian Round 2 — 13/10/2026:** HEAD 4dffe52,
+> correções objetivas de estado, acessibilidade e host de prévia. Classificação
+> **C**: aprovada para Round 3 visual, com 392 checks na matriz final. Não autoriza
+> integração, merge ou ativação. [Evidência e próximos critérios](docs/evidence/meridian-round2-audit-2026-10-13/relatorio.md).
+
 > **Auditoria técnica Meridian — 13/10/2026:** estudo exclusivo da branch
 > `codex/meridian-design-lab`, baseline `69a8937`. Correções objetivas de
 > rascunho/foco/nomes acessíveis e identificação da demonstração. Inventário

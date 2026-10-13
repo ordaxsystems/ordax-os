@@ -1,0 +1,2895 @@
+{
+  "results": [
+    {
+      "name": "approval across Space",
+      "status": "FAIL",
+      "error": "Error: Unavailable journey:intelligence\n    at <anonymous>:1:165\n    at <anonymous>:1:219"
+    },
+    {
+      "name": "Expired session does not expose Lia personal draft",
+      "status": "FAIL"
+    },
+    {
+      "name": "Reauthentication preserves original personal draft",
+      "status": "FAIL"
+    },
+    {
+      "name": "Guest remains guest when network changes",
+      "status": "PASS"
+    },
+    {
+      "name": "OOBE receives focus on entry",
+      "status": "FAIL"
+    },
+    {
+      "name": "Escape leaves standalone storyboard",
+      "status": "FAIL"
+    },
+    {
+      "name": "Space B no A window 0",
+      "status": "PASS"
+    },
+    {
+      "name": "A window draft restored 0",
+      "status": "PASS"
+    },
+    {
+      "name": "Space B no A window 1",
+      "status": "PASS"
+    },
+    {
+      "name": "A window draft restored 1",
+      "status": "PASS"
+    },
+    {
+      "name": "Central draft survives repeated Space",
+      "status": "PASS"
+    },
+    {
+      "name": "Revoked context no fallback",
+      "status": "PASS"
+    },
+    {
+      "name": "Explicit return selects B",
+      "status": "PASS"
+    },
+    {
+      "name": "Other identity does not inherit Lia privacy switch",
+      "status": "FAIL"
+    },
+    {
+      "name": "Guest project absent for Lia",
+      "status": "FAIL"
+    },
+    {
+      "name": "Removed receipt cannot rewind to installed success",
+      "status": "FAIL"
+    },
+    {
+      "name": "Removal stays absent",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping intelligence/review/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls intelligence/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping store/permissions/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls store/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping space/impact/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls space/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping device/pair/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls device/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping settings/pending/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls settings/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping communication/conversation/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls communication/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping files/share/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls files/1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry recovery 1440 ink",
+      "status": "FAIL",
+      "error": "timeout document.readyState===\"complete\"&&!!document.querySelector(\"[data-meridian] #meridian-main\")"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping intelligence/review/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls intelligence/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping store/permissions/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls store/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping space/impact/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls space/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping device/pair/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls device/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping settings/pending/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls settings/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping communication/conversation/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls communication/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping files/share/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls files/1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping intelligence/review/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls intelligence/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping store/permissions/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls store/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping space/impact/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls space/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping device/pair/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls device/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping settings/pending/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls settings/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping communication/conversation/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls communication/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping files/share/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls files/320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping intelligence/review/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls intelligence/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping store/permissions/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls store/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping space/impact/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls space/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping device/pair/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls device/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping settings/pending/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls settings/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping communication/conversation/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls communication/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping files/share/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls files/320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping setup/review/844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls setup/844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping recovery/impact/844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls recovery/844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No horizontal clipping update/compatibility/844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls update/844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/boot",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/boot-error",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/welcome",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/language",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/keyboard",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/region",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/network",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/network-connecting",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/network-error",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/security",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/account",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/sign-in",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/sign-up",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed setup/sign-up",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/identity-error",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/privacy",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/name",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed setup/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/save-error",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen setup/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/idle",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/checking",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/current",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/offline",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/available",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/compatibility",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed update/compatibility",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/storage",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/incompatible",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/download",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/paused",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/verify",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/invalid",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/stage",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/restart",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed update/restart",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/deferred",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/health",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/rollback-review",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed update/rollback-review",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/rollback",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/retained",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen update/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/diagnosis",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/options",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/report",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/impact",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed recovery/impact",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/restoring",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/failed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/repair",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/missing",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/unavailable",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen recovery/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/overview",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/sign-in",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/sign-up",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed identity/sign-up",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/connected",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/guest",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/session",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/logout",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed identity/logout",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/switch",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed identity/switch",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/other",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/expired",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/unavailable",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/recover",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen identity/privacy",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen power/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen power/restart",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed power/restart",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen power/shutdown",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed power/shutdown",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen power/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen storage/volumes",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen storage/persistence",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen storage/readonly",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen storage/full",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen storage/missing",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/browse",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/preview",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/create",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/favorites",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed files/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/share",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed files/share",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/conflict",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed files/conflict",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/readonly",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/full",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/missing",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/trash",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed files/trash",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/restored",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen files/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/details",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/compatibility",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/permissions",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed store/permissions",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/download",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/verify",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/stage",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/activate",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/health",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/configure",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/update",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/remove",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed store/remove",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/removed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/offline",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/unavailable",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/incompatible",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/blocked",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/failed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen store/retained",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/details",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/compatibility",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/permissions",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed profile/permissions",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/download",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/verify",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/stage",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/activate",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/health",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/configure",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/update",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/remove",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed profile/remove",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/removed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/offline",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/unavailable",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/incompatible",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/blocked",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/failed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen profile/retained",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/details",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/impact",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed space/impact",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/selected",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/members",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/leave",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed space/leave",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/revoked",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/unavailable",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/create",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed space/create",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/provision",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/create-error",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen space/created",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/sources",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/stream",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/cancelled",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/suggestion",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed intelligence/review",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/declined",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/running",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/model-error",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/source-denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen intelligence/failed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/edit",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/pending",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed settings/pending",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/complete",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/undo",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/unsupported",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen settings/failed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/discover",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/pair",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed device/pair",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/scope",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed device/scope",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/connected",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/revoked",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/offline",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/stale",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/expired",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/mismatch",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen device/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/discover",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/membership",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed communication/membership",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/pending-member",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/conversation",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/pending",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/delivered",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/failed",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/moderation",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/blocked",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/report",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed communication/report",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/reported",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/leave",
+      "status": "PASS"
+    },
+    {
+      "name": "Confirmation closed communication/leave",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/left",
+      "status": "PASS"
+    },
+    {
+      "name": "Reachable screen communication/denied",
+      "status": "PASS"
+    },
+    {
+      "name": "No uncaught browser errors",
+      "status": "PASS"
+    },
+    {
+      "name": "No external requests",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1425,
+      "panel": null,
+      "journey": [
+        1038,
+        1038
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1425,
+      "panel": null,
+      "journey": [
+        1038,
+        1038
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "intelligence",
+      "target": "review",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "store",
+      "target": "permissions",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        998,
+        998
+      ],
+      "journey": [
+        998,
+        998
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "space",
+      "target": "impact",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "device",
+      "target": "pair",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "settings",
+      "target": "pending",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        998,
+        998
+      ],
+      "journey": [
+        998,
+        998
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "communication",
+      "target": "conversation",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        998,
+        998
+      ],
+      "journey": [
+        998,
+        998
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "files",
+      "target": "share",
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1425,
+      "panel": null,
+      "journey": [
+        1038,
+        1038
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "intelligence",
+      "target": "review",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "store",
+      "target": "permissions",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        998,
+        998
+      ],
+      "journey": [
+        998,
+        998
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "space",
+      "target": "impact",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "device",
+      "target": "pair",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "settings",
+      "target": "pending",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        998,
+        998
+      ],
+      "journey": [
+        998,
+        998
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "communication",
+      "target": "conversation",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        998,
+        998
+      ],
+      "journey": [
+        998,
+        998
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "files",
+      "target": "share",
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "page": 1440,
+      "width": 1440,
+      "root": 1440,
+      "panel": [
+        988,
+        988
+      ],
+      "journey": [
+        988,
+        988
+      ],
+      "dialog": {
+        "x": 220,
+        "y": 36,
+        "width": 1000,
+        "height": 828,
+        "top": 36,
+        "right": 1220,
+        "bottom": 864,
+        "left": 220
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "page": 1024,
+      "width": 1024,
+      "root": 1009,
+      "panel": null,
+      "journey": [
+        925,
+        925
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "page": 1024,
+      "width": 1024,
+      "root": 1009,
+      "panel": null,
+      "journey": [
+        925,
+        925
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "page": 1024,
+      "width": 1024,
+      "root": 1024,
+      "panel": [
+        972,
+        972
+      ],
+      "journey": [
+        972,
+        972
+      ],
+      "dialog": {
+        "x": 20,
+        "y": 30.71875,
+        "width": 984,
+        "height": 706.546875,
+        "top": 30.71875,
+        "right": 1004,
+        "bottom": 737.265625,
+        "left": 20
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "page": 1024,
+      "width": 1024,
+      "root": 1009,
+      "panel": null,
+      "journey": [
+        925,
+        925
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "page": 1024,
+      "width": 1024,
+      "root": 1009,
+      "panel": null,
+      "journey": [
+        925,
+        925
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "page": 1024,
+      "width": 1024,
+      "root": 1024,
+      "panel": [
+        972,
+        972
+      ],
+      "journey": [
+        972,
+        972
+      ],
+      "dialog": {
+        "x": 20,
+        "y": 30.71875,
+        "width": 984,
+        "height": 706.546875,
+        "top": 30.71875,
+        "right": 1004,
+        "bottom": 737.265625,
+        "left": 20
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "page": 768,
+      "width": 768,
+      "root": 753,
+      "panel": null,
+      "journey": [
+        690,
+        690
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "page": 768,
+      "width": 768,
+      "root": 753,
+      "panel": null,
+      "journey": [
+        690,
+        690
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "page": 768,
+      "width": 768,
+      "root": 768,
+      "panel": [
+        716,
+        716
+      ],
+      "journey": [
+        716,
+        716
+      ],
+      "dialog": {
+        "x": 20,
+        "y": 24,
+        "width": 728,
+        "height": 552,
+        "top": 24,
+        "right": 748,
+        "bottom": 576,
+        "left": 20
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "page": 768,
+      "width": 768,
+      "root": 753,
+      "panel": null,
+      "journey": [
+        690,
+        690
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "page": 768,
+      "width": 768,
+      "root": 753,
+      "panel": null,
+      "journey": [
+        690,
+        690
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "page": 768,
+      "width": 768,
+      "root": 768,
+      "panel": [
+        716,
+        716
+      ],
+      "journey": [
+        716,
+        716
+      ],
+      "dialog": {
+        "x": 20,
+        "y": 24,
+        "width": 728,
+        "height": 552,
+        "top": 24,
+        "right": 748,
+        "bottom": 576,
+        "left": 20
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "page": 390,
+      "width": 390,
+      "root": 375,
+      "panel": null,
+      "journey": [
+        341,
+        341
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "page": 390,
+      "width": 390,
+      "root": 375,
+      "panel": null,
+      "journey": [
+        341,
+        341
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "page": 390,
+      "width": 390,
+      "root": 390,
+      "panel": [
+        378,
+        378
+      ],
+      "journey": [
+        378,
+        378
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 33.765625,
+        "width": 390,
+        "height": 810.234375,
+        "top": 33.765625,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "page": 390,
+      "width": 390,
+      "root": 375,
+      "panel": null,
+      "journey": [
+        341,
+        341
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "page": 390,
+      "width": 390,
+      "root": 375,
+      "panel": null,
+      "journey": [
+        341,
+        341
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "page": 390,
+      "width": 390,
+      "root": 390,
+      "panel": [
+        378,
+        378
+      ],
+      "journey": [
+        378,
+        378
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 33.765625,
+        "width": 390,
+        "height": 810.234375,
+        "top": 33.765625,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 305,
+      "panel": null,
+      "journey": [
+        271,
+        271
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 305,
+      "panel": null,
+      "journey": [
+        271,
+        271
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "intelligence",
+      "target": "review",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "store",
+      "target": "permissions",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "space",
+      "target": "impact",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "device",
+      "target": "pair",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "settings",
+      "target": "pending",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "communication",
+      "target": "conversation",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "files",
+      "target": "share",
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 305,
+      "panel": null,
+      "journey": [
+        271,
+        271
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 305,
+      "panel": null,
+      "journey": [
+        271,
+        271
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "intelligence",
+      "target": "review",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "store",
+      "target": "permissions",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "space",
+      "target": "impact",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "device",
+      "target": "pair",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "settings",
+      "target": "pending",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "communication",
+      "target": "conversation",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "files",
+      "target": "share",
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "page": 320,
+      "width": 320,
+      "root": 320,
+      "panel": [
+        308,
+        308
+      ],
+      "journey": [
+        308,
+        308
+      ],
+      "dialog": {
+        "x": 0,
+        "y": 22.734375,
+        "width": 320,
+        "height": 545.265625,
+        "top": 22.734375,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "page": 844,
+      "width": 844,
+      "root": 829,
+      "panel": null,
+      "journey": [
+        760,
+        760
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "page": 844,
+      "width": 844,
+      "root": 829,
+      "panel": null,
+      "journey": [
+        760,
+        760
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "page": 844,
+      "width": 844,
+      "root": 844,
+      "panel": [
+        792,
+        792
+      ],
+      "journey": [
+        792,
+        792
+      ],
+      "dialog": {
+        "x": 20,
+        "y": 15.59375,
+        "width": 804,
+        "height": 358.796875,
+        "top": 15.59375,
+        "right": 824,
+        "bottom": 374.390625,
+        "left": 20
+      }
+    },
+    {
+      "kind": "setup",
+      "target": "review",
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "page": 844,
+      "width": 844,
+      "root": 829,
+      "panel": null,
+      "journey": [
+        760,
+        760
+      ]
+    },
+    {
+      "kind": "recovery",
+      "target": "impact",
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "page": 844,
+      "width": 844,
+      "root": 829,
+      "panel": null,
+      "journey": [
+        760,
+        760
+      ]
+    },
+    {
+      "kind": "update",
+      "target": "compatibility",
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "page": 844,
+      "width": 844,
+      "root": 844,
+      "panel": [
+        792,
+        792
+      ],
+      "journey": [
+        792,
+        792
+      ],
+      "dialog": {
+        "x": 20,
+        "y": 15.59375,
+        "width": 804,
+        "height": 358.796875,
+        "top": 15.59375,
+        "right": 824,
+        "bottom": 374.390625,
+        "left": 20
+      }
+    }
+  ],
+  "requests": [],
+  "exceptions": []
+}

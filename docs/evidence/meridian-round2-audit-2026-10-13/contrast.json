@@ -1,0 +1,114 @@
+{
+  "paper": [
+    {
+      "fg": "ink",
+      "bg": "canvas",
+      "ratio": 12.66,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "surface",
+      "ratio": 5.32,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "canvas",
+      "ratio": 4.86,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "subtle",
+      "ratio": 4.4,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "accent-soft",
+      "ratio": 4.18,
+      "threshold": 4.5
+    },
+    {
+      "fg": "sage",
+      "bg": "sage-soft",
+      "ratio": 5.11,
+      "threshold": 4.5
+    },
+    {
+      "fg": "amber",
+      "bg": "amber-soft",
+      "ratio": 5.21,
+      "threshold": 4.5
+    },
+    {
+      "fg": "accent-text",
+      "bg": "accent",
+      "ratio": 5.45,
+      "threshold": 4.5
+    },
+    {
+      "fg": "focus",
+      "bg": "surface",
+      "ratio": 6.21,
+      "threshold": 3
+    }
+  ],
+  "ink": [
+    {
+      "fg": "ink",
+      "bg": "canvas",
+      "ratio": 12.89,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "surface",
+      "ratio": 6.67,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "canvas",
+      "ratio": 7.7,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "subtle",
+      "ratio": 5.69,
+      "threshold": 4.5
+    },
+    {
+      "fg": "muted",
+      "bg": "accent-soft",
+      "ratio": 5.2,
+      "threshold": 4.5
+    },
+    {
+      "fg": "sage",
+      "bg": "sage-soft",
+      "ratio": 5.95,
+      "threshold": 4.5
+    },
+    {
+      "fg": "amber",
+      "bg": "amber-soft",
+      "ratio": 6.17,
+      "threshold": 4.5
+    },
+    {
+      "fg": "accent-text",
+      "bg": "accent",
+      "ratio": 7.79,
+      "threshold": 4.5
+    },
+    {
+      "fg": "focus",
+      "bg": "surface",
+      "ratio": 8.84,
+      "threshold": 3
+    }
+  ]
+}

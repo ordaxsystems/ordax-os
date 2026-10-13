@@ -1,0 +1,66 @@
+[
+  {
+    "selector": ".md-journey-entity p",
+    "material": "paper",
+    "width": 320,
+    "fg": "rgb(40, 44, 41)",
+    "bg": "rgb(234, 231, 223)",
+    "ratio": 11.46321714584047
+  },
+  {
+    "selector": ".md-journey-invitation p",
+    "material": "paper",
+    "width": 320,
+    "fg": "rgb(40, 44, 41)",
+    "bg": "rgb(241, 222, 211)",
+    "ratio": 10.879682726419157
+  },
+  {
+    "selector": ".md-journey-entity p",
+    "material": "paper",
+    "width": 1440,
+    "fg": "rgb(40, 44, 41)",
+    "bg": "rgb(234, 231, 223)",
+    "ratio": 11.46321714584047
+  },
+  {
+    "selector": ".md-journey-invitation p",
+    "material": "paper",
+    "width": 1440,
+    "fg": "rgb(40, 44, 41)",
+    "bg": "rgb(241, 222, 211)",
+    "ratio": 10.879682726419157
+  },
+  {
+    "selector": ".md-journey-entity p",
+    "material": "ink",
+    "width": 320,
+    "fg": "rgb(238, 238, 222)",
+    "bg": "rgb(51, 62, 53)",
+    "ratio": 9.525750591652598
+  },
+  {
+    "selector": ".md-journey-invitation p",
+    "material": "ink",
+    "width": 320,
+    "fg": "rgb(238, 238, 222)",
+    "bg": "rgb(81, 61, 48)",
+    "ratio": 8.698858953222688
+  },
+  {
+    "selector": ".md-journey-entity p",
+    "material": "ink",
+    "width": 1440,
+    "fg": "rgb(238, 238, 222)",
+    "bg": "rgb(51, 62, 53)",
+    "ratio": 9.525750591652598
+  },
+  {
+    "selector": ".md-journey-invitation p",
+    "material": "ink",
+    "width": 1440,
+    "fg": "rgb(238, 238, 222)",
+    "bg": "rgb(81, 61, 48)",
+    "ratio": 8.698858953222688
+  }
+]

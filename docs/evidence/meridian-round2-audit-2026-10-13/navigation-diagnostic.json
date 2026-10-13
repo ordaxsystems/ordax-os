@@ -1,0 +1,175 @@
+{
+  "results": [
+    {
+      "name": "Device mounts 0",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 1",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 2",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 3",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 4",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 5",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 6",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 7",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 8",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 9",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 10",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 11",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 12",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 13",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 14",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 15",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 16",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 17",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 18",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 19",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 20",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 21",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 22",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 23",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 24",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 25",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 26",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 27",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 28",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 29",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 30",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 31",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 32",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 33",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 34",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 35",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 36",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 37",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 38",
+      "status": "PASS"
+    },
+    {
+      "name": "Device mounts 39",
+      "status": "PASS"
+    },
+    {
+      "name": "No uncaught browser errors",
+      "status": "PASS"
+    },
+    {
+      "name": "No external requests",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [],
+  "requests": [],
+  "exceptions": []
+}

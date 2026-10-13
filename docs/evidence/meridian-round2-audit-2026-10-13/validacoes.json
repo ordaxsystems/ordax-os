@@ -1,0 +1,824 @@
+{
+  "date": "2026-10-13",
+  "branch": "codex/meridian-design-lab",
+  "initialHead": "4dffe5284aaa57310a57195eb1b0a56bb3720c58",
+  "base": "25e0f577d5fbf4f2477c5de6d1f2ccf1321745c2",
+  "implementation": "050539b16d07b94e2a04b655f5116c0dbe588687",
+  "correctionCommit": "ae05659fab871595f3305e9fe18a9f9343d07f98",
+  "main": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "initialTree": "clean",
+  "environment": {
+    "os": "Windows",
+    "node": "26.7.0",
+    "python": "C:/Users/TONECOS/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
+  },
+  "runnerEnvironment": {
+    "ORDAX_PYTHON": "explicit Python above",
+    "MERIDIAN_EVIDENCE_DIR": "out/meridian-round2-audit/<gate-name>",
+    "MERIDIAN_AUDIT_FOCUSED": "1 only where explicitly listed"
+  },
+  "scope": "Preview only; no production/backend/device operations. Exit/commands preserved; overlapping checks must not be summed.",
+  "records": [
+    {
+      "name": "baseline-meridian",
+      "status": "BLOCKED",
+      "command": "node tools/meridian-preview/browser-smoke.mjs",
+      "snapshot": "4dffe52",
+      "note": "Interrompido por reset da conexão; sem exit.",
+      "exit": null,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-meridian.log",
+      "bytes": 33,
+      "sha256": "bf500efc6f566240dc0dc44a4df69f9c84768731c654ef093840ab0640962524",
+      "versionedLog": "logs/baseline-meridian.log"
+    },
+    {
+      "name": "baseline-meridian-rerun",
+      "status": "FAIL",
+      "command": "node tools/meridian-preview/browser-smoke.mjs",
+      "snapshot": "4dffe52",
+      "note": "GPU/DevTools no sandbox; 9 checks HTTP antes da UI.",
+      "exit": 1,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-meridian-rerun.log",
+      "bytes": 2506,
+      "sha256": "576f3d18dbf28049506dad49c61c7ffaad88049810e7a78d2c3a693b53c8a8cc",
+      "versionedLog": "logs/baseline-meridian-rerun.log"
+    },
+    {
+      "name": "baseline-meridian-unsandboxed",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/browser-smoke.mjs",
+      "snapshot": "4dffe52",
+      "note": "155 checks; processo fora do sandbox, perfil descartável.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-meridian-unsandboxed.log",
+      "bytes": 87,
+      "sha256": "2b5bffaaee2af304fbe47d016a7df5b8d18144ec05487f984197bd3c25f25294",
+      "versionedLog": "logs/baseline-meridian-unsandboxed.log"
+    },
+    {
+      "name": "baseline-round2",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/round2-smoke.mjs",
+      "snapshot": "4dffe52",
+      "note": "23 checks; servidor 4203 temporário.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-round2.log",
+      "bytes": 202,
+      "sha256": "cef088fd30904aac2df7dc9c7ae7479e9cbd060cc24a7ee0ec5764d9cfedf1e8",
+      "versionedLog": "logs/baseline-round2.log"
+    },
+    {
+      "name": "baseline-focused",
+      "status": "FAIL",
+      "command": "node out/meridian-round2-audit/audit-smoke.mjs",
+      "snapshot": "4dffe52",
+      "note": "346 PASS / 9 FAIL; 7 assertivas de produto, 1 erro do roteiro, 1 timeout.",
+      "exit": 1,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-focused.log",
+      "bytes": 876,
+      "sha256": "d19aee9cdfb15b860864c49c68779d8383a7c729e094fa372d319ea0bdd9cec7",
+      "versionedLog": "logs/baseline-focused.log"
+    },
+    {
+      "name": "baseline-boundaries",
+      "status": "PASS",
+      "command": "python tools/verify/module_boundaries.py",
+      "snapshot": "4dffe52",
+      "note": "",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-boundaries.log",
+      "bytes": 88,
+      "sha256": "ef4bc4946c92c8d4d92226bf800e71340ed5e158fb080303933b0aa26d0b9a43",
+      "versionedLog": "logs/baseline-boundaries.log"
+    },
+    {
+      "name": "baseline-contracts",
+      "status": "PASS",
+      "command": "python tools/verify/json_contracts.py",
+      "snapshot": "4dffe52",
+      "note": "138 contratos / 9 manifests.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-contracts.log",
+      "bytes": 80,
+      "sha256": "ba39ef3532d8b7f07a5b96aa6fbd3b73fb7f330e9246b9223658df23e9c8f6cd",
+      "versionedLog": "logs/baseline-contracts.log"
+    },
+    {
+      "name": "baseline-source-graph",
+      "status": "PASS",
+      "command": "python tools/surface-web/build.py check",
+      "snapshot": "4dffe52",
+      "note": "128 arquivos.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-source-graph.log",
+      "bytes": 64,
+      "sha256": "f48102e4ca9b7f543e80343ad25e672761ee0763cfd0df97bc5b6658f124d139",
+      "versionedLog": "logs/baseline-source-graph.log"
+    },
+    {
+      "name": "baseline-syntax",
+      "status": "PASS",
+      "command": "node --check em todos os .mjs de system/surface/experiments/meridian e tools/meridian-preview",
+      "snapshot": "4dffe52",
+      "note": "20 módulos.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-syntax.log",
+      "bytes": 24,
+      "sha256": "13db37c6be16e923328475e7c0d5f49ae68b244da1c42cc3587923d7532067e6",
+      "versionedLog": "logs/baseline-syntax.log"
+    },
+    {
+      "name": "baseline-whitespace",
+      "status": "PASS",
+      "command": "git diff --check 25e0f57..HEAD",
+      "snapshot": "4dffe52",
+      "note": "",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/baseline-whitespace.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "versionedLog": "logs/baseline-whitespace.log"
+    },
+    {
+      "name": "canonical-focused",
+      "status": "PASS",
+      "command": "node --test --test-concurrency=2 tests/test_surface_preferences.mjs tests/test_preference_runtime.mjs tests/test_color_palette.mjs tests/test_surface_localization.mjs tests/test_surface_app_localization.mjs tests/test_surface_workspace.mjs tests/test_space_selection.mjs tests/test_identity_session.mjs",
+      "snapshot": "4dffe52",
+      "note": "81/81; inputs canônicos não mudaram posteriormente.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/canonical-focused.log",
+      "bytes": 6899,
+      "sha256": "e36fadb35ab5b3b22d2a785f539c2c3d3c0175a5cffdbef99c20b3bff4c6bd4c",
+      "versionedLog": "logs/canonical-focused.log"
+    },
+    {
+      "name": "fix-focused",
+      "status": "PASS",
+      "command": "MERIDIAN_AUDIT_FOCUSED=1 node out/meridian-round2-audit/audit-smoke.mjs",
+      "snapshot": "correções 1",
+      "note": "36 checks.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/fix-focused.log",
+      "bytes": 69,
+      "sha256": "829db0d225ea709d0f3cdb10e3acf1094db4ff7dde1b37d84f35a29628e24fb9",
+      "versionedLog": "logs/fix-focused.log"
+    },
+    {
+      "name": "final-matrix",
+      "status": "FAIL",
+      "command": "node tools/meridian-preview/round2-audit-smoke.mjs",
+      "snapshot": "correções 1",
+      "note": "371 PASS / 1 timeout Device/Grafite/1440; 180 telas, 29 confirmações, 63 geometrias.",
+      "exit": 1,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-matrix.log",
+      "bytes": 236,
+      "sha256": "93ef9727d52f927238d9a2e6c89c188ac580fc6dc2eae58cff6b2f897d386021",
+      "versionedLog": "logs/final-matrix.log"
+    },
+    {
+      "name": "extra-before",
+      "status": "FAIL",
+      "command": "MERIDIAN_AUDIT_FOCUSED=1 node tools/meridian-preview/round2-audit-smoke.mjs",
+      "snapshot": "correções 1",
+      "note": "36 PASS / 2 FAIL: fonte revogada e desfazer.",
+      "exit": 1,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/extra-before.log",
+      "bytes": 188,
+      "sha256": "39ad9c587789b1bfc51a0c8d6cc18cdbc3191a6ee113996780ec2eeb7c4a35d5",
+      "versionedLog": "logs/extra-before.log"
+    },
+    {
+      "name": "final-focused",
+      "status": "PASS",
+      "command": "MERIDIAN_AUDIT_FOCUSED=1 node tools/meridian-preview/round2-audit-smoke.mjs",
+      "snapshot": "correções 2",
+      "note": "38 checks.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-focused.log",
+      "bytes": 68,
+      "sha256": "4ed71fbc4bdf4635e417ab1eb96f44c87a78ecab2eae2f17df84120490ee2a77",
+      "versionedLog": "logs/final-focused.log"
+    },
+    {
+      "name": "final-meridian",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/browser-smoke.mjs",
+      "snapshot": "correções 2",
+      "note": "155 checks.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-meridian.log",
+      "bytes": 86,
+      "sha256": "1e647d1ef356c54ca91cbb48b60328e7886283cb38f6544e8d14e3e8f0fa84f6",
+      "versionedLog": "logs/final-meridian.log"
+    },
+    {
+      "name": "final-round2",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/round2-smoke.mjs",
+      "snapshot": "correções 2",
+      "note": "23 checks.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-round2.log",
+      "bytes": 199,
+      "sha256": "6dce0536504a725f679e56b1674ff9f64514893b6b4bbe6d558def7cec286ef5",
+      "versionedLog": "logs/final-round2.log"
+    },
+    {
+      "name": "navigation-diagnostic",
+      "status": "PASS",
+      "command": "node out/meridian-round2-audit/navigation-diagnostic.mjs",
+      "snapshot": "correções 2",
+      "note": "42 checks / 40 navegações limitadas, sem reprodução; não fecha matriz FAIL.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/navigation-diagnostic.log",
+      "bytes": 69,
+      "sha256": "34b8579832ebb4c84a48b63511ba531059f29206234aed596b9fe9350cc57335",
+      "versionedLog": "logs/navigation-diagnostic.log"
+    },
+    {
+      "name": "storyboard-unit",
+      "status": "PASS",
+      "command": "node --test tests/test_meridian_storyboard.mjs",
+      "snapshot": "ae05659",
+      "note": "4/4.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/storyboard-unit.log",
+      "bytes": 455,
+      "sha256": "a3a8178e091822198f945b12f767677c3772810a5694b61e3229cb1f91f1495f",
+      "versionedLog": "logs/storyboard-unit.log"
+    },
+    {
+      "name": "final-boundaries",
+      "status": "PASS",
+      "command": "python tools/verify/module_boundaries.py",
+      "snapshot": "correções 2",
+      "note": "",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-boundaries.log",
+      "bytes": 88,
+      "sha256": "ef4bc4946c92c8d4d92226bf800e71340ed5e158fb080303933b0aa26d0b9a43",
+      "versionedLog": "logs/final-boundaries.log"
+    },
+    {
+      "name": "final-source-graph",
+      "status": "PASS",
+      "command": "python tools/surface-web/build.py check",
+      "snapshot": "correções 2",
+      "note": "128 canonical files; no graph/import changes through finalValidatedCommit.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-source-graph.log",
+      "bytes": 64,
+      "sha256": "f48102e4ca9b7f543e80343ad25e672761ee0763cfd0df97bc5b6658f124d139",
+      "versionedLog": "logs/final-source-graph.log"
+    },
+    {
+      "name": "final-syntax",
+      "status": "PASS",
+      "command": "node --check em todos os .mjs de system/surface/experiments/meridian e tools/meridian-preview",
+      "snapshot": "correções 2",
+      "note": "21 módulos; parsing adicional de source/runner após consolidação.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-syntax.log",
+      "bytes": 24,
+      "sha256": "30c9181cd13b8920f74a86696ff47babcf4827ab4f6a854019840e5949b7da57",
+      "versionedLog": "logs/final-syntax.log"
+    },
+    {
+      "name": "final-contrast",
+      "status": "PASS",
+      "command": "node out/meridian-round2-audit/contrast-smoke.mjs",
+      "snapshot": "CSS final",
+      "note": "18 checks; estilo computado, 2 materiais × 2 larguras × 2 componentes.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-contrast.log",
+      "bytes": 69,
+      "sha256": "d25b860b57475584f6da8c0ffa22b1f0b6d6628df018a9c4e2221749e343e330",
+      "versionedLog": "logs/final-contrast.log"
+    },
+    {
+      "name": "final-closure",
+      "status": "PASS",
+      "command": "MERIDIAN_AUDIT_FOCUSED=1 node tools/meridian-preview/round2-audit-smoke.mjs",
+      "snapshot": "ae05659",
+      "note": "54 checks at ae05659; superseded by full matrix at finalValidatedCommit.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-closure.log",
+      "bytes": 68,
+      "sha256": "8ad3dbfe839998efda731e13016b6a4c511e3434928b18b71ab9467600346144",
+      "versionedLog": "logs/final-closure.log"
+    },
+    {
+      "name": "final-whitespace",
+      "status": "PASS",
+      "command": "git diff --check",
+      "snapshot": "ae05659",
+      "note": "",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-whitespace.log",
+      "bytes": 270,
+      "sha256": "051c16841592238d1433525b8cc84b76503052e4d02b7fb6ced0aaf58ead88d7",
+      "versionedLog": "logs/final-whitespace.log"
+    },
+    {
+      "name": "final-context-closure",
+      "status": "FAIL",
+      "command": "MERIDIAN_AUDIT_FOCUSED=1 node tools/meridian-preview/round2-audit-smoke.mjs",
+      "snapshot": "ae05659 + explicit local project Space; before host and keyboard synchronization fixes",
+      "note": "51 PASS / 2 FAIL: module imports ERR_CONNECTION_REFUSED; early keyboard focus observation. Expired project check passed.",
+      "exit": 1,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-context-closure.log",
+      "bytes": 1383,
+      "sha256": "cfc2f42a32dfc7d5e86642433f65d3b534159fdb36f7e4eaf9728d8470a3a6d0",
+      "versionedLog": "logs/final-context-closure.log"
+    },
+    {
+      "name": "final-host-matrix",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/round2-audit-smoke.mjs",
+      "snapshot": "15247d1d0622942e0fb45174b1f3a147b08083c3",
+      "note": "392/392; 180 screens, 29 confirmation barriers, 64 geometry samples; after material host and runner synchronization changes.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/final-host-matrix.log",
+      "bytes": 70,
+      "sha256": "4067f61dfda8437242144662a0529c1d020f5292630443a37f85752c8ca41329",
+      "versionedLog": "logs/final-host-matrix.log"
+    },
+    {
+      "name": "host-meridian",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/browser-smoke.mjs",
+      "snapshot": "15247d1d0622942e0fb45174b1f3a147b08083c3",
+      "note": "155/155 after host fix.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/host-meridian.log",
+      "bytes": 88,
+      "sha256": "3b00ea15a07334133979efd26a27c8d8c3a9b3d69ea344ed1d9554f34a98d471",
+      "versionedLog": "logs/host-meridian.log"
+    },
+    {
+      "name": "host-round2",
+      "status": "PASS",
+      "command": "node tools/meridian-preview/round2-smoke.mjs",
+      "snapshot": "15247d1d0622942e0fb45174b1f3a147b08083c3",
+      "note": "23/23; own temporary 127.0.0.1:4203 Python host, stopped after test.",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/host-round2.log",
+      "bytes": 199,
+      "sha256": "af137b17893a0529133695deaa72c2c56b99a9efb614c4a73db00a782a8eee2a",
+      "versionedLog": "logs/host-round2.log"
+    },
+    {
+      "name": "documentation-whitespace",
+      "status": "PASS",
+      "command": "git diff --check",
+      "snapshot": "15247d1d0622942e0fb45174b1f3a147b08083c3 + audit documentation",
+      "exit": 0,
+      "log": "C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/out/meridian-round2-audit/documentation-whitespace.log",
+      "bytes": 353,
+      "sha256": "ede0588cdc08ecf92e4c9cd7a45ab0b2f733386ea715170403c0b6ffa1f07d8d",
+      "versionedLog": "logs/documentation-whitespace.log"
+    }
+  ],
+  "sourceHashes": [
+    {
+      "path": "system/surface/experiments/meridian/demo/source.mjs",
+      "sha256": "173a041ce685781029725f8a35f969ba4c2795b0d3b7ccaf1a1d43909da5b951"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/storyboards.mjs",
+      "sha256": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8"
+    },
+    {
+      "path": "system/surface/experiments/meridian/experience.mjs",
+      "sha256": "37dd1f556af127ed90ef6a13f1245895d6b73c5180739fcc18974602ec78408e"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/navigation.mjs",
+      "sha256": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/view.mjs",
+      "sha256": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.journeys.css",
+      "sha256": "9d25721ca373dc9e88acbaef65653b507aecf5d61174c936308c74ba7dabbf70"
+    },
+    {
+      "path": "tools/meridian-preview/round2-audit-smoke.mjs",
+      "sha256": "643c14f57ca156938bd1e3044be025f44a1c70048dbe6e3fa9aeb10e184b80ae"
+    },
+    {
+      "path": "tests/test_meridian_storyboard.mjs",
+      "sha256": "ca15353cc546e0ceec0539c4b0b017da29f8092c9139aa2c7e191bb8479d40ee"
+    },
+    {
+      "path": "tools/meridian-preview/serve.py",
+      "sha256": "0befc8a7451477cb2a88286fa716163267b237839c3f36afa0f286c0d2350e7f"
+    }
+  ],
+  "notRun": [
+    {
+      "gate": "Foundation full",
+      "status": "NOT RUN",
+      "historical": "FAIL Windows",
+      "reason": "POSIX/Windows inputs outside delta"
+    },
+    {
+      "gate": "Web build/typecheck/verify/repeatability",
+      "status": "NOT RUN",
+      "reason": "Inputs/locks/composition unchanged; source graph excludes experiment"
+    },
+    {
+      "gate": "Canonical Web browser",
+      "status": "NOT RUN",
+      "historical": "FAIL ready timeout",
+      "reason": "No material input change; historical cause remains indeterminate"
+    },
+    {
+      "gate": "workflow supply chain",
+      "status": "N/A",
+      "reason": "No workflow/dependency/lock changes"
+    },
+    {
+      "gate": "dedicated lint",
+      "status": "N/A",
+      "reason": "No applicable manifest script"
+    },
+    {
+      "gate": "remote CI / physical USB / release",
+      "status": "NOT RUN",
+      "reason": "Outside scope"
+    }
+  ],
+  "correctionCommits": [
+    "ae05659fab871595f3305e9fe18a9f9343d07f98",
+    "15247d1d0622942e0fb45174b1f3a147b08083c3"
+  ],
+  "finalValidatedCommit": "15247d1d0622942e0fb45174b1f3a147b08083c3",
+  "classification": "C — approved for Round 3 visual; no integration or merge",
+  "preFinalSourceHashes": [
+    {
+      "path": "system/surface/experiments/meridian/demo/source.mjs",
+      "sha256": "208bf2b595572a25620e9e850196fe652afe8cc94524baafb086c3fe3ae86776"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/storyboards.mjs",
+      "sha256": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8"
+    },
+    {
+      "path": "system/surface/experiments/meridian/experience.mjs",
+      "sha256": "556a9834c311f9d8b68203b78e3c0a96a2d618fa1442c03881f4ad99ca0e4555"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/navigation.mjs",
+      "sha256": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/view.mjs",
+      "sha256": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.journeys.css",
+      "sha256": "9d25721ca373dc9e88acbaef65653b507aecf5d61174c936308c74ba7dabbf70"
+    },
+    {
+      "path": "tools/meridian-preview/round2-audit-smoke.mjs",
+      "sha256": "4549dec3442b548d74780d50c393ea34bfbdfc04a177f81ecf434395a3e9c7b9"
+    },
+    {
+      "path": "tests/test_meridian_storyboard.mjs",
+      "sha256": "ca15353cc546e0ceec0539c4b0b017da29f8092c9139aa2c7e191bb8479d40ee"
+    }
+  ],
+  "finalIntegrity": {
+    "main": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+    "previousEvidenceDiffExit": 0,
+    "parentUnrelatedChangesPreserved": [
+      "tools/assistant-host/native/web-bridge.mjs",
+      "tools/assistant-host/test/web-bridge.test.mjs",
+      "docs/evidence/"
+    ],
+    "inventoryRows": 196,
+    "inventoryCategories": 17,
+    "flows": 14,
+    "validatedSourceHashesMatch": true
+  },
+  "artifacts": [
+    {
+      "path": "baseline-checks.json",
+      "bytes": 57447,
+      "sha256": "eb64e6fafebd8e4aba7ff76b6c3c3df300fef31f493c023f516ea84911157b63"
+    },
+    {
+      "path": "captures/final/device-pair-ink-320.png",
+      "bytes": 35432,
+      "sha256": "1962e12c24fbafc4f816d6c1e7b24913f71e53c14e6f285d2bb02831e1456219"
+    },
+    {
+      "path": "captures/final/device-pair-paper-320.png",
+      "bytes": 35082,
+      "sha256": "4492d59a70c085983f4a66850ff0835e65e0978e27e232310476805191303e01"
+    },
+    {
+      "path": "captures/final/intelligence-ink-320.png",
+      "bytes": 30354,
+      "sha256": "6e0c16e754fc4b5ed9df624628535c39250ed8c853b2f9d10a60da55a9089d37"
+    },
+    {
+      "path": "captures/final/intelligence-paper-320.png",
+      "bytes": 29865,
+      "sha256": "5920e4df45216ea9d228e7ad251212a8c8cd63e5ed7fb4deded00e88c5bc62ec"
+    },
+    {
+      "path": "captures/final/recovery-impact-ink-320.png",
+      "bytes": 33709,
+      "sha256": "6ff45075f2da90c300af5360dc216eaa80cc0ca460c5f61ed14e160f2ac0ab0f"
+    },
+    {
+      "path": "captures/final/recovery-impact-paper-320.png",
+      "bytes": 32886,
+      "sha256": "29e568470e04c76cf31e2baea91cc86f0f1aca589b94b7b73249562d877a57ac"
+    },
+    {
+      "path": "captures/final/setup-review-ink-320.png",
+      "bytes": 31411,
+      "sha256": "f91eb5088f352772cd9c7f7dac1a54fd6de81cc8b50b002e1a768ed2cc0daca9"
+    },
+    {
+      "path": "captures/final/setup-review-paper-320.png",
+      "bytes": 30746,
+      "sha256": "db8a9ce182a2455c864f546c2680085a2fa5259ca856f8d3ebc59f9a11325d71"
+    },
+    {
+      "path": "captures/final/store-ink-320.png",
+      "bytes": 34565,
+      "sha256": "ca89a606870b1df71f4edea27964fed5e6afac1a8091761d402061818cd6ec0c"
+    },
+    {
+      "path": "captures/final/store-paper-320.png",
+      "bytes": 34081,
+      "sha256": "21e0de013a53a4b10e213914b3f212f3d8dc49cc3cd41888f0beb44f208385d1"
+    },
+    {
+      "path": "captures/intelligence-ink-320.png",
+      "bytes": 30354,
+      "sha256": "6e0c16e754fc4b5ed9df624628535c39250ed8c853b2f9d10a60da55a9089d37"
+    },
+    {
+      "path": "captures/intelligence-paper-320.png",
+      "bytes": 29865,
+      "sha256": "5920e4df45216ea9d228e7ad251212a8c8cd63e5ed7fb4deded00e88c5bc62ec"
+    },
+    {
+      "path": "captures/recovery-impact-ink-320.png",
+      "bytes": 33709,
+      "sha256": "6ff45075f2da90c300af5360dc216eaa80cc0ca460c5f61ed14e160f2ac0ab0f"
+    },
+    {
+      "path": "captures/setup-review-paper-320.png",
+      "bytes": 30746,
+      "sha256": "db8a9ce182a2455c864f546c2680085a2fa5259ca856f8d3ebc59f9a11325d71"
+    },
+    {
+      "path": "captures/store-ink-320.png",
+      "bytes": 34565,
+      "sha256": "ca89a606870b1df71f4edea27964fed5e6afac1a8091761d402061818cd6ec0c"
+    },
+    {
+      "path": "captures/store-paper-320.png",
+      "bytes": 34081,
+      "sha256": "21e0de013a53a4b10e213914b3f212f3d8dc49cc3cd41888f0beb44f208385d1"
+    },
+    {
+      "path": "checks.json",
+      "bytes": 4824,
+      "sha256": "8d1e62aa8248247fc717b7880c6a3f40db7b879230dfb58c6a6a9bfe1e29b815"
+    },
+    {
+      "path": "computed-contrast.json",
+      "bytes": 1488,
+      "sha256": "62ebdb8fa82c7559b2761ed51350e1895c07a0dd30b0f4abfd84b8a0efa8d44f"
+    },
+    {
+      "path": "contrast.json",
+      "bytes": 1863,
+      "sha256": "14fadc4a8ded339076dbdfedf56c2d497e8393f9eb82fc213d77e0a6bbcfcc93"
+    },
+    {
+      "path": "extra-before-checks.json",
+      "bytes": 3272,
+      "sha256": "ea39ae1864d3c4190e9398081efecf5b1a15ddcc3dc922f322032fd44e67173c"
+    },
+    {
+      "path": "fluxos.md",
+      "bytes": 9136,
+      "sha256": "c9cf29d5dfe295a252c42ee2e35d1f4a264ea079623dc551c3becca0c92911a9"
+    },
+    {
+      "path": "host-meridian-proof.json",
+      "bytes": 13891,
+      "sha256": "a0b318ac44f9acd09bf94513ebd5611f1bc45c7a64833b7e7ac60e34047e8d81"
+    },
+    {
+      "path": "host-round2-checks.json",
+      "bytes": 1224,
+      "sha256": "c80c301aef01c1aca7d78f900b582a9a2e61cb02105187a4808293f5a5c2b3c5"
+    },
+    {
+      "path": "inventario.json",
+      "bytes": 95284,
+      "sha256": "ca7dcef3be3513eca9e1404e31753ef0a08b6038628e301d70a35dbcbeffa2af"
+    },
+    {
+      "path": "inventario.md",
+      "bytes": 35736,
+      "sha256": "fb49d33dfad153badc791deacaabe894c417c4d042759dc0673644a4e3923b5f"
+    },
+    {
+      "path": "logs/baseline-boundaries.log",
+      "bytes": 88,
+      "sha256": "ef4bc4946c92c8d4d92226bf800e71340ed5e158fb080303933b0aa26d0b9a43"
+    },
+    {
+      "path": "logs/baseline-contracts.log",
+      "bytes": 80,
+      "sha256": "ba39ef3532d8b7f07a5b96aa6fbd3b73fb7f330e9246b9223658df23e9c8f6cd"
+    },
+    {
+      "path": "logs/baseline-focused.log",
+      "bytes": 876,
+      "sha256": "d19aee9cdfb15b860864c49c68779d8383a7c729e094fa372d319ea0bdd9cec7"
+    },
+    {
+      "path": "logs/baseline-meridian-rerun.log",
+      "bytes": 2506,
+      "sha256": "576f3d18dbf28049506dad49c61c7ffaad88049810e7a78d2c3a693b53c8a8cc"
+    },
+    {
+      "path": "logs/baseline-meridian-unsandboxed.log",
+      "bytes": 87,
+      "sha256": "2b5bffaaee2af304fbe47d016a7df5b8d18144ec05487f984197bd3c25f25294"
+    },
+    {
+      "path": "logs/baseline-meridian.log",
+      "bytes": 33,
+      "sha256": "bf500efc6f566240dc0dc44a4df69f9c84768731c654ef093840ab0640962524"
+    },
+    {
+      "path": "logs/baseline-round2.log",
+      "bytes": 202,
+      "sha256": "cef088fd30904aac2df7dc9c7ae7479e9cbd060cc24a7ee0ec5764d9cfedf1e8"
+    },
+    {
+      "path": "logs/baseline-source-graph.log",
+      "bytes": 64,
+      "sha256": "f48102e4ca9b7f543e80343ad25e672761ee0763cfd0df97bc5b6658f124d139"
+    },
+    {
+      "path": "logs/baseline-syntax.log",
+      "bytes": 24,
+      "sha256": "13db37c6be16e923328475e7c0d5f49ae68b244da1c42cc3587923d7532067e6"
+    },
+    {
+      "path": "logs/baseline-whitespace.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "logs/canonical-focused.log",
+      "bytes": 6899,
+      "sha256": "e36fadb35ab5b3b22d2a785f539c2c3d3c0175a5cffdbef99c20b3bff4c6bd4c"
+    },
+    {
+      "path": "logs/documentation-whitespace.log",
+      "bytes": 353,
+      "sha256": "ede0588cdc08ecf92e4c9cd7a45ab0b2f733386ea715170403c0b6ffa1f07d8d"
+    },
+    {
+      "path": "logs/extra-before.log",
+      "bytes": 188,
+      "sha256": "39ad9c587789b1bfc51a0c8d6cc18cdbc3191a6ee113996780ec2eeb7c4a35d5"
+    },
+    {
+      "path": "logs/final-boundaries.log",
+      "bytes": 88,
+      "sha256": "ef4bc4946c92c8d4d92226bf800e71340ed5e158fb080303933b0aa26d0b9a43"
+    },
+    {
+      "path": "logs/final-closure.log",
+      "bytes": 68,
+      "sha256": "8ad3dbfe839998efda731e13016b6a4c511e3434928b18b71ab9467600346144"
+    },
+    {
+      "path": "logs/final-context-closure.log",
+      "bytes": 1383,
+      "sha256": "cfc2f42a32dfc7d5e86642433f65d3b534159fdb36f7e4eaf9728d8470a3a6d0"
+    },
+    {
+      "path": "logs/final-contrast.log",
+      "bytes": 69,
+      "sha256": "d25b860b57475584f6da8c0ffa22b1f0b6d6628df018a9c4e2221749e343e330"
+    },
+    {
+      "path": "logs/final-focused.log",
+      "bytes": 68,
+      "sha256": "4ed71fbc4bdf4635e417ab1eb96f44c87a78ecab2eae2f17df84120490ee2a77"
+    },
+    {
+      "path": "logs/final-host-matrix.log",
+      "bytes": 70,
+      "sha256": "4067f61dfda8437242144662a0529c1d020f5292630443a37f85752c8ca41329"
+    },
+    {
+      "path": "logs/final-matrix.log",
+      "bytes": 236,
+      "sha256": "93ef9727d52f927238d9a2e6c89c188ac580fc6dc2eae58cff6b2f897d386021"
+    },
+    {
+      "path": "logs/final-meridian.log",
+      "bytes": 86,
+      "sha256": "1e647d1ef356c54ca91cbb48b60328e7886283cb38f6544e8d14e3e8f0fa84f6"
+    },
+    {
+      "path": "logs/final-round2.log",
+      "bytes": 199,
+      "sha256": "6dce0536504a725f679e56b1674ff9f64514893b6b4bbe6d558def7cec286ef5"
+    },
+    {
+      "path": "logs/final-source-graph.log",
+      "bytes": 64,
+      "sha256": "f48102e4ca9b7f543e80343ad25e672761ee0763cfd0df97bc5b6658f124d139"
+    },
+    {
+      "path": "logs/final-syntax.log",
+      "bytes": 24,
+      "sha256": "30c9181cd13b8920f74a86696ff47babcf4827ab4f6a854019840e5949b7da57"
+    },
+    {
+      "path": "logs/final-whitespace.log",
+      "bytes": 270,
+      "sha256": "051c16841592238d1433525b8cc84b76503052e4d02b7fb6ced0aaf58ead88d7"
+    },
+    {
+      "path": "logs/fix-focused.log",
+      "bytes": 69,
+      "sha256": "829db0d225ea709d0f3cdb10e3acf1094db4ff7dde1b37d84f35a29628e24fb9"
+    },
+    {
+      "path": "logs/host-meridian.log",
+      "bytes": 88,
+      "sha256": "3b00ea15a07334133979efd26a27c8d8c3a9b3d69ea344ed1d9554f34a98d471"
+    },
+    {
+      "path": "logs/host-round2.log",
+      "bytes": 199,
+      "sha256": "af137b17893a0529133695deaa72c2c56b99a9efb614c4a73db00a782a8eee2a"
+    },
+    {
+      "path": "logs/navigation-diagnostic.log",
+      "bytes": 69,
+      "sha256": "34b8579832ebb4c84a48b63511ba531059f29206234aed596b9fe9350cc57335"
+    },
+    {
+      "path": "logs/storyboard-unit.log",
+      "bytes": 455,
+      "sha256": "a3a8178e091822198f945b12f767677c3772810a5694b61e3229cb1f91f1495f"
+    },
+    {
+      "path": "matrix-before-host-fix.json",
+      "bytes": 58521,
+      "sha256": "4c89fe1ca9e3c1251c2de541ae3ab08a0a9bf6ba20ef5d6693b62933f663a1ae"
+    },
+    {
+      "path": "matrix-checks.json",
+      "bytes": 60805,
+      "sha256": "6f38816f095722d182d4faba7f44ae5eb91b117285f962e5321e6c1d23c9ff07"
+    },
+    {
+      "path": "meridian-proof.json",
+      "bytes": 13891,
+      "sha256": "a0b318ac44f9acd09bf94513ebd5611f1bc45c7a64833b7e7ac60e34047e8d81"
+    },
+    {
+      "path": "navigation-diagnostic.json",
+      "bytes": 3021,
+      "sha256": "0d02beb3fc501fc4200221adc3dac88532d0450898d5941f4c7a260be271feb1"
+    },
+    {
+      "path": "relatorio.md",
+      "bytes": 26593,
+      "sha256": "d98ff28fb3ac8bc3408655401cc82d2c0d43a5a966deb9dd85eabacc8bf4ce0c"
+    },
+    {
+      "path": "round2-checks.json",
+      "bytes": 1224,
+      "sha256": "c80c301aef01c1aca7d78f900b582a9a2e61cb02105187a4808293f5a5c2b3c5"
+    },
+    {
+      "path": "transport-diagnostic-checks.json",
+      "bytes": 6665,
+      "sha256": "41a7394567917286ec865e5833c042e026b321c623d3873b93ca3ac8e008f59a"
+    }
+  ]
+}

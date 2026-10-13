@@ -1559,3 +1559,20 @@ The earlier browser regression assertions are preserved and their Space routes
 adapted, but their full matrix requires independent rerun. The controller still
 reconstructs DOM; real lifecycle integration, complete accessibility review and
 canonical-contract projection remain required. Meridian is not ready for merge.
+
+## Meridian Round 2 independent audit — 2026-10-13
+
+The independent audit of 4dffe52 is classified **C: approved for Round 3 visual**,
+not integration readiness. Objective fixes cover context, approval, drafts,
+lifecycle, focus, contrast and the preview host's connection queue. The final
+expanded matrix passed 392 checks, covering 180 screens, 29 confirmation barriers
+and 64 geometry samples. The original Meridian smoke passed 155 checks and Round 2
+passed 23 again after the host correction. Earlier failed executions are preserved,
+including the diagnostic that captured refused module requests. Canonical Foundation
+and Web-browser failures from the earlier audit remain unresolved.
+
+See the [independent report](evidence/meridian-round2-audit-2026-10-13/relatorio.md),
+[196-item comparison](evidence/meridian-round2-audit-2026-10-13/inventario.md) and
+[14 revised flows](evidence/meridian-round2-audit-2026-10-13/fluxos.md). Previous
+evidence is preserved. Main, production palettes, contracts, adapters and release
+gates are unchanged; zero items are classified ready for adapter integration.
