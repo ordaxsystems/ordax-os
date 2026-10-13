@@ -196,6 +196,28 @@ As regressões exercitam exclusão entre processos reais, retomada após
 morte abrupta, rejeição de diretório público, inode não privado,
 symlink, hardlink e bloqueio antes da construção do servidor.
 
+### Limpeza de handoff quando o Native host sai
+
+O mesmo lock exclusivo de instância do Native host delimita também o arquivo
+temporário `app-data-port-bindings.json`: antes de iniciar outro servidor,
+o owner verifica o diretório privado e elimina qualquer bootstrap não
+consumido deixado por uma geração anterior. Na saída normal ou em erro
+de inicialização do listener, o owner elimina o arquivo restante **antes
+de liberar** o lock. Uma instância concorrente que não adquiriu o lock
+jamais toca o arquivo da instância ativa. Usa
+`clear_app_data_port_bootstrap` do owner existente, com validação
+de propriedade do diretório e `fsync`; não existe outra fonte de
+permissões. Os testes exercitam arquivo obsoleto na entrada, arquivo
+novo não consumido, falha depois da publicação e preservação do
+arquivo quando outro host detém a autoridade.
+
+Em `SIGKILL` ou queda de energia, nenhuma limpeza de usuário é
+executável. O arquivo temporário poderá persistir até a próxima
+instância, que o invalida **antes** de emitir novos bindings; por isso
+a mera existência do arquivo nunca autoriza reativação de um app e
+não substitui a prova de recuperação de App Data nem o processo
+stateful de Supervisor/Go.
+
 ## Linearização de permissões com checkpoint persistente
 
 A decisão do host que emite capabilities para uma versão autenticada usa
