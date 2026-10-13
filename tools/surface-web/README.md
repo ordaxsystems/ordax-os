@@ -14,6 +14,20 @@ From repository root:
     python tools/surface-web/build.py verify --out-dir out/web-client
     node tools/surface-web/browser-smoke.mjs --bundle-dir out/web-client
 
+## Montagem sob prefixo (espelho visual)
+
+O `base` do Vite é a fonte única para os URLs dos assets e o `basepath`
+do TanStack Router; a compilação padrão (`base: './'`) mantém a rota
+canônica `/`. Para publicar uma **cópia visual isolada** no prefixo
+`/preview-os/`, execute a partir da raiz:
+
+    npm run build --workspace tools/surface-web -- --base /preview-os/
+
+Sirva o `out/web-ui/index.html` nesse prefixo, **com o endereço do
+navegador em `/preview-os/`** (não `/preview-os/index.html`). A build usa
+a mesma composição de UI, sem reimplementações. O host do espelho não ganha
+permissões de login, sessão, sincronização ou dispositivos.
+
 npm run preview --workspace tools/surface-web serves compiled presentation at
 http://127.0.0.1:4201/. The reference's controls select panels and desktop view within the same page. No alternate product route
 or redirect. Node >=22.18 is needed on the build/proof host, not user browsers.

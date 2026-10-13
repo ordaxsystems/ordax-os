@@ -1332,3 +1332,19 @@ tests passed, with TypeScript/build/reference verification and local Web/Native
 browser flows. Pointer behavior is unit-tested; connected browser does not expose
 pointer movement. Local Native preview does not prove hardware execution, physical
 USB boot or signed release.
+
+
+## Contextual presentation toggle — 2026-10-12
+
+Owner: OS Surface, following the explicit shared Web/USB navigation request.
+The intermediate Web width no longer overrides the canonical sidebar token.
+The existing right-hand toggle retains its anchor and control geometry; monitor
+means Desktop destination and grid means Central destination. Both presenters
+consume the existing presentation policy, without another mode flag or store.
+Native localization updates the same button; its SVG changes only when the
+destination changes. The current desktop rail, profile, notifications and native
+auxiliary owners remain intact. Risk is limited to presentation feedback and
+responsive geometry; no authority, application lifecycle or device change.
+Acceptance: correct destination in either mode, stable control position and
+canonical expanded/collapsed widths. Automated regression checks cover invalid
+views, immutable destination metadata, localization and redundant SVG updates.

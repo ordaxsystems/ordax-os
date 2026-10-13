@@ -1,5 +1,19 @@
 # Current State
 
+## Alternância Central/Área de trabalho — 2026-10-12
+
+Owner OS Surface; incremento solicitado sobre a sidebar/dock compartilhada.
+A largura em tablets/intermediários agora usa o token canônico, retirando a
+exceção Web de 185 px. O alternador conserva posição à direita e anuncia o
+destino com monitor/grade, usando a mesma política de apresentação no Native
+e React. Rótulos Native continuam no catálogo i18n; o controle não é remontado
+em cada render. Não altera janelas, sessão, grants ou persistência.
+As regressões cobrem destinos inválidos, tradução e troca de ícone somente
+quando o destino muda. A prévia USB local continua visual, sem execução Native
+ou prova de boot físico. 71 testes Node, 41 Python, TypeScript/build Vite e
+verificação de 34 arquivos/assets passaram neste incremento. Os dois hosts
+responderam HTTP 200; não houve nova prova interativa de browser ou boot físico.
+
 ## Sidebar e navegação Web/USB — SSOT — 2026-10-12
 
 Owner: OS Surface; incremento explicitamente solicitado. sidebar-layout.mjs/css
