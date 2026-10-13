@@ -160,6 +160,42 @@ e writer Go devem garantir quiescência global e verificação Ed25519
 sob transação canônica. Não há novo grant de update, tampouco rollback
 stateful permitido por esta função.
 
+
+## Um único host Native por boot
+
+`native_app_data_runtime.py` (owner atual de emissão das capabilities
+App Data) agora adquire antes de abrir a porta HTTP ou processar os recibos
+o lock de kernel exclusivo e não bloqueante em
+`/run/ordax-surface/native-host-instance.lock`. O diretório e o inode
+precisam pertencer ao usuário executor, ser privados, não conter symlink nem
+hardlink adicional. A referência ao inode é mantida até o fechamento
+do processo, e o arquivo **não é apagado** no encerramento, prevenindo
+duas instâncias com locks sobre inodes diferentes. Depois de um crash
+ou SIGKILL, o kernel libera automaticamente o `flock`.
+
+A segunda instância falha antes de montar o servidor, importar
+recibos para o registro de bindings ou publicar qualquer capability
+de composição. A trava é do **único processo de host** e não configura
+novo SSOT de dados, estado de ativação, ponte de acesso à Store ou
+autoridade de atualização. Os locks por partição continuam protegendo
+a geração persistente; o writer Go continua sendo o proprietário
+das decisões assinadas.
+
+**Limite atual (não habilitar stateful):** o launcher
+`system/surface/bin/ordax-surface` ainda cria o host HTTP e o encerra
+no próprio `cleanup()`; também executa a limpeza de processos do
+runtime gráfico na inicialização. Assim, esse controle previne duas
+instâncias *vivas* de emissor, mas não faz o host sobreviver à parada
+da Surface nem prova quiescência de processos de cada aplicativo.
+O próximo cutover precisa transferir a propriedade do ciclo de vida
+para o Supervisor antes de retirar o host da Surface, preservando o
+handoff de boot e evitando que a limpeza do launcher mate o owner
+vivo. Não existe atalho de flag para promover/retirar checkpoint.
+
+As regressões exercitam exclusão entre processos reais, retomada após
+morte abrupta, rejeição de diretório público, inode não privado,
+symlink, hardlink e bloqueio antes da construção do servidor.
+
 ## Linearização de permissões com checkpoint persistente
 
 A decisão do host que emite capabilities para uma versão autenticada usa
