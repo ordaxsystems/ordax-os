@@ -928,22 +928,55 @@ start_surface() {
     start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"
 }
 
-stop_surface() {
-    [ -n "$SURFACE_PID" ] || return 0
-    if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
-        kill "$SURFACE_PID" >/dev/null 2>&1 || true
-        remaining=5
-        while kill -0 "$SURFACE_PID" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
-            /bin/busybox sleep 1
-            remaining=$((remaining - 1))
-        done
-        if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
-            log "Surface did not stop gracefully; forcing pid $SURFACE_PID"
-            kill -KILL "$SURFACE_PID" >/dev/null 2>&1 || true
+# Surface owns the Native HTTP process until the Supervisor/mount cutover.
+# After a launcher crash or SIGKILL, its child may survive as an orphan.
+# Check the SAME kernel lock used by native_app_data_runtime.py: a dead
+# launcher PID is not evidence that the Native capability issuer has stopped.
+# This is only a host-liveness fence; it is NOT per-app quiescence or a
+# stateful activation/rollback authorization.
+native_host_quiesced() {
+    native_lock=/run/ordax-surface/native-host-instance.lock
+    [ ! -L "$native_lock" ] || return 1
+    [ -e "$native_lock" ] || return 0
+    [ -f "$native_lock" ] || return 1
+
+    attempts=5
+    while [ "$attempts" -gt 0 ]; do
+        # BusyBox flock is part of the verified portable Base. Contention,
+        # absence of the applet, or a lock error all fail closed.
+        if /bin/busybox flock -n "$native_lock" /bin/true >/dev/null 2>&1; then
+            return 0
         fi
+        attempts=$((attempts - 1))
+        [ "$attempts" -eq 0 ] || /bin/busybox sleep 1
+    done
+    return 1
+}
+
+stop_surface() {
+    if [ -n "$SURFACE_PID" ]; then
+        if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
+            kill "$SURFACE_PID" >/dev/null 2>&1 || true
+            remaining=5
+            while kill -0 "$SURFACE_PID" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+                /bin/busybox sleep 1
+                remaining=$((remaining - 1))
+            done
+            if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
+                log "Surface did not stop gracefully; forcing pid $SURFACE_PID"
+                kill -KILL "$SURFACE_PID" >/dev/null 2>&1 || true
+            fi
+        fi
+        wait "$SURFACE_PID" 2>/dev/null || true
+        SURFACE_PID=""
     fi
-    wait "$SURFACE_PID" 2>/dev/null || true
-    SURFACE_PID=""
+    # Do not apply another release, probe health, or restart graphics while
+    # an orphaned Native host can still issue App Data capabilities.
+    if ! native_host_quiesced; then
+        log "Native host still owns the live App Data authority after Surface stop; refusing transition"
+        trap - EXIT HUP INT TERM
+        exit 1
+    fi
 }
 
 surface_stays_running() {
