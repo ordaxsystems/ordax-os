@@ -388,7 +388,7 @@
   max-width:1512px;
   margin:0 auto;
   padding:34px 36px 42px;
-  animation:md-enter var(--md-duration) ease-out;
+  animation:none;
 }
 .md-page-heading {
   display:flex;
@@ -1144,7 +1144,7 @@
   background:var(--md-accent);
 }
 .md-dock-app:hover {
-  transform:translateY(-3px);
+  transform:translateY(-2px);
 }
 .md-dock-tooltip {
   position:absolute;
@@ -1878,3 +1878,60 @@
 
 /* Overlay mount points do not participate in the shell's row sizing. */
 .md-panel-root { display: contents; }
+
+/* Desktop composition: no reserved topbar row. Same taskbar and scoped state. */
+[data-meridian][data-presentation="desktop"] .md-workspace {
+  grid-template-rows:minmax(0,1fr) var(--md-dock);
+}
+[data-meridian][data-presentation="desktop"] .md-taskbar {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:16px;
+  padding:0 20px;
+}
+[data-meridian][data-presentation="desktop"] .md-taskbar-start {min-width:0;gap:4px}
+[data-meridian][data-presentation="desktop"] .md-dock {justify-self:center;max-width:100%;min-width:0}
+.md-dock-app {flex:none}
+.md-dock-app.is-active .md-dock-symbol {outline:1px solid var(--md-accent);outline-offset:3px}
+.md-dock-app.is-active:after {width:12px;left:calc(50% - 6px);border-radius:3px}
+.md-dock-app.is-minimized:after {background:transparent;border:1px solid var(--md-muted);width:6px;height:3px;left:calc(50% - 3px)}
+.md-tray-system {display:flex;align-items:center;gap:12px;background:none;border:0;border-radius:9px;min-height:40px;padding:5px 8px;font-size:12px}
+.md-tray-battery {display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+.md-tray-time {display:grid;text-align:right;font-variant-numeric:tabular-nums}
+.md-tray-time small {font-size:10px;color:var(--md-muted)}
+.md-tray-system:hover {background:var(--md-subtle)}
+.md-tray-notifications {position:relative}
+.md-tray-notifications.has-unread:after {content:'';position:absolute;right:7px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--md-accent)}
+[data-meridian][data-presentation="desktop"] .md-taskbar-end {display:flex}
+.md-taskbar .md-demo-label {white-space:nowrap;font-size:11px;flex:none}
+.md-dock-tooltip {font-size:12px;z-index:3}
+.md-continuity {border-left:2px solid var(--md-accent);padding:0 0 0 14px;margin:16px 0}
+.md-continuity>div {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.md-continuity p {font-size:13px;line-height:1.6;margin:0;max-width:68ch}
+.md-continuity .md-button {flex:none;font-size:12px}
+.md-network-example {margin:18px 0;font-size:13px;line-height:1.6}
+.md-network-example summary {cursor:pointer;font-weight:550;padding:8px 0}
+.md-taskbar button:active {transform:translateY(1px)}
+@media(max-width:1100px) {
+ .md-tray-time,.md-tray-battery {display:none}
+ [data-meridian][data-presentation="desktop"] .md-taskbar {gap:8px;padding:0 12px}
+ .md-taskbar-end {gap:3px}
+}
+@media(max-width:740px) {
+ [data-meridian][data-presentation="desktop"] .md-context-intelligence,
+ [data-meridian][data-presentation="desktop"] .md-tray-notifications {display:none}
+ [data-meridian][data-presentation="desktop"] .md-dock {border:0;background:none;box-shadow:none;overflow-x:auto;justify-self:stretch;justify-content:flex-start;padding:8px 4px;gap:6px;scrollbar-width:none}
+ [data-meridian][data-presentation="desktop"] .md-dock-tooltip {display:none}
+ [data-meridian][data-presentation="desktop"] .md-taskbar .md-icon-button {width:34px;height:40px;flex:none}
+ .md-continuity>div {align-items:flex-start;flex-direction:column;gap:4px}
+}
+@media(max-width:400px) {
+ [data-meridian][data-presentation="desktop"] .md-taskbar {gap:3px;padding:0 7px}
+ [data-meridian][data-presentation="desktop"] .md-taskbar-start {gap:0}
+ [data-meridian][data-presentation="desktop"] .md-taskbar .md-demo-label {padding:4px;font-size:10px;gap:4px}
+ .md-tray-system {padding:4px}
+}
+
+[data-meridian][data-presentation-changed="true"] .md-main {animation:md-surface-change var(--md-duration) ease-out}
+@keyframes md-surface-change {from {opacity:.85} to {opacity:1}}
+[data-meridian] .md-main:focus-visible {outline:2px solid var(--md-focus);outline-offset:-2px}

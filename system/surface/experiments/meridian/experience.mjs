@@ -34,6 +34,7 @@ export function mountMeridianExperience(root,source,options={}){
   const focusAction=root.contains(focused)?focused?.dataset?.action:null;
   const panelScroll=root.querySelector('.md-panel-body')?.scrollTop??0;
   const selection=focused?.tagName==='TEXTAREA'||focused?.tagName==='INPUT'?{start:focused.selectionStart,end:focused.selectionEnd,value:focused.value}:null;
+  root.dataset.presentationChanged=String(!!root.dataset.presentation&&root.dataset.presentation!==ui.presentation);
   root.dataset.meridian='';root.dataset.subject=contextSubject();root.dataset.stage=String(ui.stage||ui.locked);root.dataset.space=data.activeSpace;root.dataset.material=ui.material;root.dataset.presentation=ui.presentation;
   root.dataset.focus=String(data.focus);root.dataset.largeText=String(ui.largeText);root.dataset.reduceMotion=String(ui.reduceMotion);
   root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));
@@ -105,6 +106,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
    case 'select-space':openJourney('space',id);break;
    case 'resume':resume(id);break;
    case 'scene':ui.panel=null;ui.currentStory=null;ui.stage=false;ui.presentation='central';ui.route='central';if(id==='guest'){selectIdentity('guest');}else{if(ui.subject!=='lia')selectIdentity('lia');source.dispatch({type:'scenario',id});}break;
+   case 'network-example':if(['offline','connected'].includes(id))source.dispatch({type:'scenario',id});break;
    case 'focus':source.dispatch({type:action});break;
    case 'privacy':ui.privateMode=!ui.privateMode;render();break;
    case 'sync':ui.sync=!ui.sync;render();break;
@@ -149,7 +151,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   const update=ui.stories.get(storyboardKey('update',contextSubject(),'@device',''));
   const updateLabel=ui.lab.definitions.update?.screens[update?.step]?.statusLabel??'Atualização e recuperação';
   const installed=packageStates.filter(([key,state])=>JSON.parse(key)[2]==='store'&&state.receipt==='available').map(([,state])=>({id:state.entity,space:activeSpace}));
-  return {...raw,activeSpace,spaces,installed,updateLabel,read:ui.read,privateMode:ui.privateMode,sync:ui.sync,networkOnline:raw.scenario!=='offline',
+  return {...raw,presentationSubject:contextSubject(),activeSpace,spaces,installed,updateLabel,read:ui.read,privateMode:ui.privateMode,sync:ui.sync,networkOnline:raw.scenario!=='offline',
    automations:local||activeSpace!=='studio'?[]:raw.automations,
    person:ui.subject==='other'?{name:'Visitante de teste',firstName:'Visitante',initials:'VT',email:'visitante@example.test'}:raw.person,
    scenario:local?'guest':raw.scenario,

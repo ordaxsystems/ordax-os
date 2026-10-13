@@ -4,9 +4,9 @@ export const demoData = {
  dateLabel:'Terça-feira, 13 de outubro', time:'09:41',
  agenda:[{time:'10:30',title:'Tempo para criar',note:'Atlas · Bloco de foco'},{time:'14:00',title:'Revisão com Rafael',note:'Estúdio · 30 minutos'},{time:'16:00',title:'Explorar sem pressa',note:'Seu tempo pessoal'}],
  spaces:[
-  {id:'studio',name:'Estúdio',icon:'aura',tone:'clay',description:'Ideias que ganham forma.',members:'Você + 2 pessoas',profile:'Criação & design',modules:['Studio','Arquivos','Quadro de referências'],permission:'Somente este Space',storage:'12,8 GB'},
-  {id:'personal',name:'Pessoal',icon:'sun',tone:'sage',description:'Seu ritmo. Seu espaço.',members:'Só você',profile:'Pessoal',modules:['Notas','Agenda','Música'],permission:'Privado',storage:'4,2 GB'},
-  {id:'workshop',name:'Oficina 3D',icon:'cube',tone:'blue',description:'Do primeiro esboço ao objeto.',members:'Você + 1 pessoa',profile:'Impressão 3D',modules:['Editor 3D','Fila de produção','Materiais'],permission:'Dispositivos selecionados',storage:'28,6 GB'},
+  {id:'studio',featuredApps:["studio", "notes", "files", "internet", "editor"],name:'Estúdio',icon:'aura',tone:'clay',description:'Ideias que ganham forma.',members:'Você + 2 pessoas',profile:'Criação & design',modules:['Studio','Arquivos','Quadro de referências'],permission:'Somente este Space',storage:'12,8 GB'},
+  {id:'personal',featuredApps:["notes", "files", "calendar", "music", "intelligence"],name:'Pessoal',icon:'sun',tone:'sage',description:'Seu ritmo. Seu espaço.',members:'Só você',profile:'Pessoal',modules:['Notas','Agenda','Música'],permission:'Privado',storage:'4,2 GB'},
+  {id:'workshop',featuredApps:["editor", "files", "notes", "intelligence"],name:'Oficina 3D',icon:'cube',tone:'blue',description:'Do primeiro esboço ao objeto.',members:'Você + 1 pessoa',profile:'Impressão 3D',modules:['Editor 3D','Fila de produção','Materiais'],permission:'Dispositivos selecionados',storage:'28,6 GB'},
  ],
  projects:[
   {id:'atlas',name:'Atlas',description:'Uma identidade em construção.',category:'Identidade visual',updated:'Há 12 minutos',tone:'clay',progress:64,space:'studio'},

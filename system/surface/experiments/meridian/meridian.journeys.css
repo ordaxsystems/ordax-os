@@ -124,3 +124,9 @@
 
 [data-meridian] .md-journey[data-tone="warning"] .md-journey-step-icon{background:var(--md-amber-soft);color:var(--md-amber)}
 [data-meridian] .md-journey[data-tone="success"] .md-journey-step-icon{background:var(--md-sage-soft);color:var(--md-sage)}
+
+@media(max-width:600px) {
+ [data-meridian] .md-operating-strip {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;padding:8px 0 12px}
+ [data-meridian] .md-operating-strip button {min-width:0;font-size:12px;text-align:left;line-height:1.45}
+ [data-meridian] .md-operating-strip button:first-child {margin-right:0}
+}
