@@ -12,11 +12,12 @@ export function moveStoryboard(definition, state, target) {
  const allowed = [screen.next, ...(screen.actions ?? []).map(item=>item.target), ...(screen.conditions ?? []).map(item=>item.target)];
  if (!allowed.includes(target)) return state;
  if (screen.confirm && target === screen.next && state.fields[`confirm:${state.step}`] !== true) return state;
- return {...state,fields:{...state.fields,['confirm:'+target]:false},step:target,receipt:definition.screens[target].result??state.receipt,trail:[...state.trail,state.step],visited:[...new Set([...state.visited,target])],revision:state.revision+1};
+ return {...state,fields:{...state.fields,['confirm:'+target]:false},step:target,receipt:definition.screens[target].result??state.receipt,trail:definition.screens[target].result?[]:[...state.trail,state.step].slice(-64),visited:[...new Set([...state.visited,target])],revision:state.revision+1};
 }
 export function previousStoryboard(state) {
  if (!state.trail.length) return state;
- return {...state,step:state.trail.at(-1),trail:state.trail.slice(0,-1),revision:state.revision+1};
+  const step = state.trail.at(-1);
+  return {...state,step,fields:{...state.fields,['confirm:'+step]:false},trail:state.trail.slice(0,-1),revision:state.revision+1};
 }
 export function storyboardKey(kind, subject, space, entity) {
  return JSON.stringify([subject,space,kind,entity]);

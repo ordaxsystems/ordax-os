@@ -109,3 +109,22 @@ Its existing assertions are retained, with the two Space-switch interactions
 updated for explicit impact review. The full runner was not rerun in Round 2;
 its new result belongs to the independent audit, not the historical 155-check
 result. No workflow gate has been removed or weakened.
+
+## Independent Round 2 audit
+
+See [the independent report](../../docs/evidence/meridian-round2-audit-2026-10-13/relatorio.md),
+which preserves failures and distinguishes representation from integration.
+
+Run the additional state, journey and responsive checks with:
+
+```sh
+node --test tests/test_meridian_storyboard.mjs
+node tools/meridian-preview/round2-audit-smoke.mjs
+```
+
+The browser runner starts/stops its own loopback host and uses the shared
+disposable Chromium runner. ORDAX_PYTHON and MERIDIAN_EVIDENCE_DIR work as above.
+Set MERIDIAN_AUDIT_FOCUSED=1 only for the explicitly reported focused state/keyboard
+subset; this skips the complete screen/viewport matrix and is not its replacement.
+The full matrix records failures without discarding later independent results.
+No assertion from the earlier two smokes has been removed or weakened.
