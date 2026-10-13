@@ -1,9 +1,14 @@
 import { validateComponentId } from "../../contracts/component-manifest.mjs";
 import { assertComponentSlotSource } from "../../contracts/component-slot-source.mjs";
 import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
-import { validateComponentRuntime, validateMountedComponent } from "../../contracts/component-runtime.mjs";
+import { validateComponentRuntime } from "../../contracts/component-runtime.mjs";
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 import { assertAppDataPort } from "../../contracts/app-data.mjs";
+import {
+  assertComponentMountParent,
+  createComponentMountContext,
+  mountComponentRuntimeBounded,
+} from "./runtime-mount.mjs";
 
 const REQUEST_OPTIONS = Object.freeze({
   method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error",
@@ -44,34 +49,6 @@ function canonicalMetadataUrl(source, componentId) {
   return url;
 }
 
-async function mountBounded(runtime, context, milliseconds, componentId) {
-  let expired = false;
-  let timer;
-  const pending = Promise.resolve()
-    .then(() => runtime.mount(context))
-    .then((value) => {
-      const mounted = validateMountedComponent(value, componentId);
-      if (expired) {
-        try { mounted.destroy(); } catch { /* app-owned cleanup is isolated */ }
-        throw new Error("Current component mount completed after its deadline");
-      }
-      return mounted;
-    });
-  try {
-    return await Promise.race([
-      pending,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          expired = true;
-          reject(new Error("Current component mount timed out"));
-        }, milliseconds);
-      }),
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function readCurrent(source, componentId, fetchImpl, timeout) {
   const url = canonicalMetadataUrl(source, componentId);
   const response = await bounded(
@@ -106,69 +83,6 @@ function verifiedModuleUrl(source, current) {
   return url.href;
 }
 
-// A caller supplies the shared Surface element, never a shared app mount point.
-// Validate it before any fetch/import; only create the per-app mount node after
-// slot identity and trusted host bindings have been verified.
-function assertComponentMountParent(context) {
-  if (!context || typeof context !== "object" || Array.isArray(context)
-    || ![Object.prototype, null].includes(Object.getPrototypeOf(context))) {
-    throw new TypeError("Current component context must be a plain object");
-  }
-  const hasOwnRoot = Object.prototype.hasOwnProperty.call(context, "root");
-  if ("root" in context && !hasOwnRoot) {
-    throw new TypeError("Current component mount parent cannot be inherited");
-  }
-  if (!hasOwnRoot) return;
-  const descriptor = Object.getOwnPropertyDescriptor(context, "root");
-  if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
-    throw new TypeError("Current component mount parent must be a data property");
-  }
-  const parent = descriptor.value;
-  if (!parent || typeof parent !== "object" || parent.nodeType !== 1
-    || typeof parent.append !== "function"
-    || !parent.ownerDocument
-    || typeof parent.ownerDocument.createElement !== "function") {
-    throw new TypeError("Current component mount parent must be a Surface Element");
-  }
-}
-
-function createComponentMountContext(context, componentId) {
-  if (!Object.prototype.hasOwnProperty.call(context, "root")) {
-    return { context, releaseRoot: null };
-  }
-  const parent = Object.getOwnPropertyDescriptor(context, "root").value;
-  const root = parent.ownerDocument.createElement("div");
-  if (!root || root.nodeType !== 1 || typeof root.append !== "function"
-    || typeof root.remove !== "function" || !root.dataset || !root.style
-    || !root.childNodes || root.childNodes.length !== 0) {
-    try { root?.remove?.(); } catch { /* invalid DOM factory output is isolated */ }
-    throw new TypeError("Current component mount root must be a fresh empty Element");
-  }
-
-  let released = false;
-  const releaseRoot = () => {
-    if (released) return;
-    released = true;
-    root.remove();
-  };
-  const mountContext = Object.freeze({ ...context, root });
-  try {
-    root.className = "ordax-native-installed-component-root";
-    root.dataset.ordaxComponentRoot = componentId;
-    // Preserve the existing Surface layout while limiting app selectors and
-    // mount mutations to this component-owned subtree.
-    root.style.display = "contents";
-    parent.append(root);
-    if (root.parentNode !== parent) {
-      throw new TypeError("Current component mount root was not attached to its Surface");
-    }
-  } catch (error) {
-    try { releaseRoot(); } catch { /* mount root teardown is best effort */ }
-    throw error;
-  }
-  return { context: mountContext, releaseRoot };
-}
-
 /**
  * Consume an already verified Native 'current' slot. Never installs, promotes
  * or falls back to platform-owned app source. Absence is an optional-app state.
@@ -197,7 +111,7 @@ export async function loadVerifiedCurrentComponentRuntime({
   let mounted = null;
   let releaseMountRoot = null;
   try {
-    assertComponentMountParent(context);
+    assertComponentMountParent(context, { label: "Current component" });
     // The privileged Native bootstrap is the only owner of App Data binding.
     // External apps cannot be read/imported when its expected binding is absent.
     const trustedBeforeImport = requireTrustedAppData
@@ -228,9 +142,17 @@ export async function loadVerifiedCurrentComponentRuntime({
     const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
-    const mountContext = createComponentMountContext(effectiveContext, id);
+    const mountContext = createComponentMountContext(effectiveContext, id, {
+      label: "Current component",
+    });
     releaseMountRoot = mountContext.releaseRoot;
-    mounted = await mountBounded(runtime, mountContext.context, limit, id);
+    mounted = await mountComponentRuntimeBounded(
+      runtime,
+      mountContext.context,
+      limit,
+      id,
+      { label: "Current component" },
+    );
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed during mount");
     }
