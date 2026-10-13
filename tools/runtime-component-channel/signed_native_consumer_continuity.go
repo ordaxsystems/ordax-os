@@ -97,6 +97,7 @@ func checkSignedNativeCandidateRequirements(
 func verifyFirstInstallNativeRequirementsUnderGraphLock(
 	root, componentID string,
 	candidate slotIdentity,
+	previouslyRemoved bool,
 	trustBytes []byte,
 ) error {
 	slot, err := canonicalSlotPath(root, componentID, candidate)
@@ -120,6 +121,18 @@ func verifyFirstInstallNativeRequirementsUnderGraphLock(
 	if report.ComponentID != componentID || report.Version != candidate.Version ||
 		report.SourceCommit != candidate.SourceCommit {
 		return errors.New("runtime component first-install signed compatibility identity changed")
+	}
+	// Current=nil is not proof of first-ever installation. Uninstall retains
+	// user data and its source release identity in the very same canonical
+	// activation state. Without the Supervisor and App Data recovery
+	// transaction, a reinstall with a signed persistent-state contract
+	// cannot assume those retained bytes are new or readable.
+	//
+	// Keep genuine first installs and stateless offline reinstalls working.
+	// The guard is checked for both arm and healthy promotion under the
+	// original activation graph lock; no separate installed-state registry.
+	if previouslyRemoved && report.Descriptor.State != nil {
+		return errors.New("runtime component stateful reinstall after uninstall requires verified device-state recovery transaction")
 	}
 	return verifySignedNativeCandidateGraphUnderLock(
 		root, componentID, report.Descriptor, trustBytes, false,
