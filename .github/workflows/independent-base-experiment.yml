@@ -30,9 +30,15 @@ on:
       - '.github/workflows/independent-base-experiment.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
+    inputs:
+      verified_inputs_run_id:
+        description: 'Previous authenticated Independent Base run with sealed kernel and Buildroot artifact'
+        required: true
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -105,19 +111,55 @@ jobs:
           echo "kernel=$(python3 bootstrap/independent-base/ci_artifacts.py key --kind kernel)" >> "$GITHUB_OUTPUT"
           echo "base=$(python3 bootstrap/independent-base/ci_artifacts.py key --kind base)" >> "$GITHUB_OUTPUT"
       - name: Restore verified kernel cache by exact SHA-256
-        if: ${{ steps.scope.outputs.do_heavy == 'true' }}
+        if: ${{ steps.scope.outputs.do_heavy == 'true' && github.event_name != 'workflow_dispatch' }}
         id: kernel-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/ordax-kernel
           key: ordax-independent-kernel-${{ steps.inputs.outputs.kernel }}
       - name: Restore verified Buildroot cache by exact SHA-256
-        if: ${{ steps.scope.outputs.do_heavy == 'true' }}
+        if: ${{ steps.scope.outputs.do_heavy == 'true' && github.event_name != 'workflow_dispatch' }}
         id: base-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-independent-base-${{ steps.inputs.outputs.base }}
+      # Manual runs cannot read caches scoped to refs/pull/N/merge. Reuse the
+      # same authenticated immutable artifact from a previous canonical run
+      # and apply the existing SHA-256/toolchain/current-checkout binder.
+      - name: Validate authenticated manual input source
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          SOURCE_RUN_ID: ${{ inputs.verified_inputs_run_id }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+            echo 'manual source run ID is invalid' >&2
+            exit 1
+          fi
+      - name: Retrieve sealed kernel and Buildroot from official previous CI
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ordax-independent-verified-inputs
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.verified_inputs_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ordax-manual-verified
+      - name: Stage sealed manual inputs without compilation
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          test -d "$RUNNER_TEMP/ordax-manual-verified/ordax-kernel"
+          test -d "$RUNNER_TEMP/ordax-manual-verified/ordax-independent"
+          test ! -e "$RUNNER_TEMP/ordax-kernel"
+          test ! -e "$RUNNER_TEMP/ordax-independent"
+          mv "$RUNNER_TEMP/ordax-manual-verified/ordax-kernel" "$RUNNER_TEMP/ordax-kernel"
+          mv "$RUNNER_TEMP/ordax-manual-verified/ordax-independent" "$RUNNER_TEMP/ordax-independent"
+          # Fail closed before the first QEMU invocation on any tampered,
+          # stale or differently sourced artifact; the verifier is SSOT.
+          python3 bootstrap/independent-base/ci_artifacts.py check --kind kernel --directory "$RUNNER_TEMP/ordax-kernel"
+          python3 bootstrap/independent-base/ci_artifacts.py check --kind base --directory "$RUNNER_TEMP/ordax-independent"
       - name: Verify isolated contract and regressions
         run: |
           python3 -m unittest tests.test_independent_base_experiment tests.test_independent_ci_artifacts -v
@@ -125,7 +167,7 @@ jobs:
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
       - name: Build rootfs from official Buildroot source
-        if: ${{ steps.scope.outputs.do_heavy == 'true' && steps.base-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.scope.outputs.do_heavy == 'true' && github.event_name != 'workflow_dispatch' && steps.base-cache.outputs.cache-hit != 'true' }}
         run: |
           python3 bootstrap/independent-base/build.py build \
             --out "$RUNNER_TEMP/ordax-independent" \
@@ -133,7 +175,7 @@ jobs:
           python3 bootstrap/independent-base/build.py verify --out "$RUNNER_TEMP/ordax-independent"
           python3 bootstrap/independent-base/ci_artifacts.py seal --kind base --directory "$RUNNER_TEMP/ordax-independent"
       - name: Build canonical OrdaX kernel without modifying kernel source
-        if: ${{ steps.scope.outputs.do_heavy == 'true' && steps.kernel-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.scope.outputs.do_heavy == 'true' && github.event_name != 'workflow_dispatch' && steps.kernel-cache.outputs.cache-hit != 'true' }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -149,13 +191,13 @@ jobs:
           python3 bootstrap/independent-base/ci_artifacts.py bind --kind kernel             --directory "$RUNNER_TEMP/ordax-kernel" --receipt "$RUNNER_TEMP/current-kernel-binding.json"
           python3 bootstrap/independent-base/ci_artifacts.py bind --kind base             --directory "$RUNNER_TEMP/ordax-independent" --receipt "$RUNNER_TEMP/current-base-binding.json"
       - name: Cache kernel only after canonical integrity verification
-        if: ${{ success() && steps.scope.outputs.do_heavy == 'true' && steps.kernel-cache.outputs.cache-hit != 'true' }}
+        if: ${{ success() && steps.scope.outputs.do_heavy == 'true' && github.event_name != 'workflow_dispatch' && steps.kernel-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/ordax-kernel
           key: ordax-independent-kernel-${{ steps.inputs.outputs.kernel }}
       - name: Cache Buildroot only after canonical integrity verification
-        if: ${{ success() && steps.scope.outputs.do_heavy == 'true' && steps.base-cache.outputs.cache-hit != 'true' }}
+        if: ${{ success() && steps.scope.outputs.do_heavy == 'true' && github.event_name != 'workflow_dispatch' && steps.base-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ runner.temp }}/ordax-independent

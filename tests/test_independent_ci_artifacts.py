@@ -10,6 +10,22 @@ ci=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ci)
 
 class CacheIntegrity(unittest.TestCase):
+
+    def test_manual_dispatch_reuses_authenticated_artifacts_without_compilation(self):
+        workflow = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text()
+        self.assertIn("verified_inputs_run_id:", workflow)
+        self.assertIn("actions: read", workflow)
+        self.assertIn("run-id: ${{ inputs.verified_inputs_run_id }}", workflow)
+        self.assertIn("actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093", workflow)
+        self.assertIn("ci_artifacts.py check --kind kernel", workflow)
+        self.assertIn("ci_artifacts.py check --kind base", workflow)
+        self.assertIn("ci_artifacts.py bind --kind kernel", workflow)
+        self.assertIn("ci_artifacts.py bind --kind base", workflow)
+        self.assertEqual(
+            workflow.count("github.event_name != 'workflow_dispatch'"),
+            6, "manual runs must not rebuild or create cache entries",
+        )
+
     def test_canonical_input_coverage_and_no_generated_files(self):
         names={p.relative_to(ROOT).as_posix() for p in ci.inputs("base")}
         for x in ("system/entrypoint","system/supervisor","bootstrap/network/bring-up","bootstrap/stable-base/ordax-stable-init"):
