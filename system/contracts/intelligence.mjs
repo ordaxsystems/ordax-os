@@ -136,3 +136,30 @@ export function assertIntelligencePort(port) {
   validateIntelligenceSnapshot(port.getSnapshot());
   return port;
 }
+
+export function createUnavailableIntelligencePort() {
+  const snapshot = validateIntelligenceSnapshot({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    state: "degraded",
+    inferenceAvailable: false,
+    engineId: null,
+    modelId: null,
+    authority: "none",
+    toolExecution: false,
+  });
+  return Object.freeze({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot() { return snapshot; },
+    subscribe(listener) {
+      if (typeof listener !== "function") {
+        throw new TypeError("Ordax Intelligence listener must be a function");
+      }
+      listener(snapshot);
+      return () => {};
+    },
+    async respond(value) {
+      validateIntelligenceRequest(value);
+      throw new Error("Ordax Intelligence transport is unavailable");
+    },
+  });
+}
