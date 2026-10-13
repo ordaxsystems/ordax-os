@@ -76,8 +76,6 @@ class BrandPipelineTests(unittest.TestCase):
         public_path = ROOT / "tools/public-site/build.py"
         public_spec = importlib.util.spec_from_file_location("ordax_public_builder_isolation", public_path)
         public = importlib.util.module_from_spec(public_spec)
-        # This builder also imports its neighboring release/fixture helpers;
-        # give it the normal script directory for this isolated test only.
         try:
             sys.path.insert(0, str(public_path.parent))
             public_spec.loader.exec_module(public)
@@ -121,11 +119,10 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertNotIn("--account-bg:#", stylesheet)
             self.assertNotIn("--canvas:#080f19", stylesheet)
             self.assertIn(".brand-mark", stylesheet)
-        for route in ("login", "cadastro"):
+        for route in ("login", "cadastro", "recuperar", "recuperar/nova-senha"):
             html = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
             self.assertIn('class="brand-mark"', html)
             self.assertNotIn('ordax-symbol.png', html)
-        # Marketing landing and current brand artwork are untouched by this cutover.
         landing = (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8")
         self.assertIn('body[data-page="landing"]', landing)
 
@@ -153,7 +150,6 @@ class BrandPipelineTests(unittest.TestCase):
         import re
         account = (ROOT / "sites/public/assets/account.css").read_text(encoding="utf-8")
         portal = (ROOT / "sites/public/assets/portal.css").read_text(encoding="utf-8")
-        # Important visible layers must not contain a second literal palette.
         def rule_body(source, selector):
             for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", source):
                 candidate = re.sub(r"/\*.*?\*/", "", match.group(1), flags=re.S).strip()
@@ -163,7 +159,7 @@ class BrandPipelineTests(unittest.TestCase):
 
         for source, selectors in (
             (account, (
-                ":is(.login-stage,.signup-stage)", ":is(.login-card,.signup-card)",
+                ".account-stage", ".account-card",
                 ".account-ui .identity-state", ".account-ui .identity-submit",
                 '.account-ui .identity-state[data-status="ready"]',
                 '.account-ui .identity-state[data-status="unavailable"]',
@@ -185,7 +181,6 @@ class BrandPipelineTests(unittest.TestCase):
         self.assertIn("var(--ordax-radius-xl)", portal)
         self.assertIn("url('/assets/aurora-titanium.png')", account)
         self.assertIn("url('/assets/aurora-titanium.png')", portal)
-        # The existing mark and marketing site have not been altered.
         for source in (account, portal):
             self.assertIn(".brand-mark", source)
         self.assertIn('body[data-page="landing"]',
