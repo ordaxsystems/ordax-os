@@ -1,0 +1,60 @@
+{
+  "results": [
+    {
+      "name": "Editing compact app updates active taskbar",
+      "status": "FAIL"
+    },
+    {
+      "name": "Editing compact app updates contextual app",
+      "status": "FAIL"
+    },
+    {
+      "name": "Editing compact app selects its actual document",
+      "status": "FAIL"
+    },
+    {
+      "name": "No uncaught browser errors",
+      "status": "PASS"
+    },
+    {
+      "name": "No external requests",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [],
+  "sidebar": [],
+  "exceptions": [],
+  "requests": [
+    "http://127.0.0.1:59936/?surface=desktop",
+    "http://127.0.0.1:59936/system/surface/ui/tokens.css",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:59936/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:59936/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:59936/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:59936/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:59936/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:59936/system/surface/ui/brand/ordax-symbol.png"
+  ]
+}

@@ -1,0 +1,4 @@
+SURFACE_BROWSER_STARTUP_MS=526
+{"before":{"focus":"<button class=\"md-window-title\" type=\"button\" data-action=\"window-focus:files\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.65\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 5h6l2 3h10v11H3Z\"></path></svg><span>Arqu","active":["app:files"]}}
+{"after":{"focus":"<textarea id=\"md-note-draft\" name=\"body\" data-draft=\"brief\" spellcheck=\"true\">Uma marca para quem transforma ideias em lugares.\n\nDireção\nPrecisão sem rigidez. Calma sem monotonia.\n\nPróximo passo\nExplorar aplicações da identidade em materiais impressos e digitais.</textarea>","active":["app:notes"],"events":["<textarea id=\"md-note-draft\" name=\"body\" data-draft=\"brief\" spellcheck=\"true\">Uma marca para quem tr"],"windows":[{"id":"files","active":false},{"id":"notes","active":true}]}}
+{"pass":5,"fail":[],"geometry":0}

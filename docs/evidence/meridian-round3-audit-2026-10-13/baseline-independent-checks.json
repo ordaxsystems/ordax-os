@@ -1,0 +1,2634 @@
+{
+  "results": [
+    {
+      "name": "Central Home is distinct from presentation toggle",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination spaces",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus spaces",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from spaces",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination apps",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus apps",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from apps",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination profiles",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus profiles",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from profiles",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination devices",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus devices",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from devices",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination store",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus store",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from store",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination activity",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus activity",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from activity",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination messages",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus messages",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from messages",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination automations",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus automations",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from automations",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination files",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus files",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from files",
+      "status": "PASS"
+    },
+    {
+      "name": "central destination settings",
+      "status": "PASS"
+    },
+    {
+      "name": "central focus settings",
+      "status": "PASS"
+    },
+    {
+      "name": "Home returns from settings",
+      "status": "PASS"
+    },
+    {
+      "name": "Desktop has one presentation control and no sidebar Home",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop destination intelligence",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus intelligence",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination spaces",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus spaces",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination apps",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus apps",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination profiles",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus profiles",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination devices",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus devices",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination store",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus store",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination activity",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus activity",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination messages",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus messages",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination automations",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus automations",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination files",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus files",
+      "status": "FAIL"
+    },
+    {
+      "name": "desktop destination settings",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop focus settings",
+      "status": "FAIL"
+    },
+    {
+      "name": "Repeated section navigation reuses window",
+      "status": "PASS"
+    },
+    {
+      "name": "Desktop active navigation is not a current page",
+      "status": "FAIL"
+    },
+    {
+      "name": "Desktop launcher has no implicit Central page route",
+      "status": "FAIL"
+    },
+    {
+      "name": "Desktop search has no implicit Central page route",
+      "status": "FAIL"
+    },
+    {
+      "name": "central shortcut 2 focuses search",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/0",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/1",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/2",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/3",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/4",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/5",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/6",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/7",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/8",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/9",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/10",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 2/11",
+      "status": "PASS"
+    },
+    {
+      "name": "central Escape returns origin 2",
+      "status": "PASS"
+    },
+    {
+      "name": "central shortcut 4 focuses search",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/0",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/1",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/2",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/3",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/4",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/5",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/6",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/7",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/8",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/9",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/10",
+      "status": "PASS"
+    },
+    {
+      "name": "central Tab contained 4/11",
+      "status": "PASS"
+    },
+    {
+      "name": "central Escape returns origin 4",
+      "status": "PASS"
+    },
+    {
+      "name": "central search click returns visible origin",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop shortcut 2 focuses search",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/0",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/1",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/2",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/3",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/4",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/5",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/6",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/7",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/8",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/9",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/10",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 2/11",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Escape returns origin 2",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop shortcut 4 focuses search",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/0",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/1",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/2",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/3",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/4",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/5",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/6",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/7",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/8",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/9",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/10",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Tab contained 4/11",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop Escape returns origin 4",
+      "status": "PASS"
+    },
+    {
+      "name": "desktop search click returns visible origin",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized action is named Restaurar",
+      "status": "FAIL"
+    },
+    {
+      "name": "Maximized fills useful area",
+      "status": "PASS"
+    },
+    {
+      "name": "Restored floating geometry retained",
+      "status": "PASS"
+    },
+    {
+      "name": "Minimize gives focus to reachable control",
+      "status": "FAIL"
+    },
+    {
+      "name": "Restored window receives focus",
+      "status": "FAIL"
+    },
+    {
+      "name": "Draft survives restore",
+      "status": "PASS"
+    },
+    {
+      "name": "Lock preserves maximized draft",
+      "status": "PASS"
+    },
+    {
+      "name": "Presentation round trip preserves windows",
+      "status": "PASS"
+    },
+    {
+      "name": "Space B has no Space A windows",
+      "status": "PASS"
+    },
+    {
+      "name": "Space A restores own draft and windows",
+      "status": "PASS"
+    },
+    {
+      "name": "Compact selection updates contextual foreground",
+      "status": "FAIL"
+    },
+    {
+      "name": "Collapsed companion is not claimed in foreground",
+      "status": "FAIL"
+    },
+    {
+      "name": "Central does not claim hidden Desktop foreground",
+      "status": "FAIL"
+    },
+    {
+      "name": "Floating window remains reachable after resize",
+      "status": "PASS"
+    },
+    {
+      "name": "Device offline plus window stays explicit",
+      "status": "PASS"
+    },
+    {
+      "name": "Offline Desktop destination preserves note draft",
+      "status": "PASS"
+    },
+    {
+      "name": "Combined state Space B has no old draft",
+      "status": "PASS"
+    },
+    {
+      "name": "Combined state explicit return preserves original",
+      "status": "PASS"
+    },
+    {
+      "name": "No topbar gap 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 1440/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 1440 paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nEncontre o seu próximo passo\nCtrl K\nMeridian · estudo visual\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nNO SEU CONTEXTO\nCriação & design\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas.\nExatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nO que se moveu\nContinuidade\nAtlas está pronto para continuar\nHá 12 min\nUm resumo para sua próxima reunião\nHá 25 min\nReferência adicionada ao Estúdio\nOntem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o co"
+      }
+    },
+    {
+      "name": "No topbar gap 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 1440/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 1440 ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nEncontre o seu próximo passo\nCtrl K\nMeridian · estudo visual\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nNO SEU CONTEXTO\nCriação & design\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas.\nExatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nO que se moveu\nContinuidade\nAtlas está pronto para continuar\nHá 12 min\nUm resumo para sua próxima reunião\nHá 25 min\nReferência adicionada ao Estúdio\nOntem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o co"
+      }
+    },
+    {
+      "name": "No topbar gap 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 1024/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 1024 paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nCtrl K\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados\n· exemplo\nCentral\nStudio · Fixado\nNotas · Aberto\nArquivos · Aberto\nInternet · Fixado\nEditor 3D · Fi"
+      }
+    },
+    {
+      "name": "No topbar gap 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 1024/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 1024 ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\n\nSeu contexto, conectado\nCriação & design\n\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nCtrl K\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados\n· exemplo\nCentral\nStudio · Fixado\nNotas · Aberto\nArquivos · Aberto\nInternet · Fixado\nEditor 3D · Fi"
+      }
+    },
+    {
+      "name": "No topbar gap 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 768/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 768 paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nLM\nCentral\n/\nEstúdio\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados\n· exemplo\nStudio · Fixado\nNotas · Aberto\nArquivos · Aberto\nInternet · Fixado\nEditor 3D · Fixado\nIntelligence · Aberto\nSpaces · Aberto\nAplicativos · Aberto\nPerfis · Aberto\nDescobrir · Aberto\nContinuidade · Aberto\nConversas · Aberto\nAutomações · Aberto\nAjustes · Aberto\nDispositivos · Ab"
+      }
+    },
+    {
+      "name": "No topbar gap 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 768/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 768 ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nLM\nCentral\n/\nEstúdio\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados\n· exemplo\nStudio · Fixado\nNotas · Aberto\nArquivos · Aberto\nInternet · Fixado\nEditor 3D · Fixado\nIntelligence · Aberto\nSpaces · Aberto\nAplicativos · Aberto\nPerfis · Aberto\nDescobrir · Aberto\nContinuidade · Aberto\nConversas · Aberto\nAutomações · Aberto\nAjustes · Aberto\nDispositivos · Ab"
+      }
+    },
+    {
+      "name": "No topbar gap 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 844/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 844 paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nCtrl K\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados\n· exemplo\nCentral\nStudio · Fixado\nNotas · Aberto\nArquivos · Aberto\nInternet · Fixado\nEditor 3D · Fixado\nIntelligence · Aberto\nSpaces · Aberto\n"
+      }
+    },
+    {
+      "name": "No topbar gap 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Central retains three rows and fits 844/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 844 ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:menu\n    at <anonymous>:1:219\n    at <anonymous>:1:283",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nOrdaX OS\nSEU SPACE\nEstúdio\nInício\nIntelligence\nSpaces\n\nECOSSISTEMA\n\nAplicativos\nPerfis\nDispositivos\nDescobrir\nLM\nLia Martins\nConta pessoal\nCentral\n/\nEstúdio\nCtrl K\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nA sua Central\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados\n· exemplo\nCentral\nStudio · Fixado\nNotas · Aberto\nArquivos · Aberto\nInternet · Fixado\nEditor 3D · Fixado\nIntelligence · Aberto\nSpaces · Aberto\n"
+      }
+    },
+    {
+      "name": "No topbar gap 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 390/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 390 paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:search\n    at <anonymous>:1:221\n    at <anonymous>:1:287",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nCentral\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados · exemplo\n\nINTELIGÊNCIA NO CONTEXTO\n\nMenos preparação.\nMais criação.\n\nSeu Space pode reunir o que você precisa antes de começar.\n\nConheça suas rotinas"
+      }
+    },
+    {
+      "name": "No topbar gap 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 390/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 390 ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:search\n    at <anonymous>:1:221\n    at <anonymous>:1:287",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nCentral\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados · exemplo\n\nINTELIGÊNCIA NO CONTEXTO\n\nMenos preparação.\nMais criação.\n\nSeu Space pode reunir o que você precisa antes de começar.\n\nConheça suas rotinas"
+      }
+    },
+    {
+      "name": "No topbar gap 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 320/paper",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 320 paper",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:search\n    at <anonymous>:1:221\n    at <anonymous>:1:287",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=paper",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nCentral\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados · exemplo\n\nINTELIGÊNCIA NO CONTEXTO\n\nMenos preparação.\nMais criação.\n\nSeu Space pode reunir o que você precisa antes de começar.\n\nConheça suas rotinas"
+      }
+    },
+    {
+      "name": "No topbar gap 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized edges 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximized excludes compact and taskbar 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Window content has no horizontal clipping 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Many open apps keep taskbar in viewport 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile launcher keeps presentation switch 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Menu selection remains Desktop 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "Named controls 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "No duplicate document ids 320/ink",
+      "status": "PASS"
+    },
+    {
+      "name": "geometry 320 ink",
+      "status": "FAIL",
+      "error": "Error: Unavailable action panel:search\n    at <anonymous>:1:221\n    at <anonymous>:1:287",
+      "diagnostic": {
+        "url": "http://127.0.0.1:58412/?surface=desktop&material=ink",
+        "ready": "complete",
+        "text": "Ir ao conteúdo\nCentral\nMeridian · estudo\n\nTERÇA-FEIRA, 13 DE OUTUBRO · ESTÚDIO\n\nBom dia, Lia.\n\nO que importa, mais perto. O resto, no seu tempo.\n\nUSB · Sessão local\nDados no USB\nRede de exemplo\nAtualizações\n12 janela(s) na sessão\nPeça à Intelligence\nIntelligence\nEstúdio\nContexto sob seu controle\nVisão do dia\nSeu trabalho\nEcossistema\nRetome o fio.\nVer tudo\nATLAS\nESTUDO 04 / FORMA\nPROJETO EM ANDAMENTO\nUma identidade\nem construção.\nSuas ideias, referências e ferramentas. Exatamente onde você deixou.\nLM\nRC\nAN\nHá 12 minutos\nContinuar Atlas\nA um passo de continuar\nArquivos\nBriefing — Atlas\nNotas · 09:28\nReferências de forma\nInternet · Ontem\nNo seu horizonte\n10:30\nTempo para criar\nAtlas · Bloco de foco\n14:00\nRevisão com Rafael\nEstúdio · 30 minutos\nPrepare o contexto da reunião\nAo seu alcance\nSeu telefone.\nUma nova ferramenta.\nUse como câmera, áudio\nou uma segunda tela.\n4 conectados · exemplo\n\nINTELIGÊNCIA NO CONTEXTO\n\nMenos preparação.\nMais criação.\n\nSeu Space pode reunir o que você precisa antes de começar.\n\nConheça suas rotinas"
+      }
+    },
+    {
+      "name": "No uncaught browser errors",
+      "status": "PASS"
+    },
+    {
+      "name": "No external requests",
+      "status": "PASS"
+    }
+  ],
+  "geometry": [
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "paper",
+      "width": 1440,
+      "page": 1440,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 834,
+        "top": 0,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 492,
+        "width": 1368,
+        "height": 342,
+        "top": 492,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "grid": "834px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 1440,
+      "h": 900,
+      "material": "ink",
+      "width": 1440,
+      "page": 1440,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 834,
+        "top": 0,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 1368,
+        "height": 492,
+        "top": 0,
+        "right": 1440,
+        "bottom": 492,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 834,
+        "width": 1368,
+        "height": 66,
+        "top": 834,
+        "right": 1440,
+        "bottom": 900,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 492,
+        "width": 1368,
+        "height": 342,
+        "top": 492,
+        "right": 1440,
+        "bottom": 834,
+        "left": 72
+      },
+      "grid": "834px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "paper",
+      "width": 1024,
+      "page": 1024,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 702,
+        "top": 0,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 702,
+        "width": 952,
+        "height": 66,
+        "top": 702,
+        "right": 1024,
+        "bottom": 768,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 410.171875,
+        "width": 952,
+        "height": 291.828125,
+        "top": 410.171875,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "grid": "702px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 1024,
+      "h": 768,
+      "material": "ink",
+      "width": 1024,
+      "page": 1024,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 702,
+        "top": 0,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 952,
+        "height": 410.171875,
+        "top": 0,
+        "right": 1024,
+        "bottom": 410.171875,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 702,
+        "width": 952,
+        "height": 66,
+        "top": 702,
+        "right": 1024,
+        "bottom": 768,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 410.171875,
+        "width": 952,
+        "height": 291.828125,
+        "top": 410.171875,
+        "right": 1024,
+        "bottom": 702,
+        "left": 72
+      },
+      "grid": "702px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "paper",
+      "width": 768,
+      "page": 768,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 534,
+        "top": 0,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 534,
+        "width": 696,
+        "height": 66,
+        "top": 534,
+        "right": 768,
+        "bottom": 600,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 306,
+        "width": 696,
+        "height": 228,
+        "top": 306,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "grid": "534px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 768,
+      "h": 600,
+      "material": "ink",
+      "width": 768,
+      "page": 768,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 534,
+        "top": 0,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 696,
+        "height": 306,
+        "top": 0,
+        "right": 768,
+        "bottom": 306,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 534,
+        "width": 696,
+        "height": 66,
+        "top": 534,
+        "right": 768,
+        "bottom": 600,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 306,
+        "width": 696,
+        "height": 228,
+        "top": 306,
+        "right": 768,
+        "bottom": 534,
+        "left": 72
+      },
+      "grid": "534px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "paper",
+      "width": 844,
+      "page": 844,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 324,
+        "top": 0,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 152.40625,
+        "top": 0,
+        "right": 844,
+        "bottom": 152.40625,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 152.40625,
+        "top": 0,
+        "right": 844,
+        "bottom": 152.40625,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 152.40625,
+        "width": 772,
+        "height": 171.59375,
+        "top": 152.40625,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "grid": "324px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 844,
+      "h": 390,
+      "material": "ink",
+      "width": 844,
+      "page": 844,
+      "main": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 324,
+        "top": 0,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "primary": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 152.40625,
+        "top": 0,
+        "right": 844,
+        "bottom": 152.40625,
+        "left": 72
+      },
+      "window": {
+        "x": 72,
+        "y": 0,
+        "width": 772,
+        "height": 152.40625,
+        "top": 0,
+        "right": 844,
+        "bottom": 152.40625,
+        "left": 72
+      },
+      "taskbar": {
+        "x": 72,
+        "y": 324,
+        "width": 772,
+        "height": 66,
+        "top": 324,
+        "right": 844,
+        "bottom": 390,
+        "left": 72
+      },
+      "compact": {
+        "x": 72,
+        "y": 152.40625,
+        "width": 772,
+        "height": 171.59375,
+        "top": 152.40625,
+        "right": 844,
+        "bottom": 324,
+        "left": 72
+      },
+      "grid": "324px 66px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "paper",
+      "width": 390,
+      "page": 390,
+      "main": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 772,
+        "top": 0,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "primary": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 417.53125,
+        "width": 390,
+        "height": 354.46875,
+        "top": 417.53125,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "grid": "772px 72px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 390,
+      "h": 844,
+      "material": "ink",
+      "width": 390,
+      "page": 390,
+      "main": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 772,
+        "top": 0,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "primary": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 417.53125,
+        "top": 0,
+        "right": 390,
+        "bottom": 417.53125,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 772,
+        "width": 390,
+        "height": 72,
+        "top": 772,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 417.53125,
+        "width": 390,
+        "height": 354.46875,
+        "top": 417.53125,
+        "right": 390,
+        "bottom": 772,
+        "left": 0
+      },
+      "grid": "772px 72px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "paper",
+      "width": 320,
+      "page": 320,
+      "main": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 496,
+        "top": 0,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "primary": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 257.453125,
+        "width": 320,
+        "height": 238.546875,
+        "top": 257.453125,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "grid": "496px 72px",
+      "radius": "0px",
+      "fullscreen": false
+    },
+    {
+      "w": 320,
+      "h": 568,
+      "material": "ink",
+      "width": 320,
+      "page": 320,
+      "main": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 496,
+        "top": 0,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "primary": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 257.453125,
+        "top": 0,
+        "right": 320,
+        "bottom": 257.453125,
+        "left": 0
+      },
+      "taskbar": {
+        "x": 0,
+        "y": 496,
+        "width": 320,
+        "height": 72,
+        "top": 496,
+        "right": 320,
+        "bottom": 568,
+        "left": 0
+      },
+      "compact": {
+        "x": 0,
+        "y": 257.453125,
+        "width": 320,
+        "height": 238.546875,
+        "top": 257.453125,
+        "right": 320,
+        "bottom": 496,
+        "left": 0
+      },
+      "grid": "496px 72px",
+      "radius": "0px",
+      "fullscreen": false
+    }
+  ],
+  "sidebar": [
+    {
+      "presentation": "central",
+      "items": [
+        {
+          "name": "OrdaX Central",
+          "title": "",
+          "action": "route:central",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Trocar Space, atual: Estúdio",
+          "title": "",
+          "action": "panel:spaces",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Início",
+          "title": "Início",
+          "action": "route:central",
+          "current": "page",
+          "pressed": null
+        },
+        {
+          "name": "Intelligence",
+          "title": "Intelligence",
+          "action": "route:intelligence",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Spaces",
+          "title": "Spaces",
+          "action": "route:spaces",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Aplicativos",
+          "title": "Aplicativos",
+          "action": "route:apps",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Perfis",
+          "title": "Perfis",
+          "action": "route:profiles",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Dispositivos",
+          "title": "Dispositivos",
+          "action": "route:devices",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Descobrir",
+          "title": "Descobrir",
+          "action": "route:store",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Continuidade",
+          "title": "Continuidade",
+          "action": "route:activity",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Notificações",
+          "title": "Notificações",
+          "action": "panel:notifications",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Ajustes",
+          "title": "Ajustes",
+          "action": "route:settings",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Conta e identidade",
+          "title": "",
+          "action": "panel:account",
+          "current": null,
+          "pressed": null
+        }
+      ]
+    },
+    {
+      "presentation": "desktop",
+      "items": [
+        {
+          "name": "Trocar Space, atual: Estúdio",
+          "title": "",
+          "action": "panel:spaces",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Intelligence",
+          "title": "Intelligence",
+          "action": "route:intelligence",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Spaces",
+          "title": "Spaces",
+          "action": "route:spaces",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Aplicativos",
+          "title": "Aplicativos",
+          "action": "route:apps",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Perfis",
+          "title": "Perfis",
+          "action": "route:profiles",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Dispositivos",
+          "title": "Dispositivos",
+          "action": "route:devices",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Descobrir",
+          "title": "Descobrir",
+          "action": "route:store",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Continuidade",
+          "title": "Continuidade",
+          "action": "route:activity",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Notificações",
+          "title": "Notificações",
+          "action": "panel:notifications",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Ajustes",
+          "title": "Ajustes",
+          "action": "route:settings",
+          "current": null,
+          "pressed": null
+        },
+        {
+          "name": "Conta e identidade",
+          "title": "",
+          "action": "panel:account",
+          "current": null,
+          "pressed": null
+        }
+      ]
+    }
+  ],
+  "exceptions": [],
+  "requests": [
+    "http://127.0.0.1:58412/",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/?surface=desktop",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/?surface=desktop&material=paper",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=ink",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=paper",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=ink",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=paper",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=ink",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=paper",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=ink",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=paper",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=ink",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=paper",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg",
+    "http://127.0.0.1:58412/?surface=desktop&material=ink",
+    "http://127.0.0.1:58412/system/surface/ui/tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.views.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.journeys.css",
+    "http://127.0.0.1:58412/tools/meridian-preview/main.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/meridian.tokens.css",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/experience.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/source.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/storyboards.mjs",
+    "http://127.0.0.1:58412/system/surface/ui/fonts/inter-latin-wght-normal.woff2",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/navigation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/journeys/view.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/shell.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/central.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/explore.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/intelligence.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/desktop.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/panels.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/catalog.mjs",
+    "http://127.0.0.1:58412/system/surface/workspace/presentation.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/demo/data.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/ui.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/context.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/operations.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/taskbar.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/views/continuity.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/icons.mjs",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/meridian-field.svg",
+    "http://127.0.0.1:58412/system/surface/ui/brand/ordax-symbol.png",
+    "http://127.0.0.1:58412/system/surface/experiments/meridian/assets/atlas-study.svg"
+  ]
+}

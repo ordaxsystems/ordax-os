@@ -155,3 +155,20 @@ preview windows in Desktop. Section content is reused, not copied. The duplicate
 Central presentation shortcut is absent in Desktop. Central provides an Início
 sidebar page link to return home without switching presentation. See [focused navigation evidence](../../docs/evidence/meridian-navigation/README.md).
 Run `node tools/meridian-preview/navigation-smoke.mjs` against the active 4203 host.
+
+## Independent Round 3 audit
+
+The [final audit](../../docs/evidence/meridian-round3-audit-2026-10-13/relatorio.md)
+covers the real db7b4a1 HEAD and subsequent objective corrections. Historical
+Round 3 and follow-up evidence is preserved separately. Classification C allows
+further visual refinement, not integration or merge.
+
+```sh
+node tools/meridian-preview/round3-audit-smoke.mjs
+```
+
+This independent runner starts/stops its own loopback host, enables page focus in
+the disposable Chromium profile for native focus-event checks, and records
+navigation, window geometry, keyboard, AX and foreground-context results.
+ORDAX_PYTHON and MERIDIAN_EVIDENCE_DIR work as above. It does not replace the
+existing smokes or the independent Round 2 journey matrix.

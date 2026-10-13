@@ -1,0 +1,180 @@
+[
+  {
+    "presentation": "central",
+    "items": [
+      {
+        "name": "OrdaX Central",
+        "title": "",
+        "action": "route:central",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Trocar Space, atual: Estúdio",
+        "title": "",
+        "action": "panel:spaces",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Início",
+        "title": "Início",
+        "action": "route:central",
+        "current": "page",
+        "pressed": null
+      },
+      {
+        "name": "Intelligence",
+        "title": "Intelligence",
+        "action": "route:intelligence",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Spaces",
+        "title": "Spaces",
+        "action": "route:spaces",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Aplicativos",
+        "title": "Aplicativos",
+        "action": "route:apps",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Perfis",
+        "title": "Perfis",
+        "action": "route:profiles",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Dispositivos",
+        "title": "Dispositivos",
+        "action": "route:devices",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Descobrir",
+        "title": "Descobrir",
+        "action": "route:store",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Continuidade",
+        "title": "Continuidade",
+        "action": "route:activity",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Notificações",
+        "title": "Notificações",
+        "action": "panel:notifications",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Ajustes",
+        "title": "Ajustes",
+        "action": "route:settings",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Conta e identidade",
+        "title": "",
+        "action": "panel:account",
+        "current": null,
+        "pressed": null
+      }
+    ]
+  },
+  {
+    "presentation": "desktop",
+    "items": [
+      {
+        "name": "Trocar Space, atual: Estúdio",
+        "title": "",
+        "action": "panel:spaces",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Intelligence",
+        "title": "Intelligence",
+        "action": "route:intelligence",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Spaces",
+        "title": "Spaces",
+        "action": "route:spaces",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Aplicativos",
+        "title": "Aplicativos",
+        "action": "route:apps",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Perfis",
+        "title": "Perfis",
+        "action": "route:profiles",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Dispositivos",
+        "title": "Dispositivos",
+        "action": "route:devices",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Descobrir",
+        "title": "Descobrir",
+        "action": "route:store",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Continuidade",
+        "title": "Continuidade",
+        "action": "route:activity",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Notificações",
+        "title": "Notificações",
+        "action": "panel:notifications",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Ajustes",
+        "title": "Ajustes",
+        "action": "route:settings",
+        "current": null,
+        "pressed": null
+      },
+      {
+        "name": "Conta e identidade",
+        "title": "",
+        "action": "panel:account",
+        "current": null,
+        "pressed": null
+      }
+    ]
+  }
+]

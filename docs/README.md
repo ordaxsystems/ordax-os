@@ -102,3 +102,4 @@ The future managed backend is provider-neutral and intentionally deferred. The s
 
 - [Meridian technical audit — 2026-10-13](evidence/meridian-audit-2026-10-13/relatorio.md): baseline, gates, safe corrections, UI/UX inventory and flows. Evidence only; MVP and domain owners remain canonical.
 - [Meridian Round 2 independent audit — 2026-10-13](evidence/meridian-round2-audit-2026-10-13/relatorio.md): classification C for Round 3 visual, objective corrections, preserved failures, 196-item comparison and 14 revised flows. Not integration approval.
+- [Meridian Round 3 final independent audit — 2026-10-13](evidence/meridian-round3-audit-2026-10-13/relatorio.md): actual HEAD and all follow-ups, classification C for further visual refinement, objective corrections, sidebar inventory and preserved failures. No integration approval.

@@ -1,5 +1,10 @@
 # OrdaX — plano funcional da Surface e dos aplicativos principais
 
+> **Auditoria final Meridian Round 3 — 13/10/2026:** HEAD db7b4a1 e todos os
+> follow-ups, correções objetivas em 2b609ed. Classificação **C** para próximo
+> refinamento visual; 287 checks novos e 392 de jornadas. Sem avanço automático
+> de MVP, adapter ou merge. [Relatório e limites](docs/evidence/meridian-round3-audit-2026-10-13/relatorio.md).
+
 > **Auditoria independente Meridian Round 2 — 13/10/2026:** HEAD 4dffe52,
 > correções objetivas de estado, acessibilidade e host de prévia. Classificação
 > **C**: aprovada para Round 3 visual, com 392 checks na matriz final. Não autoriza

@@ -1,0 +1,12 @@
+✔ returning to a review requires a fresh point-in-time confirmation (40.7338ms)
+✔ a completed package removal cannot navigate back to its installed receipt (0.4831ms)
+✔ blocked verification cannot jump directly to activation (0.3361ms)
+✔ retry navigation is bounded while subject and Space keys remain distinct (2.5632ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 745.1433

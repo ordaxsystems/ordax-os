@@ -1,0 +1,2 @@
+SURFACE_BROWSER_STARTUP_MS=592
+{"pass":2,"fail":[{"name":"Editing compact app updates active taskbar","status":"FAIL"},{"name":"Editing compact app updates contextual app","status":"FAIL"},{"name":"Editing compact app selects its actual document","status":"FAIL"}],"geometry":0}

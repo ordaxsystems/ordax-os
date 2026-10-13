@@ -1590,3 +1590,18 @@ The [Round 3 report](evidence/meridian-round3/coverage.md) records 27 focused UI
 checks, 16 captures, seven combined conditions and remaining limitations.
 No backend, production palette, adapter, release gate, physical USB or main change.
 Round 2 classification remains C pending independent audit. Not ready for merge.
+
+## Meridian Round 3 independent audit — 2026-10-13
+
+The [final independent audit](evidence/meridian-round3-audit-2026-10-13/relatorio.md)
+covers actual HEAD db7b4a1, including navigation, maximization and Home follow-ups
+after the initial Round 3 delivery. Objective corrections in 2b609ed preserve
+Desktop navigation, destination focus, restore naming and visible foreground
+context. Classification **C: approved for further visual refinement**, not merge
+or integration.
+
+Final independent proof: 287 checks; existing journey matrix: 392 checks/180
+screens/29 confirmation barriers/64 geometries. Existing smokes passed 155, 23,
+27 and 21 checks. Historical failures and harness diagnostics remain separate;
+canonical Foundation/Web-browser gates remain unresolved. Main, palettes,
+contracts and adapters remain unchanged. See also the [sidebar inventory](evidence/meridian-round3-audit-2026-10-13/sidebar.md).
