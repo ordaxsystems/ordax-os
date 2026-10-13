@@ -130,6 +130,11 @@ expected_revision)`. Ele **não é uma rota HTTP**. A ordem é canônica:
 
 1. Reabrir o comprovante de instalação pelo digest confiável que já estava
    vinculado no host; recusar comprovante diferente, ausente ou corrompido.
+   **Antes de revogar**, exigir que `componentId` e `version` da referência
+   de origem coincidam com `appId` e `sourceVersion` desse comprovante.
+   Divergência não bloqueia nem desliga a permissão válida de outro release.
+   Essa comparação é apenas um requisito de correlação: o comprovante não
+   autentica o `sourceCommit` do slot assinado nem substitui o writer Go.
 2. Revogar imediatamente a permissão opaca da versão antiga e impedir
    emissão de outra permissão para a mesma partição durante a manutenção.
 3. **Aguardar o fim de todas as requisições já admitidas** dessa identidade,
