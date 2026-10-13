@@ -20,6 +20,7 @@ from native_app_data import (
     MAX_APP_DATA_PARTITION_BYTES,
     MAX_APP_DATA_PARTITION_KEYS,
     validate_app_data_maintenance_request,
+    assert_app_data_install_receipt_compatible,
 )
 from native_app_data_endpoint import handle_app_data_request
 from native_app_install_identity import (
@@ -103,6 +104,7 @@ class NativeAppDataBindingRegistry:
         receipt_root: str = DEFAULT_RECEIPT_ROOT,
         expected_uid: int,
         max_bindings: int = DEFAULT_MAX_APP_DATA_BINDINGS,
+        app_data_root: str = DEFAULT_APP_DATA_ROOT,
     ) -> None:
         if (
             not isinstance(expected_uid, int)
@@ -119,8 +121,11 @@ class NativeAppDataBindingRegistry:
             raise TypeError("App Data binding max_bindings is invalid")
         if not isinstance(receipt_root, str) or not receipt_root:
             raise TypeError("App Data binding receipt_root is invalid")
+        if not isinstance(app_data_root, str) or not app_data_root.startswith("/"):
+            raise TypeError("App Data binding app_data_root is invalid")
 
         self._receipt_root = receipt_root
+        self._app_data_root = app_data_root
         self._expected_uid = expected_uid
         self._max_bindings = max_bindings
         self._lock = threading.Lock()
@@ -157,6 +162,15 @@ class NativeAppDataBindingRegistry:
             )
             for receipt_sha256 in receipt_sha256s
         ]
+
+        # Boot/restart admission must not treat an unretired checkpoint
+        # as an authorization to run a different version of the app.
+        # Validate *all* requested identities before mutating this registry.
+        for verified in verified_receipts:
+            assert_app_data_install_receipt_compatible(
+                verified.app_data_identity(), verified.source_version,
+                root=self._app_data_root,
+            )
 
         durable_keys = []
         seen_keys = set()

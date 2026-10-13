@@ -27,6 +27,11 @@ from native_app_data_binding import (  # noqa: E402
     handle_bound_app_data_request,
 )
 from native_app_data_endpoint import AppDataEndpointRequestError  # noqa: E402
+from native_app_data import (  # noqa: E402
+    create_app_data_checkpoint,
+    put_app_data,
+    retire_app_data_checkpoint,
+)
 from native_app_install_identity import (  # noqa: E402
     VerifiedAppInstallIdentityError,
     canonical_verified_app_install_identity_bytes,
@@ -79,6 +84,7 @@ class NativeAppDataBindingTest(unittest.TestCase):
             receipt_root=str(self.receipts),
             expected_uid=self.uid,
             max_bindings=max_bindings,
+            app_data_root=str(self.data_root),
         )
 
     def test_only_verified_receipt_can_mint_and_same_receipt_is_idempotent(self):
@@ -141,6 +147,66 @@ class NativeAppDataBindingTest(unittest.TestCase):
                 b'{"action":"list"}',
                 root=str(self.data_root),
             )
+
+    def test_reboot_receipt_binding_denies_next_version_until_pin_retired(self):
+        initial = self.write_receipt()
+        updated = self.write_receipt(receipt(
+            sourceVersion="0.4.2", sourceDigest="2" * 64,
+            verificationGeneration=2,
+        ))
+        original_registry = self.registry()
+        original = original_registry.mint_from_receipt(initial)
+        identity = original.app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        put_app_data(identity, "note", b"original", 0, root=str(self.data_root))
+        pinned = create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        self.assertEqual(pinned["pinnedRevision"], 1)
+
+        restarted = self.registry()  # new host after process death/reboot
+        with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
+            restarted.mint_from_receipt(updated)
+        self.assertEqual(restarted.active_binding_count(), 0)
+        # Rebind of the same installed version is not confused with a
+        # trusted release/2 rollback or a cross-version authorization.
+        preserved = restarted.mint_from_receipt(initial)
+        self.assertEqual(preserved.app_data_identity(), identity)
+        self.assertEqual(restarted.active_binding_count(), 1)
+
+        # The checkpoint remains durable until the trusted owner explicitly
+        # retires it. A new host cannot silently dispose of its data.
+        retired = retire_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+        self.assertTrue(retired["retired"])
+        rotated = restarted.mint_from_receipt(updated)
+        self.assertIsNone(restarted.resolve(preserved.endpoint))
+        self.assertIs(restarted.resolve(rotated.endpoint), rotated)
+
+    def test_boot_rejects_incomplete_partition_and_mixed_receipt_batch(self):
+        original = self.write_receipt()
+        updated = self.write_receipt(receipt(
+            sourceVersion="0.4.2", sourceDigest="2" * 64,
+            verificationGeneration=2,
+        ))
+        unrelated = self.write_receipt(receipt(
+            appId="browser", sourceVersion="0.1.0", sourceDigest="3" * 64,
+        ))
+        registry = self.registry()
+        identity = registry.mint_from_receipt(original).app_data_identity()
+        release = {"componentId": "notes", "version": "0.4.1", "sourceCommit": "1" * 40}
+        put_app_data(identity, "note", b"old", 0, root=str(self.data_root))
+        create_app_data_checkpoint(identity, release, 1, root=str(self.data_root))
+
+        restarted = self.registry()
+        with self.assertRaisesRegex(ValueError, "requires trusted recovery"):
+            restarted.mint_many_from_receipts([unrelated, updated])
+        self.assertEqual(restarted.active_binding_count(), 0)
+
+        # Missing lock must not be interpreted as fresh state after a reboot.
+        from native_app_data import _partition_paths
+        _, _, lock_file, _ = _partition_paths(str(self.data_root), identity)
+        os.unlink(lock_file)
+        with self.assertRaisesRegex(ValueError, "lock is missing"):
+            restarted.mint_from_receipt(original)
+        self.assertEqual(restarted.active_binding_count(), 0)
 
     def test_distinct_publishers_with_same_app_id_are_isolated(self):
         registry = self.registry()

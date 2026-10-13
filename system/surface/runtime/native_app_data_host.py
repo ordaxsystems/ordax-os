@@ -62,6 +62,7 @@ class NativeAppDataHostServer(NativeHostServer):
             receipt_root=app_data_receipt_root,
             expected_uid=expected_uid,
             max_bindings=app_data_max_bindings,
+            app_data_root=app_data_root,
         )
         self.app_data_root = app_data_root
         self.app_data_quota_bytes = app_data_quota_bytes

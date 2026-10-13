@@ -524,6 +524,34 @@ def inspect_app_data_checkpoint(
         }
 
 
+def assert_app_data_install_receipt_compatible(
+    identity: object, installed_version: object, root: str = DEFAULT_APP_DATA_ROOT,
+) -> None:
+    """Fail closed on boot-time grants while another version owns a recovery pin.
+
+    A pin already belongs to the canonical App Data owner: do not invent a
+    separate installed-version registry. This only checks conservative version
+    correlation, NOT sourceCommit, Ed25519 or authorization to roll back.
+    """
+    bound = _identity(identity)
+    if not isinstance(installed_version, str) or not installed_version:
+        raise ValueError("App Data receipt version is invalid")
+    with _shared_partition_lock_if_present(bound, root) as locked:
+        if not locked:
+            return
+        current, _ = _read_manifest(bound, root)
+        checkpoint = _read_checkpoint(bound, root)
+        if checkpoint is None:
+            return
+        if checkpoint["manifest"]["revision"] > current["revision"]:
+            raise ValueError("App Data retained checkpoint revision is ahead of current state")
+        _verify_checkpoint_blobs(root, checkpoint)
+        if checkpoint["sourceRelease"]["version"] != installed_version:
+            raise ValueError(
+                "App Data retained checkpoint requires trusted recovery before binding another version"
+            )
+
+
 def _restore_app_data_checkpoint_locked(bound: dict, release: dict, expected: int, root: str) -> dict:
     current, _ = _read_manifest(bound, root)
     if current["revision"] != expected:
