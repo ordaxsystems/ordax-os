@@ -364,3 +364,28 @@ For externally sourced first-party apps such as Notes and Studio, `current` with
 Expanding the read allowlist does not expand mutation authority. The Native pending-health mutation path keeps its own narrower allowlist and must not inherit read permissions automatically.
 
 This boundary is what allows trusted composition code to read package-owned metadata such as `system/apps/<app-id>/ai/manifest.json` from an exact verified slot identity without introducing generic filesystem access.
+
+### Idempotência verificável das decisões Native
+
+O único writer Go de `activation-state.json` preserva a identidade
+exata da última desinstalação solicitada pelo usuário no mesmo estado
+autoritativo (`removed_identity`), sem criar outro registro. Um retry de
+`uninstall-state` com revisão esperada antiga só pode retornar sucesso
+se a release informada coincidir com a identidade realmente removida
+**e** seu slot continuar íntegro e assinado. Estados antigos
+`user_removed=true` sem tombstone continuam representando a remoção e
+não reativam a versão; porém não provam a identidade removida, então
+uma repetição que tente reivindicar essa prova falha fechada. A
+reinstalação legítima após probation bem-sucedida limpa o tombstone no
+mesmo commit que troca `current` e `user_removed`.
+
+As repetições de `promote-state` e `rollback-state` também devem
+verificar os slots assinados relevantes sob o lock do grafo, mesmo quando
+a revisão e a transição já correspondem exatamente a uma tentativa
+anterior. Um retry não altera o estado por conta própria nem deve
+confirmar um slot adulterado. Regressões release/2 incluem identidade
+errada, prova ausente, corrupção do pacote após o commit e nova
+reinstalação; release/1 permanece sujeito às verificações assinadas
+canônicas existentes. Nenhum novo grant, caminho de armazenamento ou
+exceção para stateful upgrade/rollback foi introduzido.
+

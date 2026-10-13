@@ -1,5 +1,31 @@
 # Current State
 
+## Reconciliação dos gates Surface — 2026-10-12
+
+As cinco reprovações de contratos em main 9a84bbd eram expectativas de templates
+anteriores aos owners atuais. A primeira correção também revelou a expectativa
+obsoleta do texto Ctrl + K no header removido. A marca/sidebar, cada launcher
+com nome acessível e o perfil único agora são verificados no markup realmente
+gerado em pt-BR/en-US, sem restaurar UI antiga para satisfazer testes.
+Paleta e movimento reduzido continuam nos owners canônicos.
+
+A prova de browser da PR #1713 foi reconciliada com a main atual; nenhuma versão
+antiga dos arquivos gerados do site ou da UI foi reintegrada. Não foi necessário
+aplicar a alteração de produto da PR #1712: a composição atual passou fisicamente
+os sete viewports, incluindo compacto mobile selecionado e tiles desktop.
+39 testes Node, 44 Python, 34 arquivos/assets de referência, fronteiras de módulos
+e a prova de browser Native passaram. Web/USB visual continuam HTTP 200.
+Durante a validação outro chat integrou d406116, com o SDK atualizado e as
+mesmas correções de provas. Foundation e Surface Web passaram nesse SHA no Linux.
+A reconciliação preserva essas mudanças e acrescenta os testes de renderização;
+os gates do novo commit continuam distintos das provas da base e das provas locais. Ver [escopo, risco e aceite](DESKTOP-IDENTITY.md#surface-gate-reconciliation--2026-10-12).
+
+
+A reconciliação também preserva a base 0562491: Gate A remove-first do Assistant
+(#1717) e retries de ativação assinada (#1718). Os testes de renderização seguem
+os cinco destinos atuais e exigem ausência do atalho Assistant durante o gap;
+nenhum source removido ou instalação fictícia é restaurado.
+
 ## Alternância Central/Área de trabalho — 2026-10-12
 
 Owner OS Surface; incremento solicitado sobre a sidebar/dock compartilhada.
@@ -641,7 +667,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,ASSISTANT,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,ACTIVITY,INTERNET,SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -1589,7 +1615,7 @@ PUBLIC_ACCOUNT_CLOSE_LIFECYCLE_SERVICE=DEPLOYED_DISABLED
 PUBLIC_ACCOUNT_CLOSE_ENABLED=NO
 PUBLIC_ACCOUNT_CLOSE_DISABLED_PROOF_HARNESS=PASS_SOURCE_CREDENTIAL_FREE
 
-MEMORY_CAPTURE_POLICY_BOUND_AUTO_SAVE=PASS_SOURCE_NATIVE_ASSISTANT_INTEGRATED
+MEMORY_CAPTURE_POLICY_BOUND_AUTO_SAVE=PLATFORM_SERVICE_RETAINED_ASSISTANT_APP_NOT_MOUNTED_GATE_A
 ASSISTANT_AUTO_MEMORY_EXTRACTION=PASS_SOURCE_STRICT_JSON_FAIL_CLOSED
 ASSISTANT_AUTO_MEMORY_AUTHORITY=COMPOSITION_OWNS_DEVICE_ACCOUNT_SPACE
 ASSISTANT_AUTO_MEMORY_SECRET_FILTER=PASS_SOURCE_CREDENTIAL_SIGNAL_REJECT

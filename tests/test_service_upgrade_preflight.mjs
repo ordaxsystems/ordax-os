@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
+import { defineComponentManifest } from "../system/contracts/component-manifest.mjs";
 import {
   coreRuntimeCompatibility,
   localAiCompatibility,
@@ -27,7 +28,22 @@ import {
 } from "../system/services/components/service-upgrade-preflight.mjs";
 
 const manifests = listSystemComponents();
-const independentManifests = manifests.map((item) => item.id === "local-ai-service"
+// Test-only historical dependent app, not a bundled production component or install claim.
+const assistantFixture = defineComponentManifest({
+  id: "assistant",
+  title: "Synthetic Assistant (test only)",
+  kind: "app",
+  version: "0.3.0",
+  releaseMode: "git-app",
+  criticality: "optional",
+  failureDomain: "app",
+  restartScope: "component",
+  healthMode: "runtime",
+  owner: "test/fixtures/assistant",
+  dependencies: ["surface-shell", "ordax-intelligence"],
+});
+const fixtureManifests = [...manifests, assistantFixture];
+const independentManifests = fixtureManifests.map((item) => item.id === "local-ai-service"
   ? { ...item, releaseMode: "component-slot" }
   : item);
 const futureAI = (major = 1, extra = {}) => ({
@@ -41,7 +57,7 @@ const futureAI = (major = 1, extra = {}) => ({
 const assistantCompatibility = {
   schema: "ordax.component-compatibility/1",
   componentId: "assistant",
-  componentVersion: manifests.find((item) => item.id === "assistant").version,
+  componentVersion: assistantFixture.version,
   provides: [],
   requires: [{ id: "ordax.intelligence", minMajor: 1, maxMajor: 1, optional: false }],
   state: null,
@@ -60,7 +76,7 @@ const inspect = (extra = {}) => preflightServiceUpgrade({
 
 test("impact graph follows both direct and transitive canonical consumers", () => {
   const result = deriveServiceConsumerImpact({
-    manifests, componentId: "local-ai-service", descriptors: coreRuntimeCompatibility,
+    manifests: fixtureManifests, componentId: "local-ai-service", descriptors: coreRuntimeCompatibility,
   });
   assert.equal(result.schema, SERVICE_CONSUMER_IMPACT_SCHEMA);
   assert.equal(result.authority, "none");
@@ -87,7 +103,7 @@ test("transitive Assistant lacking a live contract blocks an otherwise compatibl
 
 test("new app added three dependencies away is automatically detected and blocks incomplete preflight", () => {
   const newCatalog = [...independentManifests, {
-    ...manifests.find((entry) => entry.id === "assistant"),
+    ...assistantFixture,
     id: "assistant-helper",
     title: "Synthetic Helper (test-only)",
     owner: "test fixture only",

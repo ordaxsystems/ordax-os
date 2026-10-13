@@ -544,7 +544,6 @@ jobs:
           node --test tests/test_device_agent_contracts.mjs
           node --test tests/test_operational_realtime_contracts.mjs
           node --test tests/test_mobile_companion_contracts.mjs
-          node --test tests/test_assistant_conversation.mjs
           node --test tests/test_app_activation.mjs
           node --test tests/test_app_contract.mjs
           node --test tests/test_component_manager.mjs

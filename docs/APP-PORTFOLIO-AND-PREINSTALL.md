@@ -6,7 +6,7 @@ Status: **política de seleção implementada; pré-instalação física e publi
 
 - `ordaxsystems/ordax-os`: sistema/base, Surface, App SDK, Identity, Intelligence, Memory, permissões, Loja estrutural, Conta, Ajustes, Sistema, verificação, ativação e desinstalação de pacotes.
 - `ordaxsystems/ordax-apps`: **destino canônico de fonte dos aplicativos first-party removíveis**, incluindo os que podem vir pré-instalados no OS. Versão do app e artefato pertencem a seu próprio owner; apps podem ser pré-instalados sem terem uma segunda cópia de código no OS.
-- **Transição de source**: Arquivos, Internet, Projetos, Assistente, Atividade e Rede ainda têm source canônico no OS até os gates `migrations/*.externalization.json` autorizarem o cutover remove-first. O diretório de preparação no Apps não dá autoridade de execução nem permite fonte duplicada.
+- **Transição de source**: Rede e Projetos já têm código-fonte exclusivamente no `ordax-apps`. Arquivos, Internet e Atividade ainda têm implementação no OS. O Assistente está no **Gate A remove-first desta PR**: sua implementação saiu do código da composição, mas o Gate B no Apps ainda não ocorreu. O inventário imutável dos 11 arquivos está em `migrations/assistant.source-snapshot.json`; o corte só é efetivo na main após integração desta PR. Nenhum desses fatos comprova publicação ou instalação de aplicativos externos.
 - `ordaxsystems/ordax-runtime`: host Windows e execução de capacidades do dispositivo.
 - `ordaxsystems/ordax-platform`: Product MCP, Control Plane e conectores de provedores (ChatGPT/Grok etc.). Plugin é conector, não outro Studio.
 

@@ -23,13 +23,13 @@ test("bundled first-party semantics cover internal apps without duplicating exte
   assert.deepEqual(ids, [
     "account",
     "activity",
-    "assistant",
     "files",
     "internet",
     "settings",
     "system",
   ]);
   assert.equal(ids.includes("studio"), false);
+  assert.equal(ids.includes("assistant"), false, "source not transferred/installed while Gate A is pending");
   for (const manifest of manifests) {
     assert.equal(manifest.authority, "none");
     assert.equal(manifest.execution, "declarative-only");

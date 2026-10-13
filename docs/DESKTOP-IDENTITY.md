@@ -1348,3 +1348,57 @@ responsive geometry; no authority, application lifecycle or device change.
 Acceptance: correct destination in either mode, stable control position and
 canonical expanded/collapsed widths. Automated regression checks cover invalid
 views, immutable destination metadata, localization and redundant SVG updates.
+
+
+## Surface gate reconciliation — 2026-10-12
+
+Owner: OrdaX OS Surface. User-requested continuation of the shared Web/Native
+sidebar, following the five failed Foundation/Surface test cases on main
+9a84bbd1a6ae93141126acb19ed802df7214b96a. Scope is the verification layer;
+no product layout, preference storage, identity, grants or device authority changes.
+
+The existing [PR #1713](https://github.com/ordaxsystems/ordax-os/pull/1713)
+browser proof is reused, without reverting the newer generated public-site fixture
+or copying obsolete rail assertions. Real Native shell markup is rendered in both
+complete locales to verify each pinned launch destination, its accessible name,
+the sidebar launcher and exactly one profile targeting Account overview.
+Source checks continue to enforce adapter/import boundaries and the current
+color-palette owner, whose appearance dependency remains canonical. Motion
+reduction is checked in shared tokens and the Native entrypoint loads that owner.
+
+The Chromium proof physically navigates through shared Settings, verifies
+light/dark/USB palette selection and persistence, waits for the closing dialog
+layer to unmount, and verifies compact action hit targets. Desktop retains equal
+tiles; mobile retains one selected pane with access to other mounted apps.
+No reduced coverage, skipped controls, artificial timeouts or preference mutation
+is used to make theme switching pass. The isolated profile reset between cases
+remains test setup, as in the existing proof.
+
+Local acceptance: 39 Node tests and 44 Python Surface/identity tests passed;
+34 reference assets/files and the Native shared-shell browser proof passed.
+Web Chromium passed 1440x900, 1024x768, 820x650, 760x650, 390x844,
+320x568 and 844x390, including compact lifecycle, draft retention, reserved
+workspace geometry and no horizontal document overflow. Existing hosts respond
+HTTP 200. These are source and browser proofs, not physical USB boot, cloud
+permissions, production service activation or release evidence.
+
+Risk: stale UI-template assertions could hide genuine missing controls, so
+launcher checks have moved to rendered output rather than matching template
+implementation. The broader Foundation run and remote CI are tracked separately;
+prior passing checks from other branch heads do not certify the current main.
+
+Concurrent main reconciliation: d4061166b86c6601dbf75f47ba2c5981d0586804
+integrated App SDK changes and the existing browser proof during this increment.
+Both [Foundation](https://github.com/ordaxsystems/ordax-os/actions/runs/38339460878)
+and [Surface Web](https://github.com/ordaxsystems/ordax-os/actions/runs/38339460894)
+passed on that base. No second browser proof or product implementation is added;
+this increment contributes actual rendered-launcher tests and owner/load checks.
+The existing Ctrl/Meta+K handler assertions from the incoming commit are retained.
+The broad local Windows discovery run was stopped after platform-specific receipt
+test errors; it is not claimed as passing and does not replace canonical Linux CI.
+
+The subsequent 0562491 base also includes Assistant remove-first Gate A from
+PR #1717 and signed activation retry hardening from PR #1718. Both are preserved.
+The rendered launcher tests follow the current five pinned destinations and
+require no Assistant launch control during the migration gap. No removed source,
+installation claim or parallel Assistant is restored by this increment.
