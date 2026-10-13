@@ -1,8 +1,8 @@
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react';
-import { createUnavailableIntelligencePort } from '../../../../contracts/intelligence.mjs';
+import { createUnavailableWebIntelligencePort } from '../../../../adapters/web/intelligence.mjs';
 import { createIntelligenceClient } from '../../lib/intelligence/client.mjs';
 
-const fallbackClient = createIntelligenceClient(createUnavailableIntelligencePort());
+const fallbackClient = createIntelligenceClient(createUnavailableWebIntelligencePort());
 type IntelligenceClient = typeof fallbackClient;
 type IntelligenceSnapshot = ReturnType<IntelligenceClient['getSnapshot']>;
 type IntelligenceContextValue = { client: IntelligenceClient; snapshot: IntelligenceSnapshot };
