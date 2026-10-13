@@ -139,6 +139,27 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
             )
             self.assertFalse(result["activation"]["candidate_rejected"])
 
+    def test_disposable_graphics_observation_does_not_change_health_criteria(self):
+        runner = BASE_RUNNER.read_text(encoding="utf-8")
+        cold = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("graphical_diagnostics_dir: Path | None = None", runner)
+        self.assertIn("capture_disposable_graphics(", runner)
+        self.assertIn("screendump {destination}", runner)
+        self.assertIn("graphical_diagnostics_dir=args.out.parent / \"graphical-evidence\"", cold)
+        self.assertIn("required_post_marker=commit_marker", cold)
+        self.assertIn("if ready:", runner)
+        self.assertIn('"required_post_marker_seen"', runner)
+        self.assertIn('"synthetic_health": False', cold)
+
+    def test_disposable_graphics_capture_must_be_observation_only(self):
+        spec = importlib.util.spec_from_file_location("qemu_graphics_observe_test", BASE_RUNNER)
+        qemu = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qemu)
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "frame.ppm"
+            self.assertFalse(qemu.capture_disposable_graphics(Path(directory) / "absent.sock", destination))
+            self.assertFalse(destination.exists())
+
     def test_final_state_is_inspected_read_only(self):
         text = RUNNER.read_text(encoding="utf-8")
         self.assertIn('"mount.exfat-fuse", "-o", "ro"', text)

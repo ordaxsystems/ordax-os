@@ -322,6 +322,7 @@ def prove(args: argparse.Namespace) -> dict[str, Any]:
                 serial_name="serial-candidate-health.log",
                 required_post_marker=commit_marker,
                 graphical_hardware=True,
+                graphical_diagnostics_dir=args.out.parent / "graphical-evidence",
             )
 
             phase = "inspect_committed_state"

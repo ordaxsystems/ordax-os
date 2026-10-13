@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -455,6 +456,26 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
     return disk
 
 
+def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> bool:
+    """Observe the existing virtual VGA framebuffer; never execute guest commands.
+
+    This HMP screendump is a host-only read of the disposable QEMU framebuffer.
+    A missing monitor or screenshot is purely diagnostic, never proof of health.
+    """
+    if destination.exists() or not destination.parent.is_dir():
+        return False
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as monitor:
+            monitor.settimeout(1.0)
+            monitor.connect(str(monitor_socket))
+            monitor.recv(1024)  # Normal HMP banner, no shell or guest interaction.
+            monitor.sendall(f"screendump {destination}\n".encode("ascii"))
+            monitor.recv(2048)
+        return destination.is_file() and 32 <= destination.stat().st_size <= 16 * 1024 * 1024
+    except (OSError, UnicodeError):
+        return False
+
+
 def boot_qemu_expected(
     args: argparse.Namespace,
     inputs: dict[str, Any],
@@ -466,6 +487,7 @@ def boot_qemu_expected(
     serial_name: str,
     required_post_marker: str | None = None,
     graphical_hardware: bool = False,
+    graphical_diagnostics_dir: Path | None = None,
 ) -> tuple[str, dict[str, bool]]:
     if expected_slot not in {"candidate", "current", "known-good"}:
         raise ProofError("unexpected QEMU expected slot")
@@ -512,6 +534,14 @@ def boot_qemu_expected(
         "-net", "none",
         "-no-reboot",
     ]
+    if graphical_diagnostics_dir is not None and graphical_hardware:
+        graphical_diagnostics_dir.mkdir(parents=True, exist_ok=True)
+        monitor_socket = work / "graphical-readonly-monitor.sock"
+        command[command.index("none", command.index("-monitor"))] = (
+            f"unix:{monitor_socket},server=on,wait=off"
+        )
+    else:
+        monitor_socket = None
     if graphical_hardware:
         # Use a real DRM/KMS device in the guest so Cage/Wayland/WebKit and
         # the normal Surface heartbeat path run unchanged. -display none only
@@ -609,8 +639,22 @@ def boot_qemu_expected(
             return text, checks
 
         deadline = time.monotonic() + (GRAPHICAL_BOOT_TIMEOUT_SECONDS if graphical_hardware else DIRECT_KERNEL_BOOT_TIMEOUT_SECONDS)
+        cage_observed_at: float | None = None
+        captured_points: set[int] = set()
         while time.monotonic() < deadline:
             text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
+            if monitor_socket is not None and graphical_diagnostics_dir is not None:
+                if cage_observed_at is None and re.search(r"cage\\[\\d+\\]", text):
+                    cage_observed_at = time.monotonic()
+                if cage_observed_at is not None:
+                    for seconds in (12, 30):
+                        if (seconds not in captured_points and
+                            time.monotonic() - cage_observed_at >= seconds):
+                            captured_points.add(seconds)
+                            capture_disposable_graphics(
+                                monitor_socket,
+                                graphical_diagnostics_dir / f"cage-plus-{seconds}s.ppm",
+                            )
             ready, checks = observe(text)
             if ready:
                 return finish_success(text, checks)
