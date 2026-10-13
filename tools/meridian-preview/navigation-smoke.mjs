@@ -38,8 +38,10 @@ await runBrowser(async client=>{
  await check('Intelligence request stays in Desktop','document.querySelector("[data-meridian]").dataset.presentation==="desktop"&&!!document.querySelector("[data-window=intelligence]")');
  await action('presentation:toggle');
  await check('Central remains reachable by bottom switch','document.querySelector("[data-meridian]").dataset.presentation==="central"');
- await check('Central nav also has no duplicate shortcut',`!document.querySelector('.md-sidebar nav [data-action="route:central"]')`);
+ await check('Central has one Home shortcut',`document.querySelectorAll('.md-sidebar nav [data-action="route:central"]').length===1&&document.querySelector('.md-sidebar nav [data-action="route:central"]').getAttribute('aria-label')==='Início'`);
  for(const route of ['devices','apps','settings']){await action('route:'+route);await check('Central keeps '+route+' as a page','document.querySelector("[data-meridian]").dataset.presentation==="central"&&!document.querySelector("[data-window]")');}
+ await evaluate(`document.querySelector('.md-sidebar nav [data-action="route:central"]').click()`);
+ await check('Home shortcut returns to Central home',`document.querySelector('[data-meridian]').dataset.presentation==='central'&&document.querySelector('.md-sidebar nav [data-action="route:central"]').getAttribute('aria-current')==='page'&&!!document.querySelector('.md-central')`);
  await action('app:section:devices');
  await check('Dock restores Desktop section from Central','document.querySelector("[data-meridian]").dataset.presentation==="desktop"&&document.querySelector(".md-dock-app.is-active").dataset.action==="app:section:devices"');
  await action('app:notes');await check('Navigation preserved original draft','document.querySelector("#md-note-draft").value==="Rascunho antes da navegação"');

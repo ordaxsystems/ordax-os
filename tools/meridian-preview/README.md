@@ -152,5 +152,6 @@ remain unchanged. Main is untouched; Meridian is not ready for merge.
 
 Sidebar destinations stay in the current presentation: pages in Central, existing
 preview windows in Desktop. Section content is reused, not copied. The duplicate
-Central sidebar entry is removed. See [focused navigation evidence](../../docs/evidence/meridian-navigation/README.md).
+Central presentation shortcut is absent in Desktop. Central provides an Início
+sidebar page link to return home without switching presentation. See [focused navigation evidence](../../docs/evidence/meridian-navigation/README.md).
 Run `node tools/meridian-preview/navigation-smoke.mjs` against the active 4203 host.

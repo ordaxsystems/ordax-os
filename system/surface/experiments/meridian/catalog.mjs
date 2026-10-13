@@ -1,6 +1,6 @@
 // Preview navigation, not an installation or application authority.
 export const sections = Object.freeze([
- {id:'central',label:'Central',icon:'central',group:'principal'},
+ {id:'central',label:'Central',sidebarLabel:'Início',icon:'central',group:'principal'},
  {id:'intelligence',label:'Intelligence',icon:'aura',group:'principal'},
  {id:'spaces',label:'Spaces',icon:'spaces',group:'principal'},
  {id:'apps',label:'Aplicativos',icon:'apps',group:'ecossistema'},
