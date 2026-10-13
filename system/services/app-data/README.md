@@ -196,6 +196,25 @@ As regressões exercitam exclusão entre processos reais, retomada após
 morte abrupta, rejeição de diretório público, inode não privado,
 symlink, hardlink e bloqueio antes da construção do servidor.
 
+### Barreira de parada no Supervisor (Issue #1680)
+
+Antes de iniciar outra geração da Surface e depois de `stop_surface()`,
+o Supervisor tenta adquirir de modo **não bloqueante** o mesmo
+`native-host-instance.lock` do owner HTTP. Isso cobre também o caso
+em que o launcher morreu, `SURFACE_PID` já foi colhido, mas o processo
+Native permaneceu órfão: o novo launcher não pode começar enquanto a
+autoridade de App Data ainda estiver viva. A espera é limitada; contenção,
+erro de `flock` ou inode simbólico/inesperado resultam em **falha fechada**.
+O arquivo não é apagado. O applet BusyBox é comprovado na Base portátil
+com sucesso e contenção de processos reais.
+
+Esta barreira prova somente a **ausência de posse do lock no instante da
+verificação**, não a ausência futura de qualquer processo ou efeito externo.
+Não supervisiona aplicativos individualmente, não mantém o host vivo após
+o reinício gráfico e não concede autoridade de transação stateful ao
+Supervisor. A divisão de responsabilidade por mounts, processos e o
+handoff privilegiado do WebKit continua necessária antes do cutover.
+
 ### Limpeza de handoff quando o Native host sai
 
 O mesmo lock exclusivo de instância do Native host delimita também o arquivo
