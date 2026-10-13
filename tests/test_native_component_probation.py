@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -15,6 +16,7 @@ if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
 probation = importlib.import_module("native_component_probation")
+from native_store_metadata_policy import NATIVE_PROBATION_COMPONENT_IDS, NATIVE_HEALTH_MUTATION_COMPONENT_IDS
 slots = importlib.import_module("native_component_slots")
 
 COMMIT = "a" * 40
@@ -47,6 +49,20 @@ def message(
 
 
 class NativeComponentProbationTests(unittest.TestCase):
+    def test_system_probation_scope_is_canonical_and_read_only_until_authorized(self):
+        policy = json.loads(
+            (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
+        )
+        self.assertIs(probation.SUPPORTED_COMPONENTS, NATIVE_PROBATION_COMPONENT_IDS)
+        self.assertEqual(
+            probation.SUPPORTED_COMPONENTS,
+            frozenset(policy["runtime_health_bridge_supported_components"]),
+        )
+        self.assertTrue(probation.SUPPORTED_COMPONENTS.issubset(NATIVE_HEALTH_MUTATION_COMPONENT_IDS))
+        self.assertNotIn("calculator", probation.SUPPORTED_COMPONENTS)
+        self.assertNotIn("studio", probation.SUPPORTED_COMPONENTS)
+        self.assertEqual(probation.PROBE_MODE, policy["runtime_health_bridge_probe_mode"])
+
     def test_exact_nonce_and_receipt_record_health_once(self):
         record = slots.ComponentHealthRecord(
             component_id="internet",

@@ -29,6 +29,7 @@ def render(payload: dict) -> str:
     package_sources = payload.get("canonical_package_source_repository_by_component")
     module_ids = payload.get("native_loopback_broker_supported_components")
     health_ids = payload.get("native_loopback_broker_health_mutation_components")
+    probation_ids = payload.get("runtime_health_bridge_supported_components")
     if not isinstance(package_sources, dict) or not package_sources:
         raise MetadataPolicyError("canonical package owners are unavailable")
     for component_id, owner in package_sources.items():
@@ -37,6 +38,7 @@ def render(payload: dict) -> str:
     for ids, label in (
         (module_ids, "Native module read"),
         (health_ids, "Native health mutation"),
+        (probation_ids, "Native probation"),
     ):
         if (
             not isinstance(ids, list)
@@ -62,6 +64,10 @@ def render(payload: dict) -> str:
         raise MetadataPolicyError("Native module read must have a canonical executable source owner")
     if not set(health_ids).issubset(module_ids):
         raise MetadataPolicyError("Native health mutation cannot exceed signed module-read scope")
+    if not set(probation_ids).issubset(health_ids):
+        raise MetadataPolicyError("Native probation cannot exceed health mutation scope")
+    if payload.get("runtime_health_bridge_probe_mode") != "import-contract":
+        raise MetadataPolicyError("Native probation requires the canonical import-contract probe mode")
     metadata_ids = sorted(set(package_sources) | set(module_ids))
 
     def format_ids(ids: list[str]) -> str:
@@ -77,7 +83,25 @@ def render(payload: dict) -> str:
         "NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({\n"
         + format_ids(sorted(module_ids)) + "\n})\n\n"
         "NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({\n"
-        + format_ids(sorted(health_ids)) + "\n})\n"
+        + format_ids(sorted(health_ids)) + "\n})\n\n"
+        "NATIVE_PROBATION_COMPONENT_IDS = frozenset({\n"
+        + format_ids(sorted(probation_ids)) + "\n})\n"
+    )
+
+
+def render_surface_probation_policy(payload: dict) -> str:
+    # The Native and WebKit host consume the same canonical probation scope.
+    # This module describes probes; it does not grant install or promote rights.
+    render(payload)  # Validate IDs, owner/read/health subsets and probe mode once.
+    ids = sorted(payload["runtime_health_bridge_supported_components"])
+    members = "\n".join(f'  "{component_id}",' for component_id in ids)
+    return (
+        "// GENERATED FILE. DO NOT EDIT BY HAND.\n"
+        "// Source of truth: docs/contracts/runtime-component-package.json\n"
+        "// Generator: tools/app-policy/render_native_store_metadata_policy.py\n\n"
+        "export const NATIVE_COMPONENT_PROBATION_IDS = Object.freeze([\n"
+        + members + "\n]);\n"
+        'export const NATIVE_COMPONENT_PROBE_MODE = "import-contract";\n'
     )
 
 
@@ -85,17 +109,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--policy", type=Path, default=POLICY)
     parser.add_argument("--out", type=Path, default=OUTPUT)
+    parser.add_argument("--surface-out", type=Path, default=ROOT / "system/services/components/probation-policy.generated.mjs")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
     try:
         payload = json.loads(args.policy.read_text(encoding="utf-8"))
         rendered = render(payload)
+        surface_rendered = render_surface_probation_policy(payload)
         if args.check:
             if args.out.read_text(encoding="utf-8") != rendered:
                 raise MetadataPolicyError("generated Native Store metadata allowlist drifted from canonical policy")
+            if args.surface_out.read_text(encoding="utf-8") != surface_rendered:
+                raise MetadataPolicyError("generated Surface probation scope drifted from canonical policy")
         else:
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_text(rendered, encoding="utf-8", newline="\n")
+            args.surface_out.parent.mkdir(parents=True, exist_ok=True)
+            args.surface_out.write_text(surface_rendered, encoding="utf-8", newline="\n")
     except (OSError, UnicodeError, json.JSONDecodeError, MetadataPolicyError) as exc:
         print("ORDAX_NATIVE_STORE_METADATA_SSOT=FAIL\n" + str(exc), file=sys.stderr)
         return 1

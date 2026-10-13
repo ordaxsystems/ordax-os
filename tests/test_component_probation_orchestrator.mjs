@@ -7,6 +7,8 @@ import {
   systemComponentProbationProbeMode,
 } from "../system/services/components/probation-orchestrator.mjs";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
+import { readFileSync } from "node:fs";
+import { NATIVE_COMPONENT_PROBATION_IDS, NATIVE_COMPONENT_PROBE_MODE } from "../system/services/components/probation-policy.generated.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 
 const COMMIT = "a".repeat(40);
@@ -60,6 +62,23 @@ function runtimeModule({
     }),
   };
 }
+
+test("Native and Surface probation use exactly the same canonical policy", () => {
+  const contract = JSON.parse(readFileSync(
+    new URL("../docs/contracts/runtime-component-package.json", import.meta.url),
+    "utf8",
+  ));
+  assert.deepEqual(NATIVE_COMPONENT_PROBATION_IDS,
+    [...contract.runtime_health_bridge_supported_components].sort());
+  assert.equal(NATIVE_COMPONENT_PROBE_MODE, contract.runtime_health_bridge_probe_mode);
+  for (const id of NATIVE_COMPONENT_PROBATION_IDS) {
+    assert.equal(systemComponentProbationProbeMode(id), NATIVE_COMPONENT_PROBE_MODE);
+  }
+  for (const id of ["calculator", "studio", "assistant", "clock"]) {
+    assert.throws(() => systemComponentProbationProbeMode(id),
+      /Unsupported system component probation probe/);
+  }
+});
 
 test("system probation exposes fixed probes only for explicit supported components", () => {
   assert.equal(COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA, "ordax.component-probation-orchestrator/1");

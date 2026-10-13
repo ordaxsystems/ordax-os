@@ -1,4 +1,5 @@
 import { validateComponentId } from "../../contracts/component-manifest.mjs";
+import { NATIVE_COMPONENT_PROBATION_IDS, NATIVE_COMPONENT_PROBE_MODE } from "./probation-policy.generated.mjs";
 import {
   COMPONENT_PROBATION_RESULT_SCHEMA,
   runPendingComponentProbation,
@@ -7,10 +8,9 @@ import {
 export const COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA =
   "ordax.component-probation-orchestrator/1";
 
-const PROBE_MODES = Object.freeze({
-  internet: "import-contract",
-  notes: "import-contract",
-});
+const PROBE_MODES = Object.freeze(Object.fromEntries(
+  NATIVE_COMPONENT_PROBATION_IDS.map((id) => [id, NATIVE_COMPONENT_PROBE_MODE]),
+));
 
 function probeFor(componentId) {
   const mode = PROBE_MODES[componentId];

@@ -11,11 +11,12 @@ from native_component_slots import (
     ComponentSlotError,
     record_component_pending_health,
 )
+from native_store_metadata_policy import NATIVE_PROBATION_COMPONENT_IDS
 
 PROBATION_SCHEMA = "ordax.component-probation-result/1"
 PROBATION_MESSAGE_TYPE = "component.probation.result"
 PROBE_MODE = "import-contract"
-SUPPORTED_COMPONENTS = frozenset({"internet", "notes"})
+SUPPORTED_COMPONENTS = NATIVE_PROBATION_COMPONENT_IDS
 
 
 class ComponentProbationReceiptError(ValueError):

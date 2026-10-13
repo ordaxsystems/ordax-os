@@ -31,3 +31,8 @@ NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({
 NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({
     "notes",
 })
+
+NATIVE_PROBATION_COMPONENT_IDS = frozenset({
+    "internet",
+    "notes",
+})

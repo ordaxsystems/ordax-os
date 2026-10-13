@@ -88,6 +88,22 @@ class NativeComponentSlotTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertEqual(generated, output)
+        surface = generator["render_surface_probation_policy"](policy)
+        surface_output = (
+            ROOT / "system/services/components/probation-policy.generated.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(surface, surface_output)
+        self.assertIn("NATIVE_PROBATION_COMPONENT_IDS", generated)
+        with self.assertRaises(generator["MetadataPolicyError"]):
+            generator["render"]({
+                **policy,
+                "runtime_health_bridge_supported_components": ["internet", "notes", "calculator"],
+            })
+        with self.assertRaises(generator["MetadataPolicyError"]):
+            generator["render"]({
+                **policy,
+                "runtime_health_bridge_supported_components": ["internet", "internet"],
+            })
         self.assertNotIn('"clock",', generated.split("NATIVE_MODULE_READ_COMPONENT_IDS", 1)[1])
         self.assertNotIn('"calculator",', generated.split("NATIVE_HEALTH_MUTATION_COMPONENT_IDS", 1)[1])
         with self.assertRaises(generator["MetadataPolicyError"]):

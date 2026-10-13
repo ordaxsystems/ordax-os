@@ -24,6 +24,12 @@ The same generator derives `EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS` from th
 
 A signed-catalog candidate cannot invent executable-read capability. The verified Store projection must enforce the same restriction before offering user-visible install/update; that dependent UI change is tracked separately in #1398.
 
+### Probation canônico entre Native e Surface
+
+O conjunto de componentes que pode executar o probe `import-contract` pertence exclusivamente a `docs/contracts/runtime-component-package.json` → `runtime_health_bridge_supported_components`. O gerador `tools/app-policy/render_native_store_metadata_policy.py` emite tanto `NATIVE_PROBATION_COMPONENT_IDS` (Python Native) quanto `NATIVE_COMPONENT_PROBATION_IDS` e `NATIVE_COMPONENT_PROBE_MODE` (JavaScript Surface). Não manter allowlists manuscritas nos bridges. O gerador valida a relação `probation ⊆ health mutation ⊆ signed module read`, identidade/duplicatas e probe mode. Os artefatos gerados são verificados no CI e não são fontes independentes.
+
+**Escopo atual permanece Internet e Notas.** A Calculadora continua somente com leitura de módulo verificado; sua instalação fica bloqueada por `runtime-probation-unavailable`. Ampliar probation exigirá testes completos do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos da publicação assinada e prova em host. Gerar uma lista não instala, promove nem habilita distribuição.
+
 ## Native installed Surface runtime: verified before display
 
 The execution source is the Native broker's **verified `current` slot**, not the
