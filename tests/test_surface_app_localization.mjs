@@ -156,8 +156,8 @@ test("Internet product translations cannot leak back into the OS after Gate A", 
   const surface = await readFile(new URL("../system/services/i18n/surface.mjs", import.meta.url), "utf8");
   const shell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
   assert.ok(!surface.includes("catalog/internet.mjs"), "No product-owned Internet translations should remain in OS");
-  assert.doesNotMatch(surface, /\\.\\.\\.INTERNET_SOURCE_MESSAGES/);
-  assert.doesNotMatch(shell, /railButton\\("internet"/);
+  assert.ok(!surface.includes("...INTERNET_SOURCE_MESSAGES"), "Internet-owned localization must not be spread in OS");
+  assert.ok(!shell.includes('railButton("internet"'), "Unavailable Internet has no bundled launcher");
 });
 
 test("Network tray and quick panel consume the shared localization owner", async () => {
