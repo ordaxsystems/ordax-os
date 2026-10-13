@@ -1402,3 +1402,43 @@ PR #1717 and signed activation retry hardening from PR #1718. Both are preserved
 The rendered launcher tests follow the current five pinned destinations and
 require no Assistant launch control during the migration gap. No removed source,
 installation claim or parallel Assistant is restored by this increment.
+
+## Shared notification center — 2026-10-13
+
+User-requested Surface UX increment, tracked by the existing functional Surface plan.
+Owner: `system/surface/ui/notification-center-controls.mjs`; presentation CSS is
+`notification-center.css`, loaded by both compositions. React only mounts/disposes
+the same renderer. No parallel notification service, account store or event authority.
+
+Contracts/dependencies: `ordax.notifications/3`, `ordax.notification-store/3`,
+`ordax.app-activation/1`, canonical preference/localization ports and regional
+formatting. Native keeps `createNotificationsRuntime`, device store and the
+existing update-watcher bridge. Account login alone is not a notification feed.
+The current operational-realtime contract still marks Web/mobile delivery as future
+adapter work. Web passes explicit null ports, displays unavailability, hides zero counters
+and inactive controls, disables mutations and creates no fabricated entries, Native store copy, polling or endpoint.
+The local USB visual preview likewise has no updater/Native grants; it shows the
+same unavailable presentation, not production device events.
+
+UX: all/unread filters with counts; explicit per-item and bulk read; clear only read;
+dismissal; Do Not Disturb preserves history and suppresses the attention badge.
+Opening the center does not consume unread history. Destination activation delegates
+to the existing port; a rejected activation keeps the notification unread and reports
+an error. Keyed rows keep focus during live updates and restore it after removal.
+Native panel anchors next to the sidebar bell, adapts to viewport and scrolls the list;
+Web uses the same window lifecycle, responsive content and compact presentation.
+Subscriptions, observers and localization are disposed by their mounting owners.
+
+Risk/acceptance: localized plain-text rendering, no HTML interpretation or implicit
+execution; no backend availability claims without an adapter; shared theme tokens;
+keyboard and narrow viewport access; no read-state mutation merely from opening.
+Automated evidence uses the real notification runtime with an isolated fixture
+producer (never product demo data), tests existing persistence/update bridge,
+and checks Web's unavailable state and compact window in the browser. This does
+not prove remote push, two-device sync, physical USB boot or release activation.
+
+Local verification: 31 Node behavior/localization tests and 57 Python Surface,
+notification and builder checks passed; module boundaries and reference integrity
+passed. Isolated Native browser proof passed 1280×800, 390×844, 320×568 and
+844×390, including unread preservation, action failure, focus recovery,
+destination delegation, teardown and notification panel bounds/overflow.

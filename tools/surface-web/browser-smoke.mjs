@@ -155,6 +155,21 @@ try {
       await click('.sidebar-collapse');
       await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       assert.equal(await evaluate("document.querySelectorAll('.account-actions [aria-label=\"Notificações\"]').length"),1,'Notification control sits next to account settings');
+      await openSidebarDestination('Notificações');
+      await until("!!document.querySelector('.web-notifications [data-notification-center]')");
+      assert.equal(await evaluate("document.querySelector('.web-notifications [data-notification-center]').dataset.availability"),'unavailable','Web cannot claim a connected account feed');
+      assert.equal(await evaluate("[...document.querySelectorAll('.web-notifications button')].every(button => button.disabled)"),true,'Unavailable actions fail closed');
+      assert.equal(await evaluate("document.querySelectorAll('.web-notifications [data-notification-id]').length"),0,'No fabricated events');
+      assert.equal(await evaluate("[...document.querySelectorAll('.web-notifications button')].every(button => button.getClientRects().length === 0)"),true,'Unavailable feed must not display zero counters or inactive actions');
+
+      const notificationScreenshot = await client.send('Page.captureScreenshot',{format:'png'});
+      await writeFile(join(evidence,'notifications-'+width+'x'+height+'.png'),Buffer.from(notificationScreenshot.data,'base64'));
+
+      assert.equal(await evaluate("(()=>{const node=document.querySelector('.web-notifications');return node.scrollWidth<=node.clientWidth+1;})()"),true,'Notification content fits narrow panes');
+      await click('[aria-label="Compactar Notificações"]');
+      assert.equal(await evaluate("document.querySelectorAll('.web-notifications [data-notification-center]').length"),1,'Compact mode keeps one notification view');
+      await click('[aria-label="Fechar Notificações"]');
+
       assert.equal(await evaluate("!!document.querySelector('.home-footer,.home-mode-select')"),false,'Home footer and its mode selector are removed');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-sidebar')).overflowY"),'hidden','Sidebar does not scroll');
       assert.equal(await evaluate("Math.abs(document.querySelector('.workspace-sidebar').getBoundingClientRect().bottom-innerHeight)<2"),true,'Sidebar reaches viewport bottom');

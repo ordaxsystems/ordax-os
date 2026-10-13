@@ -47,5 +47,5 @@ export function useWebPreferences() {
     const value = preferences.getSnapshot()[HOME_SHORTCUTS_PREFERENCE_ID];
     preferences.set(HOME_SHORTCUTS_PREFERENCE_ID, setFavoriteShortcutValue(value, id, included));
   }
-  return { theme, colorTheme, persistence, setColorTheme, snapshot, setPreference: port.set, setFavoriteShortcut };
+  return { preferences, theme, colorTheme, persistence, setColorTheme, snapshot, setPreference: port.set, setFavoriteShortcut };
 }

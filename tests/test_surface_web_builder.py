@@ -22,6 +22,9 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             "system/contracts/app-store.mjs", "system/contracts/component-manifest.mjs",
             "system/services/local-ai/model-candidate.generated.mjs",
             "system/services/local-ai/source-lock.json",
+            "system/surface/ui/notification-center-controls.mjs",
+            "system/surface/ui/notification-center.css",
+            "system/contracts/notifications.mjs",
         ):
             self.assertIn(expected, graph)
         self.assertFalse((ROOT / "tools/web2-preview").exists())
