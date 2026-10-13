@@ -31,3 +31,5 @@ export function windowTarget(data,id){
  const section=sections.find(item=>item.id===id.slice(8)&&item.id!=='central');
  return section?{id,name:section.label,icon:section.icon,tone:'slate',route:section.id}:null;
 }
+
+export function navigationSections(presentation){return presentation==='desktop'?sections.filter(item=>item.id!=='central'):sections;}

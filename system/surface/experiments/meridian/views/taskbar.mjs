@@ -1,6 +1,6 @@
 import { windowTarget } from '../catalog.mjs';
 import { unreadNotificationCount } from './operations.mjs';
-import { currentContext } from '../context.mjs';
+import { currentContext, foregroundWindow } from '../context.mjs';
 import { icon, iconButton, esc } from '../ui.mjs';
 import { presentationDestination } from '../../../workspace/presentation.mjs';
 
@@ -19,7 +19,7 @@ export function taskbar(data,ui){
  ${isDesktop?iconButton('Abrir aplicativos e navegação','panel:menu','apps','md-launcher')+iconButton('Buscar no contexto · Ctrl ou Command K','panel:search','search','md-taskbar-search'):`<span class="md-taskbar-label">Central</span>`}
  </div><div class="md-dock" role="group" aria-label="Aplicativos fixados e abertos">${dockApps.map(app=>{
  const win=ui.windows.find(win=>win.id===app.id);
- const active=isDesktop&&win&&!win.minimized&&ui.activeWindow===win.id;
+ const active=foregroundWindow(ui)?.id===win?.id&&!!win;
  const state=active?'Ativo':win?.minimized?'Minimizado':win?'Aberto':'Fixado';
  return `<button type="button" class="md-dock-app ${win?'is-running':''} ${active?'is-active':''} ${win?.minimized?'is-minimized':''}" data-action="app:${app.id}" aria-label="${esc(app.name)} · ${state}" ${active?'aria-current="true"':''} title="${esc(app.name)} · ${state}"><span class="md-dock-symbol md-glyph--${app.tone}">${icon(app.icon,21)}</span><span class="md-dock-tooltip">${esc(app.name)} · ${state}</span></button>`;
  }).join('')}${!isDesktop?`<span class="md-dock-divider"></span>${iconButton('Todos os aplicativos','route:apps','apps')}`:''}</div>
