@@ -1576,3 +1576,17 @@ See the [independent report](evidence/meridian-round2-audit-2026-10-13/relatorio
 [14 revised flows](evidence/meridian-round2-audit-2026-10-13/fluxos.md). Previous
 evidence is preserved. Main, production palettes, contracts, adapters and release
 gates are unchanged; zero items are classified ready for adapter integration.
+
+## Meridian Round 3 — 2026-10-13
+
+Continues from audit-preserving `43cf7ba` on `codex/meridian-design-lab`.
+Desktop removes only its topbar and reserved grid row, retaining wallpaper,
+sidebar, objects and windows. Central keeps its topbar. One taskbar renderer
+exposes pinned/open/active/minimized apps, search and progressive system details.
+Intelligence is on demand. Central and System share continuity notices derived
+from the existing audited identity/Space namespace, not another state store.
+
+The [Round 3 report](evidence/meridian-round3/coverage.md) records 27 focused UI
+checks, 16 captures, seven combined conditions and remaining limitations.
+No backend, production palette, adapter, release gate, physical USB or main change.
+Round 2 classification remains C pending independent audit. Not ready for merge.

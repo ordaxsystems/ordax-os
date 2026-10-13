@@ -1,0 +1,27 @@
+{
+  "initialHead": "43cf7ba",
+  "codeCommit": "bf15f90bc07545bed784352333dec3b416eda4ff",
+  "branch": "codex/meridian-design-lab",
+  "mainBefore": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "mainAfter": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "protectedPaths": [
+    "system/composition",
+    "system/surface/ui",
+    "system/surface/workspace",
+    "system/surface/experiments/meridian/journeys",
+    "system/surface/experiments/meridian/demo/storyboards.mjs",
+    "tools/meridian-preview/serve.py",
+    "tools/meridian-preview/browser-smoke.mjs",
+    "tools/meridian-preview/round2-smoke.mjs",
+    "tools/meridian-preview/round2-audit-smoke.mjs",
+    "tests/test_meridian_storyboard.mjs",
+    "docs/evidence/meridian-round2-audit-2026-10-13"
+  ],
+  "changedProtectedPaths": [],
+  "captures": 16,
+  "smokeAssertions": 27,
+  "uncaughtErrors": [],
+  "moduleSyntaxChecks": 10,
+  "independentAuditRun": false,
+  "pushOrDeploy": false
+}

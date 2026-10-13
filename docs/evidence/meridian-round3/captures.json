@@ -1,0 +1,98 @@
+[
+  {
+    "file": "arquivo-paisagem-844.png",
+    "width": 844,
+    "height": 390,
+    "sha256": "98b50bfcaa3e0ab67b74c114f2fc78a064b34b1654ca048959e4633466de7954"
+  },
+  {
+    "file": "bandeja-320.png",
+    "width": 320,
+    "height": 568,
+    "sha256": "ccd7e4d42a6cdf4fa78768eefe53413a4ffeb5faecdecff51b82f3a15397fb64"
+  },
+  {
+    "file": "central-1440.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "772a3e25c38d509ec2c93c7930591e3a269ac813e5978ad642c82d2dfbc5c87d"
+  },
+  {
+    "file": "central-mobile-390.png",
+    "width": 390,
+    "height": 844,
+    "sha256": "a29cc07b8c85dc1e0a4132a1969d98861fa50d16b9e63d9c766e506b9e3d9dc2"
+  },
+  {
+    "file": "conta-expirada-local.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "d4ae3fa5509b56b781c9d8a02eef4205f59627bfd00b35af46e8e86a18ba903e"
+  },
+  {
+    "file": "desktop-320.png",
+    "width": 320,
+    "height": 568,
+    "sha256": "fb5f82893dd8cec4b11def8b8ab816e0feb9daae8b2dc404a32a537509479bfb"
+  },
+  {
+    "file": "desktop-argila-1440.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "985b75b02ac39c238b13593bd5700dbeababf94c1a40119e4df7f2f3db7cc4b8"
+  },
+  {
+    "file": "desktop-grafite-1440.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "aa95f7e70e1e51dbc0d786e13522c3488cc6d71458c27634223784b0dd38982b"
+  },
+  {
+    "file": "desktop-janelas-1440.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "eff030d1b78ae0833645407c8d4199e8fc39fdbf523e8eef4375711f1489d141"
+  },
+  {
+    "file": "desktop-oficina.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "dde09baaf0312d33fe7c8a1c72b218617db984395f940cb7a08ab05d87832c34"
+  },
+  {
+    "file": "dispositivo-desconectado.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "063e501c434a3ed6f67135694e1563e43fabe44cf461ab8925ce6240c696c49c"
+  },
+  {
+    "file": "intelligence-contexto-1440.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "7c5dd112156f51e5722ba3829447911dfb74d8624ecee4b2a00dafb2c2cddde3"
+  },
+  {
+    "file": "offline-atualizacao-rascunho.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "41492cc532c5138b8e156d6e8860431cfced96b506e9c0eccb44cbfdd64b5a77"
+  },
+  {
+    "file": "offline-visitante-390.png",
+    "width": 390,
+    "height": 844,
+    "sha256": "eb2c3c4c4ad934fa938272728225cfcc85380c11ae497acb97f12bf8f792fad7"
+  },
+  {
+    "file": "space-indisponivel.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "d15158e3629022f0a707a3b5cb05df8f9b08fc718e743f4dfc26d1d0d9d833ab"
+  },
+  {
+    "file": "volume-cheio.png",
+    "width": 1440,
+    "height": 900,
+    "sha256": "0256561a7800960af9a92b6a1b352c2976c69bcbe966fb0aa9bf335dfd13c534"
+  }
+]

@@ -128,3 +128,22 @@ Set MERIDIAN_AUDIT_FOCUSED=1 only for the explicitly reported focused state/keyb
 subset; this skips the complete screen/viewport matrix and is not its replacement.
 The full matrix records failures without discarding later independent results.
 No assertion from the earlier two smokes has been removed or weakened.
+
+## Meridian Round 3 — composition and continuity
+
+Desktop removes its permanent topbar; Central retains it. A shared taskbar
+renderer exposes scoped app shortcuts and active/minimized state. Search is at
+the lower left; progressive system details are at the lower right. Contextual
+Intelligence and continuity summaries derive from existing isolated storyboards.
+No canonical adapter, service or production palette is introduced.
+
+See [Round 3 coverage and captures](../../docs/evidence/meridian-round3/coverage.md).
+With the preview host running on 4203, run only the focused check:
+
+```sh
+node tools/meridian-preview/round3-smoke.mjs
+```
+
+Output defaults to `out/meridian-round3`. Uses disposable Chromium and leaves the
+host running. Does not replace independent audit. Round 2 fixes and old runners
+remain unchanged. Main is untouched; Meridian is not ready for merge.
