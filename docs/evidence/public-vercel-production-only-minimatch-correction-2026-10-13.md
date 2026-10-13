@@ -36,6 +36,11 @@ Vercel documents `git.deploymentEnabled` branch rules as minimatch patterns. A s
 
 The machine-readable deployment contract records both the minimatch syntax and the exact disabled-branch pattern so the policy cannot regress to an ambiguous wildcard.
 
+## Verification
+
+After the corrected policy was pushed on slash-bearing branch `fix/vercel-production-only-minimatch-20261013` at commit `1a9cf6aa3ddcf404e546fd31c065e4eb0e35f0b6`, the GitHub Deployments API query scoped to that SHA returned an empty list. No Vercel deployment record was created for that commit.
+
+This is the direct negative-control counterpart to deployment `7032114852`: with `"*": false`, a slash-bearing branch escaped and produced a Preview; with `"**": false`, a slash-bearing branch produced no Vercel deployment while GitHub Actions validation continued normally.
 ## Boundaries
 
 $- The canonical Vercel project remains `ordax-os-public` under `ordaxsystems`.
