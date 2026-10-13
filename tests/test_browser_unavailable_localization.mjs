@@ -45,7 +45,7 @@ test("Internet product localization is no longer silently bundled in the OS", ()
   assert.throws(() => translateSurfaceMessage("pt-BR", "internet.home.unavailable"),
     /Unknown Surface localization message/);
   const surface = source("system/services/i18n/surface.mjs");
-  assert.doesNotMatch(surface, /catalog\\/internet\\.mjs/);
+  assert.ok(!surface.includes("catalog/internet.mjs"), "No product-owned Internet translations should remain in OS");
 });
 
 test("first-party browser protocol boundaries contain no Portuguese unavailable prose", () => {
