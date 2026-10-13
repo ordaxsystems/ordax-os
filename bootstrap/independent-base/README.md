@@ -21,6 +21,10 @@ O perfil Buildroot usa `bootstrap/kernel/source.json` como única versão de cab
 
 A compilação `make -j` do Buildroot usa **captura limitada de stdout/stderr** no builder oficial: o processo pai conserva só os últimos 10 KiB de saída para diagnosticar falhas, evitando que logs extensos consumam RAM proporcional à duração do build. Comandos menores que precisam de sua saída completa (como `stat` ou `blkid`) mantêm a captura tradicional. O teste `test_large_build_output_stays_bounded_without_losing_failure_tail` mede o pico de memória Python em uma carga sintética de 16 MiB e valida a retenção do diagnóstico. Isso otimiza **o processo de compilação no host**, não é uma medida de RAM, CPU ou boot do sistema operacional no QEMU ou no hardware físico.
 
+## Métricas mínimas observáveis (sem promoção)
+
+O recibo do QEMU mínimo inclui bytes reais de EROFS, initramfs e kernel; tempo total de processo QEMU no host; e medições do guest via `/proc`: `MemTotal - MemAvailable` (memória em uso aproximada), percentual de ticks CPU ocupados **desde o início do kernel**, quantidade de processos na hora da prova e uptime do kernel até o marcador de conclusão. A prova recusa medidas ausentes, duplicadas ou inválidas. Não confundir essas medidas pontuais com pico de RAM, consumo médio de CPU, tempo de boot de firmware/UEFI, Surface gráfica ou tamanho da imagem USB completa. O cenário é QEMU mínimo com 384 MiB/1 vCPU, não equipamento físico. Não se inicia serviço extra, não há alterações no PID1 portátil oficial, no estado dos slots ou no canal Stable.
+
 ## Entrypoints reproduzíveis
 
 ```sh

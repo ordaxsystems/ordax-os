@@ -7,6 +7,7 @@ import sys
 import tempfile
 import tracemalloc
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "bootstrap/independent-base"
@@ -88,6 +89,40 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertIn("failed (7)", diagnostic)
         self.assertIn("BUILD_FAILURE_MARKER", diagnostic)
         self.assertNotIn("Y" * 12000, diagnostic)
+
+    def test_guest_metrics_parsed_from_serial_with_strict_bounds(self):
+        # No QEMU or Buildroot compilation: test only the existing proof parser.
+        # The full Foundation suite also imports tools/component-package/build.py
+        # under the generic name "build". Bind only this fixture to its owner.
+        builder_spec = importlib.util.spec_from_file_location("independent_metrics_builder", BASE / "build.py")
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        with patch.dict(sys.modules, {"build": builder}):
+            spec = importlib.util.spec_from_file_location("independent_qemu_proof", BASE / "qemu_proof.py")
+            qemu_proof = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(qemu_proof)
+
+        lines = [
+            "ORDAX_INDEPENDENT_METRIC_MEM_TOTAL_KIB=384000",
+            "ORDAX_INDEPENDENT_METRIC_MEM_USED_KIB=24000",
+            "ORDAX_INDEPENDENT_METRIC_CPU_BUSY_PCT=14",
+            "ORDAX_INDEPENDENT_METRIC_PROCESSES=8",
+            "ORDAX_INDEPENDENT_METRIC_UPTIME_S=4.52",
+        ]
+        serial = "\r\n".join(lines) + "\r\n"
+        observed = qemu_proof.parse_guest_metrics(serial)
+        self.assertEqual(observed["mem_used_kib"], 24000)
+        self.assertEqual(observed["cpu_busy_pct"], 14)
+        self.assertEqual(observed["processes"], 8)
+        self.assertEqual(observed["uptime_s"], 4.52)
+        with self.assertRaises(qemu_proof.BaseError):
+            qemu_proof.parse_guest_metrics(serial + lines[0] + "\r\n")
+        with self.assertRaises(qemu_proof.BaseError):
+            qemu_proof.parse_guest_metrics(serial.replace("MEM_USED_KIB=24000", "MEM_USED_KIB=384001"))
+        with self.assertRaises(qemu_proof.BaseError):
+            qemu_proof.parse_guest_metrics(serial.replace("CPU_BUSY_PCT=14", "CPU_BUSY_PCT=101"))
+        with self.assertRaises(qemu_proof.BaseError):
+            qemu_proof.parse_guest_metrics(serial.replace("PROCESSES=8", "PROCESSES=0"))
 
     def test_verification_fails_closed_without_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
