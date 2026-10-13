@@ -16,6 +16,12 @@ SHARED = frozenset({
 })
 CONTENT_TYPES = {".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".svg": "image/svg+xml"}
 
+class PreviewServer(ThreadingHTTPServer):
+    # Browsers request module graphs concurrently. Windows rejects connections
+    # when the small default accept queue fills during a cold navigation.
+    request_queue_size = 64
+
+
 class PreviewHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.serve(False)
@@ -53,6 +59,6 @@ if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=4203)
     args = parser.parse_args()
-    with ThreadingHTTPServer(("127.0.0.1", args.port), PreviewHandler) as server:
+    with PreviewServer(("127.0.0.1", args.port), PreviewHandler) as server:
         print(f"OrdaX Meridian: http://127.0.0.1:{server.server_port}/", flush=True)
         server.serve_forever()

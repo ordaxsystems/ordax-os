@@ -128,7 +128,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   if(['ask','reply','new-project'].includes(form.dataset.form)){for(const field of form.querySelectorAll('input[name],textarea[name]'))formDrafts.delete(draftKey(form,field));form.reset();}
   switch(form.dataset.form){
    case 'ask':ask(values.get('prompt'));break;
-   case 'new-project':ui.panel=null;source.dispatch({type:'create-project',value:values.get('name'),subject:contextSubject()});openPanel('project',source.getSnapshot().projects.at(-1).id);break;
+   case 'new-project':ui.panel=null;source.dispatch({type:'create-project',value:values.get('name'),subject:contextSubject(),space:readData().activeSpace});openPanel('project',source.getSnapshot().projects.at(-1).id);break;
    case 'save-note':source.dispatch({type:'file-draft',id:form.dataset.file,value:values.get('body')});toast('Rascunho guardado apenas nesta sessão de demonstração.');break;
    case 'reply':{const reply=String(values.get('reply')??'').trim().slice(0,1000);if(!reply)break;const id=form.dataset.conversation;ui.replies[id]=[...(ui.replies[id]??[]),reply];render();const input=root.querySelector('#md-reply');if(input){input.value='';input.focus();}break;}
   }
