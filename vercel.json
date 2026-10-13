@@ -230,7 +230,10 @@
     }
   ],
   "git": {
-    "deploymentEnabled": true
+    "deploymentEnabled": {
+      "*": false,
+      "main": true
+    }
   },
   "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
 }

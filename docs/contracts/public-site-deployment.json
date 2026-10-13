@@ -85,7 +85,12 @@
     "target_canonical_domain_observation_source": "read-only-canonical-http-observation",
     "target_legacy_project_dashboard_detachment_verified": false,
     "target_canonical_domain_proof_observed_date": "2026-10-13",
-    "historical_team_slug": "jogo-brasils-projects"
+    "historical_team_slug": "jogo-brasils-projects",
+    "automatic_preview_git_deployments_enabled": false,
+    "automatic_production_git_deployments_enabled": true,
+    "production_git_branch": "main",
+    "git_deployment_branch_policy": "production-only",
+    "pull_request_validation_owner": "github-actions-public-site-candidate"
   },
   "adapter": {
     "kind": "nginx-loopback-behind-https-terminator",
