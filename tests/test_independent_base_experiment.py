@@ -7,6 +7,7 @@ import sys
 import tempfile
 import tracemalloc
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "bootstrap/independent-base"
@@ -91,13 +92,15 @@ class IndependentBaseTest(unittest.TestCase):
 
     def test_guest_metrics_parsed_from_serial_with_strict_bounds(self):
         # No QEMU or Buildroot compilation: test only the existing proof parser.
-        sys.path.insert(0, str(BASE))
-        try:
+        # The full Foundation suite also imports tools/component-package/build.py
+        # under the generic name "build". Bind only this fixture to its owner.
+        builder_spec = importlib.util.spec_from_file_location("independent_metrics_builder", BASE / "build.py")
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        with patch.dict(sys.modules, {"build": builder}):
             spec = importlib.util.spec_from_file_location("independent_qemu_proof", BASE / "qemu_proof.py")
             qemu_proof = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(qemu_proof)
-        finally:
-            sys.path.pop(0)
 
         lines = [
             "ORDAX_INDEPENDENT_METRIC_MEM_TOTAL_KIB=384000",
