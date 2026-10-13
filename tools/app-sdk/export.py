@@ -271,6 +271,13 @@ CONTRACTS = (
         "major": 1,
     },
     {
+        "name": "intelligence-conversation-capabilities",
+        "path": "system/contracts/intelligence-conversation-capabilities.mjs",
+        "constant": "INTELLIGENCE_CONVERSATION_CAPABILITIES_SCHEMA",
+        "schema": "ordax.intelligence-conversation-capabilities/1",
+        "major": 1,
+    },
+    {
         "name": "locale-profile",
         "path": "system/contracts/locale-profile.mjs",
         "constant": "LOCALE_PROFILE_SCHEMA",
@@ -303,6 +310,69 @@ CONTRACTS = (
         "path": "system/contracts/memory.mjs",
         "constant": "MEMORY_PORT_SCHEMA",
         "schema": "ordax.memory/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-work-item",
+        "path": "system/contracts/personal-ordax.mjs",
+        "constant": "PERSONAL_ORDAX_WORK_ITEM_SCHEMA",
+        "schema": "ordax.personal-work-item/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-activity",
+        "path": "system/contracts/personal-ordax.mjs",
+        "constant": "PERSONAL_ORDAX_ACTIVITY_SCHEMA",
+        "schema": "ordax.personal-activity/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-action-decision",
+        "path": "system/contracts/personal-ordax.mjs",
+        "constant": "PERSONAL_ORDAX_ACTION_DECISION_SCHEMA",
+        "schema": "ordax.personal-action-decision/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-approval",
+        "path": "system/contracts/personal-ordax.mjs",
+        "constant": "PERSONAL_ORDAX_APPROVAL_SCHEMA",
+        "schema": "ordax.personal-approval/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-work-result",
+        "path": "system/contracts/personal-ordax.mjs",
+        "constant": "PERSONAL_ORDAX_WORK_RESULT_SCHEMA",
+        "schema": "ordax.personal-work-result/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-action-attempt",
+        "path": "system/contracts/personal-ordax.mjs",
+        "constant": "PERSONAL_ORDAX_ACTION_ATTEMPT_SCHEMA",
+        "schema": "ordax.personal-action-attempt/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-work-store",
+        "path": "system/contracts/personal-ordax-store.mjs",
+        "constant": "PERSONAL_ORDAX_STORE_SCHEMA",
+        "schema": "ordax.personal-work-store/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-work-store-state",
+        "path": "system/contracts/personal-ordax-store.mjs",
+        "constant": "PERSONAL_ORDAX_STORE_STATE_SCHEMA",
+        "schema": "ordax.personal-work-store-state/1",
+        "major": 1,
+    },
+    {
+        "name": "personal-runtime",
+        "path": "system/contracts/personal-ordax-store.mjs",
+        "constant": "PERSONAL_ORDAX_RUNTIME_SCHEMA",
+        "schema": "ordax.personal-runtime/1",
         "major": 1,
     },
     {
@@ -433,7 +503,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.17.0"
+BUNDLE_VERSION = "1.18.0"
 
 
 def git_blob(path: Path) -> str:
