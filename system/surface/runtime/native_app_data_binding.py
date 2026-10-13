@@ -176,6 +176,17 @@ class NativeAppDataBindingRegistry:
         with self._lock:
             if any(key in self._suspended for key in durable_keys):
                 raise NativeAppDataBindingError("Native App Data binding is suspended for maintenance")
+            # A replacement receipt may not grant the next version access
+            # while an older version still has admitted App Data requests.
+            # Fail the entire batch before planning any new capability.
+            for key, verified in zip(durable_keys, verified_receipts, strict=True):
+                endpoint = self._endpoint_by_identity.get(key)
+                prior = self._by_endpoint.get(endpoint) if endpoint is not None else None
+                if (prior is not None and prior.receipt_sha256 != verified.receipt_sha256
+                        and self._inflight.get(key, 0)):
+                    raise NativeAppDataBindingError(
+                        "Native App Data receipt rotation requires drained requests"
+                    )
             existing_by_key: dict[tuple[str, str, str], NativeAppDataBinding | None] = {}
             new_identity_count = 0
             for key in durable_keys:

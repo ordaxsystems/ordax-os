@@ -280,61 +280,56 @@ class NativeAppDataBindingTest(unittest.TestCase):
         fresh = registry.mint_from_receipt(digest)
         self.assertNotEqual(fresh.endpoint, original.endpoint)
 
-    def test_quiescence_includes_old_receipt_requests_admitted_before_rotation(self):
+    def test_rotation_is_rejected_until_old_request_finishes(self):
         registry = self.registry()
         first_digest = self.write_receipt()
         first = registry.mint_from_receipt(first_digest)
         entered = threading.Event()
         release = threading.Event()
-        ready = threading.Event()
-        failures = []
-        rotated_digest = self.write_receipt(receipt(
+        errors = []
+        next_digest = self.write_receipt(receipt(
             sourceVersion="0.4.2", sourceDigest="2" * 64,
             verificationGeneration=2,
+        ))
+        unrelated_digest = self.write_receipt(receipt(
+            appId="assistant", sourceVersion="0.1.0", sourceDigest="3" * 64,
         ))
 
         def paused(*args, **kwargs):
             entered.set()
             if not release.wait(timeout=8):
-                raise AssertionError("held request never released")
+                raise AssertionError("request timed out")
             return {"ok": True}
 
         def request():
             try:
-                handle_bound_app_data_request(registry, first.endpoint, b'{"action":"list"}')
+                self.assertEqual(handle_bound_app_data_request(
+                    registry, first.endpoint, b'{"action":"list"}',
+                ), {"ok": True})
             except BaseException as exc:
-                failures.append(exc)
+                errors.append(exc)
 
-        def suspend():
-            try:
-                with registry.suspend_verified_receipt_for_maintenance(rotated_digest):
-                    ready.set()
-            except BaseException as exc:
-                failures.append(exc)
-
-        a = threading.Thread(target=request, daemon=True)
-        b = threading.Thread(target=suspend, daemon=True)
+        worker = threading.Thread(target=request, daemon=True)
         with mock.patch("native_app_data_binding.handle_app_data_request", side_effect=paused):
             try:
-                a.start()
+                worker.start()
                 self.assertTrue(entered.wait(timeout=5))
-                second = registry.mint_from_receipt(rotated_digest)
-                self.assertIsNone(registry.resolve(first.endpoint))
-                b.start()
-                for _ in range(200):
-                    if registry.resolve(second.endpoint) is None:
-                        break
-                    time.sleep(0.01)
-                self.assertIsNone(registry.resolve(second.endpoint))
-                self.assertFalse(ready.is_set(), "old receipt request bypassed quiescence")
+                with self.assertRaisesRegex(NativeAppDataBindingError, "rotation requires drained requests"):
+                    registry.mint_many_from_receipts([unrelated_digest, next_digest])
+                self.assertIs(registry.resolve(first.endpoint), first)
+                self.assertEqual(registry.active_binding_count(), 1)
             finally:
                 release.set()
-                a.join(timeout=8)
-                b.join(timeout=8)
-        self.assertFalse(a.is_alive())
-        self.assertFalse(b.is_alive())
-        self.assertEqual(failures, [])
-        self.assertTrue(ready.is_set())
+                worker.join(timeout=8)
+
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+        unrelated, next_binding = registry.mint_many_from_receipts([unrelated_digest, next_digest])
+        self.assertIs(registry.resolve(unrelated.endpoint), unrelated)
+        self.assertIs(registry.resolve(next_binding.endpoint), next_binding)
+        self.assertIsNone(registry.resolve(first.endpoint))
+        with registry.suspend_verified_receipt_for_maintenance(next_digest):
+            self.assertIsNone(registry.resolve(next_binding.endpoint))
 
     def test_maintenance_rejects_unknown_receipt_without_revoking_another_app(self):
         registry = self.registry()
