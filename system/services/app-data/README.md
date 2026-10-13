@@ -256,20 +256,21 @@ Esta verificação de integridade é necessária, mas não é autorização de
 ativação, aprovação de health check ou decisão de rollback; estas
 dependem dos owners do Supervisor e do writer Go.
 
-## Bloqueio de capabilities já emitidas quando o checkpoint muda
+## Aplicação obrigatória da barreira em todos os acessos de aplicativo
 
-A checagem na emissão da capability é insuficiente por si só: um checkpoint
-pode ser criado **depois** que uma instância do host entregou um endpoint.
-O `sourceVersion` do receipt verificado agora acompanha a binding efêmera
-do host e o endpoint o transmite somente como argumento confiável, nunca
-como metadado escolhido pelo aplicativo. Cada `get/list/put/delete` verifica
-a versão contra o checkpoint **sob o mesmo flock da própria leitura ou
-mutação**. Enquanto qualquer pin estiver pendente, a operação HTTP recebe 409,
-mesmo para a versão original. Os dados não são acessados ou modificados.
+A verificação na emissão de capabilities é insuficiente: outro processo
+pode criar um checkpoint depois da emissão. Por isso o handler tipado
+`handle_app_data_request` exige sempre `app_access=True` no owner de
+persistência para `get/list/put/delete`, sem parâmetro opcional de versão
+ou possibilidade de omitir o controle pelo chamador do endpoint.
+O owner valida o checkpoint **dentro do mesmo flock** da leitura ou
+gravação e responde HTTP 409 para qualquer recuperação não resolvida,
+sem alterar os dados. O registro efêmero de capabilities continua
+dependendo de receipts verificados, mas não replica política de checkpoint.
 
-Essa proteção continua necessária mesmo com bootstrap fail-closed, porque
-hosts antigos podem permanecer executando. Acesso direto do owner ao App
-Data não é uma capability de aplicativo e preserva suas APIs existentes.
-A presença do pin é um bloqueio, **não é prova Ed25519 nem autorização de rollback**:
-a transação com writer Go, Supervisor e decisões de pós-atualização segue
-bloqueada até provas reais.
+As chamadas administrativas confiáveis do próprio owner continuam com
+acesso privado sob lock e revisão CAS para fazer restauração e encerramento
+explícitos; essas funções nunca são ações do endpoint do aplicativo.
+Um checkpoint não autentica uma release nem autoriza rollback: somente
+Go e Supervisor poderão concluir a transação depois de provarem
+assinaturas, quiescência e integridade de estado.
