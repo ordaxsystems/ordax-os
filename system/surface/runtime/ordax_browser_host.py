@@ -53,7 +53,7 @@ from native_security_prompt_i18n import (
     read_native_security_locale,
 )
 
-from native_cold_health_diagnostic import BOOT_STAGES, emit as emit_boot_diag
+from native_cold_health_diagnostic import BOOT_STAGES, emit as emit_boot_diag, enabled as boot_diag_enabled
 
 BRIDGE_NAME = "ordaxBrowser"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
@@ -252,6 +252,34 @@ class OrdaXBrowserHost:
         self.manager.connect(f"script-message-received::{BRIDGE_NAME}", self.on_surface_message)
         if not self.manager.register_script_message_handler(BRIDGE_NAME):
             raise RuntimeError("failed to register OrdaX browser bridge")
+        if boot_diag_enabled():
+            # Document-start probe runs before ES module graph resolution. It
+            # transmits only fixed event classes, never JS error text or URLs.
+            diagnostic_script = """
+                (() => {
+                  const stage = (name) => {
+                    try {
+                      window.webkit.messageHandlers.ordaxBrowser.postMessage(
+                        JSON.stringify({type: "boot.diagnostic", stage: name})
+                      );
+                    } catch {}
+                  };
+                  stage("js-probe-installed");
+                  window.addEventListener("error", event => {
+                    stage(event.target && event.target !== window
+                      ? "js-resource-load-failed" : "js-exception");
+                  }, true);
+                  window.addEventListener("unhandledrejection",
+                    () => stage("js-unhandled-rejection"));
+                })();
+            """
+            self.manager.add_script(WebKit2.UserScript.new(
+                diagnostic_script,
+                WebKit2.UserContentInjectedFrames.TOP_FRAME,
+                WebKit2.UserScriptInjectionTime.START,
+                None,
+                None,
+            ))
 
         self.surface_view = WebKit2.WebView.new_with_user_content_manager(self.manager)
         self.surface_view.set_hexpand(True)
@@ -481,6 +509,17 @@ class OrdaXBrowserHost:
             if load_event == state:
                 emit_boot_diag(stage)
                 break
+        if load_event == WebKit2.LoadEvent.COMMITTED:
+            emit_boot_diag(
+                "webkit-uri-expected" if self.surface_view.get_uri() == self.start_uri
+                else "webkit-uri-mismatch"
+            )
+        if load_event == WebKit2.LoadEvent.FINISHED:
+            # HTTP completion is not proof of JavaScript execution or health.
+            resource = self.surface_view.get_main_resource()
+            response = resource.get_response() if resource is not None else None
+            if response is not None:
+                emit_boot_diag("http-surface-document", response.get_status_code())
         if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
             return
         self.component_probation_started = True

@@ -5118,9 +5118,29 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             ("POST", HEALTH_PATH): "http-post-health",
             ("POST", SURFACE_HEARTBEAT_PATH): "http-post-heartbeat",
         }.get((self.command, request_path))
-        if kind is not None and len(args) >= 2:
+        if len(args) >= 2:
             try:
-                emit_boot_diag(kind, int(args[1]))
+                status = int(args[1])
+                if kind is not None:
+                    emit_boot_diag(kind, status)
+                elif self.command == "GET":
+                    # Exact official entry resources plus failed static modules:
+                    # neither source paths nor query strings enter serial logs.
+                    resource_stage = {
+                        "/composition/native/index.html": "http-surface-index",
+                        "/composition/native/main.mjs": "http-surface-main",
+                        "/composition/native/app-data-bootstrap.mjs": "http-surface-bootstrap",
+                    }.get(request_path)
+                    if resource_stage is None and status >= 400 and (
+                        request_path.endswith((".mjs", ".js"))
+                        and request_path.startswith((
+                            "/composition/", "/surface/", "/adapters/",
+                            "/apps/", "/services/", "/contracts/",
+                        ))
+                    ):
+                        resource_stage = "http-static-module-failed"
+                    if resource_stage is not None:
+                        emit_boot_diag(resource_stage, status)
             except (TypeError, ValueError):
                 pass
         if request_path == PROFILE_CONTENT_CONTEXT_PATH:

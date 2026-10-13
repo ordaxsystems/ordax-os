@@ -14,6 +14,10 @@ from pathlib import Path
 BOOT_STAGES = frozenset({
     "webkit-load-started", "webkit-load-committed", "webkit-load-finished",
     "webkit-load-failed", "gtk-window-created",
+    "webkit-uri-expected", "webkit-uri-mismatch", "js-probe-installed",
+    "js-resource-load-failed", "js-exception", "js-unhandled-rejection",
+    "http-surface-document", "http-surface-index", "http-surface-main",
+    "http-surface-bootstrap", "http-static-module-failed",
     "composition-started", "semantics-wait", "semantics-complete",
     "store-wait", "store-complete", "composition-mounted",
     "health-requested", "composition-failed",

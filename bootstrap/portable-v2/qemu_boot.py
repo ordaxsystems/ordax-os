@@ -456,6 +456,55 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
     return disk
 
 
+def _hmp_read_complete_reply(monitor: socket.socket) -> bytes:
+    """Consume a whole HMP reply, not one arbitrary socket fragment.
+
+    The final (qemu) prompt is emitted after the synchronous screendump command
+    completes. A bounded deadline and byte limit prevent a stuck monitor.
+    """
+    deadline = time.monotonic() + 2.0
+    response = bytearray()
+    while not response.endswith(b"(qemu) "):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("HMP prompt not observed")
+        monitor.settimeout(remaining)
+        chunk = monitor.recv(2048)
+        if not chunk:
+            raise ConnectionError("HMP disconnected before prompt")
+        response.extend(chunk)
+        if len(response) > 8192:
+            raise ValueError("HMP reply exceeds diagnostic limit")
+    return bytes(response)
+
+
+def _complete_qemu_ppm(destination: Path) -> tuple[str, int | None]:
+    """Check exact P6 pixel payload length; the magic bytes are insufficient."""
+    try:
+        if destination.is_symlink() or not destination.is_file():
+            return "qemu_screendump_file_not_created", None
+        size = destination.stat().st_size
+        if size > 16 * 1024 * 1024:
+            return "qemu_screendump_exceeds_size_limit", None
+        with destination.open("rb") as frame:
+            magic = frame.readline(8)
+            dimensions = frame.readline(64).split()
+            max_value = frame.readline(16)
+            header_size = frame.tell()
+        if magic != b"P6\n" or len(dimensions) != 2 or max_value != b"255\n":
+            return "qemu_screendump_invalid_ppm", None
+        width, height = (int(part) for part in dimensions)
+        if not (1 <= width <= 16384 and 1 <= height <= 16384):
+            return "qemu_screendump_invalid_dimensions", None
+        expected = header_size + width * height * 3
+        if size != expected:
+            return ("qemu_screendump_incomplete" if size < expected
+                    else "qemu_screendump_excess_data"), None
+        return "valid_complete_ppm", size
+    except (OSError, ValueError):
+        return "qemu_screendump_unreadable", None
+
+
 def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> dict[str, Any]:
     """Host-only QEMU HMP screendump, with bounded, secret-free failure reasons.
 
@@ -474,14 +523,14 @@ def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> dict
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as monitor:
             monitor.settimeout(2.0)
             monitor.connect(str(monitor_socket))
-            banner = monitor.recv(2048)
-            if not banner:
-                result["reason"] = "monitor_banner_missing"
-                return result
+            _hmp_read_complete_reply(monitor)  # initial banner and prompt
             monitor.sendall(f"screendump {destination}\n".encode("ascii"))
-            response = monitor.recv(2048)
-    except socket.timeout:
-        result["reason"] = "monitor_connection_or_response_timeout"
+            response = _hmp_read_complete_reply(monitor)
+    except (socket.timeout, TimeoutError):
+        result["reason"] = "monitor_prompt_timeout"
+        return result
+    except (ConnectionError, ValueError):
+        result["reason"] = "monitor_incomplete_or_oversized_reply"
         return result
     except OSError as exc:
         result["reason"] = "monitor_socket_failure"
@@ -495,25 +544,15 @@ def capture_disposable_graphics(monitor_socket: Path, destination: Path) -> dict
     if b"error:" in response.lower() or b"error " in response.lower():
         result["reason"] = "qemu_hmp_screendump_rejected"
         return result
-    if not destination.is_file():
-        result["reason"] = "qemu_screendump_file_not_created"
-        return result
-    if destination.stat().st_size > 16 * 1024 * 1024:
-        destination.unlink()
-        result["reason"] = "qemu_screendump_exceeds_size_limit"
-        return result
-    try:
-        header = destination.open("rb").read(2)
-    except OSError:
-        result["reason"] = "qemu_screendump_unreadable"
-        return result
-    if header not in (b"P6", b"P3"):
-        destination.unlink()
-        result["reason"] = "qemu_screendump_invalid_ppm"
+    reason, size = _complete_qemu_ppm(destination)
+    if size is None:
+        result["reason"] = reason
+        if destination.is_file() and not destination.is_symlink():
+            destination.unlink()
         return result
     result["status"] = "captured"
-    result["reason"] = "valid_ppm"
-    result["size_bytes"] = destination.stat().st_size
+    result["reason"] = reason
+    result["size_bytes"] = size
     return result
 
 

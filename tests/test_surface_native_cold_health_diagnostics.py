@@ -50,6 +50,12 @@ class SurfaceColdHealthContract(unittest.TestCase):
         self.assertIn('if command == "boot.diagnostic":', browser)
         self.assertIn('self.surface_view.connect("load-failed", self.on_surface_load_failed)', browser)
         self.assertNotIn('emit_boot_diag(str(', browser)
+        self.assertIn('WebKit2.UserScriptInjectionTime.START', browser)
+        self.assertIn('"webkit-uri-expected"', browser)
+        self.assertIn('"http-surface-document"', browser)
+        self.assertIn('"js-unhandled-rejection"', DIAGNOSTIC.read_text())
+        self.assertIn('"http-surface-main"', SERVER.read_text())
+        self.assertIn('"http-static-module-failed"', SERVER.read_text())
 
 
 if __name__ == "__main__":

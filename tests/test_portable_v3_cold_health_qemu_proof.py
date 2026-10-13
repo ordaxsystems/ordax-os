@@ -194,6 +194,74 @@ class PortableV3ColdHealthQemuProofTests(unittest.TestCase):
             self.assertNotIn("QEMU monitor", str(result))
             self.assertFalse(destination.exists())
 
+    def test_disposable_graphics_waits_for_prompt_and_complete_ppm(self):
+        import socket
+        import threading
+
+        spec = importlib.util.spec_from_file_location("qemu_hmp_complete_test", BASE_RUNNER)
+        qemu = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qemu)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "monitor.sock"
+            destination = Path(directory) / "capture.ppm"
+            server = socket.socket(socket.AF_UNIX)
+            server.bind(str(path))
+            server.listen(1)
+
+            def complete():
+                with server.accept()[0] as client:
+                    client.sendall(b"QEMU 9.0\r\n(qemu) ")
+                    self.assertIn(b"screendump", client.recv(4096))
+                    # A 16-byte preliminary image must not become a receipt.
+                    with destination.open("wb") as frame:
+                        frame.write(b"P6\n2 2\n255\n")
+                        frame.flush()
+                        frame.write(b"\x00" * 12)
+                    client.sendall(b"\r\n(qemu) ")
+
+            worker = threading.Thread(target=complete)
+            worker.start()
+            try:
+                result = qemu.capture_disposable_graphics(path, destination)
+            finally:
+                worker.join(timeout=4)
+                server.close()
+            self.assertEqual(result["status"], "captured")
+            self.assertEqual(result["size_bytes"], destination.stat().st_size)
+            self.assertEqual(result["reason"], "valid_complete_ppm")
+
+    def test_disposable_graphics_rejects_truncated_ppm_after_prompt(self):
+        import socket
+        import threading
+
+        spec = importlib.util.spec_from_file_location("qemu_hmp_truncated_test", BASE_RUNNER)
+        qemu = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qemu)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "monitor.sock"
+            destination = Path(directory) / "capture.ppm"
+            server = socket.socket(socket.AF_UNIX)
+            server.bind(str(path))
+            server.listen(1)
+
+            def incomplete():
+                with server.accept()[0] as client:
+                    client.sendall(b"(qemu) ")
+                    client.recv(4096)
+                    destination.write_bytes(b"P6\n2 2\n255\n" + b"\x00" * 4)
+                    client.sendall(b"(qemu) ")
+
+            worker = threading.Thread(target=incomplete)
+            worker.start()
+            try:
+                result = qemu.capture_disposable_graphics(path, destination)
+            finally:
+                worker.join(timeout=4)
+                server.close()
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["reason"], "qemu_screendump_incomplete")
+            self.assertFalse(destination.exists())
+
     def test_final_state_is_inspected_read_only(self):
         text = RUNNER.read_text(encoding="utf-8")
         self.assertIn('"mount.exfat-fuse", "-o", "ro"', text)
