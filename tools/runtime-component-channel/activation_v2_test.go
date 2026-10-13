@@ -631,7 +631,7 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !persisted.UserRemoved || persisted.Current != nil || persisted.Revision != retry.Revision {
+	if !persisted.UserRemoved || !sameSlotIdentity(persisted.Removed, &installed) || persisted.Current != nil || persisted.Revision != retry.Revision {
 		t.Fatalf("removed app intent lost across state reload: %+v", persisted)
 	}
 	_, _, bundled, err := resolveCurrentState(fixture.root, "internet", fixture.trustPath)
@@ -667,7 +667,7 @@ func TestReleaseV2OfflineReinstallAfterUninstallReusesVerifiedIdentity(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) || state.UserRemoved {
+	if state.Current == nil || !sameSlotIdentity(state.Current, &installed) || state.UserRemoved || state.Removed != nil {
 		t.Fatalf("offline reinstall did not restore current identity or clear intent: %+v", state)
 	}
 }
