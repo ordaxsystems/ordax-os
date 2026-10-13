@@ -8,7 +8,7 @@ switches the manifest, so crashes never make an uncommitted blob authoritative.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import fcntl
 import hashlib
 import json
@@ -549,6 +549,34 @@ def _assert_recovery_resolved_locked(
     raise AppDataRecoveryPendingError(
         "App Data retained checkpoint requires trusted recovery decision before app access"
     )
+
+
+
+@contextmanager
+def hold_app_data_grant_admission(identities: list[dict], root: str = DEFAULT_APP_DATA_ROOT):
+    """Guard the durable recovery check through a trusted host's capability commit.
+
+    Take shared locks of *existing* partitions in a stable digest order before
+    the host registry mutex. The updater always takes its registry barrier
+    before an exclusive partition lock; this order avoids deadlocks and
+    prevents an unresolved checkpoint being created between admission and
+    the in-memory grant for an existing partition. Missing partitions are
+    not materialized during first-boot capability admission; a later
+    checkpoint is independently enforced by every App Data request.
+    """
+    if not isinstance(identities, list) or not identities:
+        raise ValueError("App Data grant identity batch is invalid")
+    validated = [_identity(identity) for identity in identities]
+    keys = [_partition_digest(identity) for identity in validated]
+    if len(keys) != len(set(keys)):
+        raise ValueError("App Data grant identities are duplicated")
+    with ExitStack() as stack:
+        for _, identity in sorted(zip(keys, validated, strict=True)):
+            locked = stack.enter_context(_shared_partition_lock_if_present(identity, root))
+            if locked:
+                _assert_recovery_resolved_locked(identity, root, verify_pin_blobs=True)
+        yield
+
 
 
 def assert_app_data_recovery_resolved(
