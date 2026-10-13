@@ -15,6 +15,42 @@ const revision = Object.freeze({
 const source = createNativeComponentSlotSource({
   location: { href: "http://127.0.0.1:43121/" },
 });
+
+class FakeElement {
+  constructor(documentObject) {
+    this.nodeType = 1;
+    this.ownerDocument = documentObject;
+    this.childNodes = [];
+    this.parentNode = null;
+    this.dataset = {};
+    this.style = {};
+    this.attributes = new Map();
+    this.className = "";
+    this.removed = false;
+  }
+  append(...children) {
+    for (const child of children) {
+      child.parentNode?.remove();
+      child.parentNode = this;
+      this.childNodes.push(child);
+    }
+  }
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  remove() {
+    if (this.parentNode) {
+      this.parentNode.childNodes = this.parentNode.childNodes.filter((child) => child !== this);
+      this.parentNode = null;
+    }
+    this.removed = true;
+  }
+}
+function makeSurfaceRoot() {
+  const documentObject = {
+    createElement() { return new FakeElement(documentObject); },
+  };
+  return new FakeElement(documentObject);
+}
+
 function fixture(states = [revision]) {
   let reads = 0, imports = 0, mounts = 0, destroys = 0, reported = null;
   const fetchImpl = async (_, options) => {
@@ -49,11 +85,56 @@ test("current verified slot mounts without a local app import", async () => {
   mounted.destroy();
   assert.equal(f.state().destroys, 1);
 });
-test("absence never imports or falls back", async () => {
+
+test("DOM app runtime receives an empty per-component root and releases it on destroy", async () => {
+  const f = fixture();
+  const surfaceRoot = makeSurfaceRoot();
+  let appRoot = null;
+  let destroyed = 0;
+  const mounted = await f.run({
+    context: Object.freeze({ root: surfaceRoot }),
+    importModule: async () => ({ componentRuntime: {
+      schema: COMPONENT_RUNTIME_SCHEMA,
+      componentId: "internet",
+      version: "0.3.0",
+      mount(context) {
+        assert.equal(context.nativeAppDataMarker, "bound-by-host");
+        appRoot = context.root;
+        assert.notStrictEqual(appRoot, surfaceRoot);
+        assert.strictEqual(appRoot.parentNode, surfaceRoot);
+        assert.equal(appRoot.childNodes.length, 0);
+        assert.equal(appRoot.dataset.ordaxComponentRoot, "internet");
+        assert.equal(appRoot.style.display, "contents");
+        const child = appRoot.ownerDocument.createElement("section");
+        appRoot.append(child);
+        return { destroy() { destroyed++; child.remove(); } };
+      },
+    } }),
+  });
+  assert.ok(mounted);
+  assert.equal(surfaceRoot.childNodes.length, 1);
+  assert.equal(appRoot.childNodes.length, 1);
+  mounted.destroy();
+  mounted.destroy();
+  assert.equal(destroyed, 1);
+  assert.equal(surfaceRoot.childNodes.length, 0);
+  assert.equal(appRoot.removed, true);
+});
+
+test("invalid Surface parent root fails before metadata fetch or import", async () => {
+  const f = fixture();
+  assert.equal(await f.run({ context: { root: {} } }), null);
+  assert.equal(f.state().reads, 0);
+  assert.equal(f.state().imports, 0);
+  assert.match(f.state().reported.message, /mount parent must be a Surface Element/);
+});
+test("absence never imports, allocates a mount root, or falls back", async () => {
   const f = fixture([{ ...revision, source: "absent", version: null, sourceCommit: null, entrypoint: null }]);
-  assert.equal(await f.run(), null);
+  const surfaceRoot = makeSurfaceRoot();
+  assert.equal(await f.run({ context: { root: surfaceRoot } }), null);
   assert.equal(f.state().imports, 0);
   assert.equal(f.state().reported, null);
+  assert.equal(surfaceRoot.childNodes.length, 0);
 });
 test("bundled metadata is not an external slot", async () => {
   const f = fixture([{ ...revision, source: "bundled", version: null, sourceCommit: null, entrypoint: null }]);
@@ -67,16 +148,20 @@ test("wrong identity blocks import", async () => {
   assert.equal(f.state().imports, 0);
   assert.match(f.state().reported.message, /identity mismatch/);
 });
-test("changed slot before mount blocks execution", async () => {
+test("changed slot before mount blocks execution without allocating a mount root", async () => {
   const f = fixture([revision, { ...revision, revision: 5 }]);
-  assert.equal(await f.run(), null);
+  const surfaceRoot = makeSurfaceRoot();
+  assert.equal(await f.run({ context: { root: surfaceRoot } }), null);
   assert.equal(f.state().mounts, 0);
+  assert.equal(surfaceRoot.childNodes.length, 0);
   assert.match(f.state().reported.message, /changed before mount/);
 });
-test("changed slot after mount destroys runtime", async () => {
+test("changed slot after mount destroys runtime and removes its owned mount root", async () => {
   const f = fixture([revision, revision, { ...revision, revision: 5 }]);
-  assert.equal(await f.run(), null);
+  const surfaceRoot = makeSurfaceRoot();
+  assert.equal(await f.run({ context: { root: surfaceRoot } }), null);
   assert.equal(f.state().destroys, 1);
+  assert.equal(surfaceRoot.childNodes.length, 0);
   assert.match(f.state().reported.message, /changed during mount/);
 });
 test("external module origin cannot be injected", async () => {
@@ -120,11 +205,13 @@ test("module URL with additional unverified path segments is rejected", async ()
   assert.match(f.state().reported.message, /escaped immutable Native namespace/);
 });
 
-test("a runtime resolving after mount timeout is destroyed, not leaked", async () => {
+test("a runtime resolving after mount timeout is destroyed and its owned root is removed", async () => {
   let finishMount;
   let destroyed = 0;
   const f = fixture();
+  const surfaceRoot = makeSurfaceRoot();
   const pending = f.run({
+    context: { root: surfaceRoot },
     timeout: 100,
     importModule: async () => ({ componentRuntime: {
       schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
@@ -132,10 +219,12 @@ test("a runtime resolving after mount timeout is destroyed, not leaked", async (
     } }),
   });
   assert.equal(await pending, null);
+  assert.equal(surfaceRoot.childNodes.length, 0);
   assert.match(f.state().reported.message, /mount timed out/);
   finishMount({ destroy() { destroyed++; } });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(destroyed, 1);
+  assert.equal(surfaceRoot.childNodes.length, 0);
 });
 
 test("caller cannot shadow trusted bound Native context", async () => {
