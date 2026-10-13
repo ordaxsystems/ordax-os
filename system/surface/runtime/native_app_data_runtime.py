@@ -20,6 +20,7 @@ from native_app_data_host import NativeAppDataHostHandler, NativeAppDataHostServ
 from native_app_data_port_bootstrap import (
     DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
     NativeAppDataPortBootstrapError,
+    clear_app_data_port_bootstrap,
     publish_app_data_port_bootstrap,
 )
 from native_app_data_session_binding import (
@@ -236,11 +237,25 @@ def main() -> int:
         print(f"ordax-native-host: refusing unsafe bind: {exc}", file=sys.stderr, flush=True)
         return 2
     try:
-        # The only host authority must be acquired BEFORE constructing the
-        # HTTP server, reading boot receipts or minting any capability.
+        # Hold the sole host authority across both handoff cleanup points.
+        # A previous host may have died after writing the one-shot file but
+        # before listener activation or privileged WebKit consumption. Never
+        # expose its stale capabilities to a new graphics process.
         with hold_native_host_instance():
-            return _serve_native_host(args)
-    except (OSError, PermissionError, NativeHostInstanceBusyError, ValueError) as exc:
+            clear_app_data_port_bootstrap(
+                DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
+                expected_uid=os.geteuid(),
+            )
+            try:
+                return _serve_native_host(args)
+            finally:
+                # Once the HTTP host is gone, no unconsumed port descriptor
+                # may outlive it. Normal one-shot consumption is a no-op here.
+                clear_app_data_port_bootstrap(
+                    DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
+                    expected_uid=os.geteuid(),
+                )
+    except (OSError, NativeHostInstanceBusyError, RuntimeError, ValueError) as exc:
         print(
             f"ordax-native-host: refusing duplicate or unsafe host authority: {exc}",
             file=sys.stderr, flush=True,

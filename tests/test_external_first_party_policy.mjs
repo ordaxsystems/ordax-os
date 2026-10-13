@@ -51,6 +51,10 @@ test("generated external first-party runtime policy exposes one canonical owner 
   assert.strictEqual(listExternalFirstPartyComponentIds(), EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
   assert.equal(isExternalFirstPartyComponentId("notes"), true);
   assert.equal(isExternalFirstPartyComponentId("studio"), true);
+  assert.equal(isExternalFirstPartyComponentId("activity"), true);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("activity"), false);
+  assert.equal(hasNativeExternalFirstPartyProbation("activity"), false);
+  assert.equal(packagePolicy.prelaunch_remove_first_pending.activity, undefined);
   assert.equal(isExternalFirstPartyComponentId("../notes"), false);
   assert.equal(isExternalFirstPartyComponentId("unknown"), false);
 });

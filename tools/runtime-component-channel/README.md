@@ -419,3 +419,20 @@ futuro fluxo transacional deve comprovar o estado real via owner App
 Data, a quiescência do Supervisor e a decisão do writer canônico. Esta
 entrega **não** ativa ainda esse fluxo e não altera as restrições de
 upgrade/rollback stateful presentes.
+
+## Native host ABI versus signed app dependency graph
+
+The **canonical OS component package policy** separately declares exact major
+versions of host-owned interfaces in `native_host_contract_major_versions`.
+The Go table is generated from that single SSOT (never app-supplied metadata).
+These entries are **not signed release/2 providers**. Only independently
+installed component dependencies are resolved against signed current slots.
+
+The compatibility `requires` list remains mandatory and Ed25519-bound. For
+a declared OS host interface its required range must contain the OS major;
+unknown contracts and signed app-to-app dependencies still fail closed unless
+a compatible *signed installed slot* actually exists. Host ABI recognition
+does **not** assert a live instance, create authority, grant access or bypass
+Native mount/probation. The real host must inject typed ports and reject
+missing/invalid ports before reporting runtime healthy. It is not a substitute
+for a real installer/boot/health proof.
