@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-13",
+  "branch": "codex/meridian-design-lab",
+  "auditedHead": "e7cf628a01878c484d47997721518fe6f2330c10",
+  "classification": "F-C",
+  "visualOwner": "docs/design/MERIDIAN-VISUAL-SYSTEM.md",
+  "visualOwnerSha256": "dfe6ec2572d7c97ce94a9ed29bb711ef5a372e73074acf7bb53cc7cec8bd1eee",
+  "correctionsRequired": 0,
+  "shellRuntimeChanges": false,
+  "main": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "hashBasis": "Captured working-tree bytes; Git may normalize CRLF; this manifest excluded from its own file hashes.",
+  "notRun": [
+    "browser matrices",
+    "Foundation",
+    "build",
+    "CI",
+    "kernel",
+    "USB",
+    "hardware"
+  ],
+  "files": [
+    {
+      "path": "check-document.py",
+      "bytes": 8455,
+      "sha256": "608e121b99ddcf07908606581e3d67c99684d8f61da43d4fd2f7dff712ea9329"
+    },
+    {
+      "path": "checks.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354"
+    },
+    {
+      "path": "checks.json",
+      "bytes": 59938,
+      "sha256": "4140d757166118133c471a173a19e3610f05c0f40162df9ef30469d20b7cb1fd"
+    },
+    {
+      "path": "checks.log",
+      "bytes": 93,
+      "sha256": "39d3250d82437b5232398810bfa85fcdf450c87881c67c5ca75575ddf8b6bd82"
+    },
+    {
+      "path": "relatorio.md",
+      "bytes": 11584,
+      "sha256": "599ee8bfb8136e56a9240a8c85351bc611a38a14cbc81944546877c1bf93cf56"
+    }
+  ]
+}

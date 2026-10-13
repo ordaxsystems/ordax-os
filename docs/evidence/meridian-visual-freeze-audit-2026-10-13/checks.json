@@ -1,0 +1,1774 @@
+{
+  "date": "2026-10-13",
+  "head": "e7cf628a01878c484d47997721518fe6f2330c10",
+  "main": "fafed4a8916587ad35bc07c2f3baa1a60d561b1e",
+  "results": [
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../DESKTOP-IDENTITY.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../DESKTOP-IDENTITY.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/relatorio.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/sidebar.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/sidebar.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/manifest.json",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/manifest.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-audit-2026-10-13/relatorio.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round2-audit-2026-10-13/relatorio.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round2-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round3-audit-2026-10-13/relatorio.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../../system/surface/workspace/presentation.mjs",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/workspace/presentation.mjs",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../../system/surface/experiments/meridian/icons.mjs",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/experiments/meridian/icons.mjs",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../INTELLIGENCE.md",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../INTELLIGENCE.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../contracts/spaces-and-profile-packs.json",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../contracts/spaces-and-profile-packs.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../../system/surface/experiments/meridian/meridian.tokens.css",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/experiments/meridian/meridian.tokens.css",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../../system/surface/ui/tokens.css",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/ui/tokens.css",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../DESKTOP-IDENTITY.md#typography-and-offline-operation",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../DESKTOP-IDENTITY.md#typography-and-offline-operation",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/contrast.json",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/contrast.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round3/space-indisponivel.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3/space-indisponivel.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round3/volume-cheio.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3/volume-cheio.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round2/captures/update-invalid-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round2/captures/update-invalid-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round3/offline-atualizacao-rascunho.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3/offline-atualizacao-rascunho.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../../system/surface/experiments/meridian/meridian.tokens.css",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/experiments/meridian/meridian.tokens.css",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/manifest.json",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/manifest.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-ink-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-ink-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/desktop-argila-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-argila-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-paper-320.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-paper-320.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/tray-grafite-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/tray-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-390.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-390.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-320.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-320.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-desktop-paper.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-desktop-paper.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-central-ink.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-central-ink.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\design\\MERIDIAN-VISUAL-SYSTEM.md -> ../evidence/meridian-visual-freeze/new-captures.json",
+      "status": "PASS",
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/new-captures.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\README.md -> design/MERIDIAN-VISUAL-SYSTEM.md",
+      "status": "PASS",
+      "source": "docs\\README.md",
+      "target": "design/MERIDIAN-VISUAL-SYSTEM.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link docs\\DESKTOP-IDENTITY.md -> design/MERIDIAN-VISUAL-SYSTEM.md",
+      "status": "PASS",
+      "source": "docs\\DESKTOP-IDENTITY.md",
+      "target": "design/MERIDIAN-VISUAL-SYSTEM.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "link tools\\meridian-preview\\README.md -> ../../docs/design/MERIDIAN-VISUAL-SYSTEM.md",
+      "status": "PASS",
+      "source": "tools\\meridian-preview\\README.md",
+      "target": "../../docs/design/MERIDIAN-VISUAL-SYSTEM.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "name": "visual owner path",
+      "status": "PASS"
+    },
+    {
+      "name": "visual owner SHA256",
+      "status": "PASS",
+      "expected": "dfe6ec2572d7c97ce94a9ed29bb711ef5a372e73074acf7bb53cc7cec8bd1eee",
+      "actual": "dfe6ec2572d7c97ce94a9ed29bb711ef5a372e73074acf7bb53cc7cec8bd1eee"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/assets/atlas-study.svg",
+      "status": "PASS",
+      "expected": "3f947dff57cec572a5f5662a0cb78843fe7767a0c576755fac51be9f91981641",
+      "actual": "3f947dff57cec572a5f5662a0cb78843fe7767a0c576755fac51be9f91981641"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/assets/meridian-field.svg",
+      "status": "PASS",
+      "expected": "1bb1e4a8aa10e189ea8057f64a2b760e1032b3ad653e54bbec974b2495243928",
+      "actual": "1bb1e4a8aa10e189ea8057f64a2b760e1032b3ad653e54bbec974b2495243928"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/catalog.mjs",
+      "status": "PASS",
+      "expected": "d72914a7418dc32365adcb2bf948d4e95e3e2d669c38fe0f08395e19fe2f24bb",
+      "actual": "d72914a7418dc32365adcb2bf948d4e95e3e2d669c38fe0f08395e19fe2f24bb"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/context.mjs",
+      "status": "PASS",
+      "expected": "3aaa2b91484101b3378326c0d08136b39e10894012010c50c7f39ca5e20e1027",
+      "actual": "3aaa2b91484101b3378326c0d08136b39e10894012010c50c7f39ca5e20e1027"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/demo/data.mjs",
+      "status": "PASS",
+      "expected": "30f809105a2f685575bfa3fc7e846b225b774d96f8386e986f0867d54abca35f",
+      "actual": "30f809105a2f685575bfa3fc7e846b225b774d96f8386e986f0867d54abca35f"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/demo/source.mjs",
+      "status": "PASS",
+      "expected": "173a041ce685781029725f8a35f969ba4c2795b0d3b7ccaf1a1d43909da5b951",
+      "actual": "173a041ce685781029725f8a35f969ba4c2795b0d3b7ccaf1a1d43909da5b951"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/demo/storyboards.mjs",
+      "status": "PASS",
+      "expected": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8",
+      "actual": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/experience.mjs",
+      "status": "PASS",
+      "expected": "903fc08894bdaa55314d2fde45bfa0625bddcb0f26dee83723c6b097cacfaf7b",
+      "actual": "903fc08894bdaa55314d2fde45bfa0625bddcb0f26dee83723c6b097cacfaf7b"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/icons.mjs",
+      "status": "PASS",
+      "expected": "5f1ac1d60cd9fad72eb993b75a87a9bc67570cf9f8fdc2b21244bff2f0f2b7f9",
+      "actual": "5f1ac1d60cd9fad72eb993b75a87a9bc67570cf9f8fdc2b21244bff2f0f2b7f9"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/interactions.mjs",
+      "status": "PASS",
+      "expected": "9edaf2db94f48dc1c334a1f3061022ca4bf0ef71824afe3a7ac1cd940afb6b3b",
+      "actual": "9edaf2db94f48dc1c334a1f3061022ca4bf0ef71824afe3a7ac1cd940afb6b3b"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/journeys/navigation.mjs",
+      "status": "PASS",
+      "expected": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da",
+      "actual": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/journeys/view.mjs",
+      "status": "PASS",
+      "expected": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063",
+      "actual": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/meridian.css",
+      "status": "PASS",
+      "expected": "f755485472d5ec65d0202dc5fd341366633e9f91feb425303fde4f4686f0b7c7",
+      "actual": "f755485472d5ec65d0202dc5fd341366633e9f91feb425303fde4f4686f0b7c7"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/meridian.journeys.css",
+      "status": "PASS",
+      "expected": "c86248316987eb72950f4775244e6332308bb83bd4d6df8ad9feacd990857579",
+      "actual": "c86248316987eb72950f4775244e6332308bb83bd4d6df8ad9feacd990857579"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/meridian.tokens.css",
+      "status": "PASS",
+      "expected": "2f3336c05526a6005d6e278154f0564076977d028a0d707c258a312adef1fed3",
+      "actual": "2f3336c05526a6005d6e278154f0564076977d028a0d707c258a312adef1fed3"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/meridian.views.css",
+      "status": "PASS",
+      "expected": "f5c3bba49bc6f374ccd5175136fa8849fe032b5f72b0f19723c9cff4ab7a23b4",
+      "actual": "f5c3bba49bc6f374ccd5175136fa8849fe032b5f72b0f19723c9cff4ab7a23b4"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/ui.mjs",
+      "status": "PASS",
+      "expected": "34b27b71590abc3d4202f83bd6cad1381a17049fbca4a440d37c21ab299c2bca",
+      "actual": "34b27b71590abc3d4202f83bd6cad1381a17049fbca4a440d37c21ab299c2bca"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/central.mjs",
+      "status": "PASS",
+      "expected": "f31a2a9f45003f08ed727cfa0cd1973a99a2c9bd134ae1153a90342cbd382dd9",
+      "actual": "f31a2a9f45003f08ed727cfa0cd1973a99a2c9bd134ae1153a90342cbd382dd9"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/continuity.mjs",
+      "status": "PASS",
+      "expected": "2f9045d61e5646d440ac165fcd07d946e553e375aba4cffc9d021005b0007bea",
+      "actual": "2f9045d61e5646d440ac165fcd07d946e553e375aba4cffc9d021005b0007bea"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/desktop.mjs",
+      "status": "PASS",
+      "expected": "886ef1aac818cb759d9af8c783320767135a3aef7360352d2cf78e697ec4c311",
+      "actual": "886ef1aac818cb759d9af8c783320767135a3aef7360352d2cf78e697ec4c311"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/explore.mjs",
+      "status": "PASS",
+      "expected": "f2320e6e73009c4e409428a9dddbf8915df0eeb67b395fac55e5140638e8e99f",
+      "actual": "f2320e6e73009c4e409428a9dddbf8915df0eeb67b395fac55e5140638e8e99f"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/intelligence.mjs",
+      "status": "PASS",
+      "expected": "672c274bbb715f070c198957df650e7c30ecfe20fb2700c7860cc954a515e98a",
+      "actual": "672c274bbb715f070c198957df650e7c30ecfe20fb2700c7860cc954a515e98a"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/operations.mjs",
+      "status": "PASS",
+      "expected": "9c454103dccb98202046a399b92cfb2410294817f74819f5485bfda5cce420d1",
+      "actual": "9c454103dccb98202046a399b92cfb2410294817f74819f5485bfda5cce420d1"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/panels.mjs",
+      "status": "PASS",
+      "expected": "a814b46e411ce57e24758269fb04c768a54b937520960abf15dedc5553b9423e",
+      "actual": "a814b46e411ce57e24758269fb04c768a54b937520960abf15dedc5553b9423e"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/shell.mjs",
+      "status": "PASS",
+      "expected": "86c7f2afad20edd33cced22bbedcd8144b882432fc7ae62b7ed55d8826d11265",
+      "actual": "86c7f2afad20edd33cced22bbedcd8144b882432fc7ae62b7ed55d8826d11265"
+    },
+    {
+      "name": "source SHA256 system/surface/experiments/meridian/views/taskbar.mjs",
+      "status": "PASS",
+      "expected": "e67f111ff3eaca25a67f1847da8d4e2e99841cf295dfceef1f4975e10b87aaa3",
+      "actual": "e67f111ff3eaca25a67f1847da8d4e2e99841cf295dfceef1f4975e10b87aaa3"
+    },
+    {
+      "name": "reference SHA256 REF-C-ARG",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-C-ARG",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-C-ARG",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Central Argila / 1440×900",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-C-GRA",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-C-GRA",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-C-GRA",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Central Grafite / 1440×900",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-ink-1440.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-D-ARG",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-D-ARG",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-D-ARG",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Desktop Argila, sem janelas / 1440×900",
+        "path": "docs/evidence/meridian-visual-freeze/desktop-argila-1440.png",
+        "provenance": "Captura específica sobre 7782b76"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-D-GRA",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-D-GRA",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-D-GRA",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Desktop Grafite, sem janelas / 1440×900",
+        "path": "docs/evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+        "provenance": "Captura específica sobre 7782b76"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-W-FLOAT",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-W-FLOAT",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-W-FLOAT",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Várias floating / Grafite 1440×900",
+        "path": "docs/evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+        "provenance": "Captura específica sobre 7782b76"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-W-MAX",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-W-MAX",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-W-MAX",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Maximizada / Argila 1440×900",
+        "path": "docs/evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+        "provenance": "Captura específica sobre 7782b76"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-W-SPLIT",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-W-SPLIT",
+      "status": "PASS",
+      "actual": [
+        844,
+        390
+      ],
+      "expected": [
+        844,
+        390
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-W-SPLIT",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Compacta + maximizada / Grafite 844×390",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-DOCK",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-DOCK",
+      "status": "PASS",
+      "actual": [
+        320,
+        568
+      ],
+      "expected": [
+        320,
+        568
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-DOCK",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Dock cheio, alvo ativo / Argila 320×568",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-paper-320.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-TRAY",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-TRAY",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-TRAY",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Tray aberto / Grafite 1440×900",
+        "path": "docs/evidence/meridian-visual-freeze/tray-grafite-1440.png",
+        "provenance": "Captura específica sobre 7782b76"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-I",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-I",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-I",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Intelligence contextual / Argila 1440×900",
+        "path": "docs/evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+        "provenance": "Captura específica sobre 7782b76"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-C-MOBILE",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-C-MOBILE",
+      "status": "PASS",
+      "actual": [
+        390,
+        844
+      ],
+      "expected": [
+        390,
+        844
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-C-MOBILE",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Central mobile / Argila 390×844",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-390.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-D-MOBILE",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-D-MOBILE",
+      "status": "PASS",
+      "actual": [
+        320,
+        568
+      ],
+      "expected": [
+        320,
+        568
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-D-MOBILE",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Desktop mobile / Grafite 320×568",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-320.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-HINT",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-HINT",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-HINT",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Orientação rail Desktop / Argila 1440×900",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-desktop-paper.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "reference SHA256 REF-C-HINT",
+      "status": "PASS"
+    },
+    {
+      "name": "reference PNG viewport REF-C-HINT",
+      "status": "PASS",
+      "actual": [
+        1440,
+        900
+      ],
+      "expected": [
+        1440,
+        900
+      ]
+    },
+    {
+      "name": "reference table/manifest REF-C-HINT",
+      "status": "PASS",
+      "document": {
+        "roleViewport": "Orientação rail Central / Grafite 1440×900",
+        "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-central-ink.png",
+        "provenance": "Auditoria, código 44d2ef0"
+      }
+    },
+    {
+      "name": "REF ids unique",
+      "status": "PASS"
+    },
+    {
+      "name": "REF table complete",
+      "status": "PASS"
+    },
+    {
+      "name": "All referenced REF ids declared",
+      "status": "PASS",
+      "unknown": []
+    },
+    {
+      "name": "new capture metadata desktop-argila-1440.png",
+      "status": "PASS"
+    },
+    {
+      "name": "new capture metadata maximizada-argila-1440.png",
+      "status": "PASS"
+    },
+    {
+      "name": "new capture metadata intelligence-contextual-argila-1440.png",
+      "status": "PASS"
+    },
+    {
+      "name": "new capture metadata desktop-grafite-1440.png",
+      "status": "PASS"
+    },
+    {
+      "name": "new capture metadata desktop-janelas-grafite-1440.png",
+      "status": "PASS"
+    },
+    {
+      "name": "new capture metadata tray-grafite-1440.png",
+      "status": "PASS"
+    },
+    {
+      "name": "new capture source baseline",
+      "status": "PASS"
+    },
+    {
+      "name": "palette snapshot --md-canvas",
+      "status": "PASS",
+      "actual": [
+        "#f4f2ed",
+        "#202824"
+      ],
+      "document": [
+        "#f4f2ed",
+        "#202824"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-surface",
+      "status": "PASS",
+      "actual": [
+        "#fffcf7",
+        "#29332c"
+      ],
+      "document": [
+        "#fffcf7",
+        "#29332c"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-subtle",
+      "status": "PASS",
+      "actual": [
+        "#eae7df",
+        "#333e35"
+      ],
+      "document": [
+        "#eae7df",
+        "#333e35"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-ink",
+      "status": "PASS",
+      "actual": [
+        "#282c29",
+        "#eeeede"
+      ],
+      "document": [
+        "#282c29",
+        "#eeeede"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-muted",
+      "status": "PASS",
+      "actual": [
+        "#676b63",
+        "#b2bcaf"
+      ],
+      "document": [
+        "#676b63",
+        "#b2bcaf"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-border",
+      "status": "PASS",
+      "actual": [
+        "#dcded4",
+        "#465045"
+      ],
+      "document": [
+        "#dcded4",
+        "#465045"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-accent",
+      "status": "PASS",
+      "actual": [
+        "#ac4829",
+        "#edaa87"
+      ],
+      "document": [
+        "#ac4829",
+        "#edaa87"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-accent-hover",
+      "status": "PASS",
+      "actual": [
+        "#87351f",
+        "#f7c2a1"
+      ],
+      "document": [
+        "#87351f",
+        "#f7c2a1"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-accent-soft",
+      "status": "PASS",
+      "actual": [
+        "#f1ded3",
+        "#513d30"
+      ],
+      "document": [
+        "#f1ded3",
+        "#513d30"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-accent-text",
+      "status": "PASS",
+      "actual": [
+        "#fffaf5",
+        "#28251e"
+      ],
+      "document": [
+        "#fffaf5",
+        "#28251e"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-rail",
+      "status": "PASS",
+      "actual": [
+        "#272e2b",
+        "#17211b"
+      ],
+      "document": [
+        "#272e2b",
+        "#17211b"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-rail-text",
+      "status": "PASS",
+      "actual": [
+        "#e8e9df",
+        "#e8e9df"
+      ],
+      "document": [
+        "#e8e9df",
+        "#e8e9df"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-rail-muted",
+      "status": "PASS",
+      "actual": [
+        "#b4bcb3",
+        "#b4bcb3"
+      ],
+      "document": [
+        "#b4bcb3",
+        "#b4bcb3"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-rail-selected",
+      "status": "PASS",
+      "actual": [
+        "#3e4840",
+        "#334735"
+      ],
+      "document": [
+        "#3e4840",
+        "#334735"
+      ]
+    },
+    {
+      "name": "palette snapshot --md-focus",
+      "status": "PASS",
+      "actual": [
+        "#296680",
+        "#b4dbe3"
+      ],
+      "document": [
+        "#296680",
+        "#b4dbe3"
+      ]
+    },
+    {
+      "name": "palette rows present",
+      "status": "PASS",
+      "rows": 15
+    },
+    {
+      "name": "aliases owner",
+      "status": "PASS"
+    },
+    {
+      "name": "no undefined literal md token",
+      "status": "PASS",
+      "unknown": []
+    },
+    {
+      "name": "spacing and track nominal snapshot",
+      "status": "PASS"
+    },
+    {
+      "name": "motion and font owner",
+      "status": "PASS"
+    },
+    {
+      "name": "Markdown table columns",
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "name": "Markdown fences balanced",
+      "status": "PASS"
+    },
+    {
+      "name": "MVS ids unique",
+      "status": "PASS"
+    },
+    {
+      "name": "Freeze diff documentation only",
+      "status": "PASS",
+      "paths": [
+        "docs/DESKTOP-IDENTITY.md",
+        "docs/README.md",
+        "docs/design/MERIDIAN-VISUAL-SYSTEM.md",
+        "docs/evidence/meridian-visual-freeze/desktop-argila-1440.png",
+        "docs/evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+        "docs/evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+        "docs/evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+        "docs/evidence/meridian-visual-freeze/manifest.json",
+        "docs/evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+        "docs/evidence/meridian-visual-freeze/new-captures.json",
+        "docs/evidence/meridian-visual-freeze/tray-grafite-1440.png",
+        "tools/meridian-preview/README.md"
+      ]
+    },
+    {
+      "name": "Freeze diff source/runtime empty",
+      "status": "PASS"
+    },
+    {
+      "name": "branch",
+      "status": "PASS"
+    },
+    {
+      "name": "HEAD",
+      "status": "PASS"
+    },
+    {
+      "name": "main unchanged",
+      "status": "PASS"
+    },
+    {
+      "name": "ancestor 44d2ef0",
+      "status": "PASS"
+    },
+    {
+      "name": "ancestor 7782b76",
+      "status": "PASS"
+    },
+    {
+      "name": "ancestor ebd58cd",
+      "status": "PASS"
+    },
+    {
+      "name": "ancestor 2b609ed",
+      "status": "PASS"
+    }
+  ],
+  "links": [
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../DESKTOP-IDENTITY.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/sidebar.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/manifest.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round2-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3-audit-2026-10-13/relatorio.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/workspace/presentation.mjs",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/experiments/meridian/icons.mjs",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../INTELLIGENCE.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../contracts/spaces-and-profile-packs.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/experiments/meridian/meridian.tokens.css",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/ui/tokens.css",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../DESKTOP-IDENTITY.md#typography-and-offline-operation",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/contrast.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3/space-indisponivel.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3/volume-cheio.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round2/captures/update-invalid-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round3/offline-atualizacao-rascunho.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../../system/surface/experiments/meridian/meridian.tokens.css",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/manifest.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-ink-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-argila-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-paper-320.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/tray-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-390.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-320.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-desktop-paper.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-central-ink.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\design\\MERIDIAN-VISUAL-SYSTEM.md",
+      "target": "../evidence/meridian-visual-freeze/new-captures.json",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\README.md",
+      "target": "design/MERIDIAN-VISUAL-SYSTEM.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "docs\\DESKTOP-IDENTITY.md",
+      "target": "design/MERIDIAN-VISUAL-SYSTEM.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    },
+    {
+      "source": "tools\\meridian-preview\\README.md",
+      "target": "../../docs/design/MERIDIAN-VISUAL-SYSTEM.md",
+      "exists": true,
+      "anchorOK": true,
+      "insideRepository": true
+    }
+  ],
+  "references": [
+    {
+      "id": "REF-C-ARG",
+      "roleViewport": "Central Argila / 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-1440.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "6aa7837d8894e9f26f83ceb8fa04c6e8495f2cb3690ae0e2284afb74f11f591a",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-C-GRA",
+      "roleViewport": "Central Grafite / 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-ink-1440.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "545a20c6064f384a47c86f91aec32e618a6067cf0b2e625dd75bb318bbafbd9e",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-D-ARG",
+      "roleViewport": "Desktop Argila, sem janelas / 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/desktop-argila-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "07cf44944cb9a91ef6b76092ed92ba282ba9d9a4e9d4dff1f5da3223cfe424dc",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-D-GRA",
+      "roleViewport": "Desktop Grafite, sem janelas / 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/desktop-grafite-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "1df4bb3f596d4597ed4f0819c915fde37571059b1dca9998e813ab45f58bd0ae",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-W-FLOAT",
+      "roleViewport": "Várias floating / Grafite 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/desktop-janelas-grafite-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "9e77e1d6481b5464d7f17fcdd1e63ea847945ddca1d792019226b16919d50b29",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-W-MAX",
+      "roleViewport": "Maximizada / Argila 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/maximizada-argila-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "e27f417efe2088d5c0008dbfd297ccdc2d9dc982c1f2bdf8ca7d346064620209",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-W-SPLIT",
+      "roleViewport": "Compacta + maximizada / Grafite 844×390",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-844.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "f02c3365c06783fa2bbe90a68d773b4141cde34e9741103c530ce8ed19757dae",
+      "actualViewport": [
+        844,
+        390
+      ]
+    },
+    {
+      "id": "REF-DOCK",
+      "roleViewport": "Dock cheio, alvo ativo / Argila 320×568",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-paper-320.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "d8688a048e0652205242be2f140626bb3b2faf4eac63b46492cf6165e246cb33",
+      "actualViewport": [
+        320,
+        568
+      ]
+    },
+    {
+      "id": "REF-TRAY",
+      "roleViewport": "Tray aberto / Grafite 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/tray-grafite-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "a5fb2b1ebd11d393f4e8f77bf8d28b75464e69cfb0c77c7c140a20677942438f",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-I",
+      "roleViewport": "Intelligence contextual / Argila 1440×900",
+      "path": "docs/evidence/meridian-visual-freeze/intelligence-contextual-argila-1440.png",
+      "provenance": "Captura específica sobre 7782b76",
+      "sha256": "4cc88dc8fac217eb960772afc077cf77f8fa6a8cf2d20e5d0215f4d055319b16",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-C-MOBILE",
+      "roleViewport": "Central mobile / Argila 390×844",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/central-paper-390.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "7343dfe664cd696863a11de71d6648bd42e0bae460d7247071e2a4cd0a05cd27",
+      "actualViewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "id": "REF-D-MOBILE",
+      "roleViewport": "Desktop mobile / Grafite 320×568",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/chrome-ink-320.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "e89b8a2898ea974ce7b8b1e5b857e54705efc175213db781b93394ecb4581054",
+      "actualViewport": [
+        320,
+        568
+      ]
+    },
+    {
+      "id": "REF-HINT",
+      "roleViewport": "Orientação rail Desktop / Argila 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-desktop-paper.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "13a33588acb9c40252d2c642bee07e3a8c721b5019453640fd5b2e8a3f20c2ae",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "id": "REF-C-HINT",
+      "roleViewport": "Orientação rail Central / Grafite 1440×900",
+      "path": "docs/evidence/meridian-round4-audit-2026-10-13/verified-independent4/guidance-central-ink.png",
+      "provenance": "Auditoria, código 44d2ef0",
+      "sha256": "524f096c164c604c979d181bf8d3304e9886bd6a78badc502d58702e43d3f834",
+      "actualViewport": [
+        1440,
+        900
+      ]
+    }
+  ],
+  "sourceHashes": [
+    {
+      "path": "system/surface/experiments/meridian/assets/atlas-study.svg",
+      "sha256": "3f947dff57cec572a5f5662a0cb78843fe7767a0c576755fac51be9f91981641"
+    },
+    {
+      "path": "system/surface/experiments/meridian/assets/meridian-field.svg",
+      "sha256": "1bb1e4a8aa10e189ea8057f64a2b760e1032b3ad653e54bbec974b2495243928"
+    },
+    {
+      "path": "system/surface/experiments/meridian/catalog.mjs",
+      "sha256": "d72914a7418dc32365adcb2bf948d4e95e3e2d669c38fe0f08395e19fe2f24bb"
+    },
+    {
+      "path": "system/surface/experiments/meridian/context.mjs",
+      "sha256": "3aaa2b91484101b3378326c0d08136b39e10894012010c50c7f39ca5e20e1027"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/data.mjs",
+      "sha256": "30f809105a2f685575bfa3fc7e846b225b774d96f8386e986f0867d54abca35f"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/source.mjs",
+      "sha256": "173a041ce685781029725f8a35f969ba4c2795b0d3b7ccaf1a1d43909da5b951"
+    },
+    {
+      "path": "system/surface/experiments/meridian/demo/storyboards.mjs",
+      "sha256": "c1dcc41e651b5f7ed4562e3f8be812da6fcce0ce5072abb51ddcc883fb6d6ec8"
+    },
+    {
+      "path": "system/surface/experiments/meridian/experience.mjs",
+      "sha256": "903fc08894bdaa55314d2fde45bfa0625bddcb0f26dee83723c6b097cacfaf7b"
+    },
+    {
+      "path": "system/surface/experiments/meridian/icons.mjs",
+      "sha256": "5f1ac1d60cd9fad72eb993b75a87a9bc67570cf9f8fdc2b21244bff2f0f2b7f9"
+    },
+    {
+      "path": "system/surface/experiments/meridian/interactions.mjs",
+      "sha256": "9edaf2db94f48dc1c334a1f3061022ca4bf0ef71824afe3a7ac1cd940afb6b3b"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/navigation.mjs",
+      "sha256": "c5f56e8fc1b885f6394ffcee1edebdd74ce10335f65eb7d539ab21f92bc8a7da"
+    },
+    {
+      "path": "system/surface/experiments/meridian/journeys/view.mjs",
+      "sha256": "acdbcf7f9943f383eb332e5a60b64d5b4a7ed4fd6f34f5bb502f67d8c1cb1063"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.css",
+      "sha256": "f755485472d5ec65d0202dc5fd341366633e9f91feb425303fde4f4686f0b7c7"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.journeys.css",
+      "sha256": "c86248316987eb72950f4775244e6332308bb83bd4d6df8ad9feacd990857579"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.tokens.css",
+      "sha256": "2f3336c05526a6005d6e278154f0564076977d028a0d707c258a312adef1fed3"
+    },
+    {
+      "path": "system/surface/experiments/meridian/meridian.views.css",
+      "sha256": "f5c3bba49bc6f374ccd5175136fa8849fe032b5f72b0f19723c9cff4ab7a23b4"
+    },
+    {
+      "path": "system/surface/experiments/meridian/ui.mjs",
+      "sha256": "34b27b71590abc3d4202f83bd6cad1381a17049fbca4a440d37c21ab299c2bca"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/central.mjs",
+      "sha256": "f31a2a9f45003f08ed727cfa0cd1973a99a2c9bd134ae1153a90342cbd382dd9"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/continuity.mjs",
+      "sha256": "2f9045d61e5646d440ac165fcd07d946e553e375aba4cffc9d021005b0007bea"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/desktop.mjs",
+      "sha256": "886ef1aac818cb759d9af8c783320767135a3aef7360352d2cf78e697ec4c311"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/explore.mjs",
+      "sha256": "f2320e6e73009c4e409428a9dddbf8915df0eeb67b395fac55e5140638e8e99f"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/intelligence.mjs",
+      "sha256": "672c274bbb715f070c198957df650e7c30ecfe20fb2700c7860cc954a515e98a"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/operations.mjs",
+      "sha256": "9c454103dccb98202046a399b92cfb2410294817f74819f5485bfda5cce420d1"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/panels.mjs",
+      "sha256": "a814b46e411ce57e24758269fb04c768a54b937520960abf15dedc5553b9423e"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/shell.mjs",
+      "sha256": "86c7f2afad20edd33cced22bbedcd8144b882432fc7ae62b7ed55d8826d11265"
+    },
+    {
+      "path": "system/surface/experiments/meridian/views/taskbar.mjs",
+      "sha256": "e67f111ff3eaca25a67f1847da8d4e2e99841cf295dfceef1f4975e10b87aaa3"
+    }
+  ],
+  "notRun": [
+    "browser matrix",
+    "Foundation",
+    "build",
+    "CI",
+    "kernel",
+    "USB",
+    "hardware"
+  ]
+}
