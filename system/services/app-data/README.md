@@ -240,6 +240,22 @@ A política não substitui assinatura Ed25519, quiescência de processos
 do Supervisor, locks do writer Go ou a transação de ativação/rollback:
 o caminho stateful do Go continua fail-closed até estar integrado.
 
+## Aposentadoria do checkpoint exige integridade completa
+
+A operação privada de aposentadoria é irreversível para aquele horizonte
+de recuperação. Antes de excluir `checkpoint.json`, o owner valida a
+revisão CAS, a correspondência da release, a ordem das gerações e **os
+bytes reais de todos os blobs ativos e retidos**, mantendo `flock(LOCK_EX)`
+durante toda a operação. Qualquer byte corrompido impede a retirada
+do checkpoint e preserva suas referências, sem coleta de lixo. Os testes
+exercitam corrupção da versão corrente **e** dos blobs pinados, além
+da recuperação posterior do estado intacto. Não há nova cópia de
+estado nem segundo gerenciador de dados.
+
+Esta verificação de integridade é necessária, mas não é autorização de
+ativação, aprovação de health check ou decisão de rollback; estas
+dependem dos owners do Supervisor e do writer Go.
+
 ## Bloqueio de capabilities já emitidas quando o checkpoint muda
 
 A checagem na emissão da capability é insuficiente por si só: um checkpoint
