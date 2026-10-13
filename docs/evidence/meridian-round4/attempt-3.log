@@ -1,0 +1,18 @@
+SURFACE_BROWSER_STARTUP_MS=758
+CHROMIUM_STDERR_BEGIN
+
+DevTools listening on ws://127.0.0.1:55252/devtools/browser/774d5ec5-669d-4486-b454-fa2577e3eb0f
+
+CHROMIUM_STDERR_END
+file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:11
+ const until=async expression=>{const deadline=Date.now()+10000;while(!await ev(expression)){if(Date.now()>deadline)throw Error('Timed out: '+expression);await sleep(40)}};
+                                                                                                                          ^
+
+Error: Timed out: !!document.querySelector("[data-meridian] #meridian-main")
+    at until (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:11:123)
+    at async nav (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:13:198)
+    at async file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:25:24
+    at async runBrowser (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/browser-proof/chromium.mjs:235:20)
+    at async file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:8:1
+
+Node.js v26.7.0

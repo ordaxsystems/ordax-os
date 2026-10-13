@@ -1,0 +1,20 @@
+SURFACE_BROWSER_STARTUP_MS=1470
+CHROMIUM_STDERR_BEGIN
+
+DevTools listening on ws://127.0.0.1:55044/devtools/browser/af06ce6f-ce05-47f9-a1e7-497368d8fe37
+
+CHROMIUM_STDERR_END
+file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:10
+ const ev=async expression=>{const r=await client.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description??'Evaluation failed');return r.result?.value};
+                                                                                                                                                         ^
+
+Error: Error: Unavailable action panel:search
+    at <anonymous>:1:160
+    at <anonymous>:1:216
+    at ev (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:10:154)
+    at async action (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:14:29)
+    at async file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:52:207
+    at async runBrowser (file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/browser-proof/chromium.mjs:235:20)
+    at async file:///C:/Users/TONECOS/Documents/github/ordax-apps/tools/assistant-host/.data/os-meridian-lab/tools/meridian-preview/round4-smoke.mjs:8:1
+
+Node.js v26.7.0
