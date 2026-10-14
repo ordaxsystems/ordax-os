@@ -50,6 +50,14 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 Exact values and gates remain owned by their matching files under `docs/contracts/`.
 
+## Active plans / proposals
+
+| Topic | Route | Status |
+| --- | --- | --- |
+| Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only; no production/default/release authority |
+
+This route points to immutable approved evidence on the experimental branch instead of copying the experimental runtime into `main`.
+
 ## Document lifecycle
 
 Use one active owner per responsibility.
