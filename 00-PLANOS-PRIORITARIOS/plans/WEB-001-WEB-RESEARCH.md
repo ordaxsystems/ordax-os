@@ -88,7 +88,7 @@ Já concluído:
 - deterministic action projection;
 - usage canônico separado de authority receipt;
 - `ordax.web-operation-receipt/1` para resultado/auditoria de domínio sem authority;
-- vocabulário inicial `succeeded|partial|failed`, `errorCode` e fallback no usage;
+- vocabulário inicial `succeeded|partial|failed`, `errorCode` e fallback no usage;`r`n- audit metadata privacy-minimized sem query/URL/domain cru por padrão;
 - fail-closed proof do Gateway atual;
 - workflow Node path-scoped;
 - documentação canônica atualizada.
