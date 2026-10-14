@@ -110,6 +110,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             "/system/",
             "/bootstrap/base-update/",
             "/bootstrap/dev-base/ordax-dev-init",
+            "/bootstrap/dev-base/ordax-diagnose",
             "/bootstrap/dev-base/ordax-network",
             "/bootstrap/dev-base/ordax-pull",
             "/bootstrap/dev-base/ordax-rollback",
@@ -347,6 +348,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         )[0]
         helper_case = (
             "bootstrap/dev-base/ordax-dev-init|"
+            "bootstrap/dev-base/ordax-diagnose|"
             "bootstrap/dev-base/ordax-network|"
             "bootstrap/dev-base/ordax-pull|"
             "bootstrap/dev-base/ordax-rollback|"
