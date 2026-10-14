@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFile, readdir} from 'node:fs/promises';
 import {windowReducer, initialWindows} from '../../../system/surface/workspace/lib/web/windows.ts';
-import {askIntelligence} from '../../../system/surface/workspace/lib/intelligence/ai.functions.ts';
+import {createUnavailableWebIntelligencePort} from '../../../system/adapters/web/intelligence.mjs';
+import {createIntelligenceClient} from '../../../system/surface/workspace/lib/intelligence/client.mjs';
 import {desktopReducer, initialDesktopState} from '../../../system/surface/workspace/components/central/desktop-state.ts';
 const root = new URL('../../../', import.meta.url);
 const sourceRoot = new URL('system/surface/workspace/', root);
@@ -133,10 +134,10 @@ assert.equal(opened[0].width,45);
 opened=windowReducer(opened,{type:'open',appId:'settings'});
 for(let i=0;i<80;i++)opened=windowReducer(opened,{type:'focus',appId:i%2?'notes':'settings'});
 assert.ok(opened.find(w=>w.appId==='notes').layer>opened.find(w=>w.appId==='settings').layer,'Repeated focus retains strict stacking order');
-const result = await askIntelligence({message:'verification'});
-assert.equal(result.ok, false);
-assert.equal(result.status, 503, 'Visual preview must not execute a model');
-console.log('PASS: ' + verified + ' reference files/assets (recorded edits reversed for LF/CRLF); window lifecycle, geometry and disabled AI');
+const intelligence = createIntelligenceClient(createUnavailableWebIntelligencePort());
+assert.equal(intelligence.getSnapshot().state, 'degraded', 'Web fallback must remain explicitly unavailable');
+await assert.rejects(intelligence.ask('verification'), /not ready/, 'Visual preview must not execute a model');
+console.log('PASS: ' + verified + ' reference files/assets (recorded edits reversed for LF/CRLF); window lifecycle, geometry and canonical fail-closed AI');
 
 if (process.argv.includes('--preview')) {
   const origin = 'http://127.0.0.1:4201';
