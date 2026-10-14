@@ -75,6 +75,11 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertTrue(result.required)
         self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
 
+    def test_kernel_module_archive_helper_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(["bootstrap/kernel/module_archive.py"], root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
     def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             result = impact.classify_paths(
