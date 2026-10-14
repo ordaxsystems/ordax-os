@@ -6,8 +6,11 @@ on:
     paths:
       - 'system/contracts/external-egress-grant.mjs'
       - 'system/services/personal-ordax/external-egress-grants.mjs'
+      - 'system/services/personal-ordax/action-gateway.mjs'
       - 'tests/test_external_egress_grant.mjs'
       - 'tests/test_external_egress_grant_authority.mjs'
+      - 'tests/test_external_egress_action_gateway.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
       - 'docs/EXTERNAL-EGRESS-AUTHORITY.md'
       - '00-PLANOS-PRIORITARIOS/plans/SEC-001-EXTERNAL-EGRESS-AUTHORITY.md'
       - '.github/workflows/external-egress-authority.yml'
@@ -15,8 +18,11 @@ on:
     paths:
       - 'system/contracts/external-egress-grant.mjs'
       - 'system/services/personal-ordax/external-egress-grants.mjs'
+      - 'system/services/personal-ordax/action-gateway.mjs'
       - 'tests/test_external_egress_grant.mjs'
       - 'tests/test_external_egress_grant_authority.mjs'
+      - 'tests/test_external_egress_action_gateway.mjs'
+      - 'tests/test_personal_ordax_action_gateway.mjs'
       - 'docs/EXTERNAL-EGRESS-AUTHORITY.md'
       - '00-PLANOS-PRIORITARIOS/plans/SEC-001-EXTERNAL-EGRESS-AUTHORITY.md'
       - '.github/workflows/external-egress-authority.yml'
@@ -44,3 +50,5 @@ jobs:
         run: |
           node --test tests/test_external_egress_grant.mjs
           node --test tests/test_external_egress_grant_authority.mjs
+          node --test tests/test_external_egress_action_gateway.mjs
+          node --test tests/test_personal_ordax_action_gateway.mjs
