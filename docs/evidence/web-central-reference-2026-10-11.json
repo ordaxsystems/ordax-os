@@ -983,8 +983,8 @@
       "owner": "OrdaX OS Surface",
       "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
       "sha256": "8b23ed58a8c8ab15dd04d6142e5d8ec27e80d548eeec464693d063c79508a31a",
-      "adaptedSha256": "dbd4b44d072471728a9b5445ea755321dfb77a2f30fbb12c431bd25b42cce731",
-      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window."
+      "adaptedSha256": "c5e312d688f30938cc3c230a49d2a0fdbe71c6bea3f5b5e02775762af9f7f5eb",
+      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window. 2026-10-13: WindowContent routes Aura/Intelig?ncia to the canonical AuraContent consumer while preserving the existing per-window error boundary; provider ownership and execution authority remain outside the Surface."
     },
     {
       "target": "system/surface/workspace/components/store/styles.css",
