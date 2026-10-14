@@ -20,6 +20,7 @@ from native_component_pending_decision import (
     reject_component_pending,
 )
 from native_store_metadata_policy import (
+    NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED,
     NATIVE_PENDING_DECISION_EXECUTION_ENABLED,
     NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE,
     NATIVE_PROBATION_COMPONENT_IDS,
@@ -213,6 +214,14 @@ class ComponentPendingDecisionOwner:
                 state="blocked",
                 mutated=False,
                 reason="pending-decision-execution-disabled",
+            )
+
+        if action == "promote" and not NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED:
+            return _result(
+                plan,
+                state="blocked",
+                mutated=False,
+                reason="canonical-component-trust-not-pinned",
             )
 
         if action == "promote" and not (

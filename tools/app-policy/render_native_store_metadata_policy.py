@@ -39,7 +39,7 @@ def _probation_probe_modes(payload: dict, probation_ids: list[str]) -> dict[str,
     return modes
 
 
-def _pending_decision_gates(payload: dict) -> tuple[bool, bool, bool]:
+def _pending_decision_gates(payload: dict) -> tuple[bool, bool, bool, bool]:
     execution_enabled = payload.get("component_promotion_policy_executes_actions")
     slot_activation = payload.get("slot_activation_available")
     pending_promotion = payload.get("pending_health_promotion_available")
@@ -60,7 +60,7 @@ def _pending_decision_gates(payload: dict) -> tuple[bool, bool, bool]:
         raise MetadataPolicyError(
             "component activation/promotion requires canonical component trust"
         )
-    return execution_enabled, slot_activation, pending_promotion
+    return execution_enabled, trust_pinned, slot_activation, pending_promotion
 
 
 def render(payload: dict) -> str:
@@ -107,7 +107,7 @@ def render(payload: dict) -> str:
     if not set(probation_ids).issubset(health_ids):
         raise MetadataPolicyError("Native probation cannot exceed health mutation scope")
     probation_modes = _probation_probe_modes(payload, probation_ids)
-    execution_enabled, slot_activation, pending_promotion = _pending_decision_gates(payload)
+    execution_enabled, trust_pinned, slot_activation, pending_promotion = _pending_decision_gates(payload)
     metadata_ids = sorted(set(package_sources) | set(module_ids))
 
     def format_ids(ids: list[str]) -> str:
@@ -136,6 +136,7 @@ def render(payload: dict) -> str:
         "NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({\n"
         + format_probe_modes(probation_modes) + "\n})\n\n"
         f"NATIVE_PENDING_DECISION_EXECUTION_ENABLED = {execution_enabled!r}\n"
+        f"NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED = {trust_pinned!r}\n"
         f"NATIVE_SLOT_ACTIVATION_AVAILABLE = {slot_activation!r}\n"
         f"NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE = {pending_promotion!r}\n"
     )
