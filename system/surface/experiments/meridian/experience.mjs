@@ -7,7 +7,7 @@ import { explore } from './views/explore.mjs';
 import { intelligence } from './views/intelligence.mjs';
 import { desktop } from './views/desktop.mjs';
 import { panelMarkup } from './views/panels.mjs';
-import { sections, windowTarget } from './catalog.mjs';
+import { sections, windowTarget, findMaterial } from './catalog.mjs';
 import { presentationDestination } from '../../workspace/presentation.mjs';
 /** Mount an explicitly opted-in visual study. source is a presentation-only
  * source, never a Runtime/Identity/Memory/Action Gateway port. No persistence,
@@ -24,7 +24,7 @@ export function mountMeridianExperience(root,source,options={}){
  function restoreForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]')){const key=draftKey(form,field);if(!field.dataset.draft&&formDrafts.has(key))field.value=formDrafts.get(key);}}
  const ui={route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnFocus:null,subject:'lia',locked:false,lockError:false,stage:false,currentStory:null,stories:new Map(),sessions:new Map(),notificationFilter:'unread',dismissed:[],dnd:false,read:[],privateMode:true,sync:true,spaceUnavailable:false,cloudExpired:false,lab:{definitions:options.lab?.storyboards??{},system:options.lab?.systemFixture??{},topics:options.lab?.settingsTopics??[]}};
  if(options.presentation==='desktop')ui.presentation='desktop';
- if(options.material==='ink')ui.material='ink';
+ if(findMaterial(options.material))ui.material=options.material;
  if(sections.some(item=>item.id===options.route))ui.route=options.route;
  function render(resetScroll=false){
   if(destroyed)return;
@@ -120,7 +120,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
    case 'task':case 'automation':source.dispatch({type:action,id});break;
    case 'read':ui.read=[...new Set([...ui.read,id])];render();break;
    case 'read-all':ui.read=[...new Set([...ui.read,...readData().activity.map(item=>item.id)])];render();break;
-   case 'material':ui.material=id==='ink'?'ink':'paper';render();break;
+   case 'material':if(findMaterial(id)){ui.material=id;render();}break;
    case 'text-size':ui.largeText=!ui.largeText;render();break;
    case 'motion':ui.reduceMotion=!ui.reduceMotion;render();break;
    case 'music':ui.musicPlaying=!ui.musicPlaying;render();break;

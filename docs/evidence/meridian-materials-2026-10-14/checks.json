@@ -1,0 +1,563 @@
+{
+  "scope": "Isolated Meridian material collection; not full accessibility, canonical integration or physical USB certification.",
+  "checks": [
+    "Initial material Argila",
+    "Same Central markup Argila",
+    "15 text contrast pairs Argila",
+    "Central geometry Argila",
+    "Quick collection has all materials Argila",
+    "Actual palette sample Argila",
+    "Native keyboard selection keeps focus Argila",
+    "Draft and compact windows survive Argila",
+    "Presentation and foreground survive Argila",
+    "Initial material Grafite",
+    "Same Central markup Grafite",
+    "15 text contrast pairs Grafite",
+    "Central geometry Grafite",
+    "Quick collection has all materials Grafite",
+    "Actual palette sample Grafite",
+    "Native keyboard selection keeps focus Grafite",
+    "Draft and compact windows survive Grafite",
+    "Presentation and foreground survive Grafite",
+    "Initial material Pérola",
+    "Same Central markup Pérola",
+    "15 text contrast pairs Pérola",
+    "Central geometry Pérola",
+    "Quick collection has all materials Pérola",
+    "Actual palette sample Pérola",
+    "Native keyboard selection keeps focus Pérola",
+    "Draft and compact windows survive Pérola",
+    "Presentation and foreground survive Pérola",
+    "Initial material Petróleo",
+    "Same Central markup Petróleo",
+    "15 text contrast pairs Petróleo",
+    "Central geometry Petróleo",
+    "Quick collection has all materials Petróleo",
+    "Actual palette sample Petróleo",
+    "Native keyboard selection keeps focus Petróleo",
+    "Draft and compact windows survive Petróleo",
+    "Presentation and foreground survive Petróleo",
+    "Mobile Central pearl 390",
+    "Mobile collection pearl 390",
+    "Material cards fit pearl 390",
+    "Mobile selection pearl 390",
+    "Mobile Central pearl 320",
+    "Mobile collection pearl 320",
+    "Material cards fit pearl 320",
+    "Mobile selection pearl 320",
+    "Mobile Central petrol 390",
+    "Mobile collection petrol 390",
+    "Material cards fit petrol 390",
+    "Mobile selection petrol 390",
+    "Mobile Central petrol 320",
+    "Mobile collection petrol 320",
+    "Material cards fit petrol 320",
+    "Mobile selection petrol 320",
+    "Invalid initial material fails to baseline",
+    "Invalid selection does not mutate palette",
+    "Settings uses the same collection",
+    "Settings and modal have distinct control IDs",
+    "Both selectors reflect the same choice and modal keeps focus",
+    "No uncaught browser errors",
+    "No failed resources"
+  ],
+  "contrast": [
+    {
+      "material": "paper",
+      "fg": "ink",
+      "bg": "canvas",
+      "a": "#282c29",
+      "b": "#f4f2ed",
+      "ratio": 12.661156540426989
+    },
+    {
+      "material": "paper",
+      "fg": "ink",
+      "bg": "surface",
+      "a": "#282c29",
+      "b": "#fffcf7",
+      "ratio": 13.840830799644499
+    },
+    {
+      "material": "paper",
+      "fg": "muted",
+      "bg": "canvas",
+      "a": "#676b63",
+      "b": "#f4f2ed",
+      "ratio": 4.862835243020895
+    },
+    {
+      "material": "paper",
+      "fg": "muted",
+      "bg": "surface",
+      "a": "#676b63",
+      "b": "#fffcf7",
+      "ratio": 5.315918778058999
+    },
+    {
+      "material": "paper",
+      "fg": "accent",
+      "bg": "accent-soft",
+      "a": "#a44426",
+      "b": "#f1ded3",
+      "ratio": 4.697844193466208
+    },
+    {
+      "material": "paper",
+      "fg": "accent-text",
+      "bg": "accent",
+      "a": "#fffaf5",
+      "b": "#a44426",
+      "ratio": 5.896520454847172
+    },
+    {
+      "material": "paper",
+      "fg": "rail-text",
+      "bg": "rail",
+      "a": "#e8e9df",
+      "b": "#272e2b",
+      "ratio": 11.34447871505557
+    },
+    {
+      "material": "paper",
+      "fg": "rail-muted",
+      "bg": "rail",
+      "a": "#b4bcb3",
+      "b": "#272e2b",
+      "ratio": 7.133100990110736
+    },
+    {
+      "material": "paper",
+      "fg": "rail-text",
+      "bg": "rail-selected",
+      "a": "#e8e9df",
+      "b": "#3e4840",
+      "ratio": 7.7759657666036714
+    },
+    {
+      "material": "paper",
+      "fg": "rail-muted",
+      "bg": "rail-selected",
+      "a": "#b4bcb3",
+      "b": "#3e4840",
+      "ratio": 4.8893166889384165
+    },
+    {
+      "material": "paper",
+      "fg": "sage",
+      "bg": "sage-soft",
+      "a": "#45674a",
+      "b": "#e0e9d9",
+      "ratio": 5.111438407044998
+    },
+    {
+      "material": "paper",
+      "fg": "blue",
+      "bg": "blue-soft",
+      "a": "#37627c",
+      "b": "#dce8ed",
+      "ratio": 5.2517782539262265
+    },
+    {
+      "material": "paper",
+      "fg": "amber",
+      "bg": "amber-soft",
+      "a": "#785916",
+      "b": "#f0e6cb",
+      "ratio": 5.213137341451772
+    },
+    {
+      "material": "paper",
+      "fg": "rose",
+      "bg": "rose-soft",
+      "a": "#904a60",
+      "b": "#eddfe2",
+      "ratio": 4.874873542692723
+    },
+    {
+      "material": "paper",
+      "fg": "danger",
+      "bg": "danger-soft",
+      "a": "#a03935",
+      "b": "#f7e0dc",
+      "ratio": 5.317328609434428
+    },
+    {
+      "material": "ink",
+      "fg": "ink",
+      "bg": "canvas",
+      "a": "#eeeede",
+      "b": "#202824",
+      "ratio": 12.888333453066688
+    },
+    {
+      "material": "ink",
+      "fg": "ink",
+      "bg": "surface",
+      "a": "#eeeede",
+      "b": "#29332c",
+      "ratio": 11.170807573237752
+    },
+    {
+      "material": "ink",
+      "fg": "muted",
+      "bg": "canvas",
+      "a": "#b2bcaf",
+      "b": "#202824",
+      "ratio": 7.699409592579392
+    },
+    {
+      "material": "ink",
+      "fg": "muted",
+      "bg": "surface",
+      "a": "#b2bcaf",
+      "b": "#29332c",
+      "ratio": 6.673370401180932
+    },
+    {
+      "material": "ink",
+      "fg": "accent",
+      "bg": "accent-soft",
+      "a": "#edaa87",
+      "b": "#513d30",
+      "ratio": 5.194380072157946
+    },
+    {
+      "material": "ink",
+      "fg": "accent-text",
+      "bg": "accent",
+      "a": "#28251e",
+      "b": "#edaa87",
+      "ratio": 7.79023413136395
+    },
+    {
+      "material": "ink",
+      "fg": "rail-text",
+      "bg": "rail",
+      "a": "#e8e9df",
+      "b": "#17211b",
+      "ratio": 13.50784407422691
+    },
+    {
+      "material": "ink",
+      "fg": "rail-muted",
+      "bg": "rail",
+      "a": "#b4bcb3",
+      "b": "#17211b",
+      "ratio": 8.493366540699391
+    },
+    {
+      "material": "ink",
+      "fg": "rail-text",
+      "bg": "rail-selected",
+      "a": "#e8e9df",
+      "b": "#334735",
+      "ratio": 8.193243506972482
+    },
+    {
+      "material": "ink",
+      "fg": "rail-muted",
+      "bg": "rail-selected",
+      "a": "#b4bcb3",
+      "b": "#334735",
+      "ratio": 5.151689631559902
+    },
+    {
+      "material": "ink",
+      "fg": "sage",
+      "bg": "sage-soft",
+      "a": "#bdd5a8",
+      "b": "#394b32",
+      "ratio": 5.949755830598758
+    },
+    {
+      "material": "ink",
+      "fg": "blue",
+      "bg": "blue-soft",
+      "a": "#adcddb",
+      "b": "#2e4652",
+      "ratio": 5.928026621084394
+    },
+    {
+      "material": "ink",
+      "fg": "amber",
+      "bg": "amber-soft",
+      "a": "#dec994",
+      "b": "#4b412b",
+      "ratio": 6.166091365040814
+    },
+    {
+      "material": "ink",
+      "fg": "rose",
+      "bg": "rose-soft",
+      "a": "#e8b5c1",
+      "b": "#4d3541",
+      "ratio": 6.212501769453356
+    },
+    {
+      "material": "ink",
+      "fg": "danger",
+      "bg": "danger-soft",
+      "a": "#f3b5ad",
+      "b": "#4e3430",
+      "ratio": 6.472065512410145
+    },
+    {
+      "material": "pearl",
+      "fg": "ink",
+      "bg": "canvas",
+      "a": "#142e34",
+      "b": "#edf0ef",
+      "ratio": 12.45559865090305
+    },
+    {
+      "material": "pearl",
+      "fg": "ink",
+      "bg": "surface",
+      "a": "#142e34",
+      "b": "#f8faf8",
+      "ratio": 13.618528742714926
+    },
+    {
+      "material": "pearl",
+      "fg": "muted",
+      "bg": "canvas",
+      "a": "#52696f",
+      "b": "#edf0ef",
+      "ratio": 5.0738869049005295
+    },
+    {
+      "material": "pearl",
+      "fg": "muted",
+      "bg": "surface",
+      "a": "#52696f",
+      "b": "#f8faf8",
+      "ratio": 5.547615701848498
+    },
+    {
+      "material": "pearl",
+      "fg": "accent",
+      "bg": "accent-soft",
+      "a": "#147369",
+      "b": "#d8e9e3",
+      "ratio": 4.526440903760207
+    },
+    {
+      "material": "pearl",
+      "fg": "accent-text",
+      "bg": "accent",
+      "a": "#f8faf8",
+      "b": "#147369",
+      "ratio": 5.431599640168738
+    },
+    {
+      "material": "pearl",
+      "fg": "rail-text",
+      "bg": "rail",
+      "a": "#f1f7f4",
+      "b": "#133a40",
+      "ratio": 11.336505704980006
+    },
+    {
+      "material": "pearl",
+      "fg": "rail-muted",
+      "bg": "rail",
+      "a": "#b5d0d0",
+      "b": "#133a40",
+      "ratio": 7.556139974590286
+    },
+    {
+      "material": "pearl",
+      "fg": "rail-text",
+      "bg": "rail-selected",
+      "a": "#f1f7f4",
+      "b": "#254e54",
+      "ratio": 8.426439899562244
+    },
+    {
+      "material": "pearl",
+      "fg": "rail-muted",
+      "bg": "rail-selected",
+      "a": "#b5d0d0",
+      "b": "#254e54",
+      "ratio": 5.616488980426717
+    },
+    {
+      "material": "pearl",
+      "fg": "sage",
+      "bg": "sage-soft",
+      "a": "#286c59",
+      "b": "#dcebe3",
+      "ratio": 5.0408824138453845
+    },
+    {
+      "material": "pearl",
+      "fg": "blue",
+      "bg": "blue-soft",
+      "a": "#28617e",
+      "b": "#dce8ef",
+      "ratio": 5.427330197007726
+    },
+    {
+      "material": "pearl",
+      "fg": "amber",
+      "bg": "amber-soft",
+      "a": "#735925",
+      "b": "#eee5d2",
+      "ratio": 5.267099941718547
+    },
+    {
+      "material": "pearl",
+      "fg": "rose",
+      "bg": "rose-soft",
+      "a": "#894b65",
+      "b": "#eee0e7",
+      "ratio": 5.0495669616574705
+    },
+    {
+      "material": "pearl",
+      "fg": "danger",
+      "bg": "danger-soft",
+      "a": "#a03935",
+      "b": "#f5e1df",
+      "ratio": 5.338906654057344
+    },
+    {
+      "material": "petrol",
+      "fg": "ink",
+      "bg": "canvas",
+      "a": "#eef5f2",
+      "b": "#10292e",
+      "ratio": 13.765957055182325
+    },
+    {
+      "material": "petrol",
+      "fg": "ink",
+      "bg": "surface",
+      "a": "#eef5f2",
+      "b": "#19363c",
+      "ratio": 11.613003162059348
+    },
+    {
+      "material": "petrol",
+      "fg": "muted",
+      "bg": "canvas",
+      "a": "#aec6c7",
+      "b": "#10292e",
+      "ratio": 8.488013822041376
+    },
+    {
+      "material": "petrol",
+      "fg": "muted",
+      "bg": "surface",
+      "a": "#aec6c7",
+      "b": "#19363c",
+      "ratio": 7.160514227949145
+    },
+    {
+      "material": "petrol",
+      "fg": "accent",
+      "bg": "accent-soft",
+      "a": "#8cdbca",
+      "b": "#28564f",
+      "ratio": 5.16941725055813
+    },
+    {
+      "material": "petrol",
+      "fg": "accent-text",
+      "bg": "accent",
+      "a": "#0c302c",
+      "b": "#8cdbca",
+      "ratio": 8.883034279559185
+    },
+    {
+      "material": "petrol",
+      "fg": "rail-text",
+      "bg": "rail",
+      "a": "#eef5f2",
+      "b": "#092126",
+      "ratio": 15.096537161565596
+    },
+    {
+      "material": "petrol",
+      "fg": "rail-muted",
+      "bg": "rail",
+      "a": "#adc9c9",
+      "b": "#092126",
+      "ratio": 9.525475471926793
+    },
+    {
+      "material": "petrol",
+      "fg": "rail-text",
+      "bg": "rail-selected",
+      "a": "#eef5f2",
+      "b": "#254a50",
+      "ratio": 8.729736455884042
+    },
+    {
+      "material": "petrol",
+      "fg": "rail-muted",
+      "bg": "rail-selected",
+      "a": "#adc9c9",
+      "b": "#254a50",
+      "ratio": 5.508209571305751
+    },
+    {
+      "material": "petrol",
+      "fg": "sage",
+      "bg": "sage-soft",
+      "a": "#addbc5",
+      "b": "#2b4c42",
+      "ratio": 6.191729366379752
+    },
+    {
+      "material": "petrol",
+      "fg": "blue",
+      "bg": "blue-soft",
+      "a": "#a9d5e9",
+      "b": "#284b5a",
+      "ratio": 5.962391235627005
+    },
+    {
+      "material": "petrol",
+      "fg": "amber",
+      "bg": "amber-soft",
+      "a": "#e5cda2",
+      "b": "#4d4431",
+      "ratio": 6.21279348285319
+    },
+    {
+      "material": "petrol",
+      "fg": "rose",
+      "bg": "rose-soft",
+      "a": "#e3bdd0",
+      "b": "#503847",
+      "ratio": 6.235028074544702
+    },
+    {
+      "material": "petrol",
+      "fg": "danger",
+      "bg": "danger-soft",
+      "a": "#f1b9b1",
+      "b": "#503c3b",
+      "ratio": 6.005391116892452
+    }
+  ],
+  "captures": [
+    "central-paper-1440.png",
+    "desktop-paper-1440.png",
+    "central-ink-1440.png",
+    "desktop-ink-1440.png",
+    "central-pearl-1440.png",
+    "desktop-pearl-1440.png",
+    "central-petrol-1440.png",
+    "desktop-petrol-1440.png",
+    "central-pearl-390.png",
+    "collection-pearl-390.png",
+    "central-petrol-390.png",
+    "collection-petrol-390.png",
+    "settings-pearl-1440.png"
+  ],
+  "exceptions": [],
+  "failed": []
+}

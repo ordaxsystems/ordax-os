@@ -14,6 +14,15 @@ export const sections = Object.freeze([
  {id:'settings',label:'Ajustes',icon:'settings',group:'sistema'},
 ]);
 export const findSection = id => sections.find(item => item.id === id) ?? sections[0];
+// Collection metadata only. All material values and sample colours belong to
+// meridian.tokens.css; no production preference or palette is created here.
+export const materialOptions = Object.freeze([
+ Object.freeze({id:'paper',name:'Argila',mode:'Claro',copy:'Papel, pedra e tons quentes.'}),
+ Object.freeze({id:'ink',name:'Grafite',mode:'Escuro',copy:'Profundidade, silêncio e contraste.'}),
+ Object.freeze({id:'pearl',name:'Pérola',mode:'Claro',copy:'Porcelana mineral e acentos de jade.'}),
+ Object.freeze({id:'petrol',name:'Petróleo',mode:'Escuro',copy:'Azul profundo e luz mineral.'}),
+]);
+export const findMaterial = id => materialOptions.find(item => item.id === id);
 export const sceneOptions = Object.freeze([
  {id:'connected',label:'Com conta',description:'Contexto pessoal e dispositivos de exemplo.'},
  {id:'guest',label:'Sem conta',description:'O dispositivo continua útil e o trabalho fica local.'},

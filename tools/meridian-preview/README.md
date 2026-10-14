@@ -20,6 +20,8 @@ Presentation links:
 
 - `/`: Central, Argila material.
 - `/?material=ink`: Central, Grafite material.
+- `/?material=pearl`: Central, Pérola mineral material.
+- `/?material=petrol`: Central, dark Petróleo material.
 - `/?surface=desktop`: Desktop.
 - `/?journey=setup`: first-use storyboard, optional network/account.
 - `/?journey=recovery&material=ink`: independent recovery storyboard.
@@ -40,7 +42,7 @@ In Central, switch between Day, Work and Ecosystem perspectives. Pick or create
 a Space, inspect project continuity, preview a professional profile, review a
 Store item, inspect device capabilities and view account/privacy controls.
 The `Meridian · estudo visual` control opens connected, guest, offline, empty,
-loading and error scenarios. Settings owns the Argila/Grafite choice and
+loading and error scenarios. Settings owns the material collection choice and
 presentation accessibility options. Ctrl/Meta+K opens local visual search.
 
 ## Boundaries
@@ -209,3 +211,29 @@ prior coverage/audit reports are historical evidence.
 
 No Round 5 or product source change. No new integration/default theme. Main is
 unchanged. Future shell changes require an objective cause recorded in that owner.
+
+## Material collection — 2026-10-14
+
+Explicit user-requested extension of the approved mineral concept: Argila,
+Grafite, Pérola and Petróleo. This extends material tokens and decorative art;
+it does not redesign the shell, promote a production theme or integrate services.
+The visual owner above records the exception and the measured Argila accent
+contrast correction. Historical Freeze hashes and captures remain unchanged.
+
+Choose a material in Settings, Central personalization or Quick Settings →
+the current material tile. Settings and the quick panel use one renderer and
+one catalogue. Their miniatures consume the actual material tokens. The choice
+preserves this session's context, drafts and windows; reload uses the URL's
+initial material, or Argila when none is valid. No new preference store is added.
+
+With the existing host running on 4203, run the focused material check:
+
+```sh
+node tools/meridian-preview/materials-smoke.mjs
+```
+
+Reuses the disposable Chromium owner and writes evidence to
+`out/meridian-materials` (override with `MERIDIAN_EVIDENCE_DIR`). It checks palette
+selection, samples, text contrast, continuity and narrow viewports. This is not
+the complete previous audit matrix, canonical CI, physical USB or screen-reader
+acceptance. The preview stays available and production compositions stay separate.

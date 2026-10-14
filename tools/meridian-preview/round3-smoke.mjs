@@ -21,7 +21,7 @@ await runBrowser(async client=>{
  await check('Desktop has no topbar or reserved top row','!document.querySelector(".md-topbar")&&document.querySelector(".md-main").getBoundingClientRect().top===0');
  await check('Desktop retains wallpaper and contextual Space','!!document.querySelector(".md-desktop")&&document.body.innerText.includes("Estúdio")');
  await shot('desktop-argila-1440');
- await action('panel:system');await action('material:ink');await action('panel:close');
+ await action('panel:system');await action('panel:materials');await action('material:ink');await action('panel:close');
  await shot('desktop-grafite-1440');
  await action('panel:search');await check('Bottom search opens focused field','document.activeElement.matches("[data-search]")');
  await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});

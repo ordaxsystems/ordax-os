@@ -35,7 +35,7 @@ Três níveis de precisão neste documento:
 | MVS-02 | Orientação antes de decoração | Ícone, nome, estado e consequência concordam; hover/foco tornam destinos compreensíveis. |
 | MVS-03 | O trabalho ocupa a região útil | Sidebar/taskbar/compacto reservam espaço; maximizada não deixa margens flutuantes. |
 | MVS-04 | Contexto explícito, autoridade separada | Space/app/documento indicam alcance; seleção não concede leitura, execução ou permissão. |
-| MVS-05 | Mesma experiência nos dois materiais | Argila/Grafite alteram material, não DOM, navegação, hierarquia ou comportamento. |
+| MVS-05 | Mesma experiência na coleção de materiais | Materiais alteram cor, arte e profundidade, não estrutura de navegação, hierarquia ou comportamento. |
 | MVS-06 | Disclosure conserva acesso | Em tela estreita, menu/busca/painel guardam destinos retirados do rail; conteúdo rola em região definida. |
 | MVS-07 | Estado é forma, texto e semântica | Dock, seleção, foco e avisos não dependem só de cor. |
 | MVS-08 | Movimento comunica mudança | Curto, orientado a estado, dispensável; repaint comum não reanima a interface. |
@@ -157,11 +157,21 @@ Entrada identifica Space, app foreground e documento válido do contexto quando 
 
 As telas/receipts/streaming de exemplo mostram linguagem de apresentação; não são Memory, model router ou Action Gateway. Contexto, disponibilidade e resultados de integração futura pertencem aos owners [Intelligence](../INTELLIGENCE.md), [contrato de Spaces/Profiles](../contracts/spaces-and-profile-packs.json) e contratos correspondentes. Se um link/owner mudar, o índice canônico vence; não criar substituto no design system.
 
-## 8. Argila e Grafite — material, não comportamento
+## 8. Coleção Meridian — material, não comportamento
 
 **Argila** usa canvas quente, superfícies claras, ink escuro e acento de argila; rail verde profundo. **Grafite** usa canvas/superfícies verdes escuros, ink claro e acento de argila luminoso. Calor e sobriedade, contraste funcional e profundidade contida definem a direção; não copiar a decoração de um painel SaaS genérico.
 
 Mesmos componentes, DOM, hierarquia, comportamento, estados, navegação e responsividade. Superfícies/cor/borda/sombra/contraste mudam por tokens. A mesma ação não troca jornada, autorização ou layout por material. Fonte atual única: [meridian.tokens.css](../../system/surface/experiments/meridian/meridian.tokens.css).
+
+### Extensão solicitada em 14/10/2026 — Pérola e Petróleo
+
+O usuário autorizou explicitamente aplicar o concept mineral à coleção, mantendo Argila/Grafite. Esta é uma extensão de material do estudo, sobre `14b8984`, não outra rodada de shell ou integração canônica. **Pérola** combina canvas mineral claro, porcelana, rail petróleo e acento jade. **Petróleo** oferece as mesmas peças em azul profundo, texto perolado e jade luminoso. Geometria, navegação, compactos, contexto, marca canônica e contratos permanecem compartilhados.
+
+Metadados e validação dos IDs pertencem a [catalog.mjs](../../system/surface/experiments/meridian/catalog.mjs). O [seletor compartilhado](../../system/surface/experiments/meridian/views/materials.mjs) é usado por Ajustes e pelo painel rápido; as miniaturas consomem os mesmos tokens das telas, sem paleta paralela. CSS de componentes não decide qual material está ativo. Arte vetorial mineral e wallpaper são recursos decorativos escolhidos por tokens no mesmo owner; não recebem autoridade de projeto ou marca.
+
+IDs do preview: `paper` (Argila), `ink` (Grafite), `pearl` (Pérola), `petrol` (Petróleo). Argila continua o padrão. A escolha afeta esta sessão e ambas as apresentações; o link pode definir o material inicial. IDs desconhecidos não alteram a escolha corrente. Não há outro armazenamento de preferências nem mudança nos temas Claro/Escuro/USB de produção.
+
+O contraste nominal de texto/acento sobre o fundo suave de Argila era 4,34:1. A extensão corrige esse caso mensurável de MVS-07, ajustando somente o acento para `#a44426`; o restante da paleta original é preservado. Pérola usa `#147369` para o mesmo papel. O snapshot e os hashes do Freeze abaixo continuam evidência histórica, não declaração de que a árvore atual tem os mesmos bytes. Verificação reproduzível da extensão: [materials-smoke.mjs](../../tools/meridian-preview/materials-smoke.mjs), contra o host local, com resultados separados em `out/meridian-materials` e [evidência selecionada](../evidence/meridian-materials-2026-10-14/README.md).
 
 ### Paleta de referência do baseline
 
@@ -355,7 +365,7 @@ ARG = Argila; GRA = Grafite. Material conserva a mesma estrutura/ação em todas
 
 ## 16. Auditoria dos design tokens
 
-[meridian.tokens.css](../../system/surface/experiments/meridian/meridian.tokens.css) continua source dos valores experimentais, sob `[data-meridian]`; material Grafite sobrescreve valores no mesmo owner. Component CSS compõe esse source; não há paleta paralela por app. Esta documentação classifica papéis e snapshots, não implementa um novo arquivo de tokens para consumo.
+[meridian.tokens.css](../../system/surface/experiments/meridian/meridian.tokens.css) continua source dos valores experimentais, sob `[data-meridian]`; os materiais sobrescrevem valores no mesmo owner. Component CSS compõe esse source; não há paleta paralela por app. Esta documentação classifica papéis e snapshots, não implementa um novo arquivo de tokens para consumo.
 
 | Categoria | Tokens atuais | Leitura / destino |
 | --- | --- | --- |
@@ -428,7 +438,7 @@ Essas imagens mantêm informações do estudo, inclusive personas/USB/telemetria
 - Transformar Central em dashboard SaaS com KPIs/cards inventados para preencher lacunas.
 - Prender um chatbot permanente ao shell ou inferir contexto de janela minimizada/compacta recolhida/outro Space.
 - Criar Desktop, navegação ou permissões diferentes por perfil/material.
-- Fazer Argila/Grafite usarem componentes, lógica ou DOM divergentes.
+- Fazer materiais usarem componentes, lógica ou estrutura de navegação divergentes.
 - Comunicar estado somente pela cor ou remover o foco para deixar uma captura “limpa”.
 - Cortar conteúdo/controle para satisfazer “sem scroll”; comprimir alvo/fonte para encaixar todos os apps.
 - Duplicar tooltip nativo/hint; contrariar Home/End com snap; deixar observers/hints de shell removido no lifecycle futuro.

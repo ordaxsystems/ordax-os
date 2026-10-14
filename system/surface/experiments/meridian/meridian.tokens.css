@@ -1,6 +1,6 @@
 /* Meridian owns only this opted-in experiment. Existing theme selectors,
    preference values, persistence and production token files are not modified. */
-[data-meridian]  {
+[data-meridian], [data-meridian] [data-material-preview] {
   --md-canvas:#f4f2ed;
   --md-surface:#fffcf7;
   --md-subtle:#eae7df;
@@ -10,7 +10,7 @@
   --md-surface-alt:var(--md-subtle);
   --md-border-strong:color-mix(in srgb,var(--md-border) 65%,var(--md-ink));
   --md-clay-soft:var(--md-accent-soft);
-  --md-accent:#ac4829;
+  --md-accent:#a44426;
   --md-accent-hover:#87351f;
   --md-accent-soft:#f1ded3;
   --md-accent-text:#fffaf5;
@@ -35,6 +35,14 @@
   --md-art-dark:#343b32;
   --md-art-light:#d9dbc2;
   --md-art-clay:#c56c48;
+  --md-project-art-image:url('./assets/atlas-study.svg');
+  --md-desktop-image:url('./assets/meridian-field.svg');
+  --md-desktop-ink:#28382f;
+  --md-desktop-label:#f6f3e7d9;
+  --md-desktop-shortcut-ink:#1c2d22;
+  --md-desktop-shortcut-label:#f6f3e7de;
+  --md-desktop-wordmark:#263a2e;
+  --md-desktop-edge:#28382f20;
   --md-focus:#296680;
   --md-shadow:0 20px 70px #252e291c;
   --md-shadow-small:0 3px 12px #252e2908;
@@ -61,7 +69,7 @@
   color:var(--md-ink);
   font:14px/1.5 var(--md-font);
 }
-[data-meridian][data-material="ink"]  {
+[data-meridian][data-material="ink"], [data-meridian] [data-material-preview="ink"] {
   --md-canvas:#202824;
   --md-surface:#29332c;
   --md-subtle:#333e35;
@@ -92,6 +100,97 @@
   --md-focus:#b4dbe3;
   --md-shadow:0 24px 80px #0005;
   --md-shadow-small:0 3px 12px #0001;
+  color-scheme:dark;
+}
+/* Concept-derived mineral collection. Geometry and behaviour remain shared. */
+[data-meridian][data-material="pearl"], [data-meridian] [data-material-preview="pearl"] {
+  --md-canvas:#edf0ef;
+  --md-surface:#f8faf8;
+  --md-subtle:#e0e8e6;
+  --md-ink:#142e34;
+  --md-muted:#52696f;
+  --md-border:#cad6d3;
+  --md-accent:#147369;
+  --md-accent-hover:#105e56;
+  --md-accent-soft:#d8e9e3;
+  --md-accent-text:#f8faf8;
+  --md-rail:#133a40;
+  --md-rail-text:#f1f7f4;
+  --md-rail-muted:#b5d0d0;
+  --md-rail-border:#31575c;
+  --md-rail-selected:#254e54;
+  --md-sage:#286c59;
+  --md-sage-soft:#dcebe3;
+  --md-blue:#28617e;
+  --md-blue-soft:#dce8ef;
+  --md-amber:#735925;
+  --md-amber-soft:#eee5d2;
+  --md-rose:#894b65;
+  --md-rose-soft:#eee0e7;
+  --md-slate:#4a656a;
+  --md-slate-soft:#dfe8e7;
+  --md-danger:#a03935;
+  --md-danger-soft:#f5e1df;
+  --md-on-art:#f3f8f5;
+  --md-art-dark:#173e43;
+  --md-art-light:#d8e5df;
+  --md-art-clay:#4e897e;
+  --md-project-art-image:url('./assets/atlas-mineral.svg');
+  --md-desktop-image:url('./assets/meridian-tidal-field.svg');
+  --md-desktop-ink:#173e43;
+  --md-desktop-label:#edf4f0f2;
+  --md-desktop-shortcut-ink:#173e43;
+  --md-desktop-shortcut-label:#edf4f0f2;
+  --md-desktop-wordmark:#f1f7f4;
+  --md-desktop-edge:#173e4320;
+  --md-focus:#126c88;
+  --md-shadow:0 20px 70px #133a401c;
+  --md-shadow-small:0 3px 12px #133a400a;
+  color-scheme:light;
+}
+[data-meridian][data-material="petrol"], [data-meridian] [data-material-preview="petrol"] {
+  --md-canvas:#10292e;
+  --md-surface:#19363c;
+  --md-subtle:#24464c;
+  --md-ink:#eef5f2;
+  --md-muted:#aec6c7;
+  --md-border:#416168;
+  --md-accent:#8cdbca;
+  --md-accent-hover:#b3eddf;
+  --md-accent-soft:#28564f;
+  --md-accent-text:#0c302c;
+  --md-rail:#092126;
+  --md-rail-text:#eef5f2;
+  --md-rail-muted:#adc9c9;
+  --md-rail-border:#31535a;
+  --md-rail-selected:#254a50;
+  --md-sage:#addbc5;
+  --md-sage-soft:#2b4c42;
+  --md-blue:#a9d5e9;
+  --md-blue-soft:#284b5a;
+  --md-amber:#e5cda2;
+  --md-amber-soft:#4d4431;
+  --md-rose:#e3bdd0;
+  --md-rose-soft:#503847;
+  --md-slate:#bed2d1;
+  --md-slate-soft:#314f55;
+  --md-danger:#f1b9b1;
+  --md-danger-soft:#503c3b;
+  --md-on-art:#f3f8f5;
+  --md-art-dark:#173e43;
+  --md-art-light:#d8e5df;
+  --md-art-clay:#4e897e;
+  --md-project-art-image:url('./assets/atlas-mineral.svg');
+  --md-desktop-image:url('./assets/meridian-tidal-field.svg');
+  --md-desktop-ink:#eef5f2;
+  --md-desktop-label:#10292ef2;
+  --md-desktop-shortcut-ink:#eef5f2;
+  --md-desktop-shortcut-label:#10292ef2;
+  --md-desktop-wordmark:#f1f7f4;
+  --md-desktop-edge:#eef5f240;
+  --md-focus:#a4dfe7;
+  --md-shadow:0 24px 80px #020d105e;
+  --md-shadow-small:0 3px 12px #020d1029;
   color-scheme:dark;
 }
 @media(prefers-reduced-motion:reduce) {
