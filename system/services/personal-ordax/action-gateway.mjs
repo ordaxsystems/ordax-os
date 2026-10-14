@@ -10,13 +10,13 @@ import {
   assertActionReviewPort,
   validateActionReviewVerdict,
 } from "../../contracts/action-review.mjs";
-import { validateExternalEgressGrant } from "../../contracts/external-egress-grant.mjs";
 import {
   authorizeIntelligenceToolAction,
   defineIntelligenceTool,
   validateIntelligenceToolGrant,
 } from "../../contracts/intelligence-tool.mjs";
 import { validatePersonalActionDecision } from "../../contracts/personal-ordax.mjs";
+import { validateExternalEgressGrantForAction } from "./external-egress-authorization.mjs";
 
 function sameNullable(left, right) {
   return (left ?? null) === (right ?? null);
@@ -52,22 +52,6 @@ function decision(request, {
     reason,
     decidedAt,
   });
-}
-
-function exactEgressScope(grant, request, grantRef) {
-  return grant.grantId === grantRef
-    && grant.workItemId === request.workItemId
-    && request.approvalId !== null
-    && grant.approvalId === request.approvalId
-    && grant.toolId === request.toolId
-    && grant.toolArtifactSha256 === request.toolArtifactSha256
-    && grant.actionId === request.actionId
-    && grant.effect === "external-egress"
-    && grant.ownerKind === request.ownerKind
-    && sameNullable(grant.ownerId, request.ownerId)
-    && sameNullable(grant.spaceId, request.spaceId)
-    && sameNullable(grant.projectId, request.projectId)
-    && grant.resourceRef === request.resourceRef;
 }
 
 export function createPersonalOrdaxActionGateway({
@@ -202,31 +186,17 @@ export function createPersonalOrdaxActionGateway({
 
         let grant;
         try {
-          grant = validateExternalEgressGrant(externalEgressGrantResolver(grantRef));
+          ({ grant } = validateExternalEgressGrantForAction({
+            grant: externalEgressGrantResolver(grantRef),
+            request,
+            grantRef,
+            nowMs: decidedAtMs,
+          }));
         } catch {
           return decision(request, {
             decision: "deny",
             authoritySource: "user-grant",
-            reason: "Referenced external egress grant is unavailable or invalid.",
-            decidedAt,
-          });
-        }
-
-        if (!exactEgressScope(grant, request, grantRef)) {
-          return decision(request, {
-            decision: "deny",
-            authoritySource: "user-grant",
-            reason: "External egress grant does not match the exact Work, approval, owner, context, resource, tool artifact and action.",
-            decidedAt,
-          });
-        }
-
-        const expiry = Date.parse(grant.expiresAt);
-        if (!Number.isFinite(expiry) || expiry <= decidedAtMs) {
-          return decision(request, {
-            decision: "deny",
-            authoritySource: "user-grant",
-            reason: "External egress grant is expired or has an invalid expiry.",
+            reason: "Referenced external egress grant is unavailable, invalid, expired or out of scope.",
             decidedAt,
           });
         }
