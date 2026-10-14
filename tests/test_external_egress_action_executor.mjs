@@ -227,25 +227,39 @@ test("live egress authority reaches typed adapter only as minimal fresh executio
   assert.deepEqual(receipt.artifactRefs, ["web-result:operation-1"]);
 });
 
-test("execution context cannot be forged by request payload fields", async () => {
+test("request payload cannot override the fresh adapter authorization context", async () => {
   const state = setup();
-  const actionRequest = request({
-    reason: "Attempted payload injection stays data-only.",
-  });
-  actionRequest.grantRef = "forged-grant";
+  const actionRequest = request();
+  const decision = state.gateway.decide(actionRequest, { grantRef: state.grant.grantId });
+  const injectedRequest = { ...actionRequest, grantRef: "forged-grant" };
+  let adapterCalls = 0;
 
-  await assert.rejects(
-    async () => {
-      const decision = state.gateway.decide(actionRequest, { grantRef: state.grant.grantId });
-      const runtime = executor({
-        gateway: state.gateway,
-        now: state.now,
-        adapterResolver() {
-          throw new Error("invalid action request must not resolve adapter");
+  const runtime = executor({
+    gateway: state.gateway,
+    now: state.now,
+    adapterResolver() {
+      return {
+        schema: ACTION_ADAPTER_SCHEMA,
+        toolId: actionRequest.toolId,
+        artifactSha256: ARTIFACT,
+        actionId: actionRequest.actionId,
+        effect: actionRequest.effect,
+        async execute(receivedRequest, context) {
+          adapterCalls += 1;
+          assert.equal("grantRef" in receivedRequest, false);
+          assert.equal(context.grantRef, state.grant.grantId);
+          assert.notEqual(context.grantRef, injectedRequest.grantRef);
+          return {
+            status: "succeeded",
+            summary: "Payload authority field was not propagated.",
+            artifactRefs: [],
+          };
         },
-      });
-      await runtime.execute({ request: actionRequest, decision });
+      };
     },
-    /grantRef|unsupported|invalid|outside|authority/i,
-  );
+  });
+
+  const receipt = await runtime.execute({ request: injectedRequest, decision });
+  assert.equal(adapterCalls, 1);
+  assert.equal(receipt.grantRef, state.grant.grantId);
 });
