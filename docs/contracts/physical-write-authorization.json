@@ -8,7 +8,7 @@
   "release_sequence": 1,
   "authorization_context_sha256": null,
   "bindings": {
-    "minimal_bootstrap_sha256": "e6046970f92330fba0f1a14e8866fd81cc21bd5db33a03e4cb51216ca69a897b",
+    "minimal_bootstrap_sha256": "873469d19f63468a6711fd038f8850b5cd06c163facaa2c9d6b306fb552324e7",
     "release_trust_sha256": "d2836df77a3d5a54ccf64cc5643cfd5c19052efc83f2e3e2666c6d3197fce250",
     "portable_usb_contract_sha256": "d5f28c165b07c4d1201ac79f542a494f87ad520b31c98baa836313162f47c4c0",
     "creator_portable_media_contract_sha256": "59864ea3ae8d48896c7576fd64accb6c462cf5192cbdd7b70b6667dfb13eafc1",
