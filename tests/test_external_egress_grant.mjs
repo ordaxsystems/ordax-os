@@ -87,6 +87,9 @@ test("egress contract rejects broad or unsafe network scope", () => {
     ["https://api.example.com:8443"],
     ["https://user:pass@api.example.com"],
     ["https://*.example.com"],
+    ["https://localhost"],
+    ["https://127.0.0.1"],
+    ["https://[::1]"],
     ["https://api.example.com", "https://API.EXAMPLE.COM/"],
   ]) {
     assert.throws(() => validateExternalEgressGrantIssue(issue({ destinations })), TypeError);
