@@ -47,7 +47,7 @@ function applyProviderContribution(value, context, label) {
     }
   }
   if (additions.length === 0) {
-    return Object.freeze({ context, contributed: true });
+    return Object.freeze({ context, contributed: false });
   }
   return Object.freeze({
     context: Object.freeze({ ...context, ...value }),
