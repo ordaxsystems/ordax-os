@@ -73,7 +73,12 @@ test("mount-contract wiring exists without granting Files probation", async () =
   assert.match(orchestrator, /createRuntimeMountHealthCheck/);
   assert.match(orchestrator, /mode === COMPONENT_MOUNT_HEALTH_PROBE_MODE/);
   assert.match(orchestrator, /mountContext/);
-  assert.match(nativeComposition, /mountContext/);
+  assert.match(nativeComposition, /composeComponentProbationContext/);
+  assert.match(nativeComposition, /probeMode === mountProbeMode/);
+  assert.doesNotMatch(
+    nativeComposition,
+    /runNativePendingComponentProbation\(\{[\s\S]*?mountContext\s*=/,
+  );
   assert.doesNotMatch(browserHost, /mountContext/);
 
   const fetched = [];
