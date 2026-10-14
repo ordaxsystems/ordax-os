@@ -13,12 +13,35 @@ export const EXTERNAL_EGRESS_MAX_DEADLINE_MS = 60_000;
 const OWNER_KINDS = new Set(["device", "account"]);
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const ID_RE = /^[a-z][a-z0-9._-]{0,95}$/;
-const FORBIDDEN_KEYS = new Set([
-  "apiKey",
+const ACTION_RE = /^[a-z][a-z0-9._-]{0,127}$/;
+const COMMON_FIELDS = new Set([
+  "schema",
+  "workItemId",
+  "approvalId",
+  "toolId",
+  "toolArtifactSha256",
+  "actionId",
+  "effect",
+  "ownerKind",
+  "ownerId",
+  "spaceId",
+  "projectId",
+  "resourceRef",
+  "destinations",
+  "maxRequests",
+  "maxExternalBytes",
+  "maxCostUsd",
+  "deadlineMs",
+  "approvedBy",
+  "expiresAt",
+]);
+const ISSUE_FIELDS = new Set([...COMMON_FIELDS, "requestedAt"]);
+const GRANT_FIELDS = new Set([...COMMON_FIELDS, "grantId", "issuedAt"]);
+const CREDENTIAL_KEYS = new Set([
   "apikey",
   "token",
-  "accessToken",
-  "refreshToken",
+  "accesstoken",
+  "refreshtoken",
   "secret",
   "credential",
   "credentials",
@@ -36,10 +59,13 @@ function object(value, label) {
   return value;
 }
 
-function rejectSecretFields(value, label) {
+function rejectUnexpectedFields(value, label, allowed) {
   for (const key of Object.keys(value)) {
-    if (FORBIDDEN_KEYS.has(key)) {
+    if (CREDENTIAL_KEYS.has(key.toLowerCase())) {
       throw new TypeError(`${label} cannot carry credential field ${key}`);
+    }
+    if (!allowed.has(key)) {
+      throw new TypeError(`${label} contains unsupported field ${key}`);
     }
   }
 }
@@ -60,8 +86,8 @@ function optionalText(value, label, max = 256) {
   return boundedText(value, label, max);
 }
 
-function identifier(value, label) {
-  if (typeof value !== "string" || !ID_RE.test(value)) {
+function identifier(value, label, pattern = ID_RE) {
+  if (typeof value !== "string" || !pattern.test(value)) {
     throw new TypeError(`${label} is invalid`);
   }
   return value;
@@ -111,7 +137,7 @@ function httpsOrigin(value, label) {
   return url.origin.toLowerCase();
 }
 
-function destinations(value) {
+function normalizeDestinations(value) {
   if (!Array.isArray(value) || value.length === 0 || value.length > EXTERNAL_EGRESS_MAX_DESTINATIONS) {
     throw new TypeError("External egress destinations must be a non-empty bounded array");
   }
@@ -122,10 +148,7 @@ function destinations(value) {
   return Object.freeze(normalized);
 }
 
-function normalizeScope(value, { includeGrantId }) {
-  const input = object(value, includeGrantId ? "External egress grant" : "External egress grant issue");
-  rejectSecretFields(input, includeGrantId ? "External egress grant" : "External egress grant issue");
-
+function normalizeScope(input, approvalAt) {
   if (input.effect !== undefined && input.effect !== "external-egress") {
     throw new TypeError("External egress grant effect is incompatible");
   }
@@ -147,34 +170,29 @@ function normalizeScope(value, { includeGrantId }) {
     throw new TypeError("External egress tool artifact sha256 is invalid");
   }
 
-  const issuedAt = timestamp(
-    includeGrantId ? input.issuedAt : input.requestedAt,
-    includeGrantId ? "External egress issuedAt" : "External egress requestedAt",
-  );
   const expiresAt = timestamp(input.expiresAt, "External egress expiresAt");
-  const issuedMs = Date.parse(issuedAt);
-  const expiresMs = Date.parse(expiresAt);
-  if (expiresMs <= issuedMs) {
+  const approvalAtMs = Date.parse(approvalAt);
+  const expiresAtMs = Date.parse(expiresAt);
+  if (expiresAtMs <= approvalAtMs) {
     throw new TypeError("External egress grant expiry must follow approval time");
   }
-  if (expiresMs - issuedMs > EXTERNAL_EGRESS_MAX_TTL_MS) {
+  if (expiresAtMs - approvalAtMs > EXTERNAL_EGRESS_MAX_TTL_MS) {
     throw new TypeError("External egress grant exceeds the bounded TTL");
   }
 
   return Object.freeze({
-    ...(includeGrantId ? { grantId: identifier(input.grantId, "External egress grant id") } : {}),
     workItemId: boundedText(input.workItemId, "External egress work item id", 160),
     approvalId: boundedText(input.approvalId, "External egress approval id", 200),
     toolId: identifier(input.toolId, "External egress tool id"),
     toolArtifactSha256,
-    actionId: boundedText(input.actionId, "External egress action id", 128),
+    actionId: identifier(input.actionId, "External egress action id", ACTION_RE),
     effect: "external-egress",
     ownerKind: input.ownerKind,
     ownerId,
     spaceId: optionalText(input.spaceId, "External egress Space id", 160),
     projectId: optionalText(input.projectId, "External egress project id", 160),
     resourceRef: boundedText(input.resourceRef, "External egress resource ref", 512),
-    destinations: destinations(input.destinations),
+    destinations: normalizeDestinations(input.destinations),
     maxRequests: boundedInteger(input.maxRequests, "External egress maxRequests", 1, EXTERNAL_EGRESS_MAX_REQUESTS),
     maxExternalBytes: boundedInteger(input.maxExternalBytes, "External egress maxExternalBytes", 1_024, EXTERNAL_EGRESS_MAX_BYTES),
     maxCostUsd: boundedCost(input.maxCostUsd, "External egress maxCostUsd"),
@@ -182,32 +200,39 @@ function normalizeScope(value, { includeGrantId }) {
     approvedBy: input.approvedBy === "user"
       ? "user"
       : (() => { throw new TypeError("External egress grant requires explicit user approval"); })(),
-    issuedAt,
     expiresAt,
   });
 }
 
 export function validateExternalEgressGrantIssue(value) {
   const input = object(value, "External egress grant issue");
+  rejectUnexpectedFields(input, "External egress grant issue", ISSUE_FIELDS);
   if (input.schema !== undefined && input.schema !== EXTERNAL_EGRESS_GRANT_ISSUE_SCHEMA) {
     throw new TypeError("External egress grant issue schema is incompatible");
   }
-  const normalized = normalizeScope(input, { includeGrantId: false });
+  const requestedAt = timestamp(input.requestedAt, "External egress requestedAt");
+  const scope = normalizeScope(input, requestedAt);
   return Object.freeze({
     schema: EXTERNAL_EGRESS_GRANT_ISSUE_SCHEMA,
-    ...normalized,
-    requestedAt: normalized.issuedAt,
-    issuedAt: undefined,
+    ...scope,
+    requestedAt,
   });
 }
 
 export function validateExternalEgressGrant(value) {
   const input = object(value, "External egress grant");
+  rejectUnexpectedFields(input, "External egress grant", GRANT_FIELDS);
   if (input.schema !== undefined && input.schema !== EXTERNAL_EGRESS_GRANT_SCHEMA) {
     throw new TypeError("External egress grant schema is incompatible");
   }
-  const normalized = normalizeScope(input, { includeGrantId: true });
-  return Object.freeze({ schema: EXTERNAL_EGRESS_GRANT_SCHEMA, ...normalized });
+  const issuedAt = timestamp(input.issuedAt, "External egress issuedAt");
+  const scope = normalizeScope(input, issuedAt);
+  return Object.freeze({
+    schema: EXTERNAL_EGRESS_GRANT_SCHEMA,
+    grantId: identifier(input.grantId, "External egress grant id"),
+    ...scope,
+    issuedAt,
+  });
 }
 
 export function assertExternalEgressGrantRegistry(value) {
