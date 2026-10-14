@@ -71,13 +71,17 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
         self.assertIn("ordax.mode=recovery", RECOVERY_ENTRY)
 
     def test_owner_creator_derives_profile_specific_boot_entries(self):
+        self.assertIn("'docs/contracts/distribution-profiles.json'", WORKFLOW)
+        self.assertIn("owner_profile_id = 'owner-development'", WORKFLOW)
+        self.assertIn("owner_profile = profiles['profiles'].get(owner_profile_id)", WORKFLOW)
+        self.assertIn("owner_profile_token = f'ordax.distribution_profile={owner_profile_id}'", WORKFLOW)
         self.assertIn("owner_entry_specs", WORKFLOW)
         self.assertIn("out/owner-prototype/boot-entries", WORKFLOW)
         self.assertIn("/loader/entries/ordax.conf", WORKFLOW)
         self.assertIn("/loader/entries/ordax-recovery.conf", WORKFLOW)
-        self.assertIn("ordax.distribution_profile=owner-development", WORKFLOW)
         self.assertIn("artifact['source_path'] = owner_path.as_posix()", WORKFLOW)
         self.assertIn("artifact['sha256'] = digest(owner_path)", WORKFLOW)
+        self.assertIn("'distribution_profile': owner_profile_id", WORKFLOW)
 
     def test_distribution_profile_points_to_the_owner_creator(self):
         owner = PROFILES["profiles"]["owner-development"]
