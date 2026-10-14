@@ -4,7 +4,7 @@
 The policy is deliberately fail-closed. High-level system source is lightweight only
 when it is not part of the Native runtime import graph and is not a known host/boot
 owner. Unknown system roots and every non-system path reaching this workflow remain
-heavy by default, except explicitly classified producer-neutral helpers.
+heavy by default, except explicitly classified producer-neutral helpers or roots.
 """
 from __future__ import annotations
 
@@ -40,6 +40,9 @@ HIGH_LEVEL_LIGHT_PREFIXES = (
 PRODUCER_NEUTRAL_LIGHT_EXACT = {
     "bootstrap/kernel/module_archive.py",
 }
+PRODUCER_NEUTRAL_LIGHT_PREFIXES = (
+    "bootstrap/independent-base/",
+)
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
     "system/supervisor",
@@ -235,6 +238,8 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             reasons.append(f"heavy-prefix:{path}")
             continue
         if path in PRODUCER_NEUTRAL_LIGHT_EXACT:
+            continue
+        if path.startswith(PRODUCER_NEUTRAL_LIGHT_PREFIXES):
             continue
         if not path.startswith("system/"):
             # The workflow trigger already limits non-system paths to Portable/boot/
