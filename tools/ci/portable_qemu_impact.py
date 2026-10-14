@@ -2,7 +2,7 @@
 """Classify whether a repository delta requires the heavy Portable/QEMU proof.
 
 The policy is deliberately fail-closed. High-level system source is lightweight only
-when it is not part of the Native startup import graph and is not a known host/boot
+when it is not part of the Native runtime import graph and is not a known host/boot
 owner. Unknown system roots and every non-system path reaching this workflow remain
 heavy by default.
 """
@@ -10,14 +10,17 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from html.parser import HTMLParser
+from pathlib import Path
 import re
 import subprocess
 import sys
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
-NATIVE_COMPOSITION_ROOT = PurePosixPath("system/composition/native/main.mjs")
+NATIVE_COMPOSITION_INDEX = Path("system/composition/native/index.html")
+NATIVE_COMPOSITION_MAIN = Path("system/composition/native/main.mjs")
+NATIVE_BROWSER_HOST = Path("system/surface/runtime/ordax_browser_host.py")
 
 PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
@@ -57,6 +60,9 @@ IMPORT_RE = re.compile(
     r"|import\s*\(\s*[\"'](\.[^\"']+)[\"']\s*\)",
     re.MULTILINE,
 )
+BROWSER_NATIVE_IMPORT_RE = re.compile(
+    r"[\"'](/composition/native/[^\"'?#\s]+\.(?:mjs|js))[\"']"
+)
 IMPORT_EXTENSIONS = (".mjs", ".js", ".cjs", ".json")
 
 
@@ -65,6 +71,22 @@ class ImpactResult:
     required: bool
     reasons: tuple[str, ...]
     changed_paths: tuple[str, ...]
+
+
+class _ModuleScriptParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.sources: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "script":
+            return
+        values = {key.lower(): value for key, value in attrs}
+        if (values.get("type") or "").lower() != "module":
+            return
+        source = values.get("src")
+        if source:
+            self.sources.append(source)
 
 
 def _normalise_path(value: str) -> str:
@@ -78,11 +100,18 @@ def _is_presentation_light(path: str) -> bool:
     return path.endswith(".md") or path.startswith(PRESENTATION_LIGHT_PREFIXES)
 
 
-def _resolve_relative_import(source: Path, specifier: str, root: Path) -> Path | None:
-    candidate = (source.parent / specifier).resolve()
+def _path_inside_root(candidate: Path, root: Path) -> Path | None:
+    resolved = candidate.resolve()
     try:
-        candidate.relative_to(root.resolve())
+        resolved.relative_to(root.resolve())
     except ValueError:
+        return None
+    return resolved
+
+
+def _resolve_relative_import(source: Path, specifier: str, root: Path) -> Path | None:
+    candidate = _path_inside_root(source.parent / specifier, root)
+    if candidate is None:
         return None
 
     choices: list[Path] = [candidate]
@@ -95,12 +124,60 @@ def _resolve_relative_import(source: Path, specifier: str, root: Path) -> Path |
     return None
 
 
-def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tuple[str, ...]]:
-    start = root / NATIVE_COMPOSITION_ROOT.as_posix()
-    if not start.is_file():
-        return frozenset(), (f"missing-startup-root:{NATIVE_COMPOSITION_ROOT.as_posix()}",)
+def _native_runtime_roots(root: Path) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    root = root.resolve()
+    index = root / NATIVE_COMPOSITION_INDEX
+    browser_host = root / NATIVE_BROWSER_HOST
+    errors: list[str] = []
+    discovered: set[Path] = set()
 
-    pending = [start.resolve()]
+    if not index.is_file():
+        errors.append(f"missing-runtime-root-source:{NATIVE_COMPOSITION_INDEX.as_posix()}")
+    else:
+        try:
+            parser = _ModuleScriptParser()
+            parser.feed(index.read_text(encoding="utf-8"))
+            for source in parser.sources:
+                if not source.startswith("./") or "?" in source or "#" in source:
+                    errors.append(f"unsupported-module-script:{source}")
+                    continue
+                candidate = _path_inside_root(index.parent / source, root)
+                if candidate is None or not candidate.is_file():
+                    errors.append(f"missing-module-script:{source}")
+                    continue
+                discovered.add(candidate)
+        except (OSError, UnicodeError, ValueError) as exc:
+            errors.append(f"unreadable-runtime-index:{type(exc).__name__}")
+
+    if not browser_host.is_file():
+        errors.append(f"missing-runtime-root-source:{NATIVE_BROWSER_HOST.as_posix()}")
+    else:
+        try:
+            browser_text = browser_host.read_text(encoding="utf-8")
+            for match in BROWSER_NATIVE_IMPORT_RE.finditer(browser_text):
+                url_path = match.group(1)
+                candidate = _path_inside_root(root / "system" / url_path.lstrip("/"), root)
+                if candidate is None or not candidate.is_file():
+                    errors.append(f"missing-browser-native-import:{url_path}")
+                    continue
+                discovered.add(candidate)
+        except (OSError, UnicodeError) as exc:
+            errors.append(f"unreadable-browser-host:{type(exc).__name__}")
+
+    required_main = (root / NATIVE_COMPOSITION_MAIN).resolve()
+    if required_main not in discovered:
+        errors.append(f"missing-required-runtime-root:{NATIVE_COMPOSITION_MAIN.as_posix()}")
+
+    return tuple(sorted(discovered)), tuple(sorted(set(errors)))
+
+
+def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tuple[str, ...]]:
+    runtime_roots, root_errors = _native_runtime_roots(root)
+    if root_errors:
+        return frozenset(), root_errors
+
+    resolved_root = root.resolve()
+    pending = list(runtime_roots)
     visited: set[Path] = set()
     reachable: set[str] = set()
     errors: list[str] = []
@@ -110,7 +187,7 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
         if source in visited:
             continue
         visited.add(source)
-        relative = source.relative_to(root.resolve()).as_posix()
+        relative = source.relative_to(resolved_root).as_posix()
         reachable.add(relative)
 
         if _is_presentation_light(relative) or source.suffix not in {".mjs", ".js", ".cjs"}:
@@ -127,7 +204,7 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
             if target is None:
                 errors.append(f"unresolved:{relative}:{specifier}")
                 continue
-            target_relative = target.relative_to(root.resolve()).as_posix()
+            target_relative = target.relative_to(resolved_root).as_posix()
             if _is_presentation_light(target_relative):
                 # Presentation has dedicated Surface gates and is intentionally not a
                 # kernel/QEMU causal input. Do not traverse its dependency subtree here.
@@ -144,7 +221,7 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
 
     reachable, graph_errors = native_startup_import_graph(root)
     if graph_errors:
-        return ImpactResult(True, tuple(f"startup-graph:{item}" for item in graph_errors), changed)
+        return ImpactResult(True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed)
 
     reasons: list[str] = []
     for path in changed:
@@ -163,7 +240,7 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         if _is_presentation_light(path):
             continue
         if path in reachable:
-            reasons.append(f"native-startup-reachable:{path}")
+            reasons.append(f"native-runtime-reachable:{path}")
             continue
         if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
             continue
@@ -171,7 +248,7 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         # made explicit.
         reasons.append(f"heavy-unclassified-system:{path}")
 
-    return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-startup-reachable",), changed)
+    return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-runtime-reachable",), changed)
 
 
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
