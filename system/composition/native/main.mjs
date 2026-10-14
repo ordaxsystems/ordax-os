@@ -124,6 +124,7 @@ import { createNativeAccountMemoryFoundation } from "./account-memory-foundation
 import { createNativeAccountSyncRuntime } from "./account-sync.mjs";
 import { createNativePersonalOrdaxComposition } from "./personal-ordax.mjs";
 import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
+import { installNativeIntelligenceHostBridge } from "./intelligence-host-bridge.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
 import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
@@ -538,6 +539,12 @@ async function start() {
         identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
+  installNativeIntelligenceHostBridge({
+    windowRef: window,
+    intelligencePort: selectedSpaceIntelligence,
+    identitySessionPort: identitySession,
+    spaceSelectionPort: spaceSelection,
+  });
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(

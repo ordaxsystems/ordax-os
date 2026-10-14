@@ -44,6 +44,11 @@ from native_component_probation import (
     ComponentProbationReceiptError,
     record_system_component_probation,
 )
+from native_intelligence_ipc import (
+    NativeIntelligenceIpcServer,
+    completed_response as completed_intelligence_response,
+    unknown_response as unknown_intelligence_response,
+)
 from native_profile_consent_ipc import (
     DECISION_SCHEMA as PROFILE_CONSENT_DECISION_SCHEMA,
     ProfileConsentIpcServer,
@@ -63,6 +68,8 @@ MAX_PAGE_FIND_MATCHES = 1000
 PAGE_SELECTION_MAX_CHARS = 4096
 PAGE_SELECTION_REQUEST_RE = re.compile(r"^selection-[1-9][0-9]{0,8}$")
 MAX_URI_LENGTH = 8192
+INTELLIGENCE_HOST_TIMEOUT_SECONDS = 150.0
+INTELLIGENCE_HOST_REQUEST_EVENT = "ordax-native-intelligence-request"
 # Keep the privileged browser probe scope identical to the Native probation
 # adapter; that adapter consumes the component package SSOT.
 SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))
@@ -231,6 +238,12 @@ class OrdaXBrowserHost:
         self.profile_consent_listener = None
         self.profile_consent_thread = None
         self.profile_consent_stopping = threading.Event()
+        self.intelligence_ipc = NativeIntelligenceIpcServer()
+        self.intelligence_listener = None
+        self.intelligence_thread = None
+        self.intelligence_stopping = threading.Event()
+        self.intelligence_pending: dict[str, dict] = {}
+        self.intelligence_pending_lock = threading.Lock()
 
         os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
         profile_data = os.path.join(self.profile_root, "default", "data")
@@ -310,6 +323,180 @@ class OrdaXBrowserHost:
             daemon=True,
         )
         self.profile_consent_thread.start()
+
+    def start_intelligence_listener(self) -> None:
+        if self.intelligence_listener is not None:
+            return
+        try:
+            listener = self.intelligence_ipc.open()
+            listener.settimeout(1.0)
+        except (OSError, RuntimeError) as exc:
+            print(
+                f"ordax-browser-host: Native Intelligence IPC unavailable: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        self.intelligence_listener = listener
+
+        def serve() -> None:
+            while not self.intelligence_stopping.is_set():
+                try:
+                    connection, _ = listener.accept()
+                except socket.timeout:
+                    continue
+                except OSError:
+                    if (
+                        self.intelligence_stopping.is_set()
+                        or self.intelligence_listener is not listener
+                    ):
+                        return
+                    raise
+                with connection:
+                    try:
+                        request = self.intelligence_ipc.receive_request(connection)
+                        request_id = request["request"]["requestId"].strip()
+                        response = self.invoke_native_intelligence_from_worker(request)
+                        self.intelligence_ipc.send_response(
+                            connection,
+                            response,
+                            expected_request_id=request_id,
+                        )
+                    except (
+                        ConnectionError,
+                        OSError,
+                        PermissionError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        print(
+                            f"ordax-browser-host: Native Intelligence IPC request rejected: {exc}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+
+        self.intelligence_thread = threading.Thread(
+            target=serve,
+            name="ordax-native-intelligence",
+            daemon=True,
+        )
+        self.intelligence_thread.start()
+
+    def suspend_intelligence_listener(self) -> None:
+        listener = self.intelligence_listener
+        self.intelligence_listener = None
+        if listener is not None:
+            self.intelligence_ipc.close()
+        thread = self.intelligence_thread
+        self.intelligence_thread = None
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2)
+        with self.intelligence_pending_lock:
+            pending_requests = list(self.intelligence_pending.values())
+            self.intelligence_pending.clear()
+        for pending in pending_requests:
+            pending["response"] = unknown_intelligence_response(pending["requestId"])
+            pending["event"].set()
+
+    def emit_native_intelligence_request(self, nonce: str, request: dict) -> None:
+        encoded = json.dumps(
+            {"nonce": nonce, "request": request},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        script = (
+            "window.dispatchEvent(new CustomEvent("
+            + json.dumps(INTELLIGENCE_HOST_REQUEST_EVENT)
+            + ",{detail:"
+            + encoded
+            + "}));"
+        )
+        self.surface_view.run_javascript(script, None, None, None)
+
+    def complete_native_intelligence_pending(self, nonce: str, response: dict) -> bool:
+        with self.intelligence_pending_lock:
+            pending = self.intelligence_pending.pop(nonce, None)
+        if pending is None:
+            return False
+        pending["response"] = response
+        pending["event"].set()
+        return True
+
+    def invoke_native_intelligence_from_worker(self, request: dict) -> dict:
+        request_id = request["request"]["requestId"].strip()
+        nonce = secrets.token_urlsafe(32)
+        pending = {
+            "requestId": request_id,
+            "event": threading.Event(),
+            "response": None,
+        }
+        with self.intelligence_pending_lock:
+            while nonce in self.intelligence_pending:
+                nonce = secrets.token_urlsafe(32)
+            self.intelligence_pending[nonce] = pending
+
+        def dispatch() -> bool:
+            try:
+                self.emit_native_intelligence_request(nonce, request["request"])
+            except Exception as exc:  # pragma: no cover - native runtime diagnostic
+                print(
+                    f"ordax-browser-host: Native Intelligence dispatch failed: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self.complete_native_intelligence_pending(
+                    nonce,
+                    unknown_intelligence_response(request_id),
+                )
+            return False
+
+        GLib.idle_add(dispatch)
+        if not pending["event"].wait(timeout=INTELLIGENCE_HOST_TIMEOUT_SECONDS):
+            with self.intelligence_pending_lock:
+                self.intelligence_pending.pop(nonce, None)
+            return unknown_intelligence_response(request_id)
+        response = pending.get("response")
+        if not isinstance(response, dict):
+            return unknown_intelligence_response(request_id)
+        return response
+
+    def handle_intelligence_host_ready(self, payload: dict) -> None:
+        if set(payload) != {"type"}:
+            raise ValueError("Native Intelligence host readiness fields are invalid")
+        self.start_intelligence_listener()
+
+    def handle_intelligence_host_result(self, payload: dict) -> None:
+        base = {"type", "nonce", "requestId", "ok"}
+        if not isinstance(payload, dict) or not base.issubset(payload):
+            raise ValueError("Native Intelligence host result fields are invalid")
+        nonce = payload.get("nonce")
+        request_id = payload.get("requestId")
+        ok = payload.get("ok")
+        if not isinstance(nonce, str) or not isinstance(request_id, str) or not isinstance(ok, bool):
+            raise ValueError("Native Intelligence host result correlation is invalid")
+        with self.intelligence_pending_lock:
+            pending = self.intelligence_pending.get(nonce)
+        if pending is None:
+            raise ValueError("Native Intelligence host result has no active nonce")
+        if pending["requestId"] != request_id:
+            raise PermissionError("Native Intelligence host result request id does not match")
+
+        if ok:
+            if set(payload) != base | {"response"}:
+                raise ValueError("Native Intelligence completed result fields are invalid")
+            response = payload.get("response")
+            if not isinstance(response, dict) or response.get("requestId") != request_id:
+                raise ValueError("Native Intelligence completed result is not correlated")
+            ipc_response = completed_intelligence_response(request_id, response)
+        else:
+            if set(payload) != base | {"outcome", "error"}:
+                raise ValueError("Native Intelligence unknown result fields are invalid")
+            if payload.get("outcome") != "unknown" or payload.get("error") != "unavailable":
+                raise ValueError("Native Intelligence failure outcome is invalid")
+            ipc_response = unknown_intelligence_response(request_id)
+
+        if not self.complete_native_intelligence_pending(nonce, ipc_response):
+            raise ValueError("Native Intelligence host result nonce expired")
 
     def present_profile_consent_from_worker(self, request: dict) -> dict:
         finished = threading.Event()
@@ -469,6 +656,9 @@ class OrdaXBrowserHost:
         return True
 
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
+        if load_event == WebKit2.LoadEvent.STARTED:
+            self.suspend_intelligence_listener()
+            return
         if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
             return
         self.component_probation_started = True
@@ -659,7 +849,11 @@ class OrdaXBrowserHost:
                 self.handle_component_probation_request(payload)
             elif command == "component.probation.result":
                 self.handle_component_probation_result(payload)
-        except (TypeError, ValueError) as exc:
+            elif command == "intelligence.host.ready":
+                self.handle_intelligence_host_ready(payload)
+            elif command == "intelligence.host.result":
+                self.handle_intelligence_host_result(payload)
+        except (PermissionError, TypeError, ValueError) as exc:
             print(f"ordax-browser-host: rejected {command!r}: {exc}", file=sys.stderr, flush=True)
 
     def valid_tab_id(self, tab_id: object) -> str:
@@ -1297,6 +1491,8 @@ class OrdaXBrowserHost:
         self.profile_consent_ipc.close()
         if self.profile_consent_thread is not None:
             self.profile_consent_thread.join(timeout=2)
+        self.intelligence_stopping.set()
+        self.suspend_intelligence_listener()
         Gtk.main_quit()
 
 
