@@ -57,6 +57,8 @@ discover_owner_development_device() {
             "") continue ;;
         esac
 
+        # The fixed BusyBox PID1 intentionally does not require ash arithmetic
+        # expansion. Track bounded cardinality as simple states instead.
         esp_matches=0
         for esp_sys in /sys/class/block/*; do
             case "$(cat "$esp_sys/partition" 2>/dev/null || true)" in
@@ -78,7 +80,10 @@ discover_owner_development_device() {
                 *'TYPE="vfat"'*) ;;
                 *) continue ;;
             esac
-            esp_matches=$((esp_matches + 1))
+            case "$esp_matches" in
+                0) esp_matches=1 ;;
+                *) esp_matches=2 ;;
+            esac
         done
 
         case "$esp_matches" in
@@ -86,22 +91,26 @@ discover_owner_development_device() {
             *) continue ;;
         esac
 
-        ORDAX_DEVICE_MATCHES=$((ORDAX_DEVICE_MATCHES + 1))
+        case "$ORDAX_DEVICE_MATCHES" in
+            0) ORDAX_DEVICE_MATCHES=1 ;;
+            *) ORDAX_DEVICE_MATCHES=2 ;;
+        esac
         ORDAX_DEVICE="/dev/$name"
     done
 }
 
 case "$OWNER_DEVELOPMENT" in
     1)
-        attempts=0
+        # Ten bounded discovery attempts without shell arithmetic expansion.
+        set -- 1 2 3 4 5 6 7 8 9 10
         while :; do
             discover_owner_development_device
             case "$ORDAX_DEVICE_MATCHES" in
                 1) break ;;
                 0)
-                    attempts=$((attempts + 1))
-                    case "$attempts" in
-                        10) rescue "owner-development USB root not found on exactly one removable ORDAX/ORDAX-ESP device" ;;
+                    case "$#" in
+                        1) rescue "owner-development USB root not found on exactly one removable ORDAX/ORDAX-ESP device" ;;
+                        *) shift ;;
                     esac
                     sleep 1
                     ;;
