@@ -1,6 +1,8 @@
 # Meridian → Surface canônica — plano de integração
 
-**Estado: PROPOSTA ARQUITETURAL PARA AUDITORIA. Implementação não autorizada por este documento.**
+**Estado: C — plano corrigido e aprovado pela auditoria independente de 14/10/2026 para iniciar somente PR-01 controlado. Não autoriza implementação ampla, oferta pública ou release.**
+
+Registro da decisão e limites: [auditoria arquitetural independente](../evidence/meridian-integration-plan-audit-2026-10-14/relatorio.md). Os registros de 13/10 abaixo são históricos; a revalidação independente está em §1.3–1.4, com main final `5a90d66ff2e96e7eed138a0651b9d96b37a06279`. PR-01 não foi iniciado nesta auditoria. A rota documental/provenance de PR-00 deve acompanhar sua revisão antes de qualquer merge de código.
 
 Repositório: `ordaxsystems/ordax-os`. Levantamento e revalidação realizados em 13/10/2026 (America/Sao_Paulo), com fontes fixadas pelos SHAs abaixo. Baseline inicial `9a02f05…`; main revalidada `dcbbd7b…`. Owner documental: arquitetura de Surface/Workspace; owners de domínio conservam seus contratos. Este plano cobre estratégia e execução futura. Aparência e comportamento perceptivo permanecem sob [MERIDIAN-VISUAL-SYSTEM.md](../design/MERIDIAN-VISUAL-SYSTEM.md), aprovado **F-C como SSOT visual da proposta experimental**. Não há Round 5, redesign do shell ou declaração de prontidão para produção.
 
@@ -64,6 +66,23 @@ O merge dcbbd7b acrescentou 36 commits ao grafo após b2fa (232/22 contra Meridi
 
 Foundation, Web e Intelligence Foundation do dcbbd7b foram consultados como success; QEMU desse SHA ainda estava em andamento na consulta, separado do job cancelado anterior. CI não valida Meridian ainda não implementado. O plano não habilita providers, egress, voz/arquivo ou ações para preencher a experiência visual.
 
+### 1.3 Revalidação independente — 14/10/2026
+
+- Main remota/fetched auditada inicialmente por objetos Git: `dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0`; não havia avançado desde a ponta final do levantamento. A ref local `main` continua `fafed4a8916587ad35bc07c2f3baa1a60d561b1e` e não é baseline.
+- Plano recebido em HEAD local/remoto Meridian `55c95eaf77cd52361af7154c66edfc6b6495a70f`. O delta desde `d42b485665e60ec8998726cd4d16cfcaa8529e55` é exclusivamente este plano (974 linhas antes das correções). Merge-base permanece `9fec1276e2b8f15d1b404fe7ea3f9f05c8da5d28`; grafo atual **232/23** (main/Meridian). A contagem 232/22 acima antecede o commit documental, não é divergência de arquitetura.
+- Fetch de tracking foi executado nesta auditoria; `origin/main` passou a apontar ao SHA remoto auditado. Nenhum checkout/reset/rebase/merge de main, push ou PR foi feito. A árvore recebida estava limpa.
+- Trabalhos abertos relevantes: [PR #1765](https://github.com/ordaxsystems/ordax-os/pull/1765), head `765cced393abea86166eae6c1917198a6bb360f6`, adaptador Web remoto de Intelligence; [PR #1766](https://github.com/ordaxsystems/ordax-os/pull/1766), rebind de initramfs; [PR #1751](https://github.com/ordaxsystems/ordax-os/pull/1751), prova iproute2/Surface. Os dois últimos são coordenação de plataforma, sem dependência visual nova. #1757 é [issue de fechamento](https://github.com/ordaxsystems/ordax-os/issues/1757), não PR.
+- #1765 propõe adapter sobre `intelligence/1`, contexto explícito subject/targetDevice/Space/project e validação de resposta, sem compô-lo em Web `main.tsx`. Não entrega endpoint autenticado/deployed, provider, Memory ou E2E credenciado. Comparar IDs na resposta não prova sozinho A→B→A, revogação com mesmos IDs, dispose ou cancelamento: a futura composição precisa geração de autorização e testes desses eventos (§8.2/12). Revalidar merge/SHA/contrato antes de PR-12; não manter adapter Meridian concorrente.
+- QEMU do mesmo `dcbbd7b` concluiu **success** em 14/10/2026 03:04:13 UTC, [run 38502009627/job 115651014641](https://github.com/ordaxsystems/ordax-os/actions/runs/38502009627/job/115651014641). PID1, one-shot fallback e OVMF/systemd-boot passaram. O passo “invalid Ed25519 candidate, durable rollback and read-only rescue” foi **skipped**, não PASS; cold-health permanece gate físico. Foundation e Web seguem success no mesmo SHA. Isso fecha somente a espera histórica desse run, não prova integração Meridian, touch físico, signing/ativação ou todos os cenários de recovery.
+
+### 1.4 Main avançou durante a auditoria independente
+
+Revalidação final encontrou **main `5a90d66ff2e96e7eed138a0651b9d96b37a06279`**, merge de #1765. Foram lidos os três arquivos do delta dcbb→5a90: adapter remoto172 linhas (idêntico ao head765cced já inspecionado), mudança de30 linhas no closure plan e261 linhas de teste alteradas;436 inserções/27 exclusões no total. Grafo agora **243/23**, merge-base inalterado. Composição Web, client/provider/Aura, Workspace, Preferences, tokens, Store/probation e seus contratos não mudaram. Fontes linkadas emdcbb continuam equivalentes para esses arquivos; o novo adapter é fonte de main, não experimento Meridian.
+
+A descrição OPEN de #1765 em§1.3 é a observação inicial. Ele está **MERGED** na revalidação final; PRs1766/1751 continuam abertos. A materialidade é limitada à boundary do owner: reaproveitar o adapter canônico se futuramente houver transporte autenticado/autorizado. `main.tsx` continua explicitamente unavailable e os testes impedem composição prematura. O adapter exige IDs explícitos, valida envelope/context echo, bloqueia antes de dispatch quando degraded/busy/aborted e preserva snapshots equivalentes. Não demonstra geração de autorização A→B→A/revogação/dispose durante pending; essa obrigação de composição permanece em§8.2/PR-12. Nenhum endpoint/E2E/provider/Memory/grant foi habilitado por este merge.
+
+CI no SHA novo: [Foundation38506816072](https://github.com/ordaxsystems/ordax-os/actions/runs/38506816072), [Surface Web38506816079](https://github.com/ordaxsystems/ordax-os/actions/runs/38506816079) e [Intelligence Foundation38506816100](https://github.com/ordaxsystems/ordax-os/actions/runs/38506816100) **success** na consulta. [QEMU38506816059](https://github.com/ordaxsystems/ordax-os/actions/runs/38506816059) **in_progress**, sem conclusão: não PASS no SHA novo. Success do run38502009627 continua evidência de dcbb, não é transferido a5a90. Isso não impede a aprovação documental C/PR-01; P/R do incremento futuro exige evidência do seu próprio SHA. Plano não implementa ou promove capacidade para fechar a espera.
+
 ## 2. Fontes lidas e hierarquia
 
 Foi feita leitura integral dos documentos obrigatórios, não recuperação de lembranças de chats. Fontes visuais são do HEAD local Meridian; arquitetura, contratos, código e CI foram confrontados com main fixada acima. Código local da branch experimental não descreve silenciosamente a main atual.
@@ -88,7 +107,7 @@ Links de código canônico devem ser resolvidos no [tree revalidado](https://git
 
 | Estratégia | Evidência técnica | Decisão e limite |
 | --- | --- | --- |
-| A — merge/cherry-pick | `experience.mjs` mantém estado/janelas/drafts de jornadas e repinta HTML; demo source/storyboards possuem identities, receipts, devices e telemetria; views dependem desses modelos. Branch também contém evidence/tooling e CI de preview. Base está 156 commits atrás do caminho atual da main. | Rejeitada. Nem merge seletivo de commits de UI presume neutralidade. Não promover controller/source/maps; não resolver divergência transplantando o runtime antigo. |
+| A — merge/cherry-pick | `experience.mjs` mantém estado/janelas/drafts de jornadas e repinta HTML; demo source/storyboards possuem identities, receipts, devices e telemetria; views dependem desses modelos. Branch também contém evidence/tooling e CI de preview. O grafo final revalidado tem243 commits exclusivos de main desde merge-base (§1.4). | Rejeitada. Nem merge seletivo de commits de UI presume neutralidade. Não promover controller/source/maps; não resolver divergência transplantando o runtime antigo. |
 | B — reprodução visual na Surface | Já existem presentation switcher, sidebar, dock de janelas, chrome, compact Web, Workspace Native persistente, preferências, contratos de serviços e primitives. | Caminho principal. Evoluir componentes canônicos, fornecer projections puras a partir de owners e preservar instâncias/lifecycle reais. |
 | C — extração neutra | Valores de material, regras visuais, glyphs e SVGs podem ser isolados; arquivos de views completos não são neutros. | Complemento de B. Adotar trechos identificados com provenance, sem imports do experimento ou namespace duplicado de tokens. Assets condicionados a licença/origem e necessidade real. |
 
@@ -207,31 +226,32 @@ OS conserva Identity global, Memory global, Intelligence, permissões, trust/sig
 
 A Central terá o header, Início, páginas, perspectivas, faixa operacional, contexto e continuidade do Freeze dentro da composição canônica. Páginas são apresentação Surface; não são apps/registros/serviços novos. O mesmo reader pode alimentar perspectivas distintas, sem novas fontes editoriais.
 
-| Campo/área visual | Owner → contrato/snapshot | Adapter/projection → Surface | Ausência, frescor ou limite |
-| --- | --- | --- | --- |
-| Marca/identidade do produto | Product family/branding canônico | Assets/Brand existentes → header/rail | Não trocar marca por artwork do estudo |
-| Breadcrumb Central/página | Surface navigation state | ID de página localizado → header | Não title editorial como route/authority |
-| Space/contexto no header | Identity + Spaces authorized view + selection | Active Space explicitamente autorizado → label/selector | Nenhum selecionado/indisponível; nunca primeiro Space por fallback |
-| Saudação/nome | Identity session displayName | Reader atual + localização → título | Saudação neutra local/signed-out; sem “Lia” hardcoded |
-| Data/período do dia | Date/Intl + regional preferences | Formatação existente → time/saudação | Hora real, não datas congeladas da captura |
-| Profile/contexto profissional | Spaces profilePack + Profile owner | Perfil verificado para Space autorizado → resumo | Sem Profile/port, mostrar ausência; sem “Criação e design” por associação visual |
-| Modo USB/Web/sessão local | Product mode + Local Session/host | Label por modo/capability → faixa | Não inferir USB de material Native; lock real separado da cloud |
-| Local de dados | Files/storage capability | Descrição de escopo efetivamente fornecida → faixa | “Dados no USB” só com owner comprovando; sem volume fake |
-| Rede | network-status ou surface-host | Network presentation existente → faixa/tray | Unknown/offline; browser online só indício de conectividade |
-| Atualização | Supervisor update-status + freshness | Redação de phase/status/Entrega quando fornecida → faixa | Sem data/ETA/percentual calculado pela UI; stale não healthy |
-| Número de janelas/continuidade | Workspace da área ativa | Snapshot de janelas realmente abertas → faixa | Contagem de janelas reais, incluindo minimizadas com semântica explícita |
-| Pendências | Notifications + sync/work readers reais | home-pending-presentation e projeções autorizadas → resumo | Estado indisponível difere de lista vazia; sem “tudo em dia” por timeout |
-| Retome o fio/projetos | project-catalog/1 + recent-files/1 | home-continuation-presentation → cards/activation existente | Catálogo atual é de dispositivo/sessão, não Space-scoped. Rotular “Neste dispositivo” até contrato real de escopo. |
-| Documento recente/reference | Files references/targets validados | Path lógico/reference + nome/timestamp permitido → card | Revalidar permissão na ação; sem mock, raw host path ou leitura automática |
-| Pessoas/avatar/membership | Identity/Spaces reader autorizado | Só campos efetivamente contratados → lista opcional | spaces/1 não fornece toda equipe/avatares; omitir composição decorativa de colaboradores |
-| Agenda/“No seu horizonte” | Owner de agenda/eventos ainda não conectado a esta composição | Sem contrato, empty/unavailable com próximo passo legítimo | Não criar horários, reuniões ou deadlines; bloqueado como dado operacional |
-| Resultados/work | Personal OrdaX/work-canvas reader autorizado | Work/proposal/result com owner/Space/revisão → perspectiva Seu trabalho | Reader não autoriza execução; não ressuscitar app Activity removido |
-| Apps/Ecossistema | Runtime catalog + Store verificado | Grupos disponíveis/descoberta distintos → página | Catálogo não equivale a instalado ou montado; sem ícones de apps inexistentes |
-| Profiles | Profile pack catalog/source autorizado | Lista bounded/versões reais → página Profiles | Não “centenas de perfis disponíveis” por fixture; paging depende de owner |
-| Devices | Device capabilities/agent reader tipado | Descriptors e readiness real → página | Sem pairing/live status se não contratado; desconhecido explícito |
-| Intelligence input/modelo | Intelligence + conversation capabilities | Input sob demanda + estado do modelo → entry/painel | Microfone/stream/cancel só com capability; sem progresso scripted |
-| Busca/“próximo passo” | Surface destinos + readers autorizados | Filtragem de nomes públicos/permitidos → Search | Não buscar contents Memory/Files com seleção visual como autorização |
-| Preferências da Central | Preferences | Perspective/page/shortcuts de apresentação → controles | Não altera Space, app lifecycle ou grants |
+| Campo/área visual | Owner → contrato/snapshot | Adapter/projection → Surface | Ausência, frescor ou limite | Freshness/revalidação | Ação permitida |
+| --- | --- | --- | --- | --- | --- |
+| Marca/identidade do produto | Product family/branding canônico | Assets/Brand existentes → header/rail | Não trocar marca por artwork do estudo | Build/asset versionado, sem polling | Navegar à home; nenhuma authority de produto |
+| Breadcrumb Central/página | Surface navigation state | ID de página localizado → header | Não title editorial como route/authority | Transação de navegação atual | Navegar por destinationId; sem abrir app por title |
+| Space/contexto no header | Identity + Spaces authorized view + selection | Active Space explicitamente autorizado → label/selector | Nenhum selecionado/indisponível; nunca primeiro Space por fallback | Identity/catalog/selection convergentes e revalidados; geração invalida A→B→A | Abrir selector; seleção explícita pelo owner, sem membership/grant |
+| Saudação/nome | Identity session displayName | Reader atual + localização → título | Saudação neutra local/signed-out; sem “Lia” hardcoded | Snapshot Identity vigente; neutralizar imediatamente signed-out/unavailable | Abrir Account; ações só por identity-actions existente |
+| Data/período do dia | Date/Intl + regional preferences | Formatação existente → time/saudação | Hora real, não datas congeladas da captura | Relógio/locale/timezone atuais; uma cadência por composição | Abrir destino de calendário/relógio somente se runtime disponível |
+| Profile/contexto profissional | Spaces profilePack + Profile owner | Perfil verificado para Space autorizado → resumo | Sem Profile/port, mostrar ausência; sem “Criação e design” por associação visual | Contexto/Profile revisados; revogação invalida card | Abrir perfil verificado; ativação pelo owner, nunca por card |
+| Modo USB/Web/sessão local | Product mode + Local Session/host | Label por modo/capability → faixa | Não inferir USB de material Native; lock real separado da cloud | Capability/sessão atual; lock observado pelo owner | Abrir informação de sessão; unlock/lock pelo port real |
+| Local de dados | Files/storage capability | Descrição de escopo efetivamente fornecida → faixa | “Dados no USB” só com owner comprovando; sem volume fake | Snapshot do storage/file-space; sem contrato de live status, não alegar freshness | Abrir Files validado; não montar/escanear volume |
+| Rede | network-status ou surface-host | Network presentation existente → faixa/tray | Unknown/offline; browser online só indício de conectividade | Owner/cadência vigente; read failure vira unknown, não last known connected | Abrir painel Network; mutation só por network-management conectado |
+| Atualização | Supervisor update-status + freshness | Redação de phase/status/Entrega quando fornecida → faixa | Sem data/ETA/percentual calculado pela UI; stale não healthy | evaluateUpdateStateFreshness: default90s, checkedAt inválido→unknown; fresh não prova healthy | Abrir System/update; check/apply só pelo port existente e gates do Supervisor |
+| Saúde/ready | Supervisor + component-manager/1 e health bridge reais | Projection redigida de estado/receipt do owner, separada de update freshness | Sem receipt/port, unknown; healthToken nunca chega ao card | Revisão/observação do owner; ready visual/fresh timestamp não são health | Somente consultar/abrir System; Surface Meridian não emite markHealthy por CSS/timer |
+| Número de janelas/continuidade | Workspace da área ativa | Snapshot de janelas realmente abertas → faixa | Contagem de janelas reais, incluindo minimizadas com semântica explícita | Workspace revision coerente com contexto; excluir probation host | Restaurar/focar por (areaId,windowId); foreground não concede leitura |
+| Pendências | Notifications + sync/work readers reais | home-pending-presentation e projeções autorizadas → resumo | Estado indisponível difere de lista vazia; sem “tudo em dia” por timeout | Subscriptions/revisions do owner; unavailable não é zero | Abrir origem; read/dismiss/resolve só por intenção explícita e port do owner |
+| Retome o fio/projetos | project-catalog/1 + recent-files/1 | home-continuation-presentation → cards/activation existente | Catálogo atual é de dispositivo/sessão, não Space-scoped. Rotular “Neste dispositivo” até contrato real de escopo. | Snapshot atual; updatedAt/openedAt são timestamps do item, não prova de ACL ou sync | Abrir projeto/referência pela activation/FileSpace existente; revalidar na ação |
+| Documento recente/reference | Files references/targets validados | Path lógico/reference + nome/timestamp permitido → card | Revalidar permissão na ação; sem mock, raw host path ou leitura automática | Reader do owner; invalidar request antigo/revogado; openedAt não é last checked | Abrir target lógico validado; nenhum conteúdo anexado automaticamente |
+| Pessoas/avatar/membership | Identity/Spaces reader autorizado | Só campos efetivamente contratados → lista opcional | spaces/1 não fornece toda equipe/avatares; omitir composição decorativa de colaboradores | Catálogo autorizado revalidado; sem reader de membership/equipe, unavailable/omitir | Abrir contexto disponível; nenhum convite/member mutation inventado |
+| Agenda/“No seu horizonte” | Owner de agenda/eventos ainda não conectado a esta composição | Sem contrato, empty/unavailable com próximo passo legítimo | Não criar horários, reuniões ou deadlines; bloqueado como dado operacional | Não existe fonte/freshness contratada nesta composição | Nenhuma ação de criar/agendar por Meridian; destino só se app real disponível |
+| Resultados/work | Personal OrdaX/work-canvas reader autorizado | Work/proposal/result com owner/Space/revisão → perspectiva Seu trabalho | Reader não autoriza execução; não ressuscitar app Activity removido | Revision/provenance/estado do work owner; late result descartado | Abrir work/review existente; executar só via Gateway/grant/executor e receipt |
+| Apps/Ecossistema | Runtime catalog + Store verificado | Grupos disponíveis/descoberta distintos → página | Catálogo não equivale a instalado ou montado; sem ícones de apps inexistentes | Runtime/catalog e verified mount revision atuais; revalidar antes de launch | Launch só no runtime; Store descoberta separada de instalação/ativação |
+| Profiles | Profile pack catalog/source autorizado | Lista bounded/versões reais → página Profiles | Não “centenas de perfis disponíveis” por fixture; paging depende de owner | Catálogo verificado/revision do owner; bounded, sem polling adicional | Ver detalhe/solicitar ativação pelo owner já disponível |
+| Devices | Device capabilities/agent reader tipado | Descriptors e readiness real → página | Sem pairing/live status se não contratado; desconhecido explícito | Descriptor é capacidade anunciada; não presença/live connectivity; sem reader live→unknown | Ver detalhe; pairing/comando somente por contrato e executor tipados existentes |
+| Intelligence input/modelo | Intelligence + conversation capabilities | Input sob demanda + estado do modelo → entry/painel | Microfone/stream/cancel só com capability; sem progresso scripted | Snapshot Intelligence semântico + geração autorizada; degraded preservado | Envio explícito se port ready; fontes/voz/stream/cancel só com capability própria |
+| Busca/“próximo passo” | Surface destinos + readers autorizados | Filtragem de nomes públicos/permitidos → Search | Não buscar contents Memory/Files com seleção visual como autorização | Índice de destinos atual; resultados de domínio têm reader/geração próprios | Navegar/abrir referência permitida; nenhum scan global ou execução genérica |
+| Preferências da Central | Preferences | Perspective/page/shortcuts de apresentação → controles | Não altera Space, app lifecycle ou grants | Preference snapshot atual; status de persistência separado | Alterar preferência validada; apresentação não altera autoridade |
 
 As perspectivas “Visão do dia”, “Seu trabalho” e “Ecossistema” organizam a mesma informação autorizada. Conteúdo sem owner pode ter ausência explicada, não campo preenchido para ficar parecido com o screenshot. O congelamento de cards é de superfície/ritmo/hierarquia, não obrigação de fabricar todas as colunas do ensaio.
 
@@ -253,11 +273,13 @@ Native pode reutilizar `home-continuation-presentation.mjs` e `home-pending-pres
 
 Desktop conserva **rail + área de trabalho + taskbar/dock + janelas, sem topbar**. Header pertence à Central. Menus de navegação e controles contextuais em telas pequenas preservam destinos sem criar topbar Desktop.
 
-Alternar Central ↔ Desktop mantém os mesmos window IDs, instâncias, drafts e targets permitidos. Toggle não chama `show-desktop`, close/open, recreate providers ou replace root. A ação explícita Início/show-desktop tem semântica própria de guardar/minimizar trabalho no owner e deve ser testada separadamente. Uma ação explícita de abrir/restaurar app pelo dock pode pedir apresentação Desktop e foco em **uma transação de intenções**; isso não transforma o switcher em launcher.
+Alternar Central ↔ Desktop mantém os mesmos window IDs, instâncias, drafts e targets permitidos. Toggle não chama `show-desktop`, close/open, recreate providers ou replace root. O comando explícito show-desktop minimiza trabalho no owner e é testado separadamente de Início Meridian. Uma ação explícita de abrir/restaurar app pelo dock pode pedir apresentação Desktop e foco em **uma transação de intenções**; isso não transforma o switcher em launcher.
+
+Correção de intenção: **Início Meridian é navegação à home da Central**, preservando apresentação/contexto e trabalho; não despacha minimize/show-desktop. A associação Início→show-desktop existe hoje nos controles canônicos e deve permanecer no perfil canonical durante a migração, mas não define a intenção Meridian. “Mostrar área de trabalho” continua comando explícito distinto do Workspace. Testar separadamente toggle, home/página e show-desktop; todos conservam a instância/draft, somente o último minimiza. Não reutilizar o callback canônico por igualdade de label.
 
 ### 8.2 Projection necessária, não owner novo
 
-Hoje `activeWindowId` Native e `active`/`compactActive` Web não são equivalentes a foreground autorizado/visível em toda apresentação. O primeiro PR de Workspace deve entregar uma leitura interna comum (**API proposta**, composition-only), com getSnapshot/subscribe, revision, área atual, janelas com IDs estáveis/appId, mode, minimized, ordem e referência de target já validada. Não exportar drafts, credentials, conteúdo de documento ou mutation do manager. Métodos de launch/focus/minimize/maximize/restore/compact/close continuam no owner, com validação de catálogo/capability.
+Hoje `activeWindowId` Native e `active`/`compactActive` Web não são equivalentes a foreground autorizado/visível em toda apresentação. PR-01 especifica uma leitura interna comum (**API proposta**, composition-only); PR-04 a implementa no owner existente, com getSnapshot/subscribe, revision, área atual, IDs estáveis/appId, mode, minimized e ordem. O snapshot padrão é somente metadata de lifecycle, sem target. Não exportar drafts, credentials, conteúdo de documento ou mutation do manager. Métodos de launch/focus/minimize/maximize/restore/compact/close continuam no owner, com validação de catálogo/capability.
 
 Projection de foreground:
 
@@ -271,15 +293,25 @@ A main hoje mantém WindowLayer fora das apresentações e pode exibir janelas t
 
 #### Especificação mínima do reader proposto para PR-01/04
 
-O contrato permanece composition-only e ainda não existe no runtime analisado. Snapshot imutável/validado: revision monotônica de transação Workspace (não tick de relógio/render), activeAreaId quando o modo suporta áreas, activeWindowId lógico ou null, ordem e janelas por IDs estáveis, mode/minimized/previousExpandedMode, compact selection/collapsed e disponibilidade das ações do owner. Janela de app tem appId do runtime catalog; painel interno do Web tem destinationId/presentation kind distintos, sem fabricar registro de app. Labels vêm da localização/manifests, nunca servem de key. Targets permanecem referências validadas e só atravessam a borda mínima que o consumidor necessita; nenhum conteúdo/draft/grant/credential/healthToken no snapshot.
+O contrato permanece composition-only e ainda não existe no runtime analisado. Snapshot imutável/validado: revision monotônica das mudanças semânticas observáveis do Workspace (não tick de relógio/render), activeAreaId quando o modo suporta áreas, activeWindowId lógico ou null, ordem e janelas por IDs estáveis, mode/minimized/previousExpandedMode, compact selection/collapsed e disponibilidade das ações do owner. Janela de app tem appId do runtime catalog; painel interno do Web tem destinationId/presentation kind distintos, sem fabricar registro de app. Labels públicos vêm da localização/manifests, nunca servem de key; títulos de documentos/pessoas não entram no reader genérico. Nenhum target/conteúdo/draft/grant/credential/healthToken no snapshot padrão.
 
 Surface junta essa leitura às revisions/estados reais de presentation, lock/modal e contexto autorizado para derivar visibilidade/foreground. O Workspace não adquire authority sobre Identity/Spaces; esses guards são inputs de composição. `getSnapshot()` mantém identidade estável enquanto semântica não muda; `subscribe()` retorna cleanup e não inicia apps, polling ou concessão. Command port é separado do reader e continua no owner atual; input inválido/ID inexistente/capability ausente é rejeitado antes de qualquer lifecycle. Não exportar methods de manager para SDK de apps externos. Essa especificação alinha consumers sem copiar shape do preview ou substituir store existente.
+
+Invariantes obrigatórias do contrato de PR-01, antes de implementar PR-04:
+
+1. **Identidade composta:** no Native, singleton usa o mesmo windowId/appId em áreas diferentes; a chave é `(areaId, windowId)`, não windowId global. Web recebe ID de instância estável no reducer existente e destinationId/appId separados. IDs nunca derivam de título, locale, target, subject ou posição do array; validar referências/duplicatas dentro do escopo e não reciclar identidade de janela fechada durante uma operação pendente.
+2. **Shape mínimo/bounded:** listar campos permitidos, tipos/limites e estados unsupported; rejeitar payload/keys/ID inválidos, sem espalhar o state inteiro. Limites `/2` são de persistência (8 áreas/32 janelas por área); o reducer Native atual não barra todo launch acima de32. PR-04 deve definir limite de leitura/ação coerente no owner, sem esconder/truncar janelas existentes ou alegar enforcement já presente. Não aumentar contrato por pressão de layout.
+3. **Target é outra borda:** `validateWorkspaceTarget` atual apenas limita string/controles; aceita até4096 caracteres e não comprova referência lógica, grant ou autorização. Se um consumidor realmente precisar target/nome privado, usar resolução específica autorizada pelo owner, allowlist de campos, propósito e revisão próprios, fora do reader genérico. Revalidar na ação; sem raw filesystem path, documento automático ou seleção visual convertida em grant.
+4. **Coerência e A→B→A:** reader Workspace e projection Surface têm revisions distintas. A última identifica o conjunto coerente de Workspace + presentation/visibilidade + lock/modal + geração do contexto autorizado. Comparação de subjectId/spaceId sozinha é insuficiente. Geração de composição invalida caches/requests a cada troca, logout, expiração/revogação observada, lock e teardown, inclusive retorno aos mesmos IDs. Enquanto os inputs não convergem/revalidam, metadata protegida é redigida, ações protegidas bloqueadas e foreground=null; não publicar uma combinação de conta nova com janela/contexto antigo. Sem geração/revalidação confiável, aquele domínio fica unavailable.
+5. **Entrega/cleanup:** especificar emissão inicial de subscribe, comportamento de unsubscribe/dispose idempotente e proibição de callbacks após cleanup; leitura não cria subscription por getSnapshot. Não alterar revision/identidade por evento equivalente de preferência/host/relógio. Consumers usam a mesma projection/revision; não guardam “último foreground” como contexto permitido. Antes de aplicar resposta async ou comando, conferir geração/revisão capturada e contexto corrente; dispose/abort descartam resultado, sem replay/retarget nem promessa de cancelamento do backend.
+6. **Casos de aceite:** duas áreas com o mesmo singleton; dois títulos iguais e troca de locale; unknown/extra fields/oversize; Central hidden, compact selecionada/recolhida, minimized, modal, lock; A→B→A com resposta antiga; revogação sem mudar IDs; unsubscribe/dispose; snapshots equivalentes sem render novo; nenhum target privado em dock/chrome genérico/diagnóstico. PR-01 documenta exemplos e baseline/gaps honestos, sem implementar API executável ou falsificar PASS desses futuros recursos.
 
 ### 8.3 Convergência controlada do Workspace existente
 
 - Native mantém IDs/store/reducer e comandos; Web deixa de usar título localizado como identidade. Mapear destinos a IDs estáveis do catalog/presentation owner; destinos de painéis do sistema continuam distintos de apps. Preservar keys e draft durante a mudança de label/locale. Um shim transitório título→ID só na borda de entrada, sem store paralelo, com remoção no mesmo incremento após consumidores migrados.
 - Leitura comum não sincroniza automaticamente Workspace Native no Web, não salva Map em localStorage e não aumenta SDK de apps externos. Persistência Web nova é trabalho separado, fora do primeiro pacote.
 - Compact Native entra como estado de sessão no reducer existente: normal/maximized/compact, modo anterior para restore, seleção compacta e collapsed explícitos. Serialização continua `/2`, gravando último modo expandido normal/maximized; compact não promete sobreviver reload nesta etapa. Web também não promete persistência. Testar roundtrip `/2` sem fields novos e reload em modo válido. Persistir compact demandaria contrato `/3` com migração/rollback próprio, fora desta sequência.
+- O roundtrip `/2` preserva ID/appId/target interno/ordem/minimized/posição e active lógico válido; salva `maximized` conforme previousExpandedMode, inclusive compact minimizada. Compact selection/collapsed são somente sessão e se perdem deliberadamente no reload, com fallback do owner testado. Não perder bounds normais ao entrar/sair de compact/maximize. Reader não persiste nem recupera target protegido por conta própria.
 - Foco/restauração fechada/minimize/compact respeitam instância existente. Close segue lifecycle/app cleanup atual. Nenhum mapa em projection cria uma janela.
 - Áreas Native não são Spaces. Store `/2` é workspace local e não traz partição cloud por subject/Space. Não acrescentar maps por Space no shell. Conteúdo protegido e operações invalidam contexto no owner; chrome pode continuar como janela suspensa/indisponível conforme app, sem expor conteúdo anterior. Testar A→B→A, logout, revogação e lock; se o owner não oferecer reader seguro, o painel desse domínio permanece indisponível.
 
@@ -298,6 +330,8 @@ Abrir/focar → realizar foco após layout sem recriar nó. Minimizar → remove
 | Preferences | IDs de apps fixados/ordem explícita | Que app está instalado/montado/autorizado |
 
 Proposta: preferência opcional **`surface.dock-pinned-apps`**, device-local, default lista vazia, IDs estáveis bounded/deduplicados, validação no catálogo Preferences e resolução contra runtime catalog no momento de apresentar. Nome/type/scope são proposta, não capacidade atual. Reutilizar stores/runtime existentes; escolher serialização compatível com tipos suportados do catálogo, não introduzir localStorage privado. `surface.favorite-shortcuts` continua significando destinos da Central: não converter Internet/Intelligence/Terminal em apps instalados por suposição. Migração de favoritos só quando houver correspondência explícita e validada, sem pins automáticos no primeiro PR.
+
+Decisão contratual proposta para PR-08: `preference-store/1` e `preference-runtime/1` aceitam **somente scalars**, não array. Persistir lista ordenada como string JSON canônica, default `"[]"`; parser do owner entrega array imutável apenas ao consumidor. Limites propostos a ratificar:64 IDs, cada appId slug lowercase até80 caracteres, string até8192 caracteres. Rejeitar JSON inválido/não-array/duplicatas/objetos/IDs malformados/oversize; manter ordem explícita e pins órfãos sintaticamente válidos. Não filtrar no store contra catálogo variável (isso apagaria intenção). Nenhum dado além de IDs, sem title/path/Space/subject. Excluir de sync, provar persistência/falha/recovery nos dois stores, e compatibilidade de rollback de §24.1; arrays diretos exigiriam evolução de contrato separada e ficam fora deste pacote.
 
 Join puro, estável por appId: pins resolvidos em ordem de preferência; apps abertos não fixados em ordem determinística do Workspace; destinos de sistema (launcher/busca) em track próprio. Pin órfão pode permanecer salvo para futura instalação, mas não ganha botão de executar: mostrar indisponibilidade em gerenciamento de pins, sem falso indicador open. Apps instaláveis da Store ficam em Discover, não em running dock.
 
@@ -409,7 +443,7 @@ First Run persiste conclusão antes de dismiss, não grava subject/secret no rec
 
 - `system/surface/ui/tokens.css` é owner da paleta OrdaX USB/Native, geometria, tipografia, motion e política de acessibilidade.
 - `system/surface/ui/color-palettes.css` contém Claro/Escuro standard e aliases compartilhados Native/Web. O próprio arquivo declara que geometria não pertence à paleta.
-- `appearance.theme` = light/dark (default light), preferência portátil/sync. `surface.color-palette` = standard/native, device-local, excluída de sync. `resolveColorAppearance` decide aliases/scheme; Native força esquema dark na política atual.
+- `appearance.theme` = light/dark (default light), preferência portátil/sync. `surface.color-palette` = standard/native, device-local, excluída de sync. `resolveColorAppearance` decide aliases/scheme: **a paleta `native` força dark**, não o renderer Native. Com palette standard, ambos renderers respeitam appearance light/dark.
 - Preferences tem catálogo/validação/runtime/stores e bindings Native/Web. Config genérico possui README e contrato documental `docs/contracts/runtime-configuration.json`, mas não foi encontrada implementação executável de serviço genérico de feature flags. Não instalar Flags SDK/provedor externo nem flag hardcoded/query param.
 
 ### 14.2 Caminho recomendado
@@ -482,12 +516,14 @@ Legenda: **M = Precisa mapear** a papel canônico; **I = Integrável**, papel v�
 | `--md-space-7` | M | `--ordax-space-7` |
 | `--md-rail-width` | M | sidebar-expanded-width; geometria em tokens.css, não paleta |
 | `--md-rail-compact` | M | sidebar-collapsed-width; capacidade medida não breakpoint copiado |
-| `--md-bar` | I | Papel de track taskbar ainda precisa unificação Native/Web; não alias de header, pois coincidir valor não coincide papel |
-| `--md-dock` | N | Valor de track coincidente no estudo; derivar do track/gutter/target real, não dupla variável 66 |
+| `--md-bar` | M | Header da Central: `--ordax-header-height`, geometria no owner; só Central reserva esse track. O CSS do estudo usa bar na primeira linha da grid, não na taskbar |
+| `--md-dock` | I | Track inferior taskbar/dock, papel distinto do header mesmo quando ambos medem66 no estudo. Definir token semântico no owner apenas com consumidor/bounds Native/Web; Desktop também reserva esse track |
 | `--md-font` | M | `--ordax-font`, Inter já legítima/bundled; não nova fonte remota |
 | `--md-duration` | M | Família motion existente; override perfil onde apropriado; reduced motion zero prevalece |
 
 Critério de mapeamento: equivalência semântica e contraste, não igualdade de valor. Quando aliases atuais não cobrem um papel, adicionar um token semântico **no mesmo owner**, com fallback Claro/Escuro/USB e consumidor identificado. Não importar `meridian.tokens.css`, conservar `--md-*` em produção ou gerar outro catálogo autoritativo. `color-scheme`, font shorthand, media selectors e coordenadas de layout não são design tokens. Brightness/volume/observer offsets/inline styles do preview não são tokens de produto.
+
+Accent de texto (`--ordax-accent`/accent-foreground) e par preenchimento/texto de botão (`--ordax-button-bg`/button-text e primary/primary-foreground) são papéis distintos no perfil standard atual. O mesmo accent do estudo aparece em ambos os consumidores: mapear por função, não aplicar um alias global que destrua contraste. Papel decorativo sage/blue/amber/rose/slate não cria success/info/warning/danger operacional. Os tokens art permanecem E; surface-alt/clay-soft continuam aliases N; shadows/art não substituem borda/focus em forced colors. Geometry fica fora de color-palettes.css e os perfis Meridian não podem sobrescrever a precedência de high contrast, forced colors, text scale e reduced motion.
 
 Distribuição proposta: material/paletas e aliases no `color-palettes.css` atual; semântica comum/geometria/motion/tipografia no `tokens.css` atual. Os dois arquivos já compõem um sistema existente com responsabilidades distintas; não criar terceiro arquivo de paleta autoritativo. CSS de componentes consome esses papéis. Duplicações históricas de contrast/font/`flex:none` do experimento não são requisitos. A coleção completa precisa ter contagem conferida mecanicamente antes de aceite do PR de tokens.
 
@@ -671,7 +707,9 @@ flowchart TD
   P10 --> P11[PR-11: páginas/contexto]
   P11 --> P12[PR-12: Intelligence contextual]
   P11 --> P13[PR-13: jornadas por owner]
+  P03 --> P13
   P12 --> P14[PR-14: aceite/opt-in público]
+  P13 -. somente jornadas ofertadas .-> P14
   P14 --> P15[PR-15: cleanup/aposentadoria]
 ```
 
@@ -680,6 +718,24 @@ flowchart TD
 **Convenções:** E/F/V/A/P/R = gates estrutural, funcional, visual, acessibilidade, plataforma e release descritos em §22. A sempre significa o subconjunto aplicável à alteração; evidência humana exigida não é suprida por AX automático. R-CI é gate de source/candidate; R-release é promoção/assinatura/ativação real, separado do merge. P-físico não é inferido de browser.
 
 Todos os PRs futuros partem de main atualizada; mudam somente arquivos citados ou dependências justificadas no próprio review. Nomes **novos/propostos** não foram criados nesta tarefa. Cada PR atualiza source migration/provenance para trechos EV, documento de estado/gaps que efetivamente mudaram e ledger de duplicações; não atualiza SSOT visual por redesenho. Se um incremento exceder escopo revisável, dividir por componente mantendo gates próprios; não usar um mega-PR de “migrar Meridian”.
+
+Os números são **marcos**, não licença para acumular todos seus arquivos em um PR. Divisões obrigatórias: PR-02a preference/resolver/compatibilidade antes de PR-02b material/tokens; PR-04a projection Native sobre IDs existentes antes de PR-04b IDs/projection Web e migração de seus consumidores (remover shim no próprio04b). PR-05 depende de04a/04b concluídos. PR-10/11 dividem por renderer e reader/fluxo; cada parte mantém gates/rollback e não oferece campos sem port. PR-12 é apresentação sobre boundary pronta: autenticação/transporte/contexto/egress pertencem aos PRs dos owners de #1757, sem misturá-los no PR visual. PR-13 já é por jornada/owner. Cada subdivisão tem head/main/owner/critério próprios; não juntar Native+Web+contrato+composição nova em um mega-review.
+
+| Marco | Dependências obrigatórias (diretas ou transitivas) |
+| --- | --- |
+| 01 | 00: estratégia auditada e referência visual revisável; documentar contrato, não executá-lo |
+| 02a → 02b → 03 | 01; preference/rollback antes de tokens e primitives |
+| 04a → 04b | 01; não depende de03, pois não introduz controles novos |
+| 05 | 04a/04b |
+| 06 | 02b,03,04b |
+| 07 | 05,06 |
+| 08 | 04b,07; contrato scalar de pins e rollback aprovado pelo owner Preferences |
+| 09 | 03,06; ports reais do modo |
+| 10 → 11 | 08/09 antes de10; 10/04b antes de11 |
+| 12 | 11/04b; gates específicos dos owners antes de contexto/conversa real |
+| 13a/b/c | 03/11 e lifecycle do respectivo owner; opcionais |
+| 14 | Fechamento transitivo de02–12; 13 somente para jornadas ofertadas |
+| 15 | 14 e replacement coverage/retention aceitos; shims de04 não esperam15 |
 
 ### PR-00 — auditar e publicar apenas a estratégia
 
@@ -692,10 +748,10 @@ Todos os PRs futuros partem de main atualizada; mudam somente arquivos citados o
 
 ### PR-01 — baseline de integração e contrato de leitura
 
-- **Objetivo/owner:** Workspace/Surface formalizam snapshot proposto, visibilidade/foreground/compact policy, baseline de mount/perf/a11y e evidência de ambiente. Não implementar segundo lifecycle.
+- **Objetivo/owner:** Workspace/Surface formalizam contrato documental proposto, incluindo as seis invariantes de §8.2, visibilidade/foreground/compact policy, baseline de mount/perf/a11y e evidência de ambiente. Sem novo contrato executável, reader operacional, reducer ou segundo lifecycle.
 - **Arquivos/dependências:** `docs/contracts/` (contrato de Workspace presentation reader proposto), docs de Surface/Workspace, testes/harnesses `test_surface_workspace`, `test_web_central_windows`, reconciliation, multi-app-state-profile; depende PR-00. Contrato composition-only, sem expansão do surface-render-lifecycle/5 de apps externos.
 - **Contratos/testes/gates:** E, unit/contract tests das invariantes com harness atual; F baseline de draft/mount/visibility; V referência/shot setup; A levantamento sem alegar gates físicos; R-CI. Testes devem falhar em mudança real de invariant, não espelhar implementação.
-- **Aceite:** exemplos de snapshots atuais Native/Web e gaps mapeados, endpoints inexistentes marcados; budgets aprovados. Fixtures ficam somente nos testes.
+- **Aceite:** exemplos atuais e propostos claramente separados; IDs compostos Native, metadata sem target, geração/coerência de contexto, emissão/cleanup/revisions e negativas definidos. Baseline e gaps reais, endpoints inexistentes marcados; budgets aprovados. Recursos ainda ausentes não recebem PASS por fixture. Fixtures ficam somente nos testes.
 - **Rollback:** revert documento/harness additive; sem migração persistida.
 - **Não entra:** UI Meridian montável, adapters de domínio, compact Native ou new flag service.
 
@@ -719,8 +775,8 @@ Todos os PRs futuros partem de main atualizada; mudam somente arquivos citados o
 
 ### PR-04 — IDs estáveis e projection de Workspace
 
-- **Objetivo/owner:** Workspace alinha leitura Native/Web, substitui identity por title no Web e fornece foreground derivado à Surface.
-- **Arquivos/dependências:** `ui/surface-state.mjs`, `ui/surface.mjs`, `central/desktop-state.ts`, `window-layer.tsx`, `desktop.tsx`, config/window-content bindings; **reader/projection propostos** em `system/surface/workspace/` e contrato composition-only revisado; depende PR-01/03 para controls usados. `workspace-store/2` não muda schema.
+- **Objetivo/owner:** Workspace alinha leitura Native/Web, substitui título como identidade por IDs estáveis no Web e fornece foreground derivado à Surface.
+- **Arquivos/dependências:** `ui/surface-state.mjs`, `ui/surface.mjs`, `central/desktop-state.ts`, `window-layer.tsx`, `desktop.tsx`, config/window-content bindings; **reader/projection propostos** em `system/surface/workspace/` e contrato composition-only revisado; depende PR-01, dividido04a/04b conforme acima. Controles novos pertencem a03/07, não a04. `workspace-store/2` não muda schema.
 - **Contratos/testes/gates:** ID/catalog validation, area/active/visible/null/lock/modal, stale context/result; tests_workspace/web_central_windows/reconciliation/external_catalog/workspace_persistence, mount counts, A→B→A/locale changes; E/F/A/P-browser/R-CI.
 - **Aceite:** mesma janela após rename/locale/toggle/minimize/restore; projection read-only sem conteúdo/token; dock/rail futuros leem a mesma revision. Title→ID shim eliminado ao migrar consumidores neste PR.
 - **Rollback:** reverter reader/consumidores; nenhuma mudança de formato persistido, Native `/2` continua compatível; Web sessão não grava novo store.
@@ -906,7 +962,7 @@ Links finais: [Foundation dcbb](https://github.com/ordaxsystems/ordax-os/actions
 ### 24.1 Reversibilidade
 
 1. Perfil visual é opt-in por preferência validada; voltar a canonical não modifica domínio, window IDs, Space, identidade, app data ou trust.
-2. Cada PR de aparência é revertível separadamente; novas chaves são opcionais e não sincronizadas inicialmente. Leitor anterior ignora key desconhecida com default declarado. Não apagar estado do usuário como procedimento de rollback.
+2. Cada PR de aparência é revertível separadamente; novas chaves são opcionais e não sincronizadas inicialmente. **Compatibilidade read/save precisa prova:** o catálogo atual recupera apenas IDs conhecidos; um store pode salvar esse snapshot filtrado e perder uma key futura. “Leitor ignora key” não garante preservação após escrita. PR-02a e PR-08 devem provar nova→antiga→salvar→nova mantendo as preferências existentes e os valores opcionais salvos, inclusive pins/material, pela fronteira de persistência do owner. Se exigir ajuste, ele pertence ao mesmo owner/store existente, sem shadow store ou backup de UI. Se a cadeia anterior não permitir preservação, declarar rollback incompatível e bloquear oferta/release até solução e prova aceitas; não prometer manutenção de valores nem apagar estado como workaround.
 3. Workspace `/2` fica compatível; compact sessão serializa estado expandido suportado. Nenhuma migração `/3` ou armazenamento Web novo neste pacote. Se futura migração for aprovada, seu rollback precisa reader/writer compatíveis e prova independente.
 4. Se a Surface não ficar utilizável, Supervisor/known-good/rollback existentes conservam a autoridade. Não resolver com “fallback runtime Meridian” ou “fallback demo”. Assets/CSS ausentes têm fallback canônico local, não acesso remoto obrigatório.
 5. Release rollback/signing/activation têm owner/gates próprios e SHA preciso; este plano não os executa. Revert Git de PR e rollback de release são operações diferentes.
@@ -943,6 +999,8 @@ Os dois diretórios do experimento **não existem na main analisada**. O melhor 
 | R-05 | Repaint/observers/polling/large-list regressions | Surface/Workspace | Perfil multi-app/budgets/cleanup/bounded ports, sem controller preview |
 | R-06 | Confundir CI/candidate/visual freeze com release físico | Release/plataforma | R-release/P-físico exatos, signing/rollback/canal/consentimento separados |
 | R-07 | Repaint/contagem inclui ou remove host oculto de Files probation | Surface/component lifecycle | Preservar lazy host/ordering/cleanup; excluir de Workspace/dock/foreground/AX; regressões novas da §1.1 |
+| B-08 | Preference nova/pins não têm compatibilidade read/save de rollback comprovada; arrays violam scalar `/1` | Preferences/persistência/release | Decisão scalar em§9; prova nova→antiga→save→nova antes de02a/08/oferta, sem perda de valores ou store paralelo |
+| B-09 | Reader e composição precisam prova de identidade composta, geração de autorização e coerência; validação de target atual não é autorização | Workspace/composição/Identity/Spaces/Files | Especificar em01, implementar/provar em04 e PR do owner; unavailable em domínio sem guard/revalidação. Não confundir doc aprovado com reader entregue |
 
 Um campo ausente não bloqueia todas as fases, mas impede declarar essa capacidade integrada. O plano passa na auditoria quando toda experiência tem owner, contrato/projection, estado de ausência, lifecycle e gate verificável; implementation passa por PR. Oferta pública Meridian só passa com gates aplicáveis verdes e canonical preservada. O shell não recebe authority nova para superar bloqueio.
 
@@ -972,3 +1030,10 @@ Documento criado no checkout de referência local, ainda como proposta para audi
 A execução deve produzir a resposta: **nenhum código experimental é autoridade por padrão; cada experiência visual deriva de owner, projection e lifecycle reais**. O plano mantém separadas auditoria arquitetural, design congelado e auditoria independente.
 
 Verificação documental final em 13/10/2026 23:53:12 (America/Sao_Paulo): main remota confirmou dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0; HEAD Meridian/local main preservados. Cobertura dos38 arquivos e56 tokens conferida, tabelas/fences/links/caminhos válidos e Visual System byte a byte inalterado. Diff tracked vazio; único arquivo untracked: este plano. Não foram executados testes de produto ou integração nova nesta tarefa.
+
+
+## 28. Resultado da auditoria independente — 14/10/2026
+
+O plano recebido em55c95ea foi classificado **B**: estratégia correta, com correções obrigatórias de reader/identidade/contexto, scalar pins/rollback, semântica home/tokens e sequência/gates. Após correções exclusivamente documentais, classificação **C**, suficiente para iniciar **somente PR-01** (contrato documental, baseline e invariantes), respeitando PR-00 antes de merge de código. Não é D, não aprova reader operacional, compact, qualquer UI Meridian, oferta pública ou release. PR-01 não foi iniciado.
+
+Detalhes, fontes imutáveis, achados e a cobertura de todos os itens da solicitação estão no [relatório independente](../evidence/meridian-integration-plan-audit-2026-10-14/relatorio.md). B-01…B-07 e R-01…R-07 foram preservados; B-08/B-09 acrescentam compatibilidade de preferências e prova de geração/coerência do reader. Nenhum blocker de produto foi removido. A espera histórica do run QEMU de dcbb foi resolvida, mantendo o passo skipped e os gates físicos explícitos. Freeze/SSOT/evidências e source canônico permanecem intactos.

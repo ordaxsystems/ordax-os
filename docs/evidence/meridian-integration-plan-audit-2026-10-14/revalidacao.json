@@ -1,0 +1,782 @@
+{
+  "kind": "documentation-audit-provenance",
+  "observedAtUtc": "2026-10-14T03:39:20.124923+00:00",
+  "repository": "ordaxsystems/ordax-os",
+  "checkout": "C:\\Users\\TONECOS\\Documents\\github\\ordax-apps\\tools\\assistant-host\\.data\\os-meridian-lab",
+  "mainInitial": "dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0",
+  "mainFinal": "5a90d66ff2e96e7eed138a0651b9d96b37a06279",
+  "meridianReceived": "55c95eaf77cd52361af7154c66edfc6b6495a70f",
+  "mergeBase": "9fec1276e2b8f15d1b404fe7ea3f9f05c8da5d28",
+  "exclusiveCommitsBeforeAuditCommit": [
+    "243",
+    "23"
+  ],
+  "mainDeltaFiles": [
+    "docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md",
+    "system/adapters/web/intelligence-remote.mjs",
+    "tests/test_web_intelligence_canvas.mjs"
+  ],
+  "openPullRequests": [
+    {
+      "headRefName": "fix/rebind-minimal-bootstrap-initramfs-20261013",
+      "headRefOid": "8c44965307629033a1f73208c475081c69df3b2e",
+      "number": 1766,
+      "title": "fix(bootstrap): rebind current initramfs digest",
+      "updatedAt": "2026-10-14T02:52:04Z",
+      "url": "https://github.com/ordaxsystems/ordax-os/pull/1766"
+    },
+    {
+      "headRefName": "feature/independent-iproute2-surface-parity-1730-20261013",
+      "headRefOid": "c83a024130663a7db771ba2e4773fbd05cb77eef",
+      "number": 1751,
+      "title": "feat(independent): prove Surface iproute2 loopback behavior",
+      "updatedAt": "2026-10-14T02:39:29Z",
+      "url": "https://github.com/ordaxsystems/ordax-os/pull/1751"
+    }
+  ],
+  "pr1765Final": {
+    "headRefOid": "765cced393abea86166eae6c1917198a6bb360f6",
+    "mergeCommit": {
+      "oid": "5a90d66ff2e96e7eed138a0651b9d96b37a06279"
+    },
+    "mergedAt": "2026-10-14T03:32:51Z",
+    "state": "MERGED",
+    "url": "https://github.com/ordaxsystems/ordax-os/pull/1765"
+  },
+  "ciReadOnlySnapshots": [
+    {
+      "conclusion": "success",
+      "databaseId": 38502009577,
+      "headSha": "dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0",
+      "jobs": [
+        {
+          "databaseId": 115650919936,
+          "name": "foundation",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T02:39:15Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked Web build dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Discover and validate JSON contracts",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate build contracts without compiling",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate native graphics kernel prerequisites",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate module import boundaries",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate GitHub Actions supply chain",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run foundation regressions",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate product family version identities",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38502009577",
+      "workflowName": "Foundation Contract"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38502009587,
+      "headSha": "dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0",
+      "jobs": [
+        {
+          "databaseId": 115650920032,
+          "name": "web-client",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T02:39:38Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked Web build dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate shared Surface source graph",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate zero-dependency ES modules and shared state services",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run Surface and Web bundle regressions",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build and verify deterministic Web client",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run real Chromium Surface smoke",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload Web client candidate",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38502009587",
+      "workflowName": "Surface Web Candidate"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38502009591,
+      "headSha": "dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0",
+      "jobs": [
+        {
+          "databaseId": 115650921305,
+          "name": "intelligence-foundation",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T02:38:26Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked Web dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate Intelligence source syntax",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run Intelligence and Local AI contract tests",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38502009591",
+      "workflowName": "Intelligence Foundation"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38502009627,
+      "headSha": "dcbbd7b83cec15c4aea5c6ed3027d0454f7e3fa0",
+      "jobs": [
+        {
+          "databaseId": 115651014641,
+          "name": "qemu-portable-v2",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T03:04:13Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout exact source commit",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Resolve canonical kernel ABI for build artifacts",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Go",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install bounded local AI build dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate portable-v2 QEMU contract",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build and verify exact local AI runtime",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install remaining portable-v2 build and QEMU proof dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build exact kernel and kernel modules",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build and verify exact Stable Base or experimental independent candidate",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build and verify exact offline Surface runtime",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build exact release agent and bootstrap capsule",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build one initramfs pinned to the exact capsule and Stable Base",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build candidate v4 with local AI and previous signed portable release v3",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build persistent ext4 state with current and known-good",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build armed one-shot Portable activation state",
+              "conclusion": "success"
+            },
+            {
+              "name": "Boot portable-v2 candidate PID1 in QEMU",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prove armed candidate one-shot fallback in QEMU",
+              "conclusion": "success"
+            },
+            {
+              "name": "Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Keep cold-health promotion as physical Stable/MVP gate",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build pinned systemd-boot for portable UEFI proof",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate portable UEFI proof contract",
+              "conclusion": "success"
+            },
+            {
+              "name": "Boot same portable-v2 disk through OVMF and systemd-boot",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload proof metadata only",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Go",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout exact source commit",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38502009627",
+      "workflowName": "Portable v2 QEMU Boot Proof"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38506816072,
+      "headSha": "5a90d66ff2e96e7eed138a0651b9d96b37a06279",
+      "jobs": [
+        {
+          "databaseId": 115666103959,
+          "name": "foundation",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T03:34:37Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked Web build dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Discover and validate JSON contracts",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate build contracts without compiling",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate native graphics kernel prerequisites",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate module import boundaries",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate GitHub Actions supply chain",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run foundation regressions",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate product family version identities",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38506816072",
+      "workflowName": "Foundation Contract"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38506816079,
+      "headSha": "5a90d66ff2e96e7eed138a0651b9d96b37a06279",
+      "jobs": [
+        {
+          "databaseId": 115666104043,
+          "name": "web-client",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T03:35:02Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked Web build dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate shared Surface source graph",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate zero-dependency ES modules and shared state services",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run Surface and Web bundle regressions",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build and verify deterministic Web client",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run real Chromium Surface smoke",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload Web client candidate",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38506816079",
+      "workflowName": "Surface Web Candidate"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38506816100,
+      "headSha": "5a90d66ff2e96e7eed138a0651b9d96b37a06279",
+      "jobs": [
+        {
+          "databaseId": 115666104174,
+          "name": "intelligence-foundation",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-14T03:33:47Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install locked Web dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate Intelligence source syntax",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run Intelligence and Local AI contract tests",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38506816100",
+      "workflowName": "Intelligence Foundation"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 38506816059,
+      "headSha": "5a90d66ff2e96e7eed138a0651b9d96b37a06279",
+      "jobs": [
+        {
+          "databaseId": 115666104283,
+          "name": "qemu-portable-v2",
+          "status": "in_progress",
+          "conclusion": "",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout exact source commit",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Resolve canonical kernel ABI for build artifacts",
+              "conclusion": "success"
+            },
+            {
+              "name": "Set up Go",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install bounded local AI build dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Validate portable-v2 QEMU contract",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build and verify exact local AI runtime",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install remaining portable-v2 build and QEMU proof dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build exact kernel and kernel modules",
+              "conclusion": ""
+            },
+            {
+              "name": "Build and verify exact Stable Base or experimental independent candidate",
+              "conclusion": ""
+            },
+            {
+              "name": "Build and verify exact offline Surface runtime",
+              "conclusion": ""
+            },
+            {
+              "name": "Build exact release agent and bootstrap capsule",
+              "conclusion": ""
+            },
+            {
+              "name": "Build one initramfs pinned to the exact capsule and Stable Base",
+              "conclusion": ""
+            },
+            {
+              "name": "Build candidate v4 with local AI and previous signed portable release v3",
+              "conclusion": ""
+            },
+            {
+              "name": "Build persistent ext4 state with current and known-good",
+              "conclusion": ""
+            },
+            {
+              "name": "Build armed one-shot Portable activation state",
+              "conclusion": ""
+            },
+            {
+              "name": "Boot portable-v2 candidate PID1 in QEMU",
+              "conclusion": ""
+            },
+            {
+              "name": "Prove armed candidate one-shot fallback in QEMU",
+              "conclusion": ""
+            },
+            {
+              "name": "Prove invalid Ed25519 candidate, durable rollback and read-only rescue in QEMU",
+              "conclusion": ""
+            },
+            {
+              "name": "Keep cold-health promotion as physical Stable/MVP gate",
+              "conclusion": ""
+            },
+            {
+              "name": "Build pinned systemd-boot for portable UEFI proof",
+              "conclusion": ""
+            },
+            {
+              "name": "Validate portable UEFI proof contract",
+              "conclusion": ""
+            },
+            {
+              "name": "Boot same portable-v2 disk through OVMF and systemd-boot",
+              "conclusion": ""
+            },
+            {
+              "name": "Upload proof metadata only",
+              "conclusion": ""
+            },
+            {
+              "name": "Post Set up Go",
+              "conclusion": ""
+            },
+            {
+              "name": "Post Set up Python",
+              "conclusion": ""
+            },
+            {
+              "name": "Post Checkout exact source commit",
+              "conclusion": ""
+            }
+          ]
+        }
+      ],
+      "status": "in_progress",
+      "url": "https://github.com/ordaxsystems/ordax-os/actions/runs/38506816059",
+      "workflowName": "Portable v2 QEMU Boot Proof"
+    }
+  ],
+  "sourceSha256AtMainFinal": {
+    "system/composition/native/main.mjs": "3384e87bc147ee071bf97d8e0314c73d74d6fde92161c61766343ae19440a410",
+    "system/composition/web/main.tsx": "0db68d767adcbeaa367962800a1a5f92efbf4da76ea275a8f39221dbdd2eeba3",
+    "system/surface/ui/surface-state.mjs": "be60e23569a35ce52514a1eab6796541a2e4a50f1a6c642f9491d4ff312d4791",
+    "system/surface/ui/surface.mjs": "54faae324ad64c269de5b6dc2fcbda982cdb73bec5d8f0a0b0f63588793a75ec",
+    "system/surface/workspace/presentation.mjs": "687a071bff03ac98469b78f95f3a352fef9d223b31fef81fe440ee35771e6225",
+    "system/surface/workspace/components/central/central.tsx": "c000e5b75a9c6946c674953b9a547a1e580f36ca437f36b9652c267cd81a82fd",
+    "system/surface/workspace/components/central/desktop-state.ts": "3ed5b00d9a7a707b3e5a5bee5d2e49ee0e9b3fd6538f0ed4bc65b98d2aae9c5e",
+    "system/surface/workspace/components/central/window-layer.tsx": "4257638b094fd117eb866da33540ecac7bd29abb6018c17fa0bc90c22ba8a48a",
+    "system/surface/workspace/components/central/preferences-context.tsx": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
+    "system/surface/workspace/lib/intelligence/client.mjs": "504c7fa80b9973af4c74975d645b4be18a6b7f2475466ac388835d389bb2ead1",
+    "system/surface/workspace/components/intelligence/client-context.tsx": "9e0db907ce946f5b4715cfe103af2249d2d7d983bf731280cb4be72848c72f0e",
+    "system/surface/workspace/components/intelligence/aura-content.tsx": "a19c5225c32ab5626c5c08c3a88fe8f337474b3c1d9f9240cb40e62466b0f1d1",
+    "system/adapters/web/intelligence.mjs": "75c62e34e84ffd1d328deb15230f5b6b9cf9d0f639bfc4a3b19bed762bf98611",
+    "system/adapters/web/intelligence-remote.mjs": "eb22e6f2c048987efa01ad7eaa712178f4806ec5b242cdebd3bdefcf168cc2b1",
+    "system/services/preferences/catalog.mjs": "48f37ce788135a565ecab56ecc0335431f130ca20b0f70a72b1670c030f0f865",
+    "system/services/preferences/runtime.mjs": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
+    "system/services/preferences/color-palette.mjs": "100fc75feb389576d8e4e983cd44b85000d2aa5201266cc1fe6e08fcfd4a5c19",
+    "system/services/preferences/appearance.mjs": "bccdb14a6682f0e6bd0234a08a8cf60e46fae04ecdf18ea5baa7024ca774979f",
+    "system/services/preferences/home-shortcuts.mjs": "8cba367fe4f67762aada318fafb35fc35159c82870d3cde157e6f1f00bb8e0a8",
+    "system/adapters/native/preferences.mjs": "edd770065a4bd1dcf7be96b62e657fa01f41a9732e5961b849263784c0754903",
+    "system/adapters/web/preferences.mjs": "5bc77e6995b03cea928e70876c8caf2f479a902546de005b30b447c79bb98925",
+    "system/services/sync/preference-runtime.mjs": "e55f6168b0e25a1f446bb97da7c7588ea80e274bf54e6ebdc6f0ac31210180ec",
+    "system/services/spaces/authorized-view.mjs": "f2f28a0fd489094babd8268a5b2783c78bbad2a60ea131169bf283026545d5b6",
+    "system/adapters/web/identity.mjs": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c",
+    "system/services/update/freshness.mjs": "ad73e4154b914ee567f781b320086a3d998879cb6b83f466fcd73663464aa280",
+    "system/contracts/workspace-store.mjs": "7b1823294b8df80b827ac3173d782932bb17670f7ec7e8ecadfaf30746991745",
+    "system/contracts/surface-render-lifecycle.mjs": "5f136b41bcbec86bd30f754517bd6a0370a4e5c2b82a5661b2a6ae09028e4c66",
+    "system/contracts/preference-store.mjs": "25b06bb07a71d3e6e17cbab3c6244ba76613d5f6002abc9a99b57399466a0afc",
+    "system/contracts/preference-runtime.mjs": "d50aa40e2eee9f7d5fdf88620abc24d9ba29fba7590d2e94ca4163f599a1722e",
+    "system/contracts/project-catalog.mjs": "425e9a311b225b9ce669d7ce9afcbc869cb03d15976afd35e57e6ca08167f7ea",
+    "system/contracts/recent-files.mjs": "519c8fe85702fda5d06c8140a1df12790fd3d46441d5dafbdf65a12faa72a82a",
+    "system/contracts/file-space.mjs": "1c1e2e30889d45d62855eed0ad816593aa71a7f96cad4ab44415ba435d32efc2",
+    "system/contracts/spaces.mjs": "d3f313dc5d41d26a3cf961a2fac0517622e6a6548d88e97a8e966e45ad898c9a",
+    "system/contracts/network-status.mjs": "43c4be736d0d3de2b7f16fdfed5b34aa7d8b35cda8f8d9f71468b91113ed0f61",
+    "system/contracts/power-status.mjs": "ca7c1f276a537d47b8b0169f044efda833532969e1c70a70430f0f86f82147df",
+    "system/contracts/notifications.mjs": "0912fb79f277bc458dffd3226db869e7ac0f06790fa45766515ebbff9deab71d",
+    "system/contracts/device-capabilities.mjs": "cb4e0098600c2247b815b61ef417ae1fa27348bc35c040cf7d9365dbe417dc7e",
+    "system/contracts/update-status.mjs": "7e4ea137884dd74020f0d6d4616095559f35da05b93bb6947bfa319e44066a7a",
+    "system/contracts/component-manager.mjs": "dfcf58716bcfbb4ed50872e926e6a077882b771370d882d150398dcceb37f919",
+    "system/apps/runtime-catalog.mjs": "70b484399b58943875f118ebf91193c895c8248c1fc325de4a5cba50854c29a2",
+    "system/surface/ui/tokens.css": "cb8a5958acf9d88dd43d8bbd41cbcca6e26b2383d272b6cb52ddd297a2fcfb24",
+    "system/surface/ui/color-palettes.css": "61b0b4e8a9e4ba03984cc306cee1210a58cfd8a44b7b7727afef10d20996652f",
+    "system/composition/native/files-probation-context.mjs": "9a9ac55365c1ebe391d7d87282f53c72df634aa77cad7fe7129322be53c5a650",
+    "system/composition/native/component-probation.mjs": "ffc4c8f5cc80056d5f50dbf2fadb05afd5f81dd588bbe6c44b2e1119559e4c63",
+    "system/services/components/probation-context.mjs": "ff405281d6a47b337142143b4833463fb3f2ffe1180d19148622f073f9ca21ad",
+    "system/services/components/probation-policy.generated.mjs": "f81b907283599b90145b65c9271f0ee867a68efc224b75d7fba760b40ec3c754",
+    "docs/contracts/runtime-component-package.json": "d7cbfe15d5cf7d7ae3665bd2e76bd79526977881babf246ae9273fb07f62f0a5",
+    "docs/contracts/runtime-component-trust-policy.json": "25c74ed2557ac829ff01d09dc8820bd9bfb1d058ef76bfd58515645b614482b4",
+    "docs/contracts/runtime-configuration.json": "4ed8a9a3abf9fc2b65e58fb2719dbe1270abafe357dbffe06709610d2677f648",
+    "docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md": "8666d85424e408e3e84acf5e2bf79f5ffff94e36240707a93960d77e624011e4",
+    "tests/test_web_intelligence_canvas.mjs": "ea61773adb5e422e2006cca02791ceb035ce180819205bcdf9707231160c2f0f",
+    ".github/workflows/foundation.yml": "eebead32391fe7af22cf2b804f26cfd043b68b51c294798fe896227f91f0f6e2",
+    ".github/workflows/surface-web-candidate.yml": "7b81b0c9fb957dfe4a33677e3491214466fec3fb89b83be90686c4acf68f8e3c",
+    ".github/workflows/intelligence-foundation.yml": "1ff006b0986620c555ba02ae8ffddedd43d722abe4d43a4164733fc3e7d7e44a",
+    "package.json": "8c83147f4e7eacdd8b5e43f425f58ea4aa1f551a4131e598bf6a15ba33a904e9",
+    "package-lock.json": "a56da7a1a3b845c7d9d208e5f8f65edc13adc4526ed3a2923309a7cef255cc61",
+    "INTELLIGENCE-HANDOFF.md": "39d2ee16cfd5cdbf5580f7cf49a205df8e3a11509d4604efbca51e9f751b0dfd",
+    "system/surface/README.md": "035ef56a41c70bb534ad464078c2ce3f27cec1185fd408681350921b1d8598ac"
+  },
+  "implementationTestsExecutedByAudit": false,
+  "hardwareTestedByAudit": false,
+  "classificationReceived": "B",
+  "classificationCorrected": "C",
+  "pr01Started": false,
+  "publicationPerformed": false
+}
