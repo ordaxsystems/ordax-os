@@ -76,7 +76,7 @@ function ports() {
   return { fileSpace, recentFiles, projects, appActivation };
 }
 
-test("Files probation provider installs before bind and creates no competing UI root", async () => {
+test("Files probation provider installs before bind and creates host only for an actual Files probe", async () => {
   const root = makeSurfaceRoot();
   let provider = null;
   const bootstrap = createNativeFilesProbationContextBootstrap({
@@ -121,7 +121,7 @@ test("Files probation provider installs before bind and creates no competing UI 
   assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
 });
 
-test("Files probation bind failure removes its hidden host and rejects waiting probes", async () => {
+test("Files probation bind failure rejects waiting probes without creating a host", async () => {
   const root = makeSurfaceRoot();
   let provider = null;
   const bootstrap = createNativeFilesProbationContextBootstrap({
@@ -138,7 +138,7 @@ test("Files probation bind failure removes its hidden host and rejects waiting p
   bootstrap.destroy();
 });
 
-test("Files probation bootstrap refuses duplicate binding and releases host idempotently", () => {
+test("Files probation bind is DOM-neutral without a probe and refuses duplicate binding", () => {
   const root = makeSurfaceRoot();
   let provider = null;
   const bootstrap = createNativeFilesProbationContextBootstrap({
@@ -146,10 +146,12 @@ test("Files probation bootstrap refuses duplicate binding and releases host idem
   });
   assert.equal(typeof provider, "function");
   bootstrap.bind({ root, ...ports() });
+  assert.equal(root.childNodes.length, 0);
   assert.throws(
     () => bootstrap.bind({ root, ...ports() }),
     /can only be bound once/,
   );
+  assert.equal(root.childNodes.length, 0);
   bootstrap.destroy();
   bootstrap.destroy();
   assert.equal(root.childNodes.length, 0);
@@ -178,7 +180,7 @@ test("Native Files probation wiring installs before async boot and binds only af
   assert.ok(installIndex > startIndex);
   assert.ok(firstAwaitIndex > installIndex, "probation provider must install before async boot can yield");
   assert.ok(surfaceIndex > firstAwaitIndex);
-  assert.ok(bindIndex > surfaceIndex, "hidden probation host must be created after mountSurface clears root");
+  assert.ok(bindIndex > surfaceIndex, "probation ports must bind after mountSurface establishes the final root");
   assert.ok(currentGateIndex > bindIndex, "current-runtime trust gate must remain separate from probation");
   assert.ok(teardownIndex > currentGateIndex);
   assert.match(source.slice(bindIndex, currentGateIndex), /fileSpace: filesOwnerSpace/);
