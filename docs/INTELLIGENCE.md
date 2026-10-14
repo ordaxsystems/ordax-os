@@ -43,6 +43,24 @@ This Phase 1 source closure does **not** activate a supported Web inference
 transport, OpenAI/xAI/ChatGPT provider adapters, remote Memory/context transport,
 voice/files input, grants/tool execution or Stable physical proof. Those remain
 independent gates.
+### Native device-local host bridge (source — 2026-10-14)
+
+The Native composition now has a bounded host-callable path over the existing final
+`selectedSpaceIntelligence` consumer port. `createNativeIntelligenceService` is composed
+with the canonical Identity and Space-selection owners, then reached through the existing
+privileged `ordaxBrowser` WebKit bridge plus a private Unix socket. Python is transport-only:
+it owns no provider/model selection, credentials, Memory, router, grants or execution authority.
+
+The socket is local-only, mode `0600`, bounded to 1 MiB per UTF-8 JSON message and is not
+opened until JavaScript reports `intelligence.host.ready`. A Surface reload suspends the
+listener and resolves pending work as `outcome=unknown`; only a new ready signal can expose
+the socket again. Host nonce and service `requestId` are correlated independently, and a
+failed/uncertain bridge does not claim retry safety or leak provider/model error detail.
+
+This is a **device-local source/CI boundary**, not remote inference activation. Runtime/Product
+routing to the socket, Platform capability advertisement, credentialed remote E2E, external
+provider activation and physical Stable/USB proof remain separate gates. Project context also
+remains fail-closed until a canonical selected-project owner exists for this path.
 
 ### Conversa: disponibilidade verificável e descarte de resultado (corte de source)
 
