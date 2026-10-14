@@ -7,6 +7,10 @@ import {
   COMPONENT_PROBATION_RESULT_SCHEMA,
   runPendingComponentProbation,
 } from "./probation-loader.mjs";
+import {
+  COMPONENT_MOUNT_HEALTH_PROBE_MODE,
+  createRuntimeMountHealthCheck,
+} from "./runtime-mount-health-probe.mjs";
 
 export const COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA =
   "ordax.component-probation-orchestrator/1";
@@ -19,15 +23,22 @@ if (
   throw new TypeError("Generated component probation policy is inconsistent");
 }
 
-function probeFor(componentId) {
+function probeFor(componentId, { mountContext = null, timeoutMs = 5_000 } = {}) {
   const mode = PROBE_MODES[componentId];
   if (!mode) {
     throw new TypeError("Unsupported system component probation probe");
   }
-  // A configured mode is not an implementation grant. Future mount-contract
-  // components must wire their real host-owned mount context explicitly rather
-  // than silently falling back to the import-only probe.
+  // A configured mode is not an implementation grant. mount-contract is
+  // executable only when its caller supplies an explicit host-owned mount
+  // context. Missing/invalid context fails here, before slot fetch or import.
   if (mode !== "import-contract") {
+    if (mode === COMPONENT_MOUNT_HEALTH_PROBE_MODE) {
+      return createRuntimeMountHealthCheck({
+        componentId,
+        context: mountContext,
+        timeoutMs,
+      });
+    }
     throw new TypeError("Unsupported system component probation probe mode");
   }
   return async ({ runtime, resolution, runtimeUrl }) => {
@@ -62,6 +73,7 @@ export async function runSystemPendingComponentProbation({
   source,
   fetchImpl = globalThis.fetch?.bind(globalThis),
   importModule = (url) => import(url),
+  mountContext = null,
   timeoutMs = 5_000,
 } = {}) {
   const id = validateComponentId(componentId);
@@ -71,7 +83,7 @@ export async function runSystemPendingComponentProbation({
     source,
     fetchImpl,
     importModule,
-    healthCheck: probeFor(id),
+    healthCheck: probeFor(id, { mountContext, timeoutMs }),
     timeoutMs,
   });
   if (result.schema !== COMPONENT_PROBATION_RESULT_SCHEMA) {
