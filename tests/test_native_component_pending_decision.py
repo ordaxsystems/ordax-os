@@ -207,12 +207,12 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         return value
 
     def execute(self, plan):
-        return owner.execute_component_pending_decision_plan(
-            plan,
+        lifecycle_owner = owner.ComponentPendingDecisionOwner(
             helper_path="/signed/bin/helper",
             trust_path="/signed/trust.json",
             slot_root="/var/lib/ordax/components",
         )
+        return lifecycle_owner.execute(plan)
 
     def test_generated_owner_gates_match_canonical_fail_closed_policy(self):
         policy = json.loads(
@@ -235,6 +235,18 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         self.assertFalse(native_policy.NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE)
         self.assertEqual(native_policy.NATIVE_PROBATION_COMPONENT_IDS, frozenset({"notes"}))
         self.assertNotIn("files", native_policy.NATIVE_PROBATION_COMPONENT_IDS)
+
+    def test_execution_request_cannot_retarget_runtime_bindings(self):
+        lifecycle_owner = owner.ComponentPendingDecisionOwner(
+            helper_path="/signed/bin/helper",
+            trust_path="/signed/trust.json",
+            slot_root="/var/lib/ordax/components",
+        )
+        with self.assertRaises(TypeError):
+            lifecycle_owner.execute(
+                self.plan(),
+                helper_path="/tmp/attacker-helper",
+            )
 
     def test_owner_hold_is_always_non_mutating(self):
         with mock.patch.object(owner, "promote_component_pending") as promote, mock.patch.object(
