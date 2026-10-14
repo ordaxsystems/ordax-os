@@ -86,7 +86,7 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
         script = script_path.read_text(encoding="utf-8")
         self.assertIn(seed, script)
         self.assertIn("expected_repository_id='1371063347'", script)
-        self.assertIn('${GITHUB_REPOSITORY_ID:-}', script)
+        self.assertIn('"${GITHUB_REPOSITORY_ID:-}" != "$expected_repository_id"', script)
         self.assertIn("releases/download/ordax-release-agent-${seed_sha256}/ordax-release-agent", script)
         self.assertIn(
             'install -m 0755 "$tmp" "$destination"',
