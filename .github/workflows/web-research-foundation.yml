@@ -5,14 +5,18 @@ on:
     branches: [main]
     paths:
       - 'system/contracts/web-research.mjs'
+      - 'system/services/web-research/**'
       - 'tests/test_web_research_contract.mjs'
+      - 'tests/test_web_provider_router.mjs'
       - 'docs/WEB-RESEARCH.md'
       - '00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md'
       - '.github/workflows/web-research-foundation.yml'
   pull_request:
     paths:
       - 'system/contracts/web-research.mjs'
+      - 'system/services/web-research/**'
       - 'tests/test_web_research_contract.mjs'
+      - 'tests/test_web_provider_router.mjs'
       - 'docs/WEB-RESEARCH.md'
       - '00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md'
       - '.github/workflows/web-research-foundation.yml'
@@ -36,5 +40,7 @@ jobs:
         with:
           node-version: '22.18.0'
 
-      - name: Run Web Research contract regressions
-        run: node --test tests/test_web_research_contract.mjs
+      - name: Run Web Research foundation regressions
+        run: |
+          node --test tests/test_web_research_contract.mjs
+          node --test tests/test_web_provider_router.mjs
