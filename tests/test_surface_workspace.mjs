@@ -11,6 +11,10 @@ import {
   validateWorkspaceRecord,
 } from "../system/contracts/workspace-store.mjs";
 import {
+  WORKSPACE_METADATA_SCHEMA,
+  validateWorkspaceMetadata,
+} from "../system/contracts/workspace-metadata-source.mjs";
+import {
   createSurfaceState,
   createWorkspaceSnapshot,
   getActiveArea,
@@ -108,6 +112,47 @@ test("area switching preserves independent window sets and focus", () => {
   assert.deepEqual(active(state).windows.map((item) => item.id), ["files"]);
   assert.equal(active(state).windows[0].positionX, 123);
   assert.equal(active(state).activeWindowId, "files");
+});
+
+test("same singleton window id in separate areas proves identity is area-scoped", () => {
+  let state = baseline();
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+
+  const first = state.areas[0];
+  const second = state.areas[1];
+  assert.notEqual(first.id, second.id);
+  assert.equal(first.windows[0].id, "files");
+  assert.equal(second.windows[0].id, "files");
+  assert.equal(first.windows[0].appId, second.windows[0].appId);
+  assert.notDeepEqual(
+    [first.id, first.windows[0].id],
+    [second.id, second.windows[0].id],
+  );
+});
+
+test("sync workspace metadata does not surface window-private extras", () => {
+  const snapshot = validateWorkspaceMetadata({
+    $schema: WORKSPACE_METADATA_SCHEMA,
+    activeAreaId: "area-1",
+    secret: "must-not-survive",
+    areas: [{
+      id: "area-1",
+      ordinal: 1,
+      appIds: ["files"],
+      activeWindowId: "files",
+      target: "/private/path",
+      windows: [{ id: "files", target: "/private/path" }],
+    }],
+  });
+
+  assert.deepEqual(Object.keys(snapshot).sort(), ["$schema", "activeAreaId", "areas"].sort());
+  assert.deepEqual(Object.keys(snapshot.areas[0]).sort(), ["appIds", "id", "ordinal"].sort());
+  assert.equal("target" in snapshot.areas[0], false);
+  assert.equal("activeWindowId" in snapshot.areas[0], false);
+  assert.equal("windows" in snapshot.areas[0], false);
+  assert.equal("secret" in snapshot, false);
 });
 
 test("app navigation targets are isolated per area and survive snapshot recovery", () => {
