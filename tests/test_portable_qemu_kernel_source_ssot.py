@@ -21,7 +21,7 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         expected = {
             'vmlinuz-$ORDAX_KERNEL_VERSION': 5,
-            'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 2,
+            'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 3,
             'kernel-$ORDAX_KERNEL_VERSION.config': 3,
         }
         for artifact, count in expected.items():

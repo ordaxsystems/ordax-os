@@ -402,18 +402,25 @@ jobs:
               # Disposable CI adapter; the current Stable owner is never mutated.
               sudo apt-get install -y --no-install-recommends \
                 gawk cpio unzip rsync file wget patch
+              module_archive="$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+              base_out="$work/independent-base"
+              test -f "$module_archive"
+              test ! -L "$module_archive"
+              export ORDAX_HOST_PYTHON="$(command -v python3)"
+              export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"
+              export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"
               python3 bootstrap/independent-base/build.py build \
-                --out "$work/independent-base" \
+                --out "$base_out" \
                 --cache "$work/independent-base-cache" --jobs 4 \
                 > "$work/metadata/independent-base-build.json"
               python3 bootstrap/independent-base/build.py verify \
-                --out "$work/independent-base" \
+                --out "$base_out" \
                 > "$work/metadata/independent-base-verify.json"
               mkdir -p "$work/stable-base"
-              cp -- "$work/independent-base/independent-base.erofs" \
+              cp -- "$base_out/independent-base.erofs" \
                 "$work/stable-base/stable-base.erofs"
               test "$(sha256sum "$work/stable-base/stable-base.erofs" | awk '{print $1}')" = \
-                "$(sha256sum "$work/independent-base/independent-base.erofs" | awk '{print $1}')"
+                "$(sha256sum "$base_out/independent-base.erofs" | awk '{print $1}')"
               echo 'ORDAX_INDEPENDENT_OFFICIAL_BOOT_SOURCE=BUILDROOT_VERIFIED'
               ;;
             *)
