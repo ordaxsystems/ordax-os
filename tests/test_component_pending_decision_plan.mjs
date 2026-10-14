@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { defineComponentManifest } from "../system/contracts/component-manifest.mjs";
-// Synthetic, contract-only component fixture: the Internet product is no longer bundled.
+import {
+  NATIVE_COMPONENT_PROBE_MODE_BY_ID,
+} from "../system/services/components/probation-policy.generated.mjs";
+// Synthetic, contract-only manifest using a component id currently granted probation by SSOT.
 const internetComponent = defineComponentManifest({
-  id: "test-probation", title: "Synthetic Component", kind: "app", version: "0.3.0",
+  id: "notes", title: "Synthetic Component", kind: "app", version: "0.3.0",
   releaseMode: "git-app", criticality: "optional", failureDomain: "app",
   restartScope: "component", healthMode: "runtime", owner: "test-fixture",
   dependencies: ["surface-shell"],
@@ -16,6 +20,10 @@ import {
 } from "../system/services/components/pending-decision-plan.mjs";
 
 const COMMIT = "a".repeat(40);
+const PENDING_DECISION_SOURCE = readFileSync(
+  new URL("../system/services/components/pending-decision-plan.mjs", import.meta.url),
+  "utf8",
+);
 
 function slotInternet(version = "0.4.0") {
   return defineComponentManifest({
@@ -28,9 +36,10 @@ function slotInternet(version = "0.4.0") {
 function receipt({
   health = "healthy",
   version = "0.4.0",
-  componentId = "test-probation",
+  componentId = "notes",
   sourceCommit = COMMIT,
   revision = 7,
+  probeMode = NATIVE_COMPONENT_PROBE_MODE_BY_ID[componentId],
 } = {}) {
   return {
     schema: "ordax.component-probation-result/1",
@@ -39,6 +48,7 @@ function receipt({
     sourceCommit,
     revision,
     health,
+    probeMode,
   };
 }
 
@@ -54,7 +64,7 @@ test("failed exact probation identity plans rejection without authority", () => 
   assert.equal(plan.action, "reject");
   assert.equal(plan.reason, "pending-health-failed");
   assert.equal(plan.authority, "none");
-  assert.equal(plan.componentId, "test-probation");
+  assert.equal(plan.componentId, "notes");
   assert.equal(plan.version, "0.4.0");
   assert.equal(plan.sourceCommit, COMMIT);
   assert.equal(plan.revision, 7);
@@ -159,17 +169,20 @@ test("raw pending decision plans are revalidated fail closed", () => {
 });
 
 
-test("raw probation receipts reject unknown authority and noncanonical fields", () => {
+test("raw probation receipts reject unknown authority, missing probe mode and noncanonical fields", () => {
   const input = {
     manifest: slotInternet(),
     canonicalTrustPinned: false,
     activationAllowed: false,
   };
+  const missingProbeMode = receipt();
+  delete missingProbeMode.probeMode;
   for (const value of [
     { ...receipt(), install: true },
     { ...receipt(), authority: "platform-component-lifecycle" },
     { ...receipt(), error: "unexpected-error-on-healthy-receipt" },
     { ...receipt(), probeMode: "unverified" },
+    missingProbeMode,
     { ...receipt(), health: "unknown" },
   ]) {
     assert.throws(() => createComponentPendingDecisionPlan({
@@ -184,7 +197,7 @@ test("failed probation may include bounded diagnostic and canonical probe mode",
     probationResult: {
       ...receipt({ health: "failed" }),
       error: "module import failed",
-      probeMode: "import-contract",
+      probeMode: NATIVE_COMPONENT_PROBE_MODE_BY_ID.notes,
     },
     canonicalTrustPinned: false,
     activationAllowed: false,
@@ -192,6 +205,16 @@ test("failed probation may include bounded diagnostic and canonical probe mode",
   assert.equal(result.action, "reject");
   assert.equal(result.reason, "pending-health-failed");
   assert.equal(result.authority, "none");
+});
+
+test("probation probe mode comes from generated SSOT without granting Files", () => {
+  assert.equal(NATIVE_COMPONENT_PROBE_MODE_BY_ID.notes, "import-contract");
+  assert.equal(Object.hasOwn(NATIVE_COMPONENT_PROBE_MODE_BY_ID, "files"), false);
+  assert.match(PENDING_DECISION_SOURCE, /NATIVE_COMPONENT_PROBE_MODE_BY_ID\[componentId\]/);
+  assert.doesNotMatch(
+    PENDING_DECISION_SOURCE,
+    /value\.probeMode\s*!==\s*["']import-contract["']/,
+  );
 });
 
 test("raw plans cannot invent unknown health or hold a failed receipt", () => {
