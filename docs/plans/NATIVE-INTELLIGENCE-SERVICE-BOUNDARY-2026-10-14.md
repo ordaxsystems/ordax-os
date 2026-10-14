@@ -1,14 +1,14 @@
 # Native Intelligence service boundary — 2026-10-14
 
-Status: **source-only, not host-composed, not remotely reachable**.
+Status: **device-local host composition implemented in source; remote Runtime/Platform routing, credentialed E2E and physical Stable/USB proof remain pending**.
 
-This slice follows the merged Web remote adapter (`ordax-os#1765`) and the merged Platform trusted Relay binding (`ordax-platform#153`). It closes the next internal ownership gap without claiming a deployed transport.
+This work follows the merged Web remote adapter (`ordax-os#1765`), the merged Platform trusted Relay binding (`ordax-platform#153`) and the merged Native service boundary (`ordax-os#1767`). It connects the existing final Native Intelligence consumer port to the existing privileged WebKit host without creating a second Intelligence runtime, model router, Memory owner, provider stack or action authority.
 
-## Decision
+## Ownership decision
 
 Remote/system callers must never bypass the final Native Intelligence composition and call Local AI, `llama.cpp`, a provider, Memory or the model router directly.
 
-The Native consumer path currently composes in this order:
+The canonical Native consumer path remains:
 
 ```text
 createIntelligenceRuntime(local AI + canonical model router)
@@ -16,25 +16,63 @@ createIntelligenceRuntime(local AI + canonical model router)
   -> selected-Space Profile content context when available
   -> identity-bound Memory for the selected Space when available
   -> selectedSpaceIntelligence
+  -> createNativeIntelligenceService(...)
+  -> privileged Native host bridge
 ```
 
-`selectedSpaceIntelligence` is therefore the port a Native host bridge must receive. The service boundary must not construct a second Intelligence runtime or repeat those wrappers.
+`selectedSpaceIntelligence` remains the only Intelligence port supplied to the Native service boundary. The new host bridge does not reconstruct any wrapper or own provider/model selection.
 
-## Implemented source boundary
+## Device-local host composition
 
-`system/services/intelligence/native-service.mjs` accepts three already-owned ports:
+`system/composition/native/intelligence-host-bridge.mjs` creates exactly one `createNativeIntelligenceService` instance from:
 
-- final consumer `ordax.intelligence/1` port;
+- final consumer `ordax.intelligence/1` port (`selectedSpaceIntelligence`);
 - `ordax.identity-session/1`;
 - `ordax.space-selection/1`.
 
-It validates a narrow host-callable request envelope, requires the request subject and Space to match the current Native state exactly, delegates the canonical request to the supplied final Intelligence port, revalidates the canonical response, then reads identity/Space again before returning the result.
+The module registers one private Surface event (`ordax-native-intelligence-request`) and returns results through the already-existing privileged `ordaxBrowser` WebKit message handler.
 
-If identity or Space changes while inference is pending, the result is discarded. There is no silent retarget or replay.
+The bridge announces `intelligence.host.ready` only after the service listener is installed. The Python host opens the local IPC socket only after receiving that readiness message, so a local caller cannot race the initial Native composition and reach a half-created Intelligence service.
 
-## Context support in this slice
+## Private IPC transport
 
-Supported source semantics:
+`system/surface/runtime/native_intelligence_ipc.py` is transport-only:
+
+- Unix domain socket only: `/run/ordax-surface/intelligence.sock`;
+- socket mode `0600`;
+- bounded newline-delimited JSON (`256 KiB` maximum message);
+- exact IPC envelope fields;
+- strict UTF-8/JSON decoding;
+- request/response correlation through the service `requestId`;
+- no TCP/HTTP listener;
+- no provider, endpoint, credential, model-router, Local AI or Memory logic.
+
+`ordax_browser_host.py` adds the minimum host glue required to:
+
+1. accept one bounded local IPC request;
+2. generate a separate opaque per-call host nonce;
+3. dispatch the service request into the privileged Surface WebView with `run_javascript`;
+4. accept only the correlated `intelligence.host.result` receipt from the existing `ordaxBrowser` bridge;
+5. return the correlated service response to the Unix-socket caller.
+
+The host does not validate or reinterpret Intelligence semantics. Canonical request/context/authority checks remain in the JavaScript service and `ordax.intelligence/1` contracts.
+
+## Unknown-outcome rule
+
+If dispatch, service execution or the host bridge fails after a request has been accepted, the transport returns:
+
+```text
+outcome = unknown
+error = unavailable
+```
+
+It does **not** claim that model execution did or did not start and it does **not** mark the request retry-safe. Automatic retry must remain disabled until the existing Runtime/Product/Platform idempotency and receipt owners are composed end-to-end.
+
+Internal provider/model error text is not sent through the host IPC.
+
+## Context support
+
+Supported semantics remain:
 
 ```text
 signed-in identity + no selected Space
@@ -44,58 +82,50 @@ signed-in identity + selected Space
   -> context { subjectId, spaceId: selectedSpace.id, projectId: null }
 ```
 
-Project-bound remote inference is intentionally rejected. Native Memory currently authorizes selected-Space context with `projectId=null`, and the Native composition does not expose a canonical current-project selection owner that can validate a remote project binding. The Web/Platform envelopes may represent Space+Project for future compatibility, but the device must fail closed until that owner exists.
+Project-bound remote inference remains intentionally rejected. Native still has no canonical selected-project owner for this path. The system must not infer a project from UI text, recent files, Work state or model output.
 
-This is not a reason to create a second project selector or infer a project from UI text, recent files, Work state or model output.
+The service re-reads Identity and Space after inference. A result is discarded when either changes while inference is pending.
 
 ## Security / ownership fences
 
-The service boundary:
+The composed path:
 
-- does not call `fetch()`;
-- has no endpoint discovery or network socket;
-- has no provider or provider credentials;
-- does not import Local AI or the model router;
-- does not read/write Memory directly;
-- does not issue grants or execute tools;
-- does not trust provider/model/client/device/grant fields in the request;
-- uses exact request/context fields at the host boundary and delegates request semantics to the canonical Intelligence validator;
-- revalidates `ordax.intelligence-response/1` and therefore preserves `authority=none`.
+- keeps one `ordax.intelligence/1` owner;
+- keeps one `ordax.model-router/1` owner;
+- keeps one `ordax.memory/1` owner;
+- preserves `authority=none` and `toolExecution=false`;
+- does not add provider credentials to Surface or Python;
+- does not add provider/model selection to Surface or Python;
+- does not add Memory reads/writes to Surface or Python;
+- does not add grants, tools or action execution to this transport;
+- does not expose a public network route;
+- does not reuse Background Runtime as a hidden transport owner.
 
-## Background Runtime is not the transport host
+## Background Runtime remains separate
 
-The existing `ordax.background-runtime/1` foundation owns leases, budgets, checkpoints, cancellation and recovery for bounded background work. Its contract currently states `source-foundation-runtime-disabled-for-public-autonomy`, with production store/scheduler/auto-resume disabled.
+The existing `ordax.background-runtime/1` foundation still owns leases, budgets, checkpoints, cancellation and recovery for bounded background work. Its public autonomy rollout remains disabled. Native Intelligence host composition does not enable autonomous background execution and does not make Background Runtime the model transport.
 
-Remote Intelligence does not require enabling autonomous background execution. This slice does not change Background Runtime rollout flags or use it as a substitute transport.
+## Proof boundary
 
-## Runtime packaging audit
+This slice must be described precisely:
 
-The current Stable Surface runtime packages Python + WebKitGTK/Cage and does not package Node. The privileged `ordax_browser_host` already has a host-to-JavaScript and JavaScript-to-host bridge used by component probation, while the canonical Intelligence runtime currently lives in the Native JavaScript composition.
+- **implemented in source:** Native service + privileged JS host bridge + private Unix IPC;
+- **CI proof:** dedicated JS/Python contract tests plus the existing Foundation/Intelligence/Surface/Release/USB/QEMU gates;
+- **not yet proven:** real Runtime/Product invocation through the socket;
+- **not yet advertised:** Platform/Product `intelligence.respond` capability;
+- **not yet proven:** credentialed remote E2E;
+- **not yet proven:** physical Stable/USB hardware run.
 
-Therefore the next transport slice should first reuse that existing WebKit bridge pattern rather than adding Node or porting Intelligence semantics to Python. A browser-host bridge may transport bounded messages, but it must call the service boundary above and must not implement model/provider/Memory logic itself.
-
-## Explicitly not implemented here
-
-- no import/wiring from `system/composition/native/main.mjs`;
-- no `ordax_browser_host` command/message handler;
-- no Unix socket or loopback HTTP endpoint;
-- no Product/Runtime action;
-- no public network route;
-- no project context;
-- no cancellation claim across process boundaries;
-- no deployed/credentialed E2E;
-- no physical Stable proof.
-
-Tests fail if this source-only service is already referenced by the current Native composition or browser host.
+QEMU/CI evidence must not be represented as physical USB proof.
 
 ## Next gates
 
-1. compose exactly one `createNativeIntelligenceService` instance with `selectedSpaceIntelligence`, the current Identity port and Space-selection port;
-2. transport calls through a bounded private host IPC using the existing WebKit host↔JS mechanism and per-request nonce/correlation;
-3. keep the socket/IPC private and fail closed when the Surface/service runtime is unavailable;
-4. do not advertise `intelligence.respond` in Platform/Product until the device-local bridge is proven;
-5. define cancellation/unknown-outcome behavior before allowing retries;
-6. connect the Runtime/Product transport to this device-local bridge using the existing Relay/grant/queue/idempotency/audit owners;
-7. run credentialed E2E and only then compose the Web remote adapter as available.
+1. prove this host composition in CI without weakening Foundation, Surface, Release, USB or QEMU gates;
+2. bind the existing Runtime/Product transport to the private device-local socket without creating another relay, target resolver, grant system, queue, idempotency store or audit owner;
+3. reuse Platform Relay target/device/grant/queue/idempotency/audit owners and enable the Intelligence operation only when the device executor is actually present;
+4. propagate `unknown` outcome conservatively and forbid automatic replay without canonical receipt/idempotency proof;
+5. run credentialed end-to-end remote inference;
+6. only after that proof, advertise the remote capability and compose the Web remote adapter as available;
+7. keep physical Stable/USB validation as a separate release gate.
 
-The target remains one Intelligence owner, one model router and one Memory owner throughout the path.
+The target remains one Intelligence owner, one model router and one Memory owner throughout the complete path.
