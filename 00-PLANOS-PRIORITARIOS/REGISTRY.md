@@ -2,7 +2,7 @@
 
 Atualizado: **2026-10-14**
 
-Este catálogo evita que múltiplos chats criem documentos concorrentes para a mesma frente. Classificações abaixo foram revalidadas contra `main@ef6c111fb6fadc7eba2c63fe51e2abb50e44af58`; estado exato continua pertencendo aos contracts/source/canônicos.
+Este catálogo evita que múltiplos chats criem documentos concorrentes para a mesma frente. Classificações abaixo foram revalidadas contra `main@32690a835fc337e5dae52065c5149474a98eddc7`; estado exato continua pertencendo aos contracts/source/canônicos.
 
 | ID | Tipo | Documento / rota | Prioridade | Status | Observação |
 |---|---|---|---|---|---|
@@ -17,8 +17,10 @@ Este catálogo evita que múltiplos chats criem documentos concorrentes para a m
 | INTEL-001 | handoff | `INTELLIGENCE-HANDOFF.md` | transversal | **ACTIVE GUIDE** | Router, não owner canônico |
 | INTEL-002 | closure plan | `docs/plans/INTELLIGENCE-INTEGRATION-CLOSURE-2026-10-13.md` | transversal/P1 | **ACTIVE** | Phase 1 merged; transport/provider E2E continua separado |
 | INTEL-003 | Native boundary plan | `docs/plans/NATIVE-INTELLIGENCE-SERVICE-BOUNDARY-2026-10-14.md` | transversal/P1 | **ACTIVE SOURCE-ONLY** | Service boundary existe; ainda não host-composed/remotely reachable |
-| WEB-001 | capability + research | `plans/WEB-001-WEB-RESEARCH.md` + `../docs/WEB-RESEARCH.md` | **P1** | **ACTIVE — G0 PASS / G1 IN PROGRESS** | Provider-neutral contracts iniciados; nenhum provider/network path ativado |
+| SEC-001 | security/execution closure | `plans/SEC-001-EXTERNAL-EGRESS-AUTHORITY.md` | **P1 transversal** | **ACTIVE — E0 PASS / E1 NEXT** | `external-egress` existe, mas Gateway atual o nega; fechar autoridade explícita no Gateway/Executor, sem broker paralelo |
+| WEB-001 | capability + research | `plans/WEB-001-WEB-RESEARCH.md` + `../docs/WEB-RESEARCH.md` | **P1** | **ACTIVE — G0 PASS / G1 PARTIAL / EGRESS BLOCKED** | Contracts/router/usage/projeção existem; nenhum provider/network path ativado |
 | WEB-001-R1 | provider research | `reports/WEB-001-PROVIDER-UPDATE-2026-10-14.md` | input de G2 | **TRIAGED** | Parallel/Brave/Tavily/Exa entram no benchmark; preços são snapshot |
+| CI-001 | CI/build routing | `ROADMAP.md` + heavy-workflow tests/workflows | transversal | **ACTIVE DISCOVERY** | QEMU ainda observa `system/**` amplo demais; alinhar gates pesados a dependências reais |
 | PLAN-AUDIT-001 | auditoria documental | `reports/PLAN-AUDIT-2026-10-14.md` | transversal | **TRIAGED** | Classifica planos e dívida documental sem reescrever owners em massa |
 
 ## Regra de retomada
@@ -50,5 +52,6 @@ Antes de implementar um item de plano antigo:
 - `PROFILE-*`: Spaces/Profile Packs/perfis profissionais.
 - `DEV-*`: Developer USB/workflow/tooling.
 - `SEC-*`: segurança transversal.
+- `CI-*`: roteamento/eficiência/reprodutibilidade de CI e builds.
 
 Novas famílias só quando houver responsabilidade realmente nova; não criar outro ID para o mesmo owner.
