@@ -10,10 +10,21 @@ async function isolatedRegistry(label) {
   );
 }
 
-test("probation context returns null without an explicit provider contribution", async () => {
-  const { composeComponentProbationContext } = await isolatedRegistry("empty");
-  const result = await composeComponentProbationContext("notes", { timeoutMs: 200 });
-  assert.equal(result, null);
+test("probation context returns null without a non-empty provider contribution", async () => {
+  {
+    const { composeComponentProbationContext } = await isolatedRegistry("empty");
+    const result = await composeComponentProbationContext("notes", { timeoutMs: 200 });
+    assert.equal(result, null);
+  }
+  {
+    const {
+      installComponentProbationContextProvider,
+      composeComponentProbationContext,
+    } = await isolatedRegistry("empty-object");
+    installComponentProbationContextProvider(() => ({}));
+    const result = await composeComponentProbationContext("files", { timeoutMs: 200 });
+    assert.equal(result, null);
+  }
 });
 
 test("probation context composes bounded frozen contributions without replacing caller fields", async () => {
