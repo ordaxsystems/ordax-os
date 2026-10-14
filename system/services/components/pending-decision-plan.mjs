@@ -4,6 +4,9 @@ import {
   validateComponentVersion,
 } from "../../contracts/component-manifest.mjs";
 import {
+  NATIVE_COMPONENT_PROBE_MODE_BY_ID,
+} from "./probation-policy.generated.mjs";
+import {
   COMPONENT_PROBATION_RESULT_SCHEMA,
 } from "./probation-loader.mjs";
 import {
@@ -21,11 +24,11 @@ function exactProbationIdentity(value) {
     throw new TypeError("Component probation receipt must be an object");
   }
   // Probation receipts are observations, not lifecycle capabilities.
-  // Accept only the canonical loader fields and its documented diagnostic fields.
+  // Accept only the canonical orchestrator fields and its documented diagnostic field.
   const required = [
-    "schema", "componentId", "version", "sourceCommit", "revision", "health",
+    "schema", "componentId", "version", "sourceCommit", "revision", "health", "probeMode",
   ];
-  const allowed = new Set([...required, "error", "probeMode"]);
+  const allowed = new Set([...required, "error"]);
   const actual = Object.keys(value);
   if (actual.length < required.length
     || required.some((key) => !Object.hasOwn(value, key))
@@ -40,13 +43,18 @@ function exactProbationIdentity(value) {
   )) {
     throw new TypeError("Component probation diagnostic is invalid");
   }
-  if (Object.hasOwn(value, "probeMode") && value.probeMode !== "import-contract") {
-    throw new TypeError("Component probation probe mode is invalid");
-  }
   if (value.schema !== COMPONENT_PROBATION_RESULT_SCHEMA) {
     throw new TypeError("Unsupported component probation receipt schema");
   }
   const componentId = validateComponentId(value.componentId);
+  const expectedProbeMode = NATIVE_COMPONENT_PROBE_MODE_BY_ID[componentId];
+  if (
+    typeof expectedProbeMode !== "string"
+    || !expectedProbeMode
+    || value.probeMode !== expectedProbeMode
+  ) {
+    throw new TypeError("Component probation probe mode is invalid");
+  }
   const version = validateComponentVersion(value.version);
   const sourceCommit = value.sourceCommit;
   if (typeof sourceCommit !== "string" || !SHA40_RE.test(sourceCommit)) {
