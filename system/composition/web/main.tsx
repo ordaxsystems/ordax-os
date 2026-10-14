@@ -3,7 +3,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { Toaster } from 'sonner';
 import { createUnavailableAppStoreCatalogPort } from '../../contracts/app-store.mjs';
+import { createUnavailableWebIntelligencePort } from '../../adapters/web/intelligence.mjs';
 import { StoreCatalogProvider } from '../../surface/workspace/components/store/catalog-context';
+import { IntelligenceClientProvider } from '../../surface/workspace/components/intelligence/client-context';
 import { Central } from '../../surface/workspace/components/central/central';
 import { WebAccountProvider, useWebAccount } from '../../surface/workspace/components/central/account-context';
 import { createWebAccountSession } from './account-session.mjs';
@@ -29,6 +31,9 @@ if (!root) throw new Error('OrdaX composition root is missing #ordax-root');
 let reactRoot: Root | undefined;
 const route = createRootRoute();
 const storeCatalog = createUnavailableAppStoreCatalogPort('web-store-transport-unavailable');
+// Web consumes the canonical Intelligence port. Until a supported transport is composed,
+// the adapter remains explicitly unavailable rather than owning a second provider or API.
+const intelligence = createUnavailableWebIntelligencePort();
 const accountSession = createWebAccountSession(window);
 const preferences = createPreferenceRuntime(createWebPreferenceStore(window));
 void accountSession.refresh();
@@ -49,7 +54,7 @@ function SessionWorkspace() {
 }
 function Workspace() {
   useEffect(() => { boot.ready(); }, []);
-  return <><WebPreferencesProvider port={preferences}><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><SessionWorkspace/></StoreCatalogProvider></WebAccountProvider></WebPreferencesProvider><Toaster/></>;
+  return <><WebPreferencesProvider port={preferences}><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><IntelligenceClientProvider port={intelligence}><SessionWorkspace/></IntelligenceClientProvider></StoreCatalogProvider></WebAccountProvider></WebPreferencesProvider><Toaster/></>;
 }
 const web = createRoute({
   getParentRoute: () => route, path: '/',
