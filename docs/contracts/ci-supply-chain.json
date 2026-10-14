@@ -31,6 +31,11 @@
       "version_label": "v6"
     },
     {
+      "uses": "actions/setup-node",
+      "sha": "249970729cb0ef3589644e2896645e5dc5ba9c38",
+      "version_label": "v6"
+    },
+    {
       "uses": "actions/setup-go",
       "sha": "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
       "version_label": "v7"
