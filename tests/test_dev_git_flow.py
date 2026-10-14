@@ -99,6 +99,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         dev_base.mkdir(parents=True, exist_ok=True)
         for name in (
             "ordax-dev-init",
+            "ordax-diagnose",
             "ordax-network",
             "ordax-pull",
             "ordax-rollback",
@@ -175,6 +176,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "/system/",
                 "/bootstrap/base-update/",
                 "/bootstrap/dev-base/ordax-dev-init",
+                "/bootstrap/dev-base/ordax-diagnose",
                 "/bootstrap/dev-base/ordax-network",
                 "/bootstrap/dev-base/ordax-pull",
                 "/bootstrap/dev-base/ordax-rollback",
@@ -205,6 +207,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         for helper in (
             "bootstrap/dev-base/ordax-dev-init",
+            "bootstrap/dev-base/ordax-diagnose",
             "bootstrap/dev-base/ordax-network",
             "bootstrap/dev-base/ordax-pull",
             "bootstrap/dev-base/ordax-rollback",

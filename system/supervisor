@@ -468,6 +468,7 @@ configure_runtime_sparse_checkout() {
         /system/ \
         /bootstrap/base-update/ \
         /bootstrap/dev-base/ordax-dev-init \
+        /bootstrap/dev-base/ordax-diagnose \
         /bootstrap/dev-base/ordax-network \
         /bootstrap/dev-base/ordax-pull \
         /bootstrap/dev-base/ordax-rollback \
@@ -1286,7 +1287,7 @@ classify_changes() {
         case "$path" in
             system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)
                 ;;
-            bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint|system/services/base-update/dev-helpers.sh)
+            bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-diagnose|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint|system/services/base-update/dev-helpers.sh)
                 DEV_HELPERS_CHANGED=1
                 ;;
             boot/*|bootstrap/*)
