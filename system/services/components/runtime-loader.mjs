@@ -3,16 +3,12 @@ import {
   validateComponentRuntime,
   validateMountedComponent,
 } from "../../contracts/component-runtime.mjs";
+import { createComponentContextProviderRegistry } from "./context-provider-registry.mjs";
 
-const MAX_TRUSTED_CONTEXT_PROVIDERS = 16;
-const MAX_TRUSTED_CONTEXT_FIELDS_PER_PROVIDER = 16;
-const FORBIDDEN_TRUSTED_CONTEXT_FIELDS = new Set([
-  "__proto__",
-  "constructor",
-  "prototype",
-]);
-const trustedContextProviders = [];
-let componentLoadStarted = false;
+const trustedContextRegistry = createComponentContextProviderRegistry({
+  label: "Trusted component context",
+  startDescription: "app loading",
+});
 
 function componentRecord(manager, componentId) {
   const record = manager.getSnapshot().components.find(
@@ -22,68 +18,12 @@ function componentRecord(manager, componentId) {
   return record;
 }
 
-function validateTrustedContext(value, context) {
-  if (value === null) return context;
-  if (
-    !value
-    || typeof value !== "object"
-    || Array.isArray(value)
-    || (
-      Object.getPrototypeOf(value) !== Object.prototype
-      && Object.getPrototypeOf(value) !== null
-    )
-  ) {
-    throw new TypeError("Trusted component context provider must return a plain object or null");
-  }
-  if (Object.getOwnPropertySymbols(value).length !== 0) {
-    throw new TypeError("Trusted component context provider must not return symbol fields");
-  }
-  const additions = Object.entries(value);
-  if (additions.length > MAX_TRUSTED_CONTEXT_FIELDS_PER_PROVIDER) {
-    throw new RangeError("Trusted component context provider returned too many fields");
-  }
-  if (!additions.length) return context;
-  for (const [key] of additions) {
-    if (
-      key.length === 0
-      || key.length > 128
-      || /[\u0000-\u001f\u007f]/.test(key)
-      || FORBIDDEN_TRUSTED_CONTEXT_FIELDS.has(key)
-      || Object.prototype.hasOwnProperty.call(context, key)
-    ) {
-      throw new TypeError(`Trusted component context cannot add field: ${key}`);
-    }
-  }
-  return Object.freeze({ ...context, ...value });
-}
-
-async function composeTrustedContext(componentId, callerContext) {
-  let context = callerContext;
-  for (const provider of trustedContextProviders) {
-    context = validateTrustedContext(await provider(componentId), context);
-  }
-  return context;
-}
-
 export async function composeTrustedComponentContext(componentId, context) {
-  componentLoadStarted = true;
-  return composeTrustedContext(componentId, context);
+  return trustedContextRegistry.compose(componentId, context);
 }
 
 export function installTrustedComponentContextProvider(provider) {
-  if (typeof provider !== "function") {
-    throw new TypeError("Trusted component context provider must be a function");
-  }
-  if (componentLoadStarted) {
-    throw new Error("Trusted component context provider cannot be installed after app loading starts");
-  }
-  if (trustedContextProviders.includes(provider)) {
-    throw new Error("Trusted component context provider is already installed");
-  }
-  if (trustedContextProviders.length >= MAX_TRUSTED_CONTEXT_PROVIDERS) {
-    throw new RangeError("Trusted component context provider limit reached");
-  }
-  trustedContextProviders.push(provider);
+  trustedContextRegistry.install(provider);
 }
 
 export async function loadOptionalComponentRuntime({
@@ -105,7 +45,6 @@ export async function loadOptionalComponentRuntime({
 
   const manager = assertComponentManager(componentManager);
   const expected = componentRecord(manager, componentId);
-  componentLoadStarted = true;
 
   try {
     const effectiveContext = await composeTrustedComponentContext(componentId, context);
