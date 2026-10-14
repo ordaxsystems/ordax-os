@@ -223,6 +223,10 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
             policy["component_promotion_policy_executes_actions"],
         )
         self.assertEqual(
+            native_policy.NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED,
+            policy["canonical_component_trust_anchor_pinned"],
+        )
+        self.assertEqual(
             native_policy.NATIVE_SLOT_ACTIVATION_AVAILABLE,
             policy["slot_activation_available"],
         )
@@ -231,6 +235,7 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
             policy["pending_health_promotion_available"],
         )
         self.assertFalse(native_policy.NATIVE_PENDING_DECISION_EXECUTION_ENABLED)
+        self.assertFalse(native_policy.NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED)
         self.assertFalse(native_policy.NATIVE_SLOT_ACTIVATION_AVAILABLE)
         self.assertFalse(native_policy.NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE)
         self.assertEqual(native_policy.NATIVE_PROBATION_COMPONENT_IDS, frozenset({"notes"}))
@@ -284,9 +289,25 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         self.assertFalse(result.mutated)
         promote.assert_not_called()
 
+    def test_future_promotion_requires_canonical_trust_even_with_activation_gates(self):
+        plan = self.plan(action="promote", reason="eligible-for-promotion")
+        with mock.patch.object(owner, "NATIVE_PENDING_DECISION_EXECUTION_ENABLED", True), mock.patch.object(
+            owner, "NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED", False
+        ), mock.patch.object(
+            owner, "NATIVE_SLOT_ACTIVATION_AVAILABLE", True
+        ), mock.patch.object(
+            owner, "NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE", True
+        ), mock.patch.object(owner, "promote_component_pending") as promote:
+            result = self.execute(plan)
+        self.assertEqual(result.state, "blocked")
+        self.assertEqual(result.reason, "canonical-component-trust-not-pinned")
+        promote.assert_not_called()
+
     def test_future_promotion_still_requires_both_activation_gates(self):
         plan = self.plan(action="promote", reason="eligible-for-promotion")
         with mock.patch.object(owner, "NATIVE_PENDING_DECISION_EXECUTION_ENABLED", True), mock.patch.object(
+            owner, "NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED", True
+        ), mock.patch.object(
             owner, "NATIVE_SLOT_ACTIVATION_AVAILABLE", True
         ), mock.patch.object(
             owner, "NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE", False
@@ -324,6 +345,8 @@ class NativeComponentPendingDecisionOwnerTests(unittest.TestCase):
         plan = self.plan(action="promote", reason="eligible-for-promotion")
         applied = types.SimpleNamespace(action="promote", revision=9)
         with mock.patch.object(owner, "NATIVE_PENDING_DECISION_EXECUTION_ENABLED", True), mock.patch.object(
+            owner, "NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED", True
+        ), mock.patch.object(
             owner, "NATIVE_SLOT_ACTIVATION_AVAILABLE", True
         ), mock.patch.object(
             owner, "NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE", True
