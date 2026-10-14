@@ -34,9 +34,14 @@ on:
       - 'system/contracts/project-*.mjs'
       - 'system/services/components/**'
       - 'tests/test_component_mount_health_probe.mjs'
+      - 'tests/test_component_mount_probation_context.mjs'
+      - 'tests/test_component_probation_context_registry.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
+      - 'system/composition/native/files-probation-context.mjs'
+      - 'system/composition/native/main.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
+      - 'tests/test_native_files_probation_context.mjs'
       - 'tools/component-package/**'
       - 'tools/runtime-component-channel/**'
       - 'system/services/components/probation-loader.mjs'
@@ -92,9 +97,14 @@ on:
       - 'system/contracts/project-*.mjs'
       - 'system/services/components/**'
       - 'tests/test_component_mount_health_probe.mjs'
+      - 'tests/test_component_mount_probation_context.mjs'
+      - 'tests/test_component_probation_context_registry.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'system/composition/native/verified-installed-apps.mjs'
+      - 'system/composition/native/files-probation-context.mjs'
+      - 'system/composition/native/main.mjs'
       - 'tests/test_native_verified_installed_apps.mjs'
+      - 'tests/test_native_files_probation_context.mjs'
       - 'tools/component-package/**'
       - 'tools/runtime-component-channel/**'
       - 'system/services/components/probation-loader.mjs'
@@ -155,8 +165,11 @@ jobs:
           python -m unittest tests.test_runtime_component_trust_promotion -v
           node --test tests/test_component_probation_loader.mjs
           node --test tests/test_component_mount_health_probe.mjs
+          node --test tests/test_component_mount_probation_context.mjs
+          node --test tests/test_component_probation_context_registry.mjs
           node --test tests/test_verified_current_component_runtime.mjs
           node --test tests/test_native_verified_installed_apps.mjs
+          node --test tests/test_native_files_probation_context.mjs
           node --test tests/test_component_probation_orchestrator.mjs
           node --test tests/test_native_component_probation_composition.mjs
           node --test tests/test_component_promotion_policy.mjs

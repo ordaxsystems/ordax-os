@@ -76,6 +76,7 @@ import { createProjectWebReferenceRuntime } from "../../services/projects/web-re
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
 import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
+import { createNativeFilesProbationContextBootstrap } from "./files-probation-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -166,6 +167,7 @@ function blockedAccountMemoryMutations() {
 
 const bootScreen = createSurfaceBootScreen(document);
 let bootLocale = "pt-BR";
+let filesProbationContextBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
@@ -173,6 +175,7 @@ async function start() {
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
   }
+  filesProbationContextBootstrap = createNativeFilesProbationContextBootstrap();
 
   const browserSession = createNativeBrowserSession(window);
   const verifiedComponentPackageSource = createNativeVerifiedComponentPackageSource(window);
@@ -833,6 +836,18 @@ async function start() {
           reportClientDiagnostic("files-project-continuity", error);
         },
       });
+  try {
+    filesProbationContextBootstrap.bind({
+      root,
+      fileSpace: filesOwnerSpace,
+      recentFiles,
+      projects,
+      appActivation,
+    });
+  } catch (error) {
+    console.warn("OrdaX Files probation context unavailable", error);
+    filesProbationContextBootstrap.fail(error);
+  }
   // This binding is dormant while Files is bundled or the Native signed-slot
   // read policy excludes it. No alternative Files source is mounted here.
   if (hasNativeExternalFirstPartyModuleRead("files")
@@ -1044,6 +1059,7 @@ async function start() {
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
       fileSpaceControls.destroy();
+      filesProbationContextBootstrap?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
@@ -1084,6 +1100,7 @@ async function start() {
 }
 
 start().catch((error) => {
+  filesProbationContextBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
   console.error("OrdaX native composition failed", error);
 });
