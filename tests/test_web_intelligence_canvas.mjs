@@ -32,7 +32,7 @@ const remoteContext = (overrides = {}) => ({
   subjectId: "subject-1",
   targetDeviceId: "device-1",
   spaceId: "space-1",
-  projectId: null,
+  projectId: "project-1",
   ...overrides,
 });
 
@@ -197,7 +197,7 @@ test("Remote Web Intelligence dispatches once with explicit target context and f
   port.dispose();
 });
 
-test("Remote Web Intelligence requires explicit bound context before dispatch", async () => {
+test("Remote Web Intelligence requires canonical explicit scope before dispatch", async () => {
   let calls = 0;
   const transport = {
     schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
@@ -215,6 +215,11 @@ test("Remote Web Intelligence requires explicit bound context before dispatch", 
     readContext: () => ({ subjectId: "subject-1", targetDeviceId: "device-1" }),
   });
   await assert.rejects(inferredScope.respond({ prompt: "x" }), /state Space and project explicitly/);
+  const halfScope = createRemoteWebIntelligencePort({
+    transport,
+    readContext: () => remoteContext({ projectId: null }),
+  });
+  await assert.rejects(halfScope.respond({ prompt: "x" }), /both be present or both be absent/);
   assert.equal(calls, 0);
 });
 
@@ -240,7 +245,7 @@ test("Remote Web Intelligence rejects mismatched and stale result context", asyn
       getSnapshot: () => readyIntelligenceSnapshot(),
       subscribe: () => () => {},
       async respond(envelope) {
-        currentContext = remoteContext({ spaceId: "space-2" });
+        currentContext = remoteContext({ spaceId: "space-2", projectId: "project-2" });
         return remoteResponse(envelope.context);
       },
     },
@@ -249,28 +254,45 @@ test("Remote Web Intelligence rejects mismatched and stale result context", asyn
   await assert.rejects(stale.respond({ prompt: "x" }), /context changed while the request was pending/);
 });
 
-test("Remote Web Intelligence rejects authority-bearing responses and unavailable transports", async () => {
+test("Remote Web Intelligence fails closed before dispatch when unavailable, busy or already aborted", async () => {
   let calls = 0;
+  const makeTransport = (snapshot) => ({
+    schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+    async respond() { calls += 1; throw new Error("must not dispatch"); },
+  });
   const unavailable = createRemoteWebIntelligencePort({
-    transport: {
-      schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
-      getSnapshot: () => ({
-        schema: INTELLIGENCE_PORT_SCHEMA,
-        state: "degraded",
-        inferenceAvailable: false,
-        engineId: null,
-        modelId: null,
-        authority: "none",
-        toolExecution: false,
-      }),
-      subscribe: () => () => {},
-      async respond() { calls += 1; },
-    },
+    transport: makeTransport({
+      schema: INTELLIGENCE_PORT_SCHEMA,
+      state: "degraded",
+      inferenceAvailable: false,
+      engineId: null,
+      modelId: null,
+      authority: "none",
+      toolExecution: false,
+    }),
     readContext: () => remoteContext(),
   });
   await assert.rejects(unavailable.respond({ prompt: "x" }), /transport is unavailable/);
-  assert.equal(calls, 0);
 
+  const busy = createRemoteWebIntelligencePort({
+    transport: makeTransport({ ...readyIntelligenceSnapshot(), state: "busy" }),
+    readContext: () => remoteContext(),
+  });
+  await assert.rejects(busy.respond({ prompt: "x" }), /transport is unavailable/);
+
+  const aborted = createRemoteWebIntelligencePort({
+    transport: makeTransport(readyIntelligenceSnapshot()),
+    readContext: () => remoteContext(),
+  });
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled-before-send"));
+  await assert.rejects(aborted.respond({ prompt: "x" }, { signal: controller.signal }), /cancelled-before-send/);
+  assert.equal(calls, 0);
+});
+
+test("Remote Web Intelligence rejects authority-bearing responses", async () => {
   const authority = createRemoteWebIntelligencePort({
     transport: {
       schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
