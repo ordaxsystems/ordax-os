@@ -69,6 +69,23 @@ Automated Surface tests are useful but not equivalent to human/physical accessib
 
 No pending item becomes PASS through browser emulation or fixtures.
 
+## Environment evidence
+
+Development-host baseline used for the focused checks:
+
+- Windows `10.0.19045.6466`;
+- Node `v26.7.0`;
+- Python `3.13.14`;
+- Git `2.55.0.windows.3`.
+
+This is host evidence only. It is not USB/Linux Native, physical touch, assistive-technology, or release proof.
+
+## Visual reference / shot setup
+
+PR-01 changes no visual implementation, so it does not create replacement Meridian screenshots. The immutable visual reference remains the frozen Visual System/evidence at Meridian audit commit `14b898438dedb89501d237a3a6a58e4cc9fb10d4`, routed for canonical documentation by PR #1768.
+
+Later visual increments must capture the canonical build/renderers against that immutable reference; screenshots remain visual evidence only and never lifecycle/authorization proof. No experimental preview/controller is introduced as the capture runtime here.
+
 ## PR-01 acceptance boundary
 
 PR-01 can be accepted only if the proposed composition-only reader contract is reviewable, six invariants are explicit, Native/Web gaps remain honest, baseline tests stay green, no executable reader/reducer/store/lifecycle is added, B-08/B-09 stay open, and no experimental runtime/UI enters `main`.
