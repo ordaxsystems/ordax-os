@@ -19,11 +19,14 @@ class PortableQemuImpactTests(unittest.TestCase):
     def setUpClass(cls):
         cls.reachable, cls.graph_errors = impact.native_startup_import_graph(ROOT)
 
-    def test_current_native_startup_graph_resolves_fail_closed_inputs(self):
+    def test_current_native_runtime_graph_resolves_all_discovered_roots(self):
         self.assertEqual(self.graph_errors, ())
         self.assertIn("system/composition/native/main.mjs", self.reachable)
+        self.assertIn("system/composition/native/app-data-bootstrap.mjs", self.reachable)
+        self.assertIn("system/composition/native/component-probation.mjs", self.reachable)
         self.assertIn("system/services/local-ai/runtime.mjs", self.reachable)
         self.assertIn("system/contracts/local-ai.mjs", self.reachable)
+        self.assertIn("system/services/components/probation-orchestrator.mjs", self.reachable)
 
     def test_unwired_high_level_web_research_source_does_not_require_qemu(self):
         result = impact.classify_paths(
@@ -34,12 +37,23 @@ class PortableQemuImpactTests(unittest.TestCase):
             root=ROOT,
         )
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-startup-reachable",))
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
 
-    def test_native_startup_reachable_service_requires_qemu(self):
+    def test_native_runtime_reachable_service_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)
-        self.assertIn("native-startup-reachable:system/services/local-ai/runtime.mjs", result.reasons)
+        self.assertIn("native-runtime-reachable:system/services/local-ai/runtime.mjs", result.reasons)
+
+    def test_browser_host_dynamic_runtime_dependency_requires_qemu(self):
+        result = impact.classify_paths(
+            ["system/services/components/probation-orchestrator.mjs"],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn(
+            "native-runtime-reachable:system/services/components/probation-orchestrator.mjs",
+            result.reasons,
+        )
 
     def test_presentation_stays_light_even_when_native_composition_imports_it(self):
         result = impact.classify_paths(["system/surface/ui/network-quick-panel.mjs"], root=ROOT)
@@ -61,14 +75,14 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertTrue(result.required)
         self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
 
-    def test_missing_startup_graph_fails_closed(self):
+    def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             result = impact.classify_paths(
                 ["system/contracts/web-research.mjs"],
                 root=Path(directory),
             )
         self.assertTrue(result.required)
-        self.assertTrue(any(reason.startswith("startup-graph:") for reason in result.reasons))
+        self.assertTrue(any(reason.startswith("runtime-graph:") for reason in result.reasons))
 
 
 if __name__ == "__main__":
