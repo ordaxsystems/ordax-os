@@ -1,375 +1,179 @@
 # WEB-001 — OrdaX Web Research
 
 - **Tipo:** PLAN / ROADMAP
-- **Status:** READY — NOT IMPLEMENTED
+- **Status:** ACTIVE — G0 PASS_SOURCE / G1 IN PROGRESS
 - **Prioridade:** P1
 - **Criado:** 2026-10-14
-- **Owner canônico proposto:** boundary sistêmico de Web Research sob os owners atuais de Intelligence/Action Policy; confirmar paths antes do primeiro PR
-- **Relatório:** `../reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md`
+- **Reauditado:** 2026-10-14 contra `main@ef6c111fb6fadc7eba2c63fe51e2abb50e44af58`
+- **Owner canônico:** `docs/WEB-RESEARCH.md`
+- **Contrato source em desenvolvimento:** `system/contracts/web-research.mjs`
+- **Pesquisa original:** `../reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md`
+- **Atualização de providers/custos:** `../reports/WEB-001-PROVIDER-UPDATE-2026-10-14.md`
 - **Não boot-critical:** SIM
 
-## Problema
+## Decisão
 
-Aura, Studio, IA local e futuras IAs conectadas precisam obter informação atual, documentação e evidências da web. Acoplar diretamente Tavily/Exa/Firecrawl em cada app criaria lock-in, duplicação de política, credenciais espalhadas e semânticas diferentes.
+Criar uma capability sistêmica **OrdaX Web**, provider-neutral, compartilhável por Aura, Studio, Files/Search, Personal OrdaX, IA local e bordas externas como Product MCP.
 
-Ao mesmo tempo, usar uma API paga para cada pergunta de cada usuário não escala economicamente e enfraquece privacidade/offline.
+O OrdaX possui a semântica de busca/extract/research, trust, provenance e política. Providers comerciais/open source são adapters substituíveis.
 
-## Objetivo
+## Descobertas da Fase 0
 
-Criar uma capability **OrdaX Web** provider-neutral que permita descobrir, extrair, verificar e pesquisar conteúdo externo com:
+O relatório inicial estava correto na direção, porém a `main` já evoluiu mais do que ele assumia. Não é necessário criar uma nova fundação de autorização.
 
-- contratos estáveis;
-- grants de `external-egress`;
-- provenance/freshness/citations;
-- budgets de custo/bytes/tempo;
-- provider routing/fallback autorizado;
-- cache compatível com direitos do provider/site;
-- local extraction quando possível;
-- segurança contra SSRF e prompt injection;
-- integração compartilhada por Aura/Studio/IA local/MCP.
+Owners existentes a reutilizar:
 
-## Não objetivos
+- `ordax.intelligence/1` — Intelligence consultativa;
+- `ordax.model-router/1` — model routing, separado da aquisição de evidência web;
+- `ordax.memory/1` — Memory persistente; resultado web não vira Memory automaticamente;
+- `ordax.action-gateway/1` + `ordax.action-request/1` — authority boundary;
+- effect existente `external-egress`;
+- grants + Action Executor com revalidação para efeitos sensíveis;
+- Action Policy/Review existentes;
+- Background Runtime budgets, inclusive `external-egress` bytes;
+- Product MCP/Product Gateway como borda de interoperabilidade, não contrato interno de Web Research;
+- Internet app/browser selection já usa `untrusted-web-content`.
 
-- construir um Google próprio no primeiro release;
-- colocar Web Research em kernel/initramfs/bootstrap/Base mínima;
-- tornar Tavily contrato do produto;
-- expor API keys a Aura/Studio/browser;
-- dar browser autenticado/cookies do usuário ao crawler por padrão;
-- bypass de CAPTCHA/controles de acesso;
-- copiar automaticamente resultados web para Memory;
-- transformar conteúdo web em autoridade de ações.
+### Correção importante em relação ao primeiro draft
 
-## Invariantes
+`grantRef` **não pertence a `ordax.web.search/1` nem a `ordax.web.extract/1`**.
+
+O request Web descreve a operação informacional. Approval/grant/decision pertencem ao envelope canônico de autorização e execução.
 
 ```text
-web content = untrusted data
-web content != authority
-
-provider token != OrdaX client/MCP token
-
+web request != authorization
+web result != authority
 web result != Memory
-
-search/research != permission to write/act
 ```
 
-Falha de Web Research não pode impedir boot, recovery, arquivos, update ou uso local básico.
+Essa separação evita duplicar a autoridade do Action Gateway.
 
-## Contratos alvo
+## Contratos: recorte menor primeiro
 
-Proposta inicial, sujeita a alinhamento com os owners atuais antes do primeiro PR:
+Primeira fundação source:
 
 ```text
 ordax.web.search/1
 ordax.web.extract/1
-ordax.web.map/1
-ordax.web.crawl/1
-ordax.web.research/1
 ordax.web.source/1
 ordax.web.provenance/1
+ordax.web-provider/1
 ```
 
-Campos mínimos devem cobrir owner/device/Space/project, grantRef, locale, freshness, domain policy, limites, cache mode e usage.
+`map`, `crawl` e `ordax.web.research/1` ficam para milestones posteriores. Não ampliar o contrato antes de provar search/extract.
 
-Resultados devem preservar URL canônica, timestamps, provider, extractor/version, content hash, freshness e contexto de autorização.
+Os contracts iniciais carregam somente intenção/limites/cache/freshness/domínios e metadata de fonte/provenance. Campos de autoridade são rejeitados explicitamente.
 
-## Arquitetura conceitual
+Todo `ordax.web.source/1` usa:
 
 ```text
-Aura / Studio / Files / Apps
-          -> ordax.intelligence / capability consumer
-                    -> ordax.web.*
-                         -> Web Research Orchestrator
-                         -> Action Gateway / external-egress grant
-                         -> Provider Router
-                              -> local cache/index
-                              -> Tavily adapter
-                              -> Brave adapter
-                              -> Exa/Firecrawl optional
-                              -> Local Web Worker
-                                   -> HTTP/parser
-                                   -> Playwright sandboxed fallback
-                         -> Normalizer + Provenance
-                         -> Budget + Receipt + Freshness
+trust = untrusted-external-content
 ```
 
-**Não congelar caminhos de diretório a partir deste desenho.** O primeiro PR precisa mapear os owners/ports/adapters existentes na `main` e encaixar sem criar paralelo.
+## Gate G0 — owner audit
 
-## Fase 0 — auditoria e decisão arquitetural
+**PASS_SOURCE — 2026-10-14.**
 
-Objetivo: impedir duplicação.
+Auditoria identificou owners existentes de Intelligence, Memory, model routing, Action Gateway, grants/executor, external-egress, background budgets, browser untrusted content e Product MCP. A nova fundação não cria nenhum owner paralelo.
 
-- localizar owners correntes de `ordax.intelligence/1`, local AI, Action Gateway, grants, audit receipts, Memory e MCP;
-- procurar qualquer search/extract/crawl já existente;
-- verificar taxonomia real de effects/`external-egress`;
-- decidir se os contratos exigem ADR em `docs/DECISIONS.md`;
-- definir owner único da capability;
-- registrar paths reais e dependências.
+Documento canônico criado: `docs/WEB-RESEARCH.md`.
 
-**Gate G0:** nenhum contrato/serviço paralelo; owner e dependências aprovados no source/documentação correta.
+## Gate G1 — contract/policy foundation
 
-## Fase 1 — contratos + policy foundation
+**IN PROGRESS.**
 
-Entregas:
+Já criado na branch `feature/web-research-foundation-20261014`:
 
-- schemas/versionamento `ordax.web.search/1` e `ordax.web.extract/1` primeiro;
-- `source/provenance` model;
-- provider interface;
-- erros normalizados;
-- integração com grant `external-egress`;
-- budget reservation antes da chamada;
-- receipt de uso/custo;
-- redaction/minimização de query remota;
-- testes de autoridade: conteúdo web nunca cria grant.
+- `system/contracts/web-research.mjs`;
+- `tests/test_web_research_contract.mjs`;
+- request bounds para query/results/requests/bytes/cost/deadline;
+- source/provenance schemas;
+- provider-neutral capability interface;
+- reject list explícita de campos de autoridade (`grantRef`, approval, tool/action/decision etc.);
+- HTTP(S) URL syntax validation sem credenciais;
+- cache/freshness/domain-policy primitives;
+- `untrusted-external-content` obrigatório.
 
-**Gate G1:** testes de contrato/policy passam sem provider real; chamadas sem grant falham fechadas.
+Ainda falta para fechar G1:
 
-## Fase 2 — Remote MVP
+1. executar testes/CI da branch e corrigir regressões reais;
+2. definir serviço/router que resolva capability sem hard-code de marca;
+3. projetar a execução remota sobre os owners existentes de `external-egress`, grant e budget — sem copiar `grantRef` para o request Web;
+4. definir usage/receipt model compatível com auditoria existente;
+5. definir error vocabulary/degraded states;
+6. registrar minimização/redaction de query no serviço remoto;
+7. provar que Surface/apps não recebem provider credentials.
 
-Providers iniciais:
+**G1 só passa quando no-grant/invalid-grant fail-closed for provado no executor real.** Contract tests sozinhos não provam autorização de rede.
 
-1. Tavily adapter: search + extract;
-2. Brave adapter: search independente/fallback;
-3. provider router simples baseado em capability, autorização, health e budget.
+## Gate G2 — evaluation harness antes do default
 
-Regras:
+A pesquisa original favorecia `Tavily + Brave`. O recheck do mesmo dia encontrou alternativas e mudanças de preço suficientes para não congelar essa ordem.
 
-- secrets só em owner seguro/config server-side apropriado;
-- timeout/retry/backoff/circuit breaker por provider;
-- respeitar `Retry-After`;
-- fallback somente se provider alternativo estiver permitido pelo grant;
-- nenhuma UI conhece SDK Tavily/Brave.
+Primeiro benchmark de Search, se test tiers/credenciais estiverem disponíveis:
 
-**Gate G2:** `search` e `extract` funcionam via contrato OrdaX; provider pode ser trocado sem alterar consumer.
+1. Parallel Turbo/Fast;
+2. Brave Search;
+3. Tavily Basic Search;
+4. Exa Instant/Fast.
 
-## Fase 3 — provenance, cache e custo
+Opcionais posteriores: Kagi, Jina Search, SearXNG; Perplexity somente via Agent API/provider-native research, não Sonar legado.
 
-Implementar:
+Métricas mínimas: relevância/recall, fonte oficial/freshness, PT-BR + technical docs, latência p50/p95, timeout/429/5xx, bytes, custo/query, custo por resposta útil, duplicação e retention/privacy/ToS.
 
-- canonical URL;
-- `publishedAt`, `retrievedAt`, freshness/staleness;
-- content hashes;
-- cache L0/L1/L2 com policy por provider/site/user;
-- usage real: requests, credits, external bytes, estimated/actual cost;
-- receipt auditável sem armazenar prompt sensível por padrão;
-- métricas de hit rate e custo evitado.
+Benchmark do próprio provider é evidência externa, não acceptance proof OrdaX.
 
-**Gate G3:** cada operação remota tem receipt e limite; cache não viola retention policy conhecida.
+## Gate G3 — primeiro provider remoto
 
-## Fase 4 — Local Web Worker
+Somente depois de G1 + baseline de G2. O adapter deve ficar atrás de `ordax.web-provider/1`, isolar secrets, respeitar deadline/retry/backoff, reportar usage, nunca criar grants e ser substituível sem alterar consumer.
 
-Começar pelo barato/seguro:
+A escolha poderá ser Tavily pela amplitude de `search+extract`, ou outro search provider se benchmark/custo justificar. **Marca não é decisão arquitetural.**
 
-```text
-URL autorizada
- -> secure HTTP fetch
- -> redirect/DNS/IP validation
- -> byte/time/content-type limits
- -> extractor
- -> normalized content
-```
+## Gate G4 — provenance/cache/cost
 
-Depois adicionar crawl HTTP limitado/Scrapy apenas se necessário.
+Implementar canonical URL, timestamps/freshness, content hash, usage/cost/latency, cache condicionado a policy e audit receipt sanitizado. Não persistir conteúdo apenas porque foi encontrado na web.
 
-### SSRF hardening obrigatório
+## Gate G5 — Local Web Worker
 
-Bloquear/revalidar:
+Começar por HTTP seguro, não browser. Revalidar destino/redirects, limitar bytes/time/content-type e cobrir SSRF (loopback/private/link-local/metadata/DNS rebinding). Playwright apenas como fallback JS sandboxed.
 
-- localhost/loopback;
-- RFC1918/private ranges;
-- link-local;
-- metadata cloud;
-- `file://` e schemes indevidos;
-- redirects para destinos proibidos;
-- DNS rebinding;
-- payloads acima de limite.
+## Gate G6 — `ordax.web.research/1`
 
-**Gate G4A:** suite SSRF negativa passa.
+Somente depois de search/extract estáveis: decomposição, provider selection autorizado, search, merge/dedupe/rank, extract, freshness checks, bounded evidence, síntese via Intelligence, citations/provenance/usage receipt.
 
-## Fase 5 — Playwright sandboxed fallback
+Provider-native agents podem executar subtarefas, nunca possuir a semântica canônica.
 
-Só usar browser quando HTTP/extractor não conseguir conteúdo suficiente e JS for necessário.
+## Gate G7 — Aura/Studio
 
-Worker efêmero:
-
-- sem HOME do usuário;
-- sem cookies do usuário;
-- sem secrets;
-- sem filesystem global;
-- sem sockets locais;
-- egress controlado;
-- CPU/RAM/time limit;
-- perfil descartável.
-
-**Gate G4B:** página maliciosa não consegue alcançar recursos locais nem transformar conteúdo em authority.
-
-## Fase 6 — `ordax.web.research/1`
-
-Orquestração OrdaX:
-
-1. classificar necessidade;
-2. decompor queries;
-3. selecionar providers dentro do grant/budget;
-4. buscar em paralelo quando justificado;
-5. normalizar/deduplicar/fundir/rankear;
-6. extrair top sources;
-7. checar freshness;
-8. repetir busca se evidência insuficiente;
-9. montar bounded evidence set;
-10. sintetizar via Intelligence;
-11. devolver resposta + provenance/citations/receipt.
-
-Provider-native research pode acelerar subtarefas, mas não substitui esta semântica.
-
-**Gate G5:** benchmark/evaluation mostra ganho de cobertura/freshness com custo conhecido e contexto limitado.
-
-## Fase 7 — Aura e Studio
-
-### Aura
-
-Mostrar de forma simples:
+Aura mostra pesquisa/fontes/freshness sem provider keys. Studio prioriza docs oficiais, versions/changelogs, breaking changes e erros recentes.
 
 ```text
-Pesquisado na web
-N fontes
-Atualizado há X
-providers utilizados
-```
-
-Permitir expandir fontes/provenance sem expor detalhes desnecessários ao usuário comum.
-
-### Studio
-
-Casos prioritários:
-
-- ler documentação oficial;
-- verificar versão/breaking changes;
-- mapear docs de framework;
-- comparar bibliotecas;
-- investigar erros recentes antes de alterar código.
-
-Separação:
-
-```text
-Web Research = descobre
+Web Research = descobre evidência
 Intelligence = raciocina/propoe
-Action Gateway = autoriza
+Action Gateway = autoriza efeito
 Runtime = executa
 ```
 
-**Gate G6:** pesquisar nunca concede write/device-control; consumidores funcionam sem conhecer provider.
-
-## Fase 8 — expansão opcional
-
-Somente por métricas/necessidade:
-
-- Exa semântico/deep;
-- Firecrawl map/crawl;
-- SerpAPI para verticais;
-- Diffbot enterprise;
-- SearXNG/dev fallback;
-- Common Crawl/corpus histórico;
-- índice offline próprio.
-
 ## Modelo econômico
 
-### Princípio
+**Nunca assumir “uma pergunta = uma chamada Tavily”.** Ordem preferida: cache/corpus autorizado -> local extract -> remote search simples -> multi-provider/deep quando necessário.
 
-**Não usar Tavily em toda pergunta.**
+Todo rollout público precisa de budgets, teto global, degraded mode, burn-rate observável e entitlements coerentes com custo real. Preços são snapshot; ver `../reports/WEB-001-PROVIDER-UPDATE-2026-10-14.md`.
 
-Ordem econômica:
+## Segurança invariável
 
-```text
-cache/corpus
- -> local extract para URL conhecida
- -> search remoto simples
- -> multi-provider/deep somente quando necessário
-```
-
-### Snapshot inicial Tavily
-
-Pesquisa de 14/10/2026 indica ~1.000 créditos free/mês e PAYG ~US$0,008/crédito. Revalidar antes de qualquer compra.
-
-A cota free deve ser tratada como **DEV/PoC**, não entitlement de produção compartilhado.
-
-### Guardrails de produto
-
-Antes de rollout público existir:
-
-- budget por operação;
-- budget por owner/account/Space quando aplicável;
-- teto mensal global configurável;
-- degraded mode quando budget/provider indisponível;
-- alertas de burn rate;
-- cost receipt;
-- cache hit rate;
-- provider mix;
-- feature/entitlement explícito para deep research se custo justificar.
-
-Não definir agora pricing final de planos OrdaX sem telemetria real de consumo.
-
-### Cenários de referência
-
-No PAYG de US$0,008, 1 crédito por busca básica:
-
-- 100 usuários x 1 busca/dia -> ~US$24/mês;
-- 1.000 x 1/dia -> ~US$240/mês;
-- 10.000 x 1/dia -> ~US$2.400/mês.
-
-Research complexo pode multiplicar isso. Objetivo do router/cache/local worker é reduzir chamadas pagas por resposta útil.
-
-## Privacidade e compliance
-
-- minimizar query antes de provider remoto;
-- provider-aware retention;
-- não persistir conteúdo automaticamente em Memory;
-- authenticated/private web é capability separada futura;
-- respeitar robots por padrão no crawler próprio;
-- não implementar CAPTCHA bypass;
-- classificar conteúdo externo como não confiável;
-- revisar ToS/licenciamento/PII antes de retenção/redistribuição.
-
-## Testes mínimos
-
-- contract versioning/backward compatibility;
-- no-grant fail closed;
-- budget exhausted fail/degraded;
-- provider timeout/429/5xx;
-- fallback autorizado e fallback negado;
-- query redaction;
-- provenance/freshness/hash;
-- cache retention policy;
-- SSRF matrix + redirects + DNS rebinding;
-- prompt injection não cria authority;
-- local extract sem network lateral;
-- browser sandbox escape-negative tests;
-- provider swap sem consumer change;
-- bounded context para IA local;
-- cost accounting reconciliado.
-
-## Rollback/degradação
-
-Se providers remotos falharem ou orçamento acabar:
-
-1. usar cache/corpus autorizado e marcar freshness;
-2. usar local extract para URLs já fornecidas quando possível;
-3. informar indisponibilidade/degradação;
-4. nunca liberar egress não autorizado nem esconder informação stale.
-
-Web Research pode ficar indisponível sem derrubar o sistema.
+- conteúdo web é dado não confiável;
+- prompt injection nunca cria authority;
+- remote operation é `external-egress`;
+- no grant válido -> fail closed no executor;
+- authenticated/private web é capability futura separada;
+- sem CAPTCHA bypass;
+- sem cookies do usuário no worker genérico;
+- sem automatic Memory ingestion;
+- sem kernel/boot dependency.
 
 ## Próxima ação exata
 
-Criar a **Fase 0** em um chat/PR dedicado: auditar a `main` atual para localizar owners reais de Intelligence, Action Gateway, grants, audit/receipts, Memory, MCP e qualquer web-search existente. Só depois abrir os primeiros schemas.
+Fechar G1 na branch atual, abrir PR e deixar CI validar a fundação. **Não integrar provider real no mesmo PR.**
 
-O primeiro PR de código **não deve integrar Tavily diretamente**. Ele deve fechar owner/contratos/policy provider-neutral suficientes para Tavily entrar como adapter no PR seguinte.
-
-## Handoff para outro chat
-
-Ao retomar `WEB-001`:
-
-1. ler `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`;
-2. ler este plano + relatório relacionado;
-3. verificar `ROADMAP.md` para garantir que P0 não foi deslocado;
-4. auditar source atual antes de assumir paths/versões;
-5. registrar qualquer decisão canônica no owner correto;
-6. atualizar `REGISTRY.md` e este plano após cada milestone.
+O PR seguinte introduz evaluation harness e/ou primeiro adapter somente depois que a boundary provider-neutral estiver verde e revisada.
