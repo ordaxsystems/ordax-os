@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'tools/creator/**'
+      - 'tests/test_owner_dev_helper_storage_profile.py'
       - '.github/workflows/physical-usb-test-toolkit.yml'
   pull_request:
     paths:
       - 'tools/creator/**'
+      - 'tests/test_owner_dev_helper_storage_profile.py'
       - '.github/workflows/physical-usb-test-toolkit.yml'
   workflow_dispatch:
 
@@ -24,6 +26,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Regress Owner Development split-helper storage profile
+        run: python tests/test_owner_dev_helper_storage_profile.py
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
