@@ -1,0 +1,46 @@
+name: Web Research Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/web-research.mjs'
+      - 'system/services/web-research/**'
+      - 'tests/test_web_research_contract.mjs'
+      - 'tests/test_web_provider_router.mjs'
+      - 'docs/WEB-RESEARCH.md'
+      - '00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md'
+      - '.github/workflows/web-research-foundation.yml'
+  pull_request:
+    paths:
+      - 'system/contracts/web-research.mjs'
+      - 'system/services/web-research/**'
+      - 'tests/test_web_research_contract.mjs'
+      - 'tests/test_web_provider_router.mjs'
+      - 'docs/WEB-RESEARCH.md'
+      - '00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md'
+      - '.github/workflows/web-research-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.18.0'
+
+      - name: Run Web Research foundation regressions
+        run: |
+          node --test tests/test_web_research_contract.mjs
+          node --test tests/test_web_provider_router.mjs
