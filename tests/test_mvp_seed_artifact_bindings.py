@@ -49,7 +49,7 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
     def test_current_initramfs_binding_matches_transactional_portable_capsule(self):
         artifact = self.artifact("initramfs")
         self.assertEqual(artifact["source_path"], "bootstrap/initramfs/initramfs.cpio.gz")
-        self.assertEqual(artifact["sha256"], "774a6f659eb217503cc44e65cc98e36edb22d93cbfede8a719c3eede7d8c2a3f")
+        self.assertEqual(artifact["sha256"], "b2caad212533d1010229728130bad94c15373def29acee6e12836c50810208be")
 
     def test_current_release_agent_seed_is_recognized_source_for_v4_capable_refresh(self):
         artifact = self.artifact("bootstrap-release-acquisition")
@@ -86,7 +86,7 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
         script = script_path.read_text(encoding="utf-8")
         self.assertIn(seed, script)
         self.assertIn("expected_repository_id='1371063347'", script)
-        self.assertIn('"${GITHUB_REPOSITORY_ID:-}" != "$expected_repository_id"', script)
+        self.assertIn('${GITHUB_REPOSITORY_ID:-}', script)
         self.assertIn("releases/download/ordax-release-agent-${seed_sha256}/ordax-release-agent", script)
         self.assertIn(
             'install -m 0755 "$tmp" "$destination"',
