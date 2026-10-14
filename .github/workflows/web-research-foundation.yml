@@ -8,6 +8,7 @@ on:
       - 'system/services/web-research/**'
       - 'tests/test_web_research_contract.mjs'
       - 'tests/test_web_provider_router.mjs'
+      - 'tests/test_web_research_action_projection.mjs'
       - 'docs/WEB-RESEARCH.md'
       - '00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md'
       - '.github/workflows/web-research-foundation.yml'
@@ -17,6 +18,7 @@ on:
       - 'system/services/web-research/**'
       - 'tests/test_web_research_contract.mjs'
       - 'tests/test_web_provider_router.mjs'
+      - 'tests/test_web_research_action_projection.mjs'
       - 'docs/WEB-RESEARCH.md'
       - '00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md'
       - '.github/workflows/web-research-foundation.yml'
@@ -44,3 +46,4 @@ jobs:
         run: |
           node --test tests/test_web_research_contract.mjs
           node --test tests/test_web_provider_router.mjs
+          node --test tests/test_web_research_action_projection.mjs
