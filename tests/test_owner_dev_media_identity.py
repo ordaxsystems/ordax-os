@@ -51,13 +51,22 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
         self.assertIn("*'TYPE=\"vfat\"'*", INIT)
         self.assertIn('parent_dev="$(cat "$sys/../dev"', INIT)
         self.assertIn('cat "$esp_sys/../dev"', INIT)
-        self.assertIn('ORDAX_DEVICE_MATCHES=$((ORDAX_DEVICE_MATCHES + 1))', INIT)
+        self.assertIn('case "$ORDAX_DEVICE_MATCHES" in', INIT)
+        self.assertIn('0) ORDAX_DEVICE_MATCHES=1 ;;', INIT)
+        self.assertIn('*) ORDAX_DEVICE_MATCHES=many ;;', INIT)
+        self.assertIn('for attempt in 1 2 3 4 5 6 7 8 9 10; do', INIT)
         self.assertIn('10) rescue "owner-development USB root not found', INIT)
         self.assertIn('multiple owner-development USB roots detected', INIT)
 
         owner_gate = INIT.index('case "$OWNER_DEVELOPMENT" in')
         rw_mount = INIT.index('mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax')
         self.assertLess(owner_gate, rw_mount)
+
+    def test_owner_pid1_avoids_optional_ash_arithmetic(self):
+        self.assertNotIn("$((", INIT)
+        self.assertIn('case "$esp_matches" in', INIT)
+        self.assertIn('0) esp_matches=1 ;;', INIT)
+        self.assertIn('*) esp_matches=many ;;', INIT)
 
     def test_non_owner_boot_keeps_legacy_discovery_path(self):
         self.assertIn('ORDAX_DEVICE="$(findfs LABEL=ORDAX 2>/dev/null || true)"', INIT)
