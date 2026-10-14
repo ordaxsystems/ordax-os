@@ -10,6 +10,7 @@ import {
   assertActionReviewPort,
   validateActionReviewVerdict,
 } from "../../contracts/action-review.mjs";
+import { validateExternalEgressGrant } from "../../contracts/external-egress-grant.mjs";
 import {
   authorizeIntelligenceToolAction,
   defineIntelligenceTool,
@@ -53,9 +54,26 @@ function decision(request, {
   });
 }
 
+function exactEgressScope(grant, request, grantRef) {
+  return grant.grantId === grantRef
+    && grant.workItemId === request.workItemId
+    && request.approvalId !== null
+    && grant.approvalId === request.approvalId
+    && grant.toolId === request.toolId
+    && grant.toolArtifactSha256 === request.toolArtifactSha256
+    && grant.actionId === request.actionId
+    && grant.effect === "external-egress"
+    && grant.ownerKind === request.ownerKind
+    && sameNullable(grant.ownerId, request.ownerId)
+    && sameNullable(grant.spaceId, request.spaceId)
+    && sameNullable(grant.projectId, request.projectId)
+    && grant.resourceRef === request.resourceRef;
+}
+
 export function createPersonalOrdaxActionGateway({
   toolResolver,
   grantResolver,
+  externalEgressGrantResolver = null,
   readPolicy = null,
   actionPolicyPort = null,
   actionReviewPort = null,
@@ -63,6 +81,9 @@ export function createPersonalOrdaxActionGateway({
 } = {}) {
   if (typeof toolResolver !== "function" || typeof grantResolver !== "function") {
     throw new TypeError("Personal OrdaX Action Gateway requires tool and grant resolvers");
+  }
+  if (externalEgressGrantResolver !== null && typeof externalEgressGrantResolver !== "function") {
+    throw new TypeError("Personal OrdaX Action Gateway external egress grant resolver must be a function");
   }
   if (readPolicy !== null && typeof readPolicy !== "function") {
     throw new TypeError("Personal OrdaX Action Gateway read policy must be a function");
@@ -150,11 +171,71 @@ export function createPersonalOrdaxActionGateway({
         }
       }
 
-      if (request.effect === "external-egress" || request.effect === "device-control") {
+      if (request.effect === "device-control") {
         return decision(request, {
           decision: "deny",
           authoritySource: "intelligence-tool-grant",
-          reason: "Intelligence tool grants cannot authorize egress or device-control effects.",
+          reason: "Intelligence tool grants cannot authorize device-control effects.",
+          decidedAt,
+        });
+      }
+
+      if (request.effect === "external-egress") {
+        if (externalEgressGrantResolver === null) {
+          return decision(request, {
+            decision: "deny",
+            authoritySource: "user-grant",
+            reason: "External egress authority is unavailable in this Action Gateway.",
+            decidedAt,
+          });
+        }
+        if (grantRef == null || grantRef === "") {
+          return decision(request, {
+            decision: "approval-required",
+            authoritySource: "user-grant",
+            reason: policyOutcome === "approval-required"
+              ? "Action policy and external egress both require explicit user approval."
+              : "Explicit scoped external egress grant is required before this action can execute.",
+            decidedAt,
+          });
+        }
+
+        let grant;
+        try {
+          grant = validateExternalEgressGrant(externalEgressGrantResolver(grantRef));
+        } catch {
+          return decision(request, {
+            decision: "deny",
+            authoritySource: "user-grant",
+            reason: "Referenced external egress grant is unavailable or invalid.",
+            decidedAt,
+          });
+        }
+
+        if (!exactEgressScope(grant, request, grantRef)) {
+          return decision(request, {
+            decision: "deny",
+            authoritySource: "user-grant",
+            reason: "External egress grant does not match the exact Work, approval, owner, context, resource, tool artifact and action.",
+            decidedAt,
+          });
+        }
+
+        const expiry = Date.parse(grant.expiresAt);
+        if (!Number.isFinite(expiry) || expiry <= decidedAtMs) {
+          return decision(request, {
+            decision: "deny",
+            authoritySource: "user-grant",
+            reason: "External egress grant is expired or has an invalid expiry.",
+            decidedAt,
+          });
+        }
+
+        return decision(request, {
+          decision: "allow",
+          authoritySource: "user-grant",
+          grantRef: grant.grantId,
+          reason: "Exact scoped external egress grant authorizes this action.",
           decidedAt,
         });
       }
