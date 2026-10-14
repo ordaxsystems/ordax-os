@@ -99,6 +99,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         dev_base.mkdir(parents=True, exist_ok=True)
         for name in (
             "ordax-dev-init",
+            "ordax-diagnose",
             "ordax-network",
             "ordax-pull",
             "ordax-rollback",
@@ -175,6 +176,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "/system/",
                 "/bootstrap/base-update/",
                 "/bootstrap/dev-base/ordax-dev-init",
+                "/bootstrap/dev-base/ordax-diagnose",
                 "/bootstrap/dev-base/ordax-network",
                 "/bootstrap/dev-base/ordax-pull",
                 "/bootstrap/dev-base/ordax-rollback",
@@ -205,6 +207,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         for helper in (
             "bootstrap/dev-base/ordax-dev-init",
+            "bootstrap/dev-base/ordax-diagnose",
             "bootstrap/dev-base/ordax-network",
             "bootstrap/dev-base/ordax-pull",
             "bootstrap/dev-base/ordax-rollback",
@@ -484,7 +487,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn('/bin/busybox timeout -k 1 "$DHCP_TIMEOUT"', network)
         self.assertIn('[ "$carrier" = 1 ] || continue', network)
         self.assertIn('while [ "$attempts" -lt "$WIFI_LINK_TIMEOUT" ]', network)
-        finish_network = network.split("finish_network() {", 1)[1].split("\\n}", 1)[0]
+        finish_network = network.split("finish_network() {", 1)[1].split("\n}", 1)[0]
         self.assertIn("return 0", finish_network)
 
         self.assertIn('GIT_TIMEOUT_SECONDS=${ORDAX_BOOT_GIT_TIMEOUT_SECONDS:-45}', pull)
