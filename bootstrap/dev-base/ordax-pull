@@ -58,6 +58,7 @@ configure_runtime_checkout_at() {
         /system/ \
         /bootstrap/base-update/ \
         /bootstrap/dev-base/ordax-dev-init \
+        /bootstrap/dev-base/ordax-diagnose \
         /bootstrap/dev-base/ordax-network \
         /bootstrap/dev-base/ordax-pull \
         /bootstrap/dev-base/ordax-rollback \

@@ -107,6 +107,7 @@ stage_helper() {
 }
 
 stage_helper bootstrap/dev-base/ordax-dev-init sbin/ordax-dev-init
+stage_helper bootstrap/dev-base/ordax-diagnose usr/local/bin/ordax-diagnose
 stage_helper bootstrap/dev-base/ordax-network usr/local/bin/ordax-network
 stage_helper bootstrap/dev-base/ordax-pull usr/local/bin/ordax-pull
 stage_helper bootstrap/dev-base/ordax-rollback usr/local/bin/ordax-rollback
