@@ -38,7 +38,10 @@ HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/diagnostics/",
 )
 PRODUCER_NEUTRAL_LIGHT_EXACT = {
+    ".github/workflows/independent-base-experiment.yml",
     "bootstrap/kernel/module_archive.py",
+    "tests/test_independent_kernel_module_workflow.py",
+    "tests/test_kernel_module_archive.py",
 }
 PRODUCER_NEUTRAL_LIGHT_PREFIXES = (
     "bootstrap/independent-base/",
