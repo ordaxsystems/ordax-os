@@ -33,21 +33,25 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
                 self.assertNotIn(SYSTEM_INCLUDE, text)
                 self.assertNotIn(SYSTEM_MARKDOWN_EXCLUDE, text)
 
-    def test_qemu_system_runtime_scope_stays_enabled_but_presentation_is_excluded(self):
+    def test_qemu_broad_trigger_is_routed_through_causal_impact_gate(self):
         text = (WORKFLOW_DIR / QEMU_WORKFLOW).read_text(encoding="utf-8")
-        lines = text.splitlines()
-        include_indexes = [
-            index for index, line in enumerate(lines) if line == SYSTEM_INCLUDE
-        ]
-        self.assertEqual(len(include_indexes), 2)
+        self.assertEqual(text.count(SYSTEM_INCLUDE), 2)
         self.assertEqual(text.count(SYSTEM_MARKDOWN_EXCLUDE), 2)
         for exclusion in QEMU_PRESENTATION_EXCLUDES:
             self.assertEqual(text.count(exclusion), 2)
 
-        for index in include_indexes:
-            self.assertEqual(lines[index + 1], SYSTEM_MARKDOWN_EXCLUDE)
-            self.assertEqual(lines[index + 2], QEMU_PRESENTATION_EXCLUDES[0])
-            self.assertEqual(lines[index + 3], QEMU_PRESENTATION_EXCLUDES[1])
+        self.assertIn("  impact:\n    name: Portable v2 QEMU Impact", text)
+        self.assertIn("python3 tools/ci/portable_qemu_impact.py classify", text)
+        self.assertIn("  qemu-portable-v2:\n    needs: impact", text)
+        self.assertIn("if: needs.impact.outputs.required == 'true'", text)
+        self.assertEqual(text.count("- 'tools/ci/portable_qemu_impact.py'"), 2)
+        self.assertEqual(text.count("- 'tests/test_portable_qemu_impact.py'"), 2)
+
+    def test_explicit_reusable_callers_force_heavy_proof_by_default(self):
+        text = (WORKFLOW_DIR / QEMU_WORKFLOW).read_text(encoding="utf-8")
+        self.assertIn("force_run:\n        type: boolean", text)
+        self.assertIn("default: true", text)
+        self.assertIn('ORDAX_FORCE_QEMU: ${{ inputs.force_run || false }}', text)
 
     def test_workflow_definition_changes_still_trigger_their_own_proof(self):
         names = (*PACKAGING_WORKFLOWS, QEMU_WORKFLOW, "release-bundle.yml")
