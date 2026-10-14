@@ -12,9 +12,20 @@ PACKAGING_WORKFLOWS = (
 )
 SYSTEM_INCLUDE = "      - 'system/**'"
 SYSTEM_MARKDOWN_EXCLUDE = "      - '!system/**/*.md'"
-QEMU_PRESENTATION_EXCLUDES = (
+QEMU_LIVE_RELOAD_EXCLUDES = (
+    "      - '!system/apps/**'",
+    "      - '!system/adapters/**'",
+    "      - '!system/contracts/**'",
+    "      - '!system/services/**'",
+    "      - '!system/composition/**'",
     "      - '!system/surface/ui/**'",
     "      - '!system/surface/workspace/**'",
+)
+QEMU_RUNTIME_REINCLUDES = (
+    "      - 'system/services/local-ai/source-lock.json'",
+    "      - 'system/services/telemetry/base-agent.sh'",
+    "      - 'system/services/telemetry/relay.json'",
+    "      - 'system/services/base-update/agent.sh'",
 )
 
 
@@ -33,7 +44,7 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
                 self.assertNotIn(SYSTEM_INCLUDE, text)
                 self.assertNotIn(SYSTEM_MARKDOWN_EXCLUDE, text)
 
-    def test_qemu_system_runtime_scope_stays_enabled_but_presentation_is_excluded(self):
+    def test_qemu_keeps_system_host_scope_but_excludes_live_reload_owners(self):
         text = (WORKFLOW_DIR / QEMU_WORKFLOW).read_text(encoding="utf-8")
         lines = text.splitlines()
         include_indexes = [
@@ -41,13 +52,28 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
         ]
         self.assertEqual(len(include_indexes), 2)
         self.assertEqual(text.count(SYSTEM_MARKDOWN_EXCLUDE), 2)
-        for exclusion in QEMU_PRESENTATION_EXCLUDES:
+        for exclusion in QEMU_LIVE_RELOAD_EXCLUDES:
             self.assertEqual(text.count(exclusion), 2)
+        for reinclusion in QEMU_RUNTIME_REINCLUDES:
+            self.assertEqual(text.count(reinclusion), 2)
 
+        expected_after_include = (
+            SYSTEM_MARKDOWN_EXCLUDE,
+            *QEMU_LIVE_RELOAD_EXCLUDES,
+            *QEMU_RUNTIME_REINCLUDES,
+        )
         for index in include_indexes:
-            self.assertEqual(lines[index + 1], SYSTEM_MARKDOWN_EXCLUDE)
-            self.assertEqual(lines[index + 2], QEMU_PRESENTATION_EXCLUDES[0])
-            self.assertEqual(lines[index + 3], QEMU_PRESENTATION_EXCLUDES[1])
+            observed = tuple(
+                lines[index + offset]
+                for offset in range(1, len(expected_after_include) + 1)
+            )
+            self.assertEqual(observed, expected_after_include)
+
+    def test_qemu_reincludes_real_runtime_inputs_after_service_exclusion(self):
+        text = (WORKFLOW_DIR / QEMU_WORKFLOW).read_text(encoding="utf-8")
+        for reinclusion in QEMU_RUNTIME_REINCLUDES:
+            self.assertIn(reinclusion, text)
+        self.assertIn("--local-ai-source-lock system/services/local-ai/source-lock.json", text)
 
     def test_workflow_definition_changes_still_trigger_their_own_proof(self):
         names = (*PACKAGING_WORKFLOWS, QEMU_WORKFLOW, "release-bundle.yml")
