@@ -2,7 +2,7 @@
 
 Status: **EXECUTION ROUTER**  
 Atualizado: **2026-10-14**  
-Revalidado contra: `main@ef6c111fb6fadc7eba2c63fe51e2abb50e44af58`
+Revalidado contra: `main@32690a835fc337e5dae52065c5149474a98eddc7`
 
 Este roadmap ordena frentes. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs. O relatório de auditoria corrente é `reports/PLAN-AUDIT-2026-10-14.md`.
 
@@ -17,37 +17,64 @@ Classes P0 atuais:
 3. smoke físico da Surface e hardware/graphical/Secure Boot conforme gates atuais;
 4. qualquer regressão crítica de trust, integridade, rollback ou physical writer.
 
-`WEB-001` não desloca esses gates e não exige build de kernel/Portable quando os paths alterados não têm dependência real nesses artefatos.
+`WEB-001`/`SEC-001` não deslocam esses gates e não exigem build de kernel/Portable quando os paths alterados não têm dependência real nesses artefatos.
 
 ## P1 — fundações de alto impacto em paralelo seguro
 
+### SEC-001 — External Egress Authority
+
+Status: **ACTIVE — E0 PASS_SOURCE / E1 NEXT**
+
+A auditoria confirmou um gap transversal: `external-egress` já existe como classe de efeito, mas o Action Gateway atual o nega deliberadamente porque Intelligence tool grants não podem autorizar rede/device-control. Não criar bypass por consumidor.
+
+Próxima ordem:
+
+1. definir contrato de egress explícito, curto, revogável e ligado a Work/approval/owner/context/tool/action/resource;
+2. incluir destinos + requests/bytes/cost/deadline sem wildcard irrestrito;
+3. integrar no Action Gateway existente em modo fail-closed;
+4. provar revalidação no Action Executor antes do adapter;
+5. manter `device-control` fora e negado;
+6. usar WEB-001 como primeiro consumidor somente depois de E1-E3 verdes.
+
+Plano: `plans/SEC-001-EXTERNAL-EGRESS-AUTHORITY.md`.
+
 ### WEB-001 — OrdaX Web Research
 
-Status: **ACTIVE — G0 PASS_SOURCE / G1 IN PROGRESS**
+Status: **ACTIVE — G0 PASS_SOURCE / G1 PARTIAL PASS_SOURCE / REMOTE EGRESS BLOCKED**
 
 Já executado:
 
 - owners atuais auditados;
 - owner canônico criado em `docs/WEB-RESEARCH.md`;
-- contratos provider-neutral `search`, `extract`, `source`, `provenance`, provider interface iniciados;
-- authority fields proibidos nos requests/result metadata;
+- contratos provider-neutral `search`, `extract`, `source`, `provenance`, provider interface;
+- provider router por capability, sem hard-code de marca e sem secrets no snapshot;
+- authority fields proibidos nos requests/result metadata/usage;
 - conteúdo externo classificado como não confiável;
-- tests source adicionados;
+- `ordax.web.usage/1` para requests/bytes/units/cost/latency/cache;
+- projeção determinística de `search|extract` para `ordax.action-request/1` com effect `external-egress`;
+- prova source de que o Gateway canônico nega egress antes de resolver grant/tool;
 - pesquisa de providers/custos atualizada.
 
 Próxima ordem:
 
-1. rodar CI/testes da fundação e corrigir regressões reais;
-2. fechar provider router/service sem hard-code de marca;
-3. projetar remote execution sobre Action Gateway/grant/`external-egress`/budget já existentes;
-4. definir usage/receipt/errors;
-5. criar evaluation harness;
-6. benchmark inicial: Parallel, Brave, Tavily, Exa;
-7. escolher primeiro provider por evidência, não por preferência prévia;
-8. depois adicionar local HTTP extract seguro;
-9. somente mais tarde `ordax.web.research/1`, browser fallback e integrações Aura/Studio.
+1. validar a branch filha com o gate Web leve depois da correção de CI pesado;
+2. fechar SEC-001 E1-E3; não habilitar provider antes disso;
+3. definir error vocabulary/degraded states e redaction/minimização;
+4. criar evaluation harness offline/reprodutível;
+5. benchmark inicial: Parallel, Brave, Tavily, Exa;
+6. escolher primeiro provider por evidência, não por preferência prévia;
+7. depois adicionar local HTTP extract seguro;
+8. somente mais tarde `ordax.web.research/1`, browser fallback e integrações Aura/Studio.
 
 Plano: `plans/WEB-001-WEB-RESEARCH.md`.
+
+### CI-001 — Impact-aware heavy workflows
+
+Status: **ACTIVE DISCOVERY**
+
+O QEMU Portable ainda observa `system/**` quase inteiro e chega a rebuildar kernel/Base/Local AI/Surface para contracts/services de alto nível. Isso é incompatível com a regra de validar somente dependências afetadas.
+
+Direção: alinhar o path scope pesado com os owners/dependências reais, preservando fail-closed para boot/runtime imutável. `Release Bundle Tooling` pode continuar amplo quando a intenção é provar o payload `system/`, mas QEMU/kernel não devem ser usados como default para todo source de produto.
 
 ### PROFILE-001 — Profiles
 
@@ -94,4 +121,4 @@ Um item sobe de prioridade somente por gate de release, segurança, dependência
 
 ## Regra de CI/build
 
-Validar **somente artefatos afetados e dependências justificadas**. Uma mudança documental ou de contrato Web Research não deve reconstruir kernel, initramfs, Portable image ou outros artefatos pesados sem dependência real. Gates globais podem existir para integração/release, mas não devem ser confundidos com necessidade de rebuild por path.
+Validar **somente artefatos afetados e dependências justificadas**. Uma mudança documental, de contrato Web Research ou de serviço high-level não deve reconstruir kernel, initramfs, Portable image ou outros artefatos pesados sem dependência real. Gates globais podem existir para integração/release, mas não devem ser confundidos com necessidade de rebuild por path.
