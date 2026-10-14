@@ -54,6 +54,9 @@ const (
 	msgActionBack                creatorMessageID = "creator.action.back"
 	msgBootHelp                  creatorMessageID = "creator.bootHelp.body"
 	msgTargetUnnamed             creatorMessageID = "creator.target.unnamed"
+	msgTargetRecoveryName        creatorMessageID = "creator.target.recoveryName"
+	msgTargetDiskLabel           creatorMessageID = "creator.target.diskLabel"
+	msgTargetRecoveryDrive       creatorMessageID = "creator.target.recoveryDrive"
 	msgVersionUpdated            creatorMessageID = "creator.version.updated"
 	msgRefreshSearching          creatorMessageID = "creator.refresh.searching"
 	msgRefreshHint               creatorMessageID = "creator.refresh.hint"
@@ -157,12 +160,15 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgActionBack:                "Voltar",
 	msgBootHelp:                  "Como iniciar pelo OrdaX USB\n\n1. Deixe o pendrive OrdaX conectado ao computador.\n2. Reinicie o computador.\n3. Abra o menu de boot/UEFI da máquina. A tecla varia conforme o fabricante.\n4. Escolha o dispositivo USB/UEFI correspondente ao pendrive OrdaX.\n5. O OrdaX inicia diretamente pelo USB; o Creator não instala o sistema no SSD ou HD interno.\n\nSe o USB não aparecer, verifique no firmware se a inicialização por USB está habilitada e tente outra porta USB.",
 	msgTargetUnnamed:             "Sem nome",
+	msgTargetRecoveryName:        "USB em recuperação",
+	msgTargetDiskLabel:           "Disco {disk}",
+	msgTargetRecoveryDrive:       "sem letra de unidade · recuperação segura",
 	msgVersionUpdated:            "atualizado",
 	msgRefreshSearching:          "Procurando pendrives…",
 	msgRefreshHint:               "Atualizando a lista de dispositivos USB disponíveis. Seus discos internos continuam fora da seleção do Creator.",
-	msgSidebarUSBTitle:            "Seu OrdaX USB",
-	msgUSBDetected:                "USB detectado",
-	msgStatusCaption:              "Status",
+	msgSidebarUSBTitle:           "Seu OrdaX USB",
+	msgUSBDetected:               "USB detectado",
+	msgStatusCaption:             "Status",
 	msgHeaderTitle:               "Criar pendrive OrdaX",
 	msgHeaderSubtitle:            "Assistente guiado: conecte o USB, confirme o destino e acompanhe a criação até a verificação final.",
 	msgFieldUSB:                  "Pendrive",
@@ -260,12 +266,15 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgActionBack:                "Back",
 	msgBootHelp:                  "How to boot from the OrdaX USB\n\n1. Keep the OrdaX USB drive connected to the computer.\n2. Restart the computer.\n3. Open the machine's boot/UEFI menu. The key varies by manufacturer.\n4. Choose the USB/UEFI device that corresponds to the OrdaX USB drive.\n5. OrdaX starts directly from USB; Creator does not install the system on the internal SSD or hard drive.\n\nIf the USB device does not appear, check the firmware settings to ensure USB boot is enabled and try another USB port.",
 	msgTargetUnnamed:             "Unnamed",
+	msgTargetRecoveryName:        "USB recovery",
+	msgTargetDiskLabel:           "Disk {disk}",
+	msgTargetRecoveryDrive:       "no drive letter · safe recovery",
 	msgVersionUpdated:            "updated",
 	msgRefreshSearching:          "Searching for USB drives…",
 	msgRefreshHint:               "Refreshing the list of available USB devices. Internal disks remain outside Creator's target selection.",
-	msgSidebarUSBTitle:            "Your OrdaX USB",
-	msgUSBDetected:                "USB detected",
-	msgStatusCaption:              "Status",
+	msgSidebarUSBTitle:           "Your OrdaX USB",
+	msgUSBDetected:               "USB detected",
+	msgStatusCaption:             "Status",
 	msgHeaderTitle:               "Create an OrdaX USB drive",
 	msgHeaderSubtitle:            "Guided assistant: connect the USB drive, confirm the target, and follow creation through final verification.",
 	msgFieldUSB:                  "USB drive",
