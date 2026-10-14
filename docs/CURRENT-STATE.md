@@ -6,6 +6,28 @@ port. Native updater events retain their original runtime/store/bridge owners;
 Web has no authorized remote notification adapter and displays that absence
 without seeded data or a second service. [Scope and acceptance](DESKTOP-IDENTITY.md#shared-notification-center--2026-10-13).
 
+## Web Intelligence canonical client boundary ? 2026-10-13
+
+PR #1756 closes the Phase 1 Web presentation boundary without claiming a remote
+inference service. The canonical `Central` composition injects a provider-neutral
+client for `ordax.intelligence/1`; `WindowContent` routes Aura/Intelligence to
+`AuraContent`, and Surface code owns no endpoint discovery, provider selection,
+credentials, Memory policy or execution authority.
+
+The default Web adapter intentionally fails closed with `state=degraded`,
+`inferenceAvailable=false`, `authority=none` and `toolExecution=false`. A supported
+remote transport, authenticated account/Space context, remote Memory/context
+projection and external provider adapters remain separate later gates. The client
+keeps semantically unchanged snapshots stable and validates/sanitizes responses
+before presentation.
+
+The canonical route passed deterministic Web build and the real Chromium Surface
+smoke on the stabilized Phase 1 source head. After that proof, the branch was
+synchronized with current `main` and the now-unreachable duplicate Aura branch in
+`DesktopContent` was removed with a regression preventing its return. The old
+WebShell/session/demo graph remains unmounted and preserved until its deliberate
+Phase 5 dependency migration; it is not a second active Web Intelligence path.
+
 
 ## Reconciliação dos gates Surface — 2026-10-12
 

@@ -17,6 +17,33 @@ O usuário deve enxergar um painel Intelligence coerente e o estado de conexão/
 
 
 
+### Web client boundary (source, Phase 1 ? 2026-10-13)
+
+The current canonical Web composition now consumes an injected, provider-neutral
+client for the existing `ordax.intelligence/1` contract. The default Web adapter
+implements that same contract as an honest fail-closed boundary; it does not
+discover endpoints, call providers, read credentials, import Native/local-AI
+adapters, own Memory or create execution authority. `WindowContent` routes the
+Aura/Intelligence window to `AuraContent`, which consumes only the injected client.
+
+When no supported transport is composed, Web reports `state=degraded` with
+`inferenceAvailable=false` and requests fail closed. When a real authorized port is
+provided later, the presentation client accepts only canonical bounded responses,
+drops provider-specific extras and rejects malformed or authority-bearing output.
+Repeated equivalent status events retain snapshot identity so React consumers do
+not synthesize state churn.
+
+The superseded WebShell/session/demo graph is still source-preserved but is not
+mounted by the canonical Web composition. Its hardcoded preview `503` path is not
+the active Aura transport and must not be mistaken for the status of the canonical
+client. Retirement of that preserved graph remains a separate Phase 5 migration
+with builder/provenance coverage.
+
+This Phase 1 source closure does **not** activate a supported Web inference
+transport, OpenAI/xAI/ChatGPT provider adapters, remote Memory/context transport,
+voice/files input, grants/tool execution or Stable physical proof. Those remain
+independent gates.
+
 ### Conversa: disponibilidade verificável e descarte de resultado (corte de source)
 
 O contrato de projeção de UX `ordax.intelligence-conversation-capabilities/1`
