@@ -234,7 +234,7 @@ Completed in source:
 - provider usage contract separate from action receipt;
 - `ordax.web-operation-receipt/1` bound to canonical usage/resource/source hashes without authority semantics;
 - initial `succeeded|partial|failed` / `errorCode` result vocabulary;
-- privacy-minimized audit metadata that retains counts/bounds/opaque esourceRef but not raw query, URL or domain values;
+- privacy-minimized audit metadata that retains counts/bounds/opaque `resourceRef` but not raw query, URL or domain values;
 - fail-closed proof that current Gateway denies egress before tool/grant resolution;
 - no provider secret in Surface/apps or router snapshot.
 
