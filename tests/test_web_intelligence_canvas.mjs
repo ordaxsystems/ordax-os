@@ -197,30 +197,60 @@ test("Remote Web Intelligence dispatches once with explicit target context and f
   port.dispose();
 });
 
-test("Remote Web Intelligence requires canonical explicit scope before dispatch", async () => {
-  let calls = 0;
-  const transport = {
+test("Remote Web Intelligence keeps context hierarchy separate from transport grant scope", async () => {
+  let rejectedCalls = 0;
+  const rejectingTransport = {
     schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
     getSnapshot: () => readyIntelligenceSnapshot(),
     subscribe: () => () => {},
-    async respond() { calls += 1; throw new Error("must not dispatch"); },
+    async respond() { rejectedCalls += 1; throw new Error("must not dispatch"); },
   };
   const missingTarget = createRemoteWebIntelligencePort({
-    transport,
+    transport: rejectingTransport,
     readContext: () => ({ subjectId: "subject-1", spaceId: null, projectId: null }),
   });
   await assert.rejects(missingTarget.respond({ prompt: "x" }), /targetDeviceId/);
+
   const inferredScope = createRemoteWebIntelligencePort({
-    transport,
+    transport: rejectingTransport,
     readContext: () => ({ subjectId: "subject-1", targetDeviceId: "device-1" }),
   });
   await assert.rejects(inferredScope.respond({ prompt: "x" }), /state Space and project explicitly/);
-  const halfScope = createRemoteWebIntelligencePort({
-    transport,
-    readContext: () => remoteContext({ projectId: null }),
+
+  const projectWithoutSpace = createRemoteWebIntelligencePort({
+    transport: rejectingTransport,
+    readContext: () => remoteContext({ spaceId: null }),
   });
-  await assert.rejects(halfScope.respond({ prompt: "x" }), /both be present or both be absent/);
-  assert.equal(calls, 0);
+  await assert.rejects(projectWithoutSpace.respond({ prompt: "x" }), /project context requires an explicit Space/);
+  assert.equal(rejectedCalls, 0);
+
+  const acceptedContexts = [];
+  const acceptingTransport = {
+    schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
+    getSnapshot: () => readyIntelligenceSnapshot(),
+    subscribe: () => () => {},
+    async respond(envelope) {
+      acceptedContexts.push(envelope.context);
+      return remoteResponse(envelope.context);
+    },
+  };
+  for (const context of [
+    remoteContext({ spaceId: null, projectId: null }),
+    remoteContext({ projectId: null }),
+    remoteContext(),
+  ]) {
+    const port = createRemoteWebIntelligencePort({
+      transport: acceptingTransport,
+      readContext: () => context,
+    });
+    await port.respond({ prompt: "x" });
+    port.dispose();
+  }
+  assert.deepEqual(acceptedContexts, [
+    remoteContext({ spaceId: null, projectId: null }),
+    remoteContext({ projectId: null }),
+    remoteContext(),
+  ]);
 });
 
 test("Remote Web Intelligence rejects mismatched and stale result context", async () => {
