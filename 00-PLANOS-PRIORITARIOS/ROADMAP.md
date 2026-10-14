@@ -3,66 +3,72 @@
 Status: **EXECUTION ROUTER**  
 Atualizado: **2026-10-14**
 
-Este roadmap ordena frentes. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs.
+Este roadmap ordena **janelas de execução**, não redefine arquitetura. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs.
 
-## P0 — fechar gates atuais do Stable/MVP
+## Janela atual — fechar o MVP antes de executar planos futuros
 
-A prioridade máxima continua herdada do estado/overlay atual do repositório. Web Research **não deve deslocar estes gates**.
+A janela corrente é exclusivamente o fechamento do MVP conforme seus owners canônicos.
 
-1. **Stable/MVP físico:** consentimento explícito novo para o contexto corrente, seleção segura do alvo, escrita autorizada e prova física do USB final.
-2. **Boot/recovery/cold-health canônicos:** validar o ciclo físico real, sem substituir por mock/synthetic proof.
-3. **Surface smoke físico:** executar o harness source-controlled e encerrar com `FAIL=0`.
-4. **Modo gráfico/Secure Boot e demais provas físicas pendentes:** fechar apenas com evidência canônica no hardware aplicável.
+Durante esta janela:
 
-Fonte de execução: `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` + `docs/PROMOTION-GATES.md` + contratos correntes.
+- planos P1/P2/P3 permanecem documentados, pesquisáveis e reconciliáveis;
+- nenhum plano futuro abre task/issue/PR de implementação apenas por estar `READY`;
+- requisitos que já pertencem ao MVP continuam sendo executados por `MVP.md`, contratos, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e owners canônicos;
+- corrigir documentação, links, classificação e SSOT não promove capacidade de produto;
+- após o fechamento do MVP, este roadmap deve ser revalidado antes de liberar a próxima frente.
 
-## P1 — fundações de alto impacto sem bloquear P0
+## P0 — gates atuais do Stable/MVP
+
+Somente os gates realmente correntes e comprovados pelos owners canônicos são elegíveis nesta janela. O resumo abaixo é um roteador; valores exatos vêm dos contratos e documentos canônicos.
+
+1. **Stable/MVP físico:** consentimento explícito válido para o contexto corrente, seleção segura do alvo, escrita autorizada e prova física exigida pelo contrato atual.
+2. **Boot/recovery/cold-health canônicos:** validar o ciclo físico real quando o owner canônico ainda o exigir, sem substituir por mock/synthetic proof.
+3. **Surface smoke físico:** executar o harness source-controlled quando ainda pendente e encerrar com evidência canônica `FAIL=0`.
+4. **Modo gráfico/Secure Boot e demais provas físicas pendentes:** fechar somente quando permanecerem pendentes nos owners canônicos atuais e com evidência no hardware aplicável.
+
+Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é apenas overlay auxiliar.
+
+## Planos preservados — execução adiada até pós-MVP
 
 ### WEB-001 — OrdaX Web Research
 
-Status: **READY / NOT IMPLEMENTED**
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 para reavaliação pós-MVP
 
-Objetivo: criar uma capability sistêmica provider-neutral compartilhada por Aura, Studio, Files/Search, Personal OrdaX, IA local e IAs externas via OrdaX MCP.
-
-Ordem:
-
-1. confirmar boundaries atuais de Intelligence, Action Gateway, grants e `external-egress`;
-2. definir contratos `ordax.web.*` e modelo `source/provenance`;
-3. criar provider interface/router sem dependência de Tavily no domínio;
-4. integrar Tavily como provider inicial e Brave como search fallback;
-5. adicionar budget/cost accounting, receipts, freshness e política de retenção por provider;
-6. adicionar local HTTP extract;
-7. somente depois adicionar Playwright sandboxed como fallback JS;
-8. implementar `ordax.web.research/1` como orquestrador OrdaX;
-9. integrar Aura/Studio com fontes/citações sem expor API keys;
-10. expandir para Exa/Firecrawl e outros adapters apenas por necessidade medida.
+Direção preservada: capability sistêmica provider-neutral compartilhável por Aura, Studio, Files/Search, Personal OrdaX, IA local e IAs externas via OrdaX MCP, sem colocar Tavily/Brave/Exa/Firecrawl no domínio do produto.
 
 Plano detalhado: `plans/WEB-001-WEB-RESEARCH.md`.
 
-### Outras frentes P1 existentes
+Nenhuma fase de implementação de WEB-001 deve ser iniciada antes do fechamento do MVP apenas por causa deste roadmap.
 
-Continuam válidas somente conforme o overlay/canônicos atuais: lacunas locais reais, Identity/Entitlements, Spaces/Profile Packs, Memory provider-neutral, distribuição de apps, Product MCP e OrdaX Network limitada do MVP, desde que não desloquem P0.
+### Demais planos existentes
 
-Não duplicar owners nem promover capacidade futura por antecipação.
+`SURFACE-001`, `ECO-001`, `PROFILE-001`, `PERSONAL-001`, `NETWORK-001` e demais itens catalogados permanecem preservados conforme `REGISTRY.md`.
 
-## P2 — evolução após o MVP funcional de Web Research
+Regra comum:
 
-- Local Web Worker robusto com crawl limitado, SSRF hardening e sandbox.
-- Cache/index local com freshness explícita.
-- Result fusion multi-provider e health scoring.
-- Evaluation harness de recall/freshness/custo.
-- Research routing mais sofisticado entre local/remote.
-- UX avançada de fontes e histórico de pesquisa.
+```text
+plano preservado
+!=
+trabalho autorizado agora
+```
 
-## P3 — longo prazo / opcional
+Se um comportamento descrito nesses planos já for requisito real do MVP, seu trabalho é governado pelo owner canônico correspondente. O plano não cria uma segunda fila de execução.
 
-- Common Crawl / corpus histórico offline.
-- Knowledge Graph enterprise (ex.: Diffbot adapter).
-- SERP especializado sob demanda (ex.: SerpAPI).
-- Indexação web em escala própria, somente se custo/controle justificar.
+## Pós-MVP — ordem a ser revalidada, não pré-autorizada
+
+Depois que os gates do MVP forem fechados:
+
+1. revalidar `main`, contratos, custos, dependências e owners;
+2. revisar itens `READY` e referências ainda relevantes;
+3. escolher a próxima frente por impacto/dependência real;
+4. só então mudar sua elegibilidade para `EXECUTION-ELIGIBLE` e abrir implementação.
+
+Prioridades P1/P2/P3 registradas hoje são **preservação de intenção**, não compromisso automático de sequência futura.
 
 ## Regra de promoção
 
-Um item sobe de prioridade apenas quando existir razão objetiva registrada: gate de release, segurança, dependência crítica, impacto/custo comprovado ou decisão arquitetural.
+Um item só se torna `EXECUTION-ELIGIBLE` quando existir razão objetiva registrada no owner correto: gate de release, segurança, dependência crítica, impacto/custo comprovado ou decisão arquitetural vigente.
 
-Um chat/agente **não pode promover sua própria frente para P0** apenas porque está trabalhando nela.
+Um chat/agente não pode promover sua própria frente, criar tarefa de implementação ou transformar pesquisa em escopo de MVP por iniciativa própria.

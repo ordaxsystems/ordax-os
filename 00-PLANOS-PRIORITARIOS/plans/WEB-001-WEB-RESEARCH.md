@@ -1,12 +1,21 @@
 # WEB-001 — OrdaX Web Research
 
 - **Tipo:** PLAN / ROADMAP
-- **Status:** READY — NOT IMPLEMENTED
-- **Prioridade:** P1
+- **Status documental:** READY — NOT IMPLEMENTED
+- **Elegibilidade de execução:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 para reavaliação pós-MVP
 - **Criado:** 2026-10-14
-- **Owner canônico proposto:** boundary sistêmico de Web Research sob os owners atuais de Intelligence/Action Policy; confirmar paths antes do primeiro PR
+- **Owner canônico proposto:** boundary sistêmico de Web Research sob os owners atuais de Intelligence/Action Policy; confirmar paths somente quando a frente voltar a ser elegível
 - **Relatório:** `../reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md`
 - **Não boot-critical:** SIM
+
+## Janela de execução
+
+Este plano está preservado, mas **não deve abrir task, issue, PR ou implementação durante o fechamento atual do MVP**.
+
+Quando o MVP estiver fechado, revalidar `main`, owners, contratos, custos e providers antes de liberar a Fase 0. `READY` significa maturidade documental, não autorização para começar.
+
+Se algum comportamento semelhante já for exigido antes disso por `MVP.md`, contratos ou outro owner canônico, o trabalho pertence a esse owner e não promove automaticamente `WEB-001`.
 
 ## Problema
 
@@ -16,7 +25,7 @@ Ao mesmo tempo, usar uma API paga para cada pergunta de cada usuário não escal
 
 ## Objetivo
 
-Criar uma capability **OrdaX Web** provider-neutral que permita descobrir, extrair, verificar e pesquisar conteúdo externo com:
+Quando a frente for liberada, criar uma capability **OrdaX Web** provider-neutral que permita descobrir, extrair, verificar e pesquisar conteúdo externo com:
 
 - contratos estáveis;
 - grants de `external-egress`;
@@ -56,7 +65,7 @@ Falha de Web Research não pode impedir boot, recovery, arquivos, update ou uso 
 
 ## Contratos alvo
 
-Proposta inicial, sujeita a alinhamento com os owners atuais antes do primeiro PR:
+Proposta inicial, sujeita a alinhamento com os owners atuais quando a execução for liberada:
 
 ```text
 ordax.web.search/1
@@ -92,11 +101,13 @@ Aura / Studio / Files / Apps
                          -> Budget + Receipt + Freshness
 ```
 
-**Não congelar caminhos de diretório a partir deste desenho.** O primeiro PR precisa mapear os owners/ports/adapters existentes na `main` e encaixar sem criar paralelo.
+**Não congelar caminhos de diretório a partir deste desenho.** O primeiro PR futuro precisa mapear os owners/ports/adapters existentes na `main` daquele momento e encaixar sem criar paralelo.
 
 ## Fase 0 — auditoria e decisão arquitetural
 
-Objetivo: impedir duplicação.
+**Estado:** DEFERRED.
+
+Objetivo futuro: impedir duplicação.
 
 - localizar owners correntes de `ordax.intelligence/1`, local AI, Action Gateway, grants, audit receipts, Memory e MCP;
 - procurar qualquer search/extract/crawl já existente;
@@ -109,7 +120,7 @@ Objetivo: impedir duplicação.
 
 ## Fase 1 — contratos + policy foundation
 
-Entregas:
+Entregas futuras:
 
 - schemas/versionamento `ordax.web.search/1` e `ordax.web.extract/1` primeiro;
 - `source/provenance` model;
@@ -123,9 +134,9 @@ Entregas:
 
 **Gate G1:** testes de contrato/policy passam sem provider real; chamadas sem grant falham fechadas.
 
-## Fase 2 — Remote MVP
+## Fase 2 — Remote MVP da capability
 
-Providers iniciais:
+Providers candidatos iniciais:
 
 1. Tavily adapter: search + extract;
 2. Brave adapter: search independente/fallback;
@@ -143,7 +154,7 @@ Regras:
 
 ## Fase 3 — provenance, cache e custo
 
-Implementar:
+Implementar futuramente:
 
 - canonical URL;
 - `publishedAt`, `retrievedAt`, freshness/staleness;
@@ -157,7 +168,7 @@ Implementar:
 
 ## Fase 4 — Local Web Worker
 
-Começar pelo barato/seguro:
+Começar pelo barato/seguro quando esta fase for liberada:
 
 ```text
 URL autorizada
@@ -204,7 +215,7 @@ Worker efêmero:
 
 ## Fase 6 — `ordax.web.research/1`
 
-Orquestração OrdaX:
+Orquestração OrdaX futura:
 
 1. classificar necessidade;
 2. decompor queries;
@@ -239,7 +250,7 @@ Permitir expandir fontes/provenance sem expor detalhes desnecessários ao usuár
 
 ### Studio
 
-Casos prioritários:
+Casos prioritários futuros:
 
 - ler documentação oficial;
 - verificar versão/breaking changes;
@@ -287,7 +298,7 @@ cache/corpus
 
 ### Snapshot inicial Tavily
 
-Pesquisa de 14/10/2026 indica ~1.000 créditos free/mês e PAYG ~US$0,008/crédito. Revalidar antes de qualquer compra.
+Pesquisa de 14/10/2026 indica ~1.000 créditos free/mês e PAYG ~US$0,008/crédito. Revalidar antes de qualquer compra ou implementação.
 
 A cota free deve ser tratada como **DEV/PoC**, não entitlement de produção compartilhado.
 
@@ -315,7 +326,7 @@ No PAYG de US$0,008, 1 crédito por busca básica:
 - 1.000 x 1/dia -> ~US$240/mês;
 - 10.000 x 1/dia -> ~US$2.400/mês.
 
-Research complexo pode multiplicar isso. Objetivo do router/cache/local worker é reduzir chamadas pagas por resposta útil.
+Research complexo pode multiplicar isso. Objetivo futuro do router/cache/local worker é reduzir chamadas pagas por resposta útil.
 
 ## Privacidade e compliance
 
@@ -328,7 +339,7 @@ Research complexo pode multiplicar isso. Objetivo do router/cache/local worker �
 - classificar conteúdo externo como não confiável;
 - revisar ToS/licenciamento/PII antes de retenção/redistribuição.
 
-## Testes mínimos
+## Testes mínimos futuros
 
 - contract versioning/backward compatibility;
 - no-grant fail closed;
@@ -348,20 +359,24 @@ Research complexo pode multiplicar isso. Objetivo do router/cache/local worker �
 
 ## Rollback/degradação
 
-Se providers remotos falharem ou orçamento acabar:
+Quando implementado, se providers remotos falharem ou orçamento acabar:
 
 1. usar cache/corpus autorizado e marcar freshness;
 2. usar local extract para URLs já fornecidas quando possível;
 3. informar indisponibilidade/degradação;
 4. nunca liberar egress não autorizado nem esconder informação stale.
 
-Web Research pode ficar indisponível sem derrubar o sistema.
+Web Research poderá ficar indisponível sem derrubar o sistema.
 
-## Próxima ação exata
+## Próxima ação documental
 
-Criar a **Fase 0** em um chat/PR dedicado: auditar a `main` atual para localizar owners reais de Intelligence, Action Gateway, grants, audit/receipts, Memory, MCP e qualquer web-search existente. Só depois abrir os primeiros schemas.
+Manter este plano e o relatório coerentes com `REGISTRY.md`/`ROADMAP.md`. Não abrir execução enquanto a janela atual for o fechamento do MVP.
 
-O primeiro PR de código **não deve integrar Tavily diretamente**. Ele deve fechar owner/contratos/policy provider-neutral suficientes para Tavily entrar como adapter no PR seguinte.
+## Próxima ação de execução
+
+**DEFERRED.** Depois do fechamento do MVP, revalidar `main` e os owners atuais; somente então decidir se a Fase 0 continua válida e mudar explicitamente a elegibilidade para `EXECUTION-ELIGIBLE`.
+
+O primeiro PR de código futuro **não deve integrar Tavily diretamente**. Se a arquitetura continuar válida após revalidação, ele deve fechar owner/contratos/policy provider-neutral suficientes para um provider entrar como adapter em etapa posterior.
 
 ## Handoff para outro chat
 
@@ -369,7 +384,8 @@ Ao retomar `WEB-001`:
 
 1. ler `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`;
 2. ler este plano + relatório relacionado;
-3. verificar `ROADMAP.md` para garantir que P0 não foi deslocado;
-4. auditar source atual antes de assumir paths/versões;
-5. registrar qualquer decisão canônica no owner correto;
-6. atualizar `REGISTRY.md` e este plano após cada milestone.
+3. verificar `ROADMAP.md` e `REGISTRY.md`;
+4. se continuar `DEFERRED FOR EXECUTION`, limitar-se a documentação/revalidação e não abrir implementação;
+5. quando a janela pós-MVP abrir, auditar source atual antes de assumir paths/versões;
+6. registrar qualquer decisão canônica no owner correto;
+7. atualizar `REGISTRY.md` e este plano após mudança real de status.

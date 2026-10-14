@@ -7,8 +7,6 @@ Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa q
 
 Antes de alterar Intelligence, chat, plugins, MCP, Studio ou a UI global do OrdaX Web, leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md). É um guia de retomada que aponta aos contratos e donos existentes, **não substitui os contratos canônicos**. Diferencie explicitamente **chat OrdaX → provedor** de **ChatGPT externo → plugin MCP → OrdaX** e não ative bridges experimentais nem crie outra autoridade em Apps/Lovable.
 
-
-
 `ordaxsystems/ordax-os` é o **repositório oficial e canônico do OrdaX OS**. A identidade e os responsáveis atuais são definidos por `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`.
 
 O produto continua em desenvolvimento e homologação: a promoção/renomeação do repositório **não equivale à aprovação de uma release Stable/MVP**, assinatura, aceite físico ou autorização para publicação e gravação de dispositivos. Esses gates permanecem independentes; consulte `MVP.md` e `docs/PROMOTION-GATES.md`.
@@ -55,15 +53,27 @@ Um snapshot canonico tambem nao pode vencer silenciosamente o proprio source atu
 
 `docs/README.md` e o indice canonico da documentacao e define a hierarquia entre contratos, estado atual, decisoes, guias, planos, evidencias e historico. Nao criar um segundo documento ativo para uma responsabilidade que ja possui owner documental. Quando um documento for substituido, marcar explicitamente o sucessor e retirar o documento antigo da rota de leitura ativa; evidencias historicas permanecem em `docs/evidence/` e nunca viram source authority por envelhecerem bem. Remover ou arquivar somente depois de confirmar que referencias, testes e links nao dependem do caminho antigo.
 
+### Planejamento e janela de execucao
+
+Antes de **abrir uma nova frente**, criar task/issue/PR de implementacao a partir de um plano ou retomar trabalho futuro, leia tambem:
+
+1. `00-PLANOS-PRIORITARIOS/README.md`;
+2. `00-PLANOS-PRIORITARIOS/ROADMAP.md`;
+3. `00-PLANOS-PRIORITARIOS/REGISTRY.md`.
+
+O hub de planejamento e **nao canonico**. Ele separa maturidade documental de elegibilidade de execucao. Durante a janela atual de fechamento do MVP, planos futuros ficam `DEFERRED FOR EXECUTION` por padrao: podem ser documentados, auditados e reconciliados, mas nao devem abrir implementacao apenas por estarem `READY`, P1/P2/P3 ou detalhados.
+
+Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou outro owner canonico ja exigir uma capacidade, o trabalho pertence a esse owner. O plano correspondente nao cria uma segunda fila nem uma segunda autoridade.
+
 ### Plano funcional da Surface e dos aplicativos
 
-Antes de planejar, implementar ou revisar a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, leia e analise tambem [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.
+Antes de revisar historicamente a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, pode ser util ler [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.
 
-O plano detalha telas, subsecoes, responsabilidades, lacunas, prioridades e criterios de aceite. Compare o inventario datado com a `main` atual antes de implementar; nao reconstrua recursos ja existentes nem trate sugestoes como capacidades prontas. Ele e uma proposta funcional: os contratos canonicos, os gates e as regras de seguranca continuam sendo a autoridade.
+Esse arquivo e **REFERENCE**: detalha telas, subsecoes, responsabilidades, lacunas, prioridades e criterios de aceite acumulados, mas nao e `CURRENT-STATE`, changelog canonico nem autorizacao para abrir trabalho. Compare qualquer inventario datado com a `main` atual; nao reconstrua recursos ja existentes nem trate sugestoes como capacidades prontas.
 
-Leia tambem a continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) antes de ampliar essas interfaces, planejar novas capacidades ou reaproveitar funcionalidades/ideias de `novo-ordax-os`. Ela compara os dois repositorios com SHAs registrados, distingue codigo de visao futura e detalha lacunas, dependencias, destinos de interface e criterios de aceite. Nenhuma recomendacao desse documento constitui migracao concluida: qualquer portabilidade continua exigindo registro em `docs/SOURCE-MIGRATION.md`.
+A continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) e uma referencia historica para entender a comparacao com `novo-ordax-os`. Ela distingue codigo de visao futura e preserva decisoes de reaproveitamento, mas nao e backlog atual. Qualquer portabilidade continua exigindo owner corrente e registro em `docs/SOURCE-MIGRATION.md`.
 
-Antes de preparar ou autorizar o primeiro USB Stable/MVP, leia tambem [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md). Ele revalida a visao da Nova OrdaX contra a `main` atual e separa requisitos funcionais obrigatorios pre-USB, provas que dependem do hardware fisico e capacidades conscientemente pos-MVP. O gate pre-USB desse documento deve falhar fechado: uma capacidade estrutural nao pode ser omitida apenas porque boot/release ja estao tecnicamente prontos.
+[PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) e um **baseline de auditoria pre-USB cujo fechamento de source ja foi concluido**. Pode ser consultado para contexto e rastreabilidade, mas nao e mais gate authority. Gates vivos de Stable/MVP, prova fisica, boot, recovery, cold-health e Surface devem ser lidos exclusivamente nos owners canonicos atuais, em especial `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes. Nunca reabrir uma lacuna apenas porque ela aparece como pendente nesse plano historico.
 
 ### Web, Mobile, realtime e controle de dispositivos
 
@@ -81,7 +91,6 @@ mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
 Antes de alterar landing page, download, login/cadastro ou futura area publica da conta, leia `MVP.md`, `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
 O portal em `sites/public/` e um artefato separado do modo **OrdaX Web**. Nao importar a Surface para montar o site, nao duplicar identidade/conta e nao hard-codear uma release como "latest". Login/cadastro e download so ficam disponiveis quando seus owners reais estiverem configurados; o estado padrao deve falhar fechado sem credenciais, contas ou artefatos ficticios.
-
 
 ## 4. Arquitetura fisica alvo
 
@@ -309,7 +318,6 @@ boot -> rede -> adquirir release assinada -> verificar -> ativar -> boot offline
 ```
 
 Todo componente extra deve justificar sua existencia antes de entrar no bootstrap.
-
 
 ### Entregas, atualizações e PRs
 
