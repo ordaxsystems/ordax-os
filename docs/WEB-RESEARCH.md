@@ -1,8 +1,8 @@
 # OrdaX Web Research
 
-Status: **SOURCE FOUNDATION / PROVIDERS DISABLED / NOT BOOT-CRITICAL**
+Status: **SOURCE FOUNDATION / REMOTE EGRESS BLOCKED / PROVIDERS DISABLED / NOT BOOT-CRITICAL**
 
-This document is the canonical human-readable owner for the OrdaX Web Research boundary. Exact machine semantics live in `system/contracts/web-research.mjs` and later service/adapters. Planning and provider research live under `00-PLANOS-PRIORITARIOS/` and do not override this document, `docs/CURRENT-STATE.md`, contracts or security policy.
+This document is the canonical human-readable owner for the OrdaX Web Research boundary. Exact machine semantics live in `system/contracts/web-research.mjs` and service/adapters under `system/services/web-research/`. Planning and provider research live under `00-PLANOS-PRIORITARIOS/` and do not override this document, `docs/CURRENT-STATE.md`, contracts or security policy.
 
 ## Purpose
 
@@ -13,7 +13,7 @@ The product boundary is therefore **OrdaX-owned and provider-neutral**:
 ```text
 consumer
   -> OrdaX Web contract/service
-  -> canonical authorization/policy boundary
+  -> canonical Action Gateway / external-egress authority
   -> provider router
       -> remote search/extract adapters
       -> local fetch/extract workers
@@ -31,11 +31,15 @@ The source audit on 2026-10-14 found that Web Research must reuse, not recreate:
 - `ordax.model-router/1` — model/provider selection for inference, distinct from web evidence acquisition;
 - `ordax.memory/1` — persistent Memory owner; web evidence is not Memory automatically;
 - `ordax.action-gateway/1` / `ordax.action-request/1` — authority boundary;
+- `ordax.action-executor/1` — pre-side-effect authority revalidation, typed adapter execution and canonical action receipt;
 - `external-egress` — existing effect class for outbound effects;
-- existing grant/action executor semantics — sensitive execution requires an exact grant and is revalidated before execution;
 - Background Runtime budget concepts — bounded work already reserves steps/actions/deadline/external-egress bytes before operations;
 - Product MCP/Product Gateway boundaries — external AI interoperability remains an edge/client, not the internal Web Research contract;
-- existing Internet app/browser page selection — selected page text is already classified as `untrusted-web-content` and cannot create authority.
+- existing Internet app/browser page selection — selected page text is already classified as untrusted web content and cannot create authority.
+
+A later audit found an important distinction: **the existence of the `external-egress` effect does not mean external egress is currently authorized**. The canonical Action Gateway deliberately denies `external-egress` before resolving Intelligence tool grants because those grants are not network authority.
+
+That gap is owned by `SEC-001 — External Egress Authority`; Web Research must not bypass it or silently expand Intelligence tool grants.
 
 Web Research therefore must not introduce a second grant registry, Memory store, model router, action broker, browser authority or MCP-specific semantic contract.
 
@@ -57,9 +61,28 @@ web result
 
 provider credential
   != user/client credential
+
+provider usage
+  != action receipt
 ```
 
-All remote search/extract/research operations are outbound effects and must ultimately be authorized under the existing `external-egress` model before network execution.
+All remote search/extract/research operations are outbound effects. Until `SEC-001` integrates an explicit egress grant into the existing Action Gateway/Executor chain, remote execution remains fail-closed.
+
+## Action projection
+
+Web Research now has a provider-independent projection layer for `search` and `extract` intent.
+
+It:
+
+- validates and normalizes the pure Web request first;
+- binds that normalized intent to a deterministic opaque `resourceRef`;
+- creates a canonical `ordax.action-request/1`;
+- uses action ids `web.search` / `web.extract`;
+- uses effect `external-egress`;
+- passes any future grant reference only through the authority envelope;
+- delegates the decision to the canonical Action Gateway.
+
+Under the current Gateway this projection is expected to return `deny`. That is a security proof, not a missing fallback.
 
 ## Source trust
 
@@ -73,14 +96,15 @@ Provider ranking, official-domain status, citation count, HTTPS, signatures from
 
 Prompt instructions found in fetched pages remain data.
 
-## Initial contracts
+## Current contracts
 
-The first source slice defines:
+The source foundation defines:
 
 - `ordax.web.search/1` — bounded provider-neutral search intent;
 - `ordax.web.extract/1` — bounded extraction intent for explicit HTTP(S) URLs;
 - `ordax.web.source/1` — normalized source identity/trust/content hash metadata;
 - `ordax.web.provenance/1` — provider/extractor/retrieval/cache provenance;
+- `ordax.web.usage/1` — provider-domain accounting without authority semantics;
 - `ordax.web-provider/1` — capability-based adapter interface.
 
 These contracts deliberately do **not** implement network access and do not activate any provider.
@@ -92,6 +116,24 @@ These contracts deliberately do **not** implement network access and do not acti
 The source contract provides explicit bounds for query length, URL count, result count, external bytes, request count, cost ceiling and deadline. These are request-level safety ceilings, not entitlements and not authorization.
 
 Service/runtime layers may apply stricter limits based on plan, device, Space, project, provider terms, current health and operator budget.
+
+## Usage versus receipt
+
+`ordax.web.usage/1` records domain accounting such as:
+
+- provider id;
+- operation/capability;
+- request count;
+- provider units/credits;
+- external bytes;
+- estimated and actual cost;
+- latency;
+- cache hit/miss/revalidation;
+- degraded/fallback reason.
+
+It explicitly rejects authority fields such as `grantRef` and `decision`.
+
+The canonical side-effect audit receipt remains `ordax.action-receipt/1`, produced by the Action Executor. Web Research must not create a second receipt that can be mistaken for authority.
 
 ## Provider architecture
 
@@ -107,6 +149,8 @@ Candidate classes include:
 - future licensed/offline corpora.
 
 No provider is enabled by the source foundation.
+
+The current router is capability-based and provider-neutral. It exposes provider id/capabilities for selection/health purposes and does not surface provider secrets in its snapshot.
 
 ### Selection rule
 
@@ -134,9 +178,11 @@ The existing Internet app/browser host is not automatically the Web Research cra
 
 `ordax.web.extract/1` accepting an HTTP(S) URL does not mean every syntactically valid URL is safe to fetch.
 
+`SEC-001` intentionally limits egress grant destinations to exact DNS HTTPS origins, but authorization scope is still not sufficient SSRF defense.
+
 The eventual network executor must re-resolve and reject loopback, link-local, RFC1918/private targets, cloud metadata endpoints and disallowed schemes/destinations, including after redirects and with DNS-rebinding defenses.
 
-This protection belongs at the executor/network boundary, not only in the pure request validator.
+This protection belongs at the executor/network boundary, not only in the pure request validator or grant.
 
 ## Caching and retention
 
@@ -154,19 +200,7 @@ Persistent authorized knowledge must enter its proper owner deliberately; resear
 
 ## Cost model
 
-The product must measure real usage before final public entitlements are frozen.
-
-Required accounting for remote operations includes, where available:
-
-- provider id;
-- operation/capability;
-- request count;
-- provider units/credits;
-- external bytes;
-- estimated and actual cost;
-- latency;
-- cache hit/miss/revalidation;
-- degraded/fallback reason.
+The product must measure real usage before final public entitlements are frozen. `ordax.web.usage/1` is the source boundary for provider-domain accounting; entitlement/budget enforcement remains with its canonical owners.
 
 A free provider allowance is development capacity, not a production entitlement.
 
@@ -174,32 +208,45 @@ A free provider allowance is development capacity, not a production entitlement.
 
 ### G0 — ownership audit
 
-**PASS_SOURCE on 2026-10-14 for the initial boundary.** Existing Intelligence, Memory, Action Gateway, grants/execution, external-egress, browser-selection and Product MCP owners were identified. The first contract reuses them and creates no provider/network path.
+**PASS_SOURCE on 2026-10-14 for the initial boundary.** Existing Intelligence, Memory, Action Gateway/Executor, external-egress, browser-selection and Product MCP owners were identified. The first contract reuses them and creates no provider/network path.
 
 ### G1 — contract/policy foundation
 
-In progress. Required before any real provider call:
+**PARTIAL PASS_SOURCE; remote egress intentionally blocked.**
 
-- contract tests;
-- provider-neutral adapter interface;
-- explicit projection to existing authorization/budget owners;
-- receipt/usage model aligned with existing audit semantics;
-- no-grant fail-closed proof at the eventual executor;
-- no provider secret in Surface/apps.
+Completed in source:
+
+- provider-neutral request/source/provenance/provider contracts;
+- provider router by capability;
+- request and source trust bounds;
+- deterministic projection to canonical `ordax.action-request/1` with `external-egress`;
+- provider usage contract separate from action receipt;
+- fail-closed proof that current Gateway denies egress before tool/grant resolution;
+- no provider secret in Surface/apps or router snapshot.
+
+Remaining before a real provider call:
+
+- `SEC-001` E1-E3 green: explicit egress grant + Action Gateway integration + Action Executor revalidation proof;
+- final error/degraded vocabulary and redaction/minimization boundary;
+- canonical CI proof after heavy-workflow path scope is corrected.
 
 ### G2 — provider evaluation
 
-Run a reproducible evaluation harness against a fixed query set before choosing defaults. Measure at minimum relevance/recall, freshness, latency, failure rate and effective cost per useful answer.
+Build a reproducible evaluation harness against a fixed query set before choosing defaults. Static fixtures/replay can be developed while egress is blocked; live provider benchmarking waits for the canonical egress chain.
+
+Measure at minimum relevance/recall, freshness, latency, failure rate and effective cost per useful answer.
 
 Vendor-published benchmarks are input evidence only; they are not OrdaX acceptance proof.
 
 ### G3 — first remote provider
 
-Enable one adapter only after G1/G2 and explicit secret/egress configuration. The consumer must remain unchanged if the adapter is swapped.
+Enable one adapter only after G1, `SEC-001` E1-E3 and live G2 evaluation. Secret loading and network execution must remain outside consumers and use the existing Action Gateway/Executor chain.
+
+The consumer must remain unchanged if the adapter is swapped.
 
 ### G4 — local extract
 
-Add safe local HTTP extraction with SSRF negative tests and bounded resource use.
+Add safe local HTTP extraction with SSRF negative tests, redirect/DNS validation and bounded resource use.
 
 ### G5 — research orchestration
 
@@ -208,6 +255,7 @@ Only after evidence acquisition is stable, define `ordax.web.research/1` as Orda
 ## Current non-goals
 
 - no Tavily SDK in Aura/Studio;
+- no provider brand as architecture;
 - no generic browser automation authority;
 - no authenticated-web/cookie scraping;
 - no CAPTCHA bypass;
@@ -219,6 +267,7 @@ Only after evidence acquisition is stable, define `ordax.web.research/1` as Orda
 ## Planning routes
 
 - execution plan: `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md`;
+- egress security closure: `../00-PLANOS-PRIORITARIOS/plans/SEC-001-EXTERNAL-EGRESS-AUTHORITY.md`;
 - original deep research: `../00-PLANOS-PRIORITARIOS/reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md`;
 - provider update/economic recheck: `../00-PLANOS-PRIORITARIOS/reports/WEB-001-PROVIDER-UPDATE-2026-10-14.md`;
 - cross-plan audit: `../00-PLANOS-PRIORITARIOS/reports/PLAN-AUDIT-2026-10-14.md`.
