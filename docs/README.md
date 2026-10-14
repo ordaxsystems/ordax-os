@@ -24,16 +24,16 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) é a entrada curta para continuar a integração Intelligence + ChatGPT/MCP + apps entre repositórios. **Não é outro owner de inteligência nem status**: `docs/INTELLIGENCE.md`, contratos, código e `docs/CURRENT-STATE.md` mantêm suas prioridades. Antes de implementar, verificar PRs experimentais e o owner correto.
 
-
-
 | Responsibility | Canonical owner |
 | --- | --- |
 | MVP scope | `MVP.md` |
 | Current state / handoff | `docs/CURRENT-STATE.md` |
-| Architecture | `docs/ARCHITECTURE.md` |\n| Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
+| Architecture | `docs/ARCHITECTURE.md` |
+| Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
-| Product modes | `docs/PRODUCT-MODES.md` |\n| Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
+| Product modes | `docs/PRODUCT-MODES.md` |
+| Operational realtime / device actions | `docs/OPERATIONAL-REALTIME.md` |
 | Mobile Companion | `docs/MOBILE-COMPANION.md` |
 | Application compatibility | `docs/APPLICATION-COMPATIBILITY.md` |
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
@@ -49,6 +49,18 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 | Legacy migration ledger | `docs/SOURCE-MIGRATION.md` |
 
 Exact values and gates remain owned by their matching files under `docs/contracts/`.
+
+## Active plans / proposals
+
+| Topic | Route | Status |
+| --- | --- | --- |
+| Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical; consult `ROADMAP.md` + `REGISTRY.md` before starting a new implementation front |
+| OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | P1 READY / not implemented; provider-neutral systemic capability; must not displace current P0 gates |
+| Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only; no production/default/release authority |
+
+The planning router exists to organize multiple reports/plans and cross-chat handoffs. It **does not become a second canonical documentation authority**; this file, contracts, current state and canonical topic owners continue to define authority.
+
+The Meridian route points to immutable approved evidence on the experimental branch instead of copying the experimental runtime into `main`.
 
 ## Document lifecycle
 
@@ -73,6 +85,8 @@ Do **not** create `foo-v2.md`, `foo-final.md`, `foo-new.md` or parallel plans fo
 ## Plans versus state
 
 The root planning files `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md`, `PLANO-FUNCIONAL-SURFACE-E-APPS.md` and `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` are planning aids. They may be useful and detailed, but they do not outrank `CURRENT-STATE`, `MVP.md`, ADRs or contracts.
+
+The planning hub at `../00-PLANOS-PRIORITARIOS/` catalogs these existing files and is the preferred destination for **new** reports/plans. Existing root files must not be moved until references are audited and successors are explicit.
 
 If a plan becomes stale, update or supersede it; never treat its age as evidence that the implementation still matches it.
 

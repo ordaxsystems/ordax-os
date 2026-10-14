@@ -90,13 +90,19 @@ func acquireTargetVolumeLeaseInternal(runtime targetVolumeLeaseRuntime, expected
 		return nil, fmt.Errorf("target PhysicalDrive volume ownership is not isolated: %w", err)
 	}
 
-	mountVolume, err := runtime.ResolveMountVolume(expected.DriveLetter)
-	if err != nil {
-		return nil, fmt.Errorf("resolve target mount volume before lock: %w", err)
-	}
-	selected := selectPhysicalDiskVolumes(initial, expected.DiskNumber)
-	if !volumeInventoryContainsName(selected, mountVolume) {
-		return nil, fmt.Errorf("target mount volume %s is missing from PhysicalDrive%d extent inventory", mountVolume, expected.DiskNumber)
+	if strings.TrimSpace(expected.DriveLetter) == "" {
+		if expected.DriveType != "physical-unmounted" {
+			return nil, errors.New("target-volume lease requires a drive letter unless the target is physical-unmounted recovery")
+		}
+	} else {
+		mountVolume, err := runtime.ResolveMountVolume(expected.DriveLetter)
+		if err != nil {
+			return nil, fmt.Errorf("resolve target mount volume before lock: %w", err)
+		}
+		selected := selectPhysicalDiskVolumes(initial, expected.DiskNumber)
+		if !volumeInventoryContainsName(selected, mountVolume) {
+			return nil, fmt.Errorf("target mount volume %s is missing from PhysicalDrive%d extent inventory", mountVolume, expected.DiskNumber)
+		}
 	}
 
 	plan, err := buildVolumeLockPlan(expected.DiskNumber, initial)

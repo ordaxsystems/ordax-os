@@ -300,8 +300,20 @@ func EnumerateRemovableTargets() ([]Target, error) {
 		if seenDisk[diskNumber] {
 			continue
 		}
+		target = FinalizeTarget(target, typeValue, true, busType, diskNumber == systemDiskNumber)
+		if !target.PrototypeSafe {
+			continue
+		}
+		// A Windows drive letter can survive a destructive attempt after the
+		// volume it used to name is gone. Do not let that stale mount reserve
+		// this PhysicalDrive: prove the mount GUID against the current extent
+		// inventory first. On failure the disk remains eligible for the
+		// physical-unmounted recovery scan below, with a fresh confirmation token.
+		if _, err := enumerateTargetPhysicalVolumesReadOnly(target); err != nil {
+			continue
+		}
 		seenDisk[diskNumber] = true
-		targets = append(targets, FinalizeTarget(target, typeValue, true, busType, diskNumber == systemDiskNumber))
+		targets = append(targets, target)
 	}
 
 	// A failed physical write can legitimately leave the selected USB with no

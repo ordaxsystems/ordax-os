@@ -95,23 +95,23 @@ var (
 	procGetStockObject       = gdi32.NewProc("GetStockObject")
 	procInitCommonControlsEx = comctl32.NewProc("InitCommonControlsEx")
 
-	mainWindow          uintptr
-	deviceCombo         uintptr
-	localeCombo         uintptr
-	refreshButton       uintptr
-	updateButton        uintptr
-	writeButton         uintptr
-	bootHelpButton      uintptr
+	mainWindow     uintptr
+	deviceCombo    uintptr
+	localeCombo    uintptr
+	refreshButton  uintptr
+	updateButton   uintptr
+	writeButton    uintptr
+	bootHelpButton uintptr
 
 	stateMu      sync.Mutex
 	refreshState appRefreshState
 
 	// Display-only copy has one owner: the buffered parent painter.
-	creatorStatusText = ""
-	creatorHintText = ""
-	creatorVersionText = ""
+	creatorStatusText    = ""
+	creatorHintText      = ""
+	creatorVersionText   = ""
 	creatorProgressValue = 0
-	creatorProgressBusy = false
+	creatorProgressBusy  = false
 )
 
 type point struct {
@@ -158,6 +158,7 @@ type physicalTargetsDocument struct {
 type physicalTarget struct {
 	DriveLetter       string `json:"drive_letter"`
 	VolumeLabel       string `json:"volume_label"`
+	DriveType         string `json:"drive_type"`
 	DiskNumber        int    `json:"disk_number"`
 	PhysicalDiskBytes uint64 `json:"physical_disk_bytes"`
 	DeviceSerial      string `json:"device_serial"`
@@ -200,8 +201,8 @@ func setText(hwnd uintptr, text string) {
 	}
 }
 
-func setCreatorStatus(text string) { creatorStatusText = text; invalidateGuidedVisual() }
-func setCreatorHint(text string) { creatorHintText = text; invalidateGuidedVisual() }
+func setCreatorStatus(text string)  { creatorStatusText = text; invalidateGuidedVisual() }
+func setCreatorHint(text string)    { creatorHintText = text; invalidateGuidedVisual() }
 func setCreatorVersion(text string) { creatorVersionText = text; invalidateGuidedVisual() }
 
 func enable(hwnd uintptr, enabled bool) {
@@ -264,12 +265,72 @@ func formatBytes(value uint64) string {
 	return fmt.Sprintf("%.0f MB", float64(value)/float64(mib))
 }
 
-func targetLabel(target physicalTarget) string {
+func targetIsPhysicalRecovery(target physicalTarget) bool {
+	return target.DriveType == "physical-unmounted" || strings.TrimSpace(target.DriveLetter) == ""
+}
+
+func targetDisplayName(target physicalTarget) string {
 	label := strings.TrimSpace(target.VolumeLabel)
-	if label == "" {
-		label = creatorT(msgTargetUnnamed)
+	if targetIsPhysicalRecovery(target) {
+		return creatorT(msgTargetRecoveryName)
 	}
-	return fmt.Sprintf("%s  —  %s  —  %s", target.DriveLetter, label, formatBytes(target.PhysicalDiskBytes))
+	if label == "" {
+		return creatorT(msgTargetUnnamed)
+	}
+	return label
+}
+
+func targetDiskLabel(target physicalTarget) string {
+	return creatorTValues(msgTargetDiskLabel, map[string]string{"disk": fmt.Sprintf("%d", target.DiskNumber)})
+}
+
+func targetDriveLabel(target physicalTarget) string {
+	if targetIsPhysicalRecovery(target) {
+		return creatorT(msgTargetRecoveryDrive)
+	}
+	return strings.TrimSpace(target.DriveLetter)
+}
+
+func targetPrimaryIdentity(target physicalTarget) string {
+	if targetIsPhysicalRecovery(target) {
+		return targetDisplayName(target)
+	}
+	return strings.TrimSpace(target.DriveLetter + " · " + targetDisplayName(target))
+}
+
+func targetSecondaryIdentity(target physicalTarget) string {
+	return targetDiskLabel(target) + " · " + formatBytes(target.PhysicalDiskBytes)
+}
+
+func targetLabel(target physicalTarget) string {
+	return targetPrimaryIdentity(target) + "  —  " + targetSecondaryIdentity(target)
+}
+
+func shortSourceCommit(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if len(value) != 40 {
+		return ""
+	}
+	for _, ch := range value {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') {
+			return ""
+		}
+	}
+	return value[:8]
+}
+
+func creatorBuildLabel(state appRefreshState) string {
+	if state.Version == "" {
+		return "OrdaX Creator • " + creatorT(msgVersionChecking)
+	}
+	label := "OrdaX Creator • " + state.Version
+	if commit := shortSourceCommit(state.SourceCommit); commit != "" {
+		label += " • " + commit
+	}
+	if state.Updated {
+		label += " • " + creatorT(msgVersionUpdated)
+	}
+	return label
 }
 
 func runBackendHidden(directory string, args ...string) ([]byte, error) {
@@ -355,10 +416,12 @@ func selectionExperience(state appRefreshState) creatorExperienceView {
 	index := selectedTargetIndex()
 	selected := index >= 0 && index < len(state.Targets)
 	var errorMessageID creatorMessageID
+	errorStep := 0
 	if state.Error != "" {
 		errorMessageID = msgRefreshFailedDetail
+		errorStep = 1
 	}
-	return creatorExperience(creatorExperienceInput{TargetCount: len(state.Targets), TargetSelected: selected, PhysicalReady: state.PhysicalReady, ErrorMessageID: errorMessageID})
+	return creatorExperience(creatorExperienceInput{TargetCount: len(state.Targets), TargetSelected: selected, PhysicalReady: state.PhysicalReady, ErrorMessageID: errorMessageID, ErrorStepNumber: errorStep})
 }
 
 func renderSelectionExperience(state appRefreshState) {
@@ -368,7 +431,7 @@ func renderSelectionExperience(state appRefreshState) {
 		status = view.Eyebrow + " · " + status
 	}
 	setCreatorStatus(status)
-	setCreatorHint(strings.TrimSpace(view.Body+" "+view.Detail))
+	setCreatorHint(strings.TrimSpace(view.Body + " " + view.Detail))
 
 	busy := writeInProgress()
 	enable(writeButton, !busy && view.Step == creatorStepReview && view.CanContinue)
@@ -407,11 +470,7 @@ func renderRefresh() {
 	}
 
 	if state.Version != "" {
-		version := "OrdaX Creator • " + state.Version
-		if state.Updated {
-			version += " • " + creatorT(msgVersionUpdated)
-		}
-		setCreatorVersion(version)
+		setCreatorVersion(creatorBuildLabel(state))
 	}
 
 	if !writeInProgress() {
@@ -456,13 +515,9 @@ func renderCreatorLocaleUI() {
 	state := refreshState
 	stateMu.Unlock()
 	if state.Version != "" {
-		version := "OrdaX Creator • " + state.Version
-		if state.Updated {
-			version += " • " + creatorT(msgVersionUpdated)
-		}
-		setCreatorVersion(version)
+		setCreatorVersion(creatorBuildLabel(state))
 	} else {
-		setCreatorVersion("OrdaX Creator • "+creatorT(msgVersionChecking))
+		setCreatorVersion("OrdaX Creator • " + creatorT(msgVersionChecking))
 	}
 	if !writeInProgress() {
 		renderSelectionExperience(state)
@@ -522,6 +577,19 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 			return 0
 		}
 		if id == idWrite && notify == bnClicked {
+			writeMu.Lock()
+			terminalSuccess := !writeState.Active && writeState.Success
+			terminalError := !writeState.Active && writeState.Error != ""
+			writeMu.Unlock()
+			if terminalSuccess {
+				procDestroyWindow.Call(mainWindow)
+				return 0
+			}
+			if terminalError {
+				resetWriteResult()
+				beginRefresh()
+				return 0
+			}
 			beginPhysicalWrite()
 			return 0
 		}
@@ -605,7 +673,7 @@ func createMainWindow() {
 	writeButton = createControl("BUTTON", creatorT(msgActionCreate), wsTabStop|bsOwnerDraw|wsDisabled, 648, 630, 150, 43, idWrite)
 	bootHelpButton = createControl("BUTTON", creatorT(msgActionBootHelp), wsTabStop|bsOwnerDraw, 855, 610, 255, 43, idBootHelp)
 	initializeCreatorControls()
-	setCreatorVersion("OrdaX Creator • "+creatorT(msgVersionChecking))
+	setCreatorVersion("OrdaX Creator • " + creatorT(msgVersionChecking))
 	setCreatorStatus(creatorT(msgRefreshSearching))
 	setProgressIdle()
 

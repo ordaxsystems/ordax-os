@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -76,13 +77,27 @@ type physicalPreparationDocument struct {
 }
 
 type physicalWriteState struct {
-	Active      bool
-	Status      string
-	Hint        string
-	Success     bool
-	Error       string
-	Determinate bool
-	Percent     int
+	Active         bool
+	Status         string
+	Hint           string
+	Success        bool
+	Error          string
+	DiagnosticPath string
+	Determinate    bool
+	Percent        int
+}
+
+type physicalWriteFailure struct {
+	cause          error
+	diagnosticPath string
+}
+
+func (failure *physicalWriteFailure) Error() string {
+	return failure.cause.Error()
+}
+
+func (failure *physicalWriteFailure) Unwrap() error {
+	return failure.cause
 }
 
 func messageBox(text, title string, flags uint32) int {
@@ -108,6 +123,7 @@ func updateWriteProgress(status, hint string) {
 	writeState.Hint = hint
 	writeState.Success = false
 	writeState.Error = ""
+	writeState.DiagnosticPath = ""
 	writeState.Determinate = false
 	writeState.Percent = 0
 	writeMu.Unlock()
@@ -127,6 +143,7 @@ func updateWritePercentage(status, hint string, percent int) {
 	writeState.Hint = hint
 	writeState.Success = false
 	writeState.Error = ""
+	writeState.DiagnosticPath = ""
 	writeState.Determinate = true
 	writeState.Percent = percent
 	writeMu.Unlock()
@@ -137,17 +154,26 @@ func completeWrite(err error) {
 	writeMu.Lock()
 	writeState.Active = false
 	if err != nil {
-		view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
+		view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail, ErrorStepNumber: 4})
 		writeState.Success = false
 		writeState.Error = err.Error()
+		writeState.DiagnosticPath = ""
+		var failure *physicalWriteFailure
+		if errors.As(err, &failure) {
+			writeState.DiagnosticPath = failure.diagnosticPath
+		}
 		writeState.Status = view.Title
 		writeState.Hint = strings.TrimSpace(view.Body + " " + view.Detail)
+		if writeState.DiagnosticPath != "" {
+			writeState.Hint += " " + creatorTValues(msgWriteDiagnosticLocation, map[string]string{"path": filepath.Base(writeState.DiagnosticPath)})
+		}
 		writeState.Determinate = false
 		writeState.Percent = 0
 	} else {
 		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		writeState.Success = true
 		writeState.Error = ""
+		writeState.DiagnosticPath = ""
 		writeState.Status = creatorT(msgWriteCompleteStatus) + " " + view.Title
 		writeState.Hint = strings.TrimSpace(view.Body + " " + view.Detail)
 		writeState.Determinate = true
@@ -183,25 +209,31 @@ func renderWriteDone() {
 	setCreatorStatus(state.Status)
 	setCreatorHint(state.Hint)
 	if state.Success {
-		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		setProgressComplete()
-		messageBox(creatorT(msgWriteCompleteDialogBody)+"\n\n"+view.Body+"\n\n"+view.Detail, creatorT(msgWriteCompleteDialogTitle), mbOK|mbIconInformation)
+		setText(writeButton, creatorT(msgActionFinish))
 	} else {
 		setProgressIdle()
 		if state.Error != "" {
-			view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
-			messageBox(view.Body+"\n\n"+view.Detail, creatorT(msgWriteErrorDialogTitle), mbOK|mbIconError)
+			setText(writeButton, creatorT(msgActionRetry))
 		}
 	}
 
 	stateMu.Lock()
 	current := refreshState
 	stateMu.Unlock()
-	enable(refreshButton, true)
-	enable(localeCombo, true)
-	enable(deviceCombo, len(current.Targets) > 0)
-	enable(writeButton, current.PhysicalReady && len(current.Targets) > 0)
+	enable(refreshButton, !state.Success)
+	enable(localeCombo, !state.Success)
+	enable(deviceCombo, !state.Success && len(current.Targets) > 0)
+	if state.Success {
+		enable(writeButton, true)
+	} else {
+		enable(writeButton, current.PhysicalReady && len(current.Targets) > 0)
+	}
 	renderUpdateUI()
+	if state.Success {
+		enable(updateButton, false)
+	}
+	invalidateGuidedVisual()
 }
 
 func showWriteBusyMessage() {
@@ -241,15 +273,12 @@ func beginPhysicalWrite() {
 		return
 	}
 
-	label := strings.TrimSpace(target.VolumeLabel)
-	if label == "" {
-		label = creatorT(msgTargetUnnamed)
-	}
+	label := targetDisplayName(target)
 	// Only one Creator-owned destructive confirmation. Device validation,
 	// payload hashes and Windows elevation are internal security gates rather
 	// than additional product consent prompts.
 	warning := creatorTValues(msgWriteConfirmBody, map[string]string{
-		"device": target.DriveLetter,
+		"device": targetDriveLabel(target),
 		"name":   label,
 		"disk":   strconv.Itoa(target.DiskNumber),
 		"size":   formatBytes(target.PhysicalDiskBytes),
@@ -399,7 +428,12 @@ func runElevatedAndWait(executable, directory string, args []string, diagnosticP
 		if diagnosticPath != "" {
 			if data, readErr := os.ReadFile(diagnosticPath); readErr == nil {
 				if detail := strings.TrimSpace(string(data)); detail != "" {
-					return fmt.Errorf("a gravação física falhou: %s", detail)
+					cause := fmt.Errorf("a gravação física falhou: %s", detail)
+					persistedPath, persistErr := persistPhysicalDiagnostic(diagnosticPath)
+					if persistErr != nil {
+						return &physicalWriteFailure{cause: fmt.Errorf("%w; não foi possível preservar o diagnóstico: %v", cause, persistErr)}
+					}
+					return &physicalWriteFailure{cause: cause, diagnosticPath: persistedPath}
 				}
 			}
 		}

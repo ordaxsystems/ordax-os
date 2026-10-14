@@ -54,6 +54,9 @@ const (
 	msgActionBack                creatorMessageID = "creator.action.back"
 	msgBootHelp                  creatorMessageID = "creator.bootHelp.body"
 	msgTargetUnnamed             creatorMessageID = "creator.target.unnamed"
+	msgTargetRecoveryName        creatorMessageID = "creator.target.recoveryName"
+	msgTargetDiskLabel           creatorMessageID = "creator.target.diskLabel"
+	msgTargetRecoveryDrive       creatorMessageID = "creator.target.recoveryDrive"
 	msgVersionUpdated            creatorMessageID = "creator.version.updated"
 	msgRefreshSearching          creatorMessageID = "creator.refresh.searching"
 	msgRefreshHint               creatorMessageID = "creator.refresh.hint"
@@ -100,6 +103,8 @@ const (
 	msgWriteCompleteDialogTitle  creatorMessageID = "creator.write.complete.dialogTitle"
 	msgWriteCompleteDialogBody   creatorMessageID = "creator.write.complete.dialogBody"
 	msgWriteErrorDialogTitle     creatorMessageID = "creator.write.error.dialogTitle"
+	msgWriteTechnicalDetail      creatorMessageID = "creator.write.error.technicalDetail"
+	msgWriteDiagnosticLocation   creatorMessageID = "creator.write.error.diagnosticLocation"
 	msgWriteBusyDetail           creatorMessageID = "creator.write.busy.detail"
 	msgWriteConfirmTitle         creatorMessageID = "creator.write.confirm.title"
 	msgWriteConfirmBody          creatorMessageID = "creator.write.confirm.body"
@@ -155,12 +160,15 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgActionBack:                "Voltar",
 	msgBootHelp:                  "Como iniciar pelo OrdaX USB\n\n1. Deixe o pendrive OrdaX conectado ao computador.\n2. Reinicie o computador.\n3. Abra o menu de boot/UEFI da máquina. A tecla varia conforme o fabricante.\n4. Escolha o dispositivo USB/UEFI correspondente ao pendrive OrdaX.\n5. O OrdaX inicia diretamente pelo USB; o Creator não instala o sistema no SSD ou HD interno.\n\nSe o USB não aparecer, verifique no firmware se a inicialização por USB está habilitada e tente outra porta USB.",
 	msgTargetUnnamed:             "Sem nome",
+	msgTargetRecoveryName:        "USB em recuperação",
+	msgTargetDiskLabel:           "Disco {disk}",
+	msgTargetRecoveryDrive:       "sem letra de unidade · recuperação segura",
 	msgVersionUpdated:            "atualizado",
 	msgRefreshSearching:          "Procurando pendrives…",
 	msgRefreshHint:               "Atualizando a lista de dispositivos USB disponíveis. Seus discos internos continuam fora da seleção do Creator.",
-	msgSidebarUSBTitle:            "Seu OrdaX USB",
-	msgUSBDetected:                "USB detectado",
-	msgStatusCaption:              "Status",
+	msgSidebarUSBTitle:           "Seu OrdaX USB",
+	msgUSBDetected:               "USB detectado",
+	msgStatusCaption:             "Status",
 	msgHeaderTitle:               "Criar pendrive OrdaX",
 	msgHeaderSubtitle:            "Assistente guiado: conecte o USB, confirme o destino e acompanhe a criação até a verificação final.",
 	msgFieldUSB:                  "Pendrive",
@@ -194,12 +202,14 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgVersionChecking:           "verificando versão…",
 	msgVersionAvailable:          "disponível",
 	msgRefreshFailedDetail:       "Não foi possível atualizar a lista segura de dispositivos USB. Tente novamente; nenhum disco foi alterado.",
-	msgPhysicalWriteFailedDetail: "A criação foi interrompida antes de concluir com segurança. O diagnóstico técnico foi preservado para análise.",
+	msgPhysicalWriteFailedDetail: "A criação foi interrompida com segurança. Consulte os detalhes técnicos abaixo para identificar a causa.",
 	msgTargetSelectionFailed:     "O destino USB selecionado não está disponível ou não passou pela política de segurança. Recarregue a lista e selecione novamente.",
 	msgWriteCompleteStatus:       "Pendrive OrdaX criado e verificado.",
 	msgWriteCompleteDialogTitle:  "OrdaX Creator — Tudo pronto",
 	msgWriteCompleteDialogBody:   "O pendrive OrdaX foi criado, passou pela verificação de leitura e o espaço ORDAX-DATA foi preparado em exFAT.",
 	msgWriteErrorDialogTitle:     "OrdaX Creator — Não foi possível continuar",
+	msgWriteTechnicalDetail:      "Detalhes técnicos:",
+	msgWriteDiagnosticLocation:   "Diagnóstico salvo em: {path}",
 	msgWriteBusyDetail:           "Não feche o Creator nem remova o USB até a operação terminar.",
 	msgWriteConfirmTitle:         "Apagar o pendrive selecionado?",
 	msgWriteConfirmBody:          "Todos os dados deste pendrive serão apagados.\n\nNome: {name}\nUnidade: {device}\nDisco: {disk}\nCapacidade: {size}\nSerial: {serial}\n\nDeseja apagar este pendrive e criar o OrdaX USB?",
@@ -256,12 +266,15 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgActionBack:                "Back",
 	msgBootHelp:                  "How to boot from the OrdaX USB\n\n1. Keep the OrdaX USB drive connected to the computer.\n2. Restart the computer.\n3. Open the machine's boot/UEFI menu. The key varies by manufacturer.\n4. Choose the USB/UEFI device that corresponds to the OrdaX USB drive.\n5. OrdaX starts directly from USB; Creator does not install the system on the internal SSD or hard drive.\n\nIf the USB device does not appear, check the firmware settings to ensure USB boot is enabled and try another USB port.",
 	msgTargetUnnamed:             "Unnamed",
+	msgTargetRecoveryName:        "USB recovery",
+	msgTargetDiskLabel:           "Disk {disk}",
+	msgTargetRecoveryDrive:       "no drive letter · safe recovery",
 	msgVersionUpdated:            "updated",
 	msgRefreshSearching:          "Searching for USB drives…",
 	msgRefreshHint:               "Refreshing the list of available USB devices. Internal disks remain outside Creator's target selection.",
-	msgSidebarUSBTitle:            "Your OrdaX USB",
-	msgUSBDetected:                "USB detected",
-	msgStatusCaption:              "Status",
+	msgSidebarUSBTitle:           "Your OrdaX USB",
+	msgUSBDetected:               "USB detected",
+	msgStatusCaption:             "Status",
 	msgHeaderTitle:               "Create an OrdaX USB drive",
 	msgHeaderSubtitle:            "Guided assistant: connect the USB drive, confirm the target, and follow creation through final verification.",
 	msgFieldUSB:                  "USB drive",
@@ -295,12 +308,14 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgVersionChecking:           "checking version…",
 	msgVersionAvailable:          "available",
 	msgRefreshFailedDetail:       "Unable to refresh the safe USB device list. Try again; no disk was changed.",
-	msgPhysicalWriteFailedDetail: "Creation stopped before it could finish safely. The technical diagnostic was preserved for analysis.",
+	msgPhysicalWriteFailedDetail: "Creation stopped safely. Review the technical details below to identify the cause.",
 	msgTargetSelectionFailed:     "The selected USB target is unavailable or did not pass the safety policy. Refresh the list and select it again.",
 	msgWriteCompleteStatus:       "OrdaX USB created and verified.",
 	msgWriteCompleteDialogTitle:  "OrdaX Creator — All set",
 	msgWriteCompleteDialogBody:   "The OrdaX USB was created, passed read-back verification, and ORDAX-DATA was prepared as exFAT.",
 	msgWriteErrorDialogTitle:     "OrdaX Creator — Unable to continue",
+	msgWriteTechnicalDetail:      "Technical details:",
+	msgWriteDiagnosticLocation:   "Diagnostic saved at: {path}",
 	msgWriteBusyDetail:           "Do not close Creator or remove the USB device until the operation finishes.",
 	msgWriteConfirmTitle:         "Erase the selected USB drive?",
 	msgWriteConfirmBody:          "All data on this USB drive will be erased.\n\nName: {name}\nDrive: {device}\nDisk: {disk}\nCapacity: {size}\nSerial: {serial}\n\nErase this USB drive and create OrdaX USB?",

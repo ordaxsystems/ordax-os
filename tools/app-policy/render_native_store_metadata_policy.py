@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Generate Native metadata-query allowlist from the canonical component policy.
+"""Generate Native metadata/query and lifecycle gates from component policy SSOT.
 
-This grants only the ability to ASK the signed helper for verified current/pending
-state; it never authorizes runtime module reads, health writes, install or launch.
+The generated module grants only narrowly scoped Native capabilities. Metadata,
+verified runtime reads, probation/health mutation and pending-decision execution
+remain distinct. Generating a gate does not mount an endpoint or lifecycle owner.
 """
 from __future__ import annotations
 
@@ -36,6 +37,30 @@ def _probation_probe_modes(payload: dict, probation_ids: list[str]) -> dict[str,
             "Native probation probe modes must exactly cover the canonical probation scope"
         )
     return modes
+
+
+def _pending_decision_gates(payload: dict) -> tuple[bool, bool, bool, bool]:
+    execution_enabled = payload.get("component_promotion_policy_executes_actions")
+    slot_activation = payload.get("slot_activation_available")
+    pending_promotion = payload.get("pending_health_promotion_available")
+    trust_pinned = payload.get("canonical_component_trust_anchor_pinned")
+    for value, label in (
+        (execution_enabled, "pending-decision execution"),
+        (slot_activation, "component-slot activation"),
+        (pending_promotion, "pending-health promotion"),
+        (trust_pinned, "canonical component trust"),
+    ):
+        if not isinstance(value, bool):
+            raise MetadataPolicyError(f"{label} gate in canonical policy must be boolean")
+    if pending_promotion and not slot_activation:
+        raise MetadataPolicyError(
+            "pending-health promotion cannot exceed component-slot activation"
+        )
+    if (slot_activation or pending_promotion) and not trust_pinned:
+        raise MetadataPolicyError(
+            "component activation/promotion requires canonical component trust"
+        )
+    return execution_enabled, trust_pinned, slot_activation, pending_promotion
 
 
 def render(payload: dict) -> str:
@@ -82,6 +107,7 @@ def render(payload: dict) -> str:
     if not set(probation_ids).issubset(health_ids):
         raise MetadataPolicyError("Native probation cannot exceed health mutation scope")
     probation_modes = _probation_probe_modes(payload, probation_ids)
+    execution_enabled, trust_pinned, slot_activation, pending_promotion = _pending_decision_gates(payload)
     metadata_ids = sorted(set(package_sources) | set(module_ids))
 
     def format_ids(ids: list[str]) -> str:
@@ -97,7 +123,7 @@ def render(payload: dict) -> str:
         "# GENERATED FILE. DO NOT EDIT BY HAND.\n"
         "# Source of truth: docs/contracts/runtime-component-package.json\n"
         "# Generator: tools/app-policy/render_native_store_metadata_policy.py\n"
-        "# Metadata queries, verified executable file reads and health mutations have DISTINCT scopes.\n\n"
+        "# Metadata, runtime reads, health writes and pending decisions have DISTINCT gates.\n\n"
         "from types import MappingProxyType\n\n"
         "STORE_METADATA_COMPONENT_IDS = frozenset({\n"
         + format_ids(metadata_ids) + "\n})\n\n"
@@ -108,14 +134,18 @@ def render(payload: dict) -> str:
         "NATIVE_PROBATION_COMPONENT_IDS = frozenset({\n"
         + format_ids(sorted(probation_ids)) + "\n})\n\n"
         "NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({\n"
-        + format_probe_modes(probation_modes) + "\n})\n"
+        + format_probe_modes(probation_modes) + "\n})\n\n"
+        f"NATIVE_PENDING_DECISION_EXECUTION_ENABLED = {execution_enabled!r}\n"
+        f"NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED = {trust_pinned!r}\n"
+        f"NATIVE_SLOT_ACTIVATION_AVAILABLE = {slot_activation!r}\n"
+        f"NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE = {pending_promotion!r}\n"
     )
 
 
 def render_surface_probation_policy(payload: dict) -> str:
     # The Native and WebKit host consume the same canonical probation scope.
     # This module describes probes; it does not grant install or promote rights.
-    render(payload)  # Validate IDs, owner/read/health subsets and probe modes once.
+    render(payload)  # Validate IDs, owner/read/health subsets, probe modes and lifecycle gates once.
     ids = sorted(payload["runtime_health_bridge_supported_components"])
     modes = _probation_probe_modes(payload, ids)
     members = "\n".join(f'  "{component_id}",' for component_id in ids)
