@@ -8,13 +8,17 @@ This inventory exists to make later license and source-compliance work determini
 
 ## What is tracked today
 
-`platform/compliance/declared-inputs.json` records three source-controlled input groups:
+`platform/compliance/declared-inputs.json` records source-controlled third-party selections, including:
 
 - the pinned Linux kernel source archive from `bootstrap/kernel/source.json`;
-- the Alpine development-base version and explicitly requested packages from `bootstrap/dev-base/_build_core.py`;
-- the replaceable native Surface runtime packages requested by `system/surface/bin/ordax-surface`.
+- the Alpine development and Stable candidate bases plus their explicitly requested packages;
+- the experimental Independent Base source owner at `bootstrap/independent-base/source.json`;
+- the replaceable native Surface runtime package request;
+- other source candidates that already participate in pre-release compliance preparation.
 
-The owner/development base also records `zstd` as build-only because it is pruned after image assembly.
+The Independent Base entry deliberately does not duplicate Buildroot package versions. Its pinned Buildroot archive and `build_profile` remain owned by `bootstrap/independent-base/source.json`, while the selected package graph is owned by `bootstrap/independent-base/configs/ordax_minimal_defconfig`. The focused compliance test proves that the profile selects `iproute2`; the build provenance/receipt resolves the actual package version. Final package/license closure still comes from shipped bytes, not this declared-input inventory.
+
+The Alpine owner/development base records `zstd` as build-only because it is pruned after image assembly.
 
 ## What this is not
 
