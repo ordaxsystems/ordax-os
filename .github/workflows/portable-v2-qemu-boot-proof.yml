@@ -13,8 +13,10 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/**/*.md'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
+      - '!bootstrap/surface-runtime/**/*.md'
       - 'bootstrap/local-ai-runtime/**'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/entrypoint'
@@ -26,6 +28,7 @@ on:
       - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
       - 'bootstrap/release-acquisition/**'
+      - '!bootstrap/release-acquisition/**/*.md'
       - 'bootstrap/recovery/entrypoint'
       - 'bootstrap/config/release-envelope-url'
       - 'tools/release-bundle/**'
@@ -52,6 +55,9 @@ on:
       - 'tests/test_portable_v3_cold_health_qemu_proof.py'
       - 'tests/test_stable_release_activation_transaction.py'
       - 'tests/test_portable_v4_ai_handoff_contract.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_portable_component_reuse_workflow.py'
+      - 'tools/ci/portable_component_cache.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   pull_request:
     paths:
@@ -64,8 +70,10 @@ on:
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/**/*.md'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
+      - '!bootstrap/surface-runtime/**/*.md'
       - 'bootstrap/local-ai-runtime/**'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/entrypoint'
@@ -77,6 +85,7 @@ on:
       - 'tests/test_portable_exact_runtime_handoff.py'
       - 'bootstrap/portable-v2/**'
       - 'bootstrap/release-acquisition/**'
+      - '!bootstrap/release-acquisition/**/*.md'
       - 'bootstrap/recovery/entrypoint'
       - 'bootstrap/config/release-envelope-url'
       - 'tools/release-bundle/**'
@@ -103,6 +112,9 @@ on:
       - 'tests/test_portable_v3_cold_health_qemu_proof.py'
       - 'tests/test_stable_release_activation_transaction.py'
       - 'tests/test_portable_v4_ai_handoff_contract.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_portable_component_reuse_workflow.py'
+      - 'tools/ci/portable_component_cache.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
   workflow_call:
@@ -169,6 +181,7 @@ jobs:
           python -m unittest tests.test_kernel_ci_env -v
           python -m unittest tests.test_portable_v4_ai_handoff_contract -v
           python -m unittest tests.test_portable_v3_cold_health_qemu_proof -v
+          python -m unittest tests.test_portable_component_cache tests.test_portable_component_reuse_workflow -v
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
           python -m unittest discover -s tests -p 'test_portable_verified_boot_selection.py' -v
           python -m unittest discover -s tests -p 'test_portable_media_discovery.py' -v
@@ -177,21 +190,74 @@ jobs:
           sh -n bootstrap/entrypoint
           sh -n bootstrap/initramfs/portable_init.sh
 
-      - name: Build and verify exact local AI runtime
+      - name: Resolve reusable component fingerprints
+        id: component-fingerprints
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          mkdir -p "$work/bin" "$work/metadata"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified local AI component
+        id: local-ai-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/local-ai-runtime
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-local-ai-${{ steps.component-fingerprints.outputs.local_ai }}
+
+      - name: Build and verify exact local AI runtime on cache miss
+        if: steps.local-ai-cache.outputs.cache-hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          mkdir -p "$work/metadata"
           python bootstrap/local-ai-runtime/build.py build \
             --cache-dir "$work/local-ai-runtime-cache" \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-build.json"
           python bootstrap/local-ai-runtime/build.py verify \
             --out-dir "$work/local-ai-runtime" \
+            > "$work/metadata/local-ai-runtime-build-verify.json"
+
+      - name: Verify local AI component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          cache_hit='${{ steps.local-ai-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
+          python bootstrap/local-ai-runtime/build.py verify \
+            --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-verify.json"
           test -s "$work/local-ai-runtime/local-ai-runtime.erofs"
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component local-ai \
+              --out-dir "$work/local-ai-runtime" \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$work/metadata/local-ai-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component local-ai \
+            --out-dir "$work/local-ai-runtime" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$work/metadata/local-ai-component-reuse.json"
+
+      - name: Save verified local AI component
+        if: steps.local-ai-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/local-ai-runtime
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-local-ai-${{ steps.component-fingerprints.outputs.local_ai }}
 
       - name: Install remaining portable-v2 build and QEMU proof dependencies
         run: |
@@ -209,23 +275,61 @@ jobs:
           test -e /usr/share/OVMF/OVMF_CODE.fd || test -e /usr/share/OVMF/OVMF_CODE_4M.fd
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
-      - name: Build exact kernel and kernel modules
+      - name: Restore verified kernel component
+        id: kernel-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+
+      - name: Build exact kernel and kernel modules on cache miss
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          mkdir -p "$work/bin" "$work/metadata"
           python bootstrap/kernel/build.py build \
             --jobs 4 \
             --work-dir "$work/kernel-work" \
             --out-dir "$work/kernel"
+
+      - name: Verify kernel component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          cache_hit='${{ steps.kernel-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
           python bootstrap/kernel/verify.py "$work/kernel"
           test -s "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION"
           test -s "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
           grep -Fx 'CONFIG_VIRTIO=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
           grep -Fx 'CONFIG_VIRTIO_PCI=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
           grep -Fx 'CONFIG_DRM_VIRTIO_GPU=y' "$work/kernel/kernel-$ORDAX_KERNEL_VERSION.config"
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component kernel \
+              --out-dir "$work/kernel" \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$work/metadata/kernel-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component kernel \
+            --out-dir "$work/kernel" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$work/metadata/kernel-component-reuse.json"
+
+      - name: Save verified kernel component
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
       - name: Build and verify exact Stable Base or experimental independent candidate
         env:
@@ -271,7 +375,15 @@ jobs:
               ;;
           esac
 
-      - name: Build and verify exact offline Surface runtime
+      - name: Restore verified Surface runtime component
+        id: surface-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/surface-runtime
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-surface-${{ steps.component-fingerprints.outputs.surface }}
+
+      - name: Build exact offline Surface runtime on cache miss
+        if: steps.surface-cache.outputs.cache-hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -283,23 +395,105 @@ jobs:
               --cache-dir "$work/surface-runtime-cache" \
               > "$work/metadata/surface-runtime-build.json"
           sudo chown -R "$(id -u):$(id -g)" "$work/surface-runtime"
+
+      - name: Verify Surface component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          cache_hit='${{ steps.surface-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
           python bootstrap/surface-runtime/build.py verify \
             --out-dir "$work/surface-runtime" \
             > "$work/metadata/surface-runtime-verify.json"
           test -s "$work/surface-runtime/native-surface-runtime.erofs"
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component surface \
+              --out-dir "$work/surface-runtime" \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$work/metadata/surface-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component surface \
+            --out-dir "$work/surface-runtime" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$work/metadata/surface-component-reuse.json"
 
-      - name: Build exact release agent and bootstrap capsule
+      - name: Save verified Surface runtime component
+        if: steps.surface-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/surface-runtime
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-surface-${{ steps.component-fingerprints.outputs.surface }}
+
+      - name: Restore verified release-agent component
+        id: release-agent-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/release-agent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-release-agent-${{ steps.component-fingerprints.outputs.release_agent }}
+
+      - name: Test exact release-agent source
+        run: |
+          set -euo pipefail
+          (cd bootstrap/release-acquisition && go test -count=1 ./...)
+
+      - name: Build exact release agent on cache miss
+        if: steps.release-agent-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          mkdir -p "$work/capsule"
+          mkdir -p "$work/release-agent"
           (
             cd bootstrap/release-acquisition
-            go test -count=1 ./...
             CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
               go build -trimpath -buildvcs=false -ldflags='-s -w' \
-              -o "$work/bin/ordax-release-agent" .
+              -o "$work/release-agent/ordax-release-agent" .
           )
+
+      - name: Verify release-agent component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          cache_hit='${{ steps.release-agent-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
+          test -s "$work/release-agent/ordax-release-agent"
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component release-agent \
+              --out-dir "$work/release-agent" \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$work/metadata/release-agent-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component release-agent \
+            --out-dir "$work/release-agent" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$work/metadata/release-agent-component-reuse.json"
+
+      - name: Save verified release-agent component
+        if: steps.release-agent-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/release-agent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-release-agent-${{ steps.component-fingerprints.outputs.release_agent }}
+
+      - name: Build exact bootstrap capsule
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          mkdir -p "$work/bin" "$work/capsule"
+          cp -- "$work/release-agent/ordax-release-agent" "$work/bin/ordax-release-agent"
           python bootstrap/portable-v2/capsule/build.py build \
             --release-agent "$work/bin/ordax-release-agent" \
             --out "$work/capsule/bootstrap.erofs" \

@@ -41,6 +41,16 @@
       "version_label": "v7"
     },
     {
+      "uses": "actions/cache/restore",
+      "sha": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+      "version_label": "v6.1.0"
+    },
+    {
+      "uses": "actions/cache/save",
+      "sha": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+      "version_label": "v6.1.0"
+    },
+    {
       "uses": "actions/upload-artifact",
       "sha": "b7c566a772e6b6bfb58ed0dc250532a479d7789f",
       "version_label": "v6"
