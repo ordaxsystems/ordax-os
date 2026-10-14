@@ -3,6 +3,7 @@ export const WEB_EXTRACT_REQUEST_SCHEMA = "ordax.web.extract/1";
 export const WEB_SOURCE_SCHEMA = "ordax.web.source/1";
 export const WEB_PROVENANCE_SCHEMA = "ordax.web.provenance/1";
 export const WEB_PROVIDER_SCHEMA = "ordax.web-provider/1";
+export const WEB_USAGE_SCHEMA = "ordax.web.usage/1";
 
 export const WEB_SOURCE_TRUST = "untrusted-external-content";
 export const WEB_MAX_QUERY_CHARS = 2048;
@@ -14,6 +15,8 @@ export const WEB_MAX_EXTERNAL_BYTES = 10_000_000;
 export const WEB_MAX_REQUESTS = 10;
 export const WEB_MAX_DEADLINE_MS = 60_000;
 export const WEB_MAX_COST_USD = 100;
+export const WEB_MAX_PROVIDER_UNITS = 1_000_000;
+export const WEB_MAX_RECORDED_LATENCY_MS = 300_000;
 
 const FRESHNESS = new Set(["current", "recent", "any"]);
 const CACHE_MODES = new Set(["provider-policy", "bypass", "cache-only"]);
@@ -119,6 +122,24 @@ function boundedCost(value, label, fallback = 0.05) {
     throw new TypeError(`${label} is outside bounds`);
   }
   return resolved;
+}
+
+function requiredCost(value, label) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > WEB_MAX_COST_USD) {
+    throw new TypeError(`${label} is outside bounds`);
+  }
+  return value;
+}
+
+function optionalCost(value, label) {
+  return value == null ? null : requiredCost(value, label);
+}
+
+function boundedUnits(value, label) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > WEB_MAX_PROVIDER_UNITS) {
+    throw new TypeError(`${label} is outside bounds`);
+  }
+  return value;
 }
 
 function stringList(value, label, maxItems, validator) {
@@ -252,6 +273,45 @@ export function validateWebSource(value) {
     language,
     contentHash: digest,
     provenance: validateWebProvenance(source.provenance),
+  });
+}
+
+export function validateWebUsage(value) {
+  const usage = object(value, "Web usage");
+  rejectAuthorityFields(usage, "Web usage");
+  if (usage.schema !== WEB_USAGE_SCHEMA) {
+    throw new TypeError("Web usage schema is incompatible");
+  }
+  const providerId = boundedText(usage.providerId, "Web usage provider id", 96).toLowerCase();
+  if (!PROVIDER_ID_RE.test(providerId)) throw new TypeError("Web usage provider id is invalid");
+  const operation = boundedText(usage.operation, "Web usage operation", 32);
+  if (!PROVIDER_CAPABILITIES.has(operation)) throw new TypeError("Web usage operation is invalid");
+  const cacheStatus = usage.cacheStatus ?? "miss";
+  if (!CACHE_STATUSES.has(cacheStatus)) throw new TypeError("Web usage cache status is invalid");
+  return Object.freeze({
+    schema: WEB_USAGE_SCHEMA,
+    providerId,
+    operation,
+    requestCount: boundedInteger(usage.requestCount, "Web usage request count", {
+      min: 1,
+      max: WEB_MAX_REQUESTS,
+      fallback: null,
+    }),
+    externalBytes: boundedInteger(usage.externalBytes, "Web usage external bytes", {
+      min: 0,
+      max: WEB_MAX_EXTERNAL_BYTES,
+      fallback: null,
+    }),
+    providerUnits: boundedUnits(usage.providerUnits, "Web usage provider units"),
+    estimatedCostUsd: requiredCost(usage.estimatedCostUsd, "Web usage estimated cost"),
+    actualCostUsd: optionalCost(usage.actualCostUsd, "Web usage actual cost"),
+    latencyMs: boundedInteger(usage.latencyMs, "Web usage latency", {
+      min: 0,
+      max: WEB_MAX_RECORDED_LATENCY_MS,
+      fallback: null,
+    }),
+    cacheStatus,
+    fallbackReason: optionalText(usage.fallbackReason, "Web usage fallback reason", 512),
   });
 }
 
