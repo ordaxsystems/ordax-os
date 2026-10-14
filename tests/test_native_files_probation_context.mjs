@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
@@ -152,4 +153,38 @@ test("Files probation bootstrap refuses duplicate binding and releases host idem
   bootstrap.destroy();
   bootstrap.destroy();
   assert.equal(root.childNodes.length, 0);
+});
+
+test("Native Files probation wiring installs before async boot and binds only after Surface mount", () => {
+  const source = readFileSync(
+    new URL("../system/composition/native/main.mjs", import.meta.url),
+    "utf8",
+  );
+  const startIndex = source.indexOf("async function start() {");
+  const installIndex = source.indexOf(
+    "filesProbationContextBootstrap = createNativeFilesProbationContextBootstrap();",
+    startIndex,
+  );
+  const firstAwaitIndex = source.indexOf("await ", startIndex);
+  const surfaceIndex = source.indexOf("const surface = mountSurface(", startIndex);
+  const bindIndex = source.indexOf("filesProbationContextBootstrap.bind({", surfaceIndex);
+  const currentGateIndex = source.indexOf(
+    'if (hasNativeExternalFirstPartyModuleRead("files")',
+    bindIndex,
+  );
+  const teardownIndex = source.indexOf("filesProbationContextBootstrap?.destroy();", bindIndex);
+
+  assert.ok(startIndex >= 0);
+  assert.ok(installIndex > startIndex);
+  assert.ok(firstAwaitIndex > installIndex, "probation provider must install before async boot can yield");
+  assert.ok(surfaceIndex > firstAwaitIndex);
+  assert.ok(bindIndex > surfaceIndex, "hidden probation host must be created after mountSurface clears root");
+  assert.ok(currentGateIndex > bindIndex, "current-runtime trust gate must remain separate from probation");
+  assert.ok(teardownIndex > currentGateIndex);
+  assert.match(source.slice(bindIndex, currentGateIndex), /fileSpace: filesOwnerSpace/);
+  assert.match(source.slice(bindIndex, currentGateIndex), /recentFiles/);
+  assert.match(source.slice(bindIndex, currentGateIndex), /projects/);
+  assert.match(source.slice(bindIndex, currentGateIndex), /appActivation/);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
 });
