@@ -46,6 +46,16 @@ function sameContext(left, right) {
     && left.projectId === right.projectId;
 }
 
+function sameSnapshot(left, right) {
+  return left.schema === right.schema
+    && left.state === right.state
+    && left.inferenceAvailable === right.inferenceAvailable
+    && left.engineId === right.engineId
+    && left.modelId === right.modelId
+    && left.authority === right.authority
+    && left.toolExecution === right.toolExecution;
+}
+
 function assertRemoteTransport(transport) {
   if (!transport || typeof transport !== "object"
     || transport.schema !== WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA) {
@@ -90,6 +100,7 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
   const listeners = new Set();
   const releaseRemote = remote.subscribe((snapshot) => {
     const next = validateIntelligenceSnapshot(snapshot);
+    if (sameSnapshot(current, next)) return;
     current = next;
     if (!disposed) {
       for (const listener of [...listeners]) listener(current);
