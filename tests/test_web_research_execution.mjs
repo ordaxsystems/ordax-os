@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  WEB_MAX_COST_MICROUSD,
-  WEB_MAX_LATENCY_MS,
-  WEB_OPERATION_RECEIPT_SCHEMA,
   WEB_USAGE_SCHEMA,
+  validateWebUsage,
+} from "../system/contracts/web-research.mjs";
+import {
+  WEB_OPERATION_RECEIPT_SCHEMA,
   validateWebOperationReceipt,
   validateWebResourceRef,
-  validateWebUsage,
 } from "../system/contracts/web-research-execution.mjs";
 
 const SEARCH_REF = `ordax-web:search:sha256:${"a".repeat(64)}`;
@@ -22,13 +22,11 @@ function usage(overrides = {}) {
     requestCount: 2,
     externalBytes: 4096,
     providerUnits: 2,
-    providerUnit: "request",
-    estimatedCostMicrousd: 1200,
-    actualCostMicrousd: 1100,
+    estimatedCostUsd: 0.0012,
+    actualCostUsd: 0.0011,
     latencyMs: 240,
     cacheStatus: "miss",
-    fallbackCount: 1,
-    degradedReason: null,
+    fallbackReason: null,
     ...overrides,
   };
 }
@@ -49,19 +47,14 @@ function receipt(overrides = {}) {
   };
 }
 
-test("Web usage is bounded observability data and carries no authority", () => {
-  const value = validateWebUsage(usage());
-  assert.equal(value.schema, WEB_USAGE_SCHEMA);
-  assert.equal(value.providerId, "provider.test");
-  assert.equal(value.operation, "search");
-  assert.equal(value.requestCount, 2);
-  assert.equal(value.externalBytes, 4096);
-  assert.equal(value.actualCostMicrousd, 1100);
-  assert.equal("grantRef" in value, false);
-  assert.equal("authority" in value, false);
-
-  assert.throws(() => validateWebUsage({ ...usage(), grantRef: "egress-1" }), /authority or credential/i);
-  assert.throws(() => validateWebUsage({ ...usage(), apiKey: "secret" }), /authority or credential/i);
+test("Web operation receipt reuses canonical provider usage instead of defining another quota/accounting model", () => {
+  const canonicalUsage = validateWebUsage(usage());
+  const value = validateWebOperationReceipt(receipt());
+  assert.deepEqual(value.usage, canonicalUsage);
+  assert.equal(value.usage.schema, WEB_USAGE_SCHEMA);
+  assert.equal(value.usage.actualCostUsd, 0.0011);
+  assert.equal("grantRef" in value.usage, false);
+  assert.equal("authority" in value.usage, false);
 });
 
 test("Web operation receipt binds operation, deterministic resource and normalized sources", () => {
@@ -81,7 +74,7 @@ test("Web resource refs are operation-bound and reject cross-operation reuse", (
   assert.throws(() => validateWebResourceRef("https://example.com", "search"), /invalid/i);
 });
 
-test("Web operation receipt rejects usage/resource mismatches and authority injection", () => {
+test("Web operation receipt rejects usage/resource mismatches and authority or credential injection", () => {
   assert.throws(
     () => validateWebOperationReceipt(receipt({ resourceRef: EXTRACT_REF })),
     /does not match/i,
@@ -94,22 +87,9 @@ test("Web operation receipt rejects usage/resource mismatches and authority inje
     () => validateWebOperationReceipt({ ...receipt(), grantRef: "egress-1" }),
     /authority or credential/i,
   );
-});
-
-test("Web usage enforces request, byte, cost, latency and fallback ceilings", () => {
-  assert.throws(() => validateWebUsage(usage({ requestCount: 11 })), /request count.*bounds/i);
-  assert.throws(() => validateWebUsage(usage({ externalBytes: 10_000_001 })), /external bytes.*bounds/i);
   assert.throws(
-    () => validateWebUsage(usage({ estimatedCostMicrousd: WEB_MAX_COST_MICROUSD + 1 })),
-    /estimated cost.*bounds/i,
-  );
-  assert.throws(
-    () => validateWebUsage(usage({ latencyMs: WEB_MAX_LATENCY_MS + 1 })),
-    /latency.*bounds/i,
-  );
-  assert.throws(
-    () => validateWebUsage(usage({ requestCount: 1, fallbackCount: 2 })),
-    /fallback count cannot exceed/i,
+    () => validateWebOperationReceipt(receipt({ usage: { ...usage(), apiKey: "secret" } })),
+    /authority or credential/i,
   );
 });
 
