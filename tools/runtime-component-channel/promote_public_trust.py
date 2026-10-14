@@ -508,7 +508,7 @@ def _assert_pre_promotion_contracts(
         or package_policy.get("rollback_slot_activation_available") is not False
         or package_policy.get("native_loopback_verified_read_broker_implemented") is not True
         or package_policy.get("native_loopback_broker_read_only") is not True
-        or package_policy.get("internet_release_mode") != "git-app"
+        or "internet_release_mode" in package_policy
     ):
         raise PromotionError("runtime component package policy is not in safe pre-promotion state")
 
@@ -555,7 +555,6 @@ def prepare_repository_promotion(
     promoted_package["pending_health_promotion_available"] = False
     promoted_package["rollback_slot_activation_available"] = False
     promoted_package["native_slot_serving_available"] = False
-    promoted_package["internet_release_mode"] = "git-app"
     promoted_package["next_gate"] = (
         "Run pending probation through the Native verified read broker, bind real "
         "runtime health to promote/reject, and prove rollback before enabling "
@@ -713,7 +712,7 @@ def validate_promoted_repository(
         or package_policy.get("pending_health_promotion_available") is not False
         or package_policy.get("rollback_slot_activation_available") is not False
         or package_policy.get("native_slot_serving_available") is not False
-        or package_policy.get("internet_release_mode") != "git-app"
+        or "internet_release_mode" in package_policy
     ):
         raise PromotionError("promoted runtime component package policy enabled forbidden capability")
 
