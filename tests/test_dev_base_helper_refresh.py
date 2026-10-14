@@ -17,7 +17,7 @@ SOURCE_TO_TARGET = {
     "bootstrap/dev-base/ordax-diagnose": "usr/local/bin/ordax-diagnose",
     "bootstrap/dev-base/ordax-network": "usr/local/bin/ordax-network",
     "bootstrap/dev-base/ordax-pull": "usr/local/bin/ordax-pull",
-    "bootstrap/dev-base/ordax-remote": "usr/local/bin/ordax-remote",
+    "system/services/device-agent/owner-remote.sh": "usr/local/bin/ordax-remote",
     "bootstrap/dev-base/ordax-rollback": "usr/local/bin/ordax-rollback",
     "bootstrap/dev-base/ordax-run": "usr/local/bin/ordax-run",
     "bootstrap/recovery/entrypoint": "ordax/bootstrap/recovery/entrypoint",
@@ -64,7 +64,8 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
 
     def test_refreshes_only_fixed_helpers_with_executable_mode(self):
         self.assertIn("/bootstrap/dev-base/ordax-diagnose", PULL)
-        self.assertIn("/bootstrap/dev-base/ordax-remote", PULL)
+        self.assertNotIn("/bootstrap/dev-base/ordax-remote", PULL)
+        self.assertIn("/system/", PULL)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             worktree, target, state = self.make_fixture(root)
