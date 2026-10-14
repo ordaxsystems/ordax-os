@@ -78,7 +78,10 @@ discover_owner_development_device() {
                 *'TYPE="vfat"'*) ;;
                 *) continue ;;
             esac
-            esp_matches=$((esp_matches + 1))
+            case "$esp_matches" in
+                0) esp_matches=1 ;;
+                *) esp_matches=many ;;
+            esac
         done
 
         case "$esp_matches" in
@@ -86,24 +89,25 @@ discover_owner_development_device() {
             *) continue ;;
         esac
 
-        ORDAX_DEVICE_MATCHES=$((ORDAX_DEVICE_MATCHES + 1))
+        case "$ORDAX_DEVICE_MATCHES" in
+            0) ORDAX_DEVICE_MATCHES=1 ;;
+            *) ORDAX_DEVICE_MATCHES=many ;;
+        esac
         ORDAX_DEVICE="/dev/$name"
     done
 }
 
 case "$OWNER_DEVELOPMENT" in
     1)
-        attempts=0
-        while :; do
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
             discover_owner_development_device
             case "$ORDAX_DEVICE_MATCHES" in
                 1) break ;;
                 0)
-                    attempts=$((attempts + 1))
-                    case "$attempts" in
+                    case "$attempt" in
                         10) rescue "owner-development USB root not found on exactly one removable ORDAX/ORDAX-ESP device" ;;
+                        *) sleep 1 ;;
                     esac
-                    sleep 1
                     ;;
                 *) rescue "multiple owner-development USB roots detected; refusing ambiguous writable mount" ;;
             esac
