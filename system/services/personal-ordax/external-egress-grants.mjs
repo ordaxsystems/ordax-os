@@ -109,7 +109,7 @@ export function createExternalEgressGrantAuthority({
         maxCostUsd: request.maxCostUsd,
         deadlineMs: request.deadlineMs,
         approvedBy: "user",
-        issuedAt: request.requestedAt,
+        issuedAt: new Date(nowMs).toISOString(),
         expiresAt: request.expiresAt,
       });
       grants.set(grant.grantId, grant);
