@@ -41,9 +41,12 @@ test("egress authority issues, resolves and revokes exact grants", () => {
   assert.equal(authority.registry.schema, EXTERNAL_EGRESS_GRANT_REGISTRY_SCHEMA);
   assert.equal(authority.issuer.schema, EXTERNAL_EGRESS_GRANT_ISSUER_SCHEMA);
 
-  const grant = authority.issuer.issue(issue(now));
+  const grant = authority.issuer.issue(issue(now, {
+    requestedAt: new Date(now - 10_000).toISOString(),
+  }));
   assert.equal(grant.grantId, "egress-grant-1");
   assert.equal(grant.effect, "external-egress");
+  assert.equal(grant.issuedAt, new Date(now).toISOString());
   assert.equal(authority.registry.resolve(grant.grantId), grant);
   assert.equal(authority.issuer.revoke(grant.grantId), true);
   assert.equal(authority.registry.resolve(grant.grantId), null);
