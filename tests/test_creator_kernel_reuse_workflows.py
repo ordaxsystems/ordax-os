@@ -3,12 +3,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CREATOR_PAYLOAD = ROOT / ".github/workflows/creator-payload-candidate.yml"
+OWNER_DEV = ROOT / ".github/workflows/creator-owner-dev-git.yml"
 CACHE_SHA = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
 
 
 class CreatorKernelReuseWorkflowTests(unittest.TestCase):
-    def workflow(self) -> str:
-        return CREATOR_PAYLOAD.read_text(encoding="utf-8")
+    def workflow(self, path: Path) -> str:
+        return path.read_text(encoding="utf-8")
 
     def step_block(self, text: str, name: str) -> str:
         marker = f"      - name: {name}\n"
@@ -18,8 +19,8 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             next_step = len(text)
         return text[start:next_step]
 
-    def test_creator_payload_reuses_only_verified_kernel_bytes(self):
-        workflow = self.workflow()
+    def assert_verified_kernel_reuse(self, path: Path) -> str:
+        workflow = self.workflow(path)
         self.assertEqual(workflow.count(f"actions/cache/restore@{CACHE_SHA}"), 1)
         self.assertEqual(workflow.count(f"actions/cache/save@{CACHE_SHA}"), 1)
         self.assertNotIn("restore-keys:", workflow)
@@ -44,14 +45,13 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("--integration-commit", verify)
         self.assertIn("kernel-component-reuse.json", verify)
 
-    def test_creator_payload_never_uses_a_fallback_cache_key(self):
-        workflow = self.workflow()
         restore = self.step_block(workflow, "Restore verified kernel component")
         self.assertNotIn("restore-keys:", restore)
         self.assertIn("steps.component-fingerprints.outputs.kernel", restore)
+        return workflow
 
-    def test_payload_assembly_and_non_destructive_gates_are_never_cache_skipped(self):
-        workflow = self.workflow()
+    def test_creator_payload_reuses_only_verified_kernel_bytes(self):
+        workflow = self.assert_verified_kernel_reuse(CREATOR_PAYLOAD)
         for step in (
             "Assemble and verify canonical complete Creator payload",
             "Assert canonical payload is complete and non-destructive",
@@ -59,6 +59,33 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         ):
             block = self.step_block(workflow, step)
             self.assertNotIn("cache-hit", block)
+
+    def test_owner_dev_creator_reuses_kernel_without_skipping_product_build(self):
+        workflow = self.assert_verified_kernel_reuse(OWNER_DEV)
+        dev_base = self.step_block(workflow, "Build boot initramfs and Git development base")
+        self.assertNotIn("bootstrap/kernel/build.py", dev_base)
+        self.assertNotIn("cache-hit", dev_base)
+        self.assertIn(
+            '--kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
+            dev_base,
+        )
+        for step in (
+            "Derive development Git bootstrap manifest",
+            "Assemble boot payload and overlay Git development base",
+            "Materialize and verify RAW development seed",
+            "Build split Windows Creator bundle",
+            "Verify exact Owner Development ZIP before publication",
+        ):
+            block = self.step_block(workflow, step)
+            self.assertNotIn("cache-hit", block)
+
+    def test_owner_dev_publication_remains_main_only(self):
+        workflow = self.workflow(OWNER_DEV)
+        trigger = workflow.split("permissions:", 1)[0]
+        self.assertIn("  push:\n    branches: [main]", trigger)
+        self.assertNotIn("  pull_request:", trigger)
+        publish = self.step_block(workflow, "Publish development Creator bundle")
+        self.assertIn("gh release upload creator-owner-prototype", publish)
 
 
 if __name__ == "__main__":
