@@ -222,6 +222,8 @@ test("Native composition wires exactly one host bridge over selectedSpaceIntelli
   assert.match(host, /ordax-native-intelligence-request/);
   assert.match(host, /intelligence\.host\.ready/);
   assert.match(host, /intelligence\.host\.result/);
+  assert.match(host, /LoadEvent\.STARTED/);
+  assert.match(host, /suspend_intelligence_listener/);
   assert.doesNotMatch(host, /createNativeIntelligenceService|createIntelligenceRuntime|model-router|llama|Qwen/);
   assert.doesNotMatch(ipc, /AF_INET|SOCK_DGRAM|http:\/\/|https:\/\/|apiKey|OPENAI|xAI|model-router|llama|Qwen/);
   assert.match(ipc, /AF_UNIX/);

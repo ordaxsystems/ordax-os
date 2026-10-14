@@ -346,7 +346,10 @@ class OrdaXBrowserHost:
                 except socket.timeout:
                     continue
                 except OSError:
-                    if self.intelligence_stopping.is_set():
+                    if (
+                        self.intelligence_stopping.is_set()
+                        or self.intelligence_listener is not listener
+                    ):
                         return
                     raise
                 with connection:
@@ -378,6 +381,22 @@ class OrdaXBrowserHost:
             daemon=True,
         )
         self.intelligence_thread.start()
+
+    def suspend_intelligence_listener(self) -> None:
+        listener = self.intelligence_listener
+        self.intelligence_listener = None
+        if listener is not None:
+            self.intelligence_ipc.close()
+        thread = self.intelligence_thread
+        self.intelligence_thread = None
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2)
+        with self.intelligence_pending_lock:
+            pending_requests = list(self.intelligence_pending.values())
+            self.intelligence_pending.clear()
+        for pending in pending_requests:
+            pending["response"] = unknown_intelligence_response(pending["requestId"])
+            pending["event"].set()
 
     def emit_native_intelligence_request(self, nonce: str, request: dict) -> None:
         encoded = json.dumps(
@@ -637,6 +656,9 @@ class OrdaXBrowserHost:
         return True
 
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
+        if load_event == WebKit2.LoadEvent.STARTED:
+            self.suspend_intelligence_listener()
+            return
         if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
             return
         self.component_probation_started = True
@@ -1470,15 +1492,7 @@ class OrdaXBrowserHost:
         if self.profile_consent_thread is not None:
             self.profile_consent_thread.join(timeout=2)
         self.intelligence_stopping.set()
-        self.intelligence_ipc.close()
-        if self.intelligence_thread is not None:
-            self.intelligence_thread.join(timeout=2)
-        with self.intelligence_pending_lock:
-            pending_requests = list(self.intelligence_pending.values())
-            self.intelligence_pending.clear()
-        for pending in pending_requests:
-            pending["response"] = unknown_intelligence_response(pending["requestId"])
-            pending["event"].set()
+        self.suspend_intelligence_listener()
         Gtk.main_quit()
 
 

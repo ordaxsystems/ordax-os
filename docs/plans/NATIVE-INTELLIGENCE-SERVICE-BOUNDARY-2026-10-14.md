@@ -34,6 +34,8 @@ The module registers one private Surface event (`ordax-native-intelligence-reque
 
 The bridge announces `intelligence.host.ready` only after the service listener is installed. The Python host opens the local IPC socket only after receiving that readiness message, so a local caller cannot race the initial Native composition and reach a half-created Intelligence service.
 
+On a privileged Surface navigation/reload start, the host closes the Intelligence listener and resolves any pending call as `unknown`. A fresh `intelligence.host.ready` from the newly composed page is required before the socket is exposed again.
+
 ## Private IPC transport
 
 `system/surface/runtime/native_intelligence_ipc.py` is transport-only:
