@@ -1,0 +1,38 @@
+name: Native Intelligence Service Foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/intelligence/native-service.mjs'
+      - 'tests/test_native_intelligence_service.mjs'
+      - 'docs/plans/NATIVE-INTELLIGENCE-SERVICE-BOUNDARY-2026-10-14.md'
+      - '.github/workflows/native-intelligence-service-foundation.yml'
+  pull_request:
+    paths:
+      - 'system/services/intelligence/native-service.mjs'
+      - 'tests/test_native_intelligence_service.mjs'
+      - 'docs/plans/NATIVE-INTELLIGENCE-SERVICE-BOUNDARY-2026-10-14.md'
+      - '.github/workflows/native-intelligence-service-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native-intelligence-service:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate runner Node
+        run: node --version
+
+      - name: Validate Native Intelligence service syntax
+        run: node --check system/services/intelligence/native-service.mjs
+
+      - name: Run Native Intelligence service contract tests
+        run: node --test tests/test_native_intelligence_service.mjs
