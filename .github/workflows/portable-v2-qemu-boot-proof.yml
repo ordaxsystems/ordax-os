@@ -58,6 +58,8 @@ on:
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tools/ci/portable_component_cache.py'
+      - 'tools/ci/portable_qemu_impact.py'
+      - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   pull_request:
     paths:
@@ -115,6 +117,8 @@ on:
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tools/ci/portable_component_cache.py'
+      - 'tools/ci/portable_qemu_impact.py'
+      - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
   workflow_call:
@@ -124,6 +128,11 @@ on:
         description: 'stable (default) or isolated independent Buildroot candidate'
         required: false
         default: stable
+      force_run:
+        type: boolean
+        description: 'force heavy Portable/QEMU proof for explicit reusable-workflow callers'
+        required: false
+        default: true
 
 
 concurrency:
@@ -136,7 +145,44 @@ permissions:
   contents: read
 
 jobs:
+  impact:
+    name: Portable v2 QEMU Impact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.impact.outputs.required }}
+      reason: ${{ steps.impact.outputs.reason }}
+      changed_count: ${{ steps.impact.outputs.changed_count }}
+    steps:
+      - name: Checkout exact source commit for impact classification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify Portable/QEMU causal impact
+        id: impact
+        env:
+          ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          ORDAX_IMPACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_FORCE_QEMU: ${{ inputs.force_run || false }}
+          ORDAX_EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          force=()
+          if [ "$ORDAX_EVENT_NAME" = "workflow_dispatch" ] || [ "$ORDAX_FORCE_QEMU" = "true" ]; then
+            force=(--force)
+          fi
+          python3 tools/ci/portable_qemu_impact.py classify \
+            --base "$ORDAX_IMPACT_BASE" \
+            --head "$ORDAX_IMPACT_HEAD" \
+            "${force[@]}" \
+            --github-output "$GITHUB_OUTPUT"
+
   qemu-portable-v2:
+    needs: impact
+    if: needs.impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -182,6 +228,7 @@ jobs:
           python -m unittest tests.test_portable_v4_ai_handoff_contract -v
           python -m unittest tests.test_portable_v3_cold_health_qemu_proof -v
           python -m unittest tests.test_portable_component_cache tests.test_portable_component_reuse_workflow -v
+          python -m unittest tests.test_portable_qemu_impact -v
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
           python -m unittest discover -s tests -p 'test_portable_verified_boot_selection.py' -v
           python -m unittest discover -s tests -p 'test_portable_media_discovery.py' -v
