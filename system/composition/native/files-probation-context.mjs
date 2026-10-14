@@ -37,16 +37,15 @@ function createHiddenProbationHost(root) {
 }
 
 export function createNativeFilesProbationContextBootstrap({
-  root,
   installProvider = installComponentProbationContextProvider,
 } = {}) {
   if (typeof installProvider !== "function") {
     throw new TypeError("Files probation context requires a provider installer");
   }
-  const host = createHiddenProbationHost(root);
   let resolveReady;
   let state = "pending";
   let terminalError = null;
+  let host = null;
   const ready = new Promise((resolve) => {
     resolveReady = resolve;
   });
@@ -58,17 +57,13 @@ export function createNativeFilesProbationContextBootstrap({
     if (!outcome?.context) {
       throw normalizeError(outcome?.error, "Files probation context is unavailable");
     }
-    return Object.freeze({ ...outcome.context, root: host });
+    return outcome.context;
   };
 
-  try {
-    installProvider(provider);
-  } catch (error) {
-    try { host.remove(); } catch { /* registry rejection owns the failure */ }
-    throw error;
-  }
+  installProvider(provider);
 
   const bind = ({
+    root,
     fileSpace = null,
     recentFiles = null,
     projects = null,
@@ -78,17 +73,23 @@ export function createNativeFilesProbationContextBootstrap({
       throw new Error("Files probation context can only be bound once");
     }
     try {
+      host = createHiddenProbationHost(root);
       const trustedProvider = createNativeFilesTrustedContextProvider({
         fileSpace,
         recentFiles,
         projects,
         appActivation,
       });
-      const context = trustedProvider("files");
+      const context = Object.freeze({
+        ...trustedProvider("files"),
+        root: host,
+      });
       state = "bound";
       resolveReady(Object.freeze({ context }));
       return context;
     } catch (error) {
+      try { host?.remove?.(); } catch { /* failed binding cleanup is best effort */ }
+      host = null;
       terminalError = normalizeError(error, "Files probation context binding failed");
       state = "failed";
       resolveReady(Object.freeze({ error: terminalError }));
@@ -112,7 +113,7 @@ export function createNativeFilesProbationContextBootstrap({
     }
     terminalError ??= new Error("Files probation context is destroyed");
     state = "destroyed";
-    host.remove();
+    try { host?.remove?.(); } finally { host = null; }
   };
 
   return Object.freeze({
