@@ -100,6 +100,8 @@ const (
 	msgWriteCompleteDialogTitle  creatorMessageID = "creator.write.complete.dialogTitle"
 	msgWriteCompleteDialogBody   creatorMessageID = "creator.write.complete.dialogBody"
 	msgWriteErrorDialogTitle     creatorMessageID = "creator.write.error.dialogTitle"
+	msgWriteTechnicalDetail      creatorMessageID = "creator.write.error.technicalDetail"
+	msgWriteDiagnosticLocation   creatorMessageID = "creator.write.error.diagnosticLocation"
 	msgWriteBusyDetail           creatorMessageID = "creator.write.busy.detail"
 	msgWriteConfirmTitle         creatorMessageID = "creator.write.confirm.title"
 	msgWriteConfirmBody          creatorMessageID = "creator.write.confirm.body"
@@ -194,12 +196,14 @@ var creatorPTBRMessages = map[creatorMessageID]string{
 	msgVersionChecking:           "verificando versão…",
 	msgVersionAvailable:          "disponível",
 	msgRefreshFailedDetail:       "Não foi possível atualizar a lista segura de dispositivos USB. Tente novamente; nenhum disco foi alterado.",
-	msgPhysicalWriteFailedDetail: "A criação foi interrompida antes de concluir com segurança. O diagnóstico técnico foi preservado para análise.",
+	msgPhysicalWriteFailedDetail: "A criação foi interrompida com segurança. Consulte os detalhes técnicos abaixo para identificar a causa.",
 	msgTargetSelectionFailed:     "O destino USB selecionado não está disponível ou não passou pela política de segurança. Recarregue a lista e selecione novamente.",
 	msgWriteCompleteStatus:       "Pendrive OrdaX criado e verificado.",
 	msgWriteCompleteDialogTitle:  "OrdaX Creator — Tudo pronto",
 	msgWriteCompleteDialogBody:   "O pendrive OrdaX foi criado, passou pela verificação de leitura e o espaço ORDAX-DATA foi preparado em exFAT.",
 	msgWriteErrorDialogTitle:     "OrdaX Creator — Não foi possível continuar",
+	msgWriteTechnicalDetail:      "Detalhes técnicos:",
+	msgWriteDiagnosticLocation:   "Diagnóstico salvo em: {path}",
 	msgWriteBusyDetail:           "Não feche o Creator nem remova o USB até a operação terminar.",
 	msgWriteConfirmTitle:         "Apagar o pendrive selecionado?",
 	msgWriteConfirmBody:          "Todos os dados deste pendrive serão apagados.\n\nNome: {name}\nUnidade: {device}\nDisco: {disk}\nCapacidade: {size}\nSerial: {serial}\n\nDeseja apagar este pendrive e criar o OrdaX USB?",
@@ -295,12 +299,14 @@ var creatorENUSMessages = map[creatorMessageID]string{
 	msgVersionChecking:           "checking version…",
 	msgVersionAvailable:          "available",
 	msgRefreshFailedDetail:       "Unable to refresh the safe USB device list. Try again; no disk was changed.",
-	msgPhysicalWriteFailedDetail: "Creation stopped before it could finish safely. The technical diagnostic was preserved for analysis.",
+	msgPhysicalWriteFailedDetail: "Creation stopped safely. Review the technical details below to identify the cause.",
 	msgTargetSelectionFailed:     "The selected USB target is unavailable or did not pass the safety policy. Refresh the list and select it again.",
 	msgWriteCompleteStatus:       "OrdaX USB created and verified.",
 	msgWriteCompleteDialogTitle:  "OrdaX Creator — All set",
 	msgWriteCompleteDialogBody:   "The OrdaX USB was created, passed read-back verification, and ORDAX-DATA was prepared as exFAT.",
 	msgWriteErrorDialogTitle:     "OrdaX Creator — Unable to continue",
+	msgWriteTechnicalDetail:      "Technical details:",
+	msgWriteDiagnosticLocation:   "Diagnostic saved at: {path}",
 	msgWriteBusyDetail:           "Do not close Creator or remove the USB device until the operation finishes.",
 	msgWriteConfirmTitle:         "Erase the selected USB drive?",
 	msgWriteConfirmBody:          "All data on this USB drive will be erased.\n\nName: {name}\nDrive: {device}\nDisk: {disk}\nCapacity: {size}\nSerial: {serial}\n\nErase this USB drive and create OrdaX USB?",

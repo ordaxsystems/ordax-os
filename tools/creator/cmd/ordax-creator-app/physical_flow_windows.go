@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -76,13 +77,27 @@ type physicalPreparationDocument struct {
 }
 
 type physicalWriteState struct {
-	Active      bool
-	Status      string
-	Hint        string
-	Success     bool
-	Error       string
-	Determinate bool
-	Percent     int
+	Active         bool
+	Status         string
+	Hint           string
+	Success        bool
+	Error          string
+	DiagnosticPath string
+	Determinate    bool
+	Percent        int
+}
+
+type physicalWriteFailure struct {
+	cause          error
+	diagnosticPath string
+}
+
+func (failure *physicalWriteFailure) Error() string {
+	return failure.cause.Error()
+}
+
+func (failure *physicalWriteFailure) Unwrap() error {
+	return failure.cause
 }
 
 func messageBox(text, title string, flags uint32) int {
@@ -108,6 +123,7 @@ func updateWriteProgress(status, hint string) {
 	writeState.Hint = hint
 	writeState.Success = false
 	writeState.Error = ""
+	writeState.DiagnosticPath = ""
 	writeState.Determinate = false
 	writeState.Percent = 0
 	writeMu.Unlock()
@@ -127,6 +143,7 @@ func updateWritePercentage(status, hint string, percent int) {
 	writeState.Hint = hint
 	writeState.Success = false
 	writeState.Error = ""
+	writeState.DiagnosticPath = ""
 	writeState.Determinate = true
 	writeState.Percent = percent
 	writeMu.Unlock()
@@ -140,6 +157,11 @@ func completeWrite(err error) {
 		view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
 		writeState.Success = false
 		writeState.Error = err.Error()
+		writeState.DiagnosticPath = ""
+		var failure *physicalWriteFailure
+		if errors.As(err, &failure) {
+			writeState.DiagnosticPath = failure.diagnosticPath
+		}
 		writeState.Status = view.Title
 		writeState.Hint = strings.TrimSpace(view.Body + " " + view.Detail)
 		writeState.Determinate = false
@@ -148,6 +170,7 @@ func completeWrite(err error) {
 		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		writeState.Success = true
 		writeState.Error = ""
+		writeState.DiagnosticPath = ""
 		writeState.Status = creatorT(msgWriteCompleteStatus) + " " + view.Title
 		writeState.Hint = strings.TrimSpace(view.Body + " " + view.Detail)
 		writeState.Determinate = true
@@ -190,7 +213,11 @@ func renderWriteDone() {
 		setProgressIdle()
 		if state.Error != "" {
 			view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
-			messageBox(view.Body+"\n\n"+view.Detail, creatorT(msgWriteErrorDialogTitle), mbOK|mbIconError)
+			detail := view.Body + "\n\n" + view.Detail + "\n\n" + creatorT(msgWriteTechnicalDetail) + "\n" + state.Error
+			if state.DiagnosticPath != "" {
+				detail += "\n\n" + creatorTValues(msgWriteDiagnosticLocation, map[string]string{"path": state.DiagnosticPath})
+			}
+			messageBox(detail, creatorT(msgWriteErrorDialogTitle), mbOK|mbIconError)
 		}
 	}
 
@@ -399,7 +426,12 @@ func runElevatedAndWait(executable, directory string, args []string, diagnosticP
 		if diagnosticPath != "" {
 			if data, readErr := os.ReadFile(diagnosticPath); readErr == nil {
 				if detail := strings.TrimSpace(string(data)); detail != "" {
-					return fmt.Errorf("a gravação física falhou: %s", detail)
+					cause := fmt.Errorf("a gravação física falhou: %s", detail)
+					persistedPath, persistErr := persistPhysicalDiagnostic(diagnosticPath)
+					if persistErr != nil {
+						return &physicalWriteFailure{cause: fmt.Errorf("%w; não foi possível preservar o diagnóstico: %v", cause, persistErr)}
+					}
+					return &physicalWriteFailure{cause: cause, diagnosticPath: persistedPath}
 				}
 			}
 		}
