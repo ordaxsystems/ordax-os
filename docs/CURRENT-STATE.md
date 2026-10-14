@@ -6,7 +6,7 @@ port. Native updater events retain their original runtime/store/bridge owners;
 Web has no authorized remote notification adapter and displays that absence
 without seeded data or a second service. [Scope and acceptance](DESKTOP-IDENTITY.md#shared-notification-center--2026-10-13).
 
-## Web Intelligence canonical client boundary ? 2026-10-13
+## Web Intelligence canonical client boundary — 2026-10-13
 
 PR #1756 closes the Phase 1 Web presentation boundary without claiming a remote
 inference service. The canonical `Central` composition injects a provider-neutral

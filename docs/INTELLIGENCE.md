@@ -17,7 +17,7 @@ O usuário deve enxergar um painel Intelligence coerente e o estado de conexão/
 
 
 
-### Web client boundary (source, Phase 1 ? 2026-10-13)
+### Web client boundary (source, Phase 1 — 2026-10-13)
 
 The current canonical Web composition now consumes an injected, provider-neutral
 client for the existing `ordax.intelligence/1` contract. The default Web adapter
