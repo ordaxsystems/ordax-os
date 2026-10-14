@@ -11,8 +11,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 REFRESH = ROOT / "system" / "services" / "base-update" / "dev-helpers.sh"
+PULL = (ROOT / "bootstrap" / "dev-base" / "ordax-pull").read_text(encoding="utf-8")
 SOURCE_TO_TARGET = {
     "bootstrap/dev-base/ordax-dev-init": "sbin/ordax-dev-init",
+    "bootstrap/dev-base/ordax-diagnose": "usr/local/bin/ordax-diagnose",
     "bootstrap/dev-base/ordax-network": "usr/local/bin/ordax-network",
     "bootstrap/dev-base/ordax-pull": "usr/local/bin/ordax-pull",
     "bootstrap/dev-base/ordax-rollback": "usr/local/bin/ordax-rollback",
@@ -60,6 +62,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
         )
 
     def test_refreshes_only_fixed_helpers_with_executable_mode(self):
+        self.assertIn("/bootstrap/dev-base/ordax-diagnose", PULL)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             worktree, target, state = self.make_fixture(root)
