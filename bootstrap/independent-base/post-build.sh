@@ -56,6 +56,24 @@ do
         exit 1
     fi
 done
+# Canonical Surface network_broker.sh resolves these exact runtime capabilities.
+# Provision only its current consumers: nl80211 iw + wpa_supplicant and the
+# immutable CA trust bundle. No second network manager or control daemon.
+test -x "$TARGET_DIR/usr/sbin/iw"
+test -x "$TARGET_DIR/usr/sbin/wpa_supplicant"
+test -s "$TARGET_DIR/etc/ssl/certs/ca-certificates.crt"
+grep -q -- '-----BEGIN CERTIFICATE-----' "$TARGET_DIR/etc/ssl/certs/ca-certificates.crt"
+# The broker never consumes these helpers/interfaces. Fail closed if a future
+# profile change adds them accidentally; grow the surface only with a consumer.
+for unexpected in \
+    "$TARGET_DIR/usr/sbin/wpa_cli" \
+    "$TARGET_DIR/usr/sbin/wpa_passphrase"
+do
+    if test -e "$unexpected"; then
+        echo "Unexpected unused wpa_supplicant payload in Independent Base: $unexpected" >&2
+        exit 1
+    fi
+done
 printf 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL\n' > "$TARGET_DIR/etc/ordax/independent-base"
 if test -e "$TARGET_DIR/etc/alpine-release" || test -e "$TARGET_DIR/sbin/apk" || test -e "$TARGET_DIR/lib/apk"; then
     echo "Alpine/APK unexpectedly present in independent rootfs" >&2
