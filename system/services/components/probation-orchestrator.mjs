@@ -1,5 +1,8 @@
 import { validateComponentId } from "../../contracts/component-manifest.mjs";
-import { NATIVE_COMPONENT_PROBATION_IDS, NATIVE_COMPONENT_PROBE_MODE } from "./probation-policy.generated.mjs";
+import {
+  NATIVE_COMPONENT_PROBATION_IDS,
+  NATIVE_COMPONENT_PROBE_MODE_BY_ID,
+} from "./probation-policy.generated.mjs";
 import {
   COMPONENT_PROBATION_RESULT_SCHEMA,
   runPendingComponentProbation,
@@ -8,14 +11,24 @@ import {
 export const COMPONENT_PROBATION_ORCHESTRATOR_SCHEMA =
   "ordax.component-probation-orchestrator/1";
 
-const PROBE_MODES = Object.freeze(Object.fromEntries(
-  NATIVE_COMPONENT_PROBATION_IDS.map((id) => [id, NATIVE_COMPONENT_PROBE_MODE]),
-));
+const PROBE_MODES = NATIVE_COMPONENT_PROBE_MODE_BY_ID;
+if (
+  Object.keys(PROBE_MODES).length !== NATIVE_COMPONENT_PROBATION_IDS.length
+  || NATIVE_COMPONENT_PROBATION_IDS.some((id) => !(id in PROBE_MODES))
+) {
+  throw new TypeError("Generated component probation policy is inconsistent");
+}
 
 function probeFor(componentId) {
   const mode = PROBE_MODES[componentId];
   if (!mode) {
     throw new TypeError("Unsupported system component probation probe");
+  }
+  // A configured mode is not an implementation grant. Future mount-contract
+  // components must wire their real host-owned mount context explicitly rather
+  // than silently falling back to the import-only probe.
+  if (mode !== "import-contract") {
+    throw new TypeError("Unsupported system component probation probe mode");
   }
   return async ({ runtime, resolution, runtimeUrl }) => {
     if (

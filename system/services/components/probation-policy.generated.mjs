@@ -5,4 +5,6 @@
 export const NATIVE_COMPONENT_PROBATION_IDS = Object.freeze([
   "notes",
 ]);
-export const NATIVE_COMPONENT_PROBE_MODE = "import-contract";
+export const NATIVE_COMPONENT_PROBE_MODE_BY_ID = Object.freeze({
+  "notes": "import-contract",
+});

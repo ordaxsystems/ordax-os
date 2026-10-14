@@ -3,6 +3,8 @@
 # Generator: tools/app-policy/render_native_store_metadata_policy.py
 # Metadata queries, verified executable file reads and health mutations have DISTINCT scopes.
 
+from types import MappingProxyType
+
 STORE_METADATA_COMPONENT_IDS = frozenset({
     "activity",
     "calculator",
@@ -35,4 +37,8 @@ NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({
 
 NATIVE_PROBATION_COMPONENT_IDS = frozenset({
     "notes",
+})
+
+NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({
+    "notes": "import-contract",
 })

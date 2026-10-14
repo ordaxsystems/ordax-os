@@ -11,12 +11,15 @@ from native_component_slots import (
     ComponentSlotError,
     record_component_pending_health,
 )
-from native_store_metadata_policy import NATIVE_PROBATION_COMPONENT_IDS
+from native_store_metadata_policy import (
+    NATIVE_PROBATION_COMPONENT_IDS,
+    NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT,
+)
 
 PROBATION_SCHEMA = "ordax.component-probation-result/1"
 PROBATION_MESSAGE_TYPE = "component.probation.result"
-PROBE_MODE = "import-contract"
 SUPPORTED_COMPONENTS = NATIVE_PROBATION_COMPONENT_IDS
+PROBE_MODE_BY_COMPONENT = NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT
 
 
 class ComponentProbationReceiptError(ValueError):
@@ -60,7 +63,8 @@ def record_system_component_probation(
         raise ComponentProbationReceiptError("invalid component probation receipt component")
     if expected_component_id is not None and component_id != expected_component_id:
         raise ComponentProbationReceiptError("component probation receipt attempt mismatch")
-    if result.get("probeMode") != PROBE_MODE:
+    expected_probe_mode = PROBE_MODE_BY_COMPONENT.get(component_id)
+    if expected_probe_mode is None or result.get("probeMode") != expected_probe_mode:
         raise ComponentProbationReceiptError("invalid component probation probe mode")
 
     version = result.get("version")
