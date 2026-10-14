@@ -487,7 +487,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn('/bin/busybox timeout -k 1 "$DHCP_TIMEOUT"', network)
         self.assertIn('[ "$carrier" = 1 ] || continue', network)
         self.assertIn('while [ "$attempts" -lt "$WIFI_LINK_TIMEOUT" ]', network)
-        finish_network = network.split("finish_network() {", 1)[1].split("\n}", 1)[0]
+        finish_network = network.split("finish_network() {", 1)[1].split("\\n}", 1)[0]
         self.assertIn("return 0", finish_network)
 
         self.assertIn('GIT_TIMEOUT_SECONDS=${ORDAX_BOOT_GIT_TIMEOUT_SECONDS:-45}', pull)
