@@ -80,22 +80,30 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
 
-    def test_independent_base_delta_does_not_require_direct_stable_qemu(self):
+    def test_full_independent_module_slice_does_not_require_direct_stable_qemu(self):
         result = impact.classify_paths(
             [
-                "bootstrap/kernel/module_archive.py",
+                ".github/workflows/independent-base-experiment.yml",
                 "bootstrap/independent-base/module_parity.py",
                 "bootstrap/independent-base/post-build.sh",
+                "bootstrap/kernel/module_archive.py",
+                "tests/test_independent_kernel_module_workflow.py",
+                "tests/test_kernel_module_archive.py",
             ],
             root=ROOT,
         )
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
 
-    def test_real_kernel_change_stays_heavy_with_independent_base_delta(self):
+    def test_real_kernel_change_stays_heavy_with_full_independent_module_slice(self):
         result = impact.classify_paths(
             [
+                ".github/workflows/independent-base-experiment.yml",
                 "bootstrap/independent-base/module_parity.py",
+                "bootstrap/independent-base/post-build.sh",
+                "bootstrap/kernel/module_archive.py",
+                "tests/test_independent_kernel_module_workflow.py",
+                "tests/test_kernel_module_archive.py",
                 "bootstrap/kernel/source.json",
             ],
             root=ROOT,
