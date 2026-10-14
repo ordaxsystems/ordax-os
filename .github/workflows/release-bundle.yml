@@ -4,11 +4,15 @@ on:
   push:
     branches: [main]
     paths:
+      - 'system/**'
+      - '!system/**/*.md'
       - 'tools/release-bundle/**'
       - 'docs/RELEASE-BUNDLE.md'
       - '.github/workflows/release-bundle.yml'
   pull_request:
     paths:
+      - 'system/**'
+      - '!system/**/*.md'
       - 'tools/release-bundle/**'
       - 'docs/RELEASE-BUNDLE.md'
       - '.github/workflows/release-bundle.yml'
@@ -49,6 +53,20 @@ jobs:
               go build -trimpath -buildvcs=false -ldflags='-s -w' \
               -o ../../out/release-bundle/ordax-release-bundle-windows-amd64.exe .
           )
+
+      - name: Prove current repository system tree is releasable
+        run: |
+          set -euo pipefail
+          tool="$PWD/out/release-bundle/ordax-release-bundle-linux-amd64"
+          work="$RUNNER_TEMP/release-bundle-repository-proof"
+          mkdir -p "$work/a" "$work/b"
+          "$tool" --root "$PWD" --out "$work/a/system.tar" | tee "$work/a/result.txt"
+          "$tool" --root "$PWD" --out "$work/b/system.tar" | tee "$work/b/result.txt"
+          cmp "$work/a/system.tar" "$work/b/system.tar"
+          tar -tf "$work/a/system.tar" > "$work/entries.txt"
+          grep -Fx 'system/entrypoint' "$work/entries.txt"
+          sha256sum "$work/a/system.tar" "$work/b/system.tar"
+          echo 'CURRENT_SYSTEM_BUNDLE_RELEASABLE=PASS'
 
       - name: Prove byte-identical bundle output
         run: |

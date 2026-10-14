@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'system/**'
-      - '!system/**/*.md'
       - 'tools/release-bundle/**'
       - 'tools/native-release-assembly/**'
       - 'tools/runtime-component-channel/**'
@@ -25,8 +23,6 @@ on:
       - '.github/workflows/release-pipeline.yml'
   pull_request:
     paths:
-      - 'system/**'
-      - '!system/**/*.md'
       - 'tools/release-bundle/**'
       - 'tools/native-release-assembly/**'
       - 'tools/runtime-component-channel/**'
