@@ -27,6 +27,25 @@ synchronized with current `main` and the now-unreachable duplicate Aura branch i
 `DesktopContent` was removed with a regression preventing its return. The old
 WebShell/session/demo graph remains unmounted and preserved until its deliberate
 Phase 5 dependency migration; it is not a second active Web Intelligence path.
+## Native Intelligence device-local host bridge - 2026-10-14
+
+The Native side now has a source-complete device-local bridge over the final
+`selectedSpaceIntelligence` consumer port. The canonical Native Identity and Space-selection
+owners feed `createNativeIntelligenceService`; the existing privileged `ordaxBrowser` WebKit
+bridge transports the request to/from JavaScript, while a new private Unix socket at
+`/run/ordax-surface/intelligence.sock` is transport-only and mode `0600`. There is no second
+Intelligence runtime, model router, Memory owner, provider selector, credential store or action
+authority in Python/Surface.
+
+The socket opens only after `intelligence.host.ready`. Surface navigation/reload start closes
+the listener and resolves pending requests conservatively as `outcome=unknown`; a fresh ready
+signal is required before reopening. The IPC is bounded to 1 MiB per UTF-8 JSON message and
+uses independent host nonce + service `requestId` correlation. Unknown outcome is intentionally
+not a retry-safe receipt.
+
+This does **not** mean remote Intelligence is live. Runtime/Product routing to the local socket,
+Platform capability advertisement, credentialed remote E2E, external provider enablement and
+physical Stable/USB proof remain pending. Project context is still rejected on this path.
 
 
 ## Reconciliação dos gates Surface — 2026-10-12

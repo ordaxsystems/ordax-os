@@ -296,13 +296,14 @@ test("Native Intelligence service revalidates canonical response authority", asy
   await assert.rejects(service.respond(envelope()), /response authority is invalid/);
 });
 
-test("Native Intelligence service source remains transport-neutral and uncomposed", async () => {
+test("Native Intelligence service remains transport-neutral while Native composition delegates through the dedicated host bridge", async () => {
   const [service, composition, browserHost] = await Promise.all([
     readFile(new URL("../system/services/intelligence/native-service.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/runtime/ordax_browser_host.py", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(service, /fetch\(|local-ai|model-router|llama|Qwen|apiKey|OPENAI|xAI/);
-  assert.doesNotMatch(composition, /native-service\.mjs|createNativeIntelligenceService/);
-  assert.doesNotMatch(browserHost, /native-intelligence-service|intelligence\.respond/);
+  assert.match(composition, /installNativeIntelligenceHostBridge/);
+  assert.doesNotMatch(composition, /createNativeIntelligenceService/);
+  assert.doesNotMatch(browserHost, /createNativeIntelligenceService|intelligence\.respond/);
 });

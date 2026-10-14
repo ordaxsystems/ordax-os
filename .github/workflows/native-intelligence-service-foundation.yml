@@ -5,13 +5,25 @@ on:
     branches: [main]
     paths:
       - 'system/services/intelligence/native-service.mjs'
+      - 'system/composition/native/intelligence-host-bridge.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'system/surface/runtime/native_intelligence_ipc.py'
+      - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_native_intelligence_service.mjs'
+      - 'tests/test_native_intelligence_host_bridge.mjs'
+      - 'tests/test_native_intelligence_ipc.py'
       - 'docs/plans/NATIVE-INTELLIGENCE-SERVICE-BOUNDARY-2026-10-14.md'
       - '.github/workflows/native-intelligence-service-foundation.yml'
   pull_request:
     paths:
       - 'system/services/intelligence/native-service.mjs'
+      - 'system/composition/native/intelligence-host-bridge.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'system/surface/runtime/native_intelligence_ipc.py'
+      - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_native_intelligence_service.mjs'
+      - 'tests/test_native_intelligence_host_bridge.mjs'
+      - 'tests/test_native_intelligence_ipc.py'
       - 'docs/plans/NATIVE-INTELLIGENCE-SERVICE-BOUNDARY-2026-10-14.md'
       - '.github/workflows/native-intelligence-service-foundation.yml'
 
@@ -28,11 +40,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate runner Node
-        run: node --version
+      - name: Validate runner runtimes
+        run: |
+          node --version
+          python3 --version
 
-      - name: Validate Native Intelligence service syntax
-        run: node --check system/services/intelligence/native-service.mjs
+      - name: Validate Native Intelligence source syntax
+        run: |
+          node --check system/services/intelligence/native-service.mjs
+          node --check system/composition/native/intelligence-host-bridge.mjs
+          python3 -m py_compile system/surface/runtime/native_intelligence_ipc.py system/surface/runtime/ordax_browser_host.py
 
-      - name: Run Native Intelligence service contract tests
-        run: node --test tests/test_native_intelligence_service.mjs
+      - name: Run Native Intelligence JavaScript contracts
+        run: node --test tests/test_native_intelligence_service.mjs tests/test_native_intelligence_host_bridge.mjs
+
+      - name: Run Native Intelligence private IPC contracts
+        run: python3 tests/test_native_intelligence_ipc.py
