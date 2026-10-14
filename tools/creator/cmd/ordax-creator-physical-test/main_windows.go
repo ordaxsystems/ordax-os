@@ -27,6 +27,7 @@ var (
 	buildPortableUSBContractSHA256     = "UNRESOLVED"
 	buildCreatorPortableContractSHA256 = "UNRESOLVED"
 	buildPhysicalWriteAuthorized       = "NO"
+	buildStorageProfile                 = ""
 	applyDiagnosticLog                 string
 )
 
@@ -51,6 +52,7 @@ type buildBinding struct {
 	PortableUSBContractSHA256       string `json:"portable_usb_contract_sha256"`
 	CreatorPortableContractSHA256   string `json:"creator_portable_contract_sha256"`
 	PhysicalWriteAuthorized         bool   `json:"physical_write_authorized"`
+	StorageProfile                  string `json:"storage_profile"`
 	Ready                           bool   `json:"ready"`
 }
 
@@ -81,6 +83,7 @@ func binding() buildBinding {
 		PortableUSBContractSHA256: buildPortableUSBContractSHA256,
 		CreatorPortableContractSHA256: buildCreatorPortableContractSHA256,
 		PhysicalWriteAuthorized: authorized,
+		StorageProfile: buildStorageProfile,
 		Ready: ready,
 	}
 }
@@ -370,7 +373,15 @@ func runPrepare(args []string) error {
 	if err := verifyFile(*seed, b.SeedImageSHA256, b.SeedImageSize); err != nil {
 		return fmt.Errorf("verify authorized seed image: %w", err)
 	}
-	prepared, err := creatorcore.PreparePhysicalStorageImage(*seed, *out, target.PhysicalDiskBytes)
+	var prepared creatorcore.PreparedPhysicalImage
+	switch b.StorageProfile {
+	case "":
+		prepared, err = creatorcore.PreparePhysicalStorageImage(*seed, *out, target.PhysicalDiskBytes)
+	case "owner-development":
+		prepared, err = creatorcore.PrepareOwnerDevelopmentStorageImage(*seed, *out, target.PhysicalDiskBytes)
+	default:
+		return fmt.Errorf("unknown build storage profile %q", b.StorageProfile)
+	}
 	if err != nil {
 		return err
 	}
@@ -427,7 +438,7 @@ func runApply(args []string) error {
 		return err
 	}
 	image := windowsadapter.VerifiedRawImage{Path: *imagePath, SHA256: *imageSHA, SizeBytes: *imageSize}
-	request := windowsadapter.RawDiskApplyRequest{Target: target, ConfirmationToken: *confirm, Image: image, BootstrapSeedBytes: b.SeedImageSize, CanonicalTrustResolved: true, DestructiveAuthorization: *authorize}
+	request := windowsadapter.RawDiskApplyRequest{Target: target, ConfirmationToken: *confirm, Image: image, BootstrapSeedBytes: b.SeedImageSize, StorageProfile: b.StorageProfile, CanonicalTrustResolved: true, DestructiveAuthorization: *authorize}
 	result, err := windowsadapter.ApplyPhysicalTestWithProgress(request, progressReporter)
 	if err != nil {
 		return err
