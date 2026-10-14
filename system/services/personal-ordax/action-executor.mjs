@@ -1,6 +1,7 @@
 import {
   ACTION_EXECUTOR_SCHEMA,
   assertActionAdapter,
+  createActionAdapterExecutionContext,
   validateActionReceipt,
   validateAuthorizedActionExecution,
 } from "../../contracts/action-executor.mjs";
@@ -40,6 +41,7 @@ export function createPersonalOrdaxActionExecutor({
     async execute(executionValue) {
       let execution;
       let adapter;
+      let adapterContext;
       try {
         execution = validateAuthorizedActionExecution(executionValue);
         const { request, decision } = execution;
@@ -57,6 +59,7 @@ export function createPersonalOrdaxActionExecutor({
           throw new Error("Action authority is no longer valid at execution time");
         }
 
+        adapterContext = createActionAdapterExecutionContext(freshDecision);
         adapter = assertActionAdapter(adapterResolver(request.toolId, request.actionId));
         if (
           adapter.toolId !== request.toolId
@@ -75,7 +78,7 @@ export function createPersonalOrdaxActionExecutor({
 
       const { request, decision } = execution;
       try {
-        const result = await adapter.execute(request);
+        const result = await adapter.execute(request, adapterContext);
         if (!result || typeof result !== "object" || Array.isArray(result)) {
           throw new TypeError("Action Adapter must return a bounded result object");
         }
