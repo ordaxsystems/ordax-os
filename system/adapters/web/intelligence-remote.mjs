@@ -31,11 +31,16 @@ export function validateWebIntelligenceRemoteContext(value) {
   if (!Object.hasOwn(value, "spaceId") || !Object.hasOwn(value, "projectId")) {
     throw new TypeError("Web Intelligence remote context must state Space and project explicitly");
   }
+  const spaceId = boundedId(value.spaceId, "Web Intelligence spaceId", { nullable: true });
+  const projectId = boundedId(value.projectId, "Web Intelligence projectId", { nullable: true });
+  if ((spaceId === null) !== (projectId === null)) {
+    throw new TypeError("Web Intelligence Space and project scope must both be present or both be absent");
+  }
   return Object.freeze({
     subjectId: boundedId(value.subjectId, "Web Intelligence subjectId"),
     targetDeviceId: boundedId(value.targetDeviceId, "Web Intelligence targetDeviceId"),
-    spaceId: boundedId(value.spaceId, "Web Intelligence spaceId", { nullable: true }),
-    projectId: boundedId(value.projectId, "Web Intelligence projectId", { nullable: true }),
+    spaceId,
+    projectId,
   });
 }
 
