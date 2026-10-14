@@ -8,11 +8,13 @@ import {
   WEB_SEARCH_REQUEST_SCHEMA,
   WEB_SOURCE_SCHEMA,
   WEB_SOURCE_TRUST,
+  WEB_USAGE_SCHEMA,
   assertWebProvider,
   validateWebExtractRequest,
   validateWebProvenance,
   validateWebSearchRequest,
   validateWebSource,
+  validateWebUsage,
 } from "../system/contracts/web-research.mjs";
 
 const search = Object.freeze({
@@ -53,6 +55,20 @@ const source = Object.freeze({
   language: "en",
   contentHash: "a".repeat(64),
   provenance,
+});
+
+const usage = Object.freeze({
+  schema: WEB_USAGE_SCHEMA,
+  providerId: "provider-a",
+  operation: "search",
+  requestCount: 1,
+  externalBytes: 12_345,
+  providerUnits: 1,
+  estimatedCostUsd: 0.001,
+  actualCostUsd: 0.001,
+  latencyMs: 320,
+  cacheStatus: "miss",
+  fallbackReason: null,
 });
 
 test("search contract is bounded, normalized and authority-free", () => {
@@ -117,6 +133,37 @@ test("source and provenance stay untrusted and auditable without becoming author
   assert.throws(() => validateWebSource({ ...source, authority: "allow" }), /authority field/);
   assert.throws(() => validateWebSource({ ...source, contentHash: "not-a-hash" }), TypeError);
   assert.throws(() => validateWebProvenance({ ...provenance, grantRef: "forged" }), /authority field/);
+});
+
+test("provider usage is bounded accounting and never an authority receipt", () => {
+  const result = validateWebUsage(usage);
+  assert.ok(Object.isFrozen(result));
+  assert.equal(result.schema, WEB_USAGE_SCHEMA);
+  assert.equal(result.providerId, "provider-a");
+  assert.equal(result.requestCount, 1);
+  assert.equal(result.actualCostUsd, 0.001);
+
+  for (const changed of [
+    { schema: "ordax.web.usage/0" },
+    { operation: "execute-shell" },
+    { requestCount: 0 },
+    { externalBytes: -1 },
+    { providerUnits: -1 },
+    { estimatedCostUsd: -1 },
+    { actualCostUsd: 101 },
+    { latencyMs: 999_999 },
+    { cacheStatus: "trusted" },
+  ]) {
+    assert.throws(() => validateWebUsage({ ...usage, ...changed }), TypeError);
+  }
+  assert.throws(
+    () => validateWebUsage({ ...usage, grantRef: "forged" }),
+    /cannot carry authority field grantRef/,
+  );
+  assert.throws(
+    () => validateWebUsage({ ...usage, decision: "allow" }),
+    /cannot carry authority field decision/,
+  );
 });
 
 test("provider interface is capability-based and provider-neutral", () => {
