@@ -46,9 +46,22 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
         self.assertIn("2) ;;", INIT)
         self.assertIn("1) ;;", INIT)
         self.assertIn("*'LABEL=\"ORDAX\"'*", INIT)
-        self.assertIn("*'TYPE=\"ext4\"'*", INIT)
         self.assertIn("*'LABEL=\"ORDAX-ESP\"'*", INIT)
-        self.assertIn("*'TYPE=\"vfat\"'*", INIT)
+        self.assertNotIn("*'TYPE=\"ext4\"'*", INIT)
+        self.assertNotIn("*'TYPE=\"vfat\"'*", INIT)
+        self.assertIn('probe_read_only_filesystem() {', INIT)
+        self.assertIn('ext4) options=ro,noload,nosuid,nodev,noexec ;;', INIT)
+        self.assertIn('vfat) options=ro,nosuid,nodev,noexec ;;', INIT)
+        self.assertIn('mount -t "$filesystem" -o "$options" "$device" "$target"', INIT)
+        self.assertIn('umount "$target"', INIT)
+        self.assertIn(
+            'probe_read_only_filesystem "/dev/$name" ext4 "$OWNER_ROOT_PROBE"',
+            INIT,
+        )
+        self.assertIn(
+            'probe_read_only_filesystem "/dev/$esp_name" vfat "$OWNER_ESP_PROBE"',
+            INIT,
+        )
         self.assertIn('parent_dev="$(cat "$sys/../dev"', INIT)
         self.assertIn('cat "$esp_sys/../dev"', INIT)
         self.assertIn('case "$ORDAX_DEVICE_MATCHES" in', INIT)
@@ -58,9 +71,21 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
         self.assertIn('10) rescue "owner-development USB root not found', INIT)
         self.assertIn('multiple owner-development USB roots detected', INIT)
 
+        root_label = INIT.index("*'LABEL=\"ORDAX\"'*")
+        root_probe = INIT.index(
+            'probe_read_only_filesystem "/dev/$name" ext4 "$OWNER_ROOT_PROBE"'
+        )
+        esp_label = INIT.index("*'LABEL=\"ORDAX-ESP\"'*")
+        esp_probe = INIT.index(
+            'probe_read_only_filesystem "/dev/$esp_name" vfat "$OWNER_ESP_PROBE"'
+        )
         owner_gate = INIT.index('case "$OWNER_DEVELOPMENT" in')
         rw_mount = INIT.index('mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax')
+        self.assertLess(root_label, root_probe)
+        self.assertLess(esp_label, esp_probe)
         self.assertLess(owner_gate, rw_mount)
+        self.assertLess(root_probe, rw_mount)
+        self.assertLess(esp_probe, rw_mount)
 
     def test_owner_pid1_avoids_optional_ash_arithmetic(self):
         self.assertNotIn("$((", INIT)
