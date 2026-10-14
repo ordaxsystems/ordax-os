@@ -5,8 +5,11 @@ on:
     branches: [main]
     paths:
       - 'bootstrap/base/**'
+      - '!bootstrap/base/**/*.md'
       - 'bootstrap/stable-base/**'
+      - '!bootstrap/stable-base/**/*.md'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/**/*.md'
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
@@ -17,8 +20,11 @@ on:
   pull_request:
     paths:
       - 'bootstrap/base/**'
+      - '!bootstrap/base/**/*.md'
       - 'bootstrap/stable-base/**'
+      - '!bootstrap/stable-base/**/*.md'
       - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/**/*.md'
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
