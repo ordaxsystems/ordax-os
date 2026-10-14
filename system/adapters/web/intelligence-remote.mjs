@@ -82,12 +82,17 @@ function validateResponseEnvelope(value, expectedContext) {
   return validateIntelligenceResponse(value.response);
 }
 
+function abortedError(signal) {
+  if (signal.reason instanceof Error) return signal.reason;
+  const error = new Error("Web Intelligence remote request was already aborted");
+  error.name = "AbortError";
+  return error;
+}
+
 /**
  * Projects a supported remote transport into the canonical Intelligence port.
- *
- * This adapter does not discover endpoints, store credentials, choose providers,
- * read Memory or infer a target. The composition/transport owner must provide an
- * authenticated transport and an explicit subject/device/Space/project context.
+ * The transport owner supplies authentication and endpoint policy; this adapter
+ * owns neither providers, credentials, Memory, target discovery nor authority.
  */
 export function createRemoteWebIntelligencePort({ transport, readContext } = {}) {
   const remote = assertRemoteTransport(transport);
@@ -102,16 +107,15 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
     const next = validateIntelligenceSnapshot(snapshot);
     if (sameSnapshot(current, next)) return;
     current = next;
-    if (!disposed) {
-      for (const listener of [...listeners]) listener(current);
-    }
+    if (!disposed) for (const listener of [...listeners]) listener(current);
   });
+  if (typeof releaseRemote !== "function") {
+    throw new TypeError("Web Intelligence remote transport subscribe() must return a release function");
+  }
 
   return Object.freeze({
     schema: INTELLIGENCE_PORT_SCHEMA,
-    getSnapshot() {
-      return current;
-    },
+    getSnapshot() { return current; },
     subscribe(listener) {
       if (typeof listener !== "function") {
         throw new TypeError("Ordax Intelligence listener must be a function");
@@ -123,12 +127,17 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
     },
     async respond(value, { signal = null } = {}) {
       if (disposed) throw new Error("Web Intelligence remote adapter is disposed");
-      if (!current.inferenceAvailable || !["ready", "busy"].includes(current.state)) {
+      if (current.state !== "ready" || !current.inferenceAvailable) {
         throw new Error("Web Intelligence remote transport is unavailable");
       }
-      if (signal !== null && (typeof signal !== "object" || typeof signal.aborted !== "boolean")) {
+      if (signal !== null && (
+        typeof signal !== "object"
+        || typeof signal.aborted !== "boolean"
+        || typeof signal.addEventListener !== "function"
+      )) {
         throw new TypeError("Web Intelligence remote signal is invalid");
       }
+      if (signal?.aborted) throw abortedError(signal);
       const request = validateIntelligenceRequest(value);
       const context = validateWebIntelligenceRemoteContext(readContext());
       const envelope = Object.freeze({
