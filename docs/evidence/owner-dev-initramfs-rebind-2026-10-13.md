@@ -27,7 +27,7 @@ No kernel binding, boot code, initramfs source, Creator write policy, or Stable 
 
 Changing the canonical bytes of `docs/contracts/minimal-bootstrap.json` also invalidated the exact byte binding held by `docs/contracts/physical-write-authorization.json`. Both `Foundation Contract` and `Physical Write Promotion` correctly failed closed because `test_real_preconsent_contract_hashes_match_current_repository_bytes` requires the pre-consent contract to match the current repository bytes.
 
-The reconciliation therefore updates only `bindings.minimal_bootstrap_sha256` from the previous bootstrap-contract digest `a22d9963ee9d24dfb20810262e7d273fcdd3abb60522ad8da8b378e0345bb9d1` to the current digest `e6046970693ec5552574594991fc794efe6921392f0838888577b692a03a897b`. The release-trust, Portable USB, Creator Portable media-plan and canonical v4 release-proof bindings remain unchanged.
+The reconciliation therefore updates only `bindings.minimal_bootstrap_sha256` from the previous bootstrap-contract digest `a22d9963ee9d24dfb20810262e7d273fcdd3abb60522ad8da8b378e0345bb9d1` to the exact digest reported by the current-head promotion regression, `e6046970f92330fba0f1a14e8866fd81cc21bd5db33a03e4cb51216ca69a897b`. The release-trust, Portable USB, Creator Portable media-plan and canonical v4 release-proof bindings remain unchanged.
 
 This is not an authorization grant: `physical_write_allowed` remains `false`, `explicit_owner_authorization` remains `false`, and `authorization_context_sha256` remains `null`. The evidence file is outside the destructive authorization-context source patterns, so recording this reconciliation does not alter that context.
 
