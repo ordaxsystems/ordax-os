@@ -110,6 +110,7 @@ stage_helper bootstrap/dev-base/ordax-dev-init sbin/ordax-dev-init
 stage_helper bootstrap/dev-base/ordax-diagnose usr/local/bin/ordax-diagnose
 stage_helper bootstrap/dev-base/ordax-network usr/local/bin/ordax-network
 stage_helper bootstrap/dev-base/ordax-pull usr/local/bin/ordax-pull
+stage_helper bootstrap/dev-base/ordax-remote usr/local/bin/ordax-remote
 stage_helper bootstrap/dev-base/ordax-rollback usr/local/bin/ordax-rollback
 stage_helper bootstrap/dev-base/ordax-run usr/local/bin/ordax-run
 stage_helper bootstrap/recovery/entrypoint ordax/bootstrap/recovery/entrypoint
