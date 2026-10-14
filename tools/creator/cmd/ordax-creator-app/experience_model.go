@@ -12,12 +12,13 @@ const (
 )
 
 type creatorExperienceInput struct {
-	TargetCount    int
-	TargetSelected bool
-	PhysicalReady  bool
-	WriteActive    bool
-	WriteComplete  bool
-	ErrorMessageID creatorMessageID
+	TargetCount     int
+	TargetSelected  bool
+	PhysicalReady   bool
+	WriteActive     bool
+	WriteComplete   bool
+	ErrorMessageID  creatorMessageID
+	ErrorStepNumber int
 }
 
 type creatorExperienceView struct {
@@ -41,9 +42,13 @@ func creatorExperience(input creatorExperienceInput) creatorExperienceView {
 	t := func(id creatorMessageID) string { return creatorMessageFor(locale, id, nil) }
 
 	if input.ErrorMessageID != "" {
+		errorStep := input.ErrorStepNumber
+		if errorStep < 1 || errorStep > steps {
+			errorStep = 0
+		}
 		return creatorExperienceView{
 			Step:            creatorStepBlocked,
-			StepNumber:      0,
+			StepNumber:      errorStep,
 			StepCount:       steps,
 			Eyebrow:         t(msgExperienceErrorEyebrow),
 			Title:           t(msgExperienceErrorTitle),

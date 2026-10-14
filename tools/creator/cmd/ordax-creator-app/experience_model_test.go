@@ -91,9 +91,12 @@ func TestCreatorExperienceBlockedChannelNeverLooksReady(t *testing.T) {
 }
 
 func TestCreatorExperienceErrorFailsClosed(t *testing.T) {
-	view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
+	view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail, ErrorStepNumber: 4})
 	if view.Step != creatorStepBlocked {
 		t.Fatalf("step = %q, want %q", view.Step, creatorStepBlocked)
+	}
+	if view.StepNumber != 4 {
+		t.Fatalf("physical write failure lost its stage context: %d", view.StepNumber)
 	}
 	if view.CanContinue || view.Destructive {
 		t.Fatalf("error state must fail closed: %+v", view)
