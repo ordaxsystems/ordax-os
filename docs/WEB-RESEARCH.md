@@ -233,7 +233,8 @@ Completed in source:
 - deterministic projection to canonical `ordax.action-request/1` with `external-egress`;
 - provider usage contract separate from action receipt;
 - `ordax.web-operation-receipt/1` bound to canonical usage/resource/source hashes without authority semantics;
-- initial `succeeded|partial|failed` / `errorCode` result vocabulary;`r`n- privacy-minimized audit metadata that retains counts/bounds/opaque `resourceRef` but not raw query, URL or domain values;
+- initial `succeeded|partial|failed` / `errorCode` result vocabulary;
+- privacy-minimized audit metadata that retains counts/bounds/opaque esourceRef but not raw query, URL or domain values;
 - fail-closed proof that current Gateway denies egress before tool/grant resolution;
 - no provider secret in Surface/apps or router snapshot.
 
@@ -241,7 +242,6 @@ Remaining before a real provider call:
 
 - integrate/validate the existing `SEC-001` E1 authority foundation and E2 Action Gateway branches;
 - close E3 with revoke/expiry-before-adapter proof plus a minimal generic execution context so the typed egress adapter can enforce approved destinations/budgets;
-- redaction/minimization boundary for query/metadata;
 - canonical CI proof after heavy-workflow path scope is corrected.
 
 ### G2 — provider evaluation

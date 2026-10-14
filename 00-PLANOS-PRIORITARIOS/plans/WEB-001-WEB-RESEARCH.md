@@ -88,7 +88,8 @@ Já concluído:
 - deterministic action projection;
 - usage canônico separado de authority receipt;
 - `ordax.web-operation-receipt/1` para resultado/auditoria de domínio sem authority;
-- vocabulário inicial `succeeded|partial|failed`, `errorCode` e fallback no usage;`r`n- audit metadata privacy-minimized sem query/URL/domain cru por padrão;
+- vocabulário inicial `succeeded|partial|failed`, `errorCode` e fallback no usage;
+- audit metadata privacy-minimized sem query/URL/domain cru por padrão;
 - fail-closed proof do Gateway atual;
 - workflow Node path-scoped;
 - documentação canônica atualizada.
@@ -98,8 +99,7 @@ Falta para G1 fechar:
 1. integrar/validar SEC-001 E1, cuja authority foundation já existe em branch dedicada;
 2. integrar/validar SEC-001 E2, cujo binding ao Action Gateway já existe em branch dedicada;
 3. fechar SEC-001 E3: o Action Executor já revalida antes do adapter, mas o adapter hoje recebe apenas `request`; egress precisa de um execution-context genérico mínimo para impor destinos/budgets aprovados sem colocar authority no Web request nem criar um segundo executor;
-4. minimização/redaction de query/metadata;
-5. prova canônica após CI-001 remover QEMU desnecessário de contracts/services high-level.
+4. prova canônica após CI-001 remover QEMU desnecessário de contracts/services high-level.
 
 Nenhum provider remoto entra antes disso.
 
