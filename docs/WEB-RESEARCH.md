@@ -2,7 +2,7 @@
 
 Status: **SOURCE FOUNDATION / REMOTE EGRESS BLOCKED / PROVIDERS DISABLED / NOT BOOT-CRITICAL**
 
-This document is the canonical human-readable owner for the OrdaX Web Research boundary. Exact machine semantics live in `system/contracts/web-research.mjs` and service/adapters under `system/services/web-research/`. Planning and provider research live under `00-PLANOS-PRIORITARIOS/` and do not override this document, `docs/CURRENT-STATE.md`, contracts or security policy.
+This document is the canonical human-readable owner for the OrdaX Web Research boundary. Exact machine semantics live in `system/contracts/web-research.mjs`, `system/contracts/web-research-execution.mjs` and service/adapters under `system/services/web-research/`. Planning and provider research live under `00-PLANOS-PRIORITARIOS/` and do not override this document, `docs/CURRENT-STATE.md`, contracts or security policy.
 
 ## Purpose
 
@@ -105,6 +105,7 @@ The source foundation defines:
 - `ordax.web.source/1` — normalized source identity/trust/content hash metadata;
 - `ordax.web.provenance/1` — provider/extractor/retrieval/cache provenance;
 - `ordax.web.usage/1` — provider-domain accounting without authority semantics;
+- `ordax.web-operation-receipt/1` — observational operation/result receipt bound to the opaque Web `resourceRef`, canonical usage and normalized source hashes;
 - `ordax.web-provider/1` — capability-based adapter interface.
 
 These contracts deliberately do **not** implement network access and do not activate any provider.
@@ -117,7 +118,7 @@ The source contract provides explicit bounds for query length, URL count, result
 
 Service/runtime layers may apply stricter limits based on plan, device, Space, project, provider terms, current health and operator budget.
 
-## Usage versus receipt
+## Usage versus receipts
 
 `ordax.web.usage/1` records domain accounting such as:
 
@@ -133,7 +134,17 @@ Service/runtime layers may apply stricter limits based on plan, device, Space, p
 
 It explicitly rejects authority fields such as `grantRef` and `decision`.
 
-The canonical side-effect audit receipt remains `ordax.action-receipt/1`, produced by the Action Executor. Web Research must not create a second receipt that can be mistaken for authority.
+`ordax.web-operation-receipt/1` is an observational domain receipt: it binds status, canonical Web usage and normalized source hashes to the opaque `resourceRef`, and rejects authority/credential fields. It is intended to be referenced as result evidence, not used to authorize execution.
+
+The canonical side-effect authority/audit receipt remains `ordax.action-receipt/1`, produced by the Action Executor. Web Research does not redefine quota authority either: plan/entitlement quota remains with the existing Service Quota owner.
+
+## Execution-context blocker
+
+The canonical Action Executor already revalidates authority immediately before resolving a typed adapter. The current adapter call, however, receives only the pure action `request`; the approved grant reference/scope is intentionally absent from that request.
+
+That is safe for current read/write adapters, but a future network adapter must be able to enforce the exact egress destinations and budgets authorized by `SEC-001`. E3 therefore needs a **generic, minimal execution context** made available only after Gateway revalidation. It must not put `grantRef` into `ordax.web.*`, must not make Web Research an authority owner, and must not introduce a second executor.
+
+Remote providers stay disabled until this boundary is proved with revoke/expiry-before-adapter tests.
 
 ## Provider architecture
 
@@ -212,7 +223,7 @@ A free provider allowance is development capacity, not a production entitlement.
 
 ### G1 — contract/policy foundation
 
-**PARTIAL PASS_SOURCE; remote egress intentionally blocked.**
+**ADVANCED PASS_SOURCE; remote egress intentionally blocked.**
 
 Completed in source:
 
@@ -221,13 +232,16 @@ Completed in source:
 - request and source trust bounds;
 - deterministic projection to canonical `ordax.action-request/1` with `external-egress`;
 - provider usage contract separate from action receipt;
+- `ordax.web-operation-receipt/1` bound to canonical usage/resource/source hashes without authority semantics;
+- initial `succeeded|partial|failed` / `errorCode` result vocabulary;
 - fail-closed proof that current Gateway denies egress before tool/grant resolution;
 - no provider secret in Surface/apps or router snapshot.
 
 Remaining before a real provider call:
 
-- `SEC-001` E1-E3 green: explicit egress grant + Action Gateway integration + Action Executor revalidation proof;
-- final error/degraded vocabulary and redaction/minimization boundary;
+- integrate/validate the existing `SEC-001` E1 authority foundation and E2 Action Gateway branches;
+- close E3 with revoke/expiry-before-adapter proof plus a minimal generic execution context so the typed egress adapter can enforce approved destinations/budgets;
+- redaction/minimization boundary for query/metadata;
 - canonical CI proof after heavy-workflow path scope is corrected.
 
 ### G2 — provider evaluation
