@@ -1,5 +1,15 @@
 # Current State
 
+Store visual preview (2026-10-14, isolated source): `/store-preview/` is an
+explicitly requested standalone presentation page under `system/composition/web/`,
+using Meridian Argila/Grafite colors and the existing demo catalog/session reducer.
+It includes discovery, resource details, library and type-specific simulated
+operations. It is not mounted in the production workspace and does not add an
+installation port, official inventory or material preference. Tests, npm,
+type-check and build were excluded by the user. Earlier production Store evidence
+does not validate this prototype.
+[Scope and limits](DESKTOP-IDENTITY.md#isolated-store-visual-preview--2026-10-14).
+
 Notification UX (2026-10-13): Web/USB now share the notification center renderer
 and CSS. Explicit read/filter/dismiss/Do Not Disturb actions consume the existing
 port. Native updater events retain their original runtime/store/bridge owners;

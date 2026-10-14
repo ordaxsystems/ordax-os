@@ -973,6 +973,47 @@ or warnings. Authenticated gateway/catalog, signed installation, native/device
 execution and production activation remain outside this local proof.
 
 
+### Isolated Store visual preview — 2026-10-14
+
+Explicit user scope: a separate Store page following the supplied product prompt
+and Meridian colors/identity, with optional mocks and without tests, npm or build.
+The preview entry is `system/composition/web/store-preview/index.html`, served by
+the existing local Web host at `/store-preview/`. It is not mounted as another
+workspace app, production catalog or Native Store. The prior integrated-renderer
+attempt was superseded; its renderer/CSS changes are not part of this delivery.
+
+The preview imports the existing demonstrative catalog and session reducer from
+`workspace/lib/store`, and the canonical first-run selection IDs for Essentials.
+One version/date/size fixture overlay is confined to `preview-data.js`; it never
+enters an official port. The shared presentation search helper also matches
+description, category, capabilities and tasks, without new catalog state.
+
+The page covers Discover, Essentials, Applications, AI models/providers/agents,
+Connectors, Extensions, Personalization, Library, Installed and Updates. Hash
+navigation and the return control retain the search/filter/scroll context. Model
+comparison and task filtering do not invent hardware evidence or enable model
+installation. Details present illustrative interface previews, metadata,
+permissions, changes and explicit unknown fields.
+
+Updates separate eligible items, sequential demo queue and outcomes. Named stages
+are specific to installation/update, removal, connector authorization, agents and
+declarative package application. Cancelling is offered only before demo execution.
+Failed verification retains the previous demo version. Language packages show a
+pending session restart; templates are available for new projects. Loading/error
+scenarios retain known library/installed state while disabling acquisition.
+
+Argila/Grafite palette and glyphs are presentation references from the frozen
+Meridian study; provenance is recorded in SOURCE-MIGRATION and the preview README.
+No experiment controller, shell, grants, downloader, permission manager, remote
+account, live OAuth or lifecycle authority is imported. All page actions are
+explicitly simulated, with session-only state and native confirmation dialogs.
+
+The page has been opened for presentation. No automated tests, npm commands,
+type-check, build, E2E or physical proof were run at the user's request. Existing
+production Store acceptance and bundle sizes above refer to the earlier baseline.
+The next gate is user visual review, followed by separately authorized integration
+through canonical Surface/catalog/lifecycle owners.
+
 ### Destination menu focus — 2026-10-12
 
 Owner: OS Surface; bounded continuation of the requested Web integration and

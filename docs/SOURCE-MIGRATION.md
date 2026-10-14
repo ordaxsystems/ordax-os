@@ -2,6 +2,25 @@
 
 Status: CANONICAL LEDGER
 
+## Isolated Store visual preview — 2026-10-14
+
+COMPONENT=Standalone Store presentation preview in system/composition/web/store-preview
+REFERENCE_REPOSITORY=ordaxsystems/ordax-os
+REFERENCE_COMMIT=e7cf628a01878c484d47997721518fe6f2330c10
+REFERENCE_PATH=docs/design/MERIDIAN-VISUAL-SYSTEM.md; system/surface/experiments/meridian/meridian.tokens.css; system/surface/experiments/meridian/icons.mjs
+RESPONSIBILITY=Argila/Grafite palette, presentation glyphs and perceptual Store composition
+WHY_NEEDED=Explicit request for an isolated Store page using Meridian colors and visual identity
+DEPENDENCIES=Existing demo catalog and session reducer, first-run selection policy, OS symbol and Inter asset
+SECURITY_REVIEW=Presentation-only assets; no experiment shell/controller, official port, host API, grants, credentials or execution imported
+TESTS=Not run; user explicitly excluded tests, npm, type-check and build; no physical or release proof claimed
+DECISION=ADOPTED (isolated palette/glyph subset); REFERENCE_ONLY (visual composition)
+
+The production Store renderer/CSS is not changed. All added version/date/size
+metadata and operation progress are explicitly illustrative and cannot become
+host inventory. The page is a local presentation entry, not a new runtime owner
+or promotion of the experimental Meridian visual system into preferences.
+[Scope and limits](DESKTOP-IDENTITY.md#isolated-store-visual-preview--2026-10-14).
+
 ## Web Central presentation — 2026-10-11
 
 COMPONENT=Surface Web Central and classic desktop presentation
