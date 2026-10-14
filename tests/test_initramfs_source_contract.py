@@ -75,6 +75,12 @@ class InitramfsSourceContractTests(unittest.TestCase):
         self.assertNotIn("if [", INIT)
         self.assertNotIn("[ -", INIT)
         self.assertNotIn("command -v", INIT)
+        self.assertNotIn("$((", INIT)
+        self.assertIn('if "$((" in text:', BUILDER)
+        self.assertIn(
+            "fixed initramfs PID1 must not require BusyBox ash arithmetic expansion",
+            BUILDER,
+        )
         self.assertIn('case "$ORDAX_DEVICE" in', INIT)
         self.assertIn('cat "$BOOTSTRAP_PATH" >/dev/null 2>&1', INIT)
         self.assertIn('cat "$RECOVERY_BOOTSTRAP_PATH" >/dev/null 2>&1', INIT)
