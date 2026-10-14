@@ -22,6 +22,12 @@ The first graphical source lives under `system/surface/ui/` as standards-first H
 
 Environment wiring is intentionally outside the Surface under `system/composition/`. The Web composition combines the shared Surface with `system/adapters/web/runtime.mjs`; Desktop/Mobile/native composition roots may select different adapters without copying the UI.
 
+## Workspace presentation read boundary (proposed)
+
+PR-01 documents a future composition-only Workspace presentation reader in `docs/contracts/workspace-presentation-reader.md`. It is **not implemented** by this README or PR-01. Current Native/Web reducers, `workspace-store/2`, `workspace-metadata-source/1`, and `surface-render-lifecycle/5` keep their existing authority and behavior.
+
+The proposed reader is internal to composition, read-only, metadata-only, and separate from Workspace commands and domain authorization. It must not become an external-app API or a second Workspace/store/lifecycle.
+
 ## Stable native boundary
 
 The native verified-release handoff remains intentionally layered but small:
