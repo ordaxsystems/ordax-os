@@ -151,12 +151,15 @@ test("Canonical Web injects Intelligence without owning provider transport or cr
   const windowContent = await readFile(new URL("../system/surface/workspace/components/central/window-content.tsx", import.meta.url), "utf8");
   const aura = await readFile(new URL("../system/surface/workspace/components/intelligence/aura-content.tsx", import.meta.url), "utf8");
   const client = await readFile(new URL("../system/surface/workspace/lib/intelligence/client.mjs", import.meta.url), "utf8");
+  const desktop = await readFile(new URL("../system/surface/workspace/components/central/desktop.tsx", import.meta.url), "utf8");
   assert.match(source, /createUnavailableWebIntelligencePort/);
   assert.match(source, /<IntelligenceClientProvider port=\{intelligence\}>/);
   assert.match(source, /<Central key=/);
   assert.doesNotMatch(source, /WebShell/);
   assert.match(windowContent, /AuraContent/);
   assert.match(aura, /client\.ask/);
+  assert.doesNotMatch(desktop, /title === 'Aura'/);
+  assert.doesNotMatch(desktop, /Pergunte ao Aura/);
   for (const text of [source, adapter, aura, client]) {
     assert.doesNotMatch(text, /fetch\(|process\.env|apiKey|OPENAI|xAI|adapters\/native/);
   }

@@ -4,7 +4,7 @@ import { presentationDestination } from "../../presentation.mjs";
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { WebNotificationCenter } from './notifications';
 import { createElement, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
-import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, Send, WalletCards } from 'lucide-react';
+import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import dayWallpaper from '@/assets/alpine-day.jpg';
@@ -32,10 +32,7 @@ export function Desktop({ theme, onCentral, dispatch }: Props) {
     <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Do seu jeito.</span><small>OrdaX OS Web</small></div>
   </main>;
 }
-export function DesktopContent({ title, open, onCentral, initialPrompt }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
-  const [prompt, setPrompt] = useState('');
-  const [sent, setSent] = useState(false);
-  useEffect(() => { if (initialPrompt !== undefined) { setPrompt(initialPrompt.text); setSent(true); } }, [initialPrompt]);
+export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
   if (title === 'Minha conta') return <AccountPanel/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
@@ -45,7 +42,6 @@ export function DesktopContent({ title, open, onCentral, initialPrompt }: Presen
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>;
   if (title === 'Espaços') return <SpacesPanel/>;
   if (title === 'Configurações') return <Suspense fallback={<p className="service-state" role="status">Carregando Ajustes…</p>}><SettingsExperience/></Suspense>;
-  if (title === 'Aura' || title === 'Inteligência') return <><div className="desktop-content-heading"><Sparkles/><h2>Aura</h2></div><form className="aura-search" onSubmit={e => { e.preventDefault(); if (prompt.trim()) setSent(true); }}><Sparkles className="aura-star"/><input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={e => { setPrompt(e.target.value); setSent(false); }}/><Button type="submit" className="send-button" aria-label="Enviar ao Aura"><Send/></Button></form>{sent && <p className="desktop-unconnected">{unavailableServices.intelligence}</p>}</>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
 }
 
