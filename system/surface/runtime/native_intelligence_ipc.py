@@ -9,7 +9,7 @@ import socket
 import stat
 
 DEFAULT_SOCKET_PATH = "/run/ordax-surface/intelligence.sock"
-MAX_MESSAGE_BYTES = 256 * 1024
+MAX_MESSAGE_BYTES = 1024 * 1024
 REQUEST_SCHEMA = "ordax.native-intelligence-ipc-request/1"
 RESPONSE_SCHEMA = "ordax.native-intelligence-ipc-response/1"
 

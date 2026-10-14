@@ -40,7 +40,7 @@ The bridge announces `intelligence.host.ready` only after the service listener i
 
 - Unix domain socket only: `/run/ordax-surface/intelligence.sock`;
 - socket mode `0600`;
-- bounded newline-delimited JSON (`256 KiB` maximum message);
+- bounded newline-delimited JSON (`1 MiB` maximum message, covering canonical UTF-8 worst-case payloads);
 - exact IPC envelope fields;
 - strict UTF-8/JSON decoding;
 - request/response correlation through the service `requestId`;
