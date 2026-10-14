@@ -7,6 +7,7 @@ import { validatePersonalActionDecision } from "./personal-ordax.mjs";
 export const ACTION_EXECUTOR_SCHEMA = "ordax.action-executor/1";
 export const AUTHORIZED_ACTION_EXECUTION_SCHEMA = "ordax.authorized-action-execution/1";
 export const ACTION_ADAPTER_SCHEMA = "ordax.action-adapter/1";
+export const ACTION_ADAPTER_EXECUTION_CONTEXT_SCHEMA = "ordax.action-adapter-execution-context/1";
 export const ACTION_RECEIPT_SCHEMA = "ordax.action-receipt/1";
 
 const RECEIPT_STATUSES = new Set(["succeeded", "failed"]);
@@ -81,6 +82,19 @@ export function validateAuthorizedActionExecution(value) {
   });
 }
 
+export function createActionAdapterExecutionContext(decisionValue) {
+  const decision = validatePersonalActionDecision(decisionValue);
+  if (decision.decision !== "allow") {
+    throw new TypeError("Action adapter execution context requires an allow decision");
+  }
+  return Object.freeze({
+    schema: ACTION_ADAPTER_EXECUTION_CONTEXT_SCHEMA,
+    authoritySource: decision.authoritySource,
+    grantRef: decision.grantRef,
+    authorizedAt: decision.decidedAt,
+  });
+}
+
 export function assertActionExecutor(value) {
   if (
     !value
@@ -92,7 +106,6 @@ export function assertActionExecutor(value) {
   }
   return value;
 }
-
 
 export function assertActionAdapter(value) {
   if (
