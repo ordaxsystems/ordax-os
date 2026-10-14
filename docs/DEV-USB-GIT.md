@@ -184,14 +184,14 @@ checkout: /workspace/ordax
 materialized runtime/control paths:
 - system/
 - bootstrap/base-update/ (control logic only)
-- bootstrap/dev-base/{ordax-dev-init,ordax-network,ordax-pull,ordax-rollback,ordax-run}
+- bootstrap/dev-base/{ordax-dev-init,ordax-diagnose,ordax-network,ordax-pull,ordax-rollback,ordax-run}
 - bootstrap/recovery/entrypoint
 - selected trust/update contracts
 ```
 
 A new checkout uses Git partial clone (`blob:none`) plus sparse checkout. Git commit/history metadata remains available for update/rollback. The live product tree `system/` is materialized together with the small repository-owned base-update control plane, the fixed development/recovery helper sources, and the trust/contracts they need. Kernel/initramfs binaries and build toolchains are not copied into the runtime checkout; base bytes are built separately and staged for the next boot.
 
-After the Git-controlled supervisor is running, those fixed helper sources refresh the physical development copies of `ordax-dev-init`, network, pull, rollback, run and recovery. The refresh is bounded to that allowlist and does not turn the checkout into an arbitrary root-filesystem copier. This provides the bridge needed for later Git commits to repair the pre-runtime development helpers without rewriting the USB.
+After the Git-controlled supervisor is running, those fixed helper sources refresh the physical development copies of `ordax-dev-init`, `ordax-diagnose`, network, pull, rollback, run and recovery. The refresh is bounded to that allowlist and does not turn the checkout into an arbitrary root-filesystem copier. This provides the bridge needed for later Git commits to repair the pre-runtime development helpers without rewriting the USB.
 
 Before updating an existing checkout, `ordax-pull` fails closed when:
 
@@ -254,7 +254,7 @@ Only the development substrate is preseeded:
 - Wi-Fi userspace plus the firmware for the currently selected kernel modules;
 - CA certificates and HTTPS support;
 - Git;
-- seed copies of `ordax-dev-init`, `ordax-network`, `ordax-pull`, `ordax-run` and `ordax-rollback`;
+- seed copies of `ordax-dev-init`, `ordax-diagnose`, `ordax-network`, `ordax-pull`, `ordax-run` and `ordax-rollback`;
 - seed copy of the local recovery entrypoint.
 
 These helper copies are bootstrap seeds, not long-term source authority: once the Git-controlled runtime bridge is available they can be refreshed from the matching repository commit. Normal OrdaX Surface/apps/services/source are not preseeded. The runtime `system/` tree arrives through Git.
