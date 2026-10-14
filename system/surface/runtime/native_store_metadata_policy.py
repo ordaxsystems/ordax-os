@@ -1,7 +1,7 @@
 # GENERATED FILE. DO NOT EDIT BY HAND.
 # Source of truth: docs/contracts/runtime-component-package.json
 # Generator: tools/app-policy/render_native_store_metadata_policy.py
-# Metadata queries, verified executable file reads and health mutations have DISTINCT scopes.
+# Metadata, runtime reads, health writes and pending decisions have DISTINCT gates.
 
 from types import MappingProxyType
 
@@ -42,3 +42,7 @@ NATIVE_PROBATION_COMPONENT_IDS = frozenset({
 NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({
     "notes": "import-contract",
 })
+
+NATIVE_PENDING_DECISION_EXECUTION_ENABLED = False
+NATIVE_SLOT_ACTIVATION_AVAILABLE = False
+NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE = False
