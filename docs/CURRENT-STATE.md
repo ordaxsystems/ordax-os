@@ -5,9 +5,12 @@ explicitly requested standalone presentation page under `system/composition/web/
 using Meridian Argila/Grafite colors and the existing demo catalog/session reducer.
 It includes discovery, resource details, library and type-specific simulated
 operations. It is not mounted in the production workspace and does not add an
-installation port, official inventory or material preference. Tests, npm,
-type-check and build were excluded by the user. Earlier production Store evidence
-does not validate this prototype.
+installation port, official inventory or material preference. After explicit user
+authorization, 69 targeted automated tests, Web type-check/build, the dedicated
+preview build, reference verification and 28 browser checks passed. The preview
+build is emitted separately to `out/store-preview`; no production entry is added.
+[Validation evidence](evidence/store-preview-2026-10-14/README.md) covers session
+mocks and source/build compatibility, not real installation or physical proof.
 [Scope and limits](DESKTOP-IDENTITY.md#isolated-store-visual-preview--2026-10-14).
 
 Notification UX (2026-10-13): Web/USB now share the notification center renderer

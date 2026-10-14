@@ -3,7 +3,16 @@
 Esta página foi solicitada explicitamente como prévia separada, usando as cores e
 identidade visual Meridian. Não é uma composição de produção da Store nem um
 segundo catálogo oficial. Pode ser aberta no host Web existente em
-`/store-preview/`, sem instalar dependências ou executar build.
+`/store-preview/` durante o desenvolvimento. Para gerar somente esta página,
+na raiz do repositório, com as dependências existentes:
+
+```powershell
+npm.cmd run build:store-preview --workspace tools/surface-web
+npm.cmd run preview:store-preview --workspace tools/surface-web
+```
+
+O resultado fica em `out/store-preview` e o preview do build em
+`http://127.0.0.1:4204/`. A entrada do produto continua separada.
 
 ## Inventário factual preservado
 
@@ -58,8 +67,13 @@ owners canônicos e de seus gates. Esta página não implementa pagamento,
 marketplace executável de terceiros, OAuth real, downloader ou permission manager.
 A escolha do material não grava preferências. Estado dos mocks dura na sessão.
 
-Testes, npm, typecheck e build não foram executados por solicitação do usuário.
-A abertura da página para apresentação não homologa a experiência de produção.
+Após autorização posterior do usuário, passaram 69 testes automatizados,
+typecheck/build Web, build isolado, verificação de 34 arquivos de referência e
+28 verificações de navegador. As transições da fila foram extraídas para
+`session.js`, que delega ao mesmo reducer demonstrativo, para regressões de
+cancelamento, serialização e falha sem mutação do estado anterior.
+[Evidências, comandos e limites](../../../../docs/evidence/store-preview-2026-10-14/README.md).
+A validação dos mocks não homologa instalações nem a experiência de produção.
 Próximo gate: revisão visual pelo usuário; integração posterior pelo owner Surface,
 sem promover mocks a estado oficial. A tentativa anterior no renderer integrado
 foi supersedida e não faz parte da página isolada publicada nesta branch.

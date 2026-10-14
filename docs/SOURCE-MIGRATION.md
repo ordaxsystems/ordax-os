@@ -12,7 +12,7 @@ RESPONSIBILITY=Argila/Grafite palette, presentation glyphs and perceptual Store 
 WHY_NEEDED=Explicit request for an isolated Store page using Meridian colors and visual identity
 DEPENDENCIES=Existing demo catalog and session reducer, first-run selection policy, OS symbol and Inter asset
 SECURITY_REVIEW=Presentation-only assets; no experiment shell/controller, official port, host API, grants, credentials or execution imported
-TESTS=Not run; user explicitly excluded tests, npm, type-check and build; no physical or release proof claimed
+TESTS=Explicitly authorized after initial presentation; 69 targeted automated tests passed, Web type-check/build and dedicated preview build passed, 34 reference files verified, 28 browser checks passed; docs/evidence/store-preview-2026-10-14/README.md; no physical or release proof claimed
 DECISION=ADOPTED (isolated palette/glyph subset); REFERENCE_ONLY (visual composition)
 
 The production Store renderer/CSS is not changed. All added version/date/size

@@ -727,6 +727,10 @@
       {
         "from": "export function platformLabel(p: Platform[]): string {",
         "to": "export function platformLabel(p: Platform[]): string {\n  if (!p.length) return 'Compatibilidade não informada pelo catálogo';"
+      },
+      {
+        "from": "norm([i.name, i.tagline, i.developer, ...i.tags].join(' ')).includes(q)",
+        "to": "norm([\n    i.name, i.tagline, i.description, i.developer, kindMeta[i.kind].label, ...i.tags,\n    ...('category' in i ? [i.category] : []),\n    ...('capabilities' in i ? i.capabilities : []),\n    ...('provides' in i ? i.provides : []),\n    ...('tasks' in i ? i.tasks : []),\n  ].join(' ')).includes(q)"
       }
     ],
     "src/components/web/window.tsx": [

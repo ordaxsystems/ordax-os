@@ -976,7 +976,8 @@ execution and production activation remain outside this local proof.
 ### Isolated Store visual preview — 2026-10-14
 
 Explicit user scope: a separate Store page following the supplied product prompt
-and Meridian colors/identity, with optional mocks and without tests, npm or build.
+and Meridian colors/identity, with optional mocks. Tests, npm and build were
+initially excluded; the user subsequently authorized validation and necessary fixes.
 The preview entry is `system/composition/web/store-preview/index.html`, served by
 the existing local Web host at `/store-preview/`. It is not mounted as another
 workspace app, production catalog or Native Store. The prior integrated-renderer
@@ -1008,11 +1009,25 @@ No experiment controller, shell, grants, downloader, permission manager, remote
 account, live OAuth or lifecycle authority is imported. All page actions are
 explicitly simulated, with session-only state and native confirmation dialogs.
 
-The page has been opened for presentation. No automated tests, npm commands,
-type-check, build, E2E or physical proof were run at the user's request. Existing
-production Store acceptance and bundle sizes above refer to the earlier baseline.
-The next gate is user visual review, followed by separately authorized integration
-through canonical Surface/catalog/lifecycle owners.
+Validation after explicit user authorization: 49 Store contract/catalog/projection/
+batch tests, 12 preview behavior regression tests and 8 Web builder tests passed.
+Web type-check, canonical Web build, dedicated preview build and verification of
+34 reference files passed. The isolated build emits `out/store-preview`, without
+adding this presentation to the production entry. The serial queue adapter uses
+the existing demo reducer and its failure fixture, with no second lifecycle owner.
+The shared catalog search adaptation is recorded reversibly in the original
+reference ledger; the upstream digest remains unchanged.
+
+Twenty-eight browser checks cover search/return context, permissions, favorites,
+serial updates, cancellation, failed-update version retention, unavailable catalog,
+connector authorization, model blocking, removal/reinstallation, responsive
+390/820/1440 layouts and the actual compiled artifact. Console checks were clean.
+[Commands, results, screenshots and limits](evidence/store-preview-2026-10-14/README.md).
+The existing canonical Web chunk-size warning remains; the isolated JS is
+69.29 kB (22.25 kB gzip). Real OAuth, host installation, backend/Native and physical
+lifecycle remain unvalidated and absent from this page. The next gate is user
+visual review, followed by separately authorized integration through canonical
+Surface/catalog/lifecycle owners.
 
 ### Destination menu focus — 2026-10-12
 

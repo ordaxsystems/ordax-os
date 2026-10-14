@@ -1,4 +1,5 @@
 import { items, sections, copy, kindMeta, operationSteps } from './preview-data.js';
+import { advanceQueue, cancelRequest } from './session.js';
 import { icon as meridianIcon } from './icons.mjs';
 import { initialStore, storeReducer, statusOf, activeOps } from '../../../surface/workspace/lib/store/state.ts';
 import { searchCatalog, evaluateModel, platformLabel } from '../../../surface/workspace/lib/store/catalog.ts';
@@ -223,7 +224,7 @@ function handleAction(act,id){
  if(act==='update'&&i?.preview.permissionChange){showDialog('Esta atualização pede revisão de acesso.','Revise as mudanças antes de simular a atualização. Nenhum acesso será concedido.','Simular atualização',()=>request(i,'update'),list(i.preview.permissionChange));return;}
  if(['install','update','apply','enable','disable'].includes(act)){request(i,act);return;}
  if(act==='update-all'){const values=updates().filter(i=>!busy(i));showDialog('Atualizar os recursos elegíveis?','A fila é sequencial. Cada atualização terá resultado próprio. Falhas preservam a versão anterior. Mudanças de acesso abaixo são demonstrativas.','Simular atualização de todos',()=>values.forEach(i=>request(i,'update')),list(values.map(i=>`${i.name}${i.preview.permissionChange?' · revisar acesso: '+i.preview.permissionChange.join(', '):''}`)));return;}
- if(act==='cancel'){const op=state.ops.find(o=>o.id===id);if(op&&['requested','accepted'].includes(op.state)){dispatch({type:'dismiss',id});ui.steps.delete(id);notify('Solicitação cancelada antes da execução simulada.');}return;}
+ if(act==='cancel'){const next=cancelRequest(state,ui.steps,id);if(next.cancelled){state=next.state;ui.steps=next.steps;render();notify('Solicitação cancelada antes da execução simulada.');}return;}
  if(act==='dismiss'){dispatch({type:'dismiss',id});return;}
  if(act==='retry'){const op=state.ops.find(o=>o.id===id);if(op)request(find(op.itemId),op.op);return;}
  if(act==='close-dialog'){const cb=dialogCancel;$('confirmation').close();dialogAction=null;dialogCancel=null;cb?.();return;}
@@ -258,13 +259,19 @@ $('confirmation').addEventListener('cancel',()=>{const cb=dialogCancel;dialogAct
 window.addEventListener('hashchange',readHash);
 // Serial demonstration queue. All transitions use the existing session-only reducer.
 function advancePreviewQueue(){
- if(ui.scene!=='ready')return;const op=activeOps(state).at(-1);if(!op)return;
- if(op.state!=='running'){state=storeReducer(state,{type:'advance',id:op.id});ui.steps.set(op.id,op.state==='requested'?0:1);}
- else{const step=(ui.steps.get(op.id)??1)+1;ui.steps.set(op.id,step);const fail=op.op==='update'&&op.itemId==='notes';const finalStep=operationSteps(op.op,find(op.itemId)).length-1;
-  if(step>=(fail?2:finalStep)){state=storeReducer(state,{type:'advance',id:op.id});const result=state.ops.find(o=>o.id===op.id);if(result?.state==='succeeded'&&op.op==='remove')ui.removed.add(op.itemId);if(result?.state==='succeeded'&&op.op==='install')ui.removed.delete(op.itemId);notify(fail?'Falha simulada. A versão anterior de Notas foi mantida.':'Operação concluída na demonstração.');}
+ if(ui.scene!=='ready')return;
+ const next=advanceQueue(state,ui.steps,find);
+ if(next.state===state&&next.steps===ui.steps)return;
+ state=next.state;ui.steps=next.steps;
+ const result=next.finished;
+ if(result){
+  if(result.state==='succeeded'&&result.op==='remove')ui.removed.add(result.itemId);
+  if(result.state==='succeeded'&&result.op==='install')ui.removed.delete(result.itemId);
+  notify(result.state==='failed'?'Falha simulada. A versão anterior foi mantida.':'Operação concluída na demonstração.');
  }
  render();
 }
+
 let timer=null;
 function startQueue(){if(timer===null)timer=window.setInterval(advancePreviewQueue,1100);}
 window.addEventListener('pagehide',()=>{clearInterval(timer);timer=null;clearTimeout(toastTimer);});
