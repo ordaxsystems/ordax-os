@@ -105,6 +105,8 @@ test("Native probation composition defers platform dependencies into the guarded
 
   assert.doesNotMatch(source, /^import .*component-slot-source\.mjs/m);
   assert.doesNotMatch(source, /^import .*probation-orchestrator\.mjs/m);
+  assert.doesNotMatch(source, /^import .*probation-context\.mjs/m);
+  assert.doesNotMatch(source, /^import .*runtime-mount-health-probe\.mjs/m);
   assert.match(source, /async function loadProbationDependencies\(\)/);
   assert.match(
     source,
@@ -113,6 +115,14 @@ test("Native probation composition defers platform dependencies into the guarded
   assert.match(
     source,
     /import\("\.\.\/\.\.\/services\/components\/probation-orchestrator\.mjs"\)/,
+  );
+  assert.match(
+    source,
+    /import\("\.\.\/\.\.\/services\/components\/probation-context\.mjs"\)/,
+  );
+  assert.match(
+    source,
+    /import\("\.\.\/\.\.\/services\/components\/runtime-mount-health-probe\.mjs"\)/,
   );
 });
 

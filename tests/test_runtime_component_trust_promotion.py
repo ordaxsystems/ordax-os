@@ -8,7 +8,6 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import stat
 import sys
 import tempfile
 import unittest
@@ -102,7 +101,6 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             "native_slot_serving_available": False,
             "native_loopback_verified_read_broker_implemented": True,
             "native_loopback_broker_read_only": True,
-            "internet_release_mode": "git-app",
         }
         (root / "docs" / "contracts" / "runtime-component-trust-policy.json").write_bytes(
             json_bytes(policy)
@@ -204,6 +202,42 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             for name, payload in files.items():
                 archive.writestr(name, payload)
 
+    def test_current_repository_contracts_match_pre_promotion_guard(self):
+        policy = json.loads(
+            (ROOT / "docs" / "contracts" / "runtime-component-trust-policy.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        package = json.loads(
+            (ROOT / "docs" / "contracts" / "runtime-component-package.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertNotIn("internet_release_mode", package)
+        promoter._assert_pre_promotion_contracts(policy, package)
+
+    def test_legacy_internet_release_mode_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            repo.mkdir()
+            self.make_repo(repo)
+            policy = json.loads(
+                (repo / "docs" / "contracts" / "runtime-component-trust-policy.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            package = json.loads(
+                (repo / "docs" / "contracts" / "runtime-component-package.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            package["internet_release_mode"] = "git-app"
+
+            with self.assertRaises(promoter.PromotionError):
+                promoter._assert_pre_promotion_contracts(policy, package)
+
     def test_check_accepts_recovered_public_bundle_without_enabling_runtime(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -244,7 +278,7 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             self.assertTrue(package["canonical_component_trust_anchor_pinned"])
             self.assertFalse(package["publish_allowed"])
             self.assertFalse(package["slot_activation_available"])
-            self.assertEqual(package["internet_release_mode"], "git-app")
+            self.assertNotIn("internet_release_mode", package)
 
     def test_apply_writes_only_public_material_and_keeps_activation_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -282,6 +316,7 @@ class RuntimeComponentTrustPromotionTests(unittest.TestCase):
             self.assertFalse(package["pending_health_promotion_available"])
             self.assertFalse(package["rollback_slot_activation_available"])
             self.assertFalse(package["native_slot_serving_available"])
+            self.assertNotIn("internet_release_mode", package)
 
     def test_zip_rejects_secret_looking_or_extra_entry(self):
         with tempfile.TemporaryDirectory() as temporary:

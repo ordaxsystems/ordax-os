@@ -73,7 +73,13 @@ test("mount-contract wiring exists without granting Files probation", async () =
   assert.match(orchestrator, /createRuntimeMountHealthCheck/);
   assert.match(orchestrator, /mode === COMPONENT_MOUNT_HEALTH_PROBE_MODE/);
   assert.match(orchestrator, /mountContext/);
-  assert.match(nativeComposition, /mountContext/);
+  assert.match(nativeComposition, /composeComponentProbationContext/);
+  assert.match(nativeComposition, /probeMode === mountProbeMode/);
+  const nativeSignature = nativeComposition.match(
+    /runNativePendingComponentProbation\(\{([\s\S]*?)\}\s*=\s*\{\}\)/,
+  );
+  assert.ok(nativeSignature, "Native probation function signature must remain explicit");
+  assert.doesNotMatch(nativeSignature[1], /mountContext/);
   assert.doesNotMatch(browserHost, /mountContext/);
 
   const fetched = [];

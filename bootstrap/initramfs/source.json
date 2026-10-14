@@ -8,6 +8,27 @@
   },
   "root_init": "bootstrap/initramfs/root/init",
   "main_partition_label": "ORDAX",
+  "owner_development_media_discovery": {
+    "profile_contract": "docs/contracts/distribution-profiles.json#profiles.owner-development",
+    "cmdline_token": "ordax.distribution_profile=owner-development",
+    "root_partition": {
+      "partition_index": 2,
+      "filesystem": "ext4",
+      "filesystem_label": "ORDAX"
+    },
+    "esp_partition": {
+      "partition_index": 1,
+      "filesystem": "vfat",
+      "filesystem_label": "ORDAX-ESP"
+    },
+    "same_parent_block_device_required": true,
+    "parent_removable_required": true,
+    "exactly_one_complete_media_required": true,
+    "discovery_retry_seconds": 10,
+    "internal_disk_candidate_allowed": false,
+    "writable_mount_before_identity_proof": false,
+    "stable_mvp_path_changed": false
+  },
   "bootstrap_entrypoint": "/ordax/bootstrap/entrypoint",
   "storage_growth": {
     "normal_boot": "online-ext4-grow-only",
