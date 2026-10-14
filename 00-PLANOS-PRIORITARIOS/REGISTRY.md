@@ -14,6 +14,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | USB-001 | baseline pré-USB | `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` | histórico/P0 quando citado por owner | REFERENCE | NOT APPLICABLE como plano; gates físicos vêm dos owners canônicos | Fechamento de source concluído; preservar como baseline até auditoria de links/sucessor |
 | ECO-001 | plano de fundação | `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md` | conforme canônicos | REFERENCE | DEFERRED FOR EXECUTION salvo requisito canônico do MVP | Fundação parcialmente realizada; decisões atuais devem viver nos owners/contratos |
 | PROFILE-001 | plano de produto | `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md` | conforme canônicos | REFERENCE | DEFERRED FOR EXECUTION salvo requisito canônico do MVP | Mistura histórico de implementação e evolução; manifests/contracts/owners vencem |
+| PERSONAL-000 | referência curta/compatibilidade | `PERSONAL-ORDAX.md` | conforme owner canônico | REFERENCE | NOT APPLICABLE como fila própria | Não canônico; owner humano é `docs/PERSONAL-ORDAX.md`; mantido por compatibilidade/links |
 | PERSONAL-001 | plano de execução | `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` | conforme canônicos | READY | DEFERRED FOR EXECUTION | Owner canônico: `docs/PERSONAL-ORDAX.md`; preservar fases futuras sem executá-las agora |
 | NETWORK-001 | plano de produto | `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` | conforme `MVP.md`/contracts | REFERENCE | DEFERRED FOR EXECUTION como plano; requisitos reais do MVP seguem owners canônicos | Cabeçalho histórico de “canônico” não altera a hierarquia de `docs/README.md` |
 | INTEL-001 | handoff | `INTELLIGENCE-HANDOFF.md` | transversal | GUIDE | NOT APPLICABLE | Guia de retomada; não substitui contracts/owner de Intelligence |
@@ -26,6 +27,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `DEFERRED FOR EXECUTION` significa: não abrir task/issue/PR de implementação apenas por causa deste plano durante o fechamento do MVP.
 - se `MVP.md`, um contrato ou um owner canônico já exigir um comportamento que também aparece em um plano, a execução pertence ao owner canônico, **não ao plano**.
 - frases históricas dentro de `PLANO-*` como “canônico”, “obrigatório” ou prioridades antigas não vencem `docs/README.md`.
+- referências curtas mantidas na raiz por compatibilidade nunca criam um segundo owner documental.
 
 ## Como registrar novo material
 
