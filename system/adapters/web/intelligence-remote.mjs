@@ -33,8 +33,8 @@ export function validateWebIntelligenceRemoteContext(value) {
   }
   const spaceId = boundedId(value.spaceId, "Web Intelligence spaceId", { nullable: true });
   const projectId = boundedId(value.projectId, "Web Intelligence projectId", { nullable: true });
-  if ((spaceId === null) !== (projectId === null)) {
-    throw new TypeError("Web Intelligence Space and project scope must both be present or both be absent");
+  if (projectId !== null && spaceId === null) {
+    throw new TypeError("Web Intelligence project context requires an explicit Space");
   }
   return Object.freeze({
     subjectId: boundedId(value.subjectId, "Web Intelligence subjectId"),
@@ -98,6 +98,10 @@ function abortedError(signal) {
  * Projects a supported remote transport into the canonical Intelligence port.
  * The transport owner supplies authentication and endpoint policy; this adapter
  * owns neither providers, credentials, Memory, target discovery nor authority.
+ *
+ * Context is hierarchical and distinct from the transport owner's grant shape:
+ * account/device (null/null), Space (space/null), or Space+project are valid.
+ * A project can never exist without an explicit Space.
  */
 export function createRemoteWebIntelligencePort({ transport, readContext } = {}) {
   const remote = assertRemoteTransport(transport);
