@@ -154,7 +154,7 @@ func completeWrite(err error) {
 	writeMu.Lock()
 	writeState.Active = false
 	if err != nil {
-		view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
+		view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail, ErrorStepNumber: 4})
 		writeState.Success = false
 		writeState.Error = err.Error()
 		writeState.DiagnosticPath = ""
@@ -164,6 +164,9 @@ func completeWrite(err error) {
 		}
 		writeState.Status = view.Title
 		writeState.Hint = strings.TrimSpace(view.Body + " " + view.Detail)
+		if writeState.DiagnosticPath != "" {
+			writeState.Hint += " " + creatorTValues(msgWriteDiagnosticLocation, map[string]string{"path": filepath.Base(writeState.DiagnosticPath)})
+		}
 		writeState.Determinate = false
 		writeState.Percent = 0
 	} else {
@@ -206,29 +209,31 @@ func renderWriteDone() {
 	setCreatorStatus(state.Status)
 	setCreatorHint(state.Hint)
 	if state.Success {
-		view := creatorExperience(creatorExperienceInput{WriteComplete: true})
 		setProgressComplete()
-		messageBox(creatorT(msgWriteCompleteDialogBody)+"\n\n"+view.Body+"\n\n"+view.Detail, creatorT(msgWriteCompleteDialogTitle), mbOK|mbIconInformation)
+		setText(writeButton, creatorT(msgActionFinish))
 	} else {
 		setProgressIdle()
 		if state.Error != "" {
-			view := creatorExperience(creatorExperienceInput{ErrorMessageID: msgPhysicalWriteFailedDetail})
-			detail := view.Body + "\n\n" + view.Detail + "\n\n" + creatorT(msgWriteTechnicalDetail) + "\n" + state.Error
-			if state.DiagnosticPath != "" {
-				detail += "\n\n" + creatorTValues(msgWriteDiagnosticLocation, map[string]string{"path": state.DiagnosticPath})
-			}
-			messageBox(detail, creatorT(msgWriteErrorDialogTitle), mbOK|mbIconError)
+			setText(writeButton, creatorT(msgActionRetry))
 		}
 	}
 
 	stateMu.Lock()
 	current := refreshState
 	stateMu.Unlock()
-	enable(refreshButton, true)
-	enable(localeCombo, true)
-	enable(deviceCombo, len(current.Targets) > 0)
-	enable(writeButton, current.PhysicalReady && len(current.Targets) > 0)
+	enable(refreshButton, !state.Success)
+	enable(localeCombo, !state.Success)
+	enable(deviceCombo, !state.Success && len(current.Targets) > 0)
+	if state.Success {
+		enable(writeButton, true)
+	} else {
+		enable(writeButton, current.PhysicalReady && len(current.Targets) > 0)
+	}
 	renderUpdateUI()
+	if state.Success {
+		enable(updateButton, false)
+	}
+	invalidateGuidedVisual()
 }
 
 func showWriteBusyMessage() {
@@ -268,15 +273,12 @@ func beginPhysicalWrite() {
 		return
 	}
 
-	label := strings.TrimSpace(target.VolumeLabel)
-	if label == "" {
-		label = creatorT(msgTargetUnnamed)
-	}
+	label := targetDisplayName(target)
 	// Only one Creator-owned destructive confirmation. Device validation,
 	// payload hashes and Windows elevation are internal security gates rather
 	// than additional product consent prompts.
 	warning := creatorTValues(msgWriteConfirmBody, map[string]string{
-		"device": target.DriveLetter,
+		"device": targetDriveLabel(target),
 		"name":   label,
 		"disk":   strconv.Itoa(target.DiskNumber),
 		"size":   formatBytes(target.PhysicalDiskBytes),

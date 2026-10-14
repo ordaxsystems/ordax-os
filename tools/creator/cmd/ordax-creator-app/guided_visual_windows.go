@@ -4,7 +4,6 @@ package main
 
 import (
     "fmt"
-    "strings"
     "syscall"
     "unsafe"
 )
@@ -84,13 +83,19 @@ func currentGuidedExperience() creatorExperienceView {
         TargetSelected: selectedTargetIndex() >= 0,
         PhysicalReady: state.PhysicalReady,
     }
-    if state.Error != "" { input.ErrorMessageID = msgRefreshFailedDetail }
+    if state.Error != "" {
+        input.ErrorMessageID = msgRefreshFailedDetail
+        input.ErrorStepNumber = 1
+    }
     writeMu.Lock()
     write := writeState
     writeMu.Unlock()
     input.WriteActive = write.Active
     input.WriteComplete = !write.Active && write.Success
-    if write.Error != "" { input.ErrorMessageID = msgPhysicalWriteFailedDetail }
+    if write.Error != "" {
+        input.ErrorMessageID = msgPhysicalWriteFailedDetail
+        input.ErrorStepNumber = 4
+    }
     return creatorExperience(input)
 }
 
@@ -142,7 +147,6 @@ func drawCreatorRail(hdc uintptr, left int32, view creatorExperienceView) {
         creatorT(msgCompleteTitle),
     }
     active := view.StepNumber
-    if active < 1 { active = 1 }
     for i := 1; i <= 4; i++ {
         y := int32(217 + (i-1)*70)
         if i != 4 {
@@ -153,13 +157,18 @@ func drawCreatorRail(hdc uintptr, left int32, view creatorExperienceView) {
             procSelectObject.Call(hdc, old)
             procDeleteObject.Call(pen)
         }
-        done := i < active || view.Step == creatorStepComplete
+        done := (active > 0 && i < active) || view.Step == creatorStepComplete
+        activeStep := active > 0 && i == active
         fill := "surface"
-        if done || i == active { fill = "brand_blue" }
+        if done || activeStep { fill = "brand_blue" }
         text := fmt.Sprintf("%d", i)
         if done { text = "✓" }
+        if view.Step == creatorStepBlocked && activeStep {
+            fill = "warning"
+            text = "!"
+        }
         labelColor := creatorColorFor("muted", colorWindowText)
-        if done || i == active { labelColor = creatorColorFor("text", colorWindowText) }
+        if done || activeStep { labelColor = creatorColorFor("text", colorWindowText) }
         drawCreatorCircle(hdc, rect{left+19, y, left+53, y+34}, fill, text, creatorColorFor("text", colorHighlightText))
         drawTextInRect(hdc, titles[i-1], rect{left+69, y+2, left+288, y+28}, dtSingleLine|dtEndEllipsis, labelColor)
     }
@@ -179,10 +188,12 @@ func drawCreatorUSBStatus(hdc uintptr, left int32, view creatorExperienceView) {
     }
     target := targets[selection]
     drawTextInRect(hdc, creatorT(msgUSBDetected), rect{left+34, 513, left+260, 536}, dtSingleLine, creatorColorFor("text", colorWindowText))
-    display := strings.TrimSpace(target.DriveLetter + " · " + target.VolumeLabel)
-    if len([]rune(display)) > 28 { display = string([]rune(display)[:26]) + "…" }
-    drawTextInRect(hdc, display, rect{left+34, 540, left+268, 560}, dtSingleLine, creatorColorFor("muted", colorGrayText))
-    drawTextInRect(hdc, formatBytes(target.PhysicalDiskBytes), rect{left+34, 560, left+268, 580}, dtSingleLine, creatorColorFor("accent", colorHighlight))
+    primary := targetPrimaryIdentity(target)
+    if len([]rune(primary)) > 28 { primary = string([]rune(primary)[:26]) + "…" }
+    secondary := targetSecondaryIdentity(target)
+    if len([]rune(secondary)) > 28 { secondary = string([]rune(secondary)[:26]) + "…" }
+    drawTextInRect(hdc, primary, rect{left+34, 540, left+268, 560}, dtSingleLine, creatorColorFor("muted", colorGrayText))
+    drawTextInRect(hdc, secondary, rect{left+34, 560, left+268, 580}, dtSingleLine, creatorColorFor("accent", colorHighlight))
 }
 
 func paintGuidedVisual(hwnd uintptr) uintptr {
