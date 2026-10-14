@@ -54,10 +54,11 @@ export function createNativeFilesProbationContextBootstrap({
     if (componentId !== "files") return null;
     const outcome = await ready;
     if (terminalError !== null) throw terminalError;
-    if (!outcome?.context) {
+    if (!outcome?.context || !outcome?.root) {
       throw normalizeError(outcome?.error, "Files probation context is unavailable");
     }
-    return outcome.context;
+    host ??= createHiddenProbationHost(outcome.root);
+    return Object.freeze({ ...outcome.context, root: host });
   };
 
   installProvider(provider);
@@ -73,23 +74,18 @@ export function createNativeFilesProbationContextBootstrap({
       throw new Error("Files probation context can only be bound once");
     }
     try {
-      host = createHiddenProbationHost(root);
+      assertComponentMountParent({ root }, { label: "Files probation host" });
       const trustedProvider = createNativeFilesTrustedContextProvider({
         fileSpace,
         recentFiles,
         projects,
         appActivation,
       });
-      const context = Object.freeze({
-        ...trustedProvider("files"),
-        root: host,
-      });
+      const context = trustedProvider("files");
       state = "bound";
-      resolveReady(Object.freeze({ context }));
+      resolveReady(Object.freeze({ context, root }));
       return context;
     } catch (error) {
-      try { host?.remove?.(); } catch { /* failed binding cleanup is best effort */ }
-      host = null;
       terminalError = normalizeError(error, "Files probation context binding failed");
       state = "failed";
       resolveReady(Object.freeze({ error: terminalError }));
