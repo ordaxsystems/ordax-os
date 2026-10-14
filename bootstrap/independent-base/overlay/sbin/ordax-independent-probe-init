@@ -38,6 +38,22 @@ if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/netw
 else
     rescue dhcp
 fi
+# Functional Surface parity proof happens only inside this disposable guest.
+# Never run this mutation on the CI host.
+if /sbin/ip address replace 127.0.0.1/8 dev lo; then
+    echo ORDAX_INDEPENDENT_SURFACE_IP_REPLACE_EXIT=0
+else
+    ip_replace_exit=$?
+    echo "ORDAX_INDEPENDENT_SURFACE_IP_REPLACE_EXIT=$ip_replace_exit"
+    rescue surface-loopback-ip-replace
+fi
+loopback_line=$(/sbin/ip -o -4 address show dev lo) || rescue surface-loopback-ip-show
+case " $loopback_line " in
+    *" inet 127.0.0.1/8 "*) ;;
+    *) rescue surface-loopback-address ;;
+esac
+echo ORDAX_INDEPENDENT_SURFACE_LOOPBACK=127.0.0.1/8
+echo ORDAX_INDEPENDENT_SURFACE_IP_REPLACE=PASS
 # Probe-only diagnostics from kernel-owned /proc. No extra daemon or package.
 # These are observed resource measurements, NOT release-health predicates.
 measure_resources() {

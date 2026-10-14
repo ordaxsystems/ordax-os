@@ -5,6 +5,7 @@ on:
     paths:
       - 'bootstrap/independent-base/**'
       - 'tests/test_independent_base_experiment.py'
+      - 'tests/test_independent_network_parity.py'
       - '.github/workflows/independent-base-experiment.yml'
   workflow_dispatch:
 
@@ -36,11 +37,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
             libelf-dev dwarves kmod xz-utils pkg-config \
-            gawk cpio unzip rsync file wget curl patch git \
+            gawk cpio unzip rsync file binutils wget curl patch git \
             erofs-utils e2fsprogs util-linux qemu-system-x86
       - name: Verify isolated contract and regressions
         run: |
-          python3 -m unittest tests.test_independent_base_experiment -v
+          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_network_parity -v
           python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
