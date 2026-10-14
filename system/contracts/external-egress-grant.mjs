@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 export const EXTERNAL_EGRESS_GRANT_SCHEMA = "ordax.external-egress-grant/1";
 export const EXTERNAL_EGRESS_GRANT_ISSUE_SCHEMA = "ordax.external-egress-grant-issue/1";
 export const EXTERNAL_EGRESS_GRANT_REGISTRY_SCHEMA = "ordax.external-egress-grant-registry/1";
@@ -122,9 +124,16 @@ function httpsOrigin(value, label) {
   } catch {
     throw new TypeError(`${label} must be an HTTPS origin`);
   }
+  const hostname = url.hostname.toLowerCase();
+  const ipCandidate = hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
   if (
     url.protocol !== "https:"
-    || !url.hostname
+    || !hostname
+    || hostname.includes("*")
+    || !hostname.includes(".")
+    || isIP(ipCandidate) !== 0
     || url.username
     || url.password
     || url.pathname !== "/"
@@ -132,7 +141,7 @@ function httpsOrigin(value, label) {
     || url.hash
     || url.port
   ) {
-    throw new TypeError(`${label} must be an exact HTTPS origin without credentials, path, query, fragment or custom port`);
+    throw new TypeError(`${label} must be an exact DNS HTTPS origin without wildcard, IP literal, credentials, path, query, fragment or custom port`);
   }
   return url.origin.toLowerCase();
 }
