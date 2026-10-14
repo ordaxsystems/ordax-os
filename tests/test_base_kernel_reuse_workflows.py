@@ -79,6 +79,20 @@ class BaseKernelReuseWorkflowTests(unittest.TestCase):
         foundation = (ROOT / ".github/workflows/foundation.yml").read_text(encoding="utf-8")
         self.assertIn("python -m unittest discover -s tests -p 'test_*.py' -v", foundation)
 
+    def test_markdown_only_changes_do_not_trigger_heavy_base_workflows(self):
+        independent = self.workflow(INDEPENDENT)
+        self.assertEqual(
+            independent.count("      - '!bootstrap/independent-base/**/*.md'"),
+            1,
+        )
+        stable = self.workflow(STABLE)
+        for pattern in (
+            "      - '!bootstrap/base/**/*.md'",
+            "      - '!bootstrap/stable-base/**/*.md'",
+            "      - '!bootstrap/kernel/**/*.md'",
+        ):
+            self.assertEqual(stable.count(pattern), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
