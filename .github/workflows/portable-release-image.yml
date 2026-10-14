@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'system/**'
+      - '!system/**/*.md'
       - 'tools/release-bundle/**'
       - 'tools/portable-release-image/**'
       - 'tools/release-manifest/**'
@@ -23,6 +24,7 @@ on:
   pull_request:
     paths:
       - 'system/**'
+      - '!system/**/*.md'
       - 'tools/release-bundle/**'
       - 'tools/portable-release-image/**'
       - 'tools/release-manifest/**'

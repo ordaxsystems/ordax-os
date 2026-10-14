@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'system/**'
+      - '!system/**/*.md'
       - 'bootstrap/portable-v2/**'
       - 'bootstrap/release-acquisition/**'
       - 'tools/release-bundle/**'
@@ -26,6 +27,7 @@ on:
   pull_request:
     paths:
       - 'system/**'
+      - '!system/**/*.md'
       - 'bootstrap/portable-v2/**'
       - 'bootstrap/release-acquisition/**'
       - 'tools/release-bundle/**'
