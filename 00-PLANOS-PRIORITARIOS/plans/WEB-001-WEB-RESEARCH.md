@@ -1,7 +1,7 @@
 # WEB-001 — OrdaX Web Research
 
 - **Tipo:** PLAN / ROADMAP
-- **Status:** ACTIVE — G0 PASS_SOURCE / G1 PARTIAL PASS_SOURCE / REMOTE EGRESS BLOCKED
+- **Status:** ACTIVE — G0 PASS_SOURCE / G1 ADVANCED PASS_SOURCE / REMOTE EGRESS BLOCKED
 - **Prioridade:** P1
 - **Criado:** 2026-10-14
 - **Reauditado:** 2026-10-14 contra `main@7d7dce1312b5225a0def00ab614167aeef463080`
@@ -50,6 +50,7 @@ ordax.web.extract/1
 ordax.web.source/1
 ordax.web.provenance/1
 ordax.web.usage/1
+ordax.web-operation-receipt/1
 ordax.web-provider/1
 ```
 
@@ -69,7 +70,7 @@ Trust:
 trust = untrusted-external-content
 ```
 
-Usage registra provider/operação/requests/bytes/units/cost/latency/cache, mas rejeita `grantRef` e `decision`. O receipt de efeito continua sendo `ordax.action-receipt/1`.
+`ordax.web.usage/1` registra provider/operação/requests/bytes/units/cost/latency/cache. `ordax.web-operation-receipt/1` liga esse usage ao `resourceRef`, status e hashes das fontes normalizadas sem carregar authority. O receipt canônico do side effect continua sendo `ordax.action-receipt/1`.
 
 ## G0 — owner audit
 
@@ -77,7 +78,7 @@ Usage registra provider/operação/requests/bytes/units/cost/latency/cache, mas 
 
 ## G1 — contract/policy foundation
 
-**PARTIAL PASS_SOURCE / REMOTE EGRESS BLOCKED.**
+**ADVANCED PASS_SOURCE / REMOTE EGRESS BLOCKED.**
 
 Já concluído:
 
@@ -85,19 +86,20 @@ Já concluído:
 - source trust/provenance;
 - provider interface/router;
 - deterministic action projection;
-- usage separado de authority receipt;
+- usage canônico separado de authority receipt;
+- `ordax.web-operation-receipt/1` para resultado/auditoria de domínio sem authority;
+- vocabulário inicial `succeeded|partial|failed`, `errorCode` e fallback no usage;
 - fail-closed proof do Gateway atual;
 - workflow Node path-scoped;
 - documentação canônica atualizada.
 
 Falta para G1 fechar:
 
-1. SEC-001 E1 — grant explícito de egress verde em CI;
-2. SEC-001 E2 — Action Gateway integrar esse grant mantendo ausência/revogação fail-closed;
-3. SEC-001 E3 — Action Executor revalidar imediatamente antes do adapter;
-4. error/degraded vocabulary;
-5. minimização/redaction de query/metadata;
-6. prova canônica após CI-001 remover QEMU desnecessário de contracts/services high-level.
+1. integrar/validar SEC-001 E1, cuja authority foundation já existe em branch dedicada;
+2. integrar/validar SEC-001 E2, cujo binding ao Action Gateway já existe em branch dedicada;
+3. fechar SEC-001 E3: o Action Executor já revalida antes do adapter, mas o adapter hoje recebe apenas `request`; egress precisa de um execution-context genérico mínimo para impor destinos/budgets aprovados sem colocar authority no Web request nem criar um segundo executor;
+4. minimização/redaction de query/metadata;
+5. prova canônica após CI-001 remover QEMU desnecessário de contracts/services high-level.
 
 Nenhum provider remoto entra antes disso.
 
@@ -188,8 +190,8 @@ Action Executor = revalida/executa
 ## Ordem de execução atual
 
 1. mergear CI-001 para eliminar QEMU em contracts/services high-level;
-2. validar/mergear SEC-001 E1;
-3. implementar SEC-001 E2/E3;
-4. validar o slice WEB de projeção/usage sobre essa autoridade;
+2. validar/mergear as foundations SEC-001 E1/E2 já existentes;
+3. fechar SEC-001 E3 com execution-context mínimo + prova de revogação imediatamente antes do adapter;
+4. validar o slice WEB de projeção/usage/operation-receipt sobre essa autoridade;
 5. criar G2 harness;
 6. só então habilitar primeiro provider remoto.
