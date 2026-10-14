@@ -11,6 +11,8 @@ DEV_CORE = ROOT / "bootstrap" / "base" / "alpine_core.py"
 BASE_RUNTIME_POLICY = ROOT / "bootstrap" / "base" / "runtime_policy.py"
 DEV_BUILD = ROOT / "bootstrap" / "dev-base" / "build.py"
 STABLE_SOURCE = ROOT / "bootstrap" / "stable-base" / "source.json"
+INDEPENDENT_SOURCE = ROOT / "bootstrap" / "independent-base" / "source.json"
+INDEPENDENT_DEFCONFIG = ROOT / "bootstrap" / "independent-base" / "configs" / "ordax_minimal_defconfig"
 SURFACE = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 
 
@@ -77,6 +79,36 @@ class ThirdPartyInventoryTests(unittest.TestCase):
             item["promotion_status"],
             "blocked-until-source-and-package-locks",
         )
+
+    def test_independent_base_input_matches_pinned_buildroot_profile(self):
+        source = json.loads(INDEPENDENT_SOURCE.read_text(encoding="utf-8"))
+        profile = INDEPENDENT_DEFCONFIG.read_text(encoding="utf-8")
+        item = self.by_id["independent-buildroot-base-candidate"]
+
+        self.assertEqual(
+            item["source_authority"],
+            "bootstrap/independent-base/source.json",
+        )
+        self.assertEqual(source["$schema"], "prototype-ordax.independent-base-experiment/1")
+        self.assertEqual(source["status"], "experimental-not-promotable")
+        self.assertRegex(source["buildroot"]["version"], r"^[0-9]{4}[.][0-9]{2}$")
+        self.assertRegex(source["buildroot"]["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(source["build_profile"], "ordax_minimal_defconfig")
+        self.assertTrue(source["candidate_only"])
+        self.assertFalse(source["physical_artifact_authorized"])
+        self.assertFalse(source["stable_channel_authorized"])
+        self.assertEqual(item["promotion_status"], source["status"])
+        self.assertEqual(
+            item["delivery_scope"],
+            ["independent-base-experimental-candidate"],
+        )
+        self.assertIn("BR2_PACKAGE_IPROUTE2=y", profile)
+        self.assertIn(
+            'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"',
+            profile,
+        )
+        for duplicated in ("version", "url", "sha256", "packages"):
+            self.assertNotIn(duplicated, item)
 
     def test_native_surface_runtime_matches_apk_request(self):
         text = SURFACE.read_text(encoding="utf-8")
