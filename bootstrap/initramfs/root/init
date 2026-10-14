@@ -17,14 +17,104 @@ mount -t proc proc /proc || rescue "cannot mount /proc"
 mount -t sysfs sysfs /sys || rescue "cannot mount /sys"
 mount -t devtmpfs devtmpfs /dev || rescue "cannot mount /dev"
 
+CMDLINE=" $(cat /proc/cmdline 2>/dev/null || true) "
 RECOVERY_MODE=0
-case " $(cat /proc/cmdline 2>/dev/null || true) " in
+OWNER_DEVELOPMENT=0
+case "$CMDLINE" in
     *" ordax.mode=recovery "*) RECOVERY_MODE=1 ;;
 esac
+case "$CMDLINE" in
+    *" ordax.distribution_profile=owner-development "*) OWNER_DEVELOPMENT=1 ;;
+esac
 
-ORDAX_DEVICE="$(findfs LABEL=ORDAX 2>/dev/null || true)"
-case "$ORDAX_DEVICE" in
-    "") rescue "ORDAX partition not found" ;;
+discover_owner_development_device() {
+    ORDAX_DEVICE=""
+    ORDAX_DEVICE_MATCHES=0
+
+    for sys in /sys/class/block/*; do
+        case "$(cat "$sys/partition" 2>/dev/null || true)" in
+            2) ;;
+            *) continue ;;
+        esac
+        case "$(cat "$sys/../removable" 2>/dev/null || true)" in
+            1) ;;
+            *) continue ;;
+        esac
+
+        name=${sys##*/}
+        identity="$(blkid "/dev/$name" 2>/dev/null || true)"
+        case "$identity" in
+            *'LABEL="ORDAX"'*) ;;
+            *) continue ;;
+        esac
+        case "$identity" in
+            *'TYPE="ext4"'*) ;;
+            *) continue ;;
+        esac
+
+        parent_dev="$(cat "$sys/../dev" 2>/dev/null || true)"
+        case "$parent_dev" in
+            "") continue ;;
+        esac
+
+        esp_matches=0
+        for esp_sys in /sys/class/block/*; do
+            case "$(cat "$esp_sys/partition" 2>/dev/null || true)" in
+                1) ;;
+                *) continue ;;
+            esac
+            case "$(cat "$esp_sys/../dev" 2>/dev/null || true)" in
+                "$parent_dev") ;;
+                *) continue ;;
+            esac
+
+            esp_name=${esp_sys##*/}
+            esp_identity="$(blkid "/dev/$esp_name" 2>/dev/null || true)"
+            case "$esp_identity" in
+                *'LABEL="ORDAX-ESP"'*) ;;
+                *) continue ;;
+            esac
+            case "$esp_identity" in
+                *'TYPE="vfat"'*) ;;
+                *) continue ;;
+            esac
+            esp_matches=$((esp_matches + 1))
+        done
+
+        case "$esp_matches" in
+            1) ;;
+            *) continue ;;
+        esac
+
+        ORDAX_DEVICE_MATCHES=$((ORDAX_DEVICE_MATCHES + 1))
+        ORDAX_DEVICE="/dev/$name"
+    done
+}
+
+case "$OWNER_DEVELOPMENT" in
+    1)
+        attempts=0
+        while :; do
+            discover_owner_development_device
+            case "$ORDAX_DEVICE_MATCHES" in
+                1) break ;;
+                0)
+                    attempts=$((attempts + 1))
+                    case "$attempts" in
+                        10) rescue "owner-development USB root not found on exactly one removable ORDAX/ORDAX-ESP device" ;;
+                    esac
+                    sleep 1
+                    ;;
+                *) rescue "multiple owner-development USB roots detected; refusing ambiguous writable mount" ;;
+            esac
+        done
+        ;;
+    *)
+        ORDAX_DEVICE="$(findfs LABEL=ORDAX 2>/dev/null || true)"
+        case "$ORDAX_DEVICE" in
+            "") rescue "ORDAX partition not found" ;;
+        esac
+        ;;
 esac
 
 enter_recovery() {
