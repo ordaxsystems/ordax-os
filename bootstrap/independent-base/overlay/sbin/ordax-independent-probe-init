@@ -38,6 +38,23 @@ if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/netw
 else
     rescue dhcp
 fi
+# Provisioning proof only: QEMU has no supported Wi-Fi adapter attached here.
+# Execute the actual target binaries so a missing/broken userspace cannot be
+# mistaken for hardware Wi-Fi proof.
+iw_version=$(/usr/sbin/iw --version 2>&1) || rescue wifi-iw-version
+case "$iw_version" in
+    "iw version "*) ;;
+    *) rescue wifi-iw-identity ;;
+esac
+wpa_version=$(/usr/sbin/wpa_supplicant -v 2>&1) || rescue wifi-wpa-supplicant-version
+case "$wpa_version" in
+    "wpa_supplicant v"*) ;;
+    *) rescue wifi-wpa-supplicant-identity ;;
+esac
+test -s /etc/ssl/certs/ca-certificates.crt || rescue ca-bundle
+grep -q -- '-----BEGIN CERTIFICATE-----' /etc/ssl/certs/ca-certificates.crt || rescue ca-bundle-format
+echo ORDAX_INDEPENDENT_WIFI_USERSPACE=READY
+echo ORDAX_INDEPENDENT_CA_BUNDLE=READY
 # Functional Surface parity proof happens only inside this disposable guest.
 # Never run this mutation on the CI host.
 if /sbin/ip address replace 127.0.0.1/8 dev lo; then
