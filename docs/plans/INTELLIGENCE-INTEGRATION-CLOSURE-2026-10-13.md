@@ -2,7 +2,7 @@
 
 Status: execution plan for the current integration gap. This document does not grant runtime authority and does not replace `docs/INTELLIGENCE.md`, `docs/CURRENT-STATE.md`, `PERSONAL-ORDAX.md`, or canonical contracts.
 
-Tracking: issue #1757. Implementation slice: PR #1756.
+Tracking: issue #1757. Phase 1 merged in PR #1756. Phase 2 transport-boundary work continues separately.
 
 ## Goal
 
@@ -75,7 +75,7 @@ Acceptance: provider route is enabled only after adapter + policy + consent + E2
 
 ## Phase 1 implementation record
 
-PR #1756 currently implements the boundary without enabling any remote provider:
+PR #1756 implements the boundary without enabling any remote provider and is merged into `main`:
 
 - `system/adapters/web/intelligence.mjs` owns the honest fail-closed Web adapter; it implements the existing contract without modifying it;
 - `system/surface/workspace/lib/intelligence/client.mjs` is a thin provider-neutral presentation client, validates canonical requests/responses and suppresses only semantically duplicate status notifications;
@@ -91,18 +91,34 @@ The first CI attempts exposed real integration issues and they were corrected at
 2. Placing a Web fallback helper in the public contract made the App SDK bundle stale. The helper moved to the Web adapter and `system/contracts/intelligence.mjs` returned to the unchanged public contract.
 3. Chromium exposed a React `Maximum update depth` loop: validation created a new snapshot object on every immediate subscription event. The client now retains snapshot identity until canonical fields change and does not synthesize an extra subscription notification. A regression test covers repeated-equivalent and real state transitions.
 
-`Intelligence Foundation` is green on the stabilized client head. The canonical Surface Web candidate also passed deterministic build and the real Chromium smoke after the strict provenance digests were reconciled. Later cleanup/main-sync heads remain subject to the same canonical workflows before merge; an earlier green head is never reused as proof for changed source.
+The final synchronized Phase 1 head passed Intelligence Foundation, Foundation Contract, Release Pipeline, Surface Web including real Chromium, Portable Release Image, USB mount handoff and the portable QEMU boot proof before merge. Earlier green heads were not reused after source/main synchronization.
+
+## Phase 2 source-boundary record
+
+The first Phase 2 slice intentionally stops before product activation:
+
+- `system/adapters/web/intelligence-remote.mjs` projects an **injected** authenticated remote transport into the existing `ordax.intelligence/1` port. It does not discover an endpoint, call `fetch()`, store credentials, choose a provider, import Native adapters, read Memory or infer a target;
+- every request requires an explicit authenticated subject and target device plus explicit `spaceId` and `projectId` fields (`null` is explicit absence). Context is hierarchical and deliberately distinct from a transport owner's grant shape: account/device (`null/null`), Space (`space/null`) and Space+project are valid; a project without an explicit Space is rejected. The adapter never silently selects or retargets a device/Space/project;
+- the remote envelope carries only the validated canonical Intelligence request and that bound context. A result must echo the same context and is rejected if the current context changed while the request was pending;
+- requests are dispatched once. Cancellation is forwarded only as an `AbortSignal`; the adapter does not retry/replay or claim that a remote backend stopped computation;
+- remote responses still pass `validateIntelligenceResponse`, preserving `authority=none`; provider-specific extras never become Surface authority;
+- repeated equivalent remote status snapshots preserve object identity and do not synthesize React churn;
+- `system/composition/web/main.tsx` deliberately remains on `createUnavailableWebIntelligencePort()`. The regression suite fails if the remote adapter is composed before a supported transport owner exists.
+
+Cross-repository audit before this slice found no production remote Intelligence endpoint to reuse. The closed, unmerged Runtime PR #63 was DEV-only and is not a production transport. `ordax-platform` documents the existing Control Plane/Product remote path and requires public authenticated transport, exact client/device binding, explicit context/egress authorization, bounded provenance, account/Space continuity and no silent retarget/replay before remote OS Intelligence can be advertised. Runtime's current Product invocation boundary likewise requires verified subject/device/Space context plus a device-bound grant. Product grant scope is an authorization concern of that transport owner and must not be copied into the Intelligence presentation-context contract. A later Phase 2 slice must compose those owners or another explicitly approved public transport; this adapter alone is not deployment or E2E proof.
 
 ## Cleanup audit
 
 The old Intelligence WebShell/demo graph is not mounted by `system/composition/web/main.tsx`, but it is not yet safe to delete as a blind cleanup: `tests/test_surface_web_builder.py` still treats `components/web/shell.tsx` as part of its builder/source contract, and that shell owns the old `IntelligenceSessionProvider` chain. Therefore Phase 1 removes the obsolete **active verifier dependency** on the hardcoded `503`, while retirement of the old shell/session/demo graph remains a deliberate Phase 5 migration with builder/provenance updates and replacement coverage. This prevents both parallel active paths and destructive cleanup by filename/age. After the canonical WindowContent -> AuraContent route passed the real Chromium smoke, the unreachable duplicate Aura presentation branch in `DesktopContent` was removed with regression coverage; the preserved WebShell/session/demo graph was intentionally left intact.
 
-## Explicitly not implemented by Phase 1
+## Explicitly not implemented by the current Phase 2 source slice
 
-- supported Web inference transport;
+- a public/deployed Web Intelligence endpoint;
+- target/device discovery or automatic target selection;
+- server-side grant issuance, egress authorization or Memory projection;
 - ChatGPT/OpenAI/xAI provider adapters;
 - provider credentials or provider selection in Surface;
 - voice or file input;
-- remote Memory/context transport;
-- new grants, tool authority or background autonomy;
+- new tool authority or background autonomy;
+- credentialed remote E2E;
 - Stable/MVP physical proof.
