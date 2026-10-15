@@ -82,14 +82,30 @@ def kernel_version() -> str:
     return version
 
 
+def kernel_series_symbol(version: str) -> str:
+    major, minor, _ = version.split(".")
+    return f"BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_{major}_{minor}=y"
+
+
 def rendered_config() -> str:
     if not BASE_CONFIG.is_file():
         raise ConfigError("Independent Surface base defconfig missing")
     text = BASE_CONFIG.read_text(encoding="utf-8")
-    if "BR2_KERNEL_HEADERS_VERSION=" in text or "BR2_DEFAULT_KERNEL_VERSION=" in text:
+    if (
+        "BR2_KERNEL_HEADERS_VERSION=" in text
+        or "BR2_DEFAULT_KERNEL_VERSION=" in text
+        or "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_" in text
+    ):
         raise ConfigError("kernel header identity must not be duplicated in source defconfig")
     version = kernel_version()
-    return text.rstrip() + "\nBR2_KERNEL_HEADERS_VERSION=y\n" + f'BR2_DEFAULT_KERNEL_VERSION="{version}"\n'
+    series = kernel_series_symbol(version)
+    return (
+        text.rstrip()
+        + "\nBR2_KERNEL_HEADERS_VERSION=y\n"
+        + f'BR2_DEFAULT_KERNEL_VERSION="{version}"\n'
+        + series
+        + "\n"
+    )
 
 
 def materialize(destination: Path) -> None:
@@ -107,7 +123,8 @@ def verify_resolved(config: Path) -> None:
         raise ConfigError(f"resolved Buildroot config missing: {config}")
     text = config.read_text(encoding="utf-8")
     expected_version = f'BR2_DEFAULT_KERNEL_VERSION="{version}"'
-    missing = [marker for marker in (*REQUIRED_RESOLVED, expected_version) if marker not in text]
+    series = kernel_series_symbol(version)
+    missing = [marker for marker in (*REQUIRED_RESOLVED, expected_version, series) if marker not in text]
     if missing:
         raise ConfigError(f"resolved Buildroot config lost required Surface/kernel settings: {missing}")
     if "BR2_STATIC_LIBS=y" in text:
@@ -120,7 +137,12 @@ def preflight(cache: Path) -> None:
         raise ConfigError("materialized Surface defconfig is missing")
     text = BASE_CONFIG.read_text(encoding="utf-8")
     version = kernel_version()
-    if "BR2_KERNEL_HEADERS_VERSION=y" not in text or f'BR2_DEFAULT_KERNEL_VERSION="{version}"' not in text:
+    series = kernel_series_symbol(version)
+    if (
+        "BR2_KERNEL_HEADERS_VERSION=y" not in text
+        or f'BR2_DEFAULT_KERNEL_VERSION="{version}"' not in text
+        or series not in text
+    ):
         raise ConfigError("Surface defconfig was not materialized from canonical kernel SSOT")
 
     builder = load_builder()
