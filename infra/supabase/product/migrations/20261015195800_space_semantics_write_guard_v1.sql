@@ -34,7 +34,7 @@ end;
 $$;
 
 revoke all on function private.ordax_enforce_space_semantics_write_v1()
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 
 drop trigger if exists ordax_spaces_semantics_write_guard on public.ordax_spaces;
 create trigger ordax_spaces_semantics_write_guard

@@ -60,6 +60,7 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn("if tg_op = 'insert'", sql)
         self.assertIn("new.domain is null or new.subtype is null", sql)
         self.assertIn("errcode = '23514'", sql)
+        self.assertIn("from public, anon, authenticated, service_role;", sql)
         self.assertIn("before insert or update of domain, subtype on public.ordax_spaces", sql)
         self.assertIn("old.domain is not null", sql)
         self.assertIn("old.subtype is not null", sql)
