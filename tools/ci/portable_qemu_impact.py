@@ -7,10 +7,9 @@ runtime import graph and is not a known host/boot owner.
 
 GitHub evaluates ``paths`` against the whole pull request and starts a workflow
 when at least one changed file matches. Once running, however, ``git diff`` sees
-*all* files in that pull request. The classifier must therefore discard files
-that are outside this workflow's trigger scope before applying the heavy/light
-policy; otherwise an unrelated doc/test beside one lightweight ``system/**``
-change falsely turns into a Stable QEMU rebuild.
+*all* files in that pull request. The classifier therefore derives its scope
+from the workflow YAML itself and discards files that could not trigger this
+workflow before applying the heavy/light policy.
 """
 from __future__ import annotations
 
@@ -27,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE_COMPOSITION_INDEX = Path("system/composition/native/index.html")
 NATIVE_COMPOSITION_MAIN = Path("system/composition/native/main.mjs")
 NATIVE_BROWSER_HOST = Path("system/surface/runtime/ordax_browser_host.py")
+QEMU_WORKFLOW = Path(".github/workflows/portable-v2-qemu-boot-proof.yml")
 
 PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
@@ -70,59 +70,6 @@ ALWAYS_HEAVY_PREFIXES = (
     "system/surface/runtime/",
     "system/composition/native/",
 )
-
-# Keep this boundary equivalent to the positive/non-presentation path scope in
-# .github/workflows/portable-v2-qemu-boot-proof.yml. It is intentionally not a
-# permissive "light" allowlist: it only decides which files belong to this
-# workflow at all. classify_paths() remains fail-closed for files inside it.
-WORKFLOW_SCOPE_EXACT = {
-    "bootstrap/entrypoint",
-    "bootstrap/recovery/entrypoint",
-    "bootstrap/config/release-envelope-url",
-    "docs/contracts/minimal-bootstrap.json",
-    "docs/contracts/portable-v2-qemu-boot-proof.json",
-    "docs/contracts/portable-v2-uefi-boot-proof.json",
-    "docs/contracts/portable-v3-cold-health-qemu-proof-spec.json",
-    "docs/contracts/portable-bootstrap-v2.json",
-    "docs/contracts/portable-boot-handoff.json",
-    "docs/MINIMAL-USB-BOOTSTRAP.md",
-    "tests/test_bootstrap_current_verification.py",
-    "tests/test_portable_verified_boot_selection.py",
-    "tests/test_portable_media_discovery.py",
-    "tests/test_portable_activation_state_helper.py",
-    "tests/test_portable_exact_runtime_handoff.py",
-    "tests/test_portable_v2_qemu_boot_proof_contract.py",
-    "tests/test_initramfs_upstream_authentication.py",
-    "tests/test_portable_qemu_kernel_source_ssot.py",
-    "tests/test_kernel_ci_env.py",
-    "tests/test_portable_v2_uefi_boot_proof_contract.py",
-    "tests/test_portable_v3_cold_health_qemu_proof.py",
-    "tests/test_stable_release_activation_transaction.py",
-    "tests/test_portable_v4_ai_handoff_contract.py",
-    "tests/test_portable_component_cache.py",
-    "tests/test_portable_component_reuse_workflow.py",
-    "tools/ci/portable_component_cache.py",
-    "tools/ci/portable_qemu_impact.py",
-    "tests/test_portable_qemu_impact.py",
-    ".github/workflows/portable-v2-qemu-boot-proof.yml",
-}
-WORKFLOW_SCOPE_PREFIXES = (
-    "bootstrap/base/",
-    "bootstrap/kernel/",
-    "bootstrap/stable-base/",
-    "bootstrap/surface-runtime/",
-    "bootstrap/local-ai-runtime/",
-    "bootstrap/initramfs/",
-    "bootstrap/portable-v2/",
-    "bootstrap/release-acquisition/",
-    "tools/release-bundle/",
-    "tools/portable-release-image/",
-    "tools/release-manifest/",
-    "tools/release-signing/",
-    "boot/portable-v2/",
-    "boot/esp/",
-)
-
 IMPORT_RE = re.compile(
     r"(?:^|\n)\s*(?:import|export)\s+(?:[^\"']*?\s+from\s+)?[\"'](\.[^\"']+)[\"']"
     r"|import\s*\(\s*[\"'](\.[^\"']+)[\"']\s*\)",
@@ -132,6 +79,7 @@ BROWSER_NATIVE_IMPORT_RE = re.compile(
     r"[\"'](/composition/native/[^\"'?#\s]+\.(?:mjs|js))[\"']"
 )
 IMPORT_EXTENSIONS = (".mjs", ".js", ".cjs", ".json")
+WORKFLOW_PATH_ITEM_RE = re.compile(r"^ {6}-\s+(['\"])(.+)\1\s*$")
 
 
 @dataclass(frozen=True)
@@ -168,53 +116,102 @@ def _is_presentation_light(path: str) -> bool:
     return path.endswith(".md") or path.startswith(PRESENTATION_LIGHT_PREFIXES)
 
 
-def _in_workflow_scope(path: str) -> bool:
-    """Mirror the Portable/QEMU workflow trigger for one normalized path."""
-    if path in WORKFLOW_SCOPE_EXACT:
-        return True
+def workflow_path_patterns(root: Path = ROOT) -> tuple[str, ...]:
+    """Return the single canonical push/PR path scope from the workflow YAML.
 
-    if path.startswith("system/"):
-        if path.endswith(".md"):
-            return False
-        if path.startswith(PRESENTATION_LIGHT_PREFIXES):
-            return False
-        return True
+    The workflow intentionally duplicates its path list for ``push`` and
+    ``pull_request``. Both blocks must remain byte-for-byte equivalent here;
+    drift makes impact classification fail closed instead of guessing.
+    """
+    workflow = root / QEMU_WORKFLOW
+    try:
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"workflow-unreadable:{type(exc).__name__}") from exc
 
-    if path.startswith("bootstrap/kernel/"):
-        if path.startswith("bootstrap/kernel/candidates/"):
-            return False
-        if path in {
-            "bootstrap/kernel/candidate_pipeline.py",
-            "bootstrap/kernel/update_engine.py",
-        }:
-            return False
-        if path.endswith(".md"):
-            return False
-        return True
+    blocks: list[tuple[str, ...]] = []
+    index = 0
+    while index < len(lines):
+        if lines[index] != "    paths:":
+            index += 1
+            continue
+        index += 1
+        patterns: list[str] = []
+        while index < len(lines):
+            line = lines[index]
+            if not line.strip():
+                index += 1
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= 4:
+                break
+            match = WORKFLOW_PATH_ITEM_RE.fullmatch(line)
+            if match is None:
+                raise ValueError(f"unsupported-workflow-path-line:{index + 1}")
+            patterns.append(match.group(2))
+            index += 1
+        if not patterns:
+            raise ValueError("empty-workflow-path-block")
+        blocks.append(tuple(patterns))
 
-    if path.startswith("bootstrap/surface-runtime/") and path.endswith(".md"):
-        return False
-    if path.startswith("bootstrap/release-acquisition/") and path.endswith(".md"):
-        return False
-
-    if path.startswith("tools/release-signing/"):
-        if path.startswith("tools/release-signing/windows/"):
-            return False
-        if path.startswith("tools/release-signing/cmd/ordax-physical-release-signing/"):
-            return False
-        if path in {
-            "tools/release-signing/promote_public_trust.py",
-            "tools/release-signing/README.md",
-        }:
-            return False
-        return True
-
-    return path.startswith(WORKFLOW_SCOPE_PREFIXES)
+    if len(blocks) != 2:
+        raise ValueError(f"expected-two-workflow-path-blocks:found-{len(blocks)}")
+    if blocks[0] != blocks[1]:
+        raise ValueError("push-pull-workflow-path-scope-drift")
+    return blocks[0]
 
 
-def workflow_scoped_paths(paths: Iterable[str]) -> tuple[str, ...]:
+def _github_glob_regex(pattern: str) -> re.Pattern[str]:
+    """Compile the bounded glob syntax currently used by this workflow."""
+    if not pattern or pattern.startswith("!"):
+        raise ValueError("glob-pattern-must-be-positive")
+    out = ["^"]
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            if index + 1 < len(pattern) and pattern[index + 1] == "*":
+                index += 2
+                if index < len(pattern) and pattern[index] == "/":
+                    out.append("(?:.*/)?")
+                    index += 1
+                else:
+                    out.append(".*")
+                continue
+            out.append("[^/]*")
+        elif char == "?":
+            out.append("[^/]")
+        elif char in "[]{}":
+            # The current workflow does not use character classes or brace
+            # expansion. Reject future syntax until matching semantics are added.
+            raise ValueError(f"unsupported-workflow-glob-syntax:{char}")
+        else:
+            out.append(re.escape(char))
+        index += 1
+    out.append("$")
+    return re.compile("".join(out))
+
+
+def _path_matches_workflow(path: str, patterns: tuple[str, ...]) -> bool:
+    matched = False
+    for raw_pattern in patterns:
+        negative = raw_pattern.startswith("!")
+        pattern = raw_pattern[1:] if negative else raw_pattern
+        if _github_glob_regex(pattern).fullmatch(path):
+            matched = not negative
+    return matched
+
+
+def workflow_scoped_paths(paths: Iterable[str], *, root: Path = ROOT) -> tuple[str, ...]:
+    patterns = workflow_path_patterns(root)
     normalized = {_normalise_path(raw) for raw in paths}
-    return tuple(sorted(path for path in normalized if path and _in_workflow_scope(path)))
+    return tuple(
+        sorted(
+            path
+            for path in normalized
+            if path and _path_matches_workflow(path, patterns)
+        )
+    )
 
 
 def _path_inside_root(candidate: Path, root: Path) -> Path | None:
@@ -370,8 +367,16 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
 
 
 def classify_workflow_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
-    """Classify only the files that belong to this workflow's GitHub path scope."""
-    scoped = workflow_scoped_paths(paths)
+    """Classify only files that belong to the workflow's canonical YAML scope."""
+    changed = tuple(sorted({p for raw in paths if (p := _normalise_path(raw))}))
+    try:
+        scoped = workflow_scoped_paths(changed, root=root)
+    except Exception as exc:
+        return ImpactResult(
+            True,
+            (f"workflow-scope:{type(exc).__name__}:{exc}",),
+            changed,
+        )
     if not scoped:
         return ImpactResult(False, ("outside-workflow-scope-only",), scoped)
     return classify_paths(scoped, root=root)
