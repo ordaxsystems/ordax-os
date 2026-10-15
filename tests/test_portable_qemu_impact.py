@@ -106,6 +106,18 @@ class PortableQemuImpactTests(unittest.TestCase):
         result = impact.classify_paths(["system/surface/ui/network-quick-panel.mjs"], root=ROOT)
         self.assertFalse(result.required)
 
+    def test_surface_presentation_regression_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(
+            [
+                "system/composition/native/index.html",
+                "system/surface/ui/boot-screen.mjs",
+                "tests/test_surface_boot_screen.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
     def test_boot_host_and_unknown_system_root_fail_closed(self):
         boot = impact.classify_paths(["system/entrypoint"], root=ROOT)
         unknown = impact.classify_paths(["system/new-kernel-facing-owner/config.bin"], root=ROOT)
