@@ -72,3 +72,30 @@ agent's presentation tab after QA; external/user data was untouched.
 ![Lock screen](lock.jpg)
 
 ![Quick settings on mobile](quick-settings-mobile.jpg)
+
+## Maintenance screens follow-up — 2026-10-15
+
+Power, update and recovery presentation follows the Meridian material identity.
+All labels and operation outcomes in these pages remain mocked/in-memory, even
+though product-facing UI omits study notices at the user's request. No packages
+were downloaded, system restarted/shut down, disk written or recovery executed.
+
+Validation: seven pure navigation regressions passed; both edited MJS files pass
+syntax checks. A structural comparison against the prior commit confirmed equal
+screen keys, next/actions/conditions/links, confirmation gates, exits and effects
+for all three journeys. Browser checks covered update consent, download pause and
+resume, integrity rejection, restart deferral and fresh consent, and completion;
+recovery consent, failure/retry and completion; both power confirmation gates and
+mock shutdown completion. No captured browser warnings/errors. Power/recovery at
+390x844 had no document horizontal overflow; the power dialog measured 388 px.
+Mobile stage marker widths were checked after fixing narrow flex sizing. Temporary
+viewport overrides were reset. These checks do not establish physical OS behavior,
+production backend integration or full accessibility acceptance.
+
+![System update](update.jpg)
+
+![Recovery](recovery.jpg)
+
+![Power on mobile](power-mobile.jpg)
+
+![Recovery on mobile](recovery-mobile.jpg)

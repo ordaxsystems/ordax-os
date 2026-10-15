@@ -264,3 +264,15 @@
 [data-meridian] .md-dialog--settings .md-journey-layout{grid-template-columns:160px minmax(0,1fr);}
 [data-meridian] .md-dialog--settings .md-journey-trail{padding:26px 20px;}
 @media(max-width:650px){[data-meridian] .md-dialog--settings{width:100%;}[data-meridian] .md-dialog--settings .md-journey-layout{display:block;}}
+
+/* Product presentation for mocked system maintenance journeys. */
+[data-meridian] .md-operation-trail .md-hint{font-size:12px;line-height:1.7;color:var(--md-muted);margin-top:28px}
+[data-meridian] .md-journey[data-story="power"] .md-journey-actions .md-button{flex:1;justify-content:center;border:1px solid var(--md-border-strong)}
+@media(max-width:650px){
+ [data-meridian] .md-operation-trail{padding:16px 20px}
+ [data-meridian] .md-operation-trail> :is(.md-eyebrow,.md-hint){display:none}
+ [data-meridian] .md-operation-trail ol{display:flex;gap:10px;justify-content:space-between;margin:0}
+ [data-meridian] .md-operation-trail li{flex-direction:column;align-items:center;text-align:center;gap:6px;flex:1;min-width:0;font-size:10px;padding:0}
+ [data-meridian] .md-operation-trail li span{width:23px}
+ [data-meridian] .md-operation-trail li p{display:block;overflow-wrap:anywhere}
+}

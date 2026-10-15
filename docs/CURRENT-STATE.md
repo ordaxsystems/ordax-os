@@ -1,5 +1,11 @@
 # Current State
 
+Meridian maintenance presentation (2026-10-15): power, update and recovery now
+use product-facing copy, compact stage navigation, specific progress labels and
+responsive layouts. All previous mocked transitions/confirmations/errors remain;
+no updater, disk operation or host power command was connected.
+[Scope](DESKTOP-IDENTITY.md#meridian-maintenance-presentation--2026-10-15).
+
 Meridian quick controls (2026-10-15): the isolated product-view panel now includes
 Wi-Fi/focus/DND/appearance tiles, existing brightness/volume state, compact settings
 review and a refreshed lock page. In-memory network apply/undo remains explicitly

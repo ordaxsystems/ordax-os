@@ -256,3 +256,7 @@ in the selected definition; all later transitions remain guarded by navigation.
 The normal shell omits lab controls and example labels in the header/tray. Use
 `/?review=1` (also combinable with other parameters) to expose the existing review
 marker/scenario controls. These controls and scenarios are retained, not deleted.
+
+Maintenance presentation links: `/?journey=update`, `/?journey=power` and
+`/?journey=recovery&material=ink`. These remain the same injected storyboard
+mocks, with product-facing copy and no real update/power/recovery actions.

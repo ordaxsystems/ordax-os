@@ -1674,3 +1674,23 @@ Lock presentation uses the same existing visual lock/unlock handlers and retains
 open windows/drafts. It does not become an OS lock, authentication credential or
 media encryption. The source still collects no credentials and the host CSP/device
 restrictions are unchanged. UI changes preserve all mocked system destinations.
+
+### Meridian maintenance presentation — 2026-10-15
+
+The user-authorized product presentation now covers power/session, system update
+and recovery. Lab/owner/editorial wording is removed from those three screen
+catalogues, without assigning invented product versions or delivery numbers.
+Package size, capacity, incident and success states remain fictional fixtures in
+the injected demo composition. They are not runtime observations or published releases.
+
+Compact grouped navigation replaces growing visited-title lists for these flows.
+Progress describes the current phase, recovery has its own header/return action,
+and restart review includes the existing session window/draft counts. Confirmations,
+pause/resume, deferral, integrity rejection, failed health, rollback, missing media,
+repair guidance, back/retry and completion paths remain intact. At narrow widths,
+stages retain readable labels and fixed-size number markers.
+
+No production UI, backend, command executor, real updater, device control or disk
+operation is introduced. CSP and loopback host restrictions remain unchanged.
+Evidence and bounded validation are recorded in
+`docs/evidence/meridian-system-pages-2026-10-14/README.md`.
