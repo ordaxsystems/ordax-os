@@ -1,0 +1,71 @@
+name: Independent Surface Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/independent-surface-runtime/**'
+      - 'tests/test_independent_surface_runtime.py'
+      - '.github/workflows/independent-surface-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate Alpine-free Surface migration contract
+        run: |
+          python3 -m unittest tests.test_independent_surface_runtime -v
+          python3 -m py_compile bootstrap/independent-surface-runtime/build.py
+          python3 bootstrap/independent-surface-runtime/build.py check
+
+  buildroot-surface:
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install only Surface Buildroot host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc perl bison flex gawk cpio unzip rsync file \
+            wget curl patch git xz-utils erofs-utils util-linux
+      - name: Build and verify Buildroot/musl Surface runtime
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 bootstrap/independent-surface-runtime/build.py build \
+            --out "$RUNNER_TEMP/ordax-independent-surface" \
+            --cache "$RUNNER_TEMP/ordax-independent-surface-cache" \
+            --jobs 4
+          python3 bootstrap/independent-surface-runtime/build.py verify \
+            --out "$RUNNER_TEMP/ordax-independent-surface"
+      - name: Upload candidate evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-independent-surface-runtime-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/ordax-independent-surface/provenance.json
+            ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime-buildroot.erofs
+          if-no-files-found: warn
+          retention-days: 7
