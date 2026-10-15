@@ -18,6 +18,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | PERSONAL-001 | plano de execução | `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` | conforme canônicos | READY | DEFERRED FOR EXECUTION | Owner canônico: `docs/PERSONAL-ORDAX.md`; preservar fases futuras sem executá-las agora |
 | NETWORK-001 | plano de produto | `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` | conforme `MVP.md`/contracts | REFERENCE | DEFERRED FOR EXECUTION como plano; requisitos reais do MVP seguem owners canônicos | Cabeçalho histórico de “canônico” não altera a hierarquia de `docs/README.md` |
 | INTEL-001 | handoff | `INTELLIGENCE-HANDOFF.md` | transversal | GUIDE | NOT APPLICABLE | Guia de retomada; não substitui contracts/owner de Intelligence |
+| MODE-001 | plano de produto/arquitetura | `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fecha wiring real do OrdaX Web e boundaries Web/Cloud/Device sem fork; candidato fundacional a revalidar cedo no pós-MVP |
 | WEB-001 | pesquisa + roadmap | `reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md` + `plans/WEB-001-WEB-RESEARCH.md` | P1 | READY | **DEFERRED FOR EXECUTION** | Capability provider-neutral preservada para pós-MVP; não boot-critical |
 
 ## Interpretação obrigatória
@@ -42,6 +43,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 ## IDs sugeridos
 
 - `WEB-*`: Web Research / aquisição de conhecimento externo.
+- `MODE-*`: modos de produto, continuidade entre Web/Cloud/Device e resolução de runtime/capability sem forks.
 - `INTEL-*`: Intelligence/model routing.
 - `USB-*`: mídia física/boot/release portátil.
 - `SURFACE-*`: Surface/apps/UI compartilhada.

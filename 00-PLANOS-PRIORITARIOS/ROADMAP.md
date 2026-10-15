@@ -30,6 +30,20 @@ Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.
 
 ## Planos preservados — execução adiada até pós-MVP
 
+### MODE-001 — OrdaX Web, Cloud & Device Runtime
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 para reavaliação pós-MVP
+
+Direção preservada: completar o wiring real do OrdaX Web sobre a mesma Surface, identidade, apps e owners de serviço, com resolução explícita de capabilities entre `web`, `cloud`, `device` e `hybrid`; Files federado; Loja sem lifecycle simulado; Device Agent somente via Action Gateway; cloud compute opcional e provider-neutral.
+
+O plano fecha uma frente de produto já iniciada e, por isso, deve estar entre os primeiros P1 a serem **revalidados** quando a janela pós-MVP abrir. Isso não concede precedência automática nem autoriza implementação antes dessa revalidação.
+
+Plano detalhado: `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`.
+
+Nenhuma fase de implementação de MODE-001 deve ser iniciada antes do fechamento do MVP apenas por causa deste roadmap. Fatias já exigidas por owners canônicos do MVP continuam pertencendo aos respectivos owners.
+
 ### WEB-001 — OrdaX Web Research
 
 - **Status documental:** READY
@@ -64,6 +78,8 @@ Depois que os gates do MVP forem fechados:
 2. revisar itens `READY` e referências ainda relevantes;
 3. escolher a próxima frente por impacto/dependência real;
 4. só então mudar sua elegibilidade para `EXECUTION-ELIGIBLE` e abrir implementação.
+
+Na reavaliação inicial, `MODE-001` merece inspeção antecipada entre os P1 porque consolida boundaries já iniciados de Web/Conta/Loja/Arquivos/Device Agent e pode evitar backends ou mocks paralelos. `WEB-001` continua P1, mas é uma capability aditiva distinta. Essa observação é recomendação de triagem, não fila automática.
 
 Prioridades P1/P2/P3 registradas hoje são **preservação de intenção**, não compromisso automático de sequência futura.
 
