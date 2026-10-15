@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   SPACE_CAPABILITY_PROVIDER_SCHEMA,
   SPACE_CAPABILITY_SNAPSHOT_SCHEMA,
+  assertSpaceCapabilityProvider,
 } from "../system/contracts/space-experience.mjs";
 import { validateSpace } from "../system/contracts/spaces.mjs";
 import {
@@ -32,11 +33,18 @@ function space(overrides = {}) {
   };
 }
 
-function provider(capability, { state = "ready", metrics = {}, auraContext = null, spaceId = null } = {}) {
+function provider(capability, {
+  state = "ready",
+  metrics = {},
+  auraContext = null,
+  spaceId = null,
+  spaceTypes = ["food.pizzeria", "fabrication.3d-printing"],
+} = {}) {
   const listeners = new Set();
   return {
     schema: SPACE_CAPABILITY_PROVIDER_SCHEMA,
     capability,
+    spaceTypes,
     getSnapshot(currentSpace) {
       return {
         schema: SPACE_CAPABILITY_SNAPSHOT_SCHEMA,
@@ -66,6 +74,60 @@ test("food.pizzeria declares only its domain capabilities and ignores foreign pr
   ]);
   assert.deepEqual(experience.capabilities, ["orders"]);
   assert.deepEqual(experience.widgets.map((item) => item.id), ["orders.today"]);
+});
+
+test("capability providers are selected by exact Space type and never leak across domains", () => {
+  let foodCalls = 0;
+  let fabricationCalls = 0;
+  const foodBase = provider("orders", {
+    spaceTypes: ["food.pizzeria"],
+    metrics: { "orders.today": 4 },
+  });
+  const fabricationBase = provider("orders", {
+    spaceTypes: ["fabrication.3d-printing"],
+    metrics: { "orders.today": 9 },
+  });
+  const foodOrders = {
+    ...foodBase,
+    getSnapshot(currentSpace) {
+      foodCalls += 1;
+      return foodBase.getSnapshot(currentSpace);
+    },
+  };
+  const fabricationOrders = {
+    ...fabricationBase,
+    getSnapshot(currentSpace) {
+      fabricationCalls += 1;
+      return fabricationBase.getSnapshot(currentSpace);
+    },
+  };
+
+  const food = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [foodOrders, fabricationOrders]);
+  assert.deepEqual(food.widgets.map((item) => [item.id, item.value]), [["orders.today", 4]]);
+  assert.equal(foodCalls, 1);
+  assert.equal(fabricationCalls, 0);
+
+  const fabrication = composeSpaceExperience(space({ profilePack: "impressao-3d-br" }), [foodOrders, fabricationOrders]);
+  assert.deepEqual(
+    fabrication.widgets.filter((item) => item.id === "orders.today").map((item) => item.value),
+    [9],
+  );
+  assert.equal(foodCalls, 1);
+  assert.equal(fabricationCalls, 1);
+});
+
+test("provider registry rejects overlapping scopes for the same capability", () => {
+  const current = space({ profilePack: "pizzaria-br" });
+  assert.throws(() => composeSpaceExperience(current, [
+    provider("orders", { spaceTypes: ["food.pizzeria"] }),
+    provider("orders", { spaceTypes: ["food.pizzeria", "fabrication.3d-printing"] }),
+  ]), /Overlapping Space capability provider orders for food.pizzeria/);
+});
+
+test("provider contract requires explicit non-empty Space type scope", () => {
+  assert.throws(() => assertSpaceCapabilityProvider(provider("orders", { spaceTypes: [] })), /spaceTypes must not be empty/);
+  const { spaceTypes: _scope, ...missingScope } = provider("orders");
+  assert.throws(() => assertSpaceCapabilityProvider(missingScope), /spaceTypes must be a bounded array/);
 });
 
 test("fabrication.3d-printing never receives tables by convenience", () => {

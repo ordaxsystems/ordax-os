@@ -25,10 +25,16 @@ function providerMap(providers) {
   const map = new Map();
   for (const [index, candidate] of providers.entries()) {
     const provider = assertSpaceCapabilityProvider(candidate, `Space capability provider[${index}]`);
-    if (map.has(provider.capability)) {
-      throw new TypeError(`Duplicate Space capability provider ${provider.capability}`);
+    const peers = map.get(provider.capability) ?? [];
+    for (const peer of peers) {
+      const overlap = provider.spaceTypes.find((typeKey) => peer.spaceTypes.includes(typeKey));
+      if (overlap) {
+        throw new TypeError(
+          `Overlapping Space capability provider ${provider.capability} for ${overlap}`,
+        );
+      }
     }
-    map.set(provider.capability, provider);
+    map.set(provider.capability, [...peers, provider]);
   }
   return map;
 }
@@ -82,7 +88,10 @@ export function composeSpaceExperience(spaceValue, providers = []) {
   const snapshots = new Map();
   const availableCapabilities = [];
   for (const capability of definition.capabilities) {
-    const provider = registry.get(capability);
+    const providersForCapability = registry.get(capability) ?? [];
+    const provider = providersForCapability.find((candidate) =>
+      candidate.spaceTypes.includes(definition.key)
+    ) ?? null;
     if (!provider) continue;
     const snapshot = safeSnapshot(provider, space);
     if (snapshot?.state !== "ready") continue;
@@ -153,7 +162,7 @@ export function composeSpaceExperience(spaceValue, providers = []) {
 }
 
 export function createSpaceExperienceSource({ providers = [] } = {}) {
-  const registry = [...providerMap(providers).values()];
+  const registry = [...providerMap(providers).values()].flat();
   const listeners = new Set();
   let disposed = false;
   const unsubscribers = registry.map((provider) => provider.subscribe(() => {
