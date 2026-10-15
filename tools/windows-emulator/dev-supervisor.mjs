@@ -120,7 +120,7 @@ const vite = spawn(process.execPath, [
   '--config',
   'tools/windows-emulator/vite.config.mjs',
   '--open',
-  '/tools/windows-emulator/index.html',
+  '/system/composition/native/',
 ], {
   cwd: REPO_ROOT,
   stdio: 'inherit',
