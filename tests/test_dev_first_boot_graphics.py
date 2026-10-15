@@ -35,6 +35,20 @@ class FirstBootGraphicsTests(unittest.TestCase):
         self.assertIn("RUNTIME_INSTALL_TIMEOUT=$" + "{ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-600}", SURFACE)
         self.assertIn("OWNER_PROVISION_TIMEOUT=$" + "{ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}", SUPERVISOR)
         self.assertIn("Stable/MVP requires the preverified offline graphical runtime", SURFACE)
+        self.assertIn("resolve_source_identity() {", SURFACE)
+        self.assertIn('is_source_sha "$SOURCE_SHA_HINT"', SURFACE)
+        self.assertIn('[ "$candidate_sha" = "$SOURCE_SHA_HINT" ]', SURFACE)
+        identity = SURFACE.index(
+            'resolve_source_identity || fallback_with_reason "failed to resolve exact Surface source identity"'
+        )
+        marker = SURFACE.index(
+            "printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\""
+        )
+        provision = SURFACE.index(
+            'ensure_runtime || fallback_with_reason "graphical runtime is unavailable after bounded provisioning attempt"'
+        )
+        self.assertLess(identity, marker)
+        self.assertLess(marker, provision)
 
     def probe(self, marker_value, healthy_after, profile="owner-development", budget=4):
         with tempfile.TemporaryDirectory() as directory:
