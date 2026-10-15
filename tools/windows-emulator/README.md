@@ -8,6 +8,7 @@ Development-only host for running the OrdaX post-boot experience on Windows with
 - load the repository-backed Surface in the same development session;
 - enable fast UI work with Vite reload instead of rebuilding kernel/rootfs/media;
 - provide a stable browser window that MCP/Desktop tooling can inspect and interact with;
+- follow the same local-first `main` update cadence used by the Owner/Development USB;
 - keep the Dev USB as the authority for real boot, hardware, kernel and native integration.
 
 This is an execution target, not a third OrdaX distribution.
@@ -23,13 +24,28 @@ npm run emulator:windows
 
 The emulator listens on `127.0.0.1:4202` and opens `/tools/windows-emulator/index.html`.
 
-For the repeatable browser proof, keep the emulator server running and execute:
+For a Vite-only session without Git synchronization:
 
 ```bash
-npm run emulator:windows:smoke
+npm run emulator:windows:vite
 ```
 
-The smoke proof uses the repository's Chromium/Edge harness to verify that the emulator initializes without a kernel, renders the real first-run flow, completes local/offline onboarding, persists completion and activates the repository-backed Surface only after OOBE finishes.
+## Development update behavior
+
+The normal `npm run emulator:windows` command starts `dev-supervisor.mjs` before Vite.
+
+The supervisor mirrors the Owner/Development USB update cadence where that behavior is safe on a developer worktree:
+
+- starts the local checkout immediately; network is not on the critical path;
+- targets `origin/main` by default (`ORDAX_REPO_BRANCH` may override it);
+- checks the remote every 5 seconds by default (`ORDAX_UPDATE_INTERVAL_SECONDS` may override it, minimum 5 seconds);
+- uses bounded `git ls-remote`/`git fetch` calls;
+- applies remote movement only as a clean `--ff-only` fast-forward;
+- if Git/network fails, the running emulator is preserved;
+- if the worktree contains local development edits, automatic Git application pauses instead of deleting those edits; Vite hot reload remains active;
+- if local HEAD and `origin/main` have diverged, automatic application pauses rather than resetting or force-updating the worktree.
+
+That last distinction is intentional. The physical Dev USB owns a disposable runtime checkout and may repair it automatically; the Windows emulator is also an active source-development worktree, so it must not erase edits made by the developer or GPT/MCP.
 
 ## Current host behavior
 
@@ -39,10 +55,19 @@ The smoke proof uses the repository's Chromium/Edge harness to verify that the e
 - online identity actions: unavailable for now, so local-only onboarding remains supported;
 - network/hardware management: unavailable for now and must stay visibly unavailable rather than being faked;
 - post-onboarding Surface: repository `system/composition/web/index.html`;
-- Surface activation: intentionally dormant during first-run and activated after persisted OOBE completion;
 - reset: use the `Reiniciar primeiro uso` development control.
 
-The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state, verify whether the Surface is active and reset the flow without pretending that native kernel capabilities exist.
+The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state and reset the flow without pretending that native kernel capabilities exist.
+
+## Smoke proof
+
+With the emulator running:
+
+```bash
+npm run emulator:windows:smoke
+```
+
+The smoke proof opens an isolated Chromium/Edge session and validates the real OOBE contract. It also contains the full OOBE-to-Surface proof for execution on a machine with the complete workspace dependencies installed.
 
 ## Architecture rule
 
