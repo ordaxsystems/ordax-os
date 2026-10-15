@@ -55,6 +55,17 @@ OWNER_DEVELOPMENT_LIGHT_EXACT = {
 OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
     "bootstrap/base-update/owner-development/",
 )
+INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
+    ".github/workflows/independent-surface-runtime.yml",
+    "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
+    "bootstrap/independent-surface-runtime/README.md",
+    "docs/contracts/ci-supply-chain.json",
+    "tests/test_independent_surface_component_cache.py",
+    "tests/test_independent_surface_impact.py",
+    "tests/test_independent_surface_runtime.py",
+    "tools/ci/independent_surface_component_cache.py",
+    "tools/ci/independent_surface_impact.py",
+}
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
@@ -260,6 +271,8 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         if path in OWNER_DEVELOPMENT_LIGHT_EXACT:
             continue
         if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
+            continue
+        if path in INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT:
             continue
         if path in IMPACT_POLICY_LIGHT_EXACT:
             continue
