@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTRACT_PATH = ROOT / "system/services/device-agent/owner-recovery-source.json"
-HELPER_PATH = ROOT / "system/services/device-agent/owner-remote.sh"
+OWNER_ROOT = ROOT / "bootstrap/base-update/owner-development"
+CONTRACT_PATH = OWNER_ROOT / "owner-recovery-source.json"
+HELPER_PATH = OWNER_ROOT / "ordax-remote"
 REFRESH_PATH = ROOT / "system/services/base-update/dev-helpers.sh"
 PULL_PATH = ROOT / "bootstrap/dev-base/ordax-pull"
 STABLE_SOURCE_PATH = ROOT / "bootstrap/stable-base/source.json"
@@ -40,16 +40,19 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         command: str,
         *,
         state: Path,
-        profile: str = "owner-development",
+        profile: str | None = "owner-development",
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env.update(
             {
                 "ORDAX_WORKTREE": str(ROOT),
                 "ORDAX_OWNER_REMOTE_STATE_DIR": str(state),
-                "ORDAX_DISTRIBUTION_PROFILE": profile,
             }
         )
+        if profile is None:
+            env.pop("ORDAX_DISTRIBUTION_PROFILE", None)
+        else:
+            env["ORDAX_DISTRIBUTION_PROFILE"] = profile
         return subprocess.run(
             ["/bin/sh", str(HELPER_PATH), command],
             check=False,
@@ -106,7 +109,7 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         ]
         for fragment in forbidden_fragments:
             self.assertNotIn(fragment, self.helper)
-        self.assertIn("this helper is restricted to owner-development", self.helper)
+        self.assertIn("restricted to explicit owner-development profile", self.helper)
         self.assertIn("artifact digest mismatch", self.helper)
         self.assertIn("artifact size mismatch", self.helper)
         self.assertIn("PID ownership proof failed", self.helper)
@@ -131,24 +134,32 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
             self.assertIn("ORDAX_OWNER_REMOTE_BOOT_CRITICAL=no", status.stdout)
             self.assertFalse(state.exists(), "status must not create persistent state")
 
-    def test_stable_profile_is_rejected_before_activation(self):
+    def test_non_owner_or_missing_profile_is_rejected_before_activation(self):
         with tempfile.TemporaryDirectory() as directory:
-            result = self.run_helper(
-                "verify-contract",
-                state=Path(directory) / "state",
-                profile="stable-mvp",
-            )
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("restricted to owner-development", result.stderr)
+            state = Path(directory) / "state"
+            for profile in ("stable-mvp", None):
+                result = self.run_helper(
+                    "verify-contract",
+                    state=state,
+                    profile=profile,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("explicit owner-development profile", result.stderr)
 
     def test_current_physical_usb_can_receive_helper_without_new_sparse_rule(self):
-        self.assertIn("/system/", self.pull)
+        self.assertIn("/bootstrap/base-update/", self.pull)
         self.assertNotIn("/bootstrap/dev-base/ordax-remote", self.pull)
         self.assertIn(
-            "stage_helper system/services/device-agent/owner-remote.sh usr/local/bin/ordax-remote",
+            "stage_helper bootstrap/base-update/owner-development/ordax-remote usr/local/bin/ordax-remote",
             self.refresh,
         )
-        self.assertNotIn("bootstrap/dev-base/ordax-remote", self.refresh)
+        self.assertNotIn("system/services/device-agent/owner-remote", self.refresh)
+
+    def test_owner_recovery_bytes_are_not_in_releasable_system_tree(self):
+        self.assertFalse((ROOT / "system/services/device-agent/owner-remote.sh").exists())
+        self.assertFalse((ROOT / "system/services/device-agent/owner-recovery-source.json").exists())
+        self.assertTrue(HELPER_PATH.is_file())
+        self.assertTrue(CONTRACT_PATH.is_file())
 
     def test_stable_base_does_not_include_owner_recovery(self):
         stable_source = STABLE_SOURCE_PATH.read_text(encoding="utf-8")
@@ -159,14 +170,10 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
     def test_source_pin_has_no_secret_material(self):
         serialized = json.dumps(self.contract, sort_keys=True).lower()
         for secret_marker in (
-            "device-token",
             "authorization: bearer",
             "private_key",
             "operator_token",
         ):
-            if secret_marker == "device-token":
-                # The filename is part of the public contract; a token value is not.
-                continue
             self.assertNotIn(secret_marker, serialized)
         self.assertEqual(
             self.contract["activation"]["device_token_file"],
