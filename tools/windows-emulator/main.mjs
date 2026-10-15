@@ -8,7 +8,7 @@ import {
 
 const STATE_KEY = "ordax.windows-emulator.first-run.v1";
 const PREFS_KEY = "ordax.windows-emulator.preferences.v1";
-const SURFACE_TARGET = "/system/composition/web/index.html";
+const SURFACE_TARGET = "/system/composition/web/";
 
 const surfaceFrame = document.querySelector("#ordax-emulator-surface");
 if (!(surfaceFrame instanceof HTMLIFrameElement)) throw new Error("Windows emulator Surface frame is missing");
