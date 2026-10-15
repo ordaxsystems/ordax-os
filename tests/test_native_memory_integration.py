@@ -114,11 +114,13 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("identitySessionPort: identitySession", composition)
         self.assertIn("spaceSelectionPort: spaceSelection", composition)
 
-    def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
+    def test_intelligence_workflow_covers_memory_owners_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("'system/surface/runtime/native_host_server.py'", workflow)
-        self.assertIn("'system/composition/native/main.mjs'", workflow)
+        self.assertIn("'system/composition/native/account-memory.mjs'", workflow)
+        self.assertIn("'system/composition/native/account-memory-foundation.mjs'", workflow)
+        self.assertNotIn("'system/composition/native/main.mjs'", workflow)
         self.assertIn("'tests/test_native_memory_integration.py'", workflow)
         self.assertIn("python -m unittest tests.test_native_memory_integration -v", workflow)
 

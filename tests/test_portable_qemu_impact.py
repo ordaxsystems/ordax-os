@@ -57,21 +57,44 @@ class PortableQemuImpactTests(unittest.TestCase):
             root=ROOT,
         )
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
-    def test_native_runtime_reachable_service_requires_qemu(self):
+    def test_space_domain_composition_does_not_require_qemu(self):
+        result = impact.classify_paths(
+            [
+                "system/composition/native/main.mjs",
+                "system/contracts/space-experience.mjs",
+                "system/contracts/spaces.mjs",
+                "system/services/spaces/composition.mjs",
+                "system/services/spaces/type-catalog.mjs",
+                "system/surface/ui/account-overview-controls.mjs",
+                "system/surface/ui/account.css",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_native_composition_main_is_high_level_but_boot_coupled_component_wiring_stays_heavy(self):
+        main = impact.classify_paths(["system/composition/native/main.mjs"], root=ROOT)
+        probation = impact.classify_paths(["system/composition/native/component-probation.mjs"], root=ROOT)
+        self.assertFalse(main.required)
+        self.assertTrue(probation.required)
+        self.assertIn("heavy-exact:system/composition/native/component-probation.mjs", probation.reasons)
+
+    def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)
-        self.assertIn("native-runtime-reachable:system/services/local-ai/runtime.mjs", result.reasons)
+        self.assertIn("heavy-exact:system/services/local-ai/runtime.mjs", result.reasons)
 
-    def test_browser_host_dynamic_runtime_dependency_requires_qemu(self):
+    def test_boot_coupled_component_orchestrator_requires_qemu(self):
         result = impact.classify_paths(
             ["system/services/components/probation-orchestrator.mjs"],
             root=ROOT,
         )
         self.assertTrue(result.required)
         self.assertIn(
-            "native-runtime-reachable:system/services/components/probation-orchestrator.mjs",
+            "heavy-exact:system/services/components/probation-orchestrator.mjs",
             result.reasons,
         )
 
@@ -98,7 +121,7 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_kernel_module_archive_helper_does_not_require_portable_qemu(self):
         result = impact.classify_paths(["bootstrap/kernel/module_archive.py"], root=ROOT)
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
     def test_full_independent_module_slice_does_not_require_direct_stable_qemu(self):
         result = impact.classify_paths(
@@ -113,7 +136,7 @@ class PortableQemuImpactTests(unittest.TestCase):
             root=ROOT,
         )
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
     def test_real_kernel_change_stays_heavy_with_full_independent_module_slice(self):
         result = impact.classify_paths(
@@ -134,7 +157,7 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_owner_remote_recovery_slice_does_not_require_portable_qemu(self):
         result = impact.classify_paths(OWNER_REMOTE_SLICE, root=ROOT)
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
     def test_real_kernel_change_stays_heavy_with_owner_remote_recovery_slice(self):
         result = impact.classify_paths(
@@ -147,7 +170,7 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_owner_run_visible_status_slice_does_not_require_portable_qemu(self):
         result = impact.classify_paths(OWNER_RUN_VISIBLE_STATUS_SLICE, root=ROOT)
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
     def test_real_kernel_change_stays_heavy_with_owner_run_visible_status_slice(self):
         result = impact.classify_paths(
@@ -167,7 +190,30 @@ class PortableQemuImpactTests(unittest.TestCase):
             root=ROOT,
         )
         self.assertFalse(result.required)
-        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_ci_scope_migration_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(
+            [
+                ".github/workflows/account-memory-local-continuity-flush.yml",
+                ".github/workflows/account-memory-protected-mutations.yml",
+                ".github/workflows/account-memory-sync-foundation.yml",
+                ".github/workflows/application-action-capability-foundation.yml",
+                ".github/workflows/component-trusted-context.yml",
+                ".github/workflows/first-party-app-delivery.yml",
+                ".github/workflows/intelligence-foundation.yml",
+                ".github/workflows/native-intelligence-service-foundation.yml",
+                ".github/workflows/pre-usb-nova-ordax-audit.yml",
+                ".github/workflows/runtime-component-candidate.yml",
+                "tools/ci/portable_qemu_impact.py",
+                "tests/test_portable_qemu_impact.py",
+                "tests/test_heavy_workflow_path_scope.py",
+                "tests/test_native_memory_integration.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
     def test_qemu_workflow_change_itself_stays_heavy(self):
         result = impact.classify_paths(
