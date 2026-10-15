@@ -12,27 +12,28 @@ BASE_UPDATE_INCLUDE = "      - 'bootstrap/base-update/**'"
 OWNER_EXCLUDE = "      - '!bootstrap/base-update/owner-development/**'"
 FAT32_SELF_TRIGGER = "      - '.github/workflows/base-update-fat32-proof.yml'"
 OWNER_INCLUDE = "      - \"bootstrap/base-update/owner-development/**\""
-OWNER_REMOTE_FILES = {
+OWNER_ONLY_FILES = {
     "ordax-remote",
     "owner-recovery-source.json",
+    "product-control-plane-origin",
 }
 
 
 class BaseUpdateWorkflowScopeTests(unittest.TestCase):
-    def test_owner_only_recovery_slice_is_excluded_after_broad_base_update_include(self):
+    def test_owner_only_slice_is_excluded_after_broad_base_update_include(self):
         text = FAT32_WORKFLOW.read_text(encoding="utf-8")
         ordered_pair = f"{BASE_UPDATE_INCLUDE}\n{OWNER_EXCLUDE}"
         self.assertEqual(text.count(BASE_UPDATE_INCLUDE), 2)
         self.assertEqual(text.count(OWNER_EXCLUDE), 2)
         self.assertEqual(text.count(ordered_pair), 2)
 
-    def test_excluded_owner_directory_contains_only_remote_recovery_inputs(self):
+    def test_excluded_owner_directory_contains_only_explicit_owner_inputs(self):
         actual = {
             path.relative_to(OWNER_BASE_UPDATE_DIR).as_posix()
             for path in OWNER_BASE_UPDATE_DIR.rglob("*")
             if path.is_file()
         }
-        self.assertEqual(actual, OWNER_REMOTE_FILES)
+        self.assertEqual(actual, OWNER_ONLY_FILES)
 
     def test_real_base_update_inputs_and_workflow_self_proof_remain_in_scope(self):
         text = FAT32_WORKFLOW.read_text(encoding="utf-8")
