@@ -34,6 +34,7 @@ from native_host_server import (
     expected_surface_authority,
     parse_args,
     read_device_profile,
+    read_first_run_state,
     start_telemetry_heartbeat,
 )
 from product_device_runtime import compose_product_device_account_gateway
@@ -185,6 +186,7 @@ def _serve_native_host(args) -> int:
             product_mode=args.product_mode,
             control_plane_origin=os.environ.get("ORDAX_PRODUCT_CONTROL_PLANE_URL", ""),
             device_profile_reader=read_device_profile,
+            first_run_state_reader=read_first_run_state,
         )
 
     try:
