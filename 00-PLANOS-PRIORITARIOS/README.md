@@ -112,6 +112,12 @@ Organiza a promoção da infraestrutura Native já existente: whole-disk, target
 
 Preserva a direção de um produto/uma Surface com runtimes `web | cloud | device | hybrid`, Web real, Files federado, Store sem mocks, Device Bridge, Secure Mesh opcional e Cloud Runtime/VPS somente quando justificado. P1 pós-MVP.
 
+### FOOD-001 — OrdaX Food e piloto Pizza
+
+`plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md`
+
+Transforma a direção já existente do Profile `pizzaria-br@1` em um plano comercial pós-MVP sem inflar o recorte atual do Profile. Define **OrdaX Food** como domínio compartilhado e **Pizza/Pizzaria** como primeiro vertical/piloto, cobrindo Menu, pizza builder, Orders, POS, KDS, estoque/ficha técnica, compras, CRM, Inbox/WhatsApp oficial, delivery, pagamentos, analytics e Intelligence/Autopilot. Reutiliza Account/Spaces/Realtime/Action Gateway/Model Router e proíbe backend, identidade ou authority paralelos. P1 pós-MVP; o Profile Pizzaria mínimo já exigido pelo MVP continua nos owners canônicos atuais.
+
 ### HARDWARE-001 — Hardware, Drivers e Packs
 
 `plans/HARDWARE-001-HARDWARE-DRIVERS-AND-PACKS.md`
