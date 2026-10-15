@@ -1,6 +1,6 @@
 # Registry de planos, pesquisas e handoffs
 
-Atualizado: **2026-10-14**
+Atualizado: **2026-10-15**
 
 Este catálogo evita que múltiplos chats criem documentos concorrentes para a mesma frente e separa **valor documental** de **autorização para executar**.
 
@@ -23,6 +23,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | HARDWARE-001 | plano de produto/plataforma | `plans/HARDWARE-001-HARDWARE-DRIVERS-AND-PACKS.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, salvo subconjunto exigido por NATIVE-001/MVP | Evolui hardware packs assinados, exact modalias/ABI e rollback até Hardware & Drivers; não adota APT/DKMS como arquitetura |
 | DESKTOP-001 | plano de experiência | `plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, salvo promoção canônica | Lacunas cotidianas: Displays, Help, SMB/MTP/PTP no Files, UX de Updates; reutiliza owners existentes e mantém Theme Packs como P2 |
 | MODE-001 | plano de produto/arquitetura | `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fecha wiring real do OrdaX Web e boundaries Web/Cloud/Device sem fork; candidato fundacional a revalidar cedo no pós-MVP |
+| FOOD-001 | plano de produto/vertical comercial | `plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, exceto recorte `pizzaria-br@1` já exigido por owner canônico do MVP | Estrutura OrdaX Food sobre o Profile/Space Pizzaria existente; Pizza é o primeiro piloto comercial; reutiliza Account/Spaces/Realtime/Intelligence e proíbe backend/conta/authority paralelos |
 | WEB-001 | pesquisa + roadmap | `reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md` + `plans/WEB-001-WEB-RESEARCH.md` | P1 | READY | **DEFERRED FOR EXECUTION** | Capability provider-neutral preservada para pós-MVP; não boot-critical |
 
 ## Interpretação obrigatória
@@ -31,6 +32,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `REFERENCE` significa que o documento ainda possui valor, mas não representa a fonte factual corrente nem uma fila ativa de execução.
 - `DEFERRED FOR EXECUTION` significa: não abrir task/issue/PR de implementação apenas por causa deste plano durante o fechamento do MVP.
 - `NATIVE-001` é uma exceção apenas porque organiza trabalho que **já está no ciclo canônico do MVP**; ele não autoriza escrita física, não altera flags fail-closed e não substitui `MVP.md`, `docs/NATIVE-INSTALLATION.md`, contratos ou promotion gates.
+- `FOOD-001` não amplia o escopo do MVP: o `pizzaria-br@1` atual continua sendo a prova pública segura governada pelos owners de Profile/MVP; PDV, KDS, WhatsApp, delivery e demais módulos comerciais permanecem pós-MVP até promoção explícita.
 - se `MVP.md`, um contrato ou um owner canônico já exigir um comportamento que também aparece em um plano, a execução pertence ao owner canônico, **não ao plano**.
 - frases históricas dentro de `PLANO-*` como “canônico”, “obrigatório” ou prioridades antigas não vencem `docs/README.md`.
 - referências curtas mantidas na raiz por compatibilidade nunca criam um segundo owner documental.
@@ -52,6 +54,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `NATIVE-*`: instalação/execução em disco interno e fechamento da jornada USB → Native; nunca substitui contracts de storage/boot/recovery.
 - `HARDWARE-*`: hardware discovery, support claims, hardware packs, drivers e expansão física da matriz.
 - `DESKTOP-*`: experiência cotidiana transversal que consome owners existentes de Surface/System/Files sem criar shell paralelo.
+- `FOOD-*`: domínio/verticais comerciais de alimentação; reutilizam Spaces/Profile/Realtime/Intelligence e não criam produto/backend paralelo.
 - `COMP-*`: comparação/auditoria de referência externa; nunca executável por si só.
 - `INTEL-*`: Intelligence/model routing.
 - `USB-*`: mídia física/boot/release portátil.
