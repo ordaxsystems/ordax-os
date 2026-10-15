@@ -62,3 +62,17 @@ test('setup retains offline continuation and network failure retry without skipp
  assert.equal(moveStoryboard(definition,state,'security').step,'security');
  assert.equal(moveStoryboard(definition,state,'complete'),state);
 });
+
+
+test('settings apply remains confirmed and returning to review invalidates approval',()=>{
+ const definition=storyboards.settings;
+ let state={...newStoryboard(definition,'network'),step:'pending',fields:{network:'offline'}};
+ assert.equal(moveStoryboard(definition,state,'complete'),state);
+ state={...state,fields:{...state.fields,'confirm:pending':true}};
+ const applied=moveStoryboard(definition,state,'complete');
+ assert.equal(applied.step,'complete');
+ const review=previousStoryboard(applied);
+ assert.equal(review.fields['confirm:pending'],false);
+ assert.equal(moveStoryboard(definition,review,'complete'),review);
+ assert.equal(moveStoryboard(definition,applied,'undo').step,'undo');
+});

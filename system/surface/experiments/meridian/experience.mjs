@@ -141,7 +141,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   for(const selector of ['.md-sidebar','.md-taskbar'])root.querySelector(selector)?.replaceWith(chrome.content.querySelector(selector));
   feedback.refresh();
  },{signal:life.signal});
- root.addEventListener('input',event=>{const target=event.target;if(target.matches('[data-search]'))filter(target.closest('dialog')??target.closest('.md-page'));if(target.dataset.draft)ui.drafts[target.dataset.draft]=target.value;if(target.dataset.range==='brightness'){ui.brightness=Number(target.value);root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));}if(target.dataset.range==='volume')ui.volume=Number(target.value);},{signal:life.signal});
+ root.addEventListener('input',event=>{const target=event.target;if(target.matches('[data-search]'))filter(target.closest('dialog')??target.closest('.md-page'));if(target.dataset.draft)ui.drafts[target.dataset.draft]=target.value;if(target.dataset.range==='brightness'){ui.brightness=Number(target.value);root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));}if(target.dataset.range==='volume')ui.volume=Number(target.value);if(['brightness','volume'].includes(target.dataset.range)){const output=root.querySelector('[data-range-value="'+target.dataset.range+'"]');if(output)output.textContent=target.value+'%';}},{signal:life.signal});
  root.addEventListener('submit',event=>{const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();const values=new FormData(form);
   if(['new-project'].includes(form.dataset.form)&&!String(values.get('name')??'').trim()){form.querySelector('[name=name]')?.focus();toast('Escolha um nome para continuar.');return;}
   if(['ask','reply'].includes(form.dataset.form)&&!String(values.get(form.dataset.form==='ask'?'prompt':'reply')??'').trim())return;
@@ -214,6 +214,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   const context=['setup','update','recovery','identity','power','storage','settings'].includes(kind)?'@device':data.activeSpace;
   const key=storyboardKey(kind,contextSubject(),context,entity);
   if(!ui.stories.has(key))ui.stories.set(key,newStoryboard(definition,entity));
+  if(kind==='settings'&&['complete','undo'].includes(ui.stories.get(key).step)){const current=ui.stories.get(key);ui.stories.set(key,{...current,step:'edit',trail:[],visited:['edit'],editing:false});}
   if(step&&definition.screens[step])ui.stories.set(key,{...ui.stories.get(key),step,trail:[],visited:[step]});
   if(!ui.panel){const el=document.activeElement;ui.returnFocus=root.contains(el)?{id:el.id,action:el.dataset.action}:null;}
   seedStoryFields(definition,ui.stories.get(key));
@@ -224,7 +225,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];
   return journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),false,kind);
  }
- function seedStoryFields(definition,state){for(const spec of storyboardFields(definition,state,ui.lab.topics))if(!(spec.id in state.fields))state.fields[spec.id]=spec.value??'';}
+ function seedStoryFields(definition,state){for(const spec of storyboardFields(definition,state,ui.lab.topics))if(!(spec.id in state.fields))state.fields[spec.id]=state.entity==='network'&&spec.id==='network'?(readData().networkOnline?'studio':'offline'):spec.value??'';}
  function advanceStory(action,target){clearTimeout(storyTimer);
   if(!ui.currentStory)return;
   const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];const state=ui.stories.get(key);
@@ -243,7 +244,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   }
   if(kind==='settings'&&next.step==='complete')next.editing=false;
   if(kind==='settings'&&next.step==='undo'){next.fields={...next.fields,...next.beforeEdit};next.editing=false;}
-  seedStoryFields(definition,next);if(kind==='intelligence'&&next.step==='stream')next.fields.streamLength=0;ui.stories.set(key,next);render();if(kind==='intelligence'&&next.step==='stream')animateStoryText(key);
+  seedStoryFields(definition,next);if(kind==='intelligence'&&next.step==='stream')next.fields.streamLength=0;ui.stories.set(key,next);if(next!==state&&kind==='settings'&&state.entity==='network'&&['complete','undo'].includes(next.step))source.dispatch({type:'scenario',id:next.fields.network==='offline'?'offline':'connected'});else render();if(kind==='intelligence'&&next.step==='stream')animateStoryText(key);
   const scroll=root.querySelector('.md-panel-body')??root.querySelector('.md-stage');if(scroll)scroll.scrollTop=0;
   root.querySelector('#md-story-title')?.focus({preventScroll:true});
  }

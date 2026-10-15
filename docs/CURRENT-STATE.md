@@ -1,5 +1,11 @@
 # Current State
 
+Meridian quick controls (2026-10-15): the isolated product-view panel now includes
+Wi-Fi/focus/DND/appearance tiles, existing brightness/volume state, compact settings
+review and a refreshed lock page. In-memory network apply/undo remains explicitly
+separate from real device management; no production adapter or host action added.
+[Scope](DESKTOP-IDENTITY.md#meridian-quick-controls-and-settings-follow-up--2026-10-15).
+
 Meridian system-page review (2026-10-14, explicit user direction): setup/network
 and account journeys now use product-facing copy and full-page layouts without
 lab/demo labels. The source remains the isolated in-memory presentation; no

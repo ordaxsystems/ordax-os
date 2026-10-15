@@ -45,3 +45,30 @@ Open first use: `/?journey=setup`. Review controls: `/?review=1`.
 ![Account on mobile](login-mobile.jpg)
 
 ![Wi-Fi on mobile](wifi-mobile.jpg)
+
+
+## Quick settings and lock follow-up — 2026-10-15
+
+Added product-facing quick controls, compact network/settings review and a new
+lock composition. Existing mocked destinations remain in the footer/more-options
+section; review scenario controls remain opt-in. Brightness/volume use the existing
+presentation state, with live native-range outputs. Network apply/undo updates
+only the same injected demo source after guarded visual transitions.
+
+Seven navigation regressions and syntax checks passed. Browser checks verified:
+keyboard range endpoints and live values, DND toggle, current network selection,
+confirmation required before apply, visible offline state after apply, undo back
+to connected, and clean topic copy. Lock/error/unlock retained an open Notes
+window and the exact test draft. At 390x844, both settings and quick dialog measured
+390 px wide with no internal/document horizontal overflow. Quick dialog text had
+no study/demo/owner/example labels. No device, network or authentication operation
+was performed. Temporary test text/preferences were cleared by reloading the
+agent's presentation tab after QA; external/user data was untouched.
+
+![Quick settings](quick-settings.jpg)
+
+![Network settings](network-settings.jpg)
+
+![Lock screen](lock.jpg)
+
+![Quick settings on mobile](quick-settings-mobile.jpg)

@@ -1653,3 +1653,24 @@ The normal Central/Desktop chrome also omits the lab marker and tray example
 labels. `review=1` exposes the preserved review controls. `step=network` provides
 a direct presentation URL inside the existing setup journey, accepting only a
 step from that definition; it is not a capability or command API.
+
+### Meridian quick controls and settings follow-up — 2026-10-15
+
+Continuing the user-authorized product presentation review, the system panel now
+presents Wi-Fi, focus, Do Not Disturb and appearance tiles, plus native keyboard-
+accessible brightness/volume ranges. It retains account, lock and all prior system
+navigation under a compact footer/more-options section. Editorial/demo/owner copy
+is removed from normal quick controls and settings topics. Review-only network
+scenario switches remain available with `review=1`.
+
+Network settings retain the existing selection/review/confirmation/result/undo
+flow. Only an accepted visual transition to complete/undo changes the existing
+in-memory demo source's connected/offline scenario. That same source remains the
+sole presentation owner; no network management/Identity port or host command is
+introduced. New visits after completed settings reopen the editor, while unfinished
+review remains resumable. Range outputs reflect their existing UI state immediately.
+
+Lock presentation uses the same existing visual lock/unlock handlers and retains
+open windows/drafts. It does not become an OS lock, authentication credential or
+media encryption. The source still collects no credentials and the host CSP/device
+restrictions are unchanged. UI changes preserve all mocked system destinations.
