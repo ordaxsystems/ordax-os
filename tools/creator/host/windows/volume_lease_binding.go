@@ -1,6 +1,9 @@
 package windowsadapter
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // validateManagedTargetVolumeLease is the compile/runtime bridge between the
 // host-neutral writer lease interface and the future native writable-disk
@@ -26,7 +29,14 @@ func validateManagedTargetVolumeLease(expected Target, lease rawVolumeLease) (*m
 		return nil, fmt.Errorf("target-volume lease disk mismatch: expected=%d lease=%d", expected.DiskNumber, managed.diskNumber)
 	}
 	if len(managed.handles) == 0 {
-		return nil, fmt.Errorf("target-volume lease for PhysicalDrive%d contains no locked volumes", expected.DiskNumber)
+		if !managed.volumeLessPhysicalRecovery {
+			return nil, fmt.Errorf("target-volume lease for PhysicalDrive%d contains no locked volumes", expected.DiskNumber)
+		}
+		if expected.DriveType != "physical-unmounted" || strings.TrimSpace(expected.DriveLetter) != "" {
+			return nil, fmt.Errorf("volume-less target-volume lease requires physical-unmounted recovery on PhysicalDrive%d", expected.DiskNumber)
+		}
+	} else if managed.volumeLessPhysicalRecovery {
+		return nil, fmt.Errorf("target-volume lease for PhysicalDrive%d has locked volumes and volume-less recovery state", expected.DiskNumber)
 	}
 	return managed, nil
 }
