@@ -1,5 +1,11 @@
 # Current State
 
+Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
+shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
+The Meridian reference re-exports those owners. Real controls remain intact; example
+completion does not execute backend operations. No build or physical USB validation
+was performed. [Scope](DESKTOP-IDENTITY.md#shared-settings-journeys--2026-10-15).
+
 Meridian Files presentation (2026-10-15): contextual file list, creation/review,
 sharing, conflict and trash screens now use product-facing Meridian copy and
 grouped navigation. Existing mocked features and guards remain. No filesystem

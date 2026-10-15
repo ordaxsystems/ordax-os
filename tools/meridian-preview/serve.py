@@ -13,6 +13,7 @@ SHARED = frozenset({
     "system/surface/ui/fonts/inter-latin-wght-normal.woff2",
     "system/surface/ui/brand/ordax-symbol.png",
     "system/surface/workspace/presentation.mjs",
+    "system/surface/workspace/assets/demo-salvador-1.jpg",
 })
 CONTENT_TYPES = {".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".svg": "image/svg+xml"}
 
@@ -39,6 +40,8 @@ class PreviewHandler(BaseHTTPRequestHandler):
         allowed = relative in SHARED or relative in {"tools/meridian-preview/index.html", "tools/meridian-preview/main.mjs"}
         if not allowed:
             allowed = requested.is_relative_to(EXPERIMENT) and requested.suffix in {".mjs", ".css", ".svg"}
+            if not allowed:
+                allowed = any(requested.is_relative_to(ROOT / base) for base in ("system/surface/ui/meridian", "system/surface/ui/spaces/presentation", "system/surface/ui/journeys")) and requested.suffix in {".mjs", ".css"}
         if not allowed or not requested.resolve().is_relative_to(ROOT) or not requested.is_file():
             self.send_error(404)
             return
