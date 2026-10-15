@@ -95,11 +95,18 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         entry = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
         config = (ROOT / "tools/surface-web/vite.config.ts").read_text(encoding="utf-8")
         self.assertIn("base: './'", config)
-        self.assertIn("import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL", entry)
+        self.assertIn("const sourceCompositionBasepath = '/system/composition/web/';", entry)
+        self.assertIn("import.meta.env.BASE_URL === './'", entry)
+        self.assertIn(
+            "import.meta.env.BASE_URL === '/' && window.location.pathname.startsWith(sourceCompositionBasepath)",
+            entry,
+        )
+        self.assertIn("? sourceCompositionBasepath", entry)
+        self.assertIn(": import.meta.env.BASE_URL;", entry)
         self.assertIn("basepath: webBasepath", entry)
         self.assertNotIn("basepath: '/'", entry)
-        # Vite's --base flag is the single build-time authority for both
-        # static assets and the TanStack router mount path.
+        # Vite remains the authority for relocatable build bases; the source
+        # composition path is the explicit runtime mount for the Windows emulator.
 
     def test_browser_smoke_serves_404_without_writing_success_headers_first(self):
         source = (ROOT / "tools/surface-web/browser-smoke.mjs").read_text(encoding="utf-8")
