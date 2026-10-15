@@ -276,3 +276,22 @@
  [data-meridian] .md-operation-trail li span{width:23px}
  [data-meridian] .md-operation-trail li p{display:block;overflow-wrap:anywhere}
 }
+
+/* Storage overview consumes the same injected system fixture as quick settings. */
+[data-meridian] .md-storage-summary{border:1px solid var(--md-border);background:var(--md-canvas);border-radius:18px;padding:22px;margin:24px 0 30px}
+[data-meridian] .md-storage-device{display:flex;gap:14px;align-items:center}
+[data-meridian] .md-storage-device strong{font-size:16px}
+[data-meridian] .md-storage-device p{font-size:12px;color:var(--md-muted);margin:5px 0 0}
+[data-meridian] .md-storage-summary dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}
+[data-meridian] .md-storage-summary dt{color:var(--md-muted);font-size:11px;margin-bottom:8px}
+[data-meridian] .md-storage-summary dd{font-size:clamp(18px,2.5vw,26px);letter-spacing:-.035em;margin:0;font-weight:600}
+[data-meridian] .md-storage-summary dl>div:last-child dd{color:var(--md-sage)}
+[data-meridian] .md-storage-note{display:flex;gap:8px;align-items:flex-start;border-top:1px solid var(--md-border);padding-top:16px;margin:0;color:var(--md-muted);font-size:12px;line-height:1.6}
+[data-meridian] .md-storage-note svg{flex-shrink:0;margin-top:2px}
+[data-meridian] .md-journey-volumes small{color:var(--md-sage)}
+@media(max-width:450px){[data-meridian] .md-storage-summary{padding:18px}[data-meridian] .md-storage-summary dl{gap:10px}[data-meridian] .md-storage-summary dt{font-size:10px}}
+
+[data-meridian] .md-journey[data-story="storage"] .md-journey-step-icon{width:48px;height:48px;margin-bottom:18px}
+[data-meridian] .md-journey[data-story="storage"] .md-journey-volumes>div{padding:12px 14px;margin:10px 0;align-items:center}
+[data-meridian] .md-journey[data-story="storage"] .md-journey-volumes p{margin:4px 0;font-size:12px;line-height:1.5}
+[data-meridian] .md-journey[data-story="storage"] .md-journey-volumes strong{font-size:13px}

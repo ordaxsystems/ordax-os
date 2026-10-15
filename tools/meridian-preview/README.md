@@ -260,3 +260,6 @@ marker/scenario controls. These controls and scenarios are retained, not deleted
 Maintenance presentation links: `/?journey=update`, `/?journey=power` and
 `/?journey=recovery&material=ink`. These remain the same injected storyboard
 mocks, with product-facing copy and no real update/power/recovery actions.
+
+`/?journey=storage` opens the storage summary and persistence review. Capacity,
+volume states and retry conditions are fixtures; the preview reads no disks.

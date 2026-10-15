@@ -99,3 +99,27 @@ production backend integration or full accessibility acceptance.
 ![Power on mobile](power-mobile.jpg)
 
 ![Recovery on mobile](recovery-mobile.jpg)
+
+## Storage presentation follow-up — 2026-10-15
+
+Updated overview/persistence and all three storage error screens. Capacity summary
+uses the same injected fixture as quick settings; no runtime disk data is read.
+The omitted ORDAX volume was added to the mock, matching prepared-media labels.
+The seed contract is unchanged; no physical or production integration is claimed.
+
+Seven navigation tests and edited-module syntax checks passed. An in-memory
+comparison with the prior commit confirmed storage screen keys, transition targets,
+confirmation flags, exits, effects and cross-journey actions are preserved. Browser
+checks covered persistence/back, read-only, full and disconnected states with retry.
+A Notes test draft remained byte-for-byte intact after entering storage, visiting
+the disconnected state and closing the dialog using the keyboard. Reopening storage
+resumed its previous step. Reload cleared the disposable test text afterward.
+No captured console warnings/errors. At 390x844 document width was 390 px, dialog
+scroll width 388 px, and summary/volume content had no horizontal overflow. Viewport
+was reset. This is bounded preview QA, not proof of USB persistence or filesystem behavior.
+
+![Storage overview](storage.jpg)
+
+![Persistence review](storage-persistence.jpg)
+
+![Storage on mobile](storage-mobile.jpg)

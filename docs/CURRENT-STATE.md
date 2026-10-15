@@ -1,5 +1,11 @@
 # Current State
 
+Meridian storage presentation (2026-10-15): capacity summary, three prepared-USB
+volume cards and persistence review now use product-facing Meridian presentation.
+Read-only/full/disconnected mocks and draft continuity remain; there is no device
+discovery or disk operation.
+[Scope](DESKTOP-IDENTITY.md#meridian-storage-presentation--2026-10-15).
+
 Meridian maintenance presentation (2026-10-15): power, update and recovery now
 use product-facing copy, compact stage navigation, specific progress labels and
 responsive layouts. All previous mocked transitions/confirmations/errors remain;

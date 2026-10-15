@@ -1694,3 +1694,23 @@ No production UI, backend, command executor, real updater, device control or dis
 operation is introduced. CSP and loopback host restrictions remain unchanged.
 Evidence and bounded validation are recorded in
 `docs/evidence/meridian-system-pages-2026-10-14/README.md`.
+
+### Meridian storage presentation — 2026-10-15
+
+The storage journey now presents a capacity/used/free summary from the existing
+injected system fixture, volume cards and a compact two-stage navigation. Host
+context remains visible. Product-facing persistence and error copy replaces lab
+notices; no actual persistence guarantee is established by this preview.
+
+The fixture now includes the previously omitted ORDAX system volume alongside
+ORDAX-ESP and ORDAX-DATA, matching the three labels in the prepared-media contract
+(`docs/contracts/physical-prepared-media.json`). This does not change seed geometry,
+partition sizes, release modes, or any physical media. Displayed 64 GB/18.4 GB/45.6 GB
+values remain fictional whole-device summary data, not individual volume sizes.
+The shared-data explanation is not a statement of live disk allocation.
+
+All existing storage screen keys, error/retry and cross-journey links remain.
+No discovery, filesystem access, format/eject, write, cleanup or backend adapter
+is introduced. The production gap remains connecting authoritative volume/status
+and persistence information without narrowing the planned UI. Evidence remains in
+`docs/evidence/meridian-system-pages-2026-10-14/README.md`.

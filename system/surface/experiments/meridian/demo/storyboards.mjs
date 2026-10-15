@@ -9,9 +9,10 @@ const choice=(id,label,options,value)=>({id,label,options:options.map(([value,la
 export const systemFixture = Object.freeze({
  localUser:'Lia · usuária local', media:'OrdaX portátil · USB de exemplo', host:'Notebook do estúdio',
  layout:'Portable v2 · arquitetura alvo', capacity:'64 GB', used:'18,4 GB', free:'45,6 GB',
- volumes:[{name:'ORDAX-ESP',detail:'Inicialização e recuperação · volume reservado',mode:'Somente leitura',icon:'shield'},
- {name:'ORDAX-DATA',detail:'Arquivos + imagens internas do sistema · capacidade compartilhada',mode:'Gravação disponível no cenário',icon:'folder'}],
- persistence:[row('Arquivos pessoais','No volume de dados do USB'),row('Preferências e sessão local','Estado persistente interno do USB'),row('Sistema','Imagem verificada, somente leitura'),row('Rascunhos não salvos','Precisam ser guardados antes de reiniciar'),row('Este navegador','Todo o ensaio é volátil; recarregar apaga a demonstração')],
+ volumes:[{name:'ORDAX-ESP',detail:'Inicialização do dispositivo',mode:'Reservado ao sistema',icon:'shield'},
+ {name:'ORDAX',detail:'Componentes do sistema e recuperação',mode:'Gerenciado pelo OrdaX',icon:'desktop'},
+ {name:'ORDAX-DATA',detail:'Arquivos + imagens internas do sistema · capacidade compartilhada',mode:'Leitura e gravação',icon:'folder'}],
+ persistence:[row('Arquivos pessoais','No volume de dados do USB'),row('Preferências e sessão local','Estado persistente interno do USB'),row('Sistema','Imagem verificada, somente leitura'),row('Rascunhos não salvos','Precisam ser guardados antes de reiniciar'),row('Computador','O disco interno permanece separado do USB')],
 });
 export const storyboards = {
  setup:{label:'Bem-vindo ao OrdaX',icon:'sun',owner:'First-run / sessão local',summaryFields:[choice('accountChoice','Conta OrdaX',[['connected','Conta conectada'],['local','Usar sem conta']],'local'),choice('networkChoice','Rede',[['connected','Estúdio'],['offline','Configurar depois']],'offline')],start:'welcome',fullscreen:true,screens:{
@@ -95,11 +96,11 @@ Object.assign(storyboards, {
  complete:screen('Seu trabalho está preservado.','Você pode retomar suas ferramentas e continuar de onde parou.',null,{tone:'success',finish:'Retomar trabalho'}),
  }},
  storage:{label:'USB e armazenamento',icon:'folder',owner:'Storage / Base / Runtime',start:'volumes',screens:{
- volumes:screen('Seu sistema viaja no USB.','O volume de dados compartilha capacidade entre arquivos pessoais e imagens internas. Não somamos a mesma capacidade duas vezes.','persistence',{volumeList:true,rows:[row('Capacidade fictícia','64 GB · 18,4 GB em uso · 45,6 GB livres'),row('Computador hospedeiro','Notebook do estúdio · não é a origem dos arquivos')],nextLabel:'O que permanece após reiniciar?',conditions:[action('Volume somente leitura','readonly'),action('Armazenamento cheio','full'),action('USB desconectado','missing')]}),
- persistence:screen('O que fica, o que precisa ser salvo.','Esta é uma representação da arquitetura alvo Portable v2. Não é prova de boot físico nem de mídia publicada.','volumes',{rows:systemFixture.persistence,nextLabel:'Voltar aos volumes',links:[{label:'Abrir jornada de Arquivos',action:'journey:files'},{label:'Conhecido-bom e recuperação',action:'journey:recovery'}]}),
- readonly:problem('O volume está somente para leitura.','Você pode consultar o que já existe. Uma tentativa de salvar deve manter o rascunho e explicar o impedimento.','volumes'),
- full:problem('Não há espaço para concluir a gravação.','Seu texto permanece na sessão. Revise o armazenamento antes de tentar novamente; não limpe dados automaticamente.','volumes'),
- missing:problem('A origem está desconectada.','Não redirecionamos arquivos para outro volume. Reconecte e confirme a mesma mídia no fluxo real.','volumes'),
+ volumes:screen('Seu espaço, onde você estiver.','Acompanhe o espaço do seu USB e saiba onde ficam seus arquivos e os dados do sistema.','persistence',{volumeList:true,storageSummary:true,nextLabel:'O que permanece após reiniciar?',conditions:[action('Volume somente leitura','readonly'),action('Armazenamento cheio','full'),action('USB desconectado','missing')]}),
+ persistence:screen('O que acompanha você.','Seus arquivos e preferências ficam no USB. Salve o trabalho em andamento antes de reiniciar ou trocar de computador.','volumes',{rows:systemFixture.persistence,nextLabel:'Voltar aos volumes',links:[{label:'Abrir Arquivos',action:'journey:files'},{label:'Recuperação do sistema',action:'journey:recovery'}]}),
+ readonly:problem('O volume está somente para leitura.','Você ainda pode abrir seus arquivos. Para salvar alterações, confira a proteção do volume e tente novamente.','volumes'),
+ full:problem('Não há espaço para concluir a gravação.','Seu rascunho continua aberto. Revise os arquivos e libere espaço antes de tentar salvar novamente.','volumes'),
+ missing:problem('O USB foi desconectado.','Reconecte o mesmo USB para acessar seus arquivos. Seu trabalho não salvo permanece nesta sessão.','volumes'),
  }},
  files:{label:'Arquivos',icon:'file',owner:'Files / Runtime / referências autorizadas',start:'browse',screens:{
  browse:screen('Encontre o arquivo pelo contexto.','Representação do Files existente. Não há acesso ao filesystem nem um segundo aplicativo de arquivos.','preview',{fileList:true,nextLabel:'Pré-visualizar referência',actions:[action('Criar documento','create'),action('Favoritos','favorites'),action('Lixeira','trash')],conditions:[action('Origem ausente','missing')]}),
