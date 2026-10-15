@@ -64,7 +64,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("bin/udevadm", source["required_runtime_paths"])
         self.assertIn("usr/lib/udev/rules.d/60-input-id.rules", source["required_runtime_paths"])
 
-    def test_profile_selects_graphical_stack_without_package_manager(self):
+    def test_profile_selects_full_graphical_parity_without_package_manager(self):
         text = CONFIG_PATH.read_text(encoding="utf-8")
         for marker in (
             "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
@@ -73,6 +73,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "BR2_PACKAGE_CAGE=y",
             "BR2_PACKAGE_WEBKITGTK=y",
             "BR2_PACKAGE_WEBKITGTK_WAYLAND=y",
+            "BR2_PACKAGE_WEBKITGTK_HTTPS=y",
+            "BR2_PACKAGE_WEBKITGTK_SANDBOX=y",
+            "BR2_PACKAGE_WEBKITGTK_MULTIMEDIA=y",
             "BR2_PACKAGE_LIBGTK3=y",
             "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
             "BR2_PACKAGE_PYTHON_GOBJECT=y",
