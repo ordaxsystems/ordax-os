@@ -19,6 +19,7 @@
     "paired_required": true,
     "automatic_start": false,
     "control_plane_authority": "ordax-platform",
+    "boot_cmdline_token": "ordax.distribution_profile=owner-development",
     "state_root": "/state/ordax/owner-remote",
     "device_id_file": "device-id",
     "device_token_file": "device-token",
