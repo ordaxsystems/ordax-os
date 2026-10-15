@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Classify whether a repository delta requires the heavy Portable/QEMU proof.
 
-The policy is deliberately fail-closed. High-level system source is lightweight only
-when it is not part of the Native runtime import graph and is not a known host/boot
-owner. Unknown system roots and every non-system path reaching this workflow remain
-heavy by default, except explicitly classified producer-neutral helpers or roots.
+The policy is deliberately fail-closed at boot/host boundaries. High-level system
+source is covered by focused contract/Surface gates even when imported by Native startup,
+so it does not justify rebuilding initramfs or booting QEMU by itself. Unknown system
+roots and every non-system path reaching this workflow remain heavy by default, except
+explicitly classified producer-neutral helpers or roots.
 """
 from __future__ import annotations
 
@@ -36,6 +37,7 @@ HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/profile-packs/",
     "system/components/",
     "system/diagnostics/",
+    "system/composition/native/",
 )
 PRODUCER_NEUTRAL_LIGHT_EXACT = {
     ".github/workflows/independent-base-experiment.yml",
@@ -57,10 +59,24 @@ OWNER_DEVELOPMENT_LIGHT_EXACT = {
 OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
     "bootstrap/base-update/owner-development/",
 )
+CI_GOVERNANCE_LIGHT_EXACT = {
+    ".github/workflows/account-memory-local-continuity-flush.yml",
+    ".github/workflows/account-memory-protected-mutations.yml",
+    ".github/workflows/account-memory-sync-foundation.yml",
+    ".github/workflows/application-action-capability-foundation.yml",
+    ".github/workflows/component-trusted-context.yml",
+    ".github/workflows/first-party-app-delivery.yml",
+    ".github/workflows/intelligence-foundation.yml",
+    ".github/workflows/native-intelligence-service-foundation.yml",
+    ".github/workflows/pre-usb-nova-ordax-audit.yml",
+    ".github/workflows/runtime-component-candidate.yml",
+}
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_heavy_workflow_path_scope.py",
+    "tests/test_native_memory_integration.py",
 }
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
@@ -70,13 +86,14 @@ ALWAYS_HEAVY_EXACT = {
     "system/services/telemetry/relay.json",
     "system/services/base-update/agent.sh",
     "system/services/local-ai/source-lock.json",
+    "system/services/local-ai/runtime.mjs",
+    "system/services/components/probation-orchestrator.mjs",
+    "system/composition/native/component-probation.mjs",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
-    "tests/test_heavy_workflow_path_scope.py",
 }
 ALWAYS_HEAVY_PREFIXES = (
     "system/surface/bin/",
     "system/surface/runtime/",
-    "system/composition/native/",
 )
 IMPORT_RE = re.compile(
     r"(?:^|\n)\s*(?:import|export)\s+(?:[^\"']*?\s+from\s+)?[\"'](\.[^\"']+)[\"']"
@@ -260,21 +277,23 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
             continue
-        if path in IMPACT_POLICY_LIGHT_EXACT:
+        if path in CI_GOVERNANCE_LIGHT_EXACT or path in IMPACT_POLICY_LIGHT_EXACT:
             continue
         if not path.startswith("system/"):
             reasons.append(f"heavy-non-system:{path}")
             continue
         if _is_presentation_light(path):
             continue
+        # High-level Native JS is checked by focused contracts/Surface gates. QEMU is
+        # reserved for explicit boot/host-coupled owners above and unknown roots.
+        if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
+            continue
         if path in reachable:
             reasons.append(f"native-runtime-reachable:{path}")
             continue
-        if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
-            continue
         reasons.append(f"heavy-unclassified-system:{path}")
 
-    return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-runtime-reachable",), changed)
+    return ImpactResult(bool(reasons), tuple(reasons) or ("no-heavy-portable-impact",), changed)
 
 
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:

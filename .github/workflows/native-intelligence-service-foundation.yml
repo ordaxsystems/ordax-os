@@ -6,7 +6,6 @@ on:
     paths:
       - 'system/services/intelligence/native-service.mjs'
       - 'system/composition/native/intelligence-host-bridge.mjs'
-      - 'system/composition/native/main.mjs'
       - 'system/surface/runtime/native_intelligence_ipc.py'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_native_intelligence_service.mjs'
@@ -18,7 +17,6 @@ on:
     paths:
       - 'system/services/intelligence/native-service.mjs'
       - 'system/composition/native/intelligence-host-bridge.mjs'
-      - 'system/composition/native/main.mjs'
       - 'system/surface/runtime/native_intelligence_ipc.py'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_native_intelligence_service.mjs'
