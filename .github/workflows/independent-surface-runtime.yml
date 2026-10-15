@@ -11,9 +11,11 @@ on:
       - 'tests/test_independent_surface_qemu_binding.py'
       - 'tests/test_independent_surface_impact.py'
       - 'tests/test_independent_surface_component_cache.py'
+      - 'tests/test_independent_surface_cutover_audit.py'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
       - 'tools/ci/independent_surface_impact.py'
       - 'tools/ci/independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_cutover_audit.py'
       - '.github/workflows/independent-surface-runtime.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
       - 'docs/contracts/ci-supply-chain.json'
@@ -50,14 +52,17 @@ jobs:
             tests.test_independent_surface_runtime \
             tests.test_independent_surface_qemu_binding \
             tests.test_independent_surface_impact \
-            tests.test_independent_surface_component_cache -v
+            tests.test_independent_surface_component_cache \
+            tests.test_independent_surface_cutover_audit -v
           python3 -m py_compile \
             bootstrap/independent-surface-runtime/build.py \
             bootstrap/independent-surface-runtime/prepare_config.py \
             tools/ci/independent_surface_impact.py \
-            tools/ci/independent_surface_component_cache.py
+            tools/ci/independent_surface_component_cache.py \
+            tools/ci/independent_surface_cutover_audit.py
           python3 bootstrap/independent-surface-runtime/prepare_config.py check
           python3 bootstrap/independent-surface-runtime/build.py check
+          python3 tools/ci/independent_surface_cutover_audit.py pre
 
   impact:
     runs-on: ubuntu-24.04
