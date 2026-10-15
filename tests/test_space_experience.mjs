@@ -33,6 +33,14 @@ function space(overrides = {}) {
   };
 }
 
+function foodSpace(overrides = {}) {
+  return space({ domain: "food", subtype: "pizzeria", ...overrides });
+}
+
+function fabricationSpace(overrides = {}) {
+  return space({ domain: "fabrication", subtype: "3d-printing", ...overrides });
+}
+
 function provider(capability, {
   state = "ready",
   metrics = {},
@@ -68,7 +76,7 @@ test("food.pizzeria declares only its domain capabilities and ignores foreign pr
   assert.ok(definition.capabilities.includes("tables"));
   assert.equal(definition.capabilities.includes("printers"), false);
   assert.equal(definition.capabilities.includes("quotes"), false);
-  const experience = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [
+  const experience = composeSpaceExperience(foodSpace(), [
     provider("orders", { metrics: { "orders.today": 7 } }),
     provider("printers", { metrics: { "printers.active": 4 } }),
   ]);
@@ -102,12 +110,12 @@ test("capability providers are selected by exact Space type and never leak acros
     },
   };
 
-  const food = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [foodOrders, fabricationOrders]);
+  const food = composeSpaceExperience(foodSpace(), [foodOrders, fabricationOrders]);
   assert.deepEqual(food.widgets.map((item) => [item.id, item.value]), [["orders.today", 4]]);
   assert.equal(foodCalls, 1);
   assert.equal(fabricationCalls, 0);
 
-  const fabrication = composeSpaceExperience(space({ profilePack: "impressao-3d-br" }), [foodOrders, fabricationOrders]);
+  const fabrication = composeSpaceExperience(fabricationSpace(), [foodOrders, fabricationOrders]);
   assert.deepEqual(
     fabrication.widgets.filter((item) => item.id === "orders.today").map((item) => item.value),
     [9],
@@ -117,7 +125,7 @@ test("capability providers are selected by exact Space type and never leak acros
 });
 
 test("provider registry rejects overlapping scopes for the same capability", () => {
-  const current = space({ profilePack: "pizzaria-br" });
+  const current = foodSpace();
   assert.throws(() => composeSpaceExperience(current, [
     provider("orders", { spaceTypes: ["food.pizzeria"] }),
     provider("orders", { spaceTypes: ["food.pizzeria", "fabrication.3d-printing"] }),
@@ -134,7 +142,7 @@ test("fabrication.3d-printing never receives tables by convenience", () => {
   const definition = type("fabrication.3d-printing");
   assert.ok(definition.capabilities.includes("printers"));
   assert.equal(definition.capabilities.includes("tables"), false);
-  const experience = composeSpaceExperience(space({ profilePack: "impressao-3d-br" }), [
+  const experience = composeSpaceExperience(fabricationSpace(), [
     provider("printers", { metrics: { "printers.active": 2 } }),
     provider("tables", { metrics: { "tables.occupancy": 90 } }),
   ]);
@@ -166,7 +174,7 @@ test("education.school never declares orders and remains a safe deferred contrac
 });
 
 test("dashboard widget is omitted when its capability is absent", () => {
-  const experience = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [
+  const experience = composeSpaceExperience(foodSpace(), [
     provider("orders", { metrics: { "orders.today": 5 } }),
   ]);
   assert.ok(experience.widgets.some((item) => item.id === "orders.today"));
@@ -175,7 +183,7 @@ test("dashboard widget is omitted when its capability is absent", () => {
 });
 
 test("contextual menu is omitted when its capability is absent", () => {
-  const experience = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [
+  const experience = composeSpaceExperience(foodSpace(), [
     provider("orders", { metrics: {} }),
   ]);
   assert.ok(experience.navigation.some((item) => item.id === "overview"));
@@ -185,7 +193,7 @@ test("contextual menu is omitted when its capability is absent", () => {
 });
 
 test("unavailable or failing provider degrades without breaking the Space projection", () => {
-  const unavailable = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [
+  const unavailable = composeSpaceExperience(foodSpace(), [
     provider("orders", { state: "error" }),
   ]);
   assert.equal(unavailable.state, "ready");
@@ -195,12 +203,12 @@ test("unavailable or failing provider degrades without breaking the Space projec
     ...provider("tables"),
     getSnapshot() { throw new Error("offline"); },
   };
-  assert.doesNotThrow(() => composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [throwing]));
-  assert.deepEqual(composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [throwing]).capabilities, []);
+  assert.doesNotThrow(() => composeSpaceExperience(foodSpace(), [throwing]));
+  assert.deepEqual(composeSpaceExperience(foodSpace(), [throwing]).capabilities, []);
 });
 
 test("Aura receives only a current-Space-scoped authorized context", () => {
-  const current = space({ id: "pizza-1", profilePack: "pizzaria-br" });
+  const current = foodSpace({ id: "pizza-1" });
   const valid = composeSpaceExperience(current, [
     provider("orders", {
       metrics: { "orders.today": 2 },
@@ -264,7 +272,7 @@ test("Profile Pack composition and Space semantics stay separate owners", () => 
 });
 
 test("Spaces overview metrics are domain-specific and provider-backed", () => {
-  const pizza = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [
+  const pizza = composeSpaceExperience(foodSpace(), [
     provider("orders", { metrics: { "orders.today": 12 } }),
     provider("tables", { metrics: { "tables.occupancy": 75 } }),
     provider("finance", { metrics: { "finance.revenue_today": 840 } }),
@@ -272,7 +280,7 @@ test("Spaces overview metrics are domain-specific and provider-backed", () => {
   assert.deepEqual(pizza.spaceCardMetrics.map((item) => item.id), [
     "orders.today", "tables.occupancy", "finance.revenue_today",
   ]);
-  const fabrication = composeSpaceExperience(space({ profilePack: "impressao-3d-br" }), [
+  const fabrication = composeSpaceExperience(fabricationSpace(), [
     provider("jobs", { metrics: { "jobs.queue": 4 } }),
     provider("printers", { metrics: { "printers.active": 3 } }),
     provider("models", { metrics: { "models.active": 18 } }),
@@ -285,7 +293,7 @@ test("Spaces overview metrics are domain-specific and provider-backed", () => {
 });
 
 test("missing provider metric never creates an invented number", () => {
-  const experience = composeSpaceExperience(space({ profilePack: "pizzaria-br" }), [
+  const experience = composeSpaceExperience(foodSpace(), [
     provider("orders", { metrics: {} }),
     provider("tables", { metrics: { "tables.occupancy": 0 } }),
   ]);
