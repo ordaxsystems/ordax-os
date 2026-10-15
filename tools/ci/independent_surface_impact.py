@@ -30,6 +30,7 @@ HEAVY_PREFIXES = (
 LIGHT_EXACT = {
     ".github/workflows/independent-surface-runtime.yml",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
+    ".github/workflows/portable-qemu-impact-contract.yml",
     "bootstrap/independent-surface-runtime/README.md",
     "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
     "tests/test_independent_surface_runtime.py",
@@ -37,8 +38,11 @@ LIGHT_EXACT = {
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_component_cache.py",
     "tests/test_portable_v2_qemu_boot_proof_contract.py",
+    "tests/test_portable_component_reuse_workflow.py",
+    "tests/test_portable_qemu_impact.py",
     "tools/ci/independent_surface_impact.py",
     "tools/ci/independent_surface_component_cache.py",
+    "tools/ci/portable_qemu_impact.py",
     "docs/contracts/ci-supply-chain.json",
 }
 
