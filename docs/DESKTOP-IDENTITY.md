@@ -1613,3 +1613,22 @@ It is lazy, read-only and provided by composition; Surface does not import a
 composition module or access storage/endpoints. Cancellation/disposal prevents
 late results from updating a closed window. Failed reads retain planned content.
 This is bundled metadata consultation, not a newly connected remote backend.
+
+#### Profile categories and visible parity notes — 2026-10-14
+
+The Web profile consultation now consumes the existing canonical taxonomy loader
+and `createProfileTaxonomyView`. Category/niche labels, parent relationships and
+counts derive from that view, while membership stays in each Profile manifest.
+Only categories containing published active profiles are offered. Parent filters
+include descendants. No taxonomy, activation or app composition is copied into
+Surface. If taxonomy fetch/validation/membership fails, filtering is omitted and
+the complete validated Profile catalog remains available with an explicit hint.
+Failure of the catalog itself remains an error; no synthetic empty success.
+
+The existing Store, Projects, Files, Activity, Devices and Continuity screens add
+collapsed “O que falta conectar” notes from the preceding compatibility review.
+These are presentation explanations, not capability declarations or a second
+backend registry. All planned content and simulated operations are retained.
+The Store note is outside its shadow presentation; toggling official/planned
+views retains its search and demonstration session. No backend transport is
+newly activated, and narrower services do not replace richer planned flows.

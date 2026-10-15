@@ -1,3 +1,4 @@
+import { IntegrationNote } from './integration-note';
 import { ProfileCatalogPanel } from './profile-catalog';
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { WebNotificationCenter } from './notifications';
@@ -31,11 +32,12 @@ export function DesktopContent({ title, open }: PresentationProps & { initialPro
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
   if (title === 'Perfis profissionais') return <ProfileCatalogPanel/>;
   if (title === 'Minha conta') return <AccountPanel/>;
-  if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
+  if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p><IntegrationNote area={title === 'Projetos' ? 'projects' : 'files'}/></Panel>;
   if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;
   if (title === 'Notificações') return <WebNotificationCenter/>;
-  if (title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p></Panel>;
-  if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p></Panel>;
+  if (title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p><IntegrationNote area="activity"/></Panel>;
+  if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p><IntegrationNote area="devices"/></Panel>;
+  if (title === 'Continuidade') return <Panel title={title}><p className="service-state">Este aplicativo ainda não está conectado.</p><IntegrationNote area="continuity"/></Panel>;
   if (title === 'Espaços') return <SpacesPanel/>;
   if (title === 'Configurações') return <Suspense fallback={<p className="service-state" role="status">Carregando Ajustes…</p>}><SettingsExperience/></Suspense>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;

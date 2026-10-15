@@ -172,3 +172,29 @@ The pre-existing initial bundle warning remains (~730 kB / 208 kB gzip); Profile
 source/validation is emitted as a separate lazy chunk (~19 kB).
 
 ![Read-only canonical profile consultation with planned content retained](profile-catalog.jpg)
+
+## Category consultation and visible compatibility notes
+
+Existing profile taxonomy is now read by the Web composition, alongside the
+canonical bundled Profile catalog. Filters cover parents and niches, publish
+only active-profile categories and retain the full list when taxonomy fails.
+Collapsed compatibility notes explain pending parity without deleting mocks or
+substituting partial backend behavior. No remote service is newly composed.
+
+Validation: 18 existing Node test-runner cases (catalog/source/taxonomy/Store),
+4 new Web composition regressions and 27 Python Surface UI contracts passed
+(49 total). The new regressions load the actual Vite source graph and verify
+active-only membership, parent counts, taxonomy outage/unknown-category fallback,
+catalog failure and aborted reads. Web typecheck/build and 34-file reference
+verification passed. The existing main-chunk warning remains (~733 kB / 209 kB
+gzip); catalog/taxonomy code is lazy (~27 kB).
+
+Browser proof checked category and parent/niche filters, retained mock copy,
+Store parity note, real/planned toggling retaining the “Notas” search, device
+pending camera/audio/second-display note, compiled filtering, clean compiled
+console and 390 px document width without overflow. Final QA leaves no changed
+account/preferences/device/file state.
+
+![Canonical category filter](profile-taxonomy.jpg)
+
+![Store parity note with planned Store preserved](store-parity.jpg)

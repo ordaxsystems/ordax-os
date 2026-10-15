@@ -1,5 +1,11 @@
 # Current State
 
+Profile categories and parity notes (2026-10-14): Web consultation now reuses the
+canonical taxonomy for parent/category/niche filters and retains valid profiles
+when taxonomy is unavailable. Existing unsupported screens expose collapsed
+compatibility notes; planned features and Store sessions remain intact.
+[Scope](DESKTOP-IDENTITY.md#profile-categories-and-visible-parity-notes--2026-10-14).
+
 Meridian backend compatibility review (2026-10-14): the user requires retaining
 all planned frontend functionality and deferring integrations whose backend is
 narrower. Web professional profiles now additionally consult the canonical bundled

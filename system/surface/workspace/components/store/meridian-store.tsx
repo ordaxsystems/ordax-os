@@ -1,3 +1,4 @@
+import { IntegrationNote } from '../central/integration-note';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useWebPreferences } from '../central/preferences-context';
@@ -32,6 +33,7 @@ export function StoreExperience({ onOpenApp }: { onOpenApp?: (id: string) => voi
   const [visited, setVisited] = useState(() => snapshot.state !== 'ready');
   return <div className="meridian-store" data-store-mode={mode}>
     <div className="meridian-store-context"><span><strong>{mode === 'planned' ? 'Loja · visão planejada' : 'Loja · catálogo real'}</strong><small>{mode === 'planned' ? 'Exemplos preservados para evolução. Ações somente nesta demonstração.' : 'Disponibilidade recebida do serviço oficial.'}</small></span><Button variant="outline" onClick={() => { setVisited(true); setMode(mode === 'planned' ? 'official' : 'planned'); }}>{mode === 'planned' ? 'Consultar catálogo real' : 'Ver recursos planejados'}</Button></div>
+    {mode === 'planned' && <IntegrationNote area="store"/>}
     <div hidden={mode !== 'planned'} className="meridian-store-content">{visited && <StorePresentation/>}</div>
     {mode === 'official' && <OfficialStoreExperience onOpenApp={onOpenApp}/>}
   </div>;
