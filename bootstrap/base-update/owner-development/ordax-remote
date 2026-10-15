@@ -7,7 +7,7 @@ export PATH
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_ROOT=${ORDAX_OWNER_REMOTE_STATE_DIR:-/state/ordax/owner-remote}
 PIN_FILE=${ORDAX_OWNER_REMOTE_PIN_FILE:-$WORKTREE/bootstrap/base-update/owner-development/owner-recovery-source.json}
-CMDLINE_FILE=${ORDAX_CMDLINE_FILE:-/proc/cmdline}
+CMDLINE_FILE=/proc/cmdline
 PID_FILE=$STATE_ROOT/agent.pid
 LOG_FILE=$STATE_ROOT/agent.log
 RECEIPT_FILE=$STATE_ROOT/installed.sha256
