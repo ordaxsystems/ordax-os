@@ -112,6 +112,12 @@ Organiza a promoção da infraestrutura Native já existente: whole-disk, target
 
 Preserva a direção de um produto/uma Surface com runtimes `web | cloud | device | hybrid`, Web real, Files federado, Store sem mocks, Device Bridge, Secure Mesh opcional e Cloud Runtime/VPS somente quando justificado. P1 pós-MVP.
 
+### DEV-001 — Space geral de Desenvolvimento
+
+`plans/DEV-001-GENERAL-DEVELOPMENT-SPACE.md`
+
+Define um Space horizontal de desenvolvimento para múltiplos projetos como Achegue-se, STLForge, sites, apps, APIs e outros produtos. **Studio é ferramenta/app dentro do contexto de um projeto, não um Space.** Git, CI, deploy e providers preservam seus próprios SSOTs e permissões. P1 pós-MVP.
+
 ### FAB-001 — OrdaX Fabrication e Impressão 3D
 
 `plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md`
@@ -142,11 +148,11 @@ Fundação horizontal para clientes, pais/responsáveis, alunos e outros externo
 
 Mantém os produtos separados e integráveis por OAuth/API/events/projections. Regra de produto: **Achegue-se descobre e conecta; OrdaX organiza e opera.** Nenhum banco, credencial privilegiada, release ou SSOT é fundido. P1 de ecossistema pós-MVP dos dois lados.
 
-### ACHEGUESE-002 — Space privado de desenvolvimento do Achegue-se
+### ACHEGUESE-002 — Space operacional do Achegue-se
 
-`plans/ACHEGUESE-002-ORDAX-DEVELOPER-SPACE.md`
+`plans/ACHEGUESE-002-ORDAX-OPERATIONS-SPACE.md`
 
-Define como usar o próprio OrdaX para desenvolver o Achegue-se sem fundir os produtos: um Space privado inicialmente owner-only, vinculado ao repositório externo e às ferramentas autorizadas de Projects/Files/Git/providers. O Space pode receber membros depois via IDENTITY-001, mas membership nunca concede automaticamente acesso a repositório, produção ou secrets. Não cria Profile público específico do Achegue-se. P1 de dogfooding pós-MVP.
+Define o Space privado usado para operar o produto: usuários, empresas, solicitações, territórios, assinaturas/pagamentos quando houver owner real, pedidos quando promovidos, moderação, suporte, métricas e Aura. O desenvolvimento técnico do Achegue-se passa a ser um projeto no DEV-001. P1 de dogfooding/operação pós-MVP.
 
 ### TALENT-001 — Identidade profissional, vagas e contratação
 
