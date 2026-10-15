@@ -36,6 +36,8 @@ Remover ou substituir atomicamente:
 - `bootstrap/surface-runtime/discover_lock.py`;
 - `apk_package_lock`, `apk_package_lock_count`, `apk_package_versions_pinned` e bloco `alpine` de `bootstrap/surface-runtime/source.json`;
 - lógica `apk add`, `/etc/apk/repositories`, banco `/lib/apk/db/installed` e dependência de `proot` do builder Surface antigo;
+- provisionamento Alpine do launcher real `system/surface/bin/ordax-surface`, incluindo `RUNTIME_ID=alpine-*`, `LEGACY_RUNTIME_ID=alpine-*`, `run_bounded_apk`, `/sbin/apk` e uso de `/etc/apk/keys`; depois do cutover ele deve aceitar apenas o runtime EROFS verificado, sem instalar/atualizar pacotes em boot;
+- testes que exigem o provisionamento APK do launcher, como os asserts correspondentes em `tests/test_system_runtime_contract.py`; substituir por contrato de runtime verificado/offline;
 - `.github/workflows/surface-runtime-lock-discovery.yml` como workflow de descoberta/revalidação APK; substituir por build/reprodutibilidade Buildroot;
 - asserts Alpine/APK de `tests/test_surface_runtime_source_contract.py`; substituir por contrato Buildroot/musl + ausência de gerenciador de pacotes;
 - `bootstrap/surface-runtime/APK-LOCK-DRIFT-2026-10-08.md` depois que deixar de descrever um owner ativo;
@@ -64,17 +66,18 @@ Para um release final/reprodutibilidade, um clean build completo continua obriga
 
 ## Grep final da Surface
 
-Antes de declarar a Surface livre de Alpine/APK, a árvore canônica da Surface deve falhar se ainda houver dependência operacional de qualquer um destes marcadores:
+Antes de declarar a Surface livre de Alpine/APK, o owner canônico e o launcher ativo devem falhar se ainda houver **dependência operacional** de qualquer um destes marcadores:
 
 - `apk add`;
-- `/etc/apk`;
-- `/lib/apk`;
+- `/sbin/apk`;
+- `/etc/apk` ou `/lib/apk` usados para provisionamento/estado de pacotes;
 - `dl-cdn.alpinelinux.org`;
 - `alpine-minirootfs`;
 - `apk_package_lock`;
+- `RUNTIME_ID=alpine-*` / `LEGACY_RUNTIME_ID=alpine-*` no launcher ativo;
 - import/uso de `bootstrap/base/alpine_core.py` pelo owner Surface.
 
-Referências históricas em documentação fora do owner ativo podem existir somente quando explicitamente marcadas como história/migração e não forem consumidas por build, boot ou CI de release.
+Referências negativas usadas exclusivamente para provar que caminhos como `/etc/apk` e `/lib/apk` **não existem dentro do EROFS** são permitidas nos verificadores. Referências históricas em documentação fora do owner ativo podem existir somente quando explicitamente marcadas como história/migração e não forem consumidas por build, boot ou CI de release.
 
 ## Próxima etapa depois da Surface
 
