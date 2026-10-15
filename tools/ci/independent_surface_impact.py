@@ -37,11 +37,13 @@ LIGHT_EXACT = {
     "tests/test_independent_surface_qemu_binding.py",
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_component_cache.py",
+    "tests/test_independent_surface_cutover_audit.py",
     "tests/test_portable_v2_qemu_boot_proof_contract.py",
     "tests/test_portable_component_reuse_workflow.py",
     "tests/test_portable_qemu_impact.py",
     "tools/ci/independent_surface_impact.py",
     "tools/ci/independent_surface_component_cache.py",
+    "tools/ci/independent_surface_cutover_audit.py",
     "tools/ci/portable_qemu_impact.py",
     "docs/contracts/ci-supply-chain.json",
 }
