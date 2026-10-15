@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -24,7 +25,11 @@ POLICY = _load_module("ordax_base_firmware_policy", BASE_DIR / "firmware_policy.
 RUNTIME_POLICY = _load_module("ordax_base_runtime_policy", BASE_DIR / "runtime_policy.py")
 
 BuildError = CORE.BuildError
-PACKAGES = CORE.PACKAGES
+# Owner/Development recovery may stage this userspace into initramfs RAM and run
+# `e2fsck -p` only while the ORDAX filesystem is unmounted. Stable/MVP does not
+# inherit this package or this automatic repair authority.
+PACKAGES = [*CORE.PACKAGES, "e2fsprogs"]
+CORE.PACKAGES = PACKAGES
 MAX_ROOTFS_BYTES = CORE.MAX_ROOTFS_BYTES
 prune_firmware = CORE.prune_firmware
 
@@ -61,9 +66,24 @@ def _prune_firmware_then_build_only_runtime(rootfs: Path, required: set[str]) ->
     prune_build_only_runtime(rootfs)
 
 
+def _verify_owner_repair_runtime(rootfs: Path) -> None:
+    e2fsck = rootfs / "sbin/e2fsck"
+    if not e2fsck.is_file() or not os.access(e2fsck, os.X_OK):
+        raise BuildError("Owner/Development filesystem repair runtime is missing: /sbin/e2fsck")
+
+
+_core_verify_rootfs = CORE.verify_rootfs
+
+
+def _verify_rootfs_with_owner_repair(rootfs: Path) -> None:
+    _core_verify_rootfs(rootfs)
+    _verify_owner_repair_runtime(rootfs)
+
+
 # The core builder resolves these symbols from its own module globals at runtime.
 CORE.required_firmware_names = required_firmware_names
 CORE.prune_firmware = _prune_firmware_then_build_only_runtime
+CORE.verify_rootfs = _verify_rootfs_with_owner_repair
 
 
 def main() -> int:
