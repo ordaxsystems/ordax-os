@@ -18,6 +18,8 @@ Até o fechamento do MVP atual, este hub funciona principalmente como **registro
 
 Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora**.
 
+`NATIVE-001` merece leitura especial: ele organiza a jornada USB → Native que `MVP.md` já inclui no ciclo do MVP. Portanto seus recortes podem ser P0/EXECUTION-ELIGIBLE **somente quando os owners canônicos atuais já os exigirem**. O plano não liga flags, não autoriza disco e não vence gates de consentimento/escrita física.
+
 ## Autoridade
 
 Esta pasta **não substitui** a hierarquia documental do OrdaX.
@@ -96,6 +98,53 @@ O status documental é separado da janela de execução:
 
 Durante o fechamento atual do MVP, a regra padrão para planos futuros é `DEFERRED FOR EXECUTION`.
 
+## Planos centrais atuais deste hub
+
+### NATIVE-001 — USB → Native e fechamento do MVP instalável
+
+`plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md`
+
+Organiza a promoção da infraestrutura Native já existente: whole-disk, target identity, Stable signed release, boot sem USB, first-boot health, known-good/recovery e hardware claim por modelo. **P0 somente porque o owner canônico já colocou Native no ciclo do MVP.** Não autoriza APPLY físico.
+
+### MODE-001 — Web, Cloud & Device Runtime
+
+`plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`
+
+Preserva a direção de um produto/uma Surface com runtimes `web | cloud | device | hybrid`, Web real, Files federado, Store sem mocks, Device Bridge, Secure Mesh opcional e Cloud Runtime/VPS somente quando justificado. P1 pós-MVP.
+
+### HARDWARE-001 — Hardware, Drivers e Packs
+
+`plans/HARDWARE-001-HARDWARE-DRIVERS-AND-PACKS.md`
+
+Evolui a estratégia já existente de hardware packs assinados/exact-match até uma experiência de Hardware & Drivers com health/rollback. P1. O mínimo necessário ao modelo Native anunciado permanece no P0 do owner do MVP.
+
+### DESKTOP-001 — experiência cotidiana
+
+`plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md`
+
+Fecha lacunas reais sem recriar subsistemas: Displays, Help offline, MTP/PTP/SMB no Files, UX de Updates e descoberta de apps por intenção. Theme Packs são P2 interno. P1 pós-MVP.
+
+### WEB-001 — Web Research
+
+`plans/WEB-001-WEB-RESEARCH.md`
+
+Capability provider-neutral para pesquisa externa compartilhável por Intelligence/Aura/Studio. P1 pós-MVP e distinta de OrdaX Web.
+
+## Relatório de comparação de desktop
+
+`reports/COMP-001-SPACED-LINUX-ORDAX-COMPARISON.md` registra a auditoria que corrigiu uma leitura superficial de lacunas.
+
+Ele existe para impedir que outro chat/agente proponha desnecessariamente:
+
+- Calamares como segundo instalador;
+- Timeshift como segundo recovery;
+- outro serviço de Diagnostics;
+- outra Loja;
+- outro updater;
+- APT/DKMS/MATE/Compiz/Flatpak como arquitetura obrigatória do OrdaX.
+
+A regra é: **copiar bons princípios de UX; preservar os owners e contratos do OrdaX**.
+
 ## Regras de higiene
 
 - Todo novo relatório deve entrar em `inbox/` ou diretamente em `reports/` se já estiver triado.
@@ -120,11 +169,3 @@ Eles estão catalogados em `REGISTRY.md`. A migração futura deve ser increment
 5. somente então mover, arquivar ou remover.
 
 Até essa auditoria terminar, o `REGISTRY.md` é a classificação autoritativa **do hub de planejamento** para esses arquivos, sem alterar a autoridade arquitetural do produto.
-
-## Primeiro plano nativo do hub
-
-`WEB-001 — OrdaX Web Research` foi criado a partir da pesquisa de 14/10/2026 sobre Tavily, Brave, Exa, Firecrawl, alternativas open source, arquitetura provider-neutral, operação local, custos e segurança.
-
-A direção preservada é: **OrdaX possui os contratos, política, research orchestration, provenance e budget; provedores externos são adapters substituíveis.** Web Research é núcleo lógico de serviços, não kernel/boot/initramfs.
-
-Enquanto o MVP atual não estiver fechado, `WEB-001` permanece documentado e **DEFERRED FOR EXECUTION**.
