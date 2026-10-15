@@ -17,12 +17,20 @@ O artefato candidato é `native-surface-runtime-buildroot.erofs` e mantém o mes
 5. EROFS íntegro com proveniência e SHA-256;
 6. nenhuma autorização Stable ou física.
 
+## Prova portátil do mesmo artefato
+
+O workflow `Independent Surface Runtime` encadeia o reusable workflow canônico `Portable v2 QEMU Boot Proof` somente depois de um build Buildroot verde. A rota experimental usa `base_source=independent` e `surface_source=independent`.
+
+A prova **não recompila** a Surface com Alpine. Ela baixa o `native-surface-runtime-buildroot.erofs` produzido no mesmo workflow run, executa novamente o verificador Buildroot, exige proveniência ligada ao mesmo `source_commit`, compara o SHA-256 antes e depois do binding e só então apresenta os mesmos bytes ao fluxo portátil pelo nome canônico `native-surface-runtime.erofs`.
+
+Essa integração não equivale a prova concluída enquanto os jobs QEMU/UEFI correspondentes não estiverem verdes. Ela também não autoriza promoção Stable, escrita física ou remoção antecipada do runtime oficial atual.
+
 ## Cutover obrigatório — não manter duas bases
 
-Depois que este candidato construir de forma reproduzível:
+Depois que este candidato e a prova portátil do mesmo EROFS estiverem verdes:
 
-1. executar a Surface real em QEMU usando **este mesmo EROFS** e os owners canônicos de boot/assinatura/health;
-2. provar Cage/WebKitGTK, input, DRM/renderização, health, segundo boot, recovery e rollback sem APK;
+1. confirmar a Surface real no QEMU canônico usando **este mesmo EROFS**, incluindo Cage/WebKitGTK, input, DRM/renderização e health observável;
+2. provar segundo boot, recovery e rollback sem APK;
 3. provar firmware/módulos/hardware do candidato no fluxo físico governado apropriado;
 4. substituir atomicamente o builder oficial `bootstrap/surface-runtime` pelo owner Buildroot comprovado;
 5. remover do runtime oficial o lock APK, Alpine minirootfs e qualquer caminho de `apk add`/upgrade;
@@ -34,7 +42,9 @@ A existência deste diretório não autoriza adiar o cutover. Ele deve desaparec
 
 ```sh
 python3 bootstrap/independent-surface-runtime/build.py check
-python3 -m unittest tests.test_independent_surface_runtime -v
+python3 -m unittest \
+  tests.test_independent_surface_runtime \
+  tests.test_independent_surface_qemu_binding -v
 
 python3 bootstrap/independent-surface-runtime/build.py build \
   --out /tmp/ordax-independent-surface \
@@ -45,4 +55,4 @@ python3 bootstrap/independent-surface-runtime/build.py verify \
   --out /tmp/ordax-independent-surface
 ```
 
-Não interpretar `check` ou testes unitários como prova do runtime gráfico. A prova relevante desta etapa é o build Buildroot real e seu artefato; a prova seguinte será boot/Surface real sobre o mesmo artefato.
+Não interpretar `check`, testes unitários ou a existência do encadeamento QEMU como prova do runtime gráfico. O build real comprova o artefato; a prova QEMU/UEFI só existe quando o reusable workflow canônico conclui verde sobre o EROFS produzido no mesmo run.

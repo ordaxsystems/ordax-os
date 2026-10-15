@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILDER_PATH = ROOT / "bootstrap/independent-surface-runtime/build.py"
 SOURCE_PATH = ROOT / "bootstrap/independent-surface-runtime/source.json"
 CONFIG_PATH = ROOT / "bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig"
+WORKFLOW_PATH = ROOT / ".github/workflows/independent-surface-runtime.yml"
 
 
 def load_builder():
@@ -131,6 +132,36 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 tar_path = self.make_tar(self.buildroot_like_paths(omit={missing}))
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Buildroot eudev did not provide"):
                     self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+
+    def test_workflow_reuses_buildroot_downloads_and_compiler_outputs(self):
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        for marker in (
+            "Restore exact Surface compiler cache on artifact miss",
+            "ordax-independent-surface-ccache-v1-",
+            "Restore Surface Buildroot source downloads on artifact miss",
+            "ordax-independent-surface-dl-v1-",
+            "BR2_CCACHE_DIR:",
+            "BR2_DL_DIR:",
+            "Save Surface Buildroot source download cache",
+            "Sanitize reusable Surface download cache",
+        ):
+            self.assertIn(marker, text)
+        self.assertIn("restore-keys:", text)
+        self.assertIn("-name '*.tmp'", text)
+        self.assertIn("-name '*.part'", text)
+        self.assertIn("-name '*.lock'", text)
+
+    def test_workflow_reuses_canonical_qemu_with_same_buildroot_artifact(self):
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertIn("if-no-files-found: error", text)
+        self.assertIn("portable-qemu:", text)
+        self.assertIn("needs: buildroot-surface", text)
+        self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml", text)
+        self.assertIn("base_source: independent", text)
+        self.assertIn("surface_source: independent", text)
+        self.assertIn("force_run: true", text)
+        self.assertIn("actions: read", text)
+        self.assertNotIn("qemu-system-x86_64", text)
 
     def test_check_is_side_effect_free(self):
         self.builder.check()

@@ -55,10 +55,28 @@ OWNER_DEVELOPMENT_LIGHT_EXACT = {
 OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
     "bootstrap/base-update/owner-development/",
 )
+INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
+    ".github/workflows/independent-surface-runtime.yml",
+    "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
+    "bootstrap/independent-surface-runtime/README.md",
+    "docs/contracts/ci-supply-chain.json",
+    "tests/test_independent_surface_component_cache.py",
+    "tests/test_independent_surface_impact.py",
+    "tests/test_independent_surface_runtime.py",
+    "tests/test_independent_surface_cutover_audit.py",
+    "tests/test_independent_surface_cold_health_contract.py",
+    "tools/ci/independent_surface_component_cache.py",
+    "tools/ci/independent_surface_impact.py",
+    "tools/ci/independent_surface_cutover_audit.py",
+}
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
+    ".github/workflows/portable-v2-qemu-boot-proof.yml",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_portable_v2_qemu_boot_proof_contract.py",
+    "tests/test_portable_component_reuse_workflow.py",
+    "tests/test_independent_surface_qemu_binding.py",
 }
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
@@ -68,7 +86,6 @@ ALWAYS_HEAVY_EXACT = {
     "system/services/telemetry/relay.json",
     "system/services/base-update/agent.sh",
     "system/services/local-ai/source-lock.json",
-    ".github/workflows/portable-v2-qemu-boot-proof.yml",
     "tests/test_heavy_workflow_path_scope.py",
 }
 ALWAYS_HEAVY_PREFIXES = (
@@ -257,6 +274,8 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         if path in OWNER_DEVELOPMENT_LIGHT_EXACT:
             continue
         if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
+            continue
+        if path in INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT:
             continue
         if path in IMPACT_POLICY_LIGHT_EXACT:
             continue
