@@ -3,8 +3,8 @@
 This module keeps Product-device setup out of Surface JavaScript and owns no HTTP
 route, heartbeat, background thread or remote-action capability. It composes
 existing enrollment primitives only after authenticated account state exists.
-During a fresh OOBE the first enrollment waits for the user-selected device name;
-subsequent logins after OOBE may enroll/reconcile immediately.
+Device-profile renames reconcile the same machine binding without creating a
+second Product device.
 """
 
 from __future__ import annotations
@@ -68,21 +68,14 @@ class ProductDeviceAccountGatewayProxy:
 
     The wrapped gateway remains the owner of credentials and session cookies. The
     proxy never changes account replies and never exposes account/device secrets to
-    the HTTP caller. A fresh OOBE deliberately defers enrollment until the device
-    profile has the user-selected name, avoiding a throwaway ``Meu OrdaX`` enroll.
+    the HTTP caller. Login enrolls immediately after canonical authentication;
+    later Device Profile renames reconcile the same machine-bound device.
     """
 
-    def __init__(
-        self,
-        gateway,
-        coordinator,
-        device_profile_reader,
-        first_run_state_reader,
-    ) -> None:
+    def __init__(self, gateway, coordinator, device_profile_reader) -> None:
         self._gateway = gateway
         self._coordinator = coordinator
         self._device_profile_reader = device_profile_reader
-        self._first_run_state_reader = first_run_state_reader
 
     def __getattr__(self, name):
         return getattr(self._gateway, name)
@@ -92,17 +85,13 @@ class ProductDeviceAccountGatewayProxy:
         session_payload = json.loads(session_reply.body.decode("utf-8"))
         return isinstance(session_payload, dict) and session_payload.get("authenticated") is True
 
-    def _first_run_is_completed(self) -> bool:
-        state = self._first_run_state_reader()
-        return isinstance(state, dict) and state.get("completed") is True
-
     def login(self, email: str, password: str):
         reply = self._gateway.login(email, password)
         if getattr(reply, "status", None) not in {200, 202, 303}:
             return reply
 
         try:
-            if self._session_is_authenticated() and self._first_run_is_completed():
+            if self._session_is_authenticated():
                 self._coordinator.after_authenticated_login(self._device_profile_reader())
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError, AttributeError):
             # Product-device discovery is optional. Account login remains
@@ -111,7 +100,7 @@ class ProductDeviceAccountGatewayProxy:
         return reply
 
     def reconcile_device_profile(self, device_profile: dict) -> None:
-        """Enroll/reconcile a durable device name only for an authenticated account."""
+        """Re-enroll the same machine binding after a local device rename."""
         try:
             if self._session_is_authenticated():
                 self._coordinator.after_authenticated_login(device_profile)
@@ -128,7 +117,6 @@ def compose_product_device_account_gateway(
     product_mode: str,
     control_plane_origin: str,
     device_profile_reader,
-    first_run_state_reader,
     state_dir: str = DEFAULT_PRODUCT_DEVICE_STATE_DIR,
 ):
     """Return the original gateway unless Owner/Development USB can enroll safely."""
@@ -145,5 +133,4 @@ def compose_product_device_account_gateway(
         account_gateway,
         coordinator,
         device_profile_reader,
-        first_run_state_reader,
     )
