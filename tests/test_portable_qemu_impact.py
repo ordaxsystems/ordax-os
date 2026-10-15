@@ -15,6 +15,7 @@ spec.loader.exec_module(impact)
 
 
 OWNER_REMOTE_SLICE = [
+    ".github/workflows/owner-remote-recovery-contract.yml",
     "bootstrap/base-update/owner-development/ordax-remote",
     "bootstrap/base-update/owner-development/owner-recovery-source.json",
     "docs/REMOTE-CONTROL.md",
