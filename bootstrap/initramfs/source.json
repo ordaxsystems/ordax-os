@@ -46,6 +46,8 @@
   "recovery": {
     "cmdline_token": "ordax.mode=recovery",
     "main_partition_mount": "read-only",
+    "journal_replay": false,
+    "mount_options": "ro,noload,nodev,nosuid",
     "filesystem_growth": false,
     "entrypoint": "/ordax/bootstrap/recovery/entrypoint",
     "network_started": false
@@ -66,7 +68,22 @@
     "normal_boot_error_policy": "read-only-recovery",
     "writable_mount_error_policy": "remount-ro",
     "helper_runtime_path": "/sbin/ordax-grow-ext4",
-    "automatic_destructive_repair": false
+    "automatic_destructive_repair": false,
+    "owner_development_safe_preen": {
+      "enabled": true,
+      "distribution_profile": "owner-development",
+      "tool_source": "/ordax/dev-base/sbin/e2fsck",
+      "mode": "e2fsck -p",
+      "staging_mount_options": "ro,noload,nodev,nosuid",
+      "filesystem_must_be_unmounted_during_repair": true,
+      "accepted_exit_codes": [
+        0,
+        1
+      ],
+      "post_repair_health_recheck_required": true,
+      "stable_mvp_enabled": false,
+      "failure_policy": "read-only-recovery"
+    }
   },
   "portable_v2_prerequisites": {
     "losetup_applet": true,
