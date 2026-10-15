@@ -129,6 +129,22 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_account_space_semantics_backend_slice_does_not_require_qemu(self):
+        result = impact.classify_paths(
+            [
+                "infra/supabase/functions/ordax-account-gateway/index.ts",
+                "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
+                "services/public-identity/supabase_account.py",
+                "system/adapters/web/spaces.mjs",
+                "tests/test_account_spaces_source.py",
+                "tests/test_spaces_catalog.mjs",
+                "tests/test_supabase_account_provider.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
     def test_non_system_trigger_is_heavy_by_default(self):
         result = impact.classify_paths(["bootstrap/kernel/source.json"], root=ROOT)
         self.assertTrue(result.required)

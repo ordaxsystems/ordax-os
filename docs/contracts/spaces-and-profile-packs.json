@@ -53,7 +53,11 @@
     },
     "provider_requires_explicit_space_types": true,
     "same_capability_provider_scopes_must_be_disjoint": true,
-    "provider_selection_key": "capability+space-type"
+    "provider_selection_key": "capability+space-type",
+    "canonical_semantics_owner": "public.ordax_spaces.domain+subtype",
+    "account_projection_includes_explicit_semantics": true,
+    "profile_binding_is_legacy_semantic_fallback_only": true,
+    "semantic_columns_nullable_for_legacy_rows": true
   },
   "profile_pack": {
     "definition": "versioned composition of apps, templates, knowledge-source policy, intelligence instructions and optional technical requirements",

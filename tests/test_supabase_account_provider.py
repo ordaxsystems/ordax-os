@@ -92,6 +92,8 @@ class SupabaseAccountProviderTests(unittest.TestCase):
             "name": "Developer",
             "kind": "professional",
             "state": "active",
+            "domain": "development",
+            "subtype": "software",
         }]
         packs = [{
             "space_id": "space-1",
@@ -109,6 +111,8 @@ class SupabaseAccountProviderTests(unittest.TestCase):
             "kind": "professional",
             "state": "active",
             "profilePack": "developer",
+            "domain": "development",
+            "subtype": "software",
         }])
         self.assertEqual(len(transport.calls), 2)
         for method, url, headers, body in transport.calls:
@@ -117,6 +121,40 @@ class SupabaseAccountProviderTests(unittest.TestCase):
             self.assertEqual(headers["apikey"], "sb_publishable_1234567890")
             self.assertIsNone(body)
             self.assertIn("/rest/v1/ordax_", url)
+        self.assertIn("domain,subtype", transport.calls[0][1])
+
+    def test_spaces_list_preserves_legacy_null_semantics_without_inventing_type(self):
+        spaces = [{
+            "space_id": "space-legacy",
+            "owner_user_id": "user-1",
+            "name": "Legacy",
+            "kind": "work",
+            "state": "active",
+            "domain": None,
+            "subtype": None,
+        }]
+        provider, _ = self.provider([(200, spaces), (200, [])])
+        result = provider.list_spaces("user-access-token")
+        self.assertNotIn("domain", result[0])
+        self.assertNotIn("subtype", result[0])
+
+    def test_spaces_list_rejects_partial_or_invalid_semantics(self):
+        base = {
+            "space_id": "space-1",
+            "owner_user_id": "user-1",
+            "name": "Work",
+            "kind": "work",
+            "state": "active",
+        }
+        for semantic in (
+            {"domain": "food", "subtype": None},
+            {"domain": None, "subtype": "pizzeria"},
+            {"domain": "Food", "subtype": "pizzeria"},
+            {"domain": "fabrication", "subtype": "3d printing"},
+        ):
+            provider, _ = self.provider([(200, [{**base, **semantic}]), (200, [])])
+            with self.assertRaises(account_module.SupabaseAccountError):
+                provider.list_spaces("user-access-token")
 
     def test_spaces_list_fails_closed_on_duplicate_pack_mapping(self):
         spaces = [{
