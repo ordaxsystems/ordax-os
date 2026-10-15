@@ -77,6 +77,21 @@ class NativeAccountGatewayTests(unittest.TestCase):
             client = gateway.NativeAccountGateway("https://accounts.example", str(link))
             self.assertEqual(client._cookies, {})
 
+    def test_product_access_token_is_native_only_and_requires_authenticated_session(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            with self.assertRaises(gateway.NativeAccountGatewayError) as raised:
+                client._product_access_token()
+            self.assertEqual(raised.exception.code, "authentication-required")
+            self.assertEqual(raised.exception.status, 401)
+
+            client._cookies = {
+                "ordax_access": "access-value",
+                "ordax_refresh": "refresh-value",
+            }
+            self.assertEqual(client._product_access_token(), "access-value")
+
     def test_registration_policy_is_read_only_and_uses_existing_session_boundary(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
@@ -294,6 +309,8 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("/sync/snapshot", source)
         self.assertIn("/sync/changes", source)
         self.assertIn("/network/v2/messages/send", source)
+        self.assertNotIn("/device/enroll", source)
+        self.assertNotIn("/v3/device/setup", source)
 
 
 if __name__ == "__main__":
