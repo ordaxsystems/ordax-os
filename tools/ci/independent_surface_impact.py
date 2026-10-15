@@ -31,11 +31,14 @@ LIGHT_EXACT = {
     ".github/workflows/independent-surface-runtime.yml",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
     "bootstrap/independent-surface-runtime/README.md",
+    "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
     "tests/test_independent_surface_runtime.py",
     "tests/test_independent_surface_qemu_binding.py",
     "tests/test_independent_surface_impact.py",
+    "tests/test_independent_surface_component_cache.py",
     "tests/test_portable_v2_qemu_boot_proof_contract.py",
     "tools/ci/independent_surface_impact.py",
+    "tools/ci/independent_surface_component_cache.py",
     "docs/contracts/ci-supply-chain.json",
 }
 
