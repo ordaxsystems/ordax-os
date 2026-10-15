@@ -34,9 +34,10 @@ class IndependentSurfaceColdHealthContractTests(unittest.TestCase):
         self.assertIn("surface_heartbeat_sha()", supervisor)
         self.assertIn("wait_for_surface_health()", supervisor)
         self.assertIn('[ "$healthy_sha" = "$expected_sha" ] && [ "$rendered_sha" = "$expected_sha" ]', supervisor)
+        handler = supervisor.split("handle_portable_candidate_boot() {", 1)[1].split("\n}", 1)[0]
         self.assertLess(
-            supervisor.index('wait_for_surface_health "$pending_boot_sha"'),
-            supervisor.index('portable_commit_candidate "$pending_boot_sha"'),
+            handler.index('wait_for_surface_health "$candidate_sha"'),
+            handler.index('portable_commit_candidate "$candidate_sha"'),
         )
 
     def test_cold_health_runner_uses_real_graphics_and_second_boot(self):
