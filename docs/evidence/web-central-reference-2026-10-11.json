@@ -831,8 +831,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "7192567704344b06ebb1337483f6b80b5cabc297e9b329fdfec15e5079331b45",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: duplicate Aura/Intelligence presentation state and submit UI removed from DesktopContent after the canonical WindowContent -> AuraContent route passed deterministic build and real Chromium; Store/account/navigation ownership remains unchanged. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained.",
+      "adaptedSha256": "b220629e0b7a69a17a9b20b3e76d8a938373b84a8dafbd0f5b5349a8b52764f0",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: duplicate Aura/Intelligence presentation state and submit UI removed from DesktopContent after the canonical WindowContent -> AuraContent route passed deterministic build and real Chromium; Store/account/navigation ownership remains unchanged. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Additive canonical Profile catalog reader, composed by Web; original planned copy and no activation retained.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -848,6 +848,11 @@
           "date": "2026-10-14",
           "sha256": "722bf770ceb8bdfe763840a5b191865caa8f73df8d02cc095eedbb7d537ad879",
           "reason": "Before full Meridian rail/topbar/dock correction explicitly requested by user"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "7192567704344b06ebb1337483f6b80b5cabc297e9b329fdfec15e5079331b45",
+          "reason": "Before user-authorized additive read-only profile catalog; planned panel preserved"
         }
       ]
     },
@@ -987,13 +992,18 @@
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
-      "adaptedSha256": "61132ad3670e13c8f93848ae66606882e8cdf757fc934e52ab5625a6fe6d3026",
-      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: Web composition injects the canonical provider-neutral Intelligence client through a fail-closed unavailable Web adapter; no provider API, secret, inference authority or tool execution is introduced. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained.",
+      "adaptedSha256": "da11484face80ccb7f089fa311e54580f545e81b9aa12bc09d224b665aed8d90",
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: Web composition injects the canonical provider-neutral Intelligence client through a fail-closed unavailable Web adapter; no provider API, secret, inference authority or tool execution is introduced. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Web composes the canonical bundled Profile catalog reader without activation, credentials or a new backend.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
           "sha256": "0db68d767adcbeaa367962800a1a5f92efbf4da76ea275a8f39221dbdd2eeba3",
           "reason": "Previous composition before explicit Meridian adoption"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "61132ad3670e13c8f93848ae66606882e8cdf757fc934e52ab5625a6fe6d3026",
+          "reason": "Before additive read-only Profile catalog composition"
         }
       ]
     },

@@ -1,3 +1,4 @@
+import { ProfileCatalogProvider } from '../../surface/workspace/components/central/profile-catalog-context';
 import { Component, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
@@ -25,6 +26,8 @@ import '../../surface/ui/boot-screen.css';
 import '../../surface/ui/meridian.tokens.css';
 import '../../surface/ui/meridian.css';
 import '../../surface/workspace/components/central/meridian.css';
+const readWebProfileCatalog = (signal: AbortSignal) => import('./profile-catalog').then(module => module.readWebProfileCatalog(signal));
+
 document.documentElement.setAttribute('data-meridian', '');
 const boot = createSurfaceBootScreen(document);
 // This composition currently uses pt-BR; boot text still has one canonical catalog.
@@ -58,7 +61,7 @@ function SessionWorkspace() {
 }
 function Workspace() {
   useEffect(() => { boot.ready(); }, []);
-  return <><WebPreferencesProvider port={preferences}><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><IntelligenceClientProvider port={intelligence}><SessionWorkspace/></IntelligenceClientProvider></StoreCatalogProvider></WebAccountProvider></WebPreferencesProvider><Toaster/></>;
+  return <><WebPreferencesProvider port={preferences}><WebAccountProvider session={accountSession}><StoreCatalogProvider port={storeCatalog}><IntelligenceClientProvider port={intelligence}><ProfileCatalogProvider read={readWebProfileCatalog}><SessionWorkspace/></ProfileCatalogProvider></IntelligenceClientProvider></StoreCatalogProvider></WebAccountProvider></WebPreferencesProvider><Toaster/></>;
 }
 const web = createRoute({
   getParentRoute: () => route, path: '/',

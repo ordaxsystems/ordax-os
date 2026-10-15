@@ -1,5 +1,12 @@
 # Current State
 
+Meridian backend compatibility review (2026-10-14): the user requires retaining
+all planned frontend functionality and deferring integrations whose backend is
+narrower. Web professional profiles now additionally consult the canonical bundled
+active-profile catalog, without activation or replacing planned content. Other
+backend/transport gaps remain explicit; no remote service is newly enabled.
+[Compatibility matrix](DESKTOP-IDENTITY.md#meridian-backend-compatibility-review--2026-10-14).
+
 Meridian preferences follow-up (2026-10-14): appearance previews/copy now match
 Argila/Grafite, the dock follows persisted favorites while retaining running apps,
 and embedded Store contrast, motion and text scale follow canonical preferences.

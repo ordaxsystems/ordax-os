@@ -145,3 +145,30 @@ size warning remains (~728 kB / 207 kB gzip). Physical USB behavior and real Sto
 operations are not asserted by this presentation validation.
 
 ![Compiled Store with Meridian chrome](preferences-store.jpg)
+
+## Backend parity and additive profile consultation
+
+User explicitly requires all planned frontend features/mocks preserved. Where
+backend scope is narrower, integration is deferred rather than replacing the
+frontend with a reduced implementation. The per-feature source/decision matrix
+is maintained in DESKTOP-IDENTITY, not in a parallel implementation plan.
+
+The only new consultation is the canonical bundled active Profile catalog:
+Pizzaria and Impressão 3D. Developer and Jurídico remain drafts. Existing planned
+panel content stays present, and no apply/install/auth command is added. This
+is read-only build metadata, not a remote backend activation. Web composition
+injects the reader, packages source assets and lazy-loads the canonical loader;
+Surface consumes the reader and cancels outstanding fetches on unmount.
+
+Validation: 12 Node test-runner cases (bundled source, canonical catalog suite and
+Web Store isolation), 27 Python Surface UI contracts, Web typecheck/build and
+34-reference verifier passed. Chromium checked development and compiled routes:
+only two active profiles, expandable declared app/template references, planned
+copy retained, no activation action, no production console warnings/errors and
+390 px document width without overflow. The read-only source loader's existing
+negative tests cover redirected/unavailable sources and mismatched identity.
+No credentials, gateway configuration, device, file or profile state was changed.
+The pre-existing initial bundle warning remains (~730 kB / 208 kB gzip); Profile
+source/validation is emitted as a separate lazy chunk (~19 kB).
+
+![Read-only canonical profile consultation with planned content retained](profile-catalog.jpg)

@@ -4,6 +4,8 @@ Status: CANONICAL LEDGER
 
 ## Meridian Web and Store integration — 2026-10-14
 
+BACKEND_PARITY=User requires planned features retained; additive active Profile consultation reuses canonical bundled loader/catalog. Other partial transports/lifecycles remain deferred per DESKTOP-IDENTITY compatibility matrix.
+
 FOLLOW_UP=Canonical preferences now drive dock favorites and embedded contrast/motion/text scale; material preview/copy matches Meridian; no new preference or service owner
 
 COMPONENT=Canonical Web Central/Desktop and Store presentation; shared Native/USB visual policy

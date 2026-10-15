@@ -1,3 +1,4 @@
+import { ProfileCatalogPanel } from './profile-catalog';
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { WebNotificationCenter } from './notifications';
 import { lazy, Suspense, useState, type Dispatch } from 'react';
@@ -28,7 +29,7 @@ export function Desktop({ onCentral, dispatch }: Props) {
 }
 export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
-  if (title === 'Perfis profissionais') return <Panel title={title}><span className="meridian-mock-badge">Planejado · mock visual</span><h3>Ferramentas que acompanham seu trabalho.</h3><p className="service-state">Este destino permanece à vista para implementação gradual. Nenhum perfil, pacote ou permissão é ativado nesta demonstração.</p></Panel>;
+  if (title === 'Perfis profissionais') return <ProfileCatalogPanel/>;
   if (title === 'Minha conta') return <AccountPanel/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
   if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;

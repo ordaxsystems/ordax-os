@@ -1585,3 +1585,31 @@ until closed. Favorite launches reuse the canonical Aura title. Store shadow
 presentation receives contrast/motion attributes from existing preferences; rem
 typography follows document text scale. No new preference authority or runtime
 service is introduced. See the preferences follow-up in the integration evidence.
+
+#### Meridian backend compatibility review — 2026-10-14
+
+User rule: preserve every frontend feature/mock. Connect only compatible existing
+behavior; when the frontend proposal exceeds the backend, retain the demonstration
+and record the missing backend capabilities rather than ship a reduced replacement.
+A source module is not proof of a deployed service or an authorized Web transport.
+
+| Frontend capability | Existing owner / current coverage | Decision and missing parity |
+|---|---|---|
+| Account and Space selection | `composition/web/account-session.mjs`, identity and Spaces adapters; same-origin session and read-only Space catalog | Already composed. Host must actually expose authenticated session/Space routes. No local authentication substitute. |
+| Appearance, accessibility, favorites | Existing preference runtime and Web store | Already composed, browser persistence only; no account-sync claim. |
+| Professional profile consultation | `services/profile-packs/bundled-source.mjs` and `catalog.mjs`, canonical versioned manifests | Add read-only consultation of active profiles alongside the original planned copy. Pizzaria and Impressão 3D are active; Developer and Jurídico are draft and remain unpublished. No activation, entitlement, application installation or business operations inferred. |
+| Applying professional profiles | Native provisioning/activation owners and host/Space context | Not connected to Web. Preserve planned behavior; requires authorized activation transport and compatible host lifecycle. Active manifest does not prove its referenced app/template payload installed. |
+| Store discovery, resource details, library and lifecycle across apps, models, connectors, plugins and packages | `contracts/app-store.mjs` is a verified app catalog; `services/apps/verified-store-projection.mjs` and Native catalog/lifecycle exist | Front is broader. Do not substitute the narrower app projection for the planned multi-resource Store. Keep official view distinct; Web transport, typed metadata, permission/release details, resource-specific lifecycle/auth and library persistence need parity before cutover. Fixture versions/images/permissions never become official metadata. |
+| Projects, recent files, collaboration | `services/files/projects.mjs`, `recent-files.mjs`, Native file-space adapters | Local services exist, but no authorized Web file/project transport is composed. Atlas and collaborative cards are examples, not real projects. Preserve complete proposal; project repository/collaboration parity must be reviewed before replacement. |
+| Notifications and activity | Shared notification runtime/view, Native update bridge; local histories are not an account feed | Web notification view has no delivery adapter; activity proposal needs scoped aggregation. No copying Native notifications or synthesizing activity. |
+| Aura and voice | Canonical Intelligence runtime/client, Web remote adapter, device-local bridge | Web currently unavailable. Requires authenticated remote transport/target/context and runtime routing proof. Voice interaction is still a demonstration and is not implied by chat transport. |
+| Devices, phone camera/audio/second display | Device/remote capability contracts and host infrastructure | No Web device discovery/control integration composed. Camera, microphone, display streaming and consent are distinct missing flows; preserve card. |
+| Continuity, account Memory and sync | `services/sync/`, Web sync adapters, Native composition | Not composed into current Central; requires account/entitlement/context validation and supported host transport. Metadata sync is not files, commands or universal session restore. |
+| Agenda, meeting preparation, routines and task examples | No complete matching composed service found in this review | Preserve every example and its session-only behavior; no partial activation. |
+
+The new Web profile reader packages the existing source assets, calls the same
+validated bundled loader/catalog projection and publishes only active entries.
+It is lazy, read-only and provided by composition; Surface does not import a
+composition module or access storage/endpoints. Cancellation/disposal prevents
+late results from updating a closed window. Failed reads retain planned content.
+This is bundled metadata consultation, not a newly connected remote backend.
