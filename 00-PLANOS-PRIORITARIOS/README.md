@@ -142,6 +142,12 @@ Fundação horizontal para clientes, pais/responsáveis, alunos e outros externo
 
 Mantém os produtos separados e integráveis por OAuth/API/events/projections. Regra de produto: **Achegue-se descobre e conecta; OrdaX organiza e opera.** Nenhum banco, credencial privilegiada, release ou SSOT é fundido. P1 de ecossistema pós-MVP dos dois lados.
 
+### ACHEGUESE-002 — Space privado de desenvolvimento do Achegue-se
+
+`plans/ACHEGUESE-002-ORDAX-DEVELOPER-SPACE.md`
+
+Define como usar o próprio OrdaX para desenvolver o Achegue-se sem fundir os produtos: um Space privado inicialmente owner-only, vinculado ao repositório externo e às ferramentas autorizadas de Projects/Files/Git/providers. O Space pode receber membros depois via IDENTITY-001, mas membership nunca concede automaticamente acesso a repositório, produção ou secrets. Não cria Profile público específico do Achegue-se. P1 de dogfooding pós-MVP.
+
 ### TALENT-001 — Identidade profissional, vagas e contratação
 
 `plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md`
