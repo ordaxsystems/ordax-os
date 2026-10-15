@@ -1,5 +1,6 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
+import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 import {
   assertIdentityActionsPort,
   isIdentityActionSupported,
@@ -673,14 +674,13 @@ export function mountAccountOverviewControls(
         : t("account.spaces.access.member");
       const kind = t(`account.spaces.kind.${space.kind}`);
       const state = t(`account.spaces.state.${space.state}`);
-      const detail = space.profilePack
-        ? t("account.spaces.card.detailPack", {
-            kind,
-            state,
-            access,
-            pack: space.profilePack,
-          })
-        : t("account.spaces.card.detail", { kind, state, access });
+      const presentation = describeSpacePresentation(space);
+      const semanticType = presentation.typeLabelId === null
+        ? null
+        : t(presentation.typeLabelId);
+      const detail = semanticType === null
+        ? t("account.spaces.card.detail", { kind, state, access })
+        : t("account.spaces.card.detailType", { type: semanticType, kind, state, access });
       const isSelected = spaceContext.activeSpace?.id === space.id;
       const card = appendStateCard(
         documentObject,
@@ -694,6 +694,8 @@ export function mountAccountOverviewControls(
       card.dataset.spaceKind = space.kind;
       card.dataset.selected = String(isSelected);
       card.dataset.spaceState = space.state;
+      card.dataset.spaceType = presentation.typeKey ?? "";
+      card.dataset.spaceSemanticSource = presentation.semanticSource;
       const experience = spaceExperiencePort?.get(space) ?? null;
       if (experience?.state === "ready" && experience.spaceCardMetrics.length > 0) {
         const metrics = node(documentObject, "div", "ordax-account-space-metrics");

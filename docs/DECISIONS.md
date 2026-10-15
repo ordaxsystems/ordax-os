@@ -456,4 +456,4 @@ Aura remains the single OrdaX Intelligence layer. Space projection may provide o
 
 Implementation note (2026-10-15): the first promoted provider is `system/services/spaces/aura-provider.mjs`. It reuses the already authorized selected-Space Intelligence owner, requires exact selected-Space identity plus real inference availability, and emits no dashboard metric. This promotion does not imply availability of any domain transaction capability.
 
-Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. Projection owner: `system/services/spaces/composition.mjs`.
+Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. User-facing type presentation owner: `system/services/spaces/presentation.mjs`; explicit `domain/subtype` takes precedence and Profile Pack resolution is legacy-only when canonical semantics are absent. Projection owner: `system/services/spaces/composition.mjs`.

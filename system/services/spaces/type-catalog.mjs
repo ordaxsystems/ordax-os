@@ -14,6 +14,7 @@ const rawCatalog = {
       schema: SPACE_TYPE_DEFINITION_SCHEMA,
       domain: "food",
       subtype: "pizzeria",
+      label_id: "space.type.food.pizzeria",
       lifecycle: "mvp-foundation",
       profile_bindings: ["pizzaria-br", "pizzaria-br@1"],
       capabilities: [
@@ -55,6 +56,7 @@ const rawCatalog = {
       schema: SPACE_TYPE_DEFINITION_SCHEMA,
       domain: "fabrication",
       subtype: "3d-printing",
+      label_id: "space.type.fabrication.3d-printing",
       lifecycle: "mvp-foundation",
       profile_bindings: ["impressao-3d-br", "impressao-3d-br@1"],
       capabilities: [
@@ -102,6 +104,7 @@ const rawCatalog = {
       schema: SPACE_TYPE_DEFINITION_SCHEMA,
       domain: "product-operations",
       subtype: "territorial-platform",
+      label_id: "space.type.product-operations.territorial-platform",
       lifecycle: "deferred",
       profile_bindings: [],
       capabilities: [
@@ -152,6 +155,7 @@ const rawCatalog = {
       schema: SPACE_TYPE_DEFINITION_SCHEMA,
       domain: "education",
       subtype: "school",
+      label_id: "space.type.education.school",
       lifecycle: "deferred",
       profile_bindings: [],
       capabilities: [
@@ -199,6 +203,7 @@ const rawCatalog = {
       schema: SPACE_TYPE_DEFINITION_SCHEMA,
       domain: "development",
       subtype: "software",
+      label_id: "space.type.development.software",
       lifecycle: "deferred",
       profile_bindings: ["developer", "developer@1"],
       capabilities: [

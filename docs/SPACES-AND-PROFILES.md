@@ -209,6 +209,8 @@ Surface projection
 
 The canonical semantic catalog is `system/services/spaces/type-catalog.mjs`. The deterministic projection is owned by `system/services/spaces/composition.mjs`, with versioned contracts in `system/contracts/space-experience.mjs`. Profile Pack manifests intentionally do **not** duplicate Space navigation, dashboard schemas or provider availability.
 
+User-facing Space type identity is resolved by `system/services/spaces/presentation.mjs` from the canonical catalog. Explicit `domain/subtype` always wins. A Profile Pack binding may identify the type only for legacy rows that have no explicit semantics; an unknown explicit type never falls back to the Profile Pack. Surface components consume the localized type message id and may show Profile state only as secondary technical context.
+
 A declared capability is not an entitlement, grant, installed component or live data source. For a contextual item to appear, its provider must return a valid `ready` snapshot for the same authorized Space. A missing, unavailable, malformed or failing provider removes that capability from the projection without breaking Surface. A dashboard/card metric is rendered only when that ready provider supplies the exact metric; zero is valid data, absence is not converted into a fabricated zero.
 
 Capability names are not globally unique owners. Every provider must declare the exact `spaceTypes` it serves. Multiple providers may implement the same capability only when their Space-type scopes are disjoint; the compositor selects by `capability + space type`. This keeps, for example, future Food `orders` and Fabrication `orders` from becoming interchangeable merely because both verticals use the word `orders`.

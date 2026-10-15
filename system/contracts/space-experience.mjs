@@ -1,5 +1,5 @@
-export const SPACE_TYPE_DEFINITION_SCHEMA = "ordax.space-type-definition/1";
-export const SPACE_TYPE_CATALOG_SCHEMA = "ordax.space-type-catalog/1";
+export const SPACE_TYPE_DEFINITION_SCHEMA = "ordax.space-type-definition/2";
+export const SPACE_TYPE_CATALOG_SCHEMA = "ordax.space-type-catalog/2";
 export const SPACE_CAPABILITY_PROVIDER_SCHEMA = "ordax.space-capability-provider/2";
 export const SPACE_CAPABILITY_SNAPSHOT_SCHEMA = "ordax.space-capability-snapshot/1";
 export const SPACE_EXPERIENCE_SCHEMA = "ordax.space-experience/1";
@@ -90,6 +90,7 @@ export function validateSpaceTypeDefinition(value, label = "Space type definitio
   if (raw.schema !== SPACE_TYPE_DEFINITION_SCHEMA) throw new TypeError(`${label} schema is incompatible`);
   const domain = identifier(raw.domain, `${label}.domain`, 80);
   const subtype = identifier(raw.subtype, `${label}.subtype`, 80);
+  const labelId = identifier(raw.label_id, `${label}.label_id`, 160);
   if (!TYPE_LIFECYCLES.has(raw.lifecycle)) throw new TypeError(`${label}.lifecycle is invalid`);
   const capabilities = uniqueIdentifiers(raw.capabilities, `${label}.capabilities`, 64);
   const capabilitySet = new Set(capabilities);
@@ -115,6 +116,7 @@ export function validateSpaceTypeDefinition(value, label = "Space type definitio
     key: `${domain}.${subtype}`,
     domain,
     subtype,
+    labelId,
     lifecycle: raw.lifecycle,
     profileBindings,
     capabilities,
