@@ -203,6 +203,19 @@ class NativeAccountGateway:
 
         return GatewayReply(status=status, headers=response_headers, body=raw)
 
+    def _product_access_token(self) -> str:
+        """Return the Native-only account access token to trusted runtime code.
+
+        This is deliberately private: Surface JS and public host routes must not
+        receive account bearer material. Product device enrollment may borrow it
+        only long enough to authenticate the canonical Control Plane request.
+        """
+        with self._lock:
+            token = self._cookies.get("ordax_access", "")
+            if not token or not COOKIE_VALUE_RE.fullmatch(token):
+                raise NativeAccountGatewayError("authentication-required", status=401)
+            return token
+
     def session(self) -> GatewayReply:
         with self._lock:
             return self._request("GET", "/auth/session")
