@@ -8,8 +8,16 @@ import {
   SPACE_CAPABILITY_PROVIDER_SCHEMA,
   SPACE_CAPABILITY_SNAPSHOT_SCHEMA,
   assertSpaceCapabilityProvider,
+  validateSpaceTypeDefinition,
 } from "../system/contracts/space-experience.mjs";
 import { validateSpace } from "../system/contracts/spaces.mjs";
+import { validateProfilePack } from "../system/contracts/profile-pack.mjs";
+import { createProfilePackCatalogFromPacks } from "../system/services/profile-packs/catalog.mjs";
+import {
+  SPACE_CREATION_INTENT_SCHEMA,
+  validateSpaceCreationPreflight,
+} from "../system/contracts/space-creation.mjs";
+import { planSpaceCreationPreflight } from "../system/services/spaces/creation-preflight.mjs";
 import {
   SPACE_TYPE_CATALOG,
   composeSpaceExperience,
@@ -350,4 +358,88 @@ test("Spaces page consumes generic provider-backed metrics without vertical hard
   assert.match(native, /createSelectedSpaceAuraCapabilityProvider/);
   assert.match(native, /providers: \[selectedSpaceAuraCapability\]/);
   assert.match(native, /Transactional vertical capabilities remain unavailable/);
+});
+test("MVP Space types bind creation to an explicit exact Profile version", () => {
+  assert.deepEqual(type("food.pizzeria").creationDefaultProfile, {
+    slug: "pizzaria-br",
+    version: 1,
+    identity: "pizzaria-br@1",
+  });
+  assert.deepEqual(type("fabrication.3d-printing").creationDefaultProfile, {
+    slug: "impressao-3d-br",
+    version: 1,
+    identity: "impressao-3d-br@1",
+  });
+  assert.equal(type("development.software").creationDefaultProfile, null);
+});
+
+test("Space type validator refuses inferred or deferred creation defaults", () => {
+  const base = {
+    schema: "ordax.space-type-definition/2",
+    domain: "test",
+    subtype: "example",
+    label_id: "space.type.test.example",
+    lifecycle: "mvp-foundation",
+    profile_bindings: ["example@1"],
+    capabilities: ["aura"],
+    navigation: [],
+    dashboard: [],
+    card_metrics: [],
+    aura: { capability: "aura", scope: "current-space-only" },
+    resources: [],
+  };
+  assert.throws(() => validateSpaceTypeDefinition(base), /requires an explicit default Profile/);
+  assert.throws(() => validateSpaceTypeDefinition({
+    ...base,
+    creation_default_profile: { slug: "other", version: 1 },
+  }), /allowed exact profile binding/);
+  assert.throws(() => validateSpaceTypeDefinition({
+    ...base,
+    lifecycle: "deferred",
+    creation_default_profile: { slug: "example", version: 1 },
+  }), /deferred type cannot expose a creation default Profile/);
+});
+
+test("Space creation preflight resolves only real published exact Profile Packs and exposes no authority", () => {
+  const packs = ["pizzaria-br", "impressao-3d-br"].map((slug) => validateProfilePack(JSON.parse(
+    read(`system/profile-packs/${slug}/v1/manifest.json`),
+  )));
+  const profileCatalog = createProfilePackCatalogFromPacks({ packs });
+  const intent = (domain, subtype) => ({ schema: SPACE_CREATION_INTENT_SCHEMA, domain, subtype });
+
+  const food = planSpaceCreationPreflight(intent("food", "pizzeria"), { profileCatalog });
+  assert.equal(food.state, "profile-resolved");
+  assert.equal(food.profile.identity, "pizzaria-br@1");
+  assert.equal(food.profile.spaceKind, "professional");
+  assert.equal(food.nextStep, "validate-profile-provisioning");
+  assert.deepEqual(food.authority, {
+    createSpace: false,
+    provisionProfile: false,
+    activateProfile: false,
+  });
+  assert.deepEqual(validateSpaceCreationPreflight(food), food);
+
+  const fabrication = planSpaceCreationPreflight(intent("fabrication", "3d-printing"), { profileCatalog });
+  assert.equal(fabrication.state, "profile-resolved");
+  assert.equal(fabrication.profile.identity, "impressao-3d-br@1");
+});
+
+test("Space creation preflight blocks deferred, unknown, and missing exact Profile states", () => {
+  const pizzeria = validateProfilePack(JSON.parse(read("system/profile-packs/pizzaria-br/v1/manifest.json")));
+  const profileCatalog = createProfilePackCatalogFromPacks({ packs: [pizzeria] });
+  const intent = (domain, subtype) => ({ schema: SPACE_CREATION_INTENT_SCHEMA, domain, subtype });
+
+  const development = planSpaceCreationPreflight(intent("development", "software"), { profileCatalog });
+  assert.equal(development.state, "blocked");
+  assert.equal(development.reason, "space-type-deferred");
+  assert.equal(development.profile, null);
+
+  const unknown = planSpaceCreationPreflight(intent("unknown", "unknown"), { profileCatalog });
+  assert.equal(unknown.state, "blocked");
+  assert.equal(unknown.reason, "unknown-space-type");
+
+  const fabrication = planSpaceCreationPreflight(intent("fabrication", "3d-printing"), { profileCatalog });
+  assert.equal(fabrication.state, "blocked");
+  assert.equal(fabrication.reason, "creation-default-profile-unavailable");
+  assert.equal(fabrication.nextStep, null);
 });
