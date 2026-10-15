@@ -1,7 +1,9 @@
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
-const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, "../..");
 
 export default defineConfig({
   root: repoRoot,
