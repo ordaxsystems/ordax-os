@@ -11,19 +11,25 @@ runBrowser(async (client) => {
 
   const response = await client.send("Runtime.evaluate", {
     expression: `(() => ({
+      href: location.href,
+      readyState: document.readyState,
       title: document.title,
       hasEmulatorApi: window.__ORDAX_EMULATOR__?.schema === "ordax.windows-emulator/1",
       kernelDisabled: window.__ORDAX_EMULATOR__?.kernel === false,
       firstRunVisible: Boolean(document.querySelector(".ordax-first-run")),
       nextActionVisible: Boolean(document.querySelector('[data-first-run-action="next"]')),
       surfaceTarget: document.querySelector("#ordax-emulator-surface")?.getAttribute("src") ?? null,
+      scripts: [...document.scripts].map((script) => script.src || script.textContent?.slice(0, 80) || ""),
+      resources: performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => name.includes("windows-emulator") || name.includes("first-run")),
       bodyText: document.body.innerText.slice(0, 500),
     }))()`,
     returnByValue: true,
   });
 
   const result = response.result?.value;
-  if (!result?.hasEmulatorApi) throw new Error("Windows emulator API did not initialize");
+  if (!result?.hasEmulatorApi) {
+    throw new Error(`Windows emulator API did not initialize: ${JSON.stringify(result)}`);
+  }
   if (!result.kernelDisabled) throw new Error("Windows emulator unexpectedly reports a kernel");
   if (!result.firstRunVisible || !result.nextActionVisible) {
     throw new Error(`Windows emulator first-run did not render: ${JSON.stringify(result)}`);
