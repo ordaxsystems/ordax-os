@@ -12,6 +12,7 @@ const FETCH_TIMEOUT_MS = Math.max(10, Number.parseInt(process.env.ORDAX_FETCH_TI
 
 let stopping = false;
 let syncRunning = false;
+let timer = null;
 
 function git(args, timeout = FETCH_TIMEOUT_MS) {
   const result = spawnSync('git', ['-C', REPO_ROOT, ...args], {
@@ -113,11 +114,9 @@ function syncMainOnce() {
   }
 }
 
-const viteBin = process.platform === 'win32'
-  ? resolve(REPO_ROOT, 'node_modules/.bin/vite.cmd')
-  : resolve(REPO_ROOT, 'node_modules/.bin/vite');
-
-const vite = spawn(viteBin, [
+const viteEntry = resolve(REPO_ROOT, 'node_modules/vite/bin/vite.js');
+const vite = spawn(process.execPath, [
+  viteEntry,
   '--config',
   'tools/windows-emulator/vite.config.mjs',
   '--open',
@@ -126,13 +125,12 @@ const vite = spawn(viteBin, [
   cwd: REPO_ROOT,
   stdio: 'inherit',
   windowsHide: false,
-  shell: process.platform === 'win32',
 });
 
 function stop(signal = 'SIGTERM') {
   if (stopping) return;
   stopping = true;
-  clearInterval(timer);
+  if (timer) clearInterval(timer);
   if (!vite.killed) vite.kill(signal);
 }
 
@@ -143,7 +141,7 @@ vite.once('error', (error) => {
 });
 
 vite.once('exit', (code, signal) => {
-  clearInterval(timer);
+  if (timer) clearInterval(timer);
   if (!stopping && code !== 0) {
     log(`Vite exited unexpectedly (${signal ?? code ?? 'unknown'}); development supervisor is stopping`);
     process.exitCode = code ?? 1;
@@ -156,5 +154,5 @@ process.once('SIGTERM', () => stop('SIGTERM'));
 
 log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
 syncMainOnce();
-const timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
+timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
 timer.unref();
