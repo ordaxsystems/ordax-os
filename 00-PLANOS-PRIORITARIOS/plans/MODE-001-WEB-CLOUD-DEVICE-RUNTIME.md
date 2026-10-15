@@ -7,8 +7,8 @@
 - **Criado:** 2026-10-14
 - **Atualizado:** 2026-10-14
 - **Owner canônico:** `docs/PRODUCT-MODES.md` + owners de capabilities/serviços correspondentes; este plano não substitui esses owners
-- **Base factual:** `main` em `e9239a2b9713d6ba3c9c26fd5ec96c36a387f340`, `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md`, `docs/STORE-WEB-CATALOG-PRESENTATION.md`
-- **Relatórios de apoio:** pesquisa externa de 2026-10-14 sobre Puter, Kasm, Windows 365, WebVM e capacidades Cloudflare; revalidar antes de decisões de provider
+- **Base factual:** `main` revalidada em 2026-10-14, `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md`, `docs/STORE-WEB-CATALOG-PRESENTATION.md`
+- **Relatórios de apoio:** pesquisa externa de 2026-10-14 sobre Puter, Kasm, Windows 365, WebVM, Cloudflare, secure mesh/VPN moderna e VPS/cloud nodes; revalidar antes de decisões de provider
 - **Dependências:** Identity/Account, Sync, Spaces/Profile owners, Store/App lifecycle, Files, Action Gateway, Device Agent, product capabilities e infraestrutura remota corrente
 - **Não boot-critical:** SIM
 
@@ -62,7 +62,9 @@ O usuário deve poder abrir OrdaX Web e usar imediatamente tudo que for realment
 - criar backend paralelo para Loja, Arquivos, Perfis, Intelligence ou Projetos;
 - substituir Device Agent por automação Web própria;
 - criar uma VM/desktop cloud permanente por usuário como requisito do produto;
-- tornar Cloudflare, Supabase ou outro fornecedor parte do contrato de domínio;
+- tornar Cloudflare, Hostinger, Supabase, Tailscale, NetBird ou outro fornecedor parte do contrato de domínio;
+- criar uma VPN comercial/anônima como requisito desta frente;
+- contratar VPS antes de existir workload persistente que justifique a despesa;
 - reimplementar funções ausentes como versões reduzidas apenas para a UI deixar de mostrar indisponibilidade;
 - promover Web, Mobile ou runtime remoto a release pública apenas porque o source existe;
 - alterar gates de boot, kernel, Independent Base, Creator ou mídia física.
@@ -94,13 +96,17 @@ O usuário deve poder abrir OrdaX Web e usar imediatamente tudo que for realment
 - lifecycle real da Loja pelo Web;
 - namespace de Arquivos que diferencie Cloud, navegador autorizado e dispositivos remotos;
 - sessão pública de device bridge com autorização por conta/Space/dispositivo/capability;
+- política explícita para conectividade privada/secure mesh quando conexão direta ou rede privada for necessária;
 - compute cloud de produto como capability opcional e isolada;
+- política para nodes persistentes/VPS quando jobs efêmeros não forem suficientes;
 - política unificada de quotas/custos para storage/compute/realtime;
 - rollout público comprovado do runtime remoto.
 
 ### Desconhecido / não provado
 
 - provider remoto final e sua topologia de produção;
+- necessidade real de uma secure mesh própria ou uso de infraestrutura/provider existente;
+- necessidade real de VPS persistente, quantidade, localização e sizing;
 - se toda persistência atual deve permanecer no backend existente ou migrar por capability;
 - SLAs, custos e quotas reais em escala;
 - compatibilidade final de cada app com Web/cloud/device;
@@ -200,7 +206,7 @@ isolated compute   -> Containers/Sandbox ou equivalente
 SQL/state          -> backend compatível com os contratos e migração aprovados
 ```
 
-Não migrar schema/persistência apenas para encaixar um produto do provider. A `main` atualmente contém documentação que ainda aponta partes do control plane para o backend existente; a Fase 0 deve reconciliar o SSOT real antes de qualquer mudança.
+Não migrar schema/persistência apenas para encaixar um produto do provider. A Fase 0 deve reconciliar o SSOT real antes de qualquer mudança.
 
 ### 8. Perfis/Spaces não pertencem a este plano
 
@@ -219,6 +225,47 @@ App
  -> lifecycle por owner
  -> apresentação coerente em cada modo
 ```
+
+### 10. Secure Mesh/VPN é transporte privado, não authority
+
+Uma secure mesh pode ser útil para Device Agent, Edge Runtime, redes privadas e conexões device-to-device, principalmente quando NAT, firewall ou recursos LAN tornam uma rota privada necessária.
+
+A arquitetura deve preservar:
+
+```text
+Secure Mesh = conectividade privada e criptografada
+Action Gateway = autorização da ação
+```
+
+Entrar na malha não concede automaticamente acesso a arquivos, shell, apps ou rede inteira. Conta, Space, device, capability e grant continuam determinando authority.
+
+Quando implementada, preferir tecnologia/protocolo consolidado e auditado, com WireGuard ou equivalente como possível data plane. Não criar criptografia própria. Tailscale, NetBird, Cloudflare e outros podem ser referência/provider, mas não contrato do produto.
+
+O navegador público não deve receber acesso amplo à mesh. O fluxo padrão continua Web -> Control Plane/Action Gateway -> device session autorizada.
+
+Secure Mesh é **subcapacidade de Device Bridge**, não um plano separado e não uma prioridade antes de existir necessidade concreta de conectividade privada.
+
+### 11. VPS/Cloud Node é compute persistente opcional
+
+Uma VPS é útil quando existir workload que realmente precise de processo persistente, IP/rede estável, cache local grande, relay/coordenação, runner duradouro ou outro comportamento inadequado a compute efêmero/serverless.
+
+Ela não substitui Cloudflare/edge/control plane por padrão e não deve ser criada por usuário automaticamente.
+
+Modelo conceitual:
+
+```text
+Control Plane / Edge
+        |
+Capability Resolver
+   /        |        \
+Web     Cloud Job   Persistent Node
+         |              |
+    sandbox/container  VPS/cloud node
+```
+
+Hostinger, Hetzner, DigitalOcean ou outro fornecedor são opções de infraestrutura, não dependências arquiteturais. A contratação só deve ocorrer após medição demonstrar que um workload persistente existe e que Workers/Containers/Sandbox/Device/Edge não resolvem de modo melhor ou mais econômico.
+
+**Não contratar VPS agora apenas para “preparar o OrdaX”.** Preparar contratos e runtime resolution é suficiente até existir demanda comprovada.
 
 ## Caminhos/owners afetados
 
@@ -308,6 +355,21 @@ Depois, mutações tipadas: create/rename/move/upload/download/delete conforme o
 - mutações tipadas com grants, auditoria e revogação;
 - Device Agent permanece executor local; Web não ganha shell genérico.
 
+#### Fase 5B — Secure Mesh, somente se necessária
+
+Adicionar conectividade privada apenas quando a Fase 5 demonstrar necessidade que HTTPS/WebSocket/gateway normal não resolva adequadamente.
+
+- conexão device-to-device/Edge-to-device criptografada;
+- NAT traversal quando aplicável;
+- relay criptografado como fallback quando conexão direta não for possível;
+- subnet routing somente para equipamentos/rede explicitamente autorizados;
+- policy por account/Space/device;
+- nenhuma porta local publicada diretamente ao navegador;
+- a mesh não substitui grants do Action Gateway;
+- provider/data plane substituível.
+
+**Gate G5B:** estar conectado à mesh não concede nenhuma capability por si só; remover/revogar device ou grant encerra o acesso correspondente.
+
 **Gate G5:** dispositivo offline/degradado não derruba o Web; ação sem grant nunca alcança o Device Agent.
 
 ### Fase 6 — continuidade de Apps/Spaces/Intelligence
@@ -332,6 +394,29 @@ Somente após Web e Device boundaries estarem fechados:
 - receipts de uso/custo;
 - cancelamento e recuperação após restart;
 - streaming de app/desktop apenas se um caso real justificar.
+
+#### Fase 7B — Persistent Cloud Node / VPS, somente com workload comprovado
+
+Avaliar VPS/cloud node apenas quando existir uma necessidade objetiva de processo persistente que compute efêmero, Device Agent ou Edge Runtime não atendam melhor.
+
+Casos candidatos:
+
+- relay/coordenação persistente de Secure Mesh, se realmente necessário;
+- runner/build worker com cache/estado operacional duradouro;
+- serviço especializado incompatível com serverless/containers efêmeros;
+- ambiente profissional dedicado quando houver entitlement e modelo econômico comprovados.
+
+Regras:
+
+- não criar uma VPS por usuário por padrão;
+- preferir pool compartilhado e isolamento forte quando apropriado;
+- firewall, patching, backup, observabilidade e recovery são custo operacional explícito;
+- manter a VPS atrás do control plane/gateway sempre que possível;
+- provider substituível; Hostinger é apenas um candidato possível;
+- começar pelo menor sizing que benchmarks justificarem;
+- só contratar após estimativa de custo total e plano de saída/migração.
+
+**Gate G7B:** workload persistente e vantagem técnica/econômica estão documentados; node pode falhar sem transformar estado efêmero em perda de estado autoritativo.
 
 **Gate G7:** compute pode desaparecer/reiniciar sem perder estado que deveria ser persistente; nenhuma job recebe authority maior que o grant.
 
@@ -361,7 +446,9 @@ Somente após Web e Device boundaries estarem fechados:
 7. cloud compute é opcional e isolado;
 8. provider pode ser trocado sem alterar consumer/domain contracts;
 9. offline/degraded mode é funcional e explícito;
-10. nenhuma mudança deste plano bloqueia boot/recovery/local use do OS.
+10. nenhuma mudança deste plano bloqueia boot/recovery/local use do OS;
+11. Secure Mesh, quando existir, transporta mas não autoriza;
+12. VPS/cloud node, quando existir, é implementação de compute persistente e nunca requisito universal do produto.
 
 ## Segurança/privacidade
 
@@ -372,7 +459,10 @@ Somente após Web e Device boundaries estarem fechados:
 - namespaces de Files evitam exfiltração acidental de diretórios locais;
 - logs/audit minimizam PII e conteúdo;
 - cloud jobs não recebem HOME, secrets ou rede lateral por padrão;
-- separação rígida entre authority de desenvolvimento e authority de produto.
+- separação rígida entre authority de desenvolvimento e authority de produto;
+- secure mesh não concede acesso de rede amplo por simples membership;
+- chaves/identidades de mesh devem ter rotação/revogação e escopo por device;
+- node/VPS não recebe release signing keys ou credenciais administrativas desnecessárias.
 
 ## Custos/limites
 
@@ -385,9 +475,35 @@ Antes de rollout cloud:
 - medir compute por job;
 - definir hard budget e degraded mode;
 - registrar receipt de consumo onde houver custo variável;
-- revalidar preços/limites de Cloudflare ou qualquer provider na data da implementação.
+- medir se Secure Mesh exige relay pago/egress próprio;
+- comparar custo de compute efêmero versus node persistente;
+- para VPS, considerar não só mensalidade, mas backup, tráfego, operação, patching, observabilidade e failover;
+- revalidar preços/limites de Cloudflare, Hostinger ou qualquer provider na data da implementação.
 
-Cloud runtime não deve ser iniciado automaticamente para toda sessão Web.
+Cloud runtime não deve ser iniciado automaticamente para toda sessão Web. Secure Mesh não deve ser ativada para todo dispositivo sem necessidade. **VPS não deve ser contratada enquanto não existir workload persistente comprovado.**
+
+## Ordem interna de prioridade do MODE-001
+
+Esta ordem orienta a futura revalidação e não autoriza execução enquanto `MODE-001` estiver `DEFERRED FOR EXECUTION`:
+
+```text
+1. runtime/capability contracts
+2. transporte autenticado Web
+3. Loja Web real
+4. Arquivos federados
+5. Device Bridge / Action Gateway
+6. continuidade Apps/Spaces/Intelligence
+7. Secure Mesh somente se Device Bridge demonstrar necessidade
+8. Cloud Runtime efêmero
+9. VPS/Persistent Cloud Node somente se workload persistente demonstrar necessidade
+10. hardening/escala/rollout
+```
+
+Interpretação:
+
+- **Secure Mesh/VPN:** P1 técnico dentro do Device Bridge quando necessária, não um produto separado;
+- **VPS/Cloud Node:** capacidade posterior dentro do Cloud Runtime; não é prioridade de contratação agora;
+- **VPN comercial/anônima/exit-node para navegação:** fora do objetivo principal e, se algum dia avaliada, deve ser uma frente opcional separada de segurança/produto, sem contaminar Device Bridge.
 
 ## Testes/evidências
 
@@ -405,6 +521,11 @@ Mínimos futuros:
 - quota/rate-limit exhaustion;
 - cloud sandbox e egress negative tests;
 - provider outage/degraded mode;
+- secure mesh membership sem grant não permite ação;
+- revogação de device/mesh encerra sessões correspondentes;
+- relay/direct-path não muda authority;
+- VPS/node restart e perda controlada sem corrupção do estado autoritativo;
+- failover/degraded mode sem abrir acesso administrativo;
 - app capability matrix Web/Cloud/Device;
 - regression de Native/Desktop para cada transport alterado.
 
@@ -421,7 +542,7 @@ cloud/provider indisponível
  -> nunca ampliar authority para compensar falha
 ```
 
-Device offline não invalida cloud state. Cloud offline não invalida arquivos locais. Falha da Loja não impede Surface. Falha de cloud compute não impede apps Web/device que não dependam dele.
+Device offline não invalida cloud state. Cloud offline não invalida arquivos locais. Falha da Loja não impede Surface. Falha de cloud compute não impede apps Web/device que não dependam dele. Falha da Secure Mesh deve degradar somente rotas que dependem dela; quando houver rota normal autorizada, ela pode continuar. Falha de uma VPS não pode derrubar o control plane inteiro nem tornar um node persistente a fonte única de estado crítico sem recovery explícito.
 
 ## Prioridade e posição no roadmap
 
@@ -438,6 +559,8 @@ Razões:
 
 Quando a janela pós-MVP abrir, `MODE-001` deve estar entre os primeiros P1 a serem revalidados. A recomendação é revalidá-lo antes de capacidades aditivas que dependam de uma experiência Web/plataforma mais madura. Isso **não é autorização automática de execução** e não cria ordem irrevogável; `ROADMAP.md` deve ser revalidado contra a `main` naquele momento.
 
+Secure Mesh e VPS **não elevam a prioridade do MODE-001 nem criam novos P0/P1 independentes**. São opções internas acionadas por necessidade comprovada. A prioridade do plano continua sendo fechar contratos, transports e boundaries reais antes de contratar infraestrutura.
+
 ## Relação com outros planos
 
 - `SURFACE-001`: referência funcional; `MODE-001` não recria UI, apenas fecha capability/transport/runtime boundaries.
@@ -448,13 +571,17 @@ Quando a janela pós-MVP abrir, `MODE-001` deve estar entre os primeiros P1 a se
 
 ## Próxima ação documental
 
-Manter este plano coerente com `REGISTRY.md` e `ROADMAP.md`. Se a arquitetura de produto, backend/control plane ou owner de Product Modes mudar antes do pós-MVP, atualizar este documento sem iniciar implementação.
+Manter este plano coerente com `REGISTRY.md` e `ROADMAP.md`. Se a arquitetura de produto, backend/control plane, owner de Product Modes ou necessidade de Secure Mesh/VPS mudar antes do pós-MVP, atualizar este documento sem iniciar implementação.
+
+Não criar plano separado de VPN ou VPS enquanto essas capacidades permanecerem subordinadas a Device Bridge/Cloud Runtime neste owner.
 
 ## Próxima ação de execução
 
 **DEFERRED.**
 
 Após fechamento do MVP, revalidar a `main`, confirmar owners/providers atuais e executar somente a Fase 0 após promoção explícita para `EXECUTION-ELIGIBLE`.
+
+Não contratar VPS nem implantar Secure Mesh apenas para antecipar fases futuras.
 
 ## Handoff para outro chat/agente
 
@@ -463,8 +590,10 @@ Ao retomar `MODE-001`:
 1. ler `AGENTS.md`, `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md` e `REGISTRY.md`;
 2. ler `docs/PRODUCT-MODES.md`, `docs/CURRENT-STATE.md`, `docs/ACCOUNT-SYNC-AND-PLANS.md`, `docs/DEVICE-AGENT-PROJECTS-WEB-MCP.md` e `docs/STORE-WEB-CATALOG-PRESENTATION.md`;
 3. verificar owners machine-readable de repository/product capabilities;
-4. não assumir que o provider remoto documentado hoje continua sendo o atual;
+4. não assumir que o provider remoto, VPN/mesh ou VPS documentado hoje continua sendo a melhor opção;
 5. se continuar `DEFERRED FOR EXECUTION`, limitar-se a documentação/reconciliação;
 6. quando elegível, começar por owner/capability/transport contracts, não por UI nem provider SDK;
-7. nunca substituir funções preservadas por mocks reduzidos para “fazer o Web funcionar”;
-8. atualizar owner canônico + registry/roadmap após qualquer decisão real.
+7. Secure Mesh só entra se a necessidade de conectividade privada for demonstrada; ela não substitui grants;
+8. VPS/cloud node só entra se workload persistente provar necessidade e vantagem técnica/econômica;
+9. nunca substituir funções preservadas por mocks reduzidos para “fazer o Web funcionar”;
+10. atualizar owner canônico + registry/roadmap após qualquer decisão real.
