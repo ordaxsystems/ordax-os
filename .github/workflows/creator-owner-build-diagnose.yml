@@ -1,11 +1,6 @@
 name: Diagnose Creator Git USB build
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'bootstrap/dev-base/**'
-      - '.github/workflows/creator-owner-build-diagnose.yml'
   workflow_dispatch:
 
 permissions:
