@@ -38,9 +38,13 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
     def test_contract_docs_and_ci_only_changes_are_light(self):
         result = self.mod.classify_paths([
             "bootstrap/independent-surface-runtime/README.md",
+            "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
             "tests/test_independent_surface_runtime.py",
             "tests/test_independent_surface_qemu_binding.py",
             "tests/test_independent_surface_impact.py",
+            "tests/test_independent_surface_component_cache.py",
+            "tests/test_independent_surface_cutover_audit.py",
+            "tests/test_independent_surface_cold_health_contract.py",
             "tests/test_portable_component_reuse_workflow.py",
             "tests/test_portable_qemu_impact.py",
             ".github/workflows/independent-surface-runtime.yml",
@@ -48,6 +52,8 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             ".github/workflows/portable-qemu-impact-contract.yml",
             "docs/contracts/ci-supply-chain.json",
             "tools/ci/independent_surface_impact.py",
+            "tools/ci/independent_surface_component_cache.py",
+            "tools/ci/independent_surface_cutover_audit.py",
             "tools/ci/portable_qemu_impact.py",
         ])
         self.assertFalse(result.required)
