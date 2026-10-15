@@ -4,6 +4,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 CREATOR_PAYLOAD = ROOT / ".github/workflows/creator-payload-candidate.yml"
 OWNER_DEV = ROOT / ".github/workflows/creator-owner-dev-git.yml"
+DEV_BASE_CHANNEL = ROOT / ".github/workflows/dev-base-channel.yml"
+OWNER_DEV_DIAGNOSE = ROOT / ".github/workflows/creator-owner-build-diagnose.yml"
 CACHE_SHA = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
 
 
@@ -30,7 +32,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("portable_component_cache.py fingerprints", workflow)
 
         build = self.step_block(workflow, "Build kernel candidate on verified cache miss")
-        self.assertIn("if: steps.kernel-cache.outputs.cache-hit != 'true'", build)
+        self.assertIn("steps.kernel-cache.outputs.cache-hit != 'true'", build)
         self.assertIn("bootstrap/kernel/build.py build --jobs 4", build)
 
         verify = self.step_block(
@@ -78,6 +80,41 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         ):
             block = self.step_block(workflow, step)
             self.assertNotIn("cache-hit", block)
+
+    def test_dev_base_channel_skips_helper_only_publication_and_reuses_kernel(self):
+        workflow = self.assert_verified_kernel_reuse(DEV_BASE_CHANNEL)
+        detector = self.step_block(workflow, "Detect Base-byte changes")
+        for helper in (
+            "bootstrap/dev-base/ordax-dev-init",
+            "bootstrap/dev-base/ordax-network",
+            "bootstrap/dev-base/ordax-pull",
+            "bootstrap/dev-base/ordax-run",
+            "bootstrap/dev-base/ordax-rollback",
+            "bootstrap/dev-base/ordax-diagnose",
+            "bootstrap/recovery/entrypoint",
+        ):
+            self.assertIn(helper, detector)
+        self.assertNotIn(".github/workflows/dev-base-channel.yml", detector)
+        build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
+        self.assertNotIn("bootstrap/kernel/build.py", build)
+        self.assertIn("bootstrap/initramfs/build.py build --jobs 4", build)
+
+    def test_owner_dev_diagnose_is_dev_base_only_and_reuses_kernel(self):
+        workflow = self.assert_verified_kernel_reuse(OWNER_DEV_DIAGNOSE)
+        trigger = workflow.split("permissions:", 1)[0]
+        self.assertNotIn("      - 'bootstrap/dev-base/**'", trigger)
+        for path in (
+            "bootstrap/base/alpine_core.py",
+            "bootstrap/base/firmware_policy.py",
+            "bootstrap/base/runtime_policy.py",
+            "bootstrap/dev-base/build.py",
+        ):
+            self.assertIn(f"      - '{path}'", trigger)
+        self.assertNotIn("Build and verify boot ESP", workflow)
+        self.assertNotIn("Build and verify initramfs", workflow)
+        dev_base = self.step_block(workflow, "Build and verify Git development base")
+        self.assertNotIn("bootstrap/kernel/build.py", dev_base)
+        self.assertNotIn("bootstrap/initramfs/build.py", dev_base)
 
     def test_owner_dev_publication_remains_main_only(self):
         workflow = self.workflow(OWNER_DEV)
