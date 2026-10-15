@@ -6,6 +6,7 @@ export const SPACE_EXPERIENCE_SCHEMA = "ordax.space-experience/1";
 export const SPACE_EXPERIENCE_SOURCE_SCHEMA = "ordax.space-experience-source/1";
 
 const IDENTIFIER = /^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
+const PROFILE_SLUG = /^[a-z0-9][a-z0-9-]{1,79}$/;
 const TYPE_LIFECYCLES = new Set(["mvp-foundation", "deferred"]);
 const SNAPSHOT_STATES = new Set(["ready", "unavailable", "error"]);
 
@@ -107,6 +108,26 @@ export function validateSpaceTypeDefinition(value, label = "Space type definitio
   if (new Set(profileBindings).size !== profileBindings.length) {
     throw new TypeError(`${label}.profile_bindings must be unique`);
   }
+  let creationDefaultProfile = null;
+  if (raw.creation_default_profile != null) {
+    const creation = objectValue(raw.creation_default_profile, `${label}.creation_default_profile`);
+    const slug = boundedText(creation.slug, `${label}.creation_default_profile.slug`, 80);
+    if (!PROFILE_SLUG.test(slug)) throw new TypeError(`${label}.creation_default_profile.slug is invalid`);
+    if (!Number.isSafeInteger(creation.version) || creation.version < 1) {
+      throw new TypeError(`${label}.creation_default_profile.version is invalid`);
+    }
+    const identity = `${slug}@${creation.version}`;
+    if (!profileBindings.includes(identity)) {
+      throw new TypeError(`${label}.creation_default_profile must be an allowed exact profile binding`);
+    }
+    creationDefaultProfile = Object.freeze({ slug, version: creation.version, identity });
+  }
+  if (raw.lifecycle === "mvp-foundation" && creationDefaultProfile === null) {
+    throw new TypeError(`${label} MVP creation requires an explicit default Profile`);
+  }
+  if (raw.lifecycle === "deferred" && creationDefaultProfile !== null) {
+    throw new TypeError(`${label} deferred type cannot expose a creation default Profile`);
+  }
   const aura = objectValue(raw.aura, `${label}.aura`);
   if (aura.scope !== "current-space-only") throw new TypeError(`${label}.aura.scope is invalid`);
   const auraCapability = identifier(aura.capability, `${label}.aura.capability`, 128);
@@ -119,6 +140,7 @@ export function validateSpaceTypeDefinition(value, label = "Space type definitio
     labelId,
     lifecycle: raw.lifecycle,
     profileBindings,
+    creationDefaultProfile,
     capabilities,
     navigation,
     dashboard,

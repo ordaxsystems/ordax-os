@@ -17,6 +17,7 @@ const rawCatalog = {
       label_id: "space.type.food.pizzeria",
       lifecycle: "mvp-foundation",
       profile_bindings: ["pizzaria-br", "pizzaria-br@1"],
+      creation_default_profile: { slug: "pizzaria-br", version: 1 },
       capabilities: [
         "orders", "tables", "delivery", "menu", "inventory", "customers", "payments",
         "finance", "team", "reports", "reservations", "offers", "aura",
@@ -59,6 +60,7 @@ const rawCatalog = {
       label_id: "space.type.fabrication.3d-printing",
       lifecycle: "mvp-foundation",
       profile_bindings: ["impressao-3d-br", "impressao-3d-br@1"],
+      creation_default_profile: { slug: "impressao-3d-br", version: 1 },
       capabilities: [
         "orders", "quotes", "models", "files", "jobs", "printers", "print_queue", "materials",
         "inventory", "customers", "quality", "maintenance", "finance", "team", "reports",
