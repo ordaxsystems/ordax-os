@@ -7,6 +7,7 @@ on:
       - 'bootstrap/independent-base/source.json'
       - 'bootstrap/kernel/source.json'
       - 'tests/test_independent_surface_runtime.py'
+      - 'tests/test_independent_surface_qemu_binding.py'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
       - '.github/workflows/independent-surface-runtime.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
@@ -33,7 +34,9 @@ jobs:
           persist-credentials: false
       - name: Validate Alpine-free Surface migration contract
         run: |
-          python3 -m unittest tests.test_independent_surface_runtime -v
+          python3 -m unittest \
+            tests.test_independent_surface_runtime \
+            tests.test_independent_surface_qemu_binding -v
           python3 -m py_compile \
             bootstrap/independent-surface-runtime/build.py \
             bootstrap/independent-surface-runtime/prepare_config.py
