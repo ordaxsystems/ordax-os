@@ -2,8 +2,8 @@
 """Machine-checkable guard for the Alpine -> Buildroot Surface cutover.
 
 `pre` validates the migration state that is allowed before promotion: the new
-Independent Surface owner is Alpine/APK-free while the current canonical Alpine
-Surface and Stable Base remain intact.
+Independent Surface owner is Buildroot/musl and package-manager-free while the
+current canonical Alpine Surface and Stable Base remain intact.
 
 `post` is intentionally red before cutover. It becomes green only after the
 canonical Surface owner has been replaced atomically by Buildroot/musl and the
@@ -33,10 +33,11 @@ STABLE_BASE_GUARDS = (
 )
 SURFACE_CACHE_OWNER = Path("tools/ci/portable_component_cache.py")
 
+# These markers indicate an operational Alpine/APK dependency. Merely naming
+# /etc/apk or /lib/apk in a negative runtime assertion is intentionally allowed:
+# the independent builder must be able to prove those paths are absent.
 FORBIDDEN_OPERATIONAL_MARKERS = (
     "apk add",
-    "/etc/apk",
-    "/lib/apk",
     "dl-cdn.alpinelinux.org",
     "alpine-minirootfs",
     "apk_package_lock",
@@ -73,6 +74,16 @@ def _text(path: Path) -> str:
         raise AuditError(f"cannot read {path}: {exc}") from exc
 
 
+def _json(path: Path) -> dict:
+    try:
+        value = json.loads(_text(path))
+    except json.JSONDecodeError as exc:
+        raise AuditError(f"invalid JSON contract {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise AuditError(f"JSON contract must be an object: {path}")
+    return value
+
+
 def _operational_files(owner: Path) -> list[Path]:
     if owner.is_symlink() or not owner.is_dir():
         raise AuditError(f"Surface owner directory missing or unsafe: {owner}")
@@ -99,6 +110,16 @@ def _forbidden_hits(owner: Path) -> dict[str, list[str]]:
     return hits
 
 
+def _surface_contract(owner: Path) -> dict[str, bool]:
+    source = _json(owner / "source.json")
+    return {
+        "surface_contract_uses_musl": source.get("libc") == "musl",
+        "surface_contract_forbids_runtime_package_manager": (
+            source.get("package_manager_in_runtime_allowed") is False
+        ),
+    }
+
+
 def _stable_base_preserved(root: Path) -> bool:
     return all((root / relative).is_file() for relative in STABLE_BASE_GUARDS)
 
@@ -110,7 +131,8 @@ def audit_pre(root: Path = ROOT) -> AuditResult:
     hits = _forbidden_hits(independent)
     checks = {
         "independent_owner_present": independent.is_dir(),
-        "independent_owner_alpine_apk_free": not hits,
+        "independent_owner_no_operational_alpine_apk_dependency": not hits,
+        **_surface_contract(independent),
         "canonical_surface_owner_still_present": canonical.is_dir(),
         "legacy_surface_builder_still_present": (canonical / "build.py").is_file(),
         "legacy_surface_source_still_present": (canonical / "source.json").is_file(),
@@ -131,7 +153,8 @@ def audit_post(root: Path = ROOT) -> AuditResult:
     independent_bridge_absent = not (root / INDEPENDENT_OWNER).exists()
     checks = {
         "canonical_surface_owner_present": canonical.is_dir(),
-        "canonical_surface_alpine_apk_free": not hits,
+        "canonical_surface_no_operational_alpine_apk_dependency": not hits,
+        **_surface_contract(canonical),
         "legacy_surface_apk_discovery_removed": legacy_absent,
         "surface_cache_no_longer_depends_on_alpine_core": (
             '"bootstrap/base/alpine_core.py"' not in cache_text
