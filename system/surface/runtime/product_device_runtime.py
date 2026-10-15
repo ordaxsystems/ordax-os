@@ -33,12 +33,17 @@ class ProductDevicePostLoginCoordinator:
         if account_gateway is None or not isinstance(control_plane_origin, str) or not control_plane_origin.strip():
             return
 
-        identity_store = ProductDeviceIdentityStore(state_dir)
-        self.client = ProductDeviceEnrollmentClient(
-            control_plane_origin,
-            account_gateway,
-            identity_store,
-        )
+        try:
+            identity_store = ProductDeviceIdentityStore(state_dir)
+            self.client = ProductDeviceEnrollmentClient(
+                control_plane_origin,
+                account_gateway,
+                identity_store,
+            )
+        except (TypeError, ValueError):
+            # Configuration errors must never make account login, boot or Surface
+            # health depend on the development Control Plane.
+            self.client = None
 
     def after_authenticated_login(self, device_profile: dict) -> PostLoginDeviceResult:
         if self.client is None:
