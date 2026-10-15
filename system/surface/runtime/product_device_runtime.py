@@ -13,7 +13,10 @@ from product_device_enrollment import ProductDeviceEnrollmentClient
 from product_device_identity import ProductDeviceIdentityStore
 from product_device_post_login import PostLoginDeviceResult, enroll_product_device_after_login
 
-DEFAULT_PRODUCT_DEVICE_STATE_DIR = "/state/ordax"
+# Inside the graphical chroot, /var/lib/ordax is the existing private persistent
+# bind of the host's /state/ordax/native-state. Keep Product-device material on
+# that proven persistence boundary rather than creating or exposing a new mount.
+DEFAULT_PRODUCT_DEVICE_STATE_DIR = "/var/lib/ordax"
 
 
 class ProductDevicePostLoginCoordinator:
