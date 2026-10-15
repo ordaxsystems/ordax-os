@@ -1663,3 +1663,19 @@ The integration branch includes canonical `main` through `7e71ead5`. Browser vis
 inspection confirmed the Spaces window and cover inside the existing Web shell.
 No npm commands, automated tests, type-check or build were run, as requested. Native
 hardware/runtime integration and backend availability are not claimed.
+
+
+### Web Settings Meridian layout — 2026-10-15
+
+Web Settings now follows the Meridian preview's category grid and four-panel layout:
+appearance, privacy/context, accessibility/focus and account/system. All existing
+Web capabilities remain connected to the same preference owner: all color-theme
+options (including native), contrast, movement, all three text scales and browser
+persistence feedback. Account opens the existing managed account window.
+
+The twelve category entry points remain visible. Unsupported device controls and
+privacy/continuity/focus are explicitly identified as examples or pending connections;
+local draft review never claims a device change or backend success. This is a Web
+layout change only: the separate Meridian branch is not merged or visually changed.
+Visual browser inspection completed; npm, automated tests and builds were not run
+at the user's request.

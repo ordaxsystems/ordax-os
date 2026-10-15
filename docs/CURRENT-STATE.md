@@ -1,5 +1,11 @@
 # Current State
 
+Web Settings layout (2026-10-15): Settings adopts the Meridian category grid and
+panels while preserving all real Web preference controls and account navigation.
+Unconnected device features remain visible as labelled examples. No branch merge,
+npm, automated tests or build for this change.
+[Scope](DESKTOP-IDENTITY.md#web-settings-meridian-layout--2026-10-15).
+
 Spaces presentation follow-up (2026-10-15): the Web Spaces window now shares the
 Meridian dashboard renderer/styles/examples with the isolated preview. Authorized
 account consultation and selection remain separate and unchanged. Covers, metrics
