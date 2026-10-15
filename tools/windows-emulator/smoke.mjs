@@ -3,11 +3,35 @@ import { runBrowser, sleep } from "../browser-proof/chromium.mjs";
 
 const url = process.env.ORDAX_WINDOWS_EMULATOR_URL
   ?? "http://127.0.0.1:4202/tools/windows-emulator/index.html";
+const STARTUP_TIMEOUT_MS = 15_000;
+const STARTUP_POLL_MS = 250;
 
 runBrowser(async (client) => {
   const navigate = await client.send("Page.navigate", { url });
   if (navigate.errorText) throw new Error(`Windows emulator navigation failed: ${navigate.errorText}`);
-  await sleep(1500);
+
+  const startedAt = Date.now();
+  let result = null;
+  while (Date.now() - startedAt < STARTUP_TIMEOUT_MS) {
+    const response = await client.send("Runtime.evaluate", {
+      expression: `(() => ({
+        href: location.href,
+        readyState: document.readyState,
+        title: document.title,
+        hasEmulatorApi: window.__ORDAX_EMULATOR__?.schema === "ordax.windows-emulator/1",
+        kernelDisabled: window.__ORDAX_EMULATOR__?.kernel === false,
+        firstRunVisible: Boolean(document.querySelector(".ordax-first-run")),
+        nextActionVisible: Boolean(document.querySelector('[data-first-run-action="next"]')),
+        surfaceTarget: window.__ORDAX_EMULATOR__?.surfaceTarget ?? null,
+        frameSrc: document.querySelector("#ordax-emulator-surface")?.getAttribute("src") ?? null,
+        bodyText: document.body.innerText.slice(0, 500),
+      }))()`,
+      returnByValue: true,
+    });
+    result = response.result?.value ?? null;
+    if (result?.hasEmulatorApi && result.firstRunVisible && result.nextActionVisible) break;
+    await sleep(STARTUP_POLL_MS);
+  }
 
   const browserExceptions = client.events
     .filter((event) => event.method === "Runtime.exceptionThrown")
@@ -19,26 +43,8 @@ runBrowser(async (client) => {
       columnNumber: event.params?.exceptionDetails?.columnNumber ?? null,
     }));
 
-  const response = await client.send("Runtime.evaluate", {
-    expression: `(() => ({
-      href: location.href,
-      readyState: document.readyState,
-      title: document.title,
-      hasEmulatorApi: window.__ORDAX_EMULATOR__?.schema === "ordax.windows-emulator/1",
-      kernelDisabled: window.__ORDAX_EMULATOR__?.kernel === false,
-      firstRunVisible: Boolean(document.querySelector(".ordax-first-run")),
-      nextActionVisible: Boolean(document.querySelector('[data-first-run-action="next"]')),
-      surfaceTarget: document.querySelector("#ordax-emulator-surface")?.getAttribute("src") ?? null,
-      scripts: [...document.scripts].map((script) => script.src || script.textContent?.slice(0, 80) || ""),
-      resources: performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => name.includes("windows-emulator") || name.includes("first-run")),
-      bodyText: document.body.innerText.slice(0, 500),
-    }))()`,
-    returnByValue: true,
-  });
-
-  const result = response.result?.value;
   if (!result?.hasEmulatorApi) {
-    throw new Error(`Windows emulator API did not initialize: ${JSON.stringify({ result, browserExceptions })}`);
+    throw new Error(`Windows emulator API did not initialize within ${STARTUP_TIMEOUT_MS}ms: ${JSON.stringify({ result, browserExceptions })}`);
   }
   if (!result.kernelDisabled) throw new Error("Windows emulator unexpectedly reports a kernel");
   if (!result.firstRunVisible || !result.nextActionVisible) {
@@ -47,11 +53,16 @@ runBrowser(async (client) => {
   if (result.surfaceTarget !== "/system/composition/web/index.html") {
     throw new Error(`Unexpected Surface target: ${String(result.surfaceTarget)}`);
   }
+  if (result.frameSrc !== "about:blank") {
+    throw new Error(`Surface must remain inactive during OOBE, got: ${String(result.frameSrc)}`);
+  }
 
   console.log("ORDAX_WINDOWS_EMULATOR_SMOKE=PASS");
+  console.log(`ORDAX_WINDOWS_EMULATOR_STARTUP_MS=${Date.now() - startedAt}`);
   console.log(`ORDAX_WINDOWS_EMULATOR_TITLE=${result.title}`);
   console.log("ORDAX_WINDOWS_EMULATOR_KERNEL=DISABLED");
   console.log("ORDAX_WINDOWS_EMULATOR_OOBE=VISIBLE");
+  console.log("ORDAX_WINDOWS_EMULATOR_SURFACE=DORMANT_UNTIL_OOBE");
   return result;
 }).catch((error) => {
   console.error(error);
