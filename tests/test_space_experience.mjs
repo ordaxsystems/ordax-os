@@ -277,6 +277,7 @@ test("Spaces page consumes generic provider-backed metrics without vertical hard
   assert.match(account, /metric\.label/);
   assert.match(account, /metric\.value/);
   assert.doesNotMatch(account, /orders\.today|printers\.active|students\.total|businesses\.active/);
-  assert.match(native, /createSpaceExperienceSource\(\)/);
-  assert.match(native, /No operational vertical provider is promoted yet/);
+  assert.match(native, /createSelectedSpaceAuraCapabilityProvider/);
+  assert.match(native, /providers: \[selectedSpaceAuraCapability\]/);
+  assert.match(native, /Transactional vertical capabilities remain unavailable/);
 });

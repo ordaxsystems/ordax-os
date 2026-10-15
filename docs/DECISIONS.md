@@ -454,4 +454,6 @@ Space type definitions may be structured ahead of product promotion, but a `defe
 
 Aura remains the single OrdaX Intelligence layer. Space projection may provide only current-Space-bound authorized context and never turns Aura into the transactional SSOT. Domain owners remain authoritative for orders, jobs, users, students, payments and other business data.
 
+Implementation note (2026-10-15): the first promoted provider is `system/services/spaces/aura-provider.mjs`. It reuses the already authorized selected-Space Intelligence owner, requires exact selected-Space identity plus real inference availability, and emits no dashboard metric. This promotion does not imply availability of any domain transaction capability.
+
 Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. Projection owner: `system/services/spaces/composition.mjs`.

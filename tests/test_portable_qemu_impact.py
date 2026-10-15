@@ -67,8 +67,12 @@ class PortableQemuImpactTests(unittest.TestCase):
                 "system/contracts/spaces.mjs",
                 "system/services/spaces/composition.mjs",
                 "system/services/spaces/type-catalog.mjs",
+                "system/services/spaces/aura-provider.mjs",
                 "system/surface/ui/account-overview-controls.mjs",
                 "system/surface/ui/account.css",
+                "docs/contracts/spaces-and-profile-packs.json",
+                "tests/test_space_experience.mjs",
+                "tests/test_space_aura_provider.mjs",
             ],
             root=ROOT,
         )
@@ -112,6 +116,18 @@ class PortableQemuImpactTests(unittest.TestCase):
             "heavy-unclassified-system:system/new-kernel-facing-owner/config.bin",
             unknown.reasons,
         )
+
+    def test_markdown_documentation_is_presentation_light_before_non_system_fail_closed(self):
+        result = impact.classify_paths(
+            [
+                "docs/CURRENT-STATE.md",
+                "docs/DECISIONS.md",
+                "docs/SPACES-AND-PROFILES.md",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
     def test_non_system_trigger_is_heavy_by_default(self):
         result = impact.classify_paths(["bootstrap/kernel/source.json"], root=ROOT)
