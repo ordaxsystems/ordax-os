@@ -295,3 +295,21 @@
 [data-meridian] .md-journey[data-story="storage"] .md-journey-volumes>div{padding:12px 14px;margin:10px 0;align-items:center}
 [data-meridian] .md-journey[data-story="storage"] .md-journey-volumes p{margin:4px 0;font-size:12px;line-height:1.5}
 [data-meridian] .md-journey[data-story="storage"] .md-journey-volumes strong{font-size:13px}
+
+/* Files journey: a read-only catalogue of the existing contextual fixtures. */
+[data-meridian] .md-files-overview{border:1px solid var(--md-border);border-radius:16px;overflow:hidden;margin:24px 0;background:var(--md-canvas)}
+[data-meridian] .md-files-overview>header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid var(--md-border)}
+[data-meridian] .md-files-overview .md-eyebrow{margin:0 0 6px;font-size:10px}
+[data-meridian] .md-files-overview h4{margin:0;font-size:14px}
+[data-meridian] .md-files-overview>header>span{color:var(--md-muted);font-size:12px;white-space:nowrap}
+[data-meridian] .md-files-overview ul{list-style:none;margin:0;padding:0 20px}
+[data-meridian] .md-files-overview li{display:flex;gap:12px;align-items:center;padding:16px 0;border-bottom:1px solid var(--md-border)}
+[data-meridian] .md-files-overview li:last-child{border-bottom:0}
+[data-meridian] .md-files-overview li>div{display:grid;gap:5px;min-width:0;flex:1}
+[data-meridian] .md-files-overview li strong{font-size:13px;overflow-wrap:anywhere}
+[data-meridian] .md-files-overview li small,[data-meridian] .md-files-overview li>span:last-child{font-size:11px;color:var(--md-muted)}
+[data-meridian] .md-files-overview li>span:last-child{white-space:nowrap}
+[data-meridian] .md-files-origin{display:flex;align-items:center;gap:8px;padding:13px 20px;border-top:1px solid var(--md-border);margin:0;font-size:11px;color:var(--md-muted)}
+[data-meridian] .md-files-empty{padding:24px 20px;font-size:14px}
+[data-meridian] .md-files-empty small{color:var(--md-muted);line-height:1.6}
+@media(max-width:450px){[data-meridian] .md-files-overview>header{padding:16px}[data-meridian] .md-files-overview ul{padding:0 16px}[data-meridian] .md-files-overview li{gap:10px}}

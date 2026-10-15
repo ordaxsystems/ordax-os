@@ -1714,3 +1714,24 @@ No discovery, filesystem access, format/eject, write, cleanup or backend adapter
 is introduced. The production gap remains connecting authoritative volume/status
 and persistence information without narrowing the planned UI. Evidence remains in
 `docs/evidence/meridian-system-pages-2026-10-14/README.md`.
+
+### Meridian Files presentation — 2026-10-15
+
+The existing injected Files storyboard now uses product-facing copy for browse,
+preview, create, favorites, operation review, sharing, conflicts, errors, trash,
+restore and completion. Its contextual fixture list has a Space header, item count,
+file kind/size and origin footer, with compact three-stage navigation. Trash shows
+its existing fictional document and original destination as facts.
+
+No screen or operation option was removed. All next/actions/conditions/links,
+confirmation gates, exits and effects match the prior graph. The fixtures remain
+read-only presentation: item selection, favorite membership, folder destinations,
+creation, renaming, copy/move, trash/restore and share grants are not implemented
+by these screens. In particular favorites retains the prior contextual fixture list;
+completion receipts do not mutate or persist that list. These are preserved planned
+features requiring their authoritative Files/Runtime owners, not reduced backend
+integration or a replacement Files application. The production port is unchanged.
+
+No filesystem access, real sharing, grant creation or deletion was performed.
+Preview CSP/host restrictions remain unchanged. Bounded checks and screenshots:
+`docs/evidence/meridian-system-pages-2026-10-14/README.md`.

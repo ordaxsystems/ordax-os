@@ -123,3 +123,28 @@ was reset. This is bounded preview QA, not proof of USB persistence or filesyste
 ![Persistence review](storage-persistence.jpg)
 
 ![Storage on mobile](storage-mobile.jpg)
+
+## Files presentation follow-up — 2026-10-15
+
+Updated the existing Files journey copy and catalogue layout without connecting
+filesystem or sharing operations. Existing fixtures remain unchanged; trash now
+shows its existing document/destination as structured facts. Favorites and result
+screens remain mocked and do not mutate a real file list.
+
+Seven navigation regressions and edited-module syntax checks passed. Structural
+comparison with the prior commit confirmed all Files screen keys, next targets,
+actions, conditions, links, confirmations, exits and effects were preserved.
+Browser checks covered creation name/review, operation consent, sharing duration
+and completion, fresh consent when going back, conflict consent, denied access and
+retry, favorites, trash confirmation and restore receipt. Captured console logs
+had no warnings/errors. Mobile 390x844 measured document 390 px, dialog scroll width
+388 px and list client/scroll width 340 px, without horizontal overflow. Desktop
+and mobile screenshots were reviewed. The temporary viewport was reset and the
+agent tab reloaded to clear disposable test state. This is presentation QA, not
+backend or real file-operation acceptance.
+
+![Files](files.jpg)
+
+![Trash review](files-trash.jpg)
+
+![Files on mobile](files-mobile.jpg)

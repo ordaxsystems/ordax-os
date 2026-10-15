@@ -1,5 +1,11 @@
 # Current State
 
+Meridian Files presentation (2026-10-15): contextual file list, creation/review,
+sharing, conflict and trash screens now use product-facing Meridian copy and
+grouped navigation. Existing mocked features and guards remain. No filesystem
+operation or sharing backend was connected.
+[Scope](DESKTOP-IDENTITY.md#meridian-files-presentation--2026-10-15).
+
 Meridian storage presentation (2026-10-15): capacity summary, three prepared-USB
 volume cards and persistence review now use product-facing Meridian presentation.
 Read-only/full/disconnected mocks and draft continuity remain; there is no device

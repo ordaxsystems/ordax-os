@@ -263,3 +263,7 @@ mocks, with product-facing copy and no real update/power/recovery actions.
 
 `/?journey=storage` opens the storage summary and persistence review. Capacity,
 volume states and retry conditions are fixtures; the preview reads no disks.
+
+`/?journey=files` opens the contextual Files presentation, including creation,
+sharing, conflicts and trash mocks. These screens perform no filesystem or grant
+operations; the existing production Files owner is unchanged.
