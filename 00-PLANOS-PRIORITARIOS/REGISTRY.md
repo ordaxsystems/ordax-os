@@ -25,6 +25,12 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | MODE-001 | plano de produto/arquitetura | `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fecha wiring real do OrdaX Web e boundaries Web/Cloud/Device sem fork; candidato fundacional a revalidar cedo no pós-MVP |
 | FAB-001 | plano de produto/vertical comercial | `plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, exceto recorte `impressao-3d-br@1` já exigido por owner canônico do MVP | Primeiro vertical comercial recomendado; une negócio, produção, arquivos, jobs, materiais, print farm, devices e Intelligence; piloto real na operação de impressão 3D do owner |
 | FOOD-001 | plano de produto/vertical comercial | `plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md` | **P1** | READY | **DEFERRED FOR EXECUTION**, exceto recorte `pizzaria-br@1` já exigido por owner canônico do MVP | Estrutura OrdaX Food sobre o Profile/Space Pizzaria existente; Pizza é o segundo piloto comercial recomendado após FAB-001; reutiliza Account/Spaces/Realtime/Intelligence e proíbe backend/conta/authority paralelos |
+| IDENTITY-001 | plano de identidade/colaboração | `plans/IDENTITY-001-SPACE-MEMBERS-INVITES-AND-ACCESS.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fecha convite, aceite, roles, revogação e ownership de Spaces; People/emprego continua separado de login/membership |
+| REL-001 | plano de plataforma | `plans/REL-001-EXTERNAL-RELATIONSHIPS-AND-PORTALS.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fundação horizontal para clientes, responsáveis, alunos e outros externos sem transformá-los em membros internos; domínio mantém SSOT da relação |
+| ACHEGUESE-001 | plano first-party/ecossistema | `plans/ACHEGUESE-001-FIRST-PARTY-PRODUCT-INTEGRATION.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Mantém Achegue-se independente e territory-first; integração somente por Product OAuth/API/events/projections, sem banco/credencial/SSOT compartilhado |
+| TALENT-001 | plano de produto/ecossistema | `plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Identidade profissional pessoal fora do Space + vagas/candidaturas/contratação; Network/People/Space continuam owners separados |
+| EDU-001 | plano de vertical | `plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Escola operacional no OrdaX + Portal da Família via REL-001; Achegue-se permanece página/descoberta pública; menores recebem privacy gates reforçados |
+| MARKET-001 | plano de comércio/ecossistema | `plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | OrdaX pode author/publicar ofertas; Achegue-se é canal territorial natural; targeting sensível e ads baseados em dados privados são proibidos |
 | WEB-001 | pesquisa + roadmap | `reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md` + `plans/WEB-001-WEB-RESEARCH.md` | P1 | READY | **DEFERRED FOR EXECUTION** | Capability provider-neutral preservada para pós-MVP; não boot-critical |
 
 ## Interpretação obrigatória
@@ -36,6 +42,11 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `FAB-001` não amplia o escopo do MVP: o `impressao-3d-br@1` atual continua sendo a prova segura governada pelos owners de Profile/MVP; farm comercial, adapters físicos, costing avançado, storefront e demais módulos permanecem pós-MVP até promoção explícita.
 - `FOOD-001` não amplia o escopo do MVP: o `pizzaria-br@1` atual continua sendo a prova pública segura governada pelos owners de Profile/MVP; PDV, KDS, WhatsApp, delivery e demais módulos comerciais permanecem pós-MVP até promoção explícita.
 - FAB-001 e FOOD-001 reutilizam as mesmas capacidades horizontais do OrdaX e não podem criar cópias de Account, Spaces, Realtime, Intelligence, Files/Projects ou Device authority.
+- `IDENTITY-001` reutiliza o membership já existente; não autoriza People/Workforce a conceder login nem cria roles globais por profissão.
+- `REL-001` é a fundação para acesso externo limitado; cliente, responsável, aluno ou paciente não vira `member` apenas para abrir um portal.
+- `EDU-001`, `TALENT-001` e `MARKET-001` são expansões pós-MVP e não ativam Education/Jobs/Offers automaticamente em nenhum produto.
+- `ACHEGUESE-001` formaliza uma integração já iniciada em source, mas o runtime público continua fail-closed; Achegue-se e OrdaX mantêm bancos, releases, roadmaps e ownership independentes.
+- dados escolares, de saúde, de menores, Memory, mensagens privadas e relações privadas nunca podem ser usados como fonte de targeting comercial no MARKET-001.
 - se `MVP.md`, um contrato ou um owner canônico já exigir um comportamento que também aparece em um plano, a execução pertence ao owner canônico, **não ao plano**.
 - frases históricas dentro de `PLANO-*` como “canônico”, “obrigatório” ou prioridades antigas não vencem `docs/README.md`.
 - referências curtas mantidas na raiz por compatibilidade nunca criam um segundo owner documental.
@@ -59,11 +70,16 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `DESKTOP-*`: experiência cotidiana transversal que consome owners existentes de Surface/System/Files sem criar shell paralelo.
 - `FAB-*`: fabricação digital e verticais de produção; reutilizam Spaces/Profile/Realtime/Intelligence/Device Agent e não criam backend ou device authority paralelos.
 - `FOOD-*`: domínio/verticais comerciais de alimentação; reutilizam Spaces/Profile/Realtime/Intelligence e não criam produto/backend paralelo.
+- `REL-*`: relações externas, grants e portais; não substituem membership nem o owner do domínio relacional.
+- `TALENT-*`: identidade profissional pessoal, vagas, candidatura e contratação; separado de Profile Pack.
+- `EDU-*`: Education/escola e experiências de alunos/responsáveis; exige privacy gates para menores.
+- `MARKET-*`: ofertas/commerce/publication/marketplace; separado da Loja de apps.
+- `ACHEGUESE-*`: integração first-party com o produto Achegue-se; mantém produtos e SSOTs independentes.
 - `COMP-*`: comparação/auditoria de referência externa; nunca executável por si só.
 - `INTEL-*`: Intelligence/model routing.
 - `USB-*`: mídia física/boot/release portátil.
 - `SURFACE-*`: Surface/apps/UI compartilhada.
-- `IDENTITY-*`: conta/identidade/entitlements.
+- `IDENTITY-*`: conta/identidade/entitlements/membership e convites de Space.
 - `NETWORK-*`: comunidades/mensagens/realtime social.
 - `PROFILE-*`: Spaces/Profile Packs/perfis profissionais.
 - `DEV-*`: Developer USB/workflow/tooling.
