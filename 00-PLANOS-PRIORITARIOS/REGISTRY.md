@@ -28,6 +28,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | IDENTITY-001 | plano de identidade/colaboração | `plans/IDENTITY-001-SPACE-MEMBERS-INVITES-AND-ACCESS.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fecha convite, aceite, roles, revogação e ownership de Spaces; People/emprego continua separado de login/membership |
 | REL-001 | plano de plataforma | `plans/REL-001-EXTERNAL-RELATIONSHIPS-AND-PORTALS.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Fundação horizontal para clientes, responsáveis, alunos e outros externos sem transformá-los em membros internos; domínio mantém SSOT da relação |
 | ACHEGUESE-001 | plano first-party/ecossistema | `plans/ACHEGUESE-001-FIRST-PARTY-PRODUCT-INTEGRATION.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Mantém Achegue-se independente e territory-first; integração somente por Product OAuth/API/events/projections, sem banco/credencial/SSOT compartilhado |
+| ACHEGUESE-002 | plano de workspace/dogfooding | `plans/ACHEGUESE-002-ORDAX-DEVELOPER-SPACE.md` | **P1** | READY | **DEFERRED FOR EXECUTION** | Space privado owner-only para desenvolver o Achegue-se usando OrdaX como workspace; não move o repo, não cria Profile público e pode receber membros depois via IDENTITY-001 |
 | TALENT-001 | plano de produto/ecossistema | `plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Identidade profissional pessoal fora do Space + vagas/candidaturas/contratação; Network/People/Space continuam owners separados |
 | EDU-001 | plano de vertical | `plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Escola operacional no OrdaX + Portal da Família via REL-001; Achegue-se permanece página/descoberta pública; menores recebem privacy gates reforçados |
 | MARKET-001 | plano de comércio/ecossistema | `plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | OrdaX pode author/publicar ofertas; Achegue-se é canal territorial natural; targeting sensível e ads baseados em dados privados são proibidos |
@@ -49,6 +50,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `EDU-001`, `TALENT-001` e `MARKET-001` são expansões pós-MVP e não ativam Education/Jobs/Offers automaticamente em nenhum produto.
 - `HEALTH-001` é deliberadamente P3/TRIAGED: não autoriza prontuário, prescrição, farmácia ou IA clínica; primeiro exige pesquisa regulatória/segurança e owner próprio.
 - `ACHEGUESE-001` formaliza uma integração já iniciada em source, mas o runtime público continua fail-closed; Achegue-se e OrdaX mantêm bancos, releases, roadmaps e ownership independentes.
+- `ACHEGUESE-002` é dogfooding interno: o Space de desenvolvimento organiza o trabalho sobre o repo externo, não se torna SSOT do Achegue-se, não exige Profile público e não habilita ACHEGUESE-001 por consequência.
 - dados escolares, de saúde, de menores, Memory, mensagens privadas e relações privadas nunca podem ser usados como fonte de targeting comercial no MARKET-001.
 - se `MVP.md`, um contrato ou um owner canônico já exigir um comportamento que também aparece em um plano, a execução pertence ao owner canônico, **não ao plano**.
 - frases históricas dentro de `PLANO-*` como “canônico”, “obrigatório” ou prioridades antigas não vencem `docs/README.md`.
@@ -78,7 +80,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `EDU-*`: Education/escola e experiências de alunos/responsáveis; exige privacy gates para menores.
 - `MARKET-*`: ofertas/commerce/publication/marketplace; separado da Loja de apps.
 - `HEALTH-*`: Healthcare/clinics/patient portal; começa como pesquisa de alta sensibilidade e exige owner/compliance próprios.
-- `ACHEGUESE-*`: integração first-party com o produto Achegue-se; mantém produtos e SSOTs independentes.
+- `ACHEGUESE-*`: integração first-party e workspaces internos relacionados ao produto Achegue-se; mantém produtos, repositórios e SSOTs independentes.
 - `COMP-*`: comparação/auditoria de referência externa; nunca executável por si só.
 - `INTEL-*`: Intelligence/model routing.
 - `USB-*`: mídia física/boot/release portátil.
