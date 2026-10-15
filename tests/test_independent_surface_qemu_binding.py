@@ -7,10 +7,12 @@ SURFACE = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text
 
 
 class IndependentSurfaceQemuBindingTests(unittest.TestCase):
-    def test_surface_workflow_calls_canonical_portable_proof_after_build(self):
+    def test_surface_workflow_calls_canonical_portable_proof_only_for_new_bytes(self):
         for marker in (
             "portable-qemu:",
             "needs: buildroot-surface",
+            "if: needs.buildroot-surface.outputs.artifact_cache_hit != 'true'",
+            "artifact_cache_hit: ${{ steps.surface-artifact-cache.outputs.cache-hit }}",
             "uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
             "base_source: independent",
             "surface_source: independent",
@@ -20,7 +22,21 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
             self.assertIn(marker, SURFACE)
         self.assertNotIn("qemu-system-x86_64", SURFACE)
 
-    def test_canonical_workflow_consumes_same_run_buildroot_artifact(self):
+    def test_surface_workflow_reuses_verified_erofs_before_rebuilding(self):
+        for marker in (
+            "Resolve exact Surface artifact fingerprint",
+            "Restore verified Independent Surface EROFS component",
+            "ordax-independent-surface-artifact-v1-",
+            "Build Buildroot/musl Surface runtime on artifact miss",
+            "steps.surface-artifact-cache.outputs.cache-hit != 'true'",
+            "Verify exact Independent Surface EROFS bytes",
+            "Record fresh Independent Surface component cache",
+            "Verify Surface cache reuse against current integration commit",
+            "independent-surface-component-reuse.json",
+        ):
+            self.assertIn(marker, SURFACE)
+
+    def test_canonical_workflow_consumes_same_run_fresh_buildroot_artifact(self):
         for marker in (
             "surface_source:",
             "same-run verified independent Buildroot Surface artifact",
