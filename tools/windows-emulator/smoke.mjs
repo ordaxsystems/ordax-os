@@ -20,6 +20,7 @@ async function readState(client) {
       frameSrc: document.querySelector("#ordax-emulator-surface")?.getAttribute("src") ?? null,
       firstRunState: window.__ORDAX_EMULATOR__?.getFirstRunState?.() ?? null,
       surfaceDocumentReady: Boolean(document.querySelector("#ordax-emulator-surface")?.contentDocument?.querySelector("#ordax-root")),
+      surfaceBootState: document.querySelector("#ordax-emulator-surface")?.contentDocument?.querySelector("#ordax-boot-screen")?.getAttribute("data-state") ?? null,
       bodyText: document.body.innerText.slice(0, 500),
     }))()`,
     returnByValue: true,
@@ -70,7 +71,7 @@ runBrowser(async (client) => {
   if (!result.firstRunVisible || !result.nextActionVisible) {
     throw new Error(`Windows emulator first-run did not render: ${JSON.stringify({ result, browserExceptions: browserExceptions() })}`);
   }
-  if (result.surfaceTarget !== "/system/composition/web/index.html") {
+  if (result.surfaceTarget !== "/system/composition/web/") {
     throw new Error(`Unexpected Surface target: ${String(result.surfaceTarget)}`);
   }
   if (result.frameSrc !== "about:blank") {
@@ -93,8 +94,9 @@ runBrowser(async (client) => {
     result = await readState(client);
     if (
       result?.firstRunState?.completed === true
-      && result.frameSrc === "/system/composition/web/index.html"
+      && result.frameSrc === "/system/composition/web/"
       && result.surfaceDocumentReady
+      && result.surfaceBootState === "ready"
     ) break;
     await sleep(STARTUP_POLL_MS);
   }
@@ -102,10 +104,10 @@ runBrowser(async (client) => {
   if (result?.firstRunState?.completed !== true) {
     throw new Error(`Windows emulator OOBE did not persist completion: ${JSON.stringify(result)}`);
   }
-  if (result.frameSrc !== "/system/composition/web/index.html") {
+  if (result.frameSrc !== "/system/composition/web/") {
     throw new Error(`Surface was not activated after OOBE: ${JSON.stringify(result)}`);
   }
-  if (!result.surfaceDocumentReady) {
+  if (!result.surfaceDocumentReady || result.surfaceBootState !== "ready") {
     throw new Error(`Surface document did not become ready after OOBE: ${JSON.stringify({ result, browserExceptions: browserExceptions() })}`);
   }
 
