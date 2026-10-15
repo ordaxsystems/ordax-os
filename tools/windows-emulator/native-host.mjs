@@ -2,9 +2,15 @@ import { mkdir, readFile, writeFile, statfs } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { freemem, homedir, networkInterfaces, totalmem, uptime } from "node:os";
 import { createWindowsFileSpaceHost } from "./file-space-host.mjs";
 import { createWindowsLocalSessionHost } from "./local-session-host.mjs";
+import { createWindowsStatePersistenceHost } from "./state-persistence-host.mjs";
+import { createWindowsDeviceRuntimeHost } from "./device-runtime-host.mjs";
+import { createWindowsProfileRuntimeHost } from "./profile-runtime-host.mjs";
+import { createWindowsLocalAiHost } from "./local-ai-host.mjs";
+import { createWindowsAppDataHost } from "./app-data-host.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -96,15 +102,26 @@ async function readBody(req, maxBytes = 256 * 1024) {
 
 export function createWindowsMvpNativeHostPlugin() {
   const stateRoot = windowsEmulatorStateRoot();
+  const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
   const preferencesPath = join(stateRoot, "preferences.json");
   const firstRunPath = join(stateRoot, "first-run.json");
+  const appDataHost = createWindowsAppDataHost(stateRoot, repoRoot);
   const fileSpaceHost = createWindowsFileSpaceHost(stateRoot);
   const localSessionHost = createWindowsLocalSessionHost(stateRoot);
+  const localAiHost = createWindowsLocalAiHost(stateRoot, { isSessionLocked: localSessionHost.isLocked });
+  const statePersistenceHost = createWindowsStatePersistenceHost(stateRoot);
+  const deviceRuntimeHost = createWindowsDeviceRuntimeHost(stateRoot, repoRoot);
+  const profileRuntimeHost = createWindowsProfileRuntimeHost(
+    stateRoot,
+    repoRoot,
+    deviceRuntimeHost.session.profileActivationToken,
+  );
 
   return {
     name: "ordax-windows-mvp-native-host",
-    transformIndexHtml(html, context) {
+    async transformIndexHtml(html, context) {
       if (!context?.path?.startsWith("/system/composition/native/")) return html;
+      const appDataBindings = await appDataHost.getBindings();
       return {
         html,
         tags: [{
@@ -120,7 +137,7 @@ export function createWindowsMvpNativeHostPlugin() {
                   import("/system/composition/native/app-data-bootstrap.mjs")
                     .then((module) => module.acceptTrustedNativeAppDataBootstrap({
                       schema: "ordax.native-app-data-composition-bootstrap/1",
-                      bindings: [],
+                      bindings: ${JSON.stringify(appDataBindings)},
                     }))
                     .catch((error) => console.error("Windows MVP App Data bridge failed", error));
                 },
@@ -138,6 +155,21 @@ export function createWindowsMvpNativeHostPlugin() {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", "http://127.0.0.1");
         try {
+          const handledByAppData = await appDataHost.handle(req, res, url);
+          if (handledByAppData) return;
+
+          const handledByDeviceRuntime = await deviceRuntimeHost.handle(req, res, url);
+          if (handledByDeviceRuntime) return;
+
+          const handledByProfileRuntime = await profileRuntimeHost.handle(req, res, url);
+          if (handledByProfileRuntime) return;
+
+          const handledByLocalAi = await localAiHost(req, res, url);
+          if (handledByLocalAi) return;
+
+          const handledByStatePersistence = await statePersistenceHost(req, res, url);
+          if (handledByStatePersistence) return;
+
           const handledByLocalSession = await localSessionHost(req, res, url);
           if (handledByLocalSession) return;
 

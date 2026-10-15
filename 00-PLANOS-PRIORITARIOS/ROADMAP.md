@@ -1,7 +1,7 @@
 # Roadmap de prioridades — OrdaX OS
 
 Status: **EXECUTION ROUTER**  
-Atualizado: **2026-10-14**
+Atualizado: **2026-10-15**
 
 Este roadmap ordena **janelas de execução**, não redefine arquitetura. Ele não substitui `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, `MVP.md`, contratos ou ADRs.
 
@@ -37,6 +37,7 @@ Somente os gates realmente correntes e comprovados pelos owners canônicos são 
 4. **Modo gráfico/Secure Boot e demais provas físicas pendentes:** fechar somente quando permanecerem pendentes nos owners canônicos atuais e com evidência no hardware aplicável.
 5. **NATIVE-001 — USB → Native whole-disk:** continuar a infraestrutura já existente até APPLY físico autorizado, release materialization, boot sem USB, first-boot health, known-good e recovery, **sem criar novo instalador e sem relaxar flags fail-closed**.
 6. **Hardware mínimo do modelo Native anunciado:** quando necessário ao claim de produto, áudio e suspend/resume deixam de ser "extras" para aquele hardware específico e passam a integrar a homologação real do modelo; não generalizar suporte para outras máquinas.
+7. **Profiles profissionais já exigidos pelo MVP:** fechar somente os recortes seguros de `pizzaria-br@1` e `impressao-3d-br@1` definidos pelos owners atuais de Profile/MVP; isso **não** promove OrdaX Food ou OrdaX Fabrication comerciais completos para P0.
 
 Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é apenas overlay auxiliar.
 
@@ -63,23 +64,86 @@ Creator/release
 
 Plano detalhado: `plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md`.
 
-O primeiro Native não inclui dual boot, shrink automático nem editor manual de partições. O USB de origem continua proibido como alvo. O target permanece identity-bound e revalidado antes do APPLY.
-
 ## Planos preservados — execução adiada até pós-MVP
 
 ### MODE-001 — OrdaX Web, Cloud & Device Runtime
 
 - **Status documental:** READY
 - **Execução agora:** **DEFERRED FOR EXECUTION**
-- **Prioridade preservada:** P1 para reavaliação pós-MVP
+- **Prioridade preservada:** P1
 
-Direção preservada: completar o wiring real do OrdaX Web sobre a mesma Surface, identidade, apps e owners de serviço, com resolução explícita de capabilities entre `web`, `cloud`, `device` e `hybrid`; Files federado; Loja sem lifecycle simulado; Device Agent somente via Action Gateway; cloud compute opcional e provider-neutral.
-
-O plano fecha uma frente de produto já iniciada e, por isso, deve estar entre os primeiros P1 a serem **revalidados** quando a janela pós-MVP abrir. Isso não concede precedência automática nem autoriza implementação antes dessa revalidação.
+Completar o wiring real do OrdaX Web sobre a mesma Surface, identidade, apps e owners de serviço, com resolução explícita de capabilities `web | cloud | device | hybrid`, Files federado, Loja sem lifecycle simulado, Device Agent somente via Action Gateway e cloud compute provider-neutral.
 
 Plano detalhado: `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`.
 
-Nenhuma fase de implementação de MODE-001 deve ser iniciada antes do fechamento do MVP apenas por causa deste roadmap. Fatias já exigidas por owners canônicos do MVP continuam pertencendo aos respectivos owners.
+### FAB-001 — OrdaX Fabrication e piloto Impressão 3D
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**, exceto qualquer comportamento de `impressao-3d-br@1` já explicitamente exigido pelos owners canônicos do MVP
+- **Prioridade preservada:** P1 estratégico; primeiro vertical comercial recomendado após MODE-001
+
+Construir Fabrication como domínio compartilhado e usar Impressão 3D como primeiro piloto comercial real, com dogfooding na operação existente.
+
+Plano detalhado: `plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md`.
+
+### FOOD-001 — OrdaX Food e piloto Pizza
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**, exceto qualquer comportamento de `pizzaria-br@1` já explicitamente exigido pelos owners canônicos do MVP
+- **Prioridade preservada:** P1 estratégico; segundo vertical comercial recomendado após FAB-001
+
+Construir Food como domínio compartilhado de alimentação e usar Pizza/Pizzaria como primeiro vertical da família, reutilizando Account/Spaces/Entitlements/Realtime/Intelligence.
+
+Plano detalhado: `plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md`.
+
+### IDENTITY-001 — Membros, convites e acesso a Spaces
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 horizontal
+
+Fecha convite, aceite, expiração, revogação, roles `owner/admin/member/viewer`, mudança de papel, saída, ownership transfer e audit receipts sobre o membership já existente.
+
+Regra central:
+
+```text
+funcionário/People != membership/login
+participante externo != member interno
+```
+
+Plano detalhado: `plans/IDENTITY-001-SPACE-MEMBERS-INVITES-AND-ACCESS.md`.
+
+### REL-001 — Relações externas e portais
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 horizontal
+
+Fundação para clientes, pais/responsáveis, alunos e outros externos acessarem somente projections/actions autorizadas sem membership interno. O owner de domínio mantém o fato/relação; REL-001 possui grants/consent/revoke e shell de Portal.
+
+Plano detalhado: `plans/REL-001-EXTERNAL-RELATIONSHIPS-AND-PORTALS.md`.
+
+### ACHEGUESE-001 — integração first-party OrdaX × Achegue-se
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 de ecossistema
+
+> **Achegue-se descobre e conecta. OrdaX organiza e opera.**
+
+Os produtos permanecem separados em repositório, banco, deployment, identidade visual, roadmap e release. Integração somente por Product OAuth/API/events/projections autorizadas.
+
+Plano detalhado: `plans/ACHEGUESE-001-FIRST-PARTY-PRODUCT-INTEGRATION.md`.
+
+### ACHEGUESE-002 — Space privado de desenvolvimento do Achegue-se
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 de dogfooding/workspace
+
+Usar o próprio OrdaX como workspace privado para desenvolver o Achegue-se, começando com um Space owner-only vinculado ao repositório externo. O repo, banco e deploy continuam pertencendo ao Achegue-se; o Space organiza contexto, Projects/Files, ferramentas autorizadas, testes, ambientes e Intelligence. Colaboração futura usa IDENTITY-001, sem criar Profile público `acheguese-dev@1`.
+
+Plano detalhado: `plans/ACHEGUESE-002-ORDAX-DEVELOPER-SPACE.md`.
 
 ### HARDWARE-001 — Hardware, Drivers e Hardware Packs
 
@@ -87,28 +151,17 @@ Nenhuma fase de implementação de MODE-001 deve ser iniciada antes do fechament
 - **Execução agora:** **DEFERRED FOR EXECUTION**, salvo recorte que NATIVE-001/owner do MVP já exigir
 - **Prioridade preservada:** P1
 
-Direção: transformar a estratégia já prevista de `small-baseline-plus-signed-hardware-packs` numa experiência de Hardware & Drivers com exact modalias/kernel ABI, assinatura, staging, health, known-good e rollback.
-
-Não adotar APT/DKMS/driver manager de outra distribuição como arquitetura. Detection, pack availability e support claim permanecem verdades distintas.
+Evoluir hardware packs assinados/exact-match para Hardware & Drivers com health/rollback.
 
 Plano detalhado: `plans/HARDWARE-001-HARDWARE-DRIVERS-AND-PACKS.md`.
-
-Áudio/suspend necessários ao hardware oficialmente anunciado no Native MVP pertencem ao fechamento P0 daquele modelo; o gerenciador amplo de packs continua P1.
 
 ### DESKTOP-001 — Experiência cotidiana
 
 - **Status documental:** READY
-- **Execução agora:** **DEFERRED FOR EXECUTION**, salvo promoção por owner canônico
+- **Execução agora:** **DEFERRED FOR EXECUTION**
 - **Prioridade preservada:** P1
 
-Direção: completar lacunas cotidianas sem duplicar Surface/Files/Diagnostics/Update:
-
-- Tela e monitores com apply/revert seguro;
-- Ajuda/Primeiros passos offline integrada aos docs e diagnóstico;
-- Files providers para MTP/PTP/telefone USB e SMB;
-- UX de Updates mais clara sobre o updater existente;
-- descoberta de apps por intenção sobre catálogo oficial;
-- Theme Packs somente depois, como P2 interno.
+Displays, Help offline, Files providers para MTP/PTP/SMB, UX de Updates e descoberta de apps por intenção sem duplicar owners.
 
 Plano detalhado: `plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md`.
 
@@ -116,13 +169,51 @@ Plano detalhado: `plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md`.
 
 - **Status documental:** READY
 - **Execução agora:** **DEFERRED FOR EXECUTION**
-- **Prioridade preservada:** P1 para reavaliação pós-MVP
+- **Prioridade preservada:** P1
 
-Direção preservada: capability sistêmica provider-neutral compartilhável por Aura, Studio, Files/Search, Personal OrdaX, IA local e IAs externas via OrdaX MCP, sem colocar Tavily/Brave/Exa/Firecrawl no domínio do produto.
+Capability provider-neutral para pesquisa externa compartilhável por Intelligence/Aura/Studio.
 
 Plano detalhado: `plans/WEB-001-WEB-RESEARCH.md`.
 
-Nenhuma fase de implementação de WEB-001 deve ser iniciada antes do fechamento do MVP apenas por causa deste roadmap.
+### TALENT-001 — identidade profissional, vagas e contratação
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P2
+
+Identidade profissional pertence à pessoa/Account, fora de Space e Profile Pack. Spaces empregadores publicam vagas; contratação humana pode gerar People relationship e convite ao Space separadamente. IA é somente assistiva e não usa atributos sensíveis para decidir contratação.
+
+Plano detalhado: `plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md`.
+
+### EDU-001 — OrdaX Education e Portal da Família
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P2
+
+Operação privada da escola no OrdaX: alunos, responsáveis, turmas, presença, notas/boletim, atividades, autorizações, reuniões, documentos, pagamentos e transporte delimitado. Achegue-se permanece owner da descoberta/página pública. Dados de menores nunca viram ads ou conteúdo público por conveniência.
+
+Plano detalhado: `plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md`.
+
+### MARKET-001 — Ofertas, descoberta e Marketplace
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P2
+
+OrdaX pode ser origem operacional de ofertas; Achegue-se é canal territorial natural quando explicitamente vinculado. Publicação é opt-in, revisionada e revogável. Targeting com dados escolares, saúde, menores, Memory, mensagens privadas ou localização sensível é proibido.
+
+Plano detalhado: `plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md`.
+
+### HEALTH-001 — Healthcare, Clínica e Portal do Paciente
+
+- **Status documental:** TRIAGED
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P3 exploratório
+
+Preserva a direção de clínicas/paciente sem fingir prontidão. Healthcare exige pesquisa própria de dados sensíveis, LGPD, segurança, retenção, interoperabilidade e responsabilidades clínicas antes de promoção para `READY`. Farmácia/dispensação/prescrição precisa de subplano/owner específico antes de qualquer execução.
+
+Plano detalhado: `plans/HEALTH-001-HEALTHCARE-CLINIC-AND-PATIENT-PORTAL.md`.
 
 ### Demais planos existentes
 
@@ -136,11 +227,7 @@ plano preservado
 trabalho autorizado agora
 ```
 
-Se um comportamento descrito nesses planos já for requisito real do MVP, seu trabalho é governado pelo owner canônico correspondente. O plano não cria uma segunda fila de execução.
-
-## Ordem recomendada de produto — sem transformar P1 em autorização
-
-A ordem estratégica atual fica assim:
+## Ordem recomendada de produto — sem transformar prioridade em autorização
 
 ```text
 P0 AGORA
@@ -148,47 +235,45 @@ P0 AGORA
 2. boot/recovery/cold-health/Surface físicos
 3. NATIVE-001: USB -> SSD/NVMe/HDD whole-disk
 4. hardware mínimo do modelo Native anunciado
+5. fechar somente os recortes de pizzaria-br@1 e impressao-3d-br@1 já exigidos pelo MVP
 
-APÓS FECHAR O MVP — REVALIDAR
-5. MODE-001: Web/Cloud/Device runtime real
-6. HARDWARE-001: Hardware & Drivers / packs amplos
-7. DESKTOP-001: Displays, Help, Files providers, Update UX
-8. PROFILE/PERSONAL/SURFACE gaps que permanecerem reais
-9. WEB-001: Web Research e demais capabilities aditivas
-10. expansões P2/P3
+APÓS FECHAR O MVP — REVALIDAR P1
+6. MODE-001: Web/Cloud/Device runtime real
+7. ACHEGUESE-002: Space privado owner-only para dogfooding de Projects/Files/dev workflow
+8. FAB-001: Fabrication Core + Impressão 3D como primeiro piloto comercial
+9. FOOD-001: Food Core + Pizza como segundo piloto comercial
+10. IDENTITY-001: colaboração/membros conforme necessidade dos pilotos e do Space de desenvolvimento
+11. REL-001: external access/portais; começar por caso de menor risco
+12. ACHEGUESE-001: linking first-party read-only real
+13. HARDWARE-001: Hardware & Drivers / packs amplos
+14. DESKTOP-001: experiência cotidiana
+15. PROFILE/PERSONAL/SURFACE gaps reais
+16. WEB-001: Web Research/capabilities aditivas
+
+P2 — APÓS REVALIDAÇÃO DAS FUNDAÇÕES
+17. TALENT-001: identidade profissional + vagas/contratação
+18. EDU-001: Education + Portal da Família
+19. MARKET-001: ofertas/marketplace/publicação territorial
+20. demais expansões P2
+
+P3 — PESQUISA ANTES DE PRODUTO
+21. HEALTH-001: Healthcare/Clinic/Patient Portal; primeiro compliance/threat model/owner
+22. demais investigações de alta sensibilidade
 ```
 
-Esta ordem é recomendação de triagem, não uma sequência irrevogável. Mudanças na `main`, dependências ou risco podem alterar a ordem no momento da promoção.
+A ordem é recomendação de triagem, não sequência irrevogável. `ACHEGUESE-002` é um slice interno de dogfooding e não altera a posição de FAB-001 como primeiro vertical comercial recomendado. Fatias horizontais de IDENTITY/REL podem ser promovidas somente quando um piloto autorizado realmente depender delas. ACHEGUESE-001 só avança quando os gates dos dois produtos permitirem. HEALTH-001 não pode ser promovido por analogia com Education.
 
 ## Pós-MVP — procedimento de revalidação
 
 Depois que os gates do MVP forem fechados:
 
 1. revalidar `main`, contratos, custos, dependências e owners;
-2. revisar itens `READY` e referências ainda relevantes;
+2. revisar itens `READY`/`TRIAGED` e referências ainda relevantes;
 3. comparar gaps reais com o estado então implementado;
 4. escolher a próxima frente por impacto/dependência real;
 5. só então mudar sua elegibilidade para `EXECUTION-ELIGIBLE` e abrir implementação.
 
-Na reavaliação inicial, `MODE-001` merece inspeção antecipada porque consolida boundaries já iniciados de Web/Conta/Loja/Arquivos/Device Agent. `HARDWARE-001` e `DESKTOP-001` vêm logo depois como maturidade do computador cotidiano. `WEB-001` continua P1, mas é uma capability aditiva distinta.
-
 Prioridades P1/P2/P3 registradas hoje são **preservação de intenção**, não compromisso automático de sequência futura.
-
-## Relatório comparativo de referência
-
-`reports/COMP-001-SPACED-LINUX-ORDAX-COMPARISON.md` registra a auditoria que levou a NATIVE-001/HARDWARE-001/DESKTOP-001.
-
-Regra resultante:
-
-```text
-feature vista em outro sistema
- -> procurar owner/implementação equivalente no OrdaX
- -> se já existe, completar no owner atual
- -> se parcial, fechar wiring/gates
- -> só criar capability nova quando a lacuna for real
-```
-
-Não importar Calamares, Timeshift, APT/Flatpak, MATE/Compiz ou outro stack externo para resolver superficialmente problemas que o OrdaX já possui owner próprio.
 
 ## Regra de promoção
 
@@ -196,4 +281,10 @@ Um item só se torna `EXECUTION-ELIGIBLE` quando existir razão objetiva registr
 
 Um chat/agente não pode promover sua própria frente, criar tarefa de implementação ou transformar pesquisa em escopo de MVP por iniciativa própria.
 
-Para NATIVE-001, esta regra significa: o plano organiza um escopo já presente no MVP, mas **não** pode ligar `native_install_capability_enabled`, permitir escrita em disco interno ou selecionar alvo físico sem que os owners/contracts/gates canônicos tenham chegado ao estado exigido.
+- NATIVE-001 não autoriza flags/escrita física sem contracts/gates.
+- FAB/FOOD não inflam Profile Packs mínimos do MVP.
+- IDENTITY/REL não autorizam rollout público nem handling de dado sensível só porque os planos existem.
+- ACHEGUESE-001 não transforma source OAuth/API em runtime público.
+- ACHEGUESE-002 não move o repo Achegue-se, não cria acesso de produção implícito e não publica Profile exclusivo por conveniência.
+- TALENT/EDU/MARKET não ativam verticais nem publicação.
+- HEALTH-001 permanece `TRIAGED` até pesquisa regulatória/segurança e owner explícito.

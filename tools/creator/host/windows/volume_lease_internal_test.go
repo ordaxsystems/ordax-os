@@ -51,16 +51,16 @@ func (h *fakeTargetVolumeLeaseHandle) Close() error {
 }
 
 type fakeTargetVolumeLeaseRuntime struct {
-	initial       []physicalVolume
-	mountVolume   string
-	mountErr      error
-	handles       map[string]*fakeTargetVolumeLeaseHandle
-	lockErr       map[string]error
-	currentNames  []string
-	nameErr       error
-	unplanned     map[string][]uint32
-	unplannedErr  map[string]error
-	events        *[]string
+	initial      []physicalVolume
+	mountVolume  string
+	mountErr     error
+	handles      map[string]*fakeTargetVolumeLeaseHandle
+	lockErr      map[string]error
+	currentNames []string
+	nameErr      error
+	unplanned    map[string][]uint32
+	unplannedErr map[string]error
+	events       *[]string
 }
 
 func (r *fakeTargetVolumeLeaseRuntime) EnumeratePhysicalVolumes() ([]physicalVolume, error) {
@@ -284,5 +284,79 @@ func TestAcquireTargetVolumeLeaseInternalRejectsMountOutsideTargetInventory(t *t
 	}
 	if findEvent(events, "lock:") >= 0 {
 		t.Fatalf("invalid mount identity reached volume lock boundary: %v", events)
+	}
+}
+
+func physicalUnmountedRecoveryTarget() Target {
+	target := openedIdentityTarget()
+	target.DiskNumber = 8
+	target.DriveLetter = ""
+	target.VolumeLabel = ""
+	target.VolumeSerial = 0
+	target.VolumeBytes = 0
+	target.DriveType = "physical-unmounted"
+	target.SystemDisk = false
+	target.PrototypeSafe = true
+	target.ConfirmationToken = ConfirmationToken(target)
+	return target
+}
+
+func volumeLessRecoveryRuntime(t *testing.T, events *[]string) *fakeTargetVolumeLeaseRuntime {
+	t.Helper()
+	keyC := mustOpenVolumeName(t, leaseVolumeC)
+	return &fakeTargetVolumeLeaseRuntime{
+		initial: []physicalVolume{
+			{VolumeName: leaseVolumeC, DiskNumbers: []uint32{3}},
+		},
+		handles:      map[string]*fakeTargetVolumeLeaseHandle{},
+		lockErr:      map[string]error{},
+		currentNames: []string{leaseVolumeC},
+		unplanned: map[string][]uint32{
+			keyC: {3},
+		},
+		unplannedErr: map[string]error{},
+		events:       events,
+	}
+}
+
+func TestAcquireTargetVolumeLeaseInternalAcceptsPhysicalUnmountedTargetWithNoVolumes(t *testing.T) {
+	events := []string{}
+	runtime := volumeLessRecoveryRuntime(t, &events)
+	target := physicalUnmountedRecoveryTarget()
+
+	lease, err := acquireTargetVolumeLeaseInternal(runtime, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	managed, ok := lease.(*managedTargetVolumeLease)
+	if !ok || managed == nil || !managed.volumeLessPhysicalRecovery || len(managed.handles) != 0 {
+		t.Fatalf("unexpected volume-less recovery lease: %#v", lease)
+	}
+	if findEvent(events, "lock:") >= 0 || findEvent(events, "dismount:") >= 0 {
+		t.Fatalf("volume-less recovery attempted a volume lock/dismount: %v", events)
+	}
+	if findEvent(events, "enumerate-names") < 0 || findEvent(events, "query-unplanned:") < 0 {
+		t.Fatalf("volume-less recovery skipped the global re-enumeration proof: %v", events)
+	}
+	if _, err := validateManagedTargetVolumeLease(target, lease); err != nil {
+		t.Fatal(err)
+	}
+	if err := lease.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAcquireTargetVolumeLeaseInternalRejectsVolumeAppearingOnPhysicalUnmountedTarget(t *testing.T) {
+	events := []string{}
+	runtime := volumeLessRecoveryRuntime(t, &events)
+	keyD := mustOpenVolumeName(t, leaseVolumeD)
+	runtime.currentNames = append(runtime.currentNames, leaseVolumeD)
+	runtime.unplanned[keyD] = []uint32{8}
+
+	if _, err := acquireTargetVolumeLeaseInternal(runtime, physicalUnmountedRecoveryTarget()); err == nil {
+		t.Fatal("new target-owned volume must invalidate volume-less recovery before raw write")
+	}
+	if findEvent(events, "lock:") >= 0 || findEvent(events, "dismount:") >= 0 {
+		t.Fatalf("invalid volume-less recovery reached volume mutation: %v", events)
 	}
 }

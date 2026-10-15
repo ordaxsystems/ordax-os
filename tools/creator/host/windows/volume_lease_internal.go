@@ -28,9 +28,10 @@ type targetVolumeLeaseRuntime interface {
 }
 
 type managedTargetVolumeLease struct {
-	diskNumber uint32
-	handles    []targetVolumeLeaseHandle
-	closed     bool
+	diskNumber                 uint32
+	handles                    []targetVolumeLeaseHandle
+	volumeLessPhysicalRecovery bool
+	closed                     bool
 }
 
 func (l *managedTargetVolumeLease) Close() error {
@@ -105,7 +106,7 @@ func acquireTargetVolumeLeaseInternal(runtime targetVolumeLeaseRuntime, expected
 		}
 	}
 
-	plan, err := buildVolumeLockPlan(expected.DiskNumber, initial)
+	plan, err := buildTargetVolumeLockPlan(expected, initial)
 	if err != nil {
 		return nil, fmt.Errorf("build target-volume lock plan: %w", err)
 	}
@@ -115,7 +116,10 @@ func acquireTargetVolumeLeaseInternal(runtime targetVolumeLeaseRuntime, expected
 		planned[key] = struct{}{}
 	}
 
-	lease := &managedTargetVolumeLease{diskNumber: expected.DiskNumber}
+	lease := &managedTargetVolumeLease{
+		diskNumber:                 expected.DiskNumber,
+		volumeLessPhysicalRecovery: len(plan.VolumeNames) == 0,
+	}
 	for _, volumeName := range plan.VolumeNames {
 		handle, err := runtime.OpenLockedVolume(volumeName)
 		if err != nil {

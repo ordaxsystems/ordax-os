@@ -117,7 +117,7 @@ export function createWindowsLocalSessionHost(stateRoot) {
     return expected.byteLength === actual.byteLength && timingSafeEqual(actual, expected);
   }
 
-  return async function handleLocalSession(req, res, url) {
+  const handleLocalSession = async function handleLocalSession(req, res, url) {
     if (url.pathname !== "/__ordax/native/local-session") return false;
 
     if (req.method === "GET") {
@@ -177,4 +177,6 @@ export function createWindowsLocalSessionHost(stateRoot) {
     sendJson(res, 200, await snapshot());
     return true;
   };
+  Object.defineProperty(handleLocalSession, "isLocked", { value: () => locked });
+  return Object.freeze(handleLocalSession);
 }
