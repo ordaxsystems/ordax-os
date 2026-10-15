@@ -46,11 +46,13 @@ The portable Linux transport is owned by the canonical `ordaxsystems/ordax-runti
 
 Canonical OS source records:
 
-- `system/services/device-agent/owner-recovery-source.json` — exact Runtime source/artifact pin;
-- `system/services/device-agent/owner-remote.sh` — local Owner controller;
-- `system/services/base-update/dev-helpers.sh` — atomic promotion to `/usr/local/bin/ordax-remote`.
+- `bootstrap/base-update/owner-development/owner-recovery-source.json` — exact Runtime source/artifact pin;
+- `bootstrap/base-update/owner-development/ordax-remote` — Owner-only local controller;
+- `system/services/base-update/dev-helpers.sh` — atomic promotion to `/usr/local/bin/ordax-remote` on the Development USB.
 
-The existing Owner sparse checkout already includes `/system/`, so the physical development USB can receive this controller through its existing `ordax-pull` path. No new bootstrap-only sparse path or USB reflash is required for ordinary delivery of this helper.
+The controller and its artifact pin deliberately remain **outside `system/`**, because the Native release assembly copies the shared `system/` tree into release staging. The Stable/MVP release tree must not contain the Owner administrative recovery controller or its downloadable-agent pin.
+
+The existing physical Owner sparse checkout already includes `/bootstrap/base-update/`, so the current development USB can receive the controller and pin through its existing `ordax-pull` path. No new sparse rule and no USB reflash are required for ordinary delivery of this helper.
 
 The remote capability allowlist is deliberately narrow:
 
@@ -63,6 +65,8 @@ The remote capability allowlist is deliberately narrow:
 These actions accept no remotely supplied command/path arguments. Generic shell, arbitrary paths, raw block devices, package installation, Git push, release signing and generic process control remain outside this boundary.
 
 The local controller downloads only the exact content-addressed Runtime artifact bound by source SHA, byte size and SHA-256, and stores device credentials only in persistent local state. The device token must be a regular non-symlink file with mode `0600`.
+
+The controller also requires an **explicit** `ORDAX_DISTRIBUTION_PROFILE=owner-development`; a missing profile is rejected rather than defaulted to Owner.
 
 ## Activation state
 
