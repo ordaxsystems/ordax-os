@@ -1679,3 +1679,36 @@ local draft review never claims a device change or backend success. This is a We
 layout change only: the separate Meridian branch is not merged or visually changed.
 Visual browser inspection completed; npm, automated tests and builds were not run
 at the user's request.
+
+
+### Shared Settings journeys — 2026-10-15
+
+`system/surface/ui/journeys/` owns the shared presentation scenarios, navigation,
+renderer and styles. The Meridian reference imports those owners through re-exports;
+Web Settings consumes the same catalog and `settings-mount.mjs`. Account, updates,
+recovery, storage, generic device settings and power retain their complete original
+screen definitions, confirmation gates, alternate/error paths and Back behavior.
+Memory and continuity have local review examples. The Web-only energy-profile
+choices remain alongside the battery-state examples in the shared definition.
+
+The shared controller is presentation-only: it receives no account/session, command
+or hardware ports and performs no request, persistence, sign-in, grant, update,
+recovery, disk or power operation. A permanent banner identifies every journey as an
+example. Success/effect fields in a scenario are descriptive; the controller never
+executes them. Web account consultation remains reachable through its existing
+managed account window. Real appearance/accessibility and persistence controls are
+preserved independently of the fictional journeys.
+
+The actual Native/USB composition loads these styles and its Settings controller
+adds the shared full-journey entry grid on Appearance. Existing Native tabs and
+bindings (network/keyboard, regional/preferences, Intelligence, notifications and
+local-session security) remain in place. This is not a replacement with fake native
+operations. Examples have memory-only state and are disposed with the Settings
+controller. Visual branches remain separate; no branch merge was performed.
+
+Source integration does not prove a USB artifact has been built/deployed or verified
+on hardware. Browser visual inspection covered Web storage presentation and the
+reference loading path. No npm, automated tests, type-check or build were run for
+this change, as requested. Remaining work is capability-by-capability mapping to
+existing native services and authorized Web device transport; unsupported behavior
+must stay visibly planned until its contract/backend is available.
