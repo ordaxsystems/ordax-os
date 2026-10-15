@@ -207,7 +207,7 @@ def check_contract() -> dict:
     rw_mount = 'mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax'
     health_call = '/sbin/ordax-grow-ext4 --check "$ORDAX_DEVICE"'
     grow_call = '/sbin/ordax-grow-ext4 "$ORDAX_DEVICE" /ordax'
-    recovery_mount = 'mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax'
+    recovery_mount = 'mount -t ext4 -o ro,noload,nodev,nosuid "$ORDAX_DEVICE" /ordax'
     if rw_mount not in text or health_call not in text or grow_call not in text:
         raise BuildError("normal boot must health-check ORDAX before writable mount and growth")
     if text.index(health_call) > text.index(rw_mount):
@@ -215,7 +215,7 @@ def check_contract() -> dict:
     if text.index(grow_call) < text.index(rw_mount):
         raise BuildError("ext4 growth helper may run only after the rw ORDAX mount")
     if recovery_mount not in text or text.index(recovery_mount) > text.index(rw_mount):
-        raise BuildError("recovery must remain a separate read-only path before normal rw boot")
+        raise BuildError("recovery must remain a separate journal-free read-only path before normal rw boot")
     recovery_section = text[text.index(recovery_mount):text.index(rw_mount)]
     if grow_call in recovery_section:
         raise BuildError("recovery mode may never invoke online ext4 growth")
