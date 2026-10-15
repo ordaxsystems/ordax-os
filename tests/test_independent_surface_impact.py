@@ -1,5 +1,6 @@
 from pathlib import Path
 import importlib.util
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -7,9 +8,11 @@ SCRIPT = ROOT / "tools/ci/independent_surface_impact.py"
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("independent_surface_impact", SCRIPT)
+    name = "independent_surface_impact"
+    spec = importlib.util.spec_from_file_location(name, SCRIPT)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
