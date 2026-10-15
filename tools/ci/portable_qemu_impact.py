@@ -57,8 +57,12 @@ OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
 )
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
+    ".github/workflows/portable-v2-qemu-boot-proof.yml",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_portable_v2_qemu_boot_proof_contract.py",
+    "tests/test_portable_component_reuse_workflow.py",
+    "tests/test_independent_surface_qemu_binding.py",
 }
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
@@ -68,7 +72,6 @@ ALWAYS_HEAVY_EXACT = {
     "system/services/telemetry/relay.json",
     "system/services/base-update/agent.sh",
     "system/services/local-ai/source-lock.json",
-    ".github/workflows/portable-v2-qemu-boot-proof.yml",
     "tests/test_heavy_workflow_path_scope.py",
 }
 ALWAYS_HEAVY_PREFIXES = (
