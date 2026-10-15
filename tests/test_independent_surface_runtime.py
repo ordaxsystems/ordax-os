@@ -34,21 +34,15 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 data = b"x"
                 info = tarfile.TarInfo(name)
                 info.size = len(data)
-                info.mode = 0o755 if "/bin/" in f"/{name}" or name.startswith(("bin/", "sbin/")) else 0o644
+                info.mode = 0o755 if "/bin/" in f"/{name}" or name.startswith(("bin/", "sbin/", "usr/bin/")) else 0o644
                 archive.addfile(info, io.BytesIO(data))
         self.addCleanup(tmp.cleanup)
         return path
 
     def buildroot_like_paths(self, *, omit=(), extra=()):
         required = set(self.source["required_runtime_paths"])
-        # Buildroot/eudev uses /sbin and /lib in the selected non-merged-usr rootfs.
-        # The builder must preserve the existing OrdaX paths explicitly.
         required.discard("bin/udevadm")
-        required.discard("usr/lib/udev/rules.d/60-input-id.rules")
-        required.update({
-            "sbin/udevadm",
-            "lib/udev/rules.d/60-input-id.rules",
-        })
+        required.add("usr/bin/udevadm")
         required.difference_update(omit)
         required.update(extra)
         return required
@@ -97,11 +91,10 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 self.builder.normalized_member_name(member.name): member
                 for member in archive.getmembers()
             }
-        self.assertTrue(by_name["sbin/udevadm"].isfile())
-        self.assertTrue(by_name["lib/udev/rules.d/60-input-id.rules"].isfile())
-        for path, target in self.builder.SURFACE_COMPAT_LINKS.items():
-            self.assertTrue(by_name[path].issym())
-            self.assertEqual(by_name[path].linkname, target)
+        self.assertTrue(by_name["usr/bin/udevadm"].isfile())
+        self.assertTrue(by_name["usr/lib/udev/rules.d/60-input-id.rules"].isfile())
+        self.assertTrue(by_name["bin/udevadm"].issym())
+        self.assertEqual(by_name["bin/udevadm"].linkname, "../usr/bin/udevadm")
 
     def test_rootfs_inventory_accepts_required_paths_and_rejects_apk(self):
         required = set(self.source["required_runtime_paths"])
@@ -124,7 +117,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             self.builder.inspect_rootfs_tar(tar_path, self.source)
 
     def test_eudev_abi_fails_closed_if_native_targets_are_missing(self):
-        for missing in ("sbin/udevadm", "lib/udev/rules.d/60-input-id.rules"):
+        for missing in ("usr/bin/udevadm", "usr/lib/udev/rules.d/60-input-id.rules"):
             with self.subTest(missing=missing):
                 tar_path = self.make_tar(self.buildroot_like_paths(omit={missing}))
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Buildroot eudev did not provide"):
