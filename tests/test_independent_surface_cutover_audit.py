@@ -28,6 +28,20 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
         cache = base / "tools/ci/portable_component_cache.py"
         cache.parent.mkdir(parents=True, exist_ok=True)
 
+        launcher = base / "system/surface/bin/ordax-surface"
+        launcher.parent.mkdir(parents=True, exist_ok=True)
+        if cutover:
+            launcher.write_text(
+                "#!/bin/sh\nRUNTIME_ROOT=${ORDAX_SURFACE_RUNTIME_ROOT:?verified runtime required}\n",
+                encoding="utf-8",
+            )
+        else:
+            launcher.write_text(
+                "#!/bin/sh\nRUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1\n"
+                "run_bounded_apk() { /sbin/apk \"$@\"; }\n",
+                encoding="utf-8",
+            )
+
         canonical = base / "bootstrap/surface-runtime"
         canonical.mkdir(parents=True, exist_ok=True)
         if cutover:
@@ -73,6 +87,7 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             self.assertEqual(result.status, "pass")
             self.assertTrue(result.checks["surface_contract_uses_musl"])
             self.assertTrue(result.checks["surface_contract_forbids_runtime_package_manager"])
+            self.assertTrue(result.checks["legacy_surface_launcher_still_present"])
             self.assertTrue(result.checks["stable_base_alpine_owner_preserved"])
 
     def test_generated_python_cache_is_not_treated_as_operational_surface_source(self):
@@ -112,6 +127,16 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             with self.assertRaisesRegex(AUDIT.AuditError, "post-cutover"):
                 AUDIT.audit_post(root)
 
+    def test_post_cutover_rejects_leftover_alpine_launcher_provisioning(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_tree(Path(td), cutover=True)
+            (root / "system/surface/bin/ordax-surface").write_text(
+                "RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1\nrun_bounded_apk() { /sbin/apk \"$@\"; }\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(AUDIT.AuditError, "post-cutover"):
+                AUDIT.audit_post(root)
+
     def test_post_cutover_accepts_buildroot_surface_but_preserves_stable_base_alpine(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_tree(Path(td), cutover=True)
@@ -120,6 +145,7 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             self.assertTrue(result.checks["canonical_surface_no_operational_alpine_apk_dependency"])
             self.assertTrue(result.checks["surface_contract_uses_musl"])
             self.assertTrue(result.checks["surface_contract_forbids_runtime_package_manager"])
+            self.assertTrue(result.checks["surface_launcher_alpine_provisioning_removed"])
             self.assertTrue(result.checks["stable_base_alpine_owner_preserved_for_later_gate"])
 
     def test_real_repository_is_valid_pre_cutover(self):
