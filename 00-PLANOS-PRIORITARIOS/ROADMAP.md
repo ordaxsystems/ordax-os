@@ -37,7 +37,7 @@ Somente os gates realmente correntes e comprovados pelos owners canônicos são 
 4. **Modo gráfico/Secure Boot e demais provas físicas pendentes:** fechar somente quando permanecerem pendentes nos owners canônicos atuais e com evidência no hardware aplicável.
 5. **NATIVE-001 — USB → Native whole-disk:** continuar a infraestrutura já existente até APPLY físico autorizado, release materialization, boot sem USB, first-boot health, known-good e recovery, **sem criar novo instalador e sem relaxar flags fail-closed**.
 6. **Hardware mínimo do modelo Native anunciado:** quando necessário ao claim de produto, áudio e suspend/resume deixam de ser "extras" para aquele hardware específico e passam a integrar a homologação real do modelo; não generalizar suporte para outras máquinas.
-7. **Profile Pizzaria já exigido pelo MVP:** somente o recorte seguro de `pizzaria-br@1` definido pelos owners atuais de Profile/MVP; isso **não** promove o OrdaX Food comercial completo, PDV, WhatsApp, KDS, delivery ou billing para P0.
+7. **Profiles profissionais já exigidos pelo MVP:** fechar somente os recortes seguros de `pizzaria-br@1` e `impressao-3d-br@1` definidos pelos owners atuais de Profile/MVP; isso **não** promove OrdaX Food ou OrdaX Fabrication comerciais completos para P0.
 
 Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é apenas overlay auxiliar.
 
@@ -82,13 +82,70 @@ Plano detalhado: `plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`.
 
 Nenhuma fase de implementação de MODE-001 deve ser iniciada antes do fechamento do MVP apenas por causa deste roadmap. Fatias já exigidas por owners canônicos do MVP continuam pertencendo aos respectivos owners.
 
+### FAB-001 — OrdaX Fabrication e piloto Impressão 3D
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**, exceto qualquer comportamento de `impressao-3d-br@1` já explicitamente exigido pelos owners canônicos do MVP
+- **Prioridade preservada:** P1 estratégico e **primeiro vertical comercial recomendado** para reavaliação pós-MVP após MODE-001
+
+Direção preservada: construir **OrdaX Fabrication** como domínio compartilhado de fabricação digital e usar **Impressão 3D como primeiro vertical comercial real**, com a operação/loja existente como piloto de dogfooding.
+
+O diferencial não é apenas controlar impressoras. O produto deve conectar:
+
+```text
+cliente
+ -> orçamento
+ -> pedido
+ -> arquivo/modelo
+ -> produção
+ -> job
+ -> impressora
+ -> material
+ -> qualidade
+ -> acabamento
+ -> embalagem/entrega
+ -> custo/lucro
+```
+
+O plano detalha:
+
+- dashboard operacional;
+- pedidos e clientes;
+- orçamento determinístico;
+- catálogo de produtos;
+- biblioteca 3D e revisões de modelos;
+- projetos personalizados;
+- fila e scheduler de produção;
+- printer/farm registry;
+- PrintJob lifecycle;
+- slicer/profile providers;
+- materiais, bobinas e estoque;
+- qualidade, falhas e reprint;
+- manutenção;
+- pós-processamento;
+- embalagem e entrega;
+- costing e preço;
+- financeiro operacional;
+- equipe/permissões;
+- Intelligence/Autopilot consultivo;
+- adapters físicos via Device Agent/Action Gateway;
+- Edge Runtime e reconciliação;
+- Web/Mobile/Desktop/USB/Native sobre o mesmo domínio;
+- storefront futuro;
+- piloto real na loja do owner;
+- generalização futura para outras formas de fabricação digital somente após prova real.
+
+Plano detalhado: `plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md`.
+
+A primeira ação quando a janela abrir deve ser **auditar owners e implementar o Fabrication Core de negócio/produção**, não começar por UI visual, IA autônoma ou compatibilidade com dezenas de modelos de impressora. `impressao-3d-br@1` atual continua cumprindo seu recorte pequeno do MVP e não deve ser inflado pelo FAB-001.
+
 ### FOOD-001 — OrdaX Food e piloto Pizza
 
 - **Status documental:** READY
 - **Execução agora:** **DEFERRED FOR EXECUTION**, exceto qualquer comportamento de `pizzaria-br@1` já explicitamente exigido pelos owners canônicos do MVP
-- **Prioridade preservada:** P1 estratégico para reavaliação pós-MVP
+- **Prioridade preservada:** P1 estratégico; segundo vertical comercial recomendado após FAB-001
 
-Direção preservada: construir **OrdaX Food** como domínio compartilhado de alimentação e usar **Pizza/Pizzaria como primeiro vertical comercial real**, sem criar segunda conta, segundo backend ou segundo runtime. O mesmo Food Core deve servir Web/Mobile/Desktop/USB/Native, com Account/Spaces/Entitlements, Operational Realtime, Intelligence e provider ports compartilhados.
+Direção preservada: construir **OrdaX Food** como domínio compartilhado de alimentação e usar **Pizza/Pizzaria como primeiro vertical da família Food**, sem criar segunda conta, segundo backend ou segundo runtime. O mesmo Food Core deve servir Web/Mobile/Desktop/USB/Native, com Account/Spaces/Entitlements, Operational Realtime, Intelligence e provider ports compartilhados.
 
 O plano detalha:
 
@@ -184,19 +241,20 @@ P0 AGORA
 2. boot/recovery/cold-health/Surface físicos
 3. NATIVE-001: USB -> SSD/NVMe/HDD whole-disk
 4. hardware mínimo do modelo Native anunciado
-5. fechar somente o recorte Profile Pizzaria já exigido pelo MVP
+5. fechar somente os recortes de pizzaria-br@1 e impressao-3d-br@1 já exigidos pelo MVP
 
 APÓS FECHAR O MVP — REVALIDAR
 6. MODE-001: Web/Cloud/Device runtime real
-7. FOOD-001: Food Core + Pizza como primeiro piloto comercial
-8. HARDWARE-001: Hardware & Drivers / packs amplos
-9. DESKTOP-001: Displays, Help, Files providers, Update UX
-10. PROFILE/PERSONAL/SURFACE gaps que permanecerem reais
-11. WEB-001: Web Research e demais capabilities aditivas
-12. expansões P2/P3
+7. FAB-001: Fabrication Core + Impressão 3D como primeiro piloto comercial real
+8. FOOD-001: Food Core + Pizza como segundo piloto comercial
+9. HARDWARE-001: Hardware & Drivers / packs amplos
+10. DESKTOP-001: Displays, Help, Files providers, Update UX
+11. PROFILE/PERSONAL/SURFACE gaps que permanecerem reais
+12. WEB-001: Web Research e demais capabilities aditivas
+13. expansões P2/P3
 ```
 
-Esta ordem é recomendação de triagem, não uma sequência irrevogável. Após MODE-001 ser revalidado, FOOD-001 pode avançar em paralelo com maturidade de hardware/desktop se houver owners independentes e sem interferir nos gates do OS. Mudanças na `main`, dependências ou risco podem alterar a ordem no momento da promoção.
+Esta ordem é recomendação de triagem, não uma sequência irrevogável. Após MODE-001 ser revalidado, FAB-001 ganha prioridade por existir uma operação real disponível para dogfooding contínuo. FOOD-001 permanece logo depois e pode avançar em paralelo somente quando owners e capacidade de execução forem independentes e isso não comprometer qualidade, foco ou gates do OS.
 
 ## Pós-MVP — procedimento de revalidação
 
@@ -208,7 +266,7 @@ Depois que os gates do MVP forem fechados:
 4. escolher a próxima frente por impacto/dependência real;
 5. só então mudar sua elegibilidade para `EXECUTION-ELIGIBLE` e abrir implementação.
 
-Na reavaliação inicial, `MODE-001` merece inspeção antecipada porque consolida boundaries já iniciados de Web/Conta/Loja/Arquivos/Device Agent. `FOOD-001` vem logo depois como primeiro vertical comercial capaz de exercitar esses boundaries com pedidos, realtime, Web/Mobile, Intelligence e Edge sem exigir que o comerciante instale OrdaX OS. `HARDWARE-001` e `DESKTOP-001` continuam essenciais para maturidade do computador cotidiano. `WEB-001` continua P1, mas é uma capability aditiva distinta.
+Na reavaliação inicial, `MODE-001` merece inspeção antecipada porque consolida boundaries já iniciados de Web/Conta/Loja/Arquivos/Device Agent. **FAB-001 vem em seguida** porque a loja/operação real de impressão 3D permite validar pedidos, produção, Files/Projects, realtime, dispositivos, Intelligence e Edge com dogfooding diário. `FOOD-001` vem logo depois como segundo vertical comercial e prova de generalização da arquitetura horizontal para um setor completamente diferente. `HARDWARE-001` e `DESKTOP-001` continuam essenciais para maturidade do computador cotidiano. `WEB-001` continua P1, mas é uma capability aditiva distinta.
 
 Prioridades P1/P2/P3 registradas hoje são **preservação de intenção**, não compromisso automático de sequência futura.
 
@@ -235,5 +293,7 @@ Um item só se torna `EXECUTION-ELIGIBLE` quando existir razão objetiva registr
 Um chat/agente não pode promover sua própria frente, criar tarefa de implementação ou transformar pesquisa em escopo de MVP por iniciativa própria.
 
 Para NATIVE-001, esta regra significa: o plano organiza um escopo já presente no MVP, mas **não** pode ligar `native_install_capability_enabled`, permitir escrita em disco interno ou selecionar alvo físico sem que os owners/contracts/gates canônicos tenham chegado ao estado exigido.
+
+Para FAB-001, esta regra significa: o plano pode orientar a futura execução e o `impressao-3d-br@1` pode continuar fechando sua prova atual de MVP, mas o plano **não** autoriza iniciar farm comercial, adapters de controle físico, storefront, billing ou novo backend durante a janela atual.
 
 Para FOOD-001, esta regra significa: o plano pode orientar a futura execução e o `pizzaria-br@1` pode continuar fechando sua prova atual de MVP, mas o plano **não** autoriza iniciar PDV, KDS, WhatsApp, delivery, billing ou novo backend durante a janela atual.
