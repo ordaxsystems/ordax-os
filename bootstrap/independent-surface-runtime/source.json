@@ -18,7 +18,8 @@
     "bin/udevadm",
     "bin/busybox",
     "usr/lib/girepository-1.0/Gtk-3.0.typelib",
-    "usr/lib/girepository-1.0/WebKit2-4.1.typelib"
+    "usr/lib/girepository-1.0/WebKit2-4.1.typelib",
+    "usr/lib/udev/rules.d/60-input-id.rules"
   ],
   "forbidden_runtime_paths": [
     "sbin/apk",
