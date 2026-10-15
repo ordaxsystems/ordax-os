@@ -31,12 +31,14 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | TALENT-001 | plano de produto/ecossistema | `plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Identidade profissional pessoal fora do Space + vagas/candidaturas/contratação; Network/People/Space continuam owners separados |
 | EDU-001 | plano de vertical | `plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | Escola operacional no OrdaX + Portal da Família via REL-001; Achegue-se permanece página/descoberta pública; menores recebem privacy gates reforçados |
 | MARKET-001 | plano de comércio/ecossistema | `plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md` | **P2** | READY | **DEFERRED FOR EXECUTION** | OrdaX pode author/publicar ofertas; Achegue-se é canal territorial natural; targeting sensível e ads baseados em dados privados são proibidos |
+| HEALTH-001 | plano exploratório de vertical | `plans/HEALTH-001-HEALTHCARE-CLINIC-AND-PATIENT-PORTAL.md` | **P3** | TRIAGED | **DEFERRED FOR EXECUTION** | Preserva futura direção clínica/paciente sem declarar prontidão; exige pesquisa jurídica, segurança e owner clínico antes de qualquer promoção para READY |
 | WEB-001 | pesquisa + roadmap | `reports/WEB-001-WEB-RESEARCH-DEEP-RESEARCH.md` + `plans/WEB-001-WEB-RESEARCH.md` | P1 | READY | **DEFERRED FOR EXECUTION** | Capability provider-neutral preservada para pós-MVP; não boot-critical |
 
 ## Interpretação obrigatória
 
 - `READY` significa **documentalmente pronto**, não “começar agora”.
 - `REFERENCE` significa que o documento ainda possui valor, mas não representa a fonte factual corrente nem uma fila ativa de execução.
+- `TRIAGED` preserva uma direção ainda imatura; não deve ser tratada como plano pronto para implementação.
 - `DEFERRED FOR EXECUTION` significa: não abrir task/issue/PR de implementação apenas por causa deste plano durante o fechamento do MVP.
 - `NATIVE-001` é uma exceção apenas porque organiza trabalho que **já está no ciclo canônico do MVP**; ele não autoriza escrita física, não altera flags fail-closed e não substitui `MVP.md`, `docs/NATIVE-INSTALLATION.md`, contratos ou promotion gates.
 - `FAB-001` não amplia o escopo do MVP: o `impressao-3d-br@1` atual continua sendo a prova segura governada pelos owners de Profile/MVP; farm comercial, adapters físicos, costing avançado, storefront e demais módulos permanecem pós-MVP até promoção explícita.
@@ -45,6 +47,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `IDENTITY-001` reutiliza o membership já existente; não autoriza People/Workforce a conceder login nem cria roles globais por profissão.
 - `REL-001` é a fundação para acesso externo limitado; cliente, responsável, aluno ou paciente não vira `member` apenas para abrir um portal.
 - `EDU-001`, `TALENT-001` e `MARKET-001` são expansões pós-MVP e não ativam Education/Jobs/Offers automaticamente em nenhum produto.
+- `HEALTH-001` é deliberadamente P3/TRIAGED: não autoriza prontuário, prescrição, farmácia ou IA clínica; primeiro exige pesquisa regulatória/segurança e owner próprio.
 - `ACHEGUESE-001` formaliza uma integração já iniciada em source, mas o runtime público continua fail-closed; Achegue-se e OrdaX mantêm bancos, releases, roadmaps e ownership independentes.
 - dados escolares, de saúde, de menores, Memory, mensagens privadas e relações privadas nunca podem ser usados como fonte de targeting comercial no MARKET-001.
 - se `MVP.md`, um contrato ou um owner canônico já exigir um comportamento que também aparece em um plano, a execução pertence ao owner canônico, **não ao plano**.
@@ -74,6 +77,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `TALENT-*`: identidade profissional pessoal, vagas, candidatura e contratação; separado de Profile Pack.
 - `EDU-*`: Education/escola e experiências de alunos/responsáveis; exige privacy gates para menores.
 - `MARKET-*`: ofertas/commerce/publication/marketplace; separado da Loja de apps.
+- `HEALTH-*`: Healthcare/clinics/patient portal; começa como pesquisa de alta sensibilidade e exige owner/compliance próprios.
 - `ACHEGUESE-*`: integração first-party com o produto Achegue-se; mantém produtos e SSOTs independentes.
 - `COMP-*`: comparação/auditoria de referência externa; nunca executável por si só.
 - `INTEL-*`: Intelligence/model routing.
