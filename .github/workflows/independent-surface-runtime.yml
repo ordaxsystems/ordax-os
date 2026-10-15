@@ -54,6 +54,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential bc perl bison flex gawk cpio unzip rsync file \
             wget curl patch git xz-utils erofs-utils util-linux
+      - name: Restore exact Surface compiler cache
+        id: surface-ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-ccache
+          key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
       - name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT
         run: |
           python3 bootstrap/independent-surface-runtime/prepare_config.py materialize \
@@ -64,12 +70,15 @@ jobs:
           grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$expected\"" \
             bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
       - name: Resolve exact Kconfig before expensive graphical build
+        env:
+          BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
         run: |
           python3 bootstrap/independent-surface-runtime/prepare_config.py preflight \
             --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
       - name: Build and verify Buildroot/musl Surface runtime
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
         run: |
           python3 bootstrap/independent-surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
@@ -77,6 +86,12 @@ jobs:
             --jobs 4
           python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface"
+      - name: Save exact Surface compiler cache
+        if: always() && steps.surface-ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-ccache
+          key: ${{ steps.surface-ccache.outputs.cache-primary-key }}
       - name: Upload candidate evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
