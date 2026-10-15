@@ -7,6 +7,7 @@ export const navigation: { name: string; icon: LucideIcon; target?: string }[] =
   { name: 'Projetos', icon: Folder }, { name: 'Aplicativos', icon: LayoutGrid },
   { name: 'Arquivos', icon: FolderOpen }, { name: 'Internet', icon: Globe },
   { name: 'Espaços', icon: WalletCards }, { name: 'Dispositivos', icon: MonitorSmartphone },
+  { name: 'Loja', icon: ShoppingBag },
   { name: 'Ajustes', icon: Settings, target: 'Configurações' },
 ];
 export const shortcuts: AppItem[] = [

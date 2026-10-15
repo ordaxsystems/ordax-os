@@ -1,8 +1,10 @@
 # Loja OrdaX — página isolada de apresentação
 
-Esta página foi solicitada explicitamente como prévia separada, usando as cores e
-identidade visual Meridian. Não é uma composição de produção da Store nem um
-segundo catálogo oficial. Pode ser aberta no host Web existente em
+Esta página começou como prévia separada, usando as cores e identidade Meridian.
+Em 2026-10-14 o usuário autorizou integrá-la ao Web mantendo os mocks. O renderer,
+as fixtures e a fila agora pertencem a `system/surface/workspace/components/store/presentation/`;
+esta entrada continua disponível como apresentação isolada, sem segundo catálogo
+oficial. Pode ser aberta no host Web existente em
 `/store-preview/` durante o desenvolvimento. Para gerar somente esta página,
 na raiz do repositório, com as dependências existentes:
 
@@ -12,7 +14,7 @@ npm.cmd run preview:store-preview --workspace tools/surface-web
 ```
 
 O resultado fica em `out/store-preview` e o preview do build em
-`http://127.0.0.1:4204/`. A entrada do produto continua separada.
+`127.0.0.1:4204`. A entrada do produto continua separada.
 
 ## Inventário factual preservado
 
@@ -49,7 +51,7 @@ Argila/Grafite usam o mesmo DOM e a mesma navegação.
 
 ## Dados e proveniência
 
-`preview-data.js` acrescenta somente metadados fictícios de apresentação ao
+O `preview-data.js` compartilhado acrescenta somente metadados fictícios de apresentação ao
 catálogo demonstrativo já existente. Versões, datas, canais Beta, tamanhos e
 changelogs são exemplos. Não correspondem a artefatos publicados ou verificados.
 Nenhum modelo recebe requisito ou compatibilidade inventada.
@@ -74,6 +76,7 @@ typecheck/build Web, build isolado, verificação de 34 arquivos de referência 
 cancelamento, serialização e falha sem mutação do estado anterior.
 [Evidências, comandos e limites](../../../../docs/evidence/store-preview-2026-10-14/README.md).
 A validação dos mocks não homologa instalações nem a experiência de produção.
-Próximo gate: revisão visual pelo usuário; integração posterior pelo owner Surface,
-sem promover mocks a estado oficial. A tentativa anterior no renderer integrado
-foi supersedida e não faz parte da página isolada publicada nesta branch.
+A integração atual usa o mesmo renderer com lifecycle montável e CSS encapsulado,
+sem iframe nem alteração do hash do sistema. O catálogo real continua separado.
+A escolha de material no Web integrado segue as Preferências; somente a página
+isolada mantém escolha local de apresentação. Mocks não viram inventário oficial.

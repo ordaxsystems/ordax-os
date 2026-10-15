@@ -1,0 +1,36 @@
+/* Shared Meridian visual policy. Existing preference IDs and service owners remain unchanged. */
+[data-meridian] {
+ --background:var(--md-canvas);--foreground:var(--md-ink);--card:var(--md-surface);--secondary:var(--md-subtle);--muted:var(--md-subtle);--muted-foreground:var(--md-muted);--primary:var(--md-accent);--primary-foreground:var(--md-accent-text);--accent:var(--md-accent-soft);--accent-foreground:var(--md-accent);--border:var(--md-border);--sidebar-surface:var(--md-rail);
+ --app-orange:var(--md-accent);--app-orange-soft:var(--md-accent-soft);--app-green:var(--md-sage);--app-green-soft:var(--md-sage-soft);--app-blue:var(--md-blue);--app-blue-soft:var(--md-blue-soft);--app-lime:var(--md-sage);--app-lime-soft:var(--md-sage-soft);--app-violet:var(--md-rose);--app-violet-soft:var(--md-rose-soft);--app-ink:var(--md-ink);--app-ink-soft:var(--md-subtle);
+ --desktop-surface:var(--md-surface);--shadow-panel:var(--md-shadow-small);--desktop-shadow:var(--md-window-shadow);--os-font:var(--md-font);
+ --ordax-bg:var(--md-canvas);--ordax-app-bg:var(--md-surface);--ordax-panel:var(--md-surface);--ordax-surface:var(--md-subtle);--ordax-text:var(--md-ink);--ordax-muted:var(--md-muted);--ordax-faint:var(--md-muted);--ordax-border:var(--md-border);--ordax-border-soft:var(--md-border);--ordax-selected-bg:var(--md-accent-soft);--ordax-accent:var(--md-accent);--ordax-focus:var(--md-focus);--ordax-button-bg:var(--md-accent);--ordax-button-text:var(--md-accent-text);--ordax-window-bg:var(--md-surface);--ordax-rail-bg:var(--md-rail);--ordax-rail-text:var(--md-rail-text);--ordax-subtle-bg:var(--md-subtle);--ordax-hover-bg:var(--md-subtle);--ordax-shadow:var(--md-window-shadow);
+}
+/* Preserve the existing independent high contrast and semantic status policy. */
+[data-meridian][data-ordax-contrast="high"] { --md-border:var(--md-ink);--md-muted:var(--md-ink); }
+[data-meridian] :is(.workspace-sidebar,.ordax-rail) {background:var(--md-rail);color:var(--md-rail-text);border-right:1px solid var(--md-rail-border);}
+[data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.brand,.brand-name,.ordax-brand-word,.ordax-brand-word small,.os-nav-item,.ordax-rail-button,.account-open,.account-identity,.account-storage-value) {color:var(--md-rail-text);}
+[data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.account-identity>span,.account-storage-footer,.account-actions>button) {color:var(--md-rail-muted);}
+[data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.sidebar-account,.account) {background:transparent;border-color:var(--md-rail-border);color:var(--md-rail-text);}
+[data-meridian] :is(.os-nav-item,.ordax-rail-button)[data-active="true"] {background:var(--md-rail-selected);color:var(--md-rail-text);border-radius:9px;box-shadow:inset 3px 0 var(--md-art-clay);}
+[data-meridian] :is(.os-nav-item,.ordax-rail-button):hover {background:var(--md-rail-selected);color:var(--md-rail-text);}
+[data-meridian] :is(.os-nav-item,.ordax-rail-button) svg {fill:none;stroke-width:1.65;}
+[data-meridian] .desktop-titlebar {background:var(--md-subtle);border-bottom:1px solid var(--md-border);}
+[data-meridian] .workspace-window[data-active="true"] .desktop-titlebar {background:var(--md-chrome-active);}
+[data-meridian] .workspace-window {background:var(--md-surface);border-color:var(--md-window-edge);box-shadow:var(--md-window-shadow);border-radius:14px;}
+[data-meridian] .workspace-navigation {border-top:1px solid var(--md-border);}
+[data-meridian] .desktop-task {border-radius:9px;}
+[data-meridian] .desktop-task[data-active="true"] {box-shadow:inset 0 -3px var(--md-accent);}
+[data-meridian] .desktop-task[data-minimized="true"] {border-bottom:1px dashed var(--md-muted);}
+[data-meridian] .ordax-workspace::before {background: url('./brand/meridian-field.svg') center/cover no-repeat;opacity:1;}
+[data-meridian] :is(.ordax-store-layout,.st-root) {background:var(--md-canvas);color:var(--md-ink);}
+[data-meridian] :is(.ordax-store-sidebar,.st-nav) {background:var(--md-subtle);border-color:var(--md-border);}
+[data-meridian] :is(.ordax-store-app-card,.st-card) {border-radius:14px;background:var(--md-surface);border-color:var(--md-border);}
+
+[data-meridian] {--ordax-accent-strong:var(--md-accent);--ordax-accent-ink:var(--md-accent-text);--ordax-window-border:var(--md-border);}
+[data-meridian] .ordax-store-hero {background:var(--md-art-dark);color:var(--md-on-art);border-radius:16px;border-color:transparent;}
+[data-meridian] .ordax-store-hero :is(.ordax-store-hero-title,.ordax-store-hero-description,.ordax-store-eyebrow) {color:var(--md-on-art);}
+[data-meridian] .ordax-store-hero-art {background:var(--md-art-dark);}
+[data-meridian] .ordax-store-hero-orbit {border-color:var(--md-art-light);color:var(--md-art-clay);}
+[data-meridian] .ordax-store-card {border-radius:14px;background:var(--md-surface);border-color:var(--md-border);}
+[data-meridian] .ordax-store-title {font-weight:500;letter-spacing:-.04em;}
+[data-meridian] .ordax-store-nav-item[aria-pressed=true] {background:var(--md-accent-soft);color:var(--md-accent);border-color:var(--md-border);}

@@ -1,5 +1,20 @@
 # Current State
 
+Meridian integration (2026-10-14, explicit subsequent user authorization): the
+canonical Web Central now uses the Meridian editorial layout, the existing
+alpine hero images, the canonical symbol and the existing account/preferences/
+window owners. Planned project, agenda, file and routine examples stay visible
+and labelled as mocks, as requested. The Store presentation is shared between
+`/store-preview/` and the actual Web Store window, with scoped CSS/session
+lifecycle and no iframe or global hash navigation. A ready official catalog
+opens in the real view; when the Web transport is absent, the planned view
+remains available with a distinct switch to the fail-closed real catalog.
+Shared Meridian tokens/style also load in the Native/USB composition and style
+its existing Store; Native operations and hardware gates are unchanged.
+The older standalone-only scope below records the preceding delivery and is
+superseded only as to placement by this explicit integration request.
+[Scope and validation](DESKTOP-IDENTITY.md#meridian-web-and-store-integration--2026-10-14).
+
 Store visual preview (2026-10-14, isolated source): `/store-preview/` is an
 explicitly requested standalone presentation page under `system/composition/web/`,
 using Meridian Argila/Grafite colors and the existing demo catalog/session reducer.

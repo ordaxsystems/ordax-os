@@ -22,6 +22,10 @@ import '../../surface/ui/sidebar-hints.css';
 import '../../surface/workspace/components/central/styles.css';
 import '../../surface/ui/sidebar-layout.css';
 import '../../surface/ui/boot-screen.css';
+import '../../surface/ui/meridian.tokens.css';
+import '../../surface/ui/meridian.css';
+import '../../surface/workspace/components/central/meridian.css';
+document.documentElement.setAttribute('data-meridian', '');
 const boot = createSurfaceBootScreen(document);
 // This composition currently uses pt-BR; boot text still has one canonical catalog.
 const text = (id: keyof typeof SURFACE_BOOT_SOURCE_MESSAGES) => SURFACE_BOOT_SOURCE_MESSAGES[id];

@@ -721,6 +721,14 @@
       {
         "from": "      {sections.map(s => <button type=\"button\" key={s.id} aria-current={section === s.id && !item ? 'page' : undefined} onClick={() => go(s.id)}><s.icon/><span>{s.label}</span>{s.id === 'updates' && ups.length > 0 && <b>{ups.length}</b>}</button>)}",
         "to": "      {sections.map(s => <button type=\"button\" key={s.id} aria-current={section === s.id && !item ? 'page' : undefined} onClick={() => go(s.id)}><s.icon/><span>{s.label}</span>{s.id === 'updates' && ups.length > 0 && <b>{ups.length}</b>}</button>)}\n      <select className=\"st-section-select\" aria-label=\"Seção da Loja\" value={section} onChange={event => go(event.target.value as Section)}>\n        {sections.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}\n      </select>"
+      },
+      {
+        "from": "export function StoreExperience(",
+        "to": "export function OfficialStoreExperience("
+      },
+      {
+        "from": "",
+        "to": "\n// Compatibility for existing host consumers; the official view stays fail-closed.\nexport { OfficialStoreExperience as StoreExperience };\n"
       }
     ],
     "src/lib/store/catalog.ts": [

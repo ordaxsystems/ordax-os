@@ -7,8 +7,7 @@ import { createElement, lazy, Suspense, useEffect, useLayoutEffect, useRef, useS
 import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import dayWallpaper from '@/assets/alpine-day.jpg';
-import nightWallpaper from '@/assets/alpine-night.jpg';
+import meridianWallpaper from '../../../ui/brand/meridian-field.svg';
 import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon } from './primitives';
 import { favorites, navigation, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
@@ -18,18 +17,18 @@ import type { DesktopAction, DesktopState } from './desktop-state';
 
 // One stable resource type; no fetch until the Store is actually mounted.
 // Cached module-load failures are recovered by explicit page reload.
-const Store = lazy(() => import('../store/store').then(module => ({ default: module.StoreExperience })).catch(error => { throw new WindowResourceLoadError(error); }));
+const Store = lazy(() => import('../store/meridian-store').then(module => ({ default: module.StoreExperience })).catch(error => { throw new WindowResourceLoadError(error); }));
 const SettingsExperience = lazy(() => import('./settings').then(module => ({ default: module.WebSettings })).catch(error => { throw new WindowResourceLoadError(error); }));
 
 export type PresentationProps = { onCentral: () => void };
-type Props = PresentationProps & { theme: 'light' | 'dark'; dispatch: Dispatch<DesktopAction> };
-export function Desktop({ theme, onCentral, dispatch }: Props) {
+type Props = PresentationProps & { dispatch: Dispatch<DesktopAction> };
+export function Desktop({ onCentral, dispatch }: Props) {
 
   const open = (title: string) => dispatch({ type: 'open', title });
-  return <main className="classic-desktop" aria-label="Área de trabalho clássica">
-    <img src={theme === 'dark' ? nightWallpaper : dayWallpaper} alt="Paisagem da área de trabalho" className="desktop-wallpaper" width={1920} height={768}/>
+  return <main className="classic-desktop" aria-label="Área de trabalho OrdaX">
+    <img src={meridianWallpaper} alt="Paisagem da área de trabalho" className="desktop-wallpaper" width={1920} height={768}/>
     <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">{[{ name: 'Central', icon: LayoutGrid, tone: 'lime' as const }, ...shortcuts, { name: 'Aura', icon: Sparkles, tone: 'lime' as const }].map(item => <Button variant="ghost" className="desktop-shortcut" key={item.name} onClick={() => item.name === 'Central' ? onCentral() : open(item.name)}><AppIcon icon={item.icon} tone={item.tone}/><span>{item.name}</span></Button>)}</section>
-    <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Do seu jeito.</span><small>OrdaX OS Web</small></div>
+    <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Seu ritmo.</span><small>OrdaX OS Web</small></div>
   </main>;
 }
 export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
@@ -144,7 +143,7 @@ export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCen
     </aside>
     <div ref={hintHost} data-sidebar-hint-host/>
     {view === 'central' && <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>}
-    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: w.minimized ? 'open' : 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><DestinationIcon/></Button></div></footer>
+    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{favorites.filter(item => !state.windows.some(window => window.title === item.name)).map(item => <Button variant="ghost" className="desktop-task" data-pinned="true" key={item.id} aria-label={`Abrir ${item.name} · Fixado`} title={`${item.name} · Fixado`} onClick={() => open(item.name)}><item.icon aria-hidden="true"/><span>{item.name}</span></Button>)}{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: w.minimized ? 'open' : 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><DestinationIcon/></Button></div></footer>
   </Dialog>;
 }
 

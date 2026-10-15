@@ -1498,3 +1498,54 @@ notification and builder checks passed; module boundaries and reference integrit
 passed. Isolated Native browser proof passed 1280×800, 390×844, 320×568 and
 844×390, including unread preservation, action failure, focus recovery,
 destination delegation, teardown and notification panel bounds/overflow.
+
+
+### Meridian Web and Store integration — 2026-10-14
+
+The user explicitly requested the Web use the Meridian/USB direction, integrate
+the validated Store appearance, retain unimplemented resources as reminders in
+mock form, and add the current Web hero imagery to Meridian. This later request
+supersedes the earlier standalone-only placement decision. It does not authorize
+new backend, authentication, inference, lifecycle or physical-media authority.
+
+`Central` keeps the existing account-keyed composition, one desktop reducer,
+WindowLayer, session and preference providers. `MeridianHome` adapts the frozen
+editorial hierarchy: header, greeting/Space, alpine image hero, session strip,
+Intelligence entry, Day/Work/Ecosystem perspectives, project continuation, files,
+agenda, devices and routines. The canonical alpine day/night assets are reused;
+no image is downloaded or generated. The Meridian field SVG styles Desktop.
+The rail/dock open the same managed windows; pinned launchers reuse existing
+shortcut metadata, and an open window appears once. The canonical OrdaX symbol
+replaces the earlier decorative mark.
+
+Projects, agenda, files and routines without services are visibly labelled
+examples/planned; their dialogs say no real data or operation is connected.
+The checklist changes only the current component session. Account/Space/Aura
+continue through their existing providers and unavailable service states. A
+planned card never claims an actual cloud identity, connected device, grant,
+file write or AI answer. Preserve these placeholders until each canonical owner
+has an implementation; connect one resource at a time and remove its mock only
+when its actual replacement is available and reviewed.
+
+The existing validated Store presentation moved to
+`workspace/components/store/presentation/`. Both the standalone entry and the
+system wrapper consume that one renderer, fixtures and serial demo adapter.
+The wrapper uses a ShadowRoot for stylesheet/DOM isolation, not an iframe. Its
+navigation is local to the instance, never changes the system URL/title, and
+retains context when minimized, compacted or switched between Central/Desktop.
+Each mounted presentation has an AbortController and timer cleanup. Material
+comes from existing Preferences in the system; there is no nested material owner.
+Switching to the actual catalog preserves the demo session while hiding it.
+An initially ready verified port selects the actual view by default; absent Web
+transport keeps the planned view accessible and explicitly marked. The original
+fail-closed catalog renderer and snapshot service remain available and tested.
+
+`ui/meridian.tokens.css` is the shared visual token source. `ui/meridian.css`
+adapts existing Web/Native semantic variables and styles the Native Store without
+changing its services. The canonical light/dark/native preference IDs and
+persistence remain; light uses Argila and dark/USB uses Grafite under Meridian.
+Native layout, capabilities and physical proof are not inferred from a browser.
+The frozen experiment controller/runtime is never imported. Historical reference
+digests are preserved with explicit adaptation history.
+
+Validation and screenshots: [integration evidence](evidence/meridian-integration-2026-10-14/README.md).
