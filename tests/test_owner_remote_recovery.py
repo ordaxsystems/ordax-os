@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -15,10 +16,12 @@ HELPER_PATH = OWNER_ROOT / "ordax-remote"
 REFRESH_PATH = ROOT / "system/services/base-update/dev-helpers.sh"
 PULL_PATH = ROOT / "bootstrap/dev-base/ordax-pull"
 STABLE_SOURCE_PATH = ROOT / "bootstrap/stable-base/source.json"
+INITRAMFS_SOURCE_PATH = ROOT / "bootstrap/initramfs/source.json"
 
 SOURCE_SHA = "810c894af12d2049e9f69a94ea92c99df807ab82"
 ARTIFACT_SHA256 = "21209da403ee8f96a1b3dd986cd7120095fa2d92bbc5e4eddc1e58db2abebeb2"
 ARTIFACT_SIZE = 6008984
+OWNER_BOOT_TOKEN = "ordax.distribution_profile=owner-development"
 CAPABILITIES = [
     "agent.owner.snapshot",
     "agent.owner.git_status",
@@ -31,6 +34,7 @@ CAPABILITIES = [
 class OwnerRemoteRecoveryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+        self.initramfs_source = json.loads(INITRAMFS_SOURCE_PATH.read_text(encoding="utf-8"))
         self.helper = HELPER_PATH.read_text(encoding="utf-8")
         self.refresh = REFRESH_PATH.read_text(encoding="utf-8")
         self.pull = PULL_PATH.read_text(encoding="utf-8")
@@ -40,21 +44,35 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         command: str,
         *,
         state: Path,
-        profile: str | None = "owner-development",
+        cmdline: str | None = f"quiet {OWNER_BOOT_TOKEN}",
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
+        cmdline_file = state.parent / "proc-cmdline"
+        helper_copy = state.parent / "ordax-remote-test"
+        if cmdline is None:
+            cmdline_file.unlink(missing_ok=True)
+        else:
+            cmdline_file.write_text(cmdline + "\n", encoding="utf-8")
+
+        marker = "CMDLINE_FILE=/proc/cmdline"
+        self.assertEqual(self.helper.count(marker), 1)
+        instrumented = self.helper.replace(
+            marker,
+            f"CMDLINE_FILE={shlex.quote(str(cmdline_file))}",
+            1,
+        )
+        helper_copy.write_text(instrumented, encoding="utf-8")
+
         env.update(
             {
                 "ORDAX_WORKTREE": str(ROOT),
                 "ORDAX_OWNER_REMOTE_STATE_DIR": str(state),
             }
         )
-        if profile is None:
-            env.pop("ORDAX_DISTRIBUTION_PROFILE", None)
-        else:
-            env["ORDAX_DISTRIBUTION_PROFILE"] = profile
+        env.pop("ORDAX_DISTRIBUTION_PROFILE", None)
+        env.pop("ORDAX_CMDLINE_FILE", None)
         return subprocess.run(
-            ["/bin/sh", str(HELPER_PATH), command],
+            ["/bin/sh", str(helper_copy), command],
             check=False,
             capture_output=True,
             text=True,
@@ -88,6 +106,20 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         self.assertEqual(self.contract["capabilities"], CAPABILITIES)
         self.assertTrue(all(self.contract["forbidden"].values()))
 
+    def test_owner_boot_identity_is_bound_to_initramfs_ssot(self):
+        canonical = self.initramfs_source[
+            "owner_development_media_discovery"
+        ]["cmdline_token"]
+        self.assertEqual(canonical, OWNER_BOOT_TOKEN)
+        self.assertEqual(
+            self.contract["activation"]["boot_cmdline_token"],
+            canonical,
+        )
+        self.assertIn('PIN_BOOT_TOKEN=$(pin_string boot_cmdline_token)', self.helper)
+        self.assertIn("CMDLINE_FILE=/proc/cmdline", self.helper)
+        self.assertNotIn("ORDAX_CMDLINE_FILE", self.helper)
+        self.assertNotIn("ORDAX_DISTRIBUTION_PROFILE", self.helper)
+
     def test_controller_has_no_generic_remote_execution_surface(self):
         syntax = subprocess.run(
             ["/bin/sh", "-n", str(HELPER_PATH)],
@@ -109,10 +141,12 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         ]
         for fragment in forbidden_fragments:
             self.assertNotIn(fragment, self.helper)
-        self.assertIn("restricted to explicit owner-development profile", self.helper)
+        self.assertIn("physical owner-development boot identity is missing or ambiguous", self.helper)
         self.assertIn("artifact digest mismatch", self.helper)
         self.assertIn("artifact size mismatch", self.helper)
         self.assertIn("PID ownership proof failed", self.helper)
+        self.assertIn('bb setsid "$BIN_PATH" </dev/null', self.helper)
+        self.assertNotIn('/bin/setsid "$BIN_PATH"', self.helper)
 
     def test_contract_parser_and_unpaired_status_are_safe(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -125,6 +159,7 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
                 verified.stdout,
             )
             self.assertIn(f"ORDAX_OWNER_REMOTE_ARTIFACT_SIZE={ARTIFACT_SIZE}", verified.stdout)
+            self.assertIn(f"ORDAX_OWNER_REMOTE_BOOT_TOKEN={OWNER_BOOT_TOKEN}", verified.stdout)
 
             status = self.run_helper("status", state=state)
             self.assertEqual(status.returncode, 0, status.stderr)
@@ -134,17 +169,28 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
             self.assertIn("ORDAX_OWNER_REMOTE_BOOT_CRITICAL=no", status.stdout)
             self.assertFalse(state.exists(), "status must not create persistent state")
 
-    def test_non_owner_or_missing_profile_is_rejected_before_activation(self):
+    def test_non_owner_missing_or_ambiguous_boot_identity_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / "state"
-            for profile in ("stable-mvp", None):
-                result = self.run_helper(
-                    "verify-contract",
-                    state=state,
-                    profile=profile,
-                )
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("explicit owner-development profile", result.stderr)
+            invalid_cmdlines = (
+                "quiet ordax.distribution_profile=stable-mvp",
+                "quiet",
+                None,
+                f"{OWNER_BOOT_TOKEN} {OWNER_BOOT_TOKEN}",
+                f"{OWNER_BOOT_TOKEN} ordax.distribution_profile=stable-mvp",
+            )
+            for cmdline in invalid_cmdlines:
+                with self.subTest(cmdline=cmdline):
+                    result = self.run_helper(
+                        "verify-contract",
+                        state=state,
+                        cmdline=cmdline,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(
+                        "physical owner-development boot identity is missing or ambiguous",
+                        result.stderr,
+                    )
 
     def test_current_physical_usb_can_receive_helper_without_new_sparse_rule(self):
         self.assertIn("/bootstrap/base-update/", self.pull)
