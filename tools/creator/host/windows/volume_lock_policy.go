@@ -74,6 +74,35 @@ func buildVolumeLockPlan(diskNumber uint32, volumes []physicalVolume) (volumeLoc
 	}, nil
 }
 
+// buildTargetVolumeLockPlan keeps the normal mounted-volume policy strict while
+// admitting the explicit physical-unmounted recovery state. A recovery target
+// with no Windows volumes has nothing to lock, but it is still represented by
+// a deterministic empty inventory snapshot so the acquisition flow can
+// re-enumerate every Windows volume before the writable PhysicalDrive boundary.
+func buildTargetVolumeLockPlan(expected Target, volumes []physicalVolume) (volumeLockPlan, error) {
+	if err := validateExpectedPhysicalTarget(expected); err != nil {
+		return volumeLockPlan{}, err
+	}
+	if err := validateTargetVolumeIsolation(volumes, expected.DiskNumber); err != nil {
+		return volumeLockPlan{}, err
+	}
+
+	selected := selectPhysicalDiskVolumes(volumes, expected.DiskNumber)
+	if len(selected) > 0 {
+		return buildVolumeLockPlan(expected.DiskNumber, volumes)
+	}
+	if expected.DriveType != "physical-unmounted" || strings.TrimSpace(expected.DriveLetter) != "" {
+		return volumeLockPlan{}, fmt.Errorf("PhysicalDrive%d has no enumerated Windows volumes", expected.DiskNumber)
+	}
+
+	names := []string{}
+	return volumeLockPlan{
+		DiskNumber:      expected.DiskNumber,
+		VolumeNames:     names,
+		InventorySHA256: canonicalVolumeInventoryFingerprint(expected.DiskNumber, names),
+	}, nil
+}
+
 // validateVolumeLockPlanInventory is intended for the mandatory re-enumeration
 // after a future lock sequence and before a writable PhysicalDrive is opened.
 // Any target-volume appearance, disappearance, remap or cross-disk span changes

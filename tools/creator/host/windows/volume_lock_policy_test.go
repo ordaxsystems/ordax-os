@@ -115,3 +115,36 @@ func TestValidateVolumeLockPlanInventoryRejectsCrossDiskRemap(t *testing.T) {
 		t.Fatal("cross-disk remap after lock planning must fail closed")
 	}
 }
+
+func TestBuildTargetVolumeLockPlanAcceptsPhysicalUnmountedWithoutVolumes(t *testing.T) {
+	target := openedIdentityTarget()
+	target.DiskNumber = 8
+	target.DriveLetter = ""
+	target.DriveType = "physical-unmounted"
+	target.PrototypeSafe = true
+	target.ConfirmationToken = ConfirmationToken(target)
+	inventory := []physicalVolume{{
+		VolumeName:  `\\?\Volume{cccccccc-cccc-cccc-cccc-cccccccccccc}\`,
+		DiskNumbers: []uint32{3},
+	}}
+	plan, err := buildTargetVolumeLockPlan(target, inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.VolumeNames) != 0 || plan.InventorySHA256 == "" {
+		t.Fatalf("unexpected empty recovery lock plan: %#v", plan)
+	}
+}
+
+func TestBuildTargetVolumeLockPlanRejectsMountedTargetWithoutVolumes(t *testing.T) {
+	target := openedIdentityTarget()
+	target.DiskNumber = 8
+	target.ConfirmationToken = ConfirmationToken(target)
+	inventory := []physicalVolume{{
+		VolumeName:  `\\?\Volume{cccccccc-cccc-cccc-cccc-cccccccccccc}\`,
+		DiskNumbers: []uint32{3},
+	}}
+	if _, err := buildTargetVolumeLockPlan(target, inventory); err == nil {
+		t.Fatal("mounted target without an owned Windows volume must fail closed")
+	}
+}
