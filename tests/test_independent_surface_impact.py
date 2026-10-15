@@ -41,10 +41,14 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
             "tests/test_independent_surface_runtime.py",
             "tests/test_independent_surface_qemu_binding.py",
             "tests/test_independent_surface_impact.py",
+            "tests/test_portable_component_reuse_workflow.py",
+            "tests/test_portable_qemu_impact.py",
             ".github/workflows/independent-surface-runtime.yml",
             ".github/workflows/portable-v2-qemu-boot-proof.yml",
+            ".github/workflows/portable-qemu-impact-contract.yml",
             "docs/contracts/ci-supply-chain.json",
             "tools/ci/independent_surface_impact.py",
+            "tools/ci/portable_qemu_impact.py",
         ])
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("contract-only",))
