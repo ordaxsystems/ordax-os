@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'bootstrap/base-update/**'
+      - '!bootstrap/base-update/owner-development/**'
       - 'bootstrap/release-acquisition/**'
       - 'system/services/base-update/*.py'
       - 'tools/release-manifest/**'
@@ -19,6 +20,7 @@ on:
   pull_request:
     paths:
       - 'bootstrap/base-update/**'
+      - '!bootstrap/base-update/owner-development/**'
       - 'bootstrap/release-acquisition/**'
       - 'system/services/base-update/*.py'
       - 'tools/release-manifest/**'
