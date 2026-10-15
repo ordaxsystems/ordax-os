@@ -130,8 +130,11 @@ maintenance_shell() {
     # switch_root leaves the development init attached to the console file
     # descriptors but without a controlling TTY. Re-establish one before
     # entering maintenance so job control and password echo handling work.
-    if [ -x /bin/setsid ]; then
-        exec /bin/setsid -c /bin/sh
+    if /bin/busybox setsid --help >/dev/null 2>&1; then
+        if [ -r /dev/tty ] && /bin/busybox test -t 0 2>/dev/null; then
+            exec /bin/busybox setsid -c /bin/sh
+        fi
+        exec /bin/busybox setsid /bin/sh
     fi
     exec /bin/sh
 }

@@ -12,6 +12,7 @@ SSID_FILE=/run/ordax-wifi-ssids
 CLOCK_SYNC_TIMEOUT=${ORDAX_CLOCK_SYNC_TIMEOUT_SECONDS:-5}
 DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}
 WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}
+WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}
 mkdir -p "$STATE_DIR" /run
 
 normalize_timeout() {
@@ -28,6 +29,8 @@ normalize_timeout() {
 CLOCK_SYNC_TIMEOUT=$(normalize_timeout "$CLOCK_SYNC_TIMEOUT" 5 2)
 DHCP_TIMEOUT=$(normalize_timeout "$DHCP_TIMEOUT" 6 3)
 WIFI_LINK_TIMEOUT=$(normalize_timeout "$WIFI_LINK_TIMEOUT" 8 3)
+WIFI_SETUP_ATTEMPTS=$(normalize_timeout "$WIFI_SETUP_ATTEMPTS" 3 1)
+[ "$WIFI_SETUP_ATTEMPTS" -le 5 ] 2>/dev/null || WIFI_SETUP_ATTEMPTS=5
 
 force_choose=0
 case "${1:-}" in
@@ -337,36 +340,51 @@ read_password_with_feedback() {
     printf '\n'
 }
 
-if ! choose_scanned_ssid; then
-    selected_ssid=""
-fi
-ssid=$selected_ssid
-[ -n "$ssid" ] || {
-    echo "ordax-network: nenhuma rede WPA/WPA2 utilizavel foi encontrada" >&2
-    exit 1
-}
+setup_attempt=1
+while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do
+    if ! choose_scanned_ssid; then
+        echo "ordax-network: nenhuma rede WPA/WPA2 utilizavel foi encontrada" >&2
+        exit 1
+    fi
+    ssid=$selected_ssid
+    echo "ordax-network: rede selecionada: $ssid"
+    printf 'Senha WPA/WPA2: '
+    read_password_with_feedback
 
-echo "ordax-network: rede selecionada: $ssid"
-printf 'Senha WPA/WPA2: '
-read_password_with_feedback
-[ -n "$password" ] || {
-    echo "ordax-network: senha vazia" >&2
-    exit 1
-}
+    password_length=${#password}
+    if [ "$password_length" -lt 8 ] 2>/dev/null || [ "$password_length" -gt 63 ] 2>/dev/null; then
+        unset password
+        echo "ordax-network: a senha WPA/WPA2 deve ter entre 8 e 63 caracteres; tente novamente" >&2
+        setup_attempt=$((setup_attempt + 1))
+        force_choose=1
+        continue
+    fi
 
-umask 077
-wpa_passphrase "$ssid" "$password" | sed '/^[[:space:]]*#psk=/d' > "$CANDIDATE_CONF"
-unset password
+    umask 077
+    if ! wpa_passphrase "$ssid" "$password" | sed '/^[[:space:]]*#psk=/d' > "$CANDIDATE_CONF"; then
+        unset password
+        rm -f "$CANDIDATE_CONF"
+        echo "ordax-network: nao foi possivel preparar a credencial; tente novamente" >&2
+        setup_attempt=$((setup_attempt + 1))
+        force_choose=1
+        continue
+    fi
+    unset password
 
-if connect_wifi_conf "$CANDIDATE_CONF"; then
-    mv "$CANDIDATE_CONF" "$WPA_CONF"
-    finish_network "$wifi"
-    exit 0
-fi
+    if connect_wifi_conf "$CANDIDATE_CONF"; then
+        mv "$CANDIDATE_CONF" "$WPA_CONF"
+        finish_network "$wifi"
+        exit 0
+    fi
 
-echo "ordax-network: nao foi possivel autenticar/conectar na rede selecionada" >&2
-if [ -s "$WPA_CONF" ]; then
-    echo "ordax-network: a rede salva anteriormente foi preservada" >&2
-fi
-echo "ordax-network: use ordax-network --choose para escolher outra rede" >&2
+    rm -f "$CANDIDATE_CONF"
+    echo "ordax-network: autenticacao falhou; confira a senha ou escolha outra rede" >&2
+    if [ -s "$WPA_CONF" ]; then
+        echo "ordax-network: a rede salva anteriormente foi preservada" >&2
+    fi
+    setup_attempt=$((setup_attempt + 1))
+    force_choose=1
+done
+
+echo "ordax-network: configuracao Wi-Fi nao foi concluida apos $WIFI_SETUP_ATTEMPTS tentativa(s)" >&2
 exit 1
