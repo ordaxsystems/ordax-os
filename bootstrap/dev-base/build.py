@@ -29,7 +29,6 @@ BuildError = CORE.BuildError
 # `e2fsck -p` only while the ORDAX filesystem is unmounted. Stable/MVP does not
 # inherit this package or this automatic repair authority.
 PACKAGES = [*CORE.PACKAGES, "e2fsprogs"]
-CORE.PACKAGES = PACKAGES
 MAX_ROOTFS_BYTES = CORE.MAX_ROOTFS_BYTES
 prune_firmware = CORE.prune_firmware
 
@@ -87,7 +86,15 @@ CORE.verify_rootfs = _verify_rootfs_with_owner_repair
 
 
 def main() -> int:
-    return CORE.main()
+    # Keep the Owner/Development package delta scoped to the actual build. Importing
+    # this module during the full regression suite must never mutate the shared base
+    # package set seen by Stable/MVP tests or other builders.
+    core_packages = CORE.PACKAGES
+    CORE.PACKAGES = PACKAGES
+    try:
+        return CORE.main()
+    finally:
+        CORE.PACKAGES = core_packages
 
 
 if __name__ == "__main__":
