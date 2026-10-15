@@ -8,6 +8,15 @@ import {
 
 const STATE_KEY = "ordax.windows-emulator.first-run.v1";
 const PREFS_KEY = "ordax.windows-emulator.preferences.v1";
+const SURFACE_TARGET = "/system/composition/web/index.html";
+
+const surfaceFrame = document.querySelector("#ordax-emulator-surface");
+if (!(surfaceFrame instanceof HTMLIFrameElement)) throw new Error("Windows emulator Surface frame is missing");
+
+function activateSurface() {
+  if (surfaceFrame.getAttribute("src") === SURFACE_TARGET) return;
+  surfaceFrame.setAttribute("src", SURFACE_TARGET);
+}
 
 function loadJson(key, fallback) {
   try {
@@ -35,6 +44,7 @@ function createEmulatedFirstRunStateStore() {
       const next = validateFirstRunState(snapshot);
       state = next;
       window.localStorage.setItem(STATE_KEY, JSON.stringify(next));
+      if (next.completed) queueMicrotask(activateSurface);
       return next;
     },
   });
@@ -100,12 +110,15 @@ const preferences = createEmulatedPreferences();
 const identitySession = createUnavailableIdentitySession();
 const identityActions = createUnavailableIdentityActions();
 
+if (stateStore.load().completed) activateSurface();
+
 window.__ORDAX_EMULATOR__ = Object.freeze({
   schema: "ordax.windows-emulator/1",
   kernel: false,
   host: "windows-development",
   repositoryBacked: true,
-  surfaceTarget: "/system/composition/web/index.html",
+  surfaceTarget: SURFACE_TARGET,
+  isSurfaceActive: () => surfaceFrame.getAttribute("src") === SURFACE_TARGET,
   getFirstRunState: () => stateStore.load(),
   resetFirstRun() {
     window.localStorage.removeItem(STATE_KEY);
