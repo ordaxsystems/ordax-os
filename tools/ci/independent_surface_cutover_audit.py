@@ -42,6 +42,7 @@ FORBIDDEN_OPERATIONAL_MARKERS = (
     "apk_package_lock",
     "bootstrap/base/alpine_core.py",
 )
+IGNORED_GENERATED_SUFFIXES = {".pyc", ".pyo"}
 
 
 class AuditError(RuntimeError):
@@ -79,6 +80,8 @@ def _operational_files(owner: Path) -> list[Path]:
     for path in sorted(owner.rglob("*"), key=lambda item: item.as_posix()):
         if path.is_symlink():
             raise AuditError(f"Surface owner contains symlink: {path}")
+        if "__pycache__" in path.parts or path.suffix.lower() in IGNORED_GENERATED_SUFFIXES:
+            continue
         if not path.is_file() or path.suffix.lower() == ".md":
             continue
         files.append(path)
