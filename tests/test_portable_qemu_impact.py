@@ -259,6 +259,21 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_account_gateway_destination_deploy_does_not_require_qemu(self):
+        result = impact.classify_paths(
+            [
+                ".github/workflows/ordax-account-gateway-destination.yml",
+                "docs/contracts/ci-supply-chain.json",
+                "tools/account/resolve_account_gateway_destination.py",
+                "tests/test_account_gateway_destination_deploy.py",
+                "tools/ci/portable_qemu_impact.py",
+                "tests/test_portable_qemu_impact.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
     def test_qemu_workflow_change_itself_stays_heavy(self):
         result = impact.classify_paths(
             [".github/workflows/portable-v2-qemu-boot-proof.yml"],
