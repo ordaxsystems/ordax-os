@@ -38,7 +38,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify Owner recovery and Development helper contracts
+      - name: Verify Owner recovery contract and helper policy
         run: |
           python3 tests/test_owner_remote_recovery.py
           python3 tests/test_dev_base_helper_refresh.py
