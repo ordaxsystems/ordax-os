@@ -28,6 +28,7 @@ OWNER_RUN_VISIBLE_STATUS_SLICE = [
     ".github/workflows/owner-remote-recovery-contract.yml",
     "bootstrap/dev-base/ordax-run",
     "tests/test_dev_base_helper_refresh.py",
+    "tests/test_dev_git_flow.py",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
 ]
