@@ -64,7 +64,7 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
                 product_mode="usb",
                 control_plane_origin="https://cp.example",
             )
-        identity_store.assert_called_once_with("/state/ordax")
+        identity_store.assert_called_once_with("/var/lib/ordax")
         client.assert_called_once_with("https://cp.example", gateway, fake_store)
         self.assertIs(coordinator.client, fake_client)
 
