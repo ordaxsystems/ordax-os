@@ -72,29 +72,24 @@ async function waitFor(client, expression, predicate, label) {
 
 async function clickVisibleSelector(client, selector, label) {
   const point = await evaluate(client, `(() => {
+    const diagnostics = [];
     const candidates = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
-    const element = candidates.find((candidate) =>
-      candidate instanceof HTMLElement
-      && !candidate.disabled
-      && candidate.getClientRects().length > 0
-    );
-    if (!element) return { ok: false, reason: "missing-visible-control" };
-    element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
-    const rect = element.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const hit = document.elementFromPoint(x, y);
-    if (!(hit === element || element.contains(hit))) {
-      return {
-        ok: false,
-        reason: "obstructed",
-        hit: hit?.getAttribute?.("data-window-id")
-          ?? hit?.getAttribute?.("aria-label")
-          ?? hit?.tagName
-          ?? null,
-      };
+    for (const element of candidates) {
+      if (!(element instanceof HTMLElement) || element.disabled || element.getClientRects().length === 0) continue;
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      if (hit === element || element.contains(hit)) return { ok: true, x, y };
+      diagnostics.push({
+        aria: element.getAttribute("aria-label"),
+        title: element.getAttribute("title"),
+        className: element.className,
+        hit: hit?.getAttribute?.("aria-label") ?? hit?.getAttribute?.("data-window-id") ?? hit?.tagName ?? null,
+      });
     }
-    return { ok: true, x, y };
+    return { ok: false, reason: "no-reachable-control", diagnostics };
   })()`);
   if (!point?.ok) {
     throw new Error(`${label} is not physically reachable: ${JSON.stringify({ selector, point })}`);
