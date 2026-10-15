@@ -51,6 +51,7 @@ OWNER_DEVELOPMENT_LIGHT_EXACT = {
     "bootstrap/dev-base/ordax-run",
     "docs/REMOTE-CONTROL.md",
     "tests/test_dev_base_helper_refresh.py",
+    "tests/test_dev_git_flow.py",
     "tests/test_owner_remote_recovery.py",
 }
 OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
