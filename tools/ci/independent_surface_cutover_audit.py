@@ -6,8 +6,8 @@ Independent Surface owner is Buildroot/musl and package-manager-free while the
 current canonical Alpine Surface and Stable Base remain intact.
 
 `post` is intentionally red before cutover. It becomes green only after the
-canonical Surface owner has been replaced atomically by Buildroot/musl and the
-Surface-only Alpine/APK machinery is gone. Stable Base Alpine ownership is
+canonical Surface owner has been replaced atomically by Buildroot/musl and all
+Surface-only Alpine/APK provisioning is gone. Stable Base Alpine ownership is
 explicitly preserved until its later migration gate.
 """
 from __future__ import annotations
@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 INDEPENDENT_OWNER = Path("bootstrap/independent-surface-runtime")
 CANONICAL_OWNER = Path("bootstrap/surface-runtime")
+SURFACE_LAUNCHER = Path("system/surface/bin/ordax-surface")
 LEGACY_SURFACE_FILES = (
     Path("bootstrap/surface-runtime/discover_lock.py"),
     Path(".github/workflows/surface-runtime-lock-discovery.yml"),
@@ -42,6 +43,13 @@ FORBIDDEN_OPERATIONAL_MARKERS = (
     "alpine-minirootfs",
     "apk_package_lock",
     "bootstrap/base/alpine_core.py",
+)
+FORBIDDEN_LAUNCHER_MARKERS = (
+    "RUNTIME_ID=alpine-",
+    "LEGACY_RUNTIME_ID=alpine-",
+    "run_bounded_apk()",
+    "/sbin/apk",
+    "/etc/apk/keys",
 )
 IGNORED_GENERATED_SUFFIXES = {".pyc", ".pyo"}
 
@@ -124,6 +132,11 @@ def _stable_base_preserved(root: Path) -> bool:
     return all((root / relative).is_file() for relative in STABLE_BASE_GUARDS)
 
 
+def _launcher_alpine_provisioning_absent(root: Path) -> bool:
+    text = _text(root / SURFACE_LAUNCHER)
+    return not any(marker in text for marker in FORBIDDEN_LAUNCHER_MARKERS)
+
+
 def audit_pre(root: Path = ROOT) -> AuditResult:
     root = root.resolve()
     independent = root / INDEPENDENT_OWNER
@@ -136,6 +149,7 @@ def audit_pre(root: Path = ROOT) -> AuditResult:
         "canonical_surface_owner_still_present": canonical.is_dir(),
         "legacy_surface_builder_still_present": (canonical / "build.py").is_file(),
         "legacy_surface_source_still_present": (canonical / "source.json").is_file(),
+        "legacy_surface_launcher_still_present": (root / SURFACE_LAUNCHER).is_file(),
         "stable_base_alpine_owner_preserved": _stable_base_preserved(root),
     }
     if not all(checks.values()):
@@ -156,6 +170,7 @@ def audit_post(root: Path = ROOT) -> AuditResult:
         "canonical_surface_no_operational_alpine_apk_dependency": not hits,
         **_surface_contract(canonical),
         "legacy_surface_apk_discovery_removed": legacy_absent,
+        "surface_launcher_alpine_provisioning_removed": _launcher_alpine_provisioning_absent(root),
         "surface_cache_no_longer_depends_on_alpine_core": (
             '"bootstrap/base/alpine_core.py"' not in cache_text
             and "'bootstrap/base/alpine_core.py'" not in cache_text
