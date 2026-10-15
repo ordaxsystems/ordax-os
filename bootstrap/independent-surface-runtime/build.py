@@ -190,16 +190,53 @@ def normalized_member_name(name: str) -> str:
     return name.lstrip("/").rstrip("/")
 
 
+def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str]:
+    """Preserve the current Surface path ABI without changing Buildroot/eudev.
+
+    The canonical Surface/portable mount contract invokes /bin/udevadm. Buildroot's
+    eudev installs it under /sbin for the non-merged-usr layout. Add only the
+    compatibility symlink required by the existing OrdaX consumer; do not fork
+    eudev or change the consumer during the migration proof.
+    """
+    with tarfile.open(rootfs_tar, "r:") as archive:
+        members = {normalized_member_name(member.name): member for member in archive.getmembers()}
+    current = members.get("bin/udevadm")
+    if current is not None:
+        return {"bin/udevadm": "native"}
+    target = members.get("sbin/udevadm")
+    if target is None or not target.isfile():
+        raise SurfaceBuildError("Buildroot eudev did not provide /sbin/udevadm for Surface ABI")
+
+    link = tarfile.TarInfo("bin/udevadm")
+    link.type = tarfile.SYMTYPE
+    link.linkname = "../sbin/udevadm"
+    link.mode = 0o777
+    link.uid = link.gid = 0
+    link.uname = link.gname = ""
+    link.mtime = 0
+    with tarfile.open(rootfs_tar, "a:") as archive:
+        archive.addfile(link)
+    return {"bin/udevadm": "../sbin/udevadm"}
+
+
 def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     if not rootfs_tar.is_file() or rootfs_tar.is_symlink():
         raise SurfaceBuildError("Buildroot rootfs.tar missing")
     with tarfile.open(rootfs_tar, "r:") as archive:
         members = archive.getmembers()
-    names = {normalized_member_name(member.name) for member in members}
+    by_name = {normalized_member_name(member.name): member for member in members}
+    names = set(by_name)
     required = set(source["required_runtime_paths"])
     missing = sorted(required - names)
     if missing:
         raise SurfaceBuildError(f"Buildroot Surface runtime missing required paths: {missing}")
+
+    udevadm = by_name.get("bin/udevadm")
+    if udevadm is None or not udevadm.issym() or udevadm.linkname != "../sbin/udevadm":
+        raise SurfaceBuildError("Surface /bin/udevadm ABI is not bound to Buildroot /sbin/udevadm")
+    native_udevadm = by_name.get("sbin/udevadm")
+    if native_udevadm is None or not native_udevadm.isfile():
+        raise SurfaceBuildError("Buildroot native /sbin/udevadm is missing")
 
     forbidden_hits: list[str] = []
     for forbidden in source["forbidden_runtime_paths"]:
@@ -216,6 +253,7 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     return {
         "member_count": len(members),
         "required_runtime_paths": sorted(required),
+        "compatibility_links": {"bin/udevadm": "../sbin/udevadm"},
         "forbidden_runtime_paths_absent": True,
         "apk_runtime_absent": True,
     }
@@ -295,7 +333,10 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
             raise SurfaceBuildError("Buildroot resolved config changed during build")
 
         rootfs_tar = build_dir / "images/rootfs.tar"
+        compatibility_links = ensure_surface_runtime_path_compatibility(rootfs_tar)
         inventory = inspect_rootfs_tar(rootfs_tar, source)
+        if inventory["compatibility_links"] != compatibility_links:
+            raise SurfaceBuildError("Surface compatibility-link provenance drift")
         rootfs_sha = sha256_file(rootfs_tar)
         image_uuid = str(uuid.uuid5(UUID_NAMESPACE, rootfs_sha))
         image = out_dir / source["artifact"]["name"]
@@ -362,6 +403,11 @@ def verify(out_dir: Path) -> dict:
         raise SurfaceBuildError("candidate claims forbidden distribution payload")
     if provenance.get("physical_artifact_authorized") is not False or provenance.get("stable_promotion_authorized") is not False:
         raise SurfaceBuildError("candidate authorization drift")
+    inventory = provenance.get("runtime_inventory", {})
+    if inventory.get("compatibility_links") != {"bin/udevadm": "../sbin/udevadm"}:
+        raise SurfaceBuildError("Surface /bin/udevadm compatibility binding is absent from provenance")
+    if inventory.get("apk_runtime_absent") is not True or inventory.get("forbidden_runtime_paths_absent") is not True:
+        raise SurfaceBuildError("runtime inventory does not prove Alpine/APK absence")
     image = out_dir / source["artifact"]["name"]
     image_meta = provenance.get("image", {})
     if not image.is_file() or sha256_file(image) != image_meta.get("sha256"):
