@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --config vite.config.mjs --open /tools/windows-emulator/index.html",
+    "dev": "node dev-supervisor.mjs",
+    "dev:vite": "vite --config vite.config.mjs --open /tools/windows-emulator/index.html",
     "dev:no-open": "vite --config vite.config.mjs"
   }
 }
