@@ -42,7 +42,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def buildroot_like_paths(self, *, omit=(), extra=()):
         required = set(self.source["required_runtime_paths"])
         required.discard("bin/udevadm")
+        required.discard("usr/lib/udev/rules.d/60-input-id.rules")
         required.add("usr/bin/udevadm")
+        required.add("lib/udev/rules.d/60-input-id.rules")
         required.difference_update(omit)
         required.update(extra)
         return required
@@ -79,6 +81,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         ):
             self.assertIn(marker, text)
         upper = text.upper()
+        self.assertNotIn("BR2_ROOTFS_MERGED_USR=Y", upper)
         self.assertNotIn("BR2_PACKAGE_OPKG", upper)
         self.assertNotIn("BR2_PACKAGE_RPM", upper)
         self.assertNotIn("BR2_STATIC_LIBS=Y", upper)
@@ -93,9 +96,14 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 for member in archive.getmembers()
             }
         self.assertTrue(by_name["usr/bin/udevadm"].isfile())
-        self.assertTrue(by_name["usr/lib/udev/rules.d/60-input-id.rules"].isfile())
+        self.assertTrue(by_name["lib/udev/rules.d/60-input-id.rules"].isfile())
         self.assertTrue(by_name["bin/udevadm"].issym())
         self.assertEqual(by_name["bin/udevadm"].linkname, "../usr/bin/udevadm")
+        self.assertTrue(by_name["usr/lib/udev/rules.d/60-input-id.rules"].issym())
+        self.assertEqual(
+            by_name["usr/lib/udev/rules.d/60-input-id.rules"].linkname,
+            "../../../../lib/udev/rules.d/60-input-id.rules",
+        )
 
     def test_rootfs_inventory_accepts_required_paths_and_rejects_apk(self):
         required = set(self.source["required_runtime_paths"])
@@ -118,7 +126,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             self.builder.inspect_rootfs_tar(tar_path, self.source)
 
     def test_eudev_abi_fails_closed_if_native_targets_are_missing(self):
-        for missing in ("usr/bin/udevadm", "usr/lib/udev/rules.d/60-input-id.rules"):
+        for missing in ("usr/bin/udevadm", "lib/udev/rules.d/60-input-id.rules"):
             with self.subTest(missing=missing):
                 tar_path = self.make_tar(self.buildroot_like_paths(omit={missing}))
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Buildroot eudev did not provide"):
