@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { createServer } from 'vite';
@@ -20,6 +20,7 @@ let syncRunning = false;
 let timer = null;
 let viteServer = null;
 let previewProcess = null;
+let previewProfileRoot = null;
 
 function git(args, timeout = FETCH_TIMEOUT_MS) {
   const result = spawnSync('git', ['-C', REPO_ROOT, ...args], {
@@ -111,22 +112,40 @@ async function openPreviewWindow() {
     throw new Error('Microsoft Edge runtime was not found; cannot create the Windows emulator preview window');
   }
 
-  const profileRoot = join(windowsEmulatorStateRoot(), 'preview-edge-profile');
-  mkdirSync(profileRoot, { recursive: true });
+  previewProfileRoot = join(
+    windowsEmulatorStateRoot(),
+    'preview-sessions',
+    `session-${process.pid}`,
+  );
+  rmSync(previewProfileRoot, { recursive: true, force: true });
+  mkdirSync(previewProfileRoot, { recursive: true });
+
   previewProcess = spawn(edge, [
     `--app=${PREVIEW_URL}`,
     '--new-window',
     '--no-first-run',
     '--no-default-browser-check',
-    `--user-data-dir=${profileRoot}`,
+    '--disable-background-mode',
+    `--user-data-dir=${previewProfileRoot}`,
   ], {
+    detached: true,
     stdio: 'ignore',
     windowsHide: false,
   });
-  previewProcess.once('error', (error) => {
-    log(`preview process failed: ${error.message}`);
+
+  const previewError = await new Promise((resolvePromise) => {
+    const settle = setTimeout(() => resolvePromise(null), 1_000);
+    previewProcess.once('error', (error) => {
+      clearTimeout(settle);
+      resolvePromise(error);
+    });
+    previewProcess.once('exit', (code, signal) => {
+      clearTimeout(settle);
+      resolvePromise(new Error(`preview process exited before creating a window (${signal ?? code ?? 'unknown'})`));
+    });
   });
-  log(`preview window opened at ${PREVIEW_URL}`);
+  if (previewError) throw previewError;
+  log(`preview process running at ${PREVIEW_URL}`);
 }
 
 function syncMainOnce() {
@@ -187,20 +206,22 @@ function syncMainOnce() {
 }
 
 function stopPreviewProcess() {
-  if (!previewProcess || previewProcess.exitCode !== null) {
-    previewProcess = null;
-    return;
-  }
-  if (process.platform === 'win32' && Number.isInteger(previewProcess.pid)) {
-    spawnSync('taskkill.exe', ['/PID', String(previewProcess.pid), '/T', '/F'], {
-      stdio: 'ignore',
-      windowsHide: true,
-      timeout: 5_000,
-    });
-  } else {
-    previewProcess.kill('SIGTERM');
+  if (previewProcess && previewProcess.exitCode === null) {
+    if (process.platform === 'win32' && Number.isInteger(previewProcess.pid)) {
+      spawnSync('taskkill.exe', ['/PID', String(previewProcess.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+        timeout: 5_000,
+      });
+    } else {
+      previewProcess.kill('SIGTERM');
+    }
   }
   previewProcess = null;
+  if (previewProfileRoot) {
+    rmSync(previewProfileRoot, { recursive: true, force: true });
+    previewProfileRoot = null;
+  }
 }
 
 async function stop() {
