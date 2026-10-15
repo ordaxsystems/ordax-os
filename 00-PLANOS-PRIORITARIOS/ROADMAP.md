@@ -135,6 +135,16 @@ Os produtos permanecem separados em repositório, banco, deployment, identidade 
 
 Plano detalhado: `plans/ACHEGUESE-001-FIRST-PARTY-PRODUCT-INTEGRATION.md`.
 
+### ACHEGUESE-002 — Space privado de desenvolvimento do Achegue-se
+
+- **Status documental:** READY
+- **Execução agora:** **DEFERRED FOR EXECUTION**
+- **Prioridade preservada:** P1 de dogfooding/workspace
+
+Usar o próprio OrdaX como workspace privado para desenvolver o Achegue-se, começando com um Space owner-only vinculado ao repositório externo. O repo, banco e deploy continuam pertencendo ao Achegue-se; o Space organiza contexto, Projects/Files, ferramentas autorizadas, testes, ambientes e Intelligence. Colaboração futura usa IDENTITY-001, sem criar Profile público `acheguese-dev@1`.
+
+Plano detalhado: `plans/ACHEGUESE-002-ORDAX-DEVELOPER-SPACE.md`.
+
 ### HARDWARE-001 — Hardware, Drivers e Hardware Packs
 
 - **Status documental:** READY
@@ -229,28 +239,29 @@ P0 AGORA
 
 APÓS FECHAR O MVP — REVALIDAR P1
 6. MODE-001: Web/Cloud/Device runtime real
-7. FAB-001: Fabrication Core + Impressão 3D como primeiro piloto comercial
-8. FOOD-001: Food Core + Pizza como segundo piloto comercial
-9. IDENTITY-001: colaboração/membros conforme necessidade dos pilotos
-10. REL-001: external access/portais; começar por caso de menor risco
-11. ACHEGUESE-001: linking first-party read-only real
-12. HARDWARE-001: Hardware & Drivers / packs amplos
-13. DESKTOP-001: experiência cotidiana
-14. PROFILE/PERSONAL/SURFACE gaps reais
-15. WEB-001: Web Research/capabilities aditivas
+7. ACHEGUESE-002: Space privado owner-only para dogfooding de Projects/Files/dev workflow
+8. FAB-001: Fabrication Core + Impressão 3D como primeiro piloto comercial
+9. FOOD-001: Food Core + Pizza como segundo piloto comercial
+10. IDENTITY-001: colaboração/membros conforme necessidade dos pilotos e do Space de desenvolvimento
+11. REL-001: external access/portais; começar por caso de menor risco
+12. ACHEGUESE-001: linking first-party read-only real
+13. HARDWARE-001: Hardware & Drivers / packs amplos
+14. DESKTOP-001: experiência cotidiana
+15. PROFILE/PERSONAL/SURFACE gaps reais
+16. WEB-001: Web Research/capabilities aditivas
 
 P2 — APÓS REVALIDAÇÃO DAS FUNDAÇÕES
-16. TALENT-001: identidade profissional + vagas/contratação
-17. EDU-001: Education + Portal da Família
-18. MARKET-001: ofertas/marketplace/publicação territorial
-19. demais expansões P2
+17. TALENT-001: identidade profissional + vagas/contratação
+18. EDU-001: Education + Portal da Família
+19. MARKET-001: ofertas/marketplace/publicação territorial
+20. demais expansões P2
 
 P3 — PESQUISA ANTES DE PRODUTO
-20. HEALTH-001: Healthcare/Clinic/Patient Portal; primeiro compliance/threat model/owner
-21. demais investigações de alta sensibilidade
+21. HEALTH-001: Healthcare/Clinic/Patient Portal; primeiro compliance/threat model/owner
+22. demais investigações de alta sensibilidade
 ```
 
-A ordem é recomendação de triagem, não sequência irrevogável. Fatias horizontais de IDENTITY/REL podem ser promovidas somente quando um piloto autorizado realmente depender delas. ACHEGUESE-001 só avança quando os gates dos dois produtos permitirem. HEALTH-001 não pode ser promovido por analogia com Education.
+A ordem é recomendação de triagem, não sequência irrevogável. `ACHEGUESE-002` é um slice interno de dogfooding e não altera a posição de FAB-001 como primeiro vertical comercial recomendado. Fatias horizontais de IDENTITY/REL podem ser promovidas somente quando um piloto autorizado realmente depender delas. ACHEGUESE-001 só avança quando os gates dos dois produtos permitirem. HEALTH-001 não pode ser promovido por analogia com Education.
 
 ## Pós-MVP — procedimento de revalidação
 
@@ -274,5 +285,6 @@ Um chat/agente não pode promover sua própria frente, criar tarefa de implement
 - FAB/FOOD não inflam Profile Packs mínimos do MVP.
 - IDENTITY/REL não autorizam rollout público nem handling de dado sensível só porque os planos existem.
 - ACHEGUESE-001 não transforma source OAuth/API em runtime público.
+- ACHEGUESE-002 não move o repo Achegue-se, não cria acesso de produção implícito e não publica Profile exclusivo por conveniência.
 - TALENT/EDU/MARKET não ativam verticais nem publicação.
 - HEALTH-001 permanece `TRIAGED` até pesquisa regulatória/segurança e owner explícito.
