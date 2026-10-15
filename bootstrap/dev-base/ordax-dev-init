@@ -67,7 +67,7 @@ record_boot_handoff() {
             fi
             ;;
     esac
-    temporary=$BOOT_METRICS_FILE.tmp.$
+    temporary=$BOOT_METRICS_FILE.tmp.$$
     printf '%s\t%s\t%s\t%s\n' "$mode" "$elapsed" "$source_sha" "$ended" >"$temporary"
     mv -f "$temporary" "$BOOT_METRICS_FILE"
 }
@@ -277,7 +277,7 @@ select_development_rootfs() {
                 mapped_sha=$(cat "$mapping" 2>/dev/null || true)
                 if rootfs_version_valid "$mapped_sha"; then
                     printf 'Base versionada conhecida como boa: %s (slot %s).\n' "$mapped_sha" "$base_slot"
-                    activate_versioned_rootfs "$mapping_sha" "$base_slot" current || {
+                    activate_versioned_rootfs "$mapped_sha" "$base_slot" current || {
                         printf 'Base versionada nao pode ser ativada; preservando Base seed conhecida como boa.\n' >&2
                     }
                     return 0
@@ -302,7 +302,8 @@ printf 'OrdaX Development Base\n'
 printf 'Kernel + drivers + network + Git\n\n'
 
 # Rollback pins start immediately. The running supervisor owns the remote retry:
-# if this was an automatic boot rejection, it releases the pin only after main# advances to a different commit. Manual pins remain sticky.
+# if this was an automatic boot rejection, it releases the pin only after main
+# advances to a different commit. Manual pins remain sticky.
 if [ -s "$PINNED_FILE" ]; then
     pinned=$(cat "$PINNED_FILE")
     current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
@@ -311,7 +312,7 @@ if [ -s "$PINNED_FILE" ]; then
     fi
 
     printf 'Estado de rollback fixado inconsistente; mantendo modo de recuperacao.\n' >&2
-    printf 'PINO%s HEAD=s%s"\n' "$pinned" "$current" >&2
+    printf 'PIN=%s HEAD=%s\n' "$pinned" "${current:-indisponivel}" >&2
     maintenance_shell
 fi
 
@@ -343,13 +344,13 @@ fi
 pull_ok=0
 if [ "$network_ok" -eq 1 ]; then
     attempt=1
-    while [ "$attempt" -le "$BOOT_PULL_ATTEMMPTS" ]; do
-        printf 'Sincronizando OrdaX com a main (tentativa %s/%s)...\n' "$attempt" "$BOOT_PULL_ATTEMMPTS"
+    while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]; do
+        printf 'Sincronizando OrdaX com a main (tentativa %s/%s)...\n' "$attempt" "$BOOT_PULL_ATTEMPTS"
         if "$BIN_DIR/ordax-pull"; then
             pull_ok=1
             break
         fi
-        if [ "$attempt" -lt "$BOOT_PULL_ATTEMMPTS" ]; then
+        if [ "$attempt" -lt "$BOOT_PULL_ATTEMPTS" ]; then
             printf 'Sincronizacao falhou; repetindo uma vez apos pausa curta.\n'
             sleep 2
         fi
