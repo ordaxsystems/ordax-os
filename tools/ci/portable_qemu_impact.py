@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Classify whether a repository delta requires the heavy Portable/QEMU proof.
 
-The policy is deliberately fail-closed. High-level system source is lightweight only
-when it is not part of the Native runtime import graph and is not a known host/boot
-owner. Unknown system roots and every non-system path reaching this workflow remain
-heavy by default, except explicitly classified producer-neutral helpers or roots.
+The policy is deliberately fail-closed inside the workflow's causal path scope.
+High-level system source is lightweight only when it is not part of the Native
+runtime import graph and is not a known host/boot owner.
+
+GitHub evaluates ``paths`` against the whole pull request and starts a workflow
+when at least one changed file matches. Once running, however, ``git diff`` sees
+*all* files in that pull request. The classifier must therefore discard files
+that are outside this workflow's trigger scope before applying the heavy/light
+policy; otherwise an unrelated doc/test beside one lightweight ``system/**``
+change falsely turns into a Stable QEMU rebuild.
 """
 from __future__ import annotations
 
@@ -64,6 +70,59 @@ ALWAYS_HEAVY_PREFIXES = (
     "system/surface/runtime/",
     "system/composition/native/",
 )
+
+# Keep this boundary equivalent to the positive/non-presentation path scope in
+# .github/workflows/portable-v2-qemu-boot-proof.yml. It is intentionally not a
+# permissive "light" allowlist: it only decides which files belong to this
+# workflow at all. classify_paths() remains fail-closed for files inside it.
+WORKFLOW_SCOPE_EXACT = {
+    "bootstrap/entrypoint",
+    "bootstrap/recovery/entrypoint",
+    "bootstrap/config/release-envelope-url",
+    "docs/contracts/minimal-bootstrap.json",
+    "docs/contracts/portable-v2-qemu-boot-proof.json",
+    "docs/contracts/portable-v2-uefi-boot-proof.json",
+    "docs/contracts/portable-v3-cold-health-qemu-proof-spec.json",
+    "docs/contracts/portable-bootstrap-v2.json",
+    "docs/contracts/portable-boot-handoff.json",
+    "docs/MINIMAL-USB-BOOTSTRAP.md",
+    "tests/test_bootstrap_current_verification.py",
+    "tests/test_portable_verified_boot_selection.py",
+    "tests/test_portable_media_discovery.py",
+    "tests/test_portable_activation_state_helper.py",
+    "tests/test_portable_exact_runtime_handoff.py",
+    "tests/test_portable_v2_qemu_boot_proof_contract.py",
+    "tests/test_initramfs_upstream_authentication.py",
+    "tests/test_portable_qemu_kernel_source_ssot.py",
+    "tests/test_kernel_ci_env.py",
+    "tests/test_portable_v2_uefi_boot_proof_contract.py",
+    "tests/test_portable_v3_cold_health_qemu_proof.py",
+    "tests/test_stable_release_activation_transaction.py",
+    "tests/test_portable_v4_ai_handoff_contract.py",
+    "tests/test_portable_component_cache.py",
+    "tests/test_portable_component_reuse_workflow.py",
+    "tools/ci/portable_component_cache.py",
+    "tools/ci/portable_qemu_impact.py",
+    "tests/test_portable_qemu_impact.py",
+    ".github/workflows/portable-v2-qemu-boot-proof.yml",
+}
+WORKFLOW_SCOPE_PREFIXES = (
+    "bootstrap/base/",
+    "bootstrap/kernel/",
+    "bootstrap/stable-base/",
+    "bootstrap/surface-runtime/",
+    "bootstrap/local-ai-runtime/",
+    "bootstrap/initramfs/",
+    "bootstrap/portable-v2/",
+    "bootstrap/release-acquisition/",
+    "tools/release-bundle/",
+    "tools/portable-release-image/",
+    "tools/release-manifest/",
+    "tools/release-signing/",
+    "boot/portable-v2/",
+    "boot/esp/",
+)
+
 IMPORT_RE = re.compile(
     r"(?:^|\n)\s*(?:import|export)\s+(?:[^\"']*?\s+from\s+)?[\"'](\.[^\"']+)[\"']"
     r"|import\s*\(\s*[\"'](\.[^\"']+)[\"']\s*\)",
@@ -107,6 +166,55 @@ def _normalise_path(value: str) -> str:
 
 def _is_presentation_light(path: str) -> bool:
     return path.endswith(".md") or path.startswith(PRESENTATION_LIGHT_PREFIXES)
+
+
+def _in_workflow_scope(path: str) -> bool:
+    """Mirror the Portable/QEMU workflow trigger for one normalized path."""
+    if path in WORKFLOW_SCOPE_EXACT:
+        return True
+
+    if path.startswith("system/"):
+        if path.endswith(".md"):
+            return False
+        if path.startswith(PRESENTATION_LIGHT_PREFIXES):
+            return False
+        return True
+
+    if path.startswith("bootstrap/kernel/"):
+        if path.startswith("bootstrap/kernel/candidates/"):
+            return False
+        if path in {
+            "bootstrap/kernel/candidate_pipeline.py",
+            "bootstrap/kernel/update_engine.py",
+        }:
+            return False
+        if path.endswith(".md"):
+            return False
+        return True
+
+    if path.startswith("bootstrap/surface-runtime/") and path.endswith(".md"):
+        return False
+    if path.startswith("bootstrap/release-acquisition/") and path.endswith(".md"):
+        return False
+
+    if path.startswith("tools/release-signing/"):
+        if path.startswith("tools/release-signing/windows/"):
+            return False
+        if path.startswith("tools/release-signing/cmd/ordax-physical-release-signing/"):
+            return False
+        if path in {
+            "tools/release-signing/promote_public_trust.py",
+            "tools/release-signing/README.md",
+        }:
+            return False
+        return True
+
+    return path.startswith(WORKFLOW_SCOPE_PREFIXES)
+
+
+def workflow_scoped_paths(paths: Iterable[str]) -> tuple[str, ...]:
+    normalized = {_normalise_path(raw) for raw in paths}
+    return tuple(sorted(path for path in normalized if path and _in_workflow_scope(path)))
 
 
 def _path_inside_root(candidate: Path, root: Path) -> Path | None:
@@ -245,9 +353,6 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         if path.startswith(PRODUCER_NEUTRAL_LIGHT_PREFIXES):
             continue
         if not path.startswith("system/"):
-            # The workflow trigger already limits non-system paths to Portable/boot/
-            # release inputs. Treat any such path as heavy rather than maintaining a
-            # second permissive allowlist here.
             reasons.append(f"heavy-non-system:{path}")
             continue
         if _is_presentation_light(path):
@@ -262,6 +367,14 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         reasons.append(f"heavy-unclassified-system:{path}")
 
     return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-runtime-reachable",), changed)
+
+
+def classify_workflow_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
+    """Classify only the files that belong to this workflow's GitHub path scope."""
+    scoped = workflow_scoped_paths(paths)
+    if not scoped:
+        return ImpactResult(False, ("outside-workflow-scope-only",), scoped)
+    return classify_paths(scoped, root=root)
 
 
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
@@ -294,7 +407,7 @@ def command_classify(args: argparse.Namespace) -> int:
     else:
         try:
             paths = changed_paths_between(args.base, args.head)
-            result = classify_paths(paths)
+            result = classify_workflow_paths(paths)
         except Exception as exc:  # CI impact classification must fail closed.
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 
