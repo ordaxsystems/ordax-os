@@ -74,6 +74,31 @@ func TestValidateManagedTargetVolumeLeaseRejectsEmptyLease(t *testing.T) {
 	}
 }
 
+func TestValidateManagedTargetVolumeLeaseAcceptsVolumeLessPhysicalRecovery(t *testing.T) {
+	target := openedIdentityTarget()
+	target.DriveLetter = ""
+	target.DriveType = "physical-unmounted"
+	target.ConfirmationToken = ConfirmationToken(target)
+	lease := &managedTargetVolumeLease{
+		diskNumber:                 target.DiskNumber,
+		volumeLessPhysicalRecovery: true,
+	}
+	if _, err := validateManagedTargetVolumeLease(target, lease); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateManagedTargetVolumeLeaseRejectsVolumeLessStateForMountedTarget(t *testing.T) {
+	target := openedIdentityTarget()
+	lease := &managedTargetVolumeLease{
+		diskNumber:                 target.DiskNumber,
+		volumeLessPhysicalRecovery: true,
+	}
+	if _, err := validateManagedTargetVolumeLease(target, lease); err == nil {
+		t.Fatal("volume-less recovery state must not authorize a mounted target")
+	}
+}
+
 func TestValidateManagedTargetVolumeLeaseRejectsStaleTargetBeforeLease(t *testing.T) {
 	target := openedIdentityTarget()
 	target.PhysicalDiskBytes++
