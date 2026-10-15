@@ -185,3 +185,54 @@ Escolher Space Impressão 3D -> Profile Impressão 3D aplicado pelo OrdaX
 ```
 
 Advanced composition changes remain a separate expert capability and must be permissioned/versioned.
+
+
+## Capability-driven Space projection foundation — 2026-10-15
+
+The source now keeps four responsibilities explicitly separate:
+
+```text
+Profile Pack
+  -> versioned technical composition
+
+Space type (`domain.subtype`)
+  -> domain/UX semantics and the set of capabilities that are allowed to exist
+
+Capability provider
+  -> whether that capability is actually available for this Space now
+  -> provider-owned metrics/context
+
+Surface projection
+  -> contextual navigation + dashboard/widgets + global Spaces card metrics
+  -> only from ready providers; never from type names alone
+```
+
+The canonical semantic catalog is `system/services/spaces/type-catalog.mjs`. The deterministic projection is owned by `system/services/spaces/composition.mjs`, with versioned contracts in `system/contracts/space-experience.mjs`. Profile Pack manifests intentionally do **not** duplicate Space navigation, dashboard schemas or provider availability.
+
+A declared capability is not an entitlement, grant, installed component or live data source. For a contextual item to appear, its provider must return a valid `ready` snapshot for the same authorized Space. A missing, unavailable, malformed or failing provider removes that capability from the projection without breaking Surface. A dashboard/card metric is rendered only when that ready provider supplies the exact metric; zero is valid data, absence is not converted into a fabricated zero.
+
+The global OrdaX sidebar remains independent of this projection. Space-specific navigation is contextual data returned by the Space experience composition and must never replace or mutate the global shell navigation.
+
+Aura uses the same rule. `aura.summary` can appear only through a ready Aura capability provider. Context is accepted only when it is bound to the current Space; Aura remains consultative and never becomes the transactional source of orders, users, printers, students, payments or other domain state.
+
+Current structured types:
+
+| Space type | Source status | Runtime promotion in this foundation |
+| --- | --- | --- |
+| `food.pizzeria` | MVP structural foundation | eligible for provider-backed projection; no operational provider is invented |
+| `fabrication.3d-printing` | MVP structural foundation | eligible for provider-backed projection; no operational provider is invented |
+| `product-operations.territorial-platform` | structured | `DEFERRED`; emits no contextual navigation/widgets |
+| `education.school` | structured | `DEFERRED`; emits no contextual navigation/widgets |
+| `development.software` | structured | `DEFERRED`; one Space can contain many Projects; Studio is only the project-opening tool |
+
+For the current Pizzaria and Impressão 3D showcase Spaces, the resolver may derive `domain.subtype` from the existing canonical Profile binding while the account backend does not yet persist explicit Space semantics. `ordax.spaces/1` also accepts explicit `domain` + `subtype` together for the future canonical backend projection. This compatibility fallback resolves semantics only; it never makes a capability available.
+
+The Development definition models `project` as a many-valued resource owned by the Space and opened with Studio. A repository is not promoted to a Space merely because it exists, and Studio does not become the owner/SSOT of the Project.
+
+The 3D-printing type declares Jobs as domain resources but does not implement a fabrication owner in this foundation. When that owner is promoted, reprinting must append a new Job and preserve prior Job/history records; a reprint is never modeled as deleting or rewriting the original production history. The Pizzaria type deliberately does not declare `quotes` because no current real owner justified that capability.
+
+### Deferred safety constraints
+
+The structured School definition does not promote the vertical and does not create `orders`. REL-001 remains binding: external student/guardian identities are not internal Space members. No unrestricted camera/tracking capability is introduced; transport remains a separate declared capability and still requires its own consent, purpose and owner before promotion. Data about minors is not an advertising/targeting source.
+
+The structured Achegue-se definition remains an operational product-operations Space, not a development Space. `offers`, `jobs_publications` and `orders_public` are only declared possibilities and remain invisible until the corresponding real owner/provider is promoted. The product boundary remains: Achegue-se discovers/connects; OrdaX organizes/operates; product SSOTs remain independent.
