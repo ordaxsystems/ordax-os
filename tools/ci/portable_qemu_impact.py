@@ -48,6 +48,7 @@ PRODUCER_NEUTRAL_LIGHT_PREFIXES = (
 )
 OWNER_DEVELOPMENT_LIGHT_EXACT = {
     ".github/workflows/owner-remote-recovery-contract.yml",
+    "bootstrap/dev-base/ordax-run",
     "docs/REMOTE-CONTROL.md",
     "tests/test_dev_base_helper_refresh.py",
     "tests/test_owner_remote_recovery.py",

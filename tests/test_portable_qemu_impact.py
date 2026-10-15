@@ -24,6 +24,14 @@ OWNER_REMOTE_SLICE = [
     "tests/test_owner_remote_recovery.py",
 ]
 
+OWNER_RUN_VISIBLE_STATUS_SLICE = [
+    ".github/workflows/owner-remote-recovery-contract.yml",
+    "bootstrap/dev-base/ordax-run",
+    "tests/test_dev_base_helper_refresh.py",
+    "tools/ci/portable_qemu_impact.py",
+    "tests/test_portable_qemu_impact.py",
+]
+
 
 class PortableQemuImpactTests(unittest.TestCase):
     @classmethod
@@ -130,6 +138,19 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_real_kernel_change_stays_heavy_with_owner_remote_recovery_slice(self):
         result = impact.classify_paths(
             [*OWNER_REMOTE_SLICE, "bootstrap/kernel/source.json"],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_owner_run_visible_status_slice_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(OWNER_RUN_VISIBLE_STATUS_SLICE, root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_real_kernel_change_stays_heavy_with_owner_run_visible_status_slice(self):
+        result = impact.classify_paths(
+            [*OWNER_RUN_VISIBLE_STATUS_SLICE, "bootstrap/kernel/source.json"],
             root=ROOT,
         )
         self.assertTrue(result.required)
