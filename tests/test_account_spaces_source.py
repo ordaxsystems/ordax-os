@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
 MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "0001_product_foundation.sql"
 SEMANTICS_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "20261015153000_space_semantics_v1.sql"
+SEMANTICS_WRITE_GUARD = ROOT / "infra" / "supabase" / "product" / "migrations" / "20261015195800_space_semantics_write_guard_v1.sql"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "spaces.mjs"
 NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 
@@ -51,6 +52,20 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn("revoke all on function public.ordax_account_export_v1()", sql)
         self.assertIn("grant execute on function public.ordax_account_export_v1() to authenticated", sql)
         self.assertNotIn("update public.ordax_spaces", sql)
+        self.assertNotIn("insert into public.ordax_spaces", sql)
+
+    def test_space_semantics_write_guard_preserves_legacy_but_requires_canonical_new_rows(self):
+        sql = SEMANTICS_WRITE_GUARD.read_text(encoding="utf-8").lower()
+        self.assertIn("create or replace function private.ordax_enforce_space_semantics_write_v1()", sql)
+        self.assertIn("if tg_op = 'insert'", sql)
+        self.assertIn("new.domain is null or new.subtype is null", sql)
+        self.assertIn("errcode = '23514'", sql)
+        self.assertIn("before insert or update of domain, subtype on public.ordax_spaces", sql)
+        self.assertIn("old.domain is not null", sql)
+        self.assertIn("old.subtype is not null", sql)
+        self.assertIn("canonical semantics cannot regress to legacy nulls", sql)
+        self.assertNotIn("update public.ordax_spaces", sql)
+        self.assertNotIn("delete from public.ordax_spaces", sql)
         self.assertNotIn("insert into public.ordax_spaces", sql)
 
     def test_surface_and_native_use_only_ordax_account_boundary(self):

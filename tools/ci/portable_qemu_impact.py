@@ -88,6 +88,7 @@ IMPACT_POLICY_LIGHT_EXACT = {
 ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
     "infra/supabase/functions/ordax-account-gateway/index.ts",
     "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
+    "infra/supabase/product/migrations/20261015195800_space_semantics_write_guard_v1.sql",
     "services/public-identity/supabase_account.py",
     "tests/test_account_spaces_source.py",
     "tests/test_spaces_catalog.mjs",

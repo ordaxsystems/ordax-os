@@ -229,7 +229,7 @@ Current structured types:
 | `education.school` | structured | `DEFERRED`; emits no contextual navigation/widgets |
 | `development.software` | structured | `DEFERRED`; one Space can contain many Projects; Studio is only the project-opening tool |
 
-The canonical account owner now stores Space semantics as paired `ordax_spaces.domain` + `ordax_spaces.subtype` and projects them through `/account/spaces`. New canonical Spaces must use those explicit fields. Nullable rows remain supported only for legacy compatibility; when both fields are absent, the resolver may still derive semantics from the existing Pizzaria/Impressão 3D Profile binding. That fallback is not an ownership source, is not backfilled into the database, and never makes a capability available.
+The canonical account owner now stores Space semantics as paired `ordax_spaces.domain` + `ordax_spaces.subtype` and projects them through `/account/spaces`. New canonical Spaces must use those explicit fields. Nullable rows remain supported only for legacy compatibility; new database inserts require explicit `domain/subtype`, and once a Space has explicit semantics it cannot be demoted back to the legacy `null/null` state. A legacy row may still be promoted to explicit semantics later. When both fields are absent on a legacy row, the resolver may still derive semantics from the existing Pizzaria/Impressão 3D Profile binding. That fallback is not an ownership source, is not backfilled into the database, and never makes a capability available.
 
 The Development definition models `project` as a many-valued resource owned by the Space and opened with Studio. A repository is not promoted to a Space merely because it exists, and Studio does not become the owner/SSOT of the Project.
 

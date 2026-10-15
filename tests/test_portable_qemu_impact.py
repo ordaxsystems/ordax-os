@@ -281,6 +281,21 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_space_semantics_write_guard_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(
+            [
+                "infra/supabase/product/migrations/20261015195800_space_semantics_write_guard_v1.sql",
+                "tests/test_account_spaces_source.py",
+                "docs/SPACES-AND-PROFILES.md",
+                "docs/CURRENT-STATE.md",
+                "tools/ci/portable_qemu_impact.py",
+                "tests/test_portable_qemu_impact.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
     def test_qemu_workflow_change_itself_stays_heavy(self):
         result = impact.classify_paths(
             [".github/workflows/portable-v2-qemu-boot-proof.yml"],
