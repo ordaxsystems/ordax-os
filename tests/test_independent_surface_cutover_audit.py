@@ -71,7 +71,18 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             root = self.make_tree(Path(td), cutover=False)
             result = AUDIT.audit_pre(root)
             self.assertEqual(result.status, "pass")
+            self.assertTrue(result.checks["surface_contract_uses_musl"])
+            self.assertTrue(result.checks["surface_contract_forbids_runtime_package_manager"])
             self.assertTrue(result.checks["stable_base_alpine_owner_preserved"])
+
+    def test_generated_python_cache_is_not_treated_as_operational_surface_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_tree(Path(td), cutover=False)
+            cache = root / "bootstrap/independent-surface-runtime/__pycache__/build.cpython-312.pyc"
+            cache.parent.mkdir(parents=True)
+            cache.write_bytes(b"\xcb\x00apk add deliberately-not-source")
+            result = AUDIT.audit_pre(root)
+            self.assertEqual(result.status, "pass")
 
     def test_pre_cutover_rejects_alpine_apk_leak_in_independent_owner(self):
         with tempfile.TemporaryDirectory() as td:
@@ -81,6 +92,19 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(AUDIT.AuditError, "pre-cutover"):
                 AUDIT.audit_pre(root)
+
+    def test_pre_cutover_rejects_non_musl_or_runtime_package_manager_contract(self):
+        for source in (
+            {"libc": "glibc", "package_manager_in_runtime_allowed": False},
+            {"libc": "musl", "package_manager_in_runtime_allowed": True},
+        ):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as td:
+                root = self.make_tree(Path(td), cutover=False)
+                (root / "bootstrap/independent-surface-runtime/source.json").write_text(
+                    json.dumps(source) + "\n", encoding="utf-8"
+                )
+                with self.assertRaisesRegex(AUDIT.AuditError, "pre-cutover"):
+                    AUDIT.audit_pre(root)
 
     def test_post_cutover_is_intentionally_red_for_current_legacy_shape(self):
         with tempfile.TemporaryDirectory() as td:
@@ -93,7 +117,9 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             root = self.make_tree(Path(td), cutover=True)
             result = AUDIT.audit_post(root)
             self.assertEqual(result.status, "pass")
-            self.assertTrue(result.checks["canonical_surface_alpine_apk_free"])
+            self.assertTrue(result.checks["canonical_surface_no_operational_alpine_apk_dependency"])
+            self.assertTrue(result.checks["surface_contract_uses_musl"])
+            self.assertTrue(result.checks["surface_contract_forbids_runtime_package_manager"])
             self.assertTrue(result.checks["stable_base_alpine_owner_preserved_for_later_gate"])
 
     def test_real_repository_is_valid_pre_cutover(self):
