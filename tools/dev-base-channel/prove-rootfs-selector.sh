@@ -97,8 +97,15 @@ SUCCESS_SEED="$TMP/success-seed"
 install_seed_root   "$SUCCESS_SEED"   "quiet ordax.mode=normal ordax.base_slot=b ordax.base_candidate=$SOURCE_SHA"
 install_candidate_root "$SUCCESS_SEED/versions/$SOURCE_SHA" "$SOURCE_SHA"
 
+set +e
 success_output="$(run_isolated_init "$SUCCESS_SEED" 2>&1)"
+success_rc=$?
+set -e
 printf '%s\n' "$success_output"
+if [[ "$success_rc" -ne 0 ]]; then
+  echo "rootfs-selector-proof: valid candidate failed with rc=$success_rc" >&2
+  exit 1
+fi
 grep -Fxq 'ROOTFS_SELECTOR_PIVOT=PASS' <<<"$success_output"
 grep -Fxq "ROOTFS_SELECTOR_COMMIT=$SOURCE_SHA" <<<"$success_output"
 grep -Fxq 'ROOTFS_SELECTOR_SLOT=b' <<<"$success_output"
