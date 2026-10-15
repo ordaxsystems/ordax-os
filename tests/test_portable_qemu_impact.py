@@ -137,6 +137,7 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_impact_policy_change_uses_focused_contract_instead_of_qemu(self):
         result = impact.classify_paths(
             [
+                ".github/workflows/portable-qemu-impact-contract.yml",
                 "tools/ci/portable_qemu_impact.py",
                 "tests/test_portable_qemu_impact.py",
             ],
