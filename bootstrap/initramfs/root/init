@@ -8,6 +8,7 @@ BOOTSTRAP_PATH=/ordax/bootstrap/entrypoint
 RECOVERY_BOOTSTRAP_PATH=/ordax/bootstrap/recovery/entrypoint
 OWNER_ROOT_PROBE=/run/ordax-owner-root-probe
 OWNER_ESP_PROBE=/run/ordax-owner-esp-probe
+OWNER_FS_REPAIR_ROOT=/run/ordax-owner-fs-repair
 
 rescue() {
     echo "ordax-initramfs: entering local recovery shell: $*" >&2
@@ -144,9 +145,103 @@ esac
 enter_recovery() {
     reason=$1
     echo "ordax-initramfs: $reason; opening read-only recovery" >&2
-    mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX read-only"
-    cat "$RECOVERY_BOOTSTRAP_PATH" >/dev/null 2>&1 || rescue "recovery entrypoint is missing or unreadable: $RECOVERY_BOOTSTRAP_PATH"
+    # `ro` alone may replay an ext4 journal and mutate the media. `noload`
+    # keeps recovery genuinely read-only; explicit repair is handled separately.
+    mount -t ext4 -o ro,noload,nodev,nosuid "$ORDAX_DEVICE" /ordax \
+        || rescue "cannot mount ORDAX read-only without journal replay"
+    cat "$RECOVERY_BOOTSTRAP_PATH" >/dev/null 2>&1 \
+        || rescue "recovery entrypoint is missing or unreadable: $RECOVERY_BOOTSTRAP_PATH"
     exec "$RECOVERY_BOOTSTRAP_PATH"
+}
+
+stage_owner_development_repair_runtime() {
+    echo "ordax-initramfs: staging Owner/Development ext4 repair runtime read-only" >&2
+    if ! mount -t ext4 -o ro,noload,nodev,nosuid "$ORDAX_DEVICE" /ordax; then
+        echo "ordax-initramfs: cannot stage repair runtime from ORDAX" >&2
+        return 1
+    fi
+
+    if ! cat /ordax/dev-base/sbin/e2fsck >/dev/null 2>&1; then
+        echo "ordax-initramfs: Owner/Development repair runtime does not contain e2fsck" >&2
+        umount /ordax >/dev/null 2>&1 || rescue "cannot unmount ORDAX after repair-runtime probe"
+        return 1
+    fi
+
+    mkdir -p "$OWNER_FS_REPAIR_ROOT" /lib /usr/lib /etc
+    if ! cp /ordax/dev-base/sbin/e2fsck "$OWNER_FS_REPAIR_ROOT/e2fsck"; then
+        umount /ordax >/dev/null 2>&1 || rescue "cannot unmount ORDAX after repair-runtime copy failure"
+        return 1
+    fi
+    chmod 0755 "$OWNER_FS_REPAIR_ROOT/e2fsck" \
+        || rescue "cannot make staged e2fsck executable"
+
+    # The development base is deliberately symlink-free. Copy only top-level
+    # shared libraries needed by the Alpine/musl e2fsck process, not firmware or
+    # kernel modules. The repair process runs from initramfs RAM after /ordax is
+    # unmounted, so the filesystem being repaired is never mounted concurrently.
+    for library in /ordax/dev-base/lib/*.so* /ordax/dev-base/usr/lib/*.so*; do
+        if ! cat "$library" >/dev/null 2>&1; then
+            continue
+        fi
+        library_name=${library##*/}
+        case "$library" in
+            /ordax/dev-base/lib/*) library_target=/lib/$library_name ;;
+            /ordax/dev-base/usr/lib/*) library_target=/usr/lib/$library_name ;;
+            *) continue ;;
+        esac
+        if ! cp "$library" "$library_target"; then
+            umount /ordax >/dev/null 2>&1 || rescue "cannot unmount ORDAX after repair-library copy failure"
+            return 1
+        fi
+    done
+
+    if cat /ordax/dev-base/etc/e2fsck.conf >/dev/null 2>&1; then
+        if ! cp /ordax/dev-base/etc/e2fsck.conf /etc/e2fsck.conf; then
+            umount /ordax >/dev/null 2>&1 || rescue "cannot unmount ORDAX after e2fsck configuration copy failure"
+            return 1
+        fi
+    fi
+
+    if ! cat /lib/ld-musl-x86_64.so.1 >/dev/null 2>&1; then
+        echo "ordax-initramfs: staged repair runtime is missing the musl loader" >&2
+        umount /ordax >/dev/null 2>&1 || rescue "cannot unmount ORDAX after repair-loader validation failure"
+        return 1
+    fi
+
+    if ! umount /ordax; then
+        rescue "cannot unmount ORDAX before offline filesystem repair"
+    fi
+    return 0
+}
+
+repair_owner_development_filesystem() {
+    if ! stage_owner_development_repair_runtime; then
+        return 1
+    fi
+
+    echo "ordax-initramfs: running bounded Owner/Development ext4 preen" >&2
+    repair_rc=0
+    "$OWNER_FS_REPAIR_ROOT/e2fsck" -p "$ORDAX_DEVICE" || repair_rc=$?
+    case "$repair_rc" in
+        0|1)
+            sync
+            repaired_health_rc=0
+            /sbin/ordax-grow-ext4 --check "$ORDAX_DEVICE" || repaired_health_rc=$?
+            case "$repaired_health_rc" in
+                0)
+                    echo "ordax-initramfs: Owner/Development ext4 repair passed revalidation; resuming normal boot" >&2
+                    return 0
+                    ;;
+                *)
+                    echo "ordax-initramfs: ext4 repair completed but health revalidation still failed (rc=$repaired_health_rc)" >&2
+                    ;;
+            esac
+            ;;
+        *)
+            echo "ordax-initramfs: bounded e2fsck preen did not safely repair ORDAX (rc=$repair_rc)" >&2
+            ;;
+    esac
+    return 1
 }
 
 case "$RECOVERY_MODE" in
@@ -159,7 +254,17 @@ health_rc=0
 /sbin/ordax-grow-ext4 --check "$ORDAX_DEVICE" || health_rc=$?
 case "$health_rc" in
     0) ;;
-    *) enter_recovery "ORDAX filesystem requires offline repair (health rc=$health_rc)" ;;
+    3)
+        case "$OWNER_DEVELOPMENT" in
+            1)
+                if ! repair_owner_development_filesystem; then
+                    enter_recovery "ORDAX filesystem requires offline repair after bounded Owner/Development preen"
+                fi
+                ;;
+            *) enter_recovery "ORDAX filesystem requires offline repair (health rc=$health_rc)" ;;
+        esac
+        ;;
+    *) enter_recovery "ORDAX filesystem health check failed (health rc=$health_rc)" ;;
 esac
 
 mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX"
