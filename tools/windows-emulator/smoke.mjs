@@ -9,6 +9,16 @@ runBrowser(async (client) => {
   if (navigate.errorText) throw new Error(`Windows emulator navigation failed: ${navigate.errorText}`);
   await sleep(1500);
 
+  const browserExceptions = client.events
+    .filter((event) => event.method === "Runtime.exceptionThrown")
+    .map((event) => ({
+      text: event.params?.exceptionDetails?.text ?? null,
+      description: event.params?.exceptionDetails?.exception?.description ?? null,
+      url: event.params?.exceptionDetails?.url ?? null,
+      lineNumber: event.params?.exceptionDetails?.lineNumber ?? null,
+      columnNumber: event.params?.exceptionDetails?.columnNumber ?? null,
+    }));
+
   const response = await client.send("Runtime.evaluate", {
     expression: `(() => ({
       href: location.href,
@@ -28,11 +38,11 @@ runBrowser(async (client) => {
 
   const result = response.result?.value;
   if (!result?.hasEmulatorApi) {
-    throw new Error(`Windows emulator API did not initialize: ${JSON.stringify(result)}`);
+    throw new Error(`Windows emulator API did not initialize: ${JSON.stringify({ result, browserExceptions })}`);
   }
   if (!result.kernelDisabled) throw new Error("Windows emulator unexpectedly reports a kernel");
   if (!result.firstRunVisible || !result.nextActionVisible) {
-    throw new Error(`Windows emulator first-run did not render: ${JSON.stringify(result)}`);
+    throw new Error(`Windows emulator first-run did not render: ${JSON.stringify({ result, browserExceptions })}`);
   }
   if (result.surfaceTarget !== "/system/composition/web/index.html") {
     throw new Error(`Unexpected Surface target: ${String(result.surfaceTarget)}`);
