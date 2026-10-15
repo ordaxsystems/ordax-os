@@ -9,7 +9,7 @@ export function newStoryboard(definition, entity = '') {
 export function moveStoryboard(definition, state, target) {
  const screen = definition.screens[state.step];
  if (!screen || !definition.screens[target]) return state;
- const allowed = [screen.next, ...(screen.actions ?? []).map(item=>item.target), ...(screen.conditions ?? []).map(item=>item.target)];
+ const allowed = [screen.next, ...(screen.actions ?? []).map(item=>item.target), ...(screen.conditions ?? []).map(item=>item.target), ...(screen.links ?? []).filter(item=>item.action.startsWith('story-move:')).map(item=>item.action.slice(11))];
  if (!allowed.includes(target)) return state;
  if (screen.confirm && target === screen.next && state.fields[`confirm:${state.step}`] !== true) return state;
  return {...state,fields:{...state.fields,['confirm:'+target]:false},step:target,receipt:definition.screens[target].result??state.receipt,trail:definition.screens[target].result?[]:[...state.trail,state.step].slice(-64),visited:[...new Set([...state.visited,target])],revision:state.revision+1};

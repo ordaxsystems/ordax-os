@@ -130,3 +130,100 @@
  [data-meridian] .md-operating-strip button {min-width:0;font-size:12px;text-align:left;line-height:1.45}
  [data-meridian] .md-operating-strip button:first-child {margin-right:0}
 }
+
+/* Product presentation for setup and account. Runtime remains the injected lab. */
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]){padding:26px clamp(20px,4vw,64px) 40px;background:radial-gradient(ellipse at 95% 0%,var(--md-accent-soft),transparent 45%),var(--md-canvas)}
+[data-meridian] .md-stage-brand{display:flex;align-items:center;gap:11px;letter-spacing:-.04em;font-size:24px;}
+[data-meridian] .md-stage-brand img{object-fit:contain;}
+[data-meridian][data-material="ink"] .md-stage-brand img,[data-meridian][data-material="petrol"] .md-stage-brand img{filter:brightness(0) invert(1);}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-stage-header{max-width:1100px;margin-bottom:28px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-stage-header .md-button{color:var(--md-muted);font-size:13px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-stage-body{max-width:1100px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-stage-body>h1{font-size:clamp(28px,3.2vw,40px);margin:6px 0 26px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-journey{box-shadow:0 16px 60px -32px var(--md-border-strong);}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-context{justify-content:space-between;padding:15px 28px;}
+[data-meridian] .md-step-count{font-variant-numeric:tabular-nums;color:var(--md-ink);}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-layout{grid-template-columns:245px minmax(0,1fr);min-height:480px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-trail{padding:28px;background:var(--md-canvas);}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-trail ol{margin:14px 0 22px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-trail li{padding:9px 0;align-items:center;font-size:13px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-trail li span{width:26px;height:26px;flex-basis:26px;font-size:11px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-trail li.is-complete span{color:var(--md-sage);background:var(--md-sage-soft);border-color:transparent;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-step{padding:36px clamp(24px,4vw,56px);display:flex;flex-direction:column;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-step-icon{width:48px;height:48px;border-radius:15px;margin-bottom:22px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-step h3{font-size:clamp(26px,3vw,34px);font-weight:500;max-width:24ch;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-description{font-size:14px;line-height:1.7;max-width:55ch;margin-bottom:22px;}
+[data-meridian] .md-stage[data-flow="setup"] .md-journey-actions{margin-top:auto;padding-top:26px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-journey-fields{margin:0 0 22px;max-width:520px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-journey-field>span{display:block;margin-bottom:9px;font-size:13px;font-weight:500;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-journey-field :is(input,select){min-height:50px;background:var(--md-surface);font-size:14px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-journey-conditions{margin-top:16px;padding-top:14px;}
+[data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-journey-conditions summary{min-height:36px;align-content:center;}
+[data-meridian] .md-network-picker{margin:0 0 16px;}
+[data-meridian] .md-field-label{font-size:10px;font-weight:600;letter-spacing:.12em;color:var(--md-muted);margin:0 0 12px;}
+[data-meridian] .md-network-option{width:100%;display:flex;align-items:center;gap:16px;padding:18px;border:1px solid var(--md-border-strong);border-radius:14px;background:var(--md-surface);color:var(--md-ink);text-align:left;font:inherit;cursor:pointer;}
+[data-meridian] .md-network-option:hover{border-color:var(--md-accent);background:var(--md-accent-soft);}
+[data-meridian] .md-network-signal{display:grid;place-items:center;width:42px;height:42px;flex-shrink:0;border-radius:12px;color:var(--md-sage);background:var(--md-sage-soft);}
+[data-meridian] .md-network-option strong{display:block;font-size:15px;font-weight:600;margin-bottom:4px;}
+[data-meridian] .md-network-option small{font-size:12px;color:var(--md-muted);}
+[data-meridian] .md-network-connect{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:12px;color:var(--md-accent);}
+[data-meridian] .md-network-help{display:flex;align-items:center;gap:8px;margin:14px 0 0;font-size:12px;color:var(--md-muted);}
+[data-meridian] .md-stage[data-flow="identity"] .md-stage-body{padding-top:25px;max-width:1040px;}
+[data-meridian] .md-stage[data-flow="identity"] .md-stage-body>:is(.md-eyebrow,h1),[data-meridian] .md-stage[data-flow="identity"] .md-journey-context{display:none;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-layout{grid-template-columns:1fr 1.15fr;min-height:560px;}
+[data-meridian] .md-account-intro{padding:48px 38px;background:var(--md-rail);color:var(--md-rail-text);display:flex;flex-direction:column;}
+[data-meridian] .md-account-intro .md-eyebrow{color:var(--md-rail-muted);font-size:10px;letter-spacing:.13em;margin:28px 0 14px;}
+[data-meridian] .md-account-intro h2{font-size:clamp(30px,3vw,38px);line-height:1.2;font-weight:450;letter-spacing:-.045em;margin:0 0 18px;}
+[data-meridian] .md-account-intro>p:not(.md-eyebrow){font-size:14px;line-height:1.7;color:var(--md-rail-muted);max-width:28ch;margin:0;}
+[data-meridian] .md-account-orbit{width:76px;height:76px;display:grid;place-items:center;border-radius:24px;background:var(--md-rail-selected);color:var(--md-rail-text);}
+[data-meridian] .md-account-intro ul{margin:auto 0 0;padding:34px 0 0;list-style:none;display:grid;gap:18px;}
+[data-meridian] .md-account-intro li{display:flex;align-items:center;gap:11px;font-size:12px;color:var(--md-rail-text);}
+[data-meridian] .md-account-intro li svg{color:var(--md-rail-muted);flex-shrink:0;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-step{padding:48px clamp(28px,4vw,52px);display:flex;flex-direction:column;justify-content:center;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-step-icon{width:48px;height:48px;border-radius:15px;margin-bottom:24px;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-step h3{font-size:clamp(28px,3.2vw,36px);font-weight:500;max-width:18ch;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-description{font-size:14px;line-height:1.75;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-actions{display:grid;gap:10px;margin:8px 0;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-actions .md-button{justify-content:center;min-height:48px;font-size:14px;}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-actions .md-button--quiet{border:1px solid var(--md-border);}
+[data-meridian] .md-stage[data-flow="identity"] .md-journey-links{justify-content:space-between;padding-top:20px;border-top:1px solid var(--md-border);margin-top:24px;}
+@media(max-width:760px){
+ [data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]){padding:20px 16px 32px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-layout{grid-template-columns:190px minmax(0,1fr);}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-trail{padding:24px 18px;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-journey-layout{grid-template-columns:.85fr 1fr;}
+ [data-meridian] .md-account-intro{padding:38px 26px;}
+ [data-meridian] .md-account-intro h2{font-size:30px;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-journey-step{padding:32px 26px;}
+}
+@media(max-width:600px){
+ [data-meridian] .md-stage:is([data-flow="setup"],[data-flow="identity"]) .md-stage-header{align-items:center;margin-bottom:22px;}
+ [data-meridian] .md-stage-brand{font-size:21px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-stage-body>h1{font-size:28px;margin-bottom:20px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-context{padding:13px 18px;font-size:11px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-layout{display:block;min-height:0;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-trail{padding:14px 18px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-trail ol{display:flex;flex-wrap:nowrap;justify-content:space-between;gap:7px;margin:0;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-trail li{padding:0;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-trail li p{display:none;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-trail :is(.md-eyebrow,.md-hint){display:none;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-step{padding:26px 20px;min-height:380px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-step h3{font-size:27px;}
+ [data-meridian] .md-stage[data-flow="setup"] .md-journey-actions{flex-direction:column-reverse;gap:8px;}
+ [data-meridian] .md-network-option{padding:15px 12px;gap:11px;}
+ [data-meridian] .md-network-connect{font-size:0;gap:0;}
+ [data-meridian] .md-network-connect svg{width:18px;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-stage-body{padding:0;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-journey-layout{display:flex;flex-direction:column;min-height:0;}
+ [data-meridian] .md-account-intro{padding:26px;}
+ [data-meridian] .md-account-intro .md-eyebrow{margin:0 0 10px;}
+ [data-meridian] .md-account-intro h2{font-size:27px;margin-bottom:10px;}
+ [data-meridian] .md-account-intro>p:not(.md-eyebrow){max-width:34ch;font-size:13px;}
+ [data-meridian] .md-account-orbit,[data-meridian] .md-account-intro ul{display:none;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-journey-step{padding:30px 24px;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-journey-step h3{font-size:28px;}
+ [data-meridian] .md-stage[data-flow="identity"] .md-journey-links{gap:6px;}
+}
+
+[data-meridian] #md-story-title:focus{outline:none;}
+[data-meridian] .md-stage-brand img{filter:brightness(0);}

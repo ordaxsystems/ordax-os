@@ -19,7 +19,7 @@ export function shell(data,ui,content){
  </aside><div class="md-workspace">${ui.presentation==='desktop'?'':`<header class="md-topbar">
  <div class="md-topbar-location">${iconButton('Abrir navegação','panel:menu','menu','md-mobile-menu')}<span class="md-location">${esc(findSection(ui.route).label)}</span><span class="md-topbar-separator">/</span><button type="button" data-action="panel:spaces">${esc(space.name)} ${icon('down',13)}</button></div>
  <button class="md-topbar-search" type="button" data-action="panel:search" aria-label="Encontre o seu próximo passo">${icon('search',17)}<span>Encontre o seu próximo passo</span><kbd>Ctrl K</kbd></button>
- <div class="md-topbar-status">${studyMarker()}${iconButton('Ajustes rápidos do sistema','panel:system',data.networkOnline?'wifi':'globe')}${iconButton('Conta e identidade','panel:account','profiles','md-mobile-account')}</div>
+ <div class="md-topbar-status">${studyMarker(false,ui.review)}${iconButton('Ajustes rápidos do sistema','panel:system',data.networkOnline?'wifi':'globe')}${iconButton('Conta e identidade','panel:account','profiles','md-mobile-account')}</div>
  </header>`}<main id="meridian-main" class="md-main ${ui.presentation==='desktop'?'is-desktop':''}" tabindex="-1">${content}</main>
  ${taskbar(data,ui)}</div>
  <div class="md-pointer-hint" role="tooltip" hidden></div><div class="md-panel-root"></div><div class="md-toast" role="status" aria-live="polite"></div>`;

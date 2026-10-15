@@ -237,3 +237,22 @@ Reuses the disposable Chromium owner and writes evidence to
 selection, samples, text contrast, continuity and narrow viewports. This is not
 the complete previous audit matrix, canonical CI, physical USB or screen-reader
 acceptance. The preview stays available and production compositions stay separate.
+
+
+## System-page review — 2026-10-14
+
+The user requested realistic product presentation without on-screen lab labels.
+`/?journey=setup` now starts at welcome and groups progress into seven stages;
+`/?journey=identity` opens a full-page account experience. Network cards, account
+alternatives, recovery and errors use product-facing language. The preview title
+is OrdaX. The code remains explicitly demo-injected, in memory, with the existing
+loopback host/CSP and no remote commands or credential collection.
+This user-authorized review supersedes the frozen copy/layout for these screens
+only; the dated freeze/audit evidence is preserved. See DESKTOP-IDENTITY for scope.
+
+Direct presentation links: `/?journey=setup&step=network` opens the Wi-Fi screen;
+`/?journey=identity` opens account entry. A `step` is accepted only when it exists
+in the selected definition; all later transitions remain guarded by navigation.
+The normal shell omits lab controls and example labels in the header/tray. Use
+`/?review=1` (also combinable with other parameters) to expose the existing review
+marker/scenario controls. These controls and scenarios are retained, not deleted.

@@ -40,3 +40,25 @@ test('retry navigation is bounded while subject and Space keys remain distinct',
  assert.notEqual(storyboardKey('intelligence','lia','studio',''),storyboardKey('intelligence','other','studio',''));
  assert.notEqual(storyboardKey('intelligence','lia','studio',''),storyboardKey('intelligence','lia','personal',''));
 });
+
+
+test('account recovery links use only explicitly allowed screen transitions',()=>{
+ const definition=storyboards.identity;
+ const initial=newStoryboard(definition);
+ const recovery=moveStoryboard(definition,initial,'recover');
+ assert.equal(recovery.step,'recover');
+ assert.equal(previousStoryboard(recovery).step,'sign-in');
+ assert.equal(moveStoryboard(definition,initial,'other'),initial);
+ assert.equal(moveStoryboard(definition,initial,'logout'),initial);
+ assert.equal(moveStoryboard(definition,initial,'overview').step,'overview');
+});
+test('setup retains offline continuation and network failure retry without skipping steps',()=>{
+ const definition=storyboards.setup;
+ let state={...newStoryboard(definition),step:'network'};
+ assert.equal(moveStoryboard(definition,state,'security').step,'security');
+ state=moveStoryboard(definition,state,'network-connecting');
+ state=moveStoryboard(definition,state,'network-error');
+ assert.equal(moveStoryboard(definition,state,'network').step,'network');
+ assert.equal(moveStoryboard(definition,state,'security').step,'security');
+ assert.equal(moveStoryboard(definition,state,'complete'),state);
+});

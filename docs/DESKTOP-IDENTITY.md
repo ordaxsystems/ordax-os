@@ -1619,3 +1619,37 @@ contracts and adapters remain unchanged. See also the [sidebar inventory](eviden
 The [44-item final audit](evidence/meridian-round4-audit-2026-10-13/relatorio.md) reviews actual HEAD ebd58cd and preserves the 771cb98 → 11bee9e → 8d48d01 → ebd58cd chain and prior audits. Five objective fixes cover competing tooltip titles, Escape, detached dock observation in lock/stage, active app visibility after viewport resize, and native touch inertia overriding keyboard scroll. No domain, adapter, contract, canonical palette or main change.
 
 Classification **C: approved for freezing the visual direction and measured final refinement**. Freeze Meridian materials, shell composition and orientation; stop further shell redesign rounds. The isolated architecture preserves existing owners/foreground SSOT, but preview repaint/fixtures remain prototype limits. Integration maturity remains insufficient: canonical Foundation/Web gates and physical/platform acceptance are unresolved. See the report for stage-specific gates, failures, hashes and captures; no release or merge approval.
+
+### Meridian system-page presentation — 2026-10-14
+
+Explicit user follow-up requests the setup, network and account journeys look
+like final system screens, removing on-screen study/demo/portable-system labels
+and implementation commentary. This changes the previously frozen presentation
+only in this review branch; dated freeze manifests/evidence remain unchanged.
+The production Web integration in the separate checkout is not replaced.
+
+Setup now opens at welcome, groups progress into seven named stages, renders a
+selectable Wi-Fi card and retains offline use, connection failure/retry, regional
+choices, optional account, privacy, device naming, review and completion. Account
+opens as a full-page composition with sign-in, sign-up, recovery, guest mode and
+session management. Short user-facing copy replaces implementation disclaimers.
+Global journey chrome loses lab badges/footer, while the actual sources retain
+explicit demo composition and their existing in-memory state boundaries.
+
+No Identity/network adapter, credential input, endpoint, account registration,
+network connection, permission or device/security mutation is added. The existing
+loopback host still denies connect/form/frame/device APIs with CSP/Permissions
+Policy. Provider continuation remains a visual transition; account field entry
+belongs to the real Identity flow, not this source. Removing on-screen operator
+notes is not evidence of functional activation or a release/physical gate.
+
+Navigation now recognizes explicit `story-move:` links in the current screen;
+links do not permit arbitrary transitions, and confirmation-gated operations
+remain enforced. CSS uses existing Meridian material variables, responsive
+cards, visible native controls and named stage progress. No production token
+or package dependency changes.
+
+The normal Central/Desktop chrome also omits the lab marker and tray example
+labels. `review=1` exposes the preserved review controls. `step=network` provides
+a direct presentation URL inside the existing setup journey, accepting only a
+step from that definition; it is not a capability or command API.

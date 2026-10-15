@@ -1,5 +1,12 @@
 # Current State
 
+Meridian system-page review (2026-10-14, explicit user direction): setup/network
+and account journeys now use product-facing copy and full-page layouts without
+lab/demo labels. The source remains the isolated in-memory presentation; no
+real Identity/network activation or production cutover is claimed. Prior frozen
+visual evidence remains historical and unchanged.
+[Scope](DESKTOP-IDENTITY.md#meridian-system-page-presentation--2026-10-14).
+
 Notification UX (2026-10-13): Web/USB now share the notification center renderer
 and CSS. Explicit read/filter/dismiss/Do Not Disturb actions consume the existing
 port. Native updater events retain their original runtime/store/bridge owners;

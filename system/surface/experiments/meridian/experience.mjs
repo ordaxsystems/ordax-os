@@ -22,7 +22,7 @@ export function mountMeridianExperience(root,source,options={}){
  const draftKey=(form,field)=>JSON.stringify([root.dataset.subject,root.dataset.space,form.dataset.form,form.dataset.conversation??form.dataset.file??'',field.name,field.id]);
  function rememberForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]'))if(!field.dataset.draft)formDrafts.set(draftKey(form,field),field.value);}
  function restoreForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]')){const key=draftKey(form,field);if(!field.dataset.draft&&formDrafts.has(key))field.value=formDrafts.get(key);}}
- const ui={route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnFocus:null,subject:'lia',locked:false,lockError:false,stage:false,currentStory:null,stories:new Map(),sessions:new Map(),notificationFilter:'unread',dismissed:[],dnd:false,read:[],privateMode:true,sync:true,spaceUnavailable:false,cloudExpired:false,lab:{definitions:options.lab?.storyboards??{},system:options.lab?.systemFixture??{},topics:options.lab?.settingsTopics??[]}};
+ const ui={review:options.review===true,route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnFocus:null,subject:'lia',locked:false,lockError:false,stage:false,currentStory:null,stories:new Map(),sessions:new Map(),notificationFilter:'unread',dismissed:[],dnd:false,read:[],privateMode:true,sync:true,spaceUnavailable:false,cloudExpired:false,lab:{definitions:options.lab?.storyboards??{},system:options.lab?.systemFixture??{},topics:options.lab?.settingsTopics??[]}};
  if(options.presentation==='desktop')ui.presentation='desktop';
  if(findMaterial(options.material))ui.material=options.material;
  if(sections.some(item=>item.id===options.route))ui.route=options.route;
@@ -42,7 +42,7 @@ export function mountMeridianExperience(root,source,options={}){
   root.dataset.focus=String(data.focus);root.dataset.largeText=String(ui.largeText);root.dataset.reduceMotion=String(ui.reduceMotion);
   root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));
   if(ui.locked){root.innerHTML=lockScreen(ui);feedback.refresh();root.querySelector('.md-stage')?.focus({preventScroll:true});return;}
-  if(ui.stage&&ui.currentStory){const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];root.innerHTML=journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),true);feedback.refresh();restoreForms();return;}
+  if(ui.stage&&ui.currentStory){const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];root.innerHTML=journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),true,kind);feedback.refresh();restoreForms();return;}
   const view=ui.presentation==='desktop'?desktop(data,ui):ui.route==='central'?central(data,ui):ui.route==='intelligence'?intelligence(data,ui):explore(data,ui);
   root.innerHTML=shell(data,ui,view);root.querySelector('.md-main').scrollTop=scroll;
   if(root.dataset.presentationChanged!=='true')applyWindowAppearance(root,previousWindows);
@@ -78,7 +78,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   render();
   if(action==='window-minimize'||action==='window-close'){if(ui.activeWindow)focusWindow(ui.activeWindow);else{const dock=[...root.querySelectorAll('.md-dock-app')].find(node=>node.dataset.action==='app:'+id);(dock??root.querySelector('.md-main'))?.focus({preventScroll:true});}}
  }
- function resume(projectId='atlas'){const data=readData();const project=data.projects.find(item=>item.id===projectId);if(!project)return;ui.panel=null;selectSpace(project.space);const file=data.files.find(item=>item.project===projectId);if(file){openApp('notes',file.id);const notes=ui.windows.find(item=>item.id==='notes');notes.mode='compact';ui.compactActive='notes';ui.compactCollapsed=false;}openApp(projectId==='lume'?'editor':projectId==='atlas'?'studio':'intelligence');toast('Contexto de demonstração preparado.');}
+ function resume(projectId='atlas'){const data=readData();const project=data.projects.find(item=>item.id===projectId);if(!project)return;ui.panel=null;selectSpace(project.space);const file=data.files.find(item=>item.project===projectId);if(file){openApp('notes',file.id);const notes=ui.windows.find(item=>item.id==='notes');notes.mode='compact';ui.compactActive='notes';ui.compactCollapsed=false;}openApp(projectId==='lume'?'editor':projectId==='atlas'?'studio':'intelligence');toast('Pronto para continuar.');}
  function filter(scope){const query=(scope.querySelector('[data-search]')?.value??'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');const category=scope.dataset.category??'Todos';let shown=0;for(const el of scope.querySelectorAll('[data-search-item]')){const text=(el.dataset.searchItem??'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');el.hidden=!(text.includes(query)&&(category==='Todos'||el.dataset.category===category));if(!el.hidden)shown++;}const empty=scope.querySelector('.md-search-empty');if(empty)empty.hidden=shown>0;}
  root.addEventListener('cancel',event=>{if(event.target.matches('dialog')){event.preventDefault();closePanel();}},{capture:true,signal:life.signal});
  root.addEventListener('click',event=>{
@@ -149,7 +149,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   switch(form.dataset.form){
    case 'ask':ask(values.get('prompt'));break;
    case 'new-project':ui.panel=null;source.dispatch({type:'create-project',value:values.get('name'),subject:contextSubject(),space:readData().activeSpace});openPanel('project',source.getSnapshot().projects.at(-1).id);break;
-   case 'save-note':source.dispatch({type:'file-draft',id:form.dataset.file,value:values.get('body')});toast('Rascunho guardado apenas nesta sessão de demonstração.');break;
+   case 'save-note':source.dispatch({type:'file-draft',id:form.dataset.file,value:values.get('body')});toast('Rascunho salvo.');break;
    case 'reply':{const reply=String(values.get('reply')??'').trim().slice(0,1000);if(!reply)break;const id=form.dataset.conversation;ui.replies[id]=[...(ui.replies[id]??[]),reply];render();const input=root.querySelector('#md-reply');if(input){input.value='';input.focus();}break;}
   }
  },{signal:life.signal});
@@ -222,7 +222,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
  function currentStoryMarkup(data){
   if(!ui.currentStory)return '';
   const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];
-  return journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui));
+  return journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),false,kind);
  }
  function seedStoryFields(definition,state){for(const spec of storyboardFields(definition,state,ui.lab.topics))if(!(spec.id in state.fields))state.fields[spec.id]=spec.value??'';}
  function advanceStory(action,target){clearTimeout(storyTimer);
@@ -291,6 +291,6 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
  root.addEventListener('input',event=>{if(event.target.dataset.storyField)updateStoryField(event.target);},{signal:life.signal});
  root.addEventListener('change',event=>{if(event.target.dataset.storyField)updateStoryField(event.target);},{signal:life.signal});
 
- const unsubscribe=source.subscribe(()=>render());render();if(options.journey&&ui.lab.definitions[options.journey])openJourney(options.journey);
+ const unsubscribe=source.subscribe(()=>render());render();if(options.journey&&ui.lab.definitions[options.journey])openJourney(options.journey,'',options.step??null);
  return {destroy(){if(destroyed)return;destroyed=true;clearTimeout(toastTimer);clearTimeout(storyTimer);life.abort();unsubscribe();formDrafts.clear();ui.stories.clear();ui.sessions.clear();root.replaceChildren();},source};
 }
