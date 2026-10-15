@@ -8,6 +8,7 @@ import { assertSpaceSelectionPort } from "../../contracts/space-selection.mjs";
 import { assertSpacesPort } from "../../contracts/spaces.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
+import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 
 // One presentation for the existing Account-owned Spaces catalog and selection.
 // Selecting a Space is navigation context, never a permission grant.
@@ -92,6 +93,13 @@ export function mountSpaceSwitcherControls(
       deriveSpaceSwitcherView(identity, catalog, selected, profilePort?.getSnapshot() ?? null);
     const profileLabel = (profile) => profile
       ? t(`account.profiles.name.${profile.slug}`) : null;
+    const semanticTypeLabel = (space) => {
+      if (!space) return null;
+      const presentation = describeSpacePresentation(space);
+      return presentation.typeLabelId === null
+        ? t(`account.spaces.kind.${space.kind}`)
+        : t(presentation.typeLabelId);
+    };
 
     trigger.replaceChildren();
     const mark = element("span", "ordax-space-switcher-mark", active ? active.name.trim().slice(0, 1).toLocaleUpperCase() : "◇");
@@ -100,7 +108,7 @@ export function mountSpaceSwitcherControls(
     label.append(
       element("strong", "", active ? active.name : t("account.spaces.switcher.title")),
       element("small", "", active
-        ? (activeProfile ? profileLabel(activeProfile) : t(`account.spaces.kind.${active.kind}`))
+        ? semanticTypeLabel(active)
         : t("account.spaces.switcher.noSelection")),
     );
     const chevron = element("span", "ordax-space-switcher-chevron", "⌄");
@@ -110,9 +118,14 @@ export function mountSpaceSwitcherControls(
     trigger.setAttribute("aria-label", active
       ? (activeProfile
         ? t("account.spaces.switcher.profileConfigured", {
-          space: active.name, profile: profileLabel(activeProfile),
+          space: active.name,
+          type: semanticTypeLabel(active),
+          profile: profileLabel(activeProfile),
         })
-        : t("account.spaces.switcher.current", { space: active.name }))
+        : t("account.spaces.switcher.currentTyped", {
+          space: active.name,
+          type: semanticTypeLabel(active),
+        }))
       : t("account.spaces.switcher.title"));
     trigger.setAttribute("aria-expanded", String(open));
     menu.setAttribute("aria-label", t("account.spaces.switcher.title"));
@@ -161,11 +174,16 @@ export function mountSpaceSwitcherControls(
         avatar.setAttribute("aria-hidden", "true");
         const copy = element("span", "ordax-space-switcher-option-copy");
         const assignedProfile = profilesBySpace.find((item) => item.spaceId === space.id)?.profile ?? null;
+        const technicalProfile = assignedProfile
+          ? t("account.spaces.switcher.technicalProfile", { profile: profileLabel(assignedProfile) })
+          : null;
         copy.append(
           element("strong", "", space.name),
-          element("small", "",
-            t(`account.spaces.kind.${space.kind}`) + " · "
-            + (assignedProfile ? profileLabel(assignedProfile) : t(`account.spaces.state.${space.state}`))),
+          element("small", "", [
+            semanticTypeLabel(space),
+            t(`account.spaces.state.${space.state}`),
+            technicalProfile,
+          ].filter(Boolean).join(" · ")),
         );
         item.append(avatar, copy);
         if (isCurrent) {

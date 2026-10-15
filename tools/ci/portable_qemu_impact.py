@@ -95,8 +95,11 @@ ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
 }
 SPACE_COMPOSITION_LIGHT_EXACT = {
     "docs/contracts/spaces-and-profile-packs.json",
-    "tests/test_space_experience.mjs",
+    "tests/test_account_canonical_navigation.py",
     "tests/test_space_aura_provider.mjs",
+    "tests/test_space_experience.mjs",
+    "tests/test_space_presentation.mjs",
+    "tests/test_space_switcher.mjs",
 }
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",

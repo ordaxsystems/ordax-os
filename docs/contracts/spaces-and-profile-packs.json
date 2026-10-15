@@ -3,8 +3,8 @@
   "status": "pre-mvp-foundation",
   "space_port": "ordax.spaces/1",
   "profile_pack_port": "ordax.profile-packs/1",
-  "space_type_definition_schema": "ordax.space-type-definition/1",
-  "space_type_catalog_schema": "ordax.space-type-catalog/1",
+  "space_type_definition_schema": "ordax.space-type-definition/2",
+  "space_type_catalog_schema": "ordax.space-type-catalog/2",
   "space_capability_provider_schema": "ordax.space-capability-provider/2",
   "space_experience_schema": "ordax.space-experience/1",
   "ownership": {
@@ -30,6 +30,9 @@
   ],
   "space_type": {
     "catalog_owner": "system/services/spaces/type-catalog.mjs",
+    "presentation_owner": "system/services/spaces/presentation.mjs",
+    "type_label_is_localized_message_id": true,
+    "explicit_semantics_precede_legacy_profile_fallback": true,
     "composition_owner": "system/services/spaces/composition.mjs",
     "declared_capability_is_not_availability": true,
     "contextual_navigation_requires_ready_capability_provider": true,
