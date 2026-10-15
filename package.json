@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "emulator:windows": "vite --config tools/windows-emulator/vite.config.mjs --open /tools/windows-emulator/index.html"
+    "emulator:windows": "vite --config tools/windows-emulator/vite.config.mjs --open /tools/windows-emulator/index.html",
+    "emulator:windows:smoke": "node tools/windows-emulator/smoke.mjs"
   },
   "dependencies": {
     "@vercel/oidc": "4.0.0",
