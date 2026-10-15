@@ -4,11 +4,11 @@ Development host for the same **Native Surface used by the OrdaX MVP USB**. This
 
 ## What it runs
 
-`npm run emulator:windows` starts a local-first supervisor, watches `origin/main` every 5 seconds when the worktree is clean, launches Vite on `127.0.0.1:4202`, and opens:
+`npm run emulator:windows` starts a local-first supervisor, watches `origin/main` every 5 seconds when the worktree is clean, launches Vite on `127.0.0.1:4202`, waits until the real Native composition is healthy, and then opens a dedicated Windows preview window at:
 
-`/system/composition/native/`
+`http://127.0.0.1:4202/system/composition/native/`
 
-The UI, OOBE, launcher, apps and product contracts are the Native MVP composition. The Windows host only replaces the Linux/kernel-facing boundary.
+The preview is owned by the emulator supervisor rather than Vite's generic `--open` behavior, so startup fails instead of silently opening the wrong route or no usable window. The UI, OOBE, launcher, apps and product contracts are the Native MVP composition. The Windows host only replaces the Linux/kernel-facing boundary.
 
 ## Fidelity rule
 

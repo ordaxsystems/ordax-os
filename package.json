@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "emulator:windows": "node tools/windows-emulator/dev-supervisor.mjs",
-    "emulator:windows:vite": "vite --config tools/windows-emulator/vite.config.mjs --open /system/composition/native/",
+    "emulator:windows:vite": "vite --config tools/windows-emulator/vite.config.mjs",
     "emulator:windows:smoke": "node tools/windows-emulator/native-mvp-smoke.mjs"
   },
   "dependencies": {

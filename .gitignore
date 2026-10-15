@@ -55,3 +55,7 @@ Thumbs.db
 *.tmp
 *.swp
 *.bak
+
+# Local emulator/publication verification artifacts
+.ordax-emulator-smoke-*
+.publish-manifest.json

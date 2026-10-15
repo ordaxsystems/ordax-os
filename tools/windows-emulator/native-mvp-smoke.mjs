@@ -123,12 +123,41 @@ async function waitForWindow(client, appId) {
   );
 }
 
+async function openLauncher(client) {
+  const visible = await evaluate(client, `(() => {
+    const launcher = document.querySelector('[data-launcher]');
+    return Boolean(launcher && !launcher.hidden && launcher.getClientRects().length > 0);
+  })()`);
+  if (visible) return;
+
+  await clickVisibleSelector(client, '[data-launcher-toggle]', 'open launcher');
+  await waitFor(
+    client,
+    `(() => {
+      const launcher = document.querySelector('[data-launcher]');
+      return Boolean(launcher && !launcher.hidden && launcher.getClientRects().length > 0);
+    })()`,
+    Boolean,
+    'launcher visible',
+  );
+}
+
 async function launchApp(client, appId) {
   const selector = `[data-launch-app="${appId}"]`;
   try {
     await clickVisibleSelector(client, selector, `launch ${appId}`);
-  } catch (error) {
-    return Object.freeze({ id: appId, launched: false, title: null, alerts: [error.message] });
+  } catch (directError) {
+    try {
+      await openLauncher(client);
+      await clickVisibleSelector(client, selector, `launch ${appId} from launcher`);
+    } catch (launcherError) {
+      return Object.freeze({
+        id: appId,
+        launched: false,
+        title: null,
+        alerts: [`${directError.message}; launcher route failed: ${launcherError.message}`],
+      });
+    }
   }
   await waitForWindow(client, appId);
   return evaluate(client, `(() => {

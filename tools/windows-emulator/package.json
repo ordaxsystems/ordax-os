@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node dev-supervisor.mjs",
-    "dev:vite": "vite --config vite.config.mjs --open /system/composition/native/",
-    "dev:no-open": "vite --config vite.config.mjs",
+    "dev:vite": "vite --config vite.config.mjs",
     "smoke": "node native-mvp-smoke.mjs"
   }
 }
