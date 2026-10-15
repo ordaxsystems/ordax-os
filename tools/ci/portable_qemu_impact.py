@@ -46,6 +46,20 @@ PRODUCER_NEUTRAL_LIGHT_EXACT = {
 PRODUCER_NEUTRAL_LIGHT_PREFIXES = (
     "bootstrap/independent-base/",
 )
+OWNER_DEVELOPMENT_LIGHT_EXACT = {
+    ".github/workflows/owner-remote-recovery-contract.yml",
+    "docs/REMOTE-CONTROL.md",
+    "tests/test_dev_base_helper_refresh.py",
+    "tests/test_owner_remote_recovery.py",
+}
+OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
+    "bootstrap/base-update/owner-development/",
+)
+IMPACT_POLICY_LIGHT_EXACT = {
+    ".github/workflows/portable-qemu-impact-contract.yml",
+    "tools/ci/portable_qemu_impact.py",
+    "tests/test_portable_qemu_impact.py",
+}
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
     "system/supervisor",
@@ -55,8 +69,6 @@ ALWAYS_HEAVY_EXACT = {
     "system/services/base-update/agent.sh",
     "system/services/local-ai/source-lock.json",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
-    "tools/ci/portable_qemu_impact.py",
-    "tests/test_portable_qemu_impact.py",
     "tests/test_heavy_workflow_path_scope.py",
 }
 ALWAYS_HEAVY_PREFIXES = (
@@ -215,8 +227,6 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
                 continue
             target_relative = target.relative_to(resolved_root).as_posix()
             if _is_presentation_light(target_relative):
-                # Presentation has dedicated Surface gates and is intentionally not a
-                # kernel/QEMU causal input. Do not traverse its dependency subtree here.
                 continue
             pending.append(target)
 
@@ -244,10 +254,13 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if path.startswith(PRODUCER_NEUTRAL_LIGHT_PREFIXES):
             continue
+        if path in OWNER_DEVELOPMENT_LIGHT_EXACT:
+            continue
+        if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
+            continue
+        if path in IMPACT_POLICY_LIGHT_EXACT:
+            continue
         if not path.startswith("system/"):
-            # The workflow trigger already limits non-system paths to Portable/boot/
-            # release inputs. Treat any such path as heavy rather than maintaining a
-            # second permissive allowlist here.
             reasons.append(f"heavy-non-system:{path}")
             continue
         if _is_presentation_light(path):
@@ -257,8 +270,6 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
             continue
-        # New or unclassified system roots fail closed until their impact class is
-        # made explicit.
         reasons.append(f"heavy-unclassified-system:{path}")
 
     return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-runtime-reachable",), changed)
@@ -295,7 +306,7 @@ def command_classify(args: argparse.Namespace) -> int:
         try:
             paths = changed_paths_between(args.base, args.head)
             result = classify_paths(paths)
-        except Exception as exc:  # CI impact classification must fail closed.
+        except Exception as exc:
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 
     print(
