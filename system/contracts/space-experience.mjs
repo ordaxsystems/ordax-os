@@ -1,6 +1,6 @@
 export const SPACE_TYPE_DEFINITION_SCHEMA = "ordax.space-type-definition/1";
 export const SPACE_TYPE_CATALOG_SCHEMA = "ordax.space-type-catalog/1";
-export const SPACE_CAPABILITY_PROVIDER_SCHEMA = "ordax.space-capability-provider/1";
+export const SPACE_CAPABILITY_PROVIDER_SCHEMA = "ordax.space-capability-provider/2";
 export const SPACE_CAPABILITY_SNAPSHOT_SCHEMA = "ordax.space-capability-snapshot/1";
 export const SPACE_EXPERIENCE_SCHEMA = "ordax.space-experience/1";
 export const SPACE_EXPERIENCE_SOURCE_SCHEMA = "ordax.space-experience-source/1";
@@ -184,11 +184,13 @@ export function validateSpaceCapabilitySnapshot(value, spaceId, label = "Space c
 export function assertSpaceCapabilityProvider(provider, label = "Space capability provider") {
   const raw = objectValue(provider, label);
   if (raw.schema !== SPACE_CAPABILITY_PROVIDER_SCHEMA) throw new TypeError(`${label} schema is incompatible`);
-  identifier(raw.capability, `${label}.capability`, 128);
+  const capability = identifier(raw.capability, `${label}.capability`, 128);
+  const spaceTypes = uniqueIdentifiers(raw.spaceTypes, `${label}.spaceTypes`, 64);
+  if (spaceTypes.length === 0) throw new TypeError(`${label}.spaceTypes must not be empty`);
   if (typeof raw.getSnapshot !== "function" || typeof raw.subscribe !== "function") {
     throw new TypeError(`${label} must implement getSnapshot() and subscribe()`);
   }
-  return raw;
+  return Object.freeze({ ...raw, capability, spaceTypes });
 }
 
 export function assertSpaceExperienceSource(source) {

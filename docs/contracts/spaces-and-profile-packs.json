@@ -5,7 +5,7 @@
   "profile_pack_port": "ordax.profile-packs/1",
   "space_type_definition_schema": "ordax.space-type-definition/1",
   "space_type_catalog_schema": "ordax.space-type-catalog/1",
-  "space_capability_provider_schema": "ordax.space-capability-provider/1",
+  "space_capability_provider_schema": "ordax.space-capability-provider/2",
   "space_experience_schema": "ordax.space-experience/1",
   "ownership": {
     "account_profile_is_not_a_professional_profile": true,
@@ -17,8 +17,17 @@
     "surface_owns_no_domain_business_data": true,
     "aura_is_not_a_transactional_ssot": true
   },
-  "space_kinds": ["personal", "work", "professional"],
-  "member_roles": ["owner", "admin", "member", "viewer"],
+  "space_kinds": [
+    "personal",
+    "work",
+    "professional"
+  ],
+  "member_roles": [
+    "owner",
+    "admin",
+    "member",
+    "viewer"
+  ],
   "space_type": {
     "catalog_owner": "system/services/spaces/type-catalog.mjs",
     "composition_owner": "system/services/spaces/composition.mjs",
@@ -36,8 +45,15 @@
       "exact_selected_space_required": true,
       "inference_availability_required": true,
       "emits_synthetic_metrics": false,
-      "transactional_authority": false
-    }
+      "transactional_authority": false,
+      "space_types": [
+        "food.pizzeria",
+        "fabrication.3d-printing"
+      ]
+    },
+    "provider_requires_explicit_space_types": true,
+    "same_capability_provider_scopes_must_be_disjoint": true,
+    "provider_selection_key": "capability+space-type"
   },
   "profile_pack": {
     "definition": "versioned composition of apps, templates, knowledge-source policy, intelligence instructions and optional technical requirements",

@@ -448,7 +448,7 @@ Space identity + domain.subtype
   -> authorized current-Space context for Aura
 ```
 
-A capability declared by a type is not installed/available merely because the type or Profile Pack exists. Missing, unavailable, malformed or failing providers degrade cleanly and cannot block boot/Surface. A widget or summary metric is omitted unless its ready provider supplies the exact value; the UI must not synthesize mock numbers. The global OrdaX sidebar is a separate Surface owner and is never replaced by Space contextual navigation.
+A capability declared by a type is not installed/available merely because the type or Profile Pack exists. Missing, unavailable, malformed or failing providers degrade cleanly and cannot block boot/Surface. A widget or summary metric is omitted unless its ready provider supplies the exact value; the UI must not synthesize mock numbers. Providers declare explicit Space-type scopes, and providers for the same capability may coexist only when those scopes are disjoint; runtime resolution uses capability plus Space type, never capability name alone. The global OrdaX sidebar is a separate Surface owner and is never replaced by Space contextual navigation.
 
 Space type definitions may be structured ahead of product promotion, but a `deferred` type publishes no contextual capabilities/navigation/widgets until a later explicit promotion. This allows School, Achegue-se operational and Development semantics to be modeled without advertising them as available products. Existing Pizzaria and Impressão 3D Profile Packs may be used only as a compatibility semantic binding while the Account backend lacks explicit `domain/subtype`; the binding does not confer capability availability.
 
