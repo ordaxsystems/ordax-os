@@ -110,7 +110,9 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
     def test_maintenance_shell_reestablishes_controlling_tty(self) -> None:
         text = DEV_INIT.read_text(encoding="utf-8")
         self.assertIn('if /bin/busybox setsid --help >/dev/null 2>&1; then', text)
+        self.assertIn('if [ -r /dev/tty ] && /bin/busybox test -t 0 2>/dev/null; then', text)
         self.assertIn('exec /bin/busybox setsid -c /bin/sh', text)
+        self.assertIn('exec /bin/busybox setsid /bin/sh', text)
         self.assertIn("printf 'Rede:         ordax-network", text)
 
 

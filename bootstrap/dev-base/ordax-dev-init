@@ -22,11 +22,11 @@ ROOTFS_SELECTED=${ORDAX_DEV_ROOT_SELECTED:-0}
 ROOTFS_SELECTED_COMMIT=${ORDAX_DEV_ROOT_COMMIT:-seed}
 CMDLINE_FILE=${ORDAX_CMDLINE_FILE:-/proc/cmdline}
 
-case "$BOOT_PULL_ATTEMPTS" in
+case "$BOOT_PULL_ATTEMMPTS" in
     ''|*[!0-9]*) BOOT_PULL_ATTEMPTS=2 ;;
 esac
-[ "$BOOT_PULL_ATTEMPTS" -ge 1 ] 2>/dev/null || BOOT_PULL_ATTEMPTS=2
-[ "$BOOT_PULL_ATTEMPTS" -le 3 ] 2>/dev/null || BOOT_PULL_ATTEMPTS=3
+[ "$BOOT_PULL_ATTEMPTS" -ge 1 ] 2>/dev/null || BOOT_PULL_ATTEMMPTS=2
+[ "$BOOT_PULL_ATTEMPTS" -le 3 ] 2>/dev/null || BOOT_PULL_ATTEMMPTS=3
 
 is_commit_sha() {
     value=$1
@@ -96,9 +96,9 @@ run_pinned_checkout() {
 
 recover_previous_checkout() {
     failed_sha=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    is_comit_sha "$failed_sha" || return 1
+    is_commit_sha "$failed_sha" || return 1
 
-    printf '\n_rdaX atual nao iniciou; tentando rollback automatico...\n' >&2
+    printf '\nOrdaX atual nao iniciou; tentando rollback automatico...\n' >&2
     if ! "$BIN_DIR/ordax-rollback"; then
         printf 'Rollback automatico indisponivel.\n' >&2
         return 1
@@ -118,7 +118,7 @@ recover_previous_checkout() {
 }
 
 maintenance_shell() {
-    printf '\n_ase de desenvolvimento pronta para manutencao.\n'
+    printf '\nBase de desenvolvimento pronta para manutencao.\n'
     printf 'Repositorio: %s\n' "$WORKTREE"
     printf 'Atualizar:    ordax-pull\n'
     printf 'Executar:     ordax-run\n'
@@ -131,7 +131,10 @@ maintenance_shell() {
     # descriptors but without a controlling TTY. Re-establish one before
     # entering maintenance so job control and password echo handling work.
     if /bin/busybox setsid --help >/dev/null 2>&1; then
-        exec /bin/busybox setsid -c /bin/sh
+        if [ -r /dev/tty ] && /bin/busybox test -t 0 2>/dev/null; then
+            exec /bin/busybox setsid -c /bin/sh
+        fi
+        exec /bin/busybox setsid /bin/sh
     fi
     exec /bin/sh
 }
@@ -154,7 +157,7 @@ cmdline_value() {
 
 rootfs_version_valid() {
     source_sha=$1
-    is_comit_sha "$source_sha" || return 1
+    is_commit_sha "$source_sha" || return 1
     root=$ROOTFS_VERSIONS_ROOT/$source_sha
     [ -d "$root" ] && [ ! -L "$root" ] || return 1
     [ -f "$root/.ordax-rootfs-commit" ] && [ ! -L "$root/.ordax-rootfs-commit" ] || return 1
@@ -210,13 +213,13 @@ activate_versioned_rootfs() {
     if [ "$mode" = "candidate" ]; then
         candidate_root_failure "init da Base candidata falhou apos a troca de raiz"
     fi
-    printf 'Base versionada nao conseguiu reiniciar o: init; entrando em manutencao local.\n' >&2
+    printf 'Base versionada nao conseguiu reiniciar o init; entrando em manutencao local.\n' >&2
     maintenance_shell
 }
 
 candidate_root_failure() {
     message=$1
-    printf '\n\Falha ao ativar Base candidata: %s\n' "$message" >&2
+    printf '\nFalha ao ativar Base candidata: %s\n' "$message" >&2
     printf 'A candidata nao sera considerada saudavel; reiniciando para o slot conhecido como bom.\n' >&2
     /bin/busybox sync >/dev/null 2>&1 || true
     /bin/busybox sleep 1
@@ -274,7 +277,7 @@ select_development_rootfs() {
                 mapped_sha=$(cat "$mapping" 2>/dev/null || true)
                 if rootfs_version_valid "$mapped_sha"; then
                     printf 'Base versionada conhecida como boa: %s (slot %s).\n' "$mapped_sha" "$base_slot"
-                    activate_versioned_rootfs "$mapped_sha" "$base_slot" current || {
+                    activate_versioned_rootfs "$mapping_sha" "$base_slot" current || {
                         printf 'Base versionada nao pode ser ativada; preservando Base seed conhecida como boa.\n' >&2
                     }
                     return 0
@@ -288,7 +291,6 @@ select_development_rootfs() {
     ORDAX_DEV_ROOT_MODE=seed
     ORDAX_DEV_VERSION_ROOT=/versions
     export ORDAX_DEV_ROOT_COMMIT ORDAX_DEV_ROOT_MODE ORDAX_DEV_VERSION_ROOT
-
 }
 
 mkdir -p "$WORKSPACE_DIR" "$STATE_DIR" "$NETWORK_STATE_DIR" /home /run /tmp /root
@@ -300,8 +302,7 @@ printf 'OrdaX Development Base\n'
 printf 'Kernel + drivers + network + Git\n\n'
 
 # Rollback pins start immediately. The running supervisor owns the remote retry:
-# if this was an automatic boot rejection, it releases the pin only after main
-# advances to a different commit. Manual pins remain sticky.
+# if this was an automatic boot rejection, it releases the pin only after main# advances to a different commit. Manual pins remain sticky.
 if [ -s "$PINNED_FILE" ]; then
     pinned=$(cat "$PINNED_FILE")
     current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
@@ -310,7 +311,7 @@ if [ -s "$PINNED_FILE" ]; then
     fi
 
     printf 'Estado de rollback fixado inconsistente; mantendo modo de recuperacao.\n' >&2
-    printf 'PIN="%s HEAD=s%s"\n' "$pinned" "$current" >&2
+    printf 'PINO%s HEAD=s%s"\n' "$pinned" "$current" >&2
     maintenance_shell
 fi
 
@@ -342,13 +343,13 @@ fi
 pull_ok=0
 if [ "$network_ok" -eq 1 ]; then
     attempt=1
-    while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]; do
-        printf 'Sincronizando OrdaX com a main (tentativa %s/%s)...\n' "$attempt" "$BOOT_PULL_ATTEMPTS"
+    while [ "$attempt" -le "$BOOT_PULL_ATTEMMPTS" ]; do
+        printf 'Sincronizando OrdaX com a main (tentativa %s/%s)...\n' "$attempt" "$BOOT_PULL_ATTEMMPTS"
         if "$BIN_DIR/ordax-pull"; then
             pull_ok=1
             break
         fi
-        if [ "$attempt" -lt "$BOOT_PULL_ATTEMPTS" ]; then
+        if [ "$attempt" -lt "$BOOT_PULL_ATTEMMPTS" ]; then
             printf 'Sincronizacao falhou; repetindo uma vez apos pausa curta.\n'
             sleep 2
         fi
