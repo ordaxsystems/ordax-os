@@ -66,6 +66,14 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
           key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+      - name: Restore Surface Buildroot source download cache
+        id: surface-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-dl
+          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          restore-keys: |
+            ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT
         run: |
           python3 bootstrap/independent-surface-runtime/prepare_config.py materialize \
@@ -78,6 +86,7 @@ jobs:
       - name: Resolve exact Kconfig before expensive graphical build
         env:
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
+          BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
           python3 bootstrap/independent-surface-runtime/prepare_config.py preflight \
             --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
@@ -85,6 +94,7 @@ jobs:
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
+          BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
           python3 bootstrap/independent-surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
@@ -92,6 +102,19 @@ jobs:
             --jobs 4
           python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface"
+      - name: Sanitize reusable Surface download cache
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/ordax-independent-surface-dl" ]; then
+            find "$RUNNER_TEMP/ordax-independent-surface-dl" -type f \
+              \( -name '*.tmp' -o -name '*.part' -o -name '*.lock' \) -delete
+          fi
+      - name: Save Surface Buildroot source download cache
+        if: always() && steps.surface-download-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-dl
+          key: ${{ steps.surface-download-cache.outputs.cache-primary-key }}
       - name: Save exact Surface compiler cache
         if: always() && steps.surface-ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
