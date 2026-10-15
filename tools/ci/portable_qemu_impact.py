@@ -63,8 +63,10 @@ INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
     "tests/test_independent_surface_component_cache.py",
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_runtime.py",
+    "tests/test_independent_surface_cutover_audit.py",
     "tools/ci/independent_surface_component_cache.py",
     "tools/ci/independent_surface_impact.py",
+    "tools/ci/independent_surface_cutover_audit.py",
 }
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
