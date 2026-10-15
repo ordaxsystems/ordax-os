@@ -17,6 +17,7 @@ const ENTITLEMENTS_SCHEMA = "ordax.entitlements/1";
 const MEMORY_CLOUD_ENTITLEMENT = "memory.cloud.enabled";
 const MAX_MEMORY_ENTITLEMENT_ROWS = 16;
 const MAX_VISIBLE_SPACES = 64;
+const SPACE_SEMANTIC_IDENTIFIER = /^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
 const NETWORK_MUTATION_SCHEMA = "prototype-ordax.network-mutation-outcome/2";
 const NETWORK_SEND_PATH = "/network/v2/messages/send";
 const MAX_NETWORK_MESSAGE_CHARACTERS = 4000;
@@ -1234,7 +1235,7 @@ Deno.serve(async (req: Request) => {
     const [spacesResult, packsResult] = await Promise.all([
       supabase
         .from("ordax_spaces")
-        .select("space_id,owner_user_id,name,kind,state")
+        .select("space_id,owner_user_id,name,kind,state,domain,subtype")
         .order("created_at", { ascending: true })
         .limit(MAX_VISIBLE_SPACES + 1),
       supabase
@@ -1272,6 +1273,17 @@ Deno.serve(async (req: Request) => {
 
     const spaces = [];
     for (const raw of spacesResult.data as Array<Record<string, unknown>>) {
+      const semanticsAbsent = raw.domain == null && raw.subtype == null;
+      const semanticsValid = (
+        typeof raw.domain === "string" &&
+        typeof raw.subtype === "string" &&
+        raw.domain.length >= 1 &&
+        raw.domain.length <= 80 &&
+        raw.subtype.length >= 1 &&
+        raw.subtype.length <= 80 &&
+        SPACE_SEMANTIC_IDENTIFIER.test(raw.domain) &&
+        SPACE_SEMANTIC_IDENTIFIER.test(raw.subtype)
+      );
       if (
         typeof raw.space_id !== "string" ||
         typeof raw.owner_user_id !== "string" ||
@@ -1279,7 +1291,8 @@ Deno.serve(async (req: Request) => {
         raw.name.length < 1 ||
         raw.name.length > 120 ||
         !["personal", "work", "professional"].includes(String(raw.kind)) ||
-        !["active", "archived"].includes(String(raw.state))
+        !["active", "archived"].includes(String(raw.state)) ||
+        (!semanticsAbsent && !semanticsValid)
       ) {
         return error(502, "spaces-read-failed", "Não foi possível validar seus Spaces.");
       }
@@ -1290,6 +1303,7 @@ Deno.serve(async (req: Request) => {
         kind: raw.kind,
         state: raw.state,
         profilePack: packBySpace.get(raw.space_id) ?? null,
+        ...(semanticsAbsent ? {} : { domain: raw.domain, subtype: raw.subtype }),
       });
     }
 
