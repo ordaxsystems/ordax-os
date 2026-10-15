@@ -16,6 +16,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -205,7 +206,6 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
         for name in names:
             if name == forbidden or name.startswith(forbidden.rstrip("/") + "/"):
                 forbidden_hits.append(name)
-    # Fail closed on an APK executable/database even if a future contract edit omits it.
     for name in names:
         basename = Path(name).name
         if basename == "apk" or name.startswith("lib/apk/") or name.startswith("etc/apk/"):
@@ -290,7 +290,6 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
         ])
         resolved_config_sha = verify_build_config(build_dir)
         run(["make", "-C", str(tree), f"O={build_dir}", f"-j{jobs}"], bounded=True)
-        # Re-read after the build so Kconfig/package changes cannot silently alter the proof.
         resolved_config_sha_after = verify_build_config(build_dir)
         if resolved_config_sha_after != resolved_config_sha:
             raise SurfaceBuildError("Buildroot resolved config changed during build")
