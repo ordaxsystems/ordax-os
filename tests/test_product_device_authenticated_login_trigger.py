@@ -60,21 +60,20 @@ class FakeCoordinator:
         return types.SimpleNamespace(status="enrolled")
 
 
-def make_proxy(gateway, coordinator, profile, *, first_run_completed: bool):
+def make_proxy(gateway, coordinator, profile):
     return module.ProductDeviceAccountGatewayProxy(
         gateway,
         coordinator,
         lambda: profile,
-        lambda: {"completed": first_run_completed},
     )
 
 
 class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
-    def test_completed_first_run_login_triggers_once_and_preserves_reply(self):
+    def test_authenticated_login_triggers_once_and_preserves_reply(self):
         gateway = FakeGateway()
         coordinator = FakeCoordinator()
-        profile = {"displayName": "OrdaX Notebook"}
-        proxy = make_proxy(gateway, coordinator, profile, first_run_completed=True)
+        profile = {"displayName": "Meu OrdaX"}
+        proxy = make_proxy(gateway, coordinator, profile)
 
         reply = proxy.login("owner@example.test", "secret")
 
@@ -83,20 +82,15 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         self.assertEqual(gateway.session_calls, 1)
         self.assertEqual(coordinator.calls, [profile])
 
-    def test_fresh_oobe_login_defers_until_user_selected_device_name(self):
+    def test_authenticated_profile_rename_reconciles_same_device(self):
         gateway = FakeGateway()
         coordinator = FakeCoordinator()
-        profile = {"displayName": "Meu OrdaX"}
-        proxy = make_proxy(gateway, coordinator, profile, first_run_completed=False)
-
-        reply = proxy.login("owner@example.test", "secret")
-
-        self.assertEqual(reply.status, 200)
-        self.assertEqual(gateway.session_calls, 1)
-        self.assertEqual(coordinator.calls, [])
+        proxy = make_proxy(gateway, coordinator, {"displayName": "Meu OrdaX"})
 
         final_profile = {"displayName": "Notebook de Washington"}
         proxy.reconcile_device_profile(final_profile)
+
+        self.assertEqual(gateway.session_calls, 1)
         self.assertEqual(coordinator.calls, [final_profile])
 
     def test_failed_or_anonymous_login_never_enrolls(self):
@@ -104,12 +98,7 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
             with self.subTest(login_status=login_status, authenticated=authenticated):
                 gateway = FakeGateway(login_status=login_status, authenticated=authenticated)
                 coordinator = FakeCoordinator()
-                proxy = make_proxy(
-                    gateway,
-                    coordinator,
-                    {"displayName": "N"},
-                    first_run_completed=True,
-                )
+                proxy = make_proxy(gateway, coordinator, {"displayName": "N"})
                 reply = proxy.login("x@example.test", "bad")
                 self.assertEqual(reply.status, login_status)
                 self.assertEqual(coordinator.calls, [])
@@ -117,14 +106,14 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
     def test_anonymous_profile_rename_never_enrolls(self):
         gateway = FakeGateway(authenticated=False)
         coordinator = FakeCoordinator()
-        proxy = make_proxy(gateway, coordinator, {"displayName": "N"}, first_run_completed=False)
+        proxy = make_proxy(gateway, coordinator, {"displayName": "N"})
         proxy.reconcile_device_profile({"displayName": "Nome Final"})
         self.assertEqual(coordinator.calls, [])
 
     def test_enrollment_side_effect_cannot_change_successful_login_or_rename(self):
         gateway = FakeGateway()
         coordinator = FakeCoordinator(raises=OSError("control plane unavailable"))
-        proxy = make_proxy(gateway, coordinator, {"displayName": "N"}, first_run_completed=True)
+        proxy = make_proxy(gateway, coordinator, {"displayName": "N"})
         reply = proxy.login("owner@example.test", "secret")
         self.assertEqual(reply.status, 200)
         proxy.reconcile_device_profile({"displayName": "Nome Final"})
@@ -132,7 +121,7 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
 
     def test_other_gateway_methods_delegate_unchanged(self):
         gateway = FakeGateway()
-        proxy = make_proxy(gateway, FakeCoordinator(), {}, first_run_completed=True)
+        proxy = make_proxy(gateway, FakeCoordinator(), {})
         self.assertEqual(proxy.logout().status, 204)
 
     def test_native_runtime_and_host_keep_enrollment_out_of_surface_js(self):
@@ -141,8 +130,8 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         module_text = MODULE_PATH.read_text(encoding="utf-8")
         self.assertIn('os.environ.get("ORDAX_PRODUCT_CONTROL_PLANE_URL", "")', runtime_text)
         self.assertIn("device_profile_reader=read_device_profile", runtime_text)
-        self.assertIn("first_run_state_reader=read_first_run_state", runtime_text)
         self.assertIn("compose_product_device_account_gateway", runtime_text)
+        self.assertNotIn("first_run_state_reader", runtime_text + module_text)
         self.assertIn('getattr(self.server.account_gateway, "reconcile_device_profile", None)', host_text)
         self.assertIn("write_device_profile(updated)", host_text)
         self.assertNotIn("/__ordax/native/device-enroll", runtime_text + host_text)
