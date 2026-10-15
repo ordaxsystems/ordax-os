@@ -102,11 +102,14 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
 
     def test_native_runtime_consumes_inherited_owner_control_plane_without_ui_route(self):
         text = APP_DATA_RUNTIME.read_text(encoding="utf-8")
+        module_text = MODULE_PATH.read_text(encoding="utf-8")
         self.assertIn('os.environ.get("ORDAX_PRODUCT_CONTROL_PLANE_URL", "")', text)
         self.assertIn("device_profile_reader=read_device_profile", text)
         self.assertIn("compose_product_device_account_gateway", text)
         self.assertNotIn("/__ordax/native/device-enroll", text)
-        self.assertNotIn("heartbeat", MODULE_PATH.read_text(encoding="utf-8").lower())
+        self.assertNotIn("import threading", module_text)
+        self.assertNotIn("time.sleep", module_text)
+        self.assertNotIn("while True", module_text)
 
 
 if __name__ == "__main__":
