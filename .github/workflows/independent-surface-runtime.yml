@@ -12,6 +12,7 @@ on:
       - 'tests/test_independent_surface_impact.py'
       - 'tests/test_independent_surface_component_cache.py'
       - 'tests/test_independent_surface_cutover_audit.py'
+      - 'tests/test_independent_surface_cold_health_contract.py'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
       - 'tools/ci/independent_surface_impact.py'
       - 'tools/ci/independent_surface_component_cache.py'
@@ -53,7 +54,8 @@ jobs:
             tests.test_independent_surface_qemu_binding \
             tests.test_independent_surface_impact \
             tests.test_independent_surface_component_cache \
-            tests.test_independent_surface_cutover_audit -v
+            tests.test_independent_surface_cutover_audit \
+            tests.test_independent_surface_cold_health_contract -v
           python3 -m py_compile \
             bootstrap/independent-surface-runtime/build.py \
             bootstrap/independent-surface-runtime/prepare_config.py \
