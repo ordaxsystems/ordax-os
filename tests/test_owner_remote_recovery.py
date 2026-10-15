@@ -16,8 +16,8 @@ REFRESH_PATH = ROOT / "system/services/base-update/dev-helpers.sh"
 PULL_PATH = ROOT / "bootstrap/dev-base/ordax-pull"
 STABLE_SOURCE_PATH = ROOT / "bootstrap/stable-base/source.json"
 
-SOURCE_SHA = "e16da8f4e700fb26bc788919187130b69ff57c66"
-ARTIFACT_SHA256 = "b3dd4590d7ddb26a8f78b2a9100b2f7071410a574f438b5067a109fc2d2b92a3"
+SOURCE_SHA = "810c894af12d2049e9f69a94ea92c99df807ab82"
+ARTIFACT_SHA256 = "21209da403ee8f96a1b3dd986cd7120095fa2d92bbc5e4eddc1e58db2abebeb2"
 ARTIFACT_SIZE = 6008984
 CAPABILITIES = [
     "agent.owner.snapshot",
