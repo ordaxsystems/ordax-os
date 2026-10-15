@@ -15,9 +15,9 @@
 
 ## Problema
 
-OrdaX e Achegue-se se aproximam em empresas, escolas, vagas, ofertas e relacionamento, mas possuem missões diferentes. Fundi-los criaria acoplamento, duplicação de SSOT e risco de o Achegue-se perder seu foco territorial ou o OrdaX absorver catálogo/SEO/mapa que não pertencem à plataforma.
+OrdaX e Achegue-se se aproximam em empresas, escolas, vagas, ofertas, pedidos e relacionamento, mas possuem missões diferentes. Fundi-los criaria acoplamento, duplicação de SSOT e risco de o Achegue-se perder seu foco territorial ou o OrdaX absorver catálogo/SEO/mapa que não pertencem à plataforma.
 
-Ao mesmo tempo, manter os produtos totalmente isolados desperdiçaria Account/Spaces/Network e impediria fluxos valiosos como publicar uma vaga/oferta de um Space no portal territorial.
+Ao mesmo tempo, manter os produtos totalmente isolados desperdiçaria Account/Spaces/Network e impediria fluxos valiosos como publicar uma vaga/oferta de um Space no portal territorial ou encaminhar um pedido iniciado no Achegue-se ao sistema operacional correto do estabelecimento.
 
 ## Objetivo
 
@@ -25,9 +25,9 @@ Preservar dois produtos independentes e conectá-los por uma boundary first-part
 
 ```text
 Achegue-se
-território + descoberta + páginas públicas
+território + descoberta + páginas públicas + jornada de compra/pedido quando ativada
          ^
-         | OAuth / APIs / projections / events
+         | OAuth / APIs / projections / events / provider ports
          v
 OrdaX
 Account + Spaces + operação + Network + Intelligence
@@ -35,7 +35,9 @@ Account + Spaces + operação + Network + Intelligence
 
 Princípio de produto:
 
-> **Achegue-se descobre e conecta. OrdaX organiza e opera.**
+> **Achegue-se descobre, conecta e pode iniciar a transação. OrdaX organiza e opera.**
+
+Isso não obriga o OrdaX a ser o owner de todo pedido. O princípio permanente é: **cada pedido possui exatamente um SSOT transacional**.
 
 ## Não objetivos
 
@@ -46,7 +48,9 @@ Princípio de produto:
 - não obrigar usuário do Achegue-se a possuir OrdaX;
 - não tornar Achegue-se dependente da disponibilidade do OrdaX para suas funções básicas;
 - não duplicar Mapa/Perto de mim/território no OrdaX;
-- não mover operação privada de escola/empresa para o Achegue-se;
+- não transformar Achegue-se em ERP/KDS/estoque/financeiro completo do estabelecimento;
+- não impedir que Achegue-se ofereça carrinho, checkout, criação e acompanhamento de pedido como jornada do consumidor;
+- não manter dois masters gravando o mesmo pedido;
 - não espelhar todos os campos ou posts automaticamente.
 
 ## Estado atual verificado
@@ -69,12 +73,14 @@ No Achegue-se:
 - boundary `src/integrations/ordax`;
 - primitivas OAuth/PKCE server-side;
 - primitivas de Product Network read-only;
-- produto continua independentemente utilizável.
+- produto continua independentemente utilizável;
+- a vertical Gastronomy preservada possui superfícies de carrinho, checkout, criação e detalhe de pedido sob `src/modules/business/gastronomy/**`, com persistência/serviços compartilháveis governados pelos owners de `src/core/business/**`; essa vertical permanece pausada no lifecycle atual e a presença do source não autoriza ativação.
 
 ### Parcialmente implementado
 
 - source do OAuth e resources existe nos dois lados;
 - apenas scopes read-only iniciais estão previstos;
+- existe experiência histórica/preservada de pedido no Achegue-se, mas não existe ainda boundary provider-neutral homologada para escolher entre order owner próprio, OrdaX Food ou outro POS/provider;
 - ainda não há runtime público real, redirect HTTPS registrado e linking E2E homologado.
 
 ### Ausente/não provado
@@ -84,7 +90,9 @@ No Achegue-se:
 - two-account E2E público;
 - write/publication scopes;
 - projection de ofertas/vagas/eventos;
-- UX final de "Conectar ao OrdaX"/"Publicar no Achegue-se".
+- contract de `Order Gateway`/provider-neutral order handoff;
+- receipts/idempotency/status mapping para pedido cross-product;
+- UX final de `Conectar ao OrdaX`/`Publicar no Achegue-se`.
 
 ## Decisões arquiteturais propostas
 
@@ -99,7 +107,8 @@ No Achegue-se:
 - Business/página pública;
 - descoberta pública;
 - SEO e rotas territoriais;
-- seus próprios inbox/notifications conforme owners atuais.
+- seus próprios inbox/notifications conforme owners atuais;
+- jornada pública de descoberta → catálogo/cardápio → carrinho/checkout → acompanhamento quando a vertical/capability correspondente estiver formalmente ativa.
 
 **OrdaX possui:**
 
@@ -109,7 +118,8 @@ No Achegue-se:
 - operação privada do negócio;
 - Network/Identity/Intelligence;
 - People/Payments/Finance quando existirem;
-- Portal/relações externas conforme REL-001.
+- Portal/relações externas conforme REL-001;
+- Order Core operacional quando um vertical OrdaX, como Food, for o provider/SSOT daquele pedido.
 
 ### 2. Integração é opt-in e revogável
 
@@ -136,7 +146,48 @@ Exemplos futuros:
 
 Cada publicação exige alvo/canal explícito, scope de escrita, event/revision/idempotency, server-side ingest e revoke/update.
 
-### 4. Nenhum dado privado vira projection pública
+### 4. Pedido é transação, não projection pública
+
+Pedidos exigem boundary distinta de ofertas/posts.
+
+A experiência pode permanecer totalmente no Achegue-se para o consumidor:
+
+```text
+Descobrir negócio
+ -> abrir catálogo/cardápio
+ -> montar carrinho
+ -> checkout
+ -> criar pedido
+ -> acompanhar status
+```
+
+O backend resolve explicitamente o provider daquele merchant:
+
+```text
+Achegue-se Order Channel
+        |
+        v
+Order Gateway
+   |-- Achegue-se-owned order service
+   |-- OrdaX Food
+   |-- POS/provider externo homologado
+```
+
+Regras:
+
+- exatamente um owner/SSOT transacional por pedido;
+- o Achegue-se pode ser SSOT do pedido básico quando o merchant não usa OrdaX e o owner próprio estiver ativo/homologado;
+- quando OrdaX Food for escolhido, o pedido canônico pertence ao Food Order Core e Achegue-se mantém apenas seu channel reference/read model autorizado;
+- outro POS/provider pode assumir o mesmo papel mediante contrato homologado;
+- nunca há dual-write de dois masters para o mesmo pedido;
+- criação usa idempotency key e retorna receipt/provider order id canônico;
+- status público é mapeado a partir do owner canônico, sem inventar `preparando`, `entregue` ou pagamento confirmado localmente;
+- unlink não pode apagar pedido já contratado/confirmado nem quebrar obrigações de retenção/auditoria;
+- falha do provider deve aparecer como erro/pending real, sem pedido fantasma.
+
+A presença dessa arquitetura não reativa Gastronomy no MVP atual.
+
+### 5. Nenhum dado privado vira projection pública
 
 Proibido projetar para o Achegue-se:
 
@@ -150,13 +201,13 @@ Proibido projetar para o Achegue-se:
 - documentos privados;
 - estoque interno salvo campo/public catalog explicitamente aprovado.
 
-### 5. Sign in with OrdaX é opcional
+### 6. Sign in with OrdaX é opcional
 
 Achegue-se pode oferecer login/vínculo OrdaX sem eliminar seus próprios caminhos de acesso. Descoberta pública continua sem login quando hoje for pública.
 
-### 6. Falhas são independentes
+### 7. Falhas são independentes
 
-OrdaX offline/indisponível não derruba catálogo/mapa/Busca do Achegue-se. Achegue-se indisponível não impede operação do Space OrdaX.
+OrdaX offline/indisponível não derruba catálogo/mapa/Busca do Achegue-se. Achegue-se indisponível não impede operação do Space OrdaX. Se um merchant escolheu OrdaX como provider de pedidos, somente a criação/sincronização daquele fluxo transacional pode degradar de forma explícita; o portal público não deve fingir aceitação de pedido.
 
 ## Matriz de integração futura
 
@@ -165,6 +216,9 @@ OrdaX offline/indisponível não derruba catálogo/mapa/Busca do Achegue-se. Ach
 | Página pública de empresa | Achegue-se Business | OrdaX pode apenas vincular/deep-linkar |
 | Operação interna da empresa | OrdaX vertical/Space | não projetar automaticamente |
 | Oferta local | OrdaX Offer ou Achegue-se owner conforme origem | Achegue-se para descoberta territorial |
+| Pedido iniciado no Achegue-se sem provider externo | owner de pedidos do Achegue-se, quando ativo | Achegue-se mantém pedido e status canônicos |
+| Pedido iniciado no Achegue-se com OrdaX Food | OrdaX Food Order Core | Achegue-se mantém channel reference/read model/status autorizado |
+| Pedido com POS externo | provider homologado | Achegue-se mantém channel reference/read model autorizado |
 | Vaga | OrdaX Talent quando originada no Space | Achegue-se para descoberta territorial |
 | Candidatura/processo seletivo | OrdaX Talent | não copiar para catálogo público |
 | Escola pública | Achegue-se Education/Business public page | vínculo para Portal OrdaX |
@@ -179,6 +233,7 @@ OrdaX:
 - `services/product-gateway/`;
 - Network resource boundary;
 - future publication adapters;
+- future Food/order provider port;
 - consent/audit.
 
 Achegue-se:
@@ -186,6 +241,8 @@ Achegue-se:
 - `src/integrations/ordax`;
 - server-side OAuth functions;
 - lifecycle/owners de Business, Education, Jobs, Offers;
+- `src/modules/business/gastronomy/**` e owners canônicos em `src/core/business/**` somente quando Gastronomy/order lifecycle for promovido;
+- future provider-neutral Order Gateway boundary;
 - docs/contract de first-party integration.
 
 ## Fases
@@ -195,7 +252,8 @@ Achegue-se:
 - ambos MVPs em estado compatível com integração;
 - revalidar client/audience/scopes;
 - threat model cross-product;
-- definir canonical HTTPS redirects.
+- definir canonical HTTPS redirects;
+- auditar o order/checkout preservado no Achegue-se antes de criar qualquer novo owner transacional.
 
 ### Fase 1 — linking read-only real
 
@@ -222,7 +280,19 @@ Somente depois do read-only estar provado:
 - ofertas/vagas/eventos em owners separados;
 - receipts/auditoria.
 
-### Fase 4 — expansão de ecossistema
+### Fase 4 — Order Gateway/provider boundary
+
+Somente quando o owner de pedidos do Achegue-se e/ou OrdaX Food estiverem formalmente promovidos:
+
+- definir capability discovery do merchant;
+- selecionar provider explicitamente e persistir binding;
+- contrato de create/status/cancel quando permitido;
+- idempotency/receipt/retry;
+- mapping público de status;
+- testes Achegue-se-owned, OrdaX Food e provider externo;
+- garantir ausência de dual-write.
+
+### Fase 5 — expansão de ecossistema
 
 - MARKET-001;
 - TALENT-001;
@@ -239,6 +309,9 @@ Somente depois do read-only estar provado:
 - OrdaX funciona sem Achegue-se;
 - stale projection rejeitada;
 - publication revoke funciona;
+- pedidos possuem exatamente um owner canônico;
+- retry de criação não duplica pedido;
+- status mostrado ao comprador deriva do owner canônico;
 - dados privados nunca cruzam boundary por conveniência.
 
 ## Segurança/privacidade
@@ -249,11 +322,12 @@ Somente depois do read-only estar provado:
 - consentimento por scope;
 - server-side revalidation de Space authority;
 - audit sem tokens/segredos;
-- data minimization.
+- data minimization;
+- dados de pagamento/receipts seguem owner especializado e nunca são reconstruídos por inference do frontend.
 
 ## Custos/limites
 
-A integração deve começar com APIs e infraestrutura já existente, sem exigir banco compartilhado ou VPS dedicado só para a ponte. Custos de escala/publication devem ser medidos quando houver tráfego real.
+A integração deve começar com APIs e infraestrutura já existente, sem exigir banco compartilhado ou VPS dedicado só para a ponte. Custos de escala/publication e processamento transacional devem ser medidos quando houver tráfego real.
 
 ## Testes/evidências
 
@@ -263,15 +337,18 @@ A integração deve começar com APIs e infraestrutura já existente, sem exigir
 - unlink preserva dados próprios;
 - failover independente;
 - publication idempotente e revisionada;
+- order create idempotente sem duplicidade;
+- provider binding não muda silenciosamente em pedido existente;
+- status mapping fail-closed para estados desconhecidos;
 - negative tests de dados privados.
 
 ## Rollback/degradação
 
-Boundary fica disabled por default até promoção. Se falhar em produção, desligar integração/publication sem retirar funções locais dos dois produtos.
+Boundary fica disabled por default até promoção. Se falhar em produção, desligar integração/publication sem retirar funções locais dos dois produtos. Para pedidos, indisponibilidade do provider bloqueia nova confirmação quando não houver receipt canônico; nunca criar sucesso local fictício.
 
 ## Próxima ação documental
 
-Manter este plano sincronizado com `washingtonmsdj/acheguese/docs/03-architecture/ORDAX_FIRST_PARTY_INTEGRATION.md` sem transformar nenhum dos dois documentos em SSOT do outro produto.
+Manter este plano sincronizado com `washingtonmsdj/acheguese/docs/03-architecture/ORDAX_FIRST_PARTY_INTEGRATION.md` e com o SSOT atual de Gastronomy do Achegue-se, sem transformar nenhum desses documentos em SSOT do outro produto.
 
 ## Próxima ação de execução
 
@@ -279,4 +356,4 @@ DEFERRED.
 
 ## Handoff para outro chat/agente
 
-Nunca fundir Achegue-se no OrdaX nem usar OrdaX como banco obrigatório do Achegue-se. Integrar por Product OAuth/API/events. Missão: Achegue-se descobre/conecta; OrdaX organiza/opera. **DEFERRED FOR EXECUTION**.
+Nunca fundir Achegue-se no OrdaX nem usar OrdaX como banco obrigatório do Achegue-se. Achegue-se pode oferecer a jornada pública de pedido; o backend escolhe um único order owner por transação. Integrar por Product OAuth/API/events/provider ports. **DEFERRED FOR EXECUTION**.
