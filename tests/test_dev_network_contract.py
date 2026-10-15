@@ -79,6 +79,7 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
             text.index('if connect_wifi_conf "$CANDIDATE_CONF"; then'),
             text.index('setup_attempt=$((setup_attempt + 1))', text.index('if connect_wifi_conf "$CANDIDATE_CONF"; then')),
         )
+
     def test_password_has_brief_character_feedback_then_mask(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('read_password_with_feedback()', text)
@@ -95,9 +96,6 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('sync_clock()', text)
         self.assertIn('/bin/busybox timeout -k 1 "$CLOCK_SYNC_TIMEOUT"', text)
         self.assertIn('/bin/busybox ntpd -q -n', text)
-        self.assertIn('-p time.cloudflare.com', text)
-        self.assertIn('-p time.google.com', text)
-        self.assertIn('-p pool.ntp.org', text)
         self.assertIn('-p time.cloudflare.com', text)
         self.assertIn('-p time.google.com', text)
         self.assertIn('-p pool.ntp.org', text)
