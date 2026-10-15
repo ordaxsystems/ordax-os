@@ -24,6 +24,18 @@ OWNER_REMOTE_SLICE = [
     "tests/test_owner_remote_recovery.py",
 ]
 
+INDEPENDENT_SURFACE_POLICY_SLICE = [
+    ".github/workflows/independent-surface-runtime.yml",
+    "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
+    "bootstrap/independent-surface-runtime/README.md",
+    "docs/contracts/ci-supply-chain.json",
+    "tests/test_independent_surface_component_cache.py",
+    "tests/test_independent_surface_impact.py",
+    "tests/test_independent_surface_runtime.py",
+    "tools/ci/independent_surface_component_cache.py",
+    "tools/ci/independent_surface_impact.py",
+]
+
 
 class PortableQemuImpactTests(unittest.TestCase):
     @classmethod
@@ -130,6 +142,19 @@ class PortableQemuImpactTests(unittest.TestCase):
     def test_real_kernel_change_stays_heavy_with_owner_remote_recovery_slice(self):
         result = impact.classify_paths(
             [*OWNER_REMOTE_SLICE, "bootstrap/kernel/source.json"],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_independent_surface_policy_slice_does_not_require_standalone_qemu(self):
+        result = impact.classify_paths(INDEPENDENT_SURFACE_POLICY_SLICE, root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_real_kernel_change_stays_heavy_with_independent_surface_policy_slice(self):
+        result = impact.classify_paths(
+            [*INDEPENDENT_SURFACE_POLICY_SLICE, "bootstrap/kernel/source.json"],
             root=ROOT,
         )
         self.assertTrue(result.required)
