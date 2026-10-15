@@ -1,5 +1,12 @@
 # Current State
 
+Spaces presentation follow-up (2026-10-15): the Web Spaces window now shares the
+Meridian dashboard renderer/styles/examples with the isolated preview. Authorized
+account consultation and selection remain separate and unchanged. Covers, metrics
+and creation examples do not imply backend support. The branch incorporates current
+main through `7e71ead5`; no automated checks or build were run for this follow-up.
+[Scope](DESKTOP-IDENTITY.md#shared-spaces-presentation--2026-10-15).
+
 Profile categories and parity notes (2026-10-14): Web consultation now reuses the
 canonical taxonomy for parent/category/niche filters and retains valid profiles
 when taxonomy is unavailable. Existing unsupported screens expose collapsed

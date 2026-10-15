@@ -45,7 +45,7 @@ func TestPrototypePhysicalRecoveryCandidateRequiresUSBAndRejectsSystemDisk(t *te
 	}
 }
 
-func TestConfirmationTokenIsDeterministicAndIdentitySensitive(t *testing.T) {
+func TestConfirmationTokenIsDeterministicAndPhysicalIdentitySensitive(t *testing.T) {
 	base := FinalizeTarget(Target{
 		DriveLetter:       "E:",
 		VolumeLabel:       "USB",
@@ -61,35 +61,51 @@ func TestConfirmationTokenIsDeterministicAndIdentitySensitive(t *testing.T) {
 	if first == "" || first != second || len(first) != 64 {
 		t.Fatalf("unexpected confirmation token %q / %q", first, second)
 	}
+
 	changed := base
 	changed.DiskNumber++
 	if ConfirmationToken(changed) == first {
 		t.Fatal("disk-number change must change confirmation token")
 	}
-	changed = base
-	changed.VolumeSerial++
-	if ConfirmationToken(changed) == first {
-		t.Fatal("volume-serial change must change confirmation token")
-	}
-	changed = base
-	changed.VolumeBytes++
-	if ConfirmationToken(changed) == first {
-		t.Fatal("volume-size change must change confirmation token")
-	}
+
 	changed = base
 	changed.PhysicalDiskBytes++
 	if ConfirmationToken(changed) == first {
 		t.Fatal("physical-disk-size change must change confirmation token")
 	}
+
 	changed = base
 	changed.DeviceSerial = "DEVICE-456"
 	if ConfirmationToken(changed) == first {
 		t.Fatal("device-serial change must change confirmation token")
 	}
+
+	changed = base
+	changed.DeviceRemovable = false
+	if ConfirmationToken(changed) == first {
+		t.Fatal("device-removable change must change confirmation token")
+	}
+
 	changed = base
 	changed.BusType = "other"
 	if ConfirmationToken(changed) == first {
 		t.Fatal("bus-type change must change confirmation token")
+	}
+
+	changed = base
+	changed.SystemDisk = true
+	if ConfirmationToken(changed) == first {
+		t.Fatal("system-disk identity change must change confirmation token")
+	}
+
+	changed = base
+	changed.DriveLetter = "Z:"
+	changed.VolumeLabel = "OTHER"
+	changed.VolumeSerial++
+	changed.VolumeBytes++
+	changed.DriveType = "physical-unmounted"
+	if ConfirmationToken(changed) != first {
+		t.Fatal("logical-volume presentation changes must not change whole-disk confirmation token")
 	}
 }
 
@@ -147,6 +163,40 @@ func TestFinalizePhysicalRecoveryTargetBindsPhysicalIdentity(t *testing.T) {
 	}
 }
 
+func TestMountedAndRecoveryRepresentationsSharePhysicalConfirmationToken(t *testing.T) {
+	physical := Target{
+		DiskNumber:        1,
+		PhysicalDiskBytes: 8053063680,
+		DeviceRemovable:   true,
+		DeviceSerial:      "6699E36B",
+	}
+	mounted := physical
+	mounted.DriveLetter = "E:"
+	mounted.VolumeLabel = "ORDAX-DATA"
+	mounted.VolumeSerial = 0x12345678
+	mounted.VolumeBytes = 1074495488
+	mounted = FinalizeTarget(mounted, DriveTypeRemovable, true, BusTypeUSB, false)
+
+	recovery := FinalizePhysicalRecoveryTarget(physical, BusTypeUSB, false)
+	if mounted.ConfirmationToken != recovery.ConfirmationToken {
+		t.Fatalf("same physical USB changed token across mounted/recovery presentation: mounted=%s recovery=%s", mounted.ConfirmationToken, recovery.ConfirmationToken)
+	}
+	matchedMounted, err := MatchConfirmedTarget([]Target{mounted}, recovery.ConfirmationToken)
+	if err != nil {
+		t.Fatalf("recovery token did not revalidate same mounted physical USB: %v", err)
+	}
+	if matchedMounted.DiskNumber != physical.DiskNumber {
+		t.Fatalf("matched wrong mounted disk: %#v", matchedMounted)
+	}
+	matchedRecovery, err := MatchConfirmedTarget([]Target{recovery}, mounted.ConfirmationToken)
+	if err != nil {
+		t.Fatalf("mounted token did not revalidate same recovery physical USB: %v", err)
+	}
+	if matchedRecovery.DiskNumber != physical.DiskNumber {
+		t.Fatalf("matched wrong recovery disk: %#v", matchedRecovery)
+	}
+}
+
 func TestGhostLogicalDriveDoesNotConsumePhysicalRecoveryDisk(t *testing.T) {
 	ghost := FinalizeTarget(Target{
 		DriveLetter:       "D:",
@@ -173,8 +223,8 @@ func TestGhostLogicalDriveDoesNotConsumePhysicalRecoveryDisk(t *testing.T) {
 	if !recovery.PrototypeSafe || recovery.SystemDisk || recovery.BusType != "usb" {
 		t.Fatalf("recovery target lost safety identity: %#v", recovery)
 	}
-	if recovery.ConfirmationToken == ghost.ConfirmationToken {
-		t.Fatal("physical recovery must use a new identity-bound confirmation token")
+	if recovery.ConfirmationToken != ghost.ConfirmationToken {
+		t.Fatal("same physical disk must preserve confirmation across ghost-volume recovery transition")
 	}
 }
 

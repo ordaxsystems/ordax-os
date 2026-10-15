@@ -23,6 +23,19 @@
       }
     },
     {
+      "id": "independent-buildroot-base-candidate",
+      "kind": "base-rootfs-source-candidate",
+      "source_authority": "bootstrap/independent-base/source.json",
+      "delivery_scope": [
+        "independent-base-experimental-candidate"
+      ],
+      "promotion_status": "experimental-not-promotable",
+      "license": {
+        "status": "unresolved-in-this-inventory",
+        "spdx": null
+      }
+    },
+    {
       "id": "alpine-development-base",
       "kind": "base-rootfs-and-selected-packages",
       "source_authority": "bootstrap/base/alpine_core.py",

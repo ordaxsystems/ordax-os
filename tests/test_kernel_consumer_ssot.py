@@ -82,7 +82,11 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn('python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"', workflow)
         self.assertLess(
             workflow.index("Resolve signed kernel version from canonical source"),
-            workflow.index("Build boot kernel initramfs and Git development base"),
+            workflow.index("Verify kernel component and exact integration binding"),
+        )
+        self.assertLess(
+            workflow.index("Verify kernel component and exact integration binding"),
+            workflow.index("Build boot initramfs and Git development base"),
         )
         self.assertIn('out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar', workflow)
         self.assertIn("kernel_version = os.environ['ORDAX_KERNEL_VERSION']", workflow)
@@ -116,7 +120,7 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         writer = (ROOT / "tools/creator/cmd/ordax-creator-physical-test/main_windows.go").read_text(encoding="utf-8")
         self.assertIn("validLowerHex(buildReleaseSourceCommit, 20)", writer)
         self.assertIn("Ready: ready", writer)
-        self.assertEqual(json.loads((ROOT / "tools/creator/version.json").read_text(encoding="utf-8"))["version"], "0.6.1-dev")
+        self.assertEqual(json.loads((ROOT / "tools/creator/version.json").read_text(encoding="utf-8"))["version"], "0.6.2-dev")
         self.assertIn("creator_version", workflow)
 
     def test_stale_bootstrap_manifest_rejected_before_output(self):

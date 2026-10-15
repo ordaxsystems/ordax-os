@@ -11,12 +11,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 REFRESH = ROOT / "system" / "services" / "base-update" / "dev-helpers.sh"
+RUN = ROOT / "bootstrap" / "dev-base" / "ordax-run"
 PULL = (ROOT / "bootstrap" / "dev-base" / "ordax-pull").read_text(encoding="utf-8")
 SOURCE_TO_TARGET = {
     "bootstrap/dev-base/ordax-dev-init": "sbin/ordax-dev-init",
     "bootstrap/dev-base/ordax-diagnose": "usr/local/bin/ordax-diagnose",
     "bootstrap/dev-base/ordax-network": "usr/local/bin/ordax-network",
     "bootstrap/dev-base/ordax-pull": "usr/local/bin/ordax-pull",
+    "bootstrap/base-update/owner-development/ordax-remote": "usr/local/bin/ordax-remote",
     "bootstrap/dev-base/ordax-rollback": "usr/local/bin/ordax-rollback",
     "bootstrap/dev-base/ordax-run": "usr/local/bin/ordax-run",
     "bootstrap/recovery/entrypoint": "ordax/bootstrap/recovery/entrypoint",
@@ -63,6 +65,8 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
 
     def test_refreshes_only_fixed_helpers_with_executable_mode(self):
         self.assertIn("/bootstrap/dev-base/ordax-diagnose", PULL)
+        self.assertNotIn("/bootstrap/dev-base/ordax-remote", PULL)
+        self.assertIn("/bootstrap/base-update/", PULL)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             worktree, target, state = self.make_fixture(root)
@@ -156,6 +160,61 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             self.assertTrue(installed.is_symlink())
             self.assertEqual(outside.read_text(encoding="utf-8"), "keep\n")
             self.assertFalse((state / "dev-helpers-sha").exists())
+
+    def test_ordax_run_streams_guardian_status_and_exact_sha_provisioning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worktree = root / "worktree"
+            entrypoint = worktree / "system" / "entrypoint"
+            entrypoint.parent.mkdir(parents=True)
+            run_dir = root / "run" / "ordax-update"
+            marker = root / "run" / "ordax-surface" / "runtime-provisioning-source-sha"
+            fake_git = root / "git"
+
+            fake_git.write_text(
+                f"#!/bin/sh\nprintf '%s\\n' '{SOURCE_SHA}'\n",
+                encoding="utf-8",
+            )
+            fake_git.chmod(0o755)
+            entrypoint.write_text(
+                "#!/bin/sh\n"
+                "set -eu\n"
+                "printf '%s\\n' '2026-10-15T00:00:00Z ordax-guardian: fake-start' >>\"$ORDAX_UPDATE_RUN_DIR/guardian.log\"\n"
+                "mkdir -p \"$(dirname \"$ORDAX_SURFACE_RUNTIME_PROVISION_MARKER\")\"\n"
+                "printf '%s\\n' \"$ORDAX_SOURCE_SHA\" >\"$ORDAX_SURFACE_RUNTIME_PROVISION_MARKER\"\n"
+                "sleep 2\n"
+                "rm -f \"$ORDAX_SURFACE_RUNTIME_PROVISION_MARKER\"\n"
+                "printf '%s\\n' 'ordax-system: cold-boot Surface acknowledged healthy state' >>\"$ORDAX_UPDATE_RUN_DIR/guardian.log\"\n"
+                "sleep 2\n",
+                encoding="utf-8",
+            )
+            entrypoint.chmod(0o755)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "ORDAX_WORKTREE": str(worktree),
+                    "ORDAX_GIT_BIN": str(fake_git),
+                    "ORDAX_UPDATE_RUN_DIR": str(run_dir),
+                    "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(marker),
+                }
+            )
+            result = subprocess.run(
+                ["/bin/sh", str(RUN)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=12,
+            )
+            combined = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, combined)
+            self.assertIn(f"starting Owner/Development runtime at {SOURCE_SHA}", combined)
+            self.assertIn(f"canonical log: {run_dir / 'guardian.log'}", combined)
+            self.assertIn("ordax-guardian: fake-start", combined)
+            self.assertIn("first-boot Surface runtime provisioning is in progress", combined)
+            self.assertIn("cold-boot Surface acknowledged healthy state", combined)
+            self.assertFalse(marker.exists())
 
 
 if __name__ == "__main__":

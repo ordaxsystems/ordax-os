@@ -71,15 +71,17 @@ func IsPrototypePhysicalRecoveryCandidate(busType uint32, systemDisk bool) bool 
 	return !systemDisk && busType == BusTypeUSB
 }
 
+// ConfirmationToken binds the destructive confirmation to the whole physical
+// device that will be written, not to its current logical-volume presentation.
+// Drive letters, filesystem volume serials/sizes and DriveType can legitimately
+// change when Windows mounts, unmounts or recovers the same USB after a partial
+// write. They remain independently validated by discovery/volume-isolation
+// gates, but must not make the identity of the same PhysicalDrive unstable.
 func ConfirmationToken(target Target) string {
 	identity := fmt.Sprintf(
-		"ordax-target-v3|%s|%08x|%d|%d|%d|%s|%s|%t|%s|%t",
-		strings.ToUpper(strings.TrimSpace(target.DriveLetter)),
-		target.VolumeSerial,
+		"ordax-physical-target-v4|%d|%d|%s|%t|%s|%t",
 		target.DiskNumber,
-		target.VolumeBytes,
 		target.PhysicalDiskBytes,
-		target.DriveType,
 		target.BusType,
 		target.DeviceRemovable,
 		strings.TrimSpace(target.DeviceSerial),
@@ -135,8 +137,9 @@ func MatchConfirmedTarget(targets []Target, token string) (Target, error) {
 			continue
 		}
 		// Never trust the token carried by an object as proof of its current
-		// identity. Recompute it from the fields that identify the live target
-		// so stale or internally modified Target values fail closed.
+		// physical identity. Recompute it from the live PhysicalDrive fields so
+		// stale or internally modified physical identities fail closed while a
+		// mounted/recovery representation transition of the same USB remains valid.
 		recomputed := ConfirmationToken(candidate)
 		if candidate.ConfirmationToken != recomputed {
 			return Target{}, errors.New("currently safe USB target identity is internally inconsistent")

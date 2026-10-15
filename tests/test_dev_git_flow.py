@@ -145,6 +145,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "ORDAX_REPO_BRANCH": "main",
                 "ORDAX_WORKTREE": str(self.worktree),
                 "ORDAX_STATE_DIR": str(self.state),
+                "ORDAX_UPDATE_RUN_DIR": str(self.root / "run/ordax-update"),
+                "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(
+                    self.root / "run/ordax-surface/runtime-provisioning-source-sha"
+                ),
             }
         )
         return env

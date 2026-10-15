@@ -4,7 +4,14 @@ on:
   pull_request:
     paths:
       - 'bootstrap/independent-base/**'
-      - 'tests/test_independent_base_experiment.py'
+      - '!bootstrap/independent-base/**/*.md'
+      - 'bootstrap/kernel/build.py'
+      - 'bootstrap/kernel/verify.py'
+      - 'bootstrap/kernel/verify_upstream_signature.py'
+      - 'bootstrap/kernel/source.json'
+      - 'bootstrap/kernel/config/ordax.fragment'
+      - 'docs/contracts/kernel-build-environment.json'
+      - 'tools/ci/portable_component_cache.py'
       - '.github/workflows/independent-base-experiment.yml'
   workflow_dispatch:
 
@@ -36,33 +43,80 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
             libelf-dev dwarves kmod xz-utils pkg-config \
-            gawk cpio unzip rsync file wget curl patch git \
+            gawk cpio unzip rsync file binutils wget curl patch git \
             erofs-utils e2fsprogs util-linux qemu-system-x86
       - name: Verify isolated contract and regressions
         run: |
-          python3 -m unittest tests.test_independent_base_experiment -v
+          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_network_parity -v
           python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
+      - name: Resolve reusable kernel fingerprint
+        id: component-fingerprints
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/portable-v2-qemu/metadata"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+      - name: Restore verified kernel component
+        id: kernel-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
       - name: Build rootfs from official Buildroot source
         run: |
           python3 bootstrap/independent-base/build.py build \
             --out "$RUNNER_TEMP/ordax-independent" \
             --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
           python3 bootstrap/independent-base/build.py verify --out "$RUNNER_TEMP/ordax-independent"
-      - name: Build canonical OrdaX kernel without modifying kernel source
+      - name: Build canonical OrdaX kernel on verified cache miss
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           python3 bootstrap/kernel/build.py build \
             --work-dir "$RUNNER_TEMP/ordax-kernel-work" \
-            --out-dir "$RUNNER_TEMP/ordax-kernel" --jobs 4
-          python3 bootstrap/kernel/verify.py "$RUNNER_TEMP/ordax-kernel"
+            --out-dir "$RUNNER_TEMP/portable-v2-qemu/kernel" --jobs 4
+      - name: Verify kernel component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
+          metadata="$RUNNER_TEMP/portable-v2-qemu/metadata"
+          cache_hit='${{ steps.kernel-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
+          python3 bootstrap/kernel/verify.py "$kernel_dir"
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component kernel \
+              --out-dir "$kernel_dir" \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$metadata/kernel-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component kernel \
+            --out-dir "$kernel_dir" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$metadata/kernel-component-reuse.json"
+      - name: Save verified kernel component
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/portable-v2-qemu/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
       - name: QEMU real kernel, EROFS and ext4 persistence/recovery
         run: |
           python3 bootstrap/independent-base/qemu_proof.py \
             --out "$RUNNER_TEMP/ordax-independent" \
-            --kernel-dir "$RUNNER_TEMP/ordax-kernel" \
+            --kernel-dir "$RUNNER_TEMP/portable-v2-qemu/kernel" \
             --result "$RUNNER_TEMP/ordax-independent-qemu-result.json"
       - name: Upload candidate/provenance and observed QEMU result
         if: always()
@@ -73,7 +127,8 @@ jobs:
             ${{ runner.temp }}/ordax-independent/provenance.json
             ${{ runner.temp }}/ordax-independent/independent-base.erofs
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
-            ${{ runner.temp }}/ordax-kernel/kernel-provenance.json
+            ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
+            ${{ runner.temp }}/portable-v2-qemu/metadata/kernel-component-reuse.json
             ${{ runner.temp }}/ordax-independent-qemu-result.json
             ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log
           if-no-files-found: warn

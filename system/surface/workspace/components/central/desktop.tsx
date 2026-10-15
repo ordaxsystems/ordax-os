@@ -1,3 +1,4 @@
+import { SpacesExperience } from './spaces-experience';
 import { IntegrationNote } from './integration-note';
 import { ProfileCatalogPanel } from './profile-catalog';
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
@@ -38,7 +39,7 @@ export function DesktopContent({ title, open }: PresentationProps & { initialPro
   if (title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p><IntegrationNote area="activity"/></Panel>;
   if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p><IntegrationNote area="devices"/></Panel>;
   if (title === 'Continuidade') return <Panel title={title}><p className="service-state">Este aplicativo ainda não está conectado.</p><IntegrationNote area="continuity"/></Panel>;
-  if (title === 'Espaços') return <SpacesPanel/>;
+  if (title === 'Espaços') return <SpacesExperience onOpen={open}><SpacesPanel/></SpacesExperience>;
   if (title === 'Configurações') return <Suspense fallback={<p className="service-state" role="status">Carregando Ajustes…</p>}><SettingsExperience/></Suspense>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
 }

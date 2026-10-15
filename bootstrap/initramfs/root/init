@@ -6,16 +6,38 @@ export PATH
 
 BOOTSTRAP_PATH=/ordax/bootstrap/entrypoint
 RECOVERY_BOOTSTRAP_PATH=/ordax/bootstrap/recovery/entrypoint
+OWNER_ROOT_PROBE=/run/ordax-owner-root-probe
+OWNER_ESP_PROBE=/run/ordax-owner-esp-probe
 
 rescue() {
     echo "ordax-initramfs: entering local recovery shell: $*" >&2
     exec sh
 }
 
-mkdir -p /proc /sys /dev /run /ordax
+mkdir -p /proc /sys /dev /run /ordax "$OWNER_ROOT_PROBE" "$OWNER_ESP_PROBE"
 mount -t proc proc /proc || rescue "cannot mount /proc"
 mount -t sysfs sysfs /sys || rescue "cannot mount /sys"
 mount -t devtmpfs devtmpfs /dev || rescue "cannot mount /dev"
+
+probe_read_only_filesystem() {
+    device=$1
+    filesystem=$2
+    target=$3
+
+    case "$filesystem" in
+        ext4) options=ro,noload,nosuid,nodev,noexec ;;
+        vfat) options=ro,nosuid,nodev,noexec ;;
+        *) return 1 ;;
+    esac
+
+    if ! mount -t "$filesystem" -o "$options" "$device" "$target" 2>/dev/null; then
+        return 1
+    fi
+    if ! umount "$target" >/dev/null 2>&1; then
+        rescue "cannot unmount read-only $filesystem identity probe for $device"
+    fi
+    return 0
+}
 
 CMDLINE=" $(cat /proc/cmdline 2>/dev/null || true) "
 RECOVERY_MODE=0
@@ -47,10 +69,9 @@ discover_owner_development_device() {
             *'LABEL="ORDAX"'*) ;;
             *) continue ;;
         esac
-        case "$identity" in
-            *'TYPE="ext4"'*) ;;
-            *) continue ;;
-        esac
+        if ! probe_read_only_filesystem "/dev/$name" ext4 "$OWNER_ROOT_PROBE"; then
+            continue
+        fi
 
         parent_dev="$(cat "$sys/../dev" 2>/dev/null || true)"
         case "$parent_dev" in
@@ -74,11 +95,13 @@ discover_owner_development_device() {
                 *'LABEL="ORDAX-ESP"'*) ;;
                 *) continue ;;
             esac
-            case "$esp_identity" in
-                *'TYPE="vfat"'*) ;;
-                *) continue ;;
+            if ! probe_read_only_filesystem "/dev/$esp_name" vfat "$OWNER_ESP_PROBE"; then
+                continue
+            fi
+            case "$esp_matches" in
+                0) esp_matches=1 ;;
+                *) esp_matches=many ;;
             esac
-            esp_matches=$((esp_matches + 1))
         done
 
         case "$esp_matches" in
@@ -86,24 +109,25 @@ discover_owner_development_device() {
             *) continue ;;
         esac
 
-        ORDAX_DEVICE_MATCHES=$((ORDAX_DEVICE_MATCHES + 1))
+        case "$ORDAX_DEVICE_MATCHES" in
+            0) ORDAX_DEVICE_MATCHES=1 ;;
+            *) ORDAX_DEVICE_MATCHES=many ;;
+        esac
         ORDAX_DEVICE="/dev/$name"
     done
 }
 
 case "$OWNER_DEVELOPMENT" in
     1)
-        attempts=0
-        while :; do
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
             discover_owner_development_device
             case "$ORDAX_DEVICE_MATCHES" in
                 1) break ;;
                 0)
-                    attempts=$((attempts + 1))
-                    case "$attempts" in
+                    case "$attempt" in
                         10) rescue "owner-development USB root not found on exactly one removable ORDAX/ORDAX-ESP device" ;;
+                        *) sleep 1 ;;
                     esac
-                    sleep 1
                     ;;
                 *) rescue "multiple owner-development USB roots detected; refusing ambiguous writable mount" ;;
             esac

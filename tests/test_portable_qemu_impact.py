@@ -14,6 +14,26 @@ sys.modules[spec.name] = impact
 spec.loader.exec_module(impact)
 
 
+OWNER_REMOTE_SLICE = [
+    ".github/workflows/owner-remote-recovery-contract.yml",
+    "bootstrap/base-update/owner-development/ordax-remote",
+    "bootstrap/base-update/owner-development/owner-recovery-source.json",
+    "docs/REMOTE-CONTROL.md",
+    "system/services/base-update/dev-helpers.sh",
+    "tests/test_dev_base_helper_refresh.py",
+    "tests/test_owner_remote_recovery.py",
+]
+
+OWNER_RUN_VISIBLE_STATUS_SLICE = [
+    ".github/workflows/owner-remote-recovery-contract.yml",
+    "bootstrap/dev-base/ordax-run",
+    "tests/test_dev_base_helper_refresh.py",
+    "tests/test_dev_git_flow.py",
+    "tools/ci/portable_qemu_impact.py",
+    "tests/test_portable_qemu_impact.py",
+]
+
+
 class PortableQemuImpactTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -74,6 +94,91 @@ class PortableQemuImpactTests(unittest.TestCase):
         result = impact.classify_paths(["bootstrap/kernel/source.json"], root=ROOT)
         self.assertTrue(result.required)
         self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_kernel_module_archive_helper_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(["bootstrap/kernel/module_archive.py"], root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_full_independent_module_slice_does_not_require_direct_stable_qemu(self):
+        result = impact.classify_paths(
+            [
+                ".github/workflows/independent-base-experiment.yml",
+                "bootstrap/independent-base/module_parity.py",
+                "bootstrap/independent-base/post-build.sh",
+                "bootstrap/kernel/module_archive.py",
+                "tests/test_independent_kernel_module_workflow.py",
+                "tests/test_kernel_module_archive.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_real_kernel_change_stays_heavy_with_full_independent_module_slice(self):
+        result = impact.classify_paths(
+            [
+                ".github/workflows/independent-base-experiment.yml",
+                "bootstrap/independent-base/module_parity.py",
+                "bootstrap/independent-base/post-build.sh",
+                "bootstrap/kernel/module_archive.py",
+                "tests/test_independent_kernel_module_workflow.py",
+                "tests/test_kernel_module_archive.py",
+                "bootstrap/kernel/source.json",
+            ],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_owner_remote_recovery_slice_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(OWNER_REMOTE_SLICE, root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_real_kernel_change_stays_heavy_with_owner_remote_recovery_slice(self):
+        result = impact.classify_paths(
+            [*OWNER_REMOTE_SLICE, "bootstrap/kernel/source.json"],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_owner_run_visible_status_slice_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(OWNER_RUN_VISIBLE_STATUS_SLICE, root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_real_kernel_change_stays_heavy_with_owner_run_visible_status_slice(self):
+        result = impact.classify_paths(
+            [*OWNER_RUN_VISIBLE_STATUS_SLICE, "bootstrap/kernel/source.json"],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_impact_policy_change_uses_focused_contract_instead_of_qemu(self):
+        result = impact.classify_paths(
+            [
+                ".github/workflows/portable-qemu-impact-contract.yml",
+                "tools/ci/portable_qemu_impact.py",
+                "tests/test_portable_qemu_impact.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
+
+    def test_qemu_workflow_change_itself_stays_heavy(self):
+        result = impact.classify_paths(
+            [".github/workflows/portable-v2-qemu-boot-proof.yml"],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn(
+            "heavy-exact:.github/workflows/portable-v2-qemu-boot-proof.yml",
+            result.reasons,
+        )
 
     def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:

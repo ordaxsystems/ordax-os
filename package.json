@@ -2,6 +2,11 @@
   "name": "prototype-ordax-os-runtime-adapters",
   "private": true,
   "type": "module",
+  "scripts": {
+    "emulator:windows": "node tools/windows-emulator/dev-supervisor.mjs",
+    "emulator:windows:vite": "vite --config tools/windows-emulator/vite.config.mjs --open /tools/windows-emulator/index.html",
+    "emulator:windows:smoke": "node tools/windows-emulator/smoke.mjs"
+  },
   "dependencies": {
     "@vercel/oidc": "4.0.0",
     "@radix-ui/react-dialog": "^1.1.15",

@@ -208,6 +208,27 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertNotIn("libblkid-dev", before_ai)
         self.assertNotIn("liblzma-dev", before_ai)
 
+    def test_independent_base_path_binds_verified_kernel_module_inputs(self):
+        independent = WORKFLOW.split("            independent)", 1)[1].split(
+            "            *)", 1
+        )[0]
+        for marker in (
+            'module_archive="$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
+            'base_out="$work/independent-base"',
+            'test -f "$module_archive"',
+            'test ! -L "$module_archive"',
+            'export ORDAX_HOST_PYTHON="$(command -v python3)"',
+            'export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"',
+            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"',
+            '--out "$base_out"',
+        ):
+            self.assertIn(marker, independent)
+        self.assertNotIn("bootstrap/kernel/build.py build", independent)
+        self.assertLess(
+            independent.index('export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"'),
+            independent.index("bootstrap/independent-base/build.py build"),
+        )
+
     def test_workflow_builds_signed_release_real_base_capsule_and_pinned_initramfs(self):
         for marker in (
             "bootstrap/kernel/build.py build",

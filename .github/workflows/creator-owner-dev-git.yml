@@ -82,7 +82,67 @@ jobs:
             gdisk dosfstools e2fsprogs mtools util-linux proot
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
-      - name: Build boot kernel initramfs and Git development base
+      - name: Resolve reusable kernel fingerprint
+        id: component-fingerprints
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/owner-dev/metadata"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified kernel component
+        id: kernel-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+
+      - name: Build kernel candidate on verified cache miss
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python bootstrap/kernel/build.py check
+          python bootstrap/kernel/build.py build --jobs 4
+
+      - name: Verify kernel component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          metadata="$RUNNER_TEMP/owner-dev/metadata"
+          cache_hit='${{ steps.kernel-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
+          python bootstrap/kernel/verify.py out/kernel
+          test -s "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component kernel \
+              --out-dir out/kernel \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$metadata/kernel-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component kernel \
+            --out-dir out/kernel \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$metadata/kernel-component-reuse.json"
+
+      - name: Save verified kernel component
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+
+      - name: Build boot initramfs and Git development base
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -90,9 +150,6 @@ jobs:
           python boot/esp/build.py check
           python boot/esp/build.py build
           python boot/esp/build.py verify
-          python bootstrap/kernel/build.py check
-          python bootstrap/kernel/build.py build --jobs 4
-          python bootstrap/kernel/verify.py out/kernel
           python bootstrap/initramfs/build.py check
           python bootstrap/initramfs/build.py build --jobs 4
           python bootstrap/initramfs/build.py verify

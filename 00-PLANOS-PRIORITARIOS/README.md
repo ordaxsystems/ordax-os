@@ -18,6 +18,8 @@ Até o fechamento do MVP atual, este hub funciona principalmente como **registro
 
 Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora**.
 
+`NATIVE-001` merece leitura especial: ele organiza a jornada USB → Native que `MVP.md` já inclui no ciclo do MVP. Portanto seus recortes podem ser P0/EXECUTION-ELIGIBLE **somente quando os owners canônicos atuais já os exigirem**. O plano não liga flags, não autoriza disco e não vence gates de consentimento/escrita física.
+
 ## Autoridade
 
 Esta pasta **não substitui** a hierarquia documental do OrdaX.
@@ -96,6 +98,113 @@ O status documental é separado da janela de execução:
 
 Durante o fechamento atual do MVP, a regra padrão para planos futuros é `DEFERRED FOR EXECUTION`.
 
+## Planos centrais atuais deste hub
+
+### NATIVE-001 — USB → Native e fechamento do MVP instalável
+
+`plans/NATIVE-001-USB-TO-NATIVE-MVP-CLOSURE.md`
+
+Organiza a promoção da infraestrutura Native já existente: whole-disk, target identity, Stable signed release, boot sem USB, first-boot health, known-good/recovery e hardware claim por modelo. **P0 somente porque o owner canônico já colocou Native no ciclo do MVP.** Não autoriza APPLY físico.
+
+### MODE-001 — Web, Cloud & Device Runtime
+
+`plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md`
+
+Preserva a direção de um produto/uma Surface com runtimes `web | cloud | device | hybrid`, Web real, Files federado, Store sem mocks, Device Bridge, Secure Mesh opcional e Cloud Runtime/VPS somente quando justificado. P1 pós-MVP.
+
+### DEV-001 — Space geral de Desenvolvimento
+
+`plans/DEV-001-GENERAL-DEVELOPMENT-SPACE.md`
+
+Define um Space horizontal de desenvolvimento para múltiplos projetos como Achegue-se, STLForge, sites, apps, APIs e outros produtos. **Studio é ferramenta/app dentro do contexto de um projeto, não um Space.** Git, CI, deploy e providers preservam seus próprios SSOTs e permissões. P1 pós-MVP.
+
+### FAB-001 — OrdaX Fabrication e Impressão 3D
+
+`plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md`
+
+Primeiro vertical comercial recomendado depois da fundação Web/Cloud/Device. Usa a operação real de impressão 3D como dogfooding de pedidos, orçamento, modelos, jobs, print farm, materiais, qualidade, custos, devices e Intelligence. P1 pós-MVP.
+
+### FOOD-001 — OrdaX Food e piloto Pizza
+
+`plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md`
+
+Transforma a direção já existente do Profile `pizzaria-br@1` em um plano comercial pós-MVP sem inflar o recorte atual do Profile. Define **OrdaX Food** como domínio compartilhado e **Pizza/Pizzaria** como primeiro vertical/piloto, cobrindo Menu, pizza builder, Orders, POS, KDS, mesas/comandas, estoque/ficha técnica, compras, CRM, Inbox/WhatsApp oficial, delivery, pagamentos, analytics e Intelligence/Autopilot. P1 pós-MVP.
+
+### IDENTITY-001 — membros, convites e acesso a Spaces
+
+`plans/IDENTITY-001-SPACE-MEMBERS-INVITES-AND-ACCESS.md`
+
+Fecha o produto sobre o membership já existente: convites, aceite, expiração, revogação, `owner/admin/member/viewer`, transferência de ownership e auditoria. Funcionário/People não ganha login automaticamente. P1 pós-MVP.
+
+### REL-001 — relações externas e portais
+
+`plans/REL-001-EXTERNAL-RELATIONSHIPS-AND-PORTALS.md`
+
+Fundação horizontal para clientes, pais/responsáveis, alunos e outros externos acessarem projections/actions autorizadas sem virarem membros internos. O domínio mantém o SSOT da relação; REL-001 possui grants/consent/revoke e shell do Portal. P1 pós-MVP.
+
+### ACHEGUESE-001 — integração first-party OrdaX × Achegue-se
+
+`plans/ACHEGUESE-001-FIRST-PARTY-PRODUCT-INTEGRATION.md`
+
+Mantém os produtos separados e integráveis por OAuth/API/events/projections. Regra de produto: **Achegue-se descobre e conecta; OrdaX organiza e opera.** Nenhum banco, credencial privilegiada, release ou SSOT é fundido. P1 de ecossistema pós-MVP dos dois lados.
+
+### ACHEGUESE-002 — Space operacional do Achegue-se
+
+`plans/ACHEGUESE-002-ORDAX-OPERATIONS-SPACE.md`
+
+Define o Space privado usado para operar o produto: usuários, empresas, solicitações, territórios, assinaturas/pagamentos quando houver owner real, pedidos quando promovidos, moderação, suporte, métricas e Aura. O desenvolvimento técnico do Achegue-se passa a ser um projeto no DEV-001. P1 de dogfooding/operação pós-MVP.
+
+### TALENT-001 — Identidade profissional, vagas e contratação
+
+`plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md`
+
+Identidade profissional fica na Account, fora de Space e fora de Profile Pack. Vagas pertencem a Spaces empregadores; Network/Messaging suportam o fluxo; People e membership entram somente após decisões explícitas. IA é assistiva e não decide contratação. P2.
+
+### EDU-001 — Education e Portal da Família
+
+`plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md`
+
+Define Escola como Space operacional privado: alunos, responsáveis, turmas, presença, notas, autorizações, reuniões, pagamentos e transporte limitado. Pais/alunos usam REL-001; dados de menores nunca viram targeting/publicação territorial. P2.
+
+### MARKET-001 — ofertas, descoberta e Marketplace
+
+`plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md`
+
+OrdaX pode author/publicar ofertas; Achegue-se é canal territorial natural quando vinculado. Publicação é explícita, revisionada e revogável. Não há ad-tech baseado em dados privados/sensíveis. P2.
+
+### HARDWARE-001 — Hardware, Drivers e Packs
+
+`plans/HARDWARE-001-HARDWARE-DRIVERS-AND-PACKS.md`
+
+Evolui a estratégia já existente de hardware packs assinados/exact-match até uma experiência de Hardware & Drivers com health/rollback. P1. O mínimo necessário ao modelo Native anunciado permanece no P0 do owner do MVP.
+
+### DESKTOP-001 — experiência cotidiana
+
+`plans/DESKTOP-001-DAILY-USE-EXPERIENCE.md`
+
+Fecha lacunas reais sem recriar subsistemas: Displays, Help offline, MTP/PTP/SMB no Files, UX de Updates e descoberta de apps por intenção. Theme Packs são P2 interno. P1 pós-MVP.
+
+### WEB-001 — Web Research
+
+`plans/WEB-001-WEB-RESEARCH.md`
+
+Capability provider-neutral para pesquisa externa compartilhável por Intelligence/Aura/Studio. P1 pós-MVP e distinta de OrdaX Web.
+
+## Relatório de comparação de desktop
+
+`reports/COMP-001-SPACED-LINUX-ORDAX-COMPARISON.md` registra a auditoria que corrigiu uma leitura superficial de lacunas.
+
+Ele existe para impedir que outro chat/agente proponha desnecessariamente:
+
+- Calamares como segundo instalador;
+- Timeshift como segundo recovery;
+- outro serviço de Diagnostics;
+- outra Loja;
+- outro updater;
+- APT/DKMS/MATE/Compiz/Flatpak como arquitetura obrigatória do OrdaX.
+
+A regra é: **copiar bons princípios de UX; preservar os owners e contratos do OrdaX**.
+
 ## Regras de higiene
 
 - Todo novo relatório deve entrar em `inbox/` ou diretamente em `reports/` se já estiver triado.
@@ -120,11 +229,3 @@ Eles estão catalogados em `REGISTRY.md`. A migração futura deve ser increment
 5. somente então mover, arquivar ou remover.
 
 Até essa auditoria terminar, o `REGISTRY.md` é a classificação autoritativa **do hub de planejamento** para esses arquivos, sem alterar a autoridade arquitetural do produto.
-
-## Primeiro plano nativo do hub
-
-`WEB-001 — OrdaX Web Research` foi criado a partir da pesquisa de 14/10/2026 sobre Tavily, Brave, Exa, Firecrawl, alternativas open source, arquitetura provider-neutral, operação local, custos e segurança.
-
-A direção preservada é: **OrdaX possui os contratos, política, research orchestration, provenance e budget; provedores externos são adapters substituíveis.** Web Research é núcleo lógico de serviços, não kernel/boot/initramfs.
-
-Enquanto o MVP atual não estiver fechado, `WEB-001` permanece documentado e **DEFERRED FOR EXECUTION**.

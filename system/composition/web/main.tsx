@@ -70,7 +70,12 @@ const web = createRoute({
 // The build base owns both asset URLs and the Router mount. A relative default
 // is rooted at / for the canonical host; an explicitly mounted bundle may use
 // --base /preview-os/ without changing the product's routes or permissions.
-const webBasepath = import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL;
+const sourceCompositionBasepath = '/system/composition/web/';
+const webBasepath = import.meta.env.BASE_URL === './'
+  ? '/'
+  : import.meta.env.BASE_URL === '/' && window.location.pathname.startsWith(sourceCompositionBasepath)
+    ? sourceCompositionBasepath
+    : import.meta.env.BASE_URL;
 const router = createRouter({basepath: webBasepath,
   trailingSlash: 'always', routeTree: route.addChildren([web])});
 try {

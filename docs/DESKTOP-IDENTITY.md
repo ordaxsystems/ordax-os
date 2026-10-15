@@ -1632,3 +1632,34 @@ backend registry. All planned content and simulated operations are retained.
 The Store note is outside its shadow presentation; toggling official/planned
 views retains its search and demonstration session. No backend transport is
 newly activated, and narrower services do not replace richer planned flows.
+
+
+### Shared Spaces presentation — 2026-10-15
+
+The Web Spaces window now consumes `system/surface/ui/spaces/presentation/`, the same
+renderer, styles and fictional examples used by the Meridian preview. The preview
+imports these owners instead of maintaining another Spaces dashboard. Rendering
+primitives and icons live under `system/surface/ui/meridian/`. The Web adapter follows
+the existing Store lifecycle: scoped Shadow DOM, disposal on unmount, material from
+canonical preferences and no iframe. Opening another window does not reset its state.
+
+The canonical account Spaces panel remains intact and separately accessible. It
+still reads only authorized membership and uses the existing selection/session
+owner. Fictional examples never become account memberships or backend metrics.
+The presentation defaults to the account panel when its authorized projection is
+ready, otherwise to explicitly identified examples. Achegue-se is the example in
+use; Estúdio takes its former primary-card position. The Achegue-se cover reuses
+`workspace/assets/demo-salvador-1.jpg`; it is illustrative, not remotely fetched.
+
+Indicators are supplied by each example, with labels, values, optional supporting
+text, progress and tone. All example metrics remain visible. Capabilities narrower
+than the design remain unconnected: covers/metrics/activity, creation, templates,
+permissions and membership mutations require authoritative contracts and services.
+Search, sorting, favorites and example context switching are memory-only. The
+creation example only reviews a proposal and never reports backend provisioning.
+The complete isolated preview journeys remain available separately.
+
+The integration branch includes canonical `main` through `7e71ead5`. Browser visual
+inspection confirmed the Spaces window and cover inside the existing Web shell.
+No npm commands, automated tests, type-check or build were run, as requested. Native
+hardware/runtime integration and backend availability are not claimed.
