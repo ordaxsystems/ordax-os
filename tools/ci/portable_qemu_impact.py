@@ -47,6 +47,7 @@ PRODUCER_NEUTRAL_LIGHT_PREFIXES = (
     "bootstrap/independent-base/",
 )
 OWNER_DEVELOPMENT_LIGHT_EXACT = {
+    ".github/workflows/owner-remote-recovery-contract.yml",
     "docs/REMOTE-CONTROL.md",
     "tests/test_dev_base_helper_refresh.py",
     "tests/test_owner_remote_recovery.py",
