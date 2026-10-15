@@ -7,6 +7,7 @@ export PATH
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_ROOT=${ORDAX_OWNER_REMOTE_STATE_DIR:-/state/ordax/owner-remote}
 PIN_FILE=${ORDAX_OWNER_REMOTE_PIN_FILE:-$WORKTREE/bootstrap/base-update/owner-development/owner-recovery-source.json}
+CMDLINE_FILE=${ORDAX_CMDLINE_FILE:-/proc/cmdline}
 PID_FILE=$STATE_ROOT/agent.pid
 LOG_FILE=$STATE_ROOT/agent.log
 RECEIPT_FILE=$STATE_ROOT/installed.sha256
@@ -47,6 +48,23 @@ is_hex_length() {
         ''|*[!0-9a-f]*) return 1 ;;
     esac
     return 0
+}
+
+owner_profile_proven() {
+    [ -f "$CMDLINE_FILE" ] && [ ! -L "$CMDLINE_FILE" ] || return 1
+    found=no
+    for token in $(bb cat "$CMDLINE_FILE" 2>/dev/null || true); do
+        case "$token" in
+            ordax.distribution_profile=owner-development)
+                [ "$found" = no ] || return 1
+                found=yes
+                ;;
+            ordax.distribution_profile=*)
+                return 1
+                ;;
+        esac
+    done
+    [ "$found" = yes ]
 }
 
 pin_lines() {
@@ -219,12 +237,12 @@ start_agent() {
         [ -f "$PID_FILE" ] && [ ! -L "$PID_FILE" ] || fail "PID file is unsafe"
         bb rm -f "$PID_FILE"
     fi
-    [ -x /bin/setsid ] || fail "setsid is unavailable"
+    bb setsid --help >/dev/null 2>&1 || fail "BusyBox setsid applet is unavailable"
 
     bb touch "$LOG_FILE"
     [ -f "$LOG_FILE" ] && [ ! -L "$LOG_FILE" ] || fail "agent log path is unsafe"
     bb chmod 600 "$LOG_FILE"
-    /bin/setsid "$BIN_PATH" >>"$LOG_FILE" 2>&1 &
+    bb setsid "$BIN_PATH" </dev/null >>"$LOG_FILE" 2>&1 &
     pid=$!
     pid_tmp=$PID_FILE.tmp.$$
     printf '%s\n' "$pid" >"$pid_tmp"
@@ -283,8 +301,8 @@ ensure_agent() {
     fi
 }
 
-[ "${ORDAX_DISTRIBUTION_PROFILE:-}" = "owner-development" ] || \
-    fail "this helper is restricted to explicit owner-development profile"
+owner_profile_proven || \
+    fail "physical owner-development boot identity is missing or ambiguous"
 
 case "${1:-status}" in
     status) status_agent ;;
