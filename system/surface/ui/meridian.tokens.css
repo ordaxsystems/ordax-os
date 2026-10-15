@@ -65,7 +65,7 @@
   --md-duration:180ms;
   color-scheme:light;
   color:var(--md-ink);
-  font:14px/1.5 var(--md-font);
+  font:0.875rem/1.5 var(--md-font);
 }
 [data-meridian][data-theme="dark"], [data-meridian][data-ordax-theme="dark"], [data-meridian][data-material="ink"], [data-meridian] [data-material-preview="ink"] {
   --md-canvas:#202824;

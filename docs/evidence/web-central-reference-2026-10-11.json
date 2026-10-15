@@ -1064,8 +1064,15 @@
       "target": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
       "sha256": "ba1112f5f0d0183722be14224a40f1665fc34f3f266bbb92b9501f727992f8b2",
       "purpose": "Single favorite-shortcut renderer/editor for Home and Apps using existing preference runtime/store and shared Dialog.",
-      "adaptedSha256": "4b974822eac73ab82bf5f307c33a3f9bdcd754c9ba0f47b9d78dcefef3fb6aab",
-      "adaptation": "Editor list fits tall phones; concise help and same preference/focus owner retained."
+      "adaptedSha256": "8ea2daf9a185323a0d7cabdf0236810879aaadb000bb75ce4ae1b9dfe05e43a6",
+      "adaptation": "Editor list fits tall phones; concise help and same preference/focus owner retained. Meridian consistency: material preview uses shared tokens and favorite launch uses canonical Aura title; no new preference or app authority.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "4b974822eac73ab82bf5f307c33a3f9bdcd754c9ba0f47b9d78dcefef3fb6aab",
+          "reason": "Before Meridian preference/material consistency follow-up"
+        }
+      ]
     }
   ]
 }

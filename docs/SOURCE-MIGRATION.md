@@ -4,6 +4,8 @@ Status: CANONICAL LEDGER
 
 ## Meridian Web and Store integration — 2026-10-14
 
+FOLLOW_UP=Canonical preferences now drive dock favorites and embedded contrast/motion/text scale; material preview/copy matches Meridian; no new preference or service owner
+
 COMPONENT=Canonical Web Central/Desktop and Store presentation; shared Native/USB visual policy
 REFERENCE_REPOSITORY=ordaxsystems/ordax-os
 REFERENCE_COMMIT=e7cf628a01878c484d47997721518fe6f2330c10

@@ -122,3 +122,26 @@ Ctrl K/Escape, responsive menu and planned-resource access.
 ![Completed Desktop compact rail and dock](chrome-desktop.jpg)
 
 ![Completed mobile header, work area and dock](chrome-mobile.jpg)
+
+## Preferences consistency follow-up
+
+The canonical appearance miniatures and PT/EN descriptions now describe Meridian
+Argila/Grafite. The dock reads the existing persisted favorites preference;
+unpinning an open app keeps its running window visible until it is closed.
+Favorite launch and rail/dock launch resolve Intelligence/Aura to one window.
+
+The Store shadow host receives canonical contrast and motion preferences, and
+Meridian typography uses rem so document text scale reaches the embedded view.
+No preference IDs, storage owner, mock inventory or backend authority were added.
+
+Validation: 24 Node tests (preferences, navigation and Store simulation), 27 UI
+contract tests, Web typecheck/build, separate Store build, and 34-reference
+verification passed. Browser checks confirmed paper/ink preview values, root
+text scaling 16 to 20 px, high contrast in Store, reduced-motion host attributes,
+unpin/open/close/re-pin behavior, one Aura window across launch paths, compiled
+Store rendering, no production console errors and no document overflow at 390 px.
+Baseline preferences and favorites were restored after QA. Existing main bundle
+size warning remains (~728 kB / 207 kB gzip). Physical USB behavior and real Store
+operations are not asserted by this presentation validation.
+
+![Compiled Store with Meridian chrome](preferences-store.jpg)

@@ -100,13 +100,13 @@ main:focus{
   align-items:center;
   gap:13px;
   padding:0 10px 34px;
-  font-size:27px;
+  font-size:1.6875rem;
   font-weight:500;
   letter-spacing:-.055em
 }
 .brand small{
   display:block;
-  font-size:9px;
+  font-size:0.5625rem;
   letter-spacing:.2em;
   color:var(--md-rail-muted);
   margin-top:3px
@@ -125,7 +125,7 @@ main:focus{
 }
 .nav-label{
   color:var(--md-rail-muted);
-  font-size:9px;
+  font-size:0.5625rem;
   letter-spacing:.14em;
   padding:0 12px 10px;
   text-transform:uppercase
@@ -135,7 +135,7 @@ main:focus{
   align-items:center;
   gap:11px;
   padding:11px 12px;
-  font-size:12px;
+  font-size:0.75rem;
   border-radius:8px;
   min-height:42px;
   color:var(--md-rail-muted)
@@ -154,7 +154,7 @@ main:focus{
   flex:1
 }
 .count{
-  font-size:10px;
+  font-size:0.625rem;
   padding:1px 6px;
   border-radius:4px;
   background:var(--md-accent-soft);
@@ -166,13 +166,13 @@ main:focus{
   border-top:1px solid var(--md-rail-border);
   display:flex;
   gap:9px;
-  font-size:10px;
+  font-size:0.625rem;
   color:var(--md-rail-text)
 }
 .sidebar-bottom small{
   display:block;
   color:var(--md-rail-muted);
-  font-size:9px;
+  font-size:0.5625rem;
   margin-top:5px
 }
 .scope-dot{
@@ -198,7 +198,7 @@ main:focus{
   display:flex;
   align-items:center;
   gap:12px;
-  font-size:11px;
+  font-size:0.6875rem;
   white-space:nowrap
 }
 .location>span{
@@ -229,7 +229,7 @@ main:focus{
   outline:0;
   width:100%;
   min-width:0;
-  font-size:12px
+  font-size:0.75rem
 }
 .global-search:focus-within{
   outline:2px solid var(--md-focus);
@@ -239,7 +239,7 @@ main:focus{
   outline:0
 }
 .global-search kbd{
-  font-size:11px;
+  font-size:0.6875rem;
   padding:0 5px;
   border:1px solid var(--md-border);
   border-radius:3px
@@ -268,7 +268,7 @@ main:focus{
   gap:14px;
   padding:10px 48px;
   border-bottom:1px solid var(--md-border);
-  font-size:10px;
+  font-size:0.625rem;
   color:var(--md-muted)
 }
 .preview-strip>span{
@@ -294,13 +294,13 @@ main:focus{
 .preview-strip select{
   border:0;
   background:transparent;
-  font-size:10px;
+  font-size:0.625rem;
   padding:2px
 }
 .preview-strip button{
   background:transparent;
   color:var(--md-muted);
-  font-size:10px;
+  font-size:0.625rem;
   text-decoration:underline;
   text-underline-offset:3px
 }
@@ -318,21 +318,21 @@ main{
   margin-bottom:30px
 }
 .eyebrow{
-  font-size:10px;
+  font-size:0.625rem;
   letter-spacing:.14em;
   color:var(--md-accent);
   font-weight:550;
   text-transform:uppercase
 }
 .page-heading h1{
-  font-size:clamp(28px,3vw,39px);
+  font-size:clamp(1.75rem,3vw,2.4375rem);
   font-weight:500;
   line-height:1.2;
   letter-spacing:-.05em;
   margin:11px 0
 }
 .lead{
-  font-size:13px;
+  font-size:0.8125rem;
   color:var(--md-muted);
   line-height:1.8;
   max-width:70ch
@@ -347,7 +347,7 @@ main{
   border-radius:8px;
   background:var(--md-accent);
   color:var(--md-accent-text);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:550;
   border:1px solid transparent;
   white-space:normal
@@ -381,7 +381,7 @@ main{
   align-items:center;
   gap:7px;
   color:var(--md-accent);
-  font-size:11px;
+  font-size:0.6875rem;
   background:transparent;
   padding:5px 0;
   min-height:30px
@@ -390,7 +390,7 @@ main{
   display:inline-flex;
   align-items:center;
   gap:5px;
-  font-size:9px;
+  font-size:0.5625rem;
   font-weight:500;
   border-radius:5px;
   padding:4px 7px;
@@ -479,14 +479,14 @@ main{
   color:var(--md-art-light)
 }
 .feature h2{
-  font-size:clamp(27px,2.4vw,36px);
+  font-size:clamp(1.6875rem,2.4vw,2.25rem);
   line-height:1.13;
   font-weight:500;
   letter-spacing:-.045em;
   margin:18px 0
 }
 .feature p:not(.eyebrow){
-  font-size:12px;
+  font-size:0.75rem;
   line-height:1.8;
   opacity:.8;
   margin-bottom:23px;
@@ -527,14 +527,14 @@ main{
   overflow:hidden
 }
 .feature-side h2{
-  font-size:25px;
+  font-size:1.5625rem;
   line-height:1.2;
   font-weight:500;
   letter-spacing:-.045em;
   margin:15px 0 10px
 }
 .feature-side p:not(.eyebrow){
-  font-size:12px;
+  font-size:0.75rem;
   color:var(--md-muted);
   line-height:1.8;
   max-width:30ch
@@ -575,7 +575,7 @@ main{
   gap:10px;
   padding:14px 0;
   border-bottom:1px solid var(--md-border);
-  font-size:11px
+  font-size:0.6875rem
 }
 .category-strip svg{
   color:var(--md-muted)
@@ -595,12 +595,12 @@ main{
   margin-bottom:17px
 }
 .section-heading h2{
-  font-size:21px;
+  font-size:1.3125rem;
   letter-spacing:-.03em;
   font-weight:500
 }
 .section-heading p{
-  font-size:11px;
+  font-size:0.6875rem;
   line-height:1.7;
   color:var(--md-muted);
   margin-top:5px
@@ -635,13 +635,13 @@ main{
   width:100%
 }
 .product-open h3{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:550;
   letter-spacing:-.025em;
   line-height:1.4
 }
 .product-open small{
-  font-size:9px;
+  font-size:0.5625rem;
   letter-spacing:.09em;
   color:var(--md-muted);
   text-transform:uppercase;
@@ -649,7 +649,7 @@ main{
   margin-bottom:4px
 }
 .product-card>p{
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   line-height:1.8;
   margin:15px 0 18px;
@@ -660,13 +660,13 @@ main{
   justify-content:space-between;
   align-items:center;
   gap:10px;
-  font-size:9px;
+  font-size:0.5625rem;
   color:var(--md-muted)
 }
 .product-card .button{
   padding:7px 12px;
   min-height:32px;
-  font-size:10px
+  font-size:0.625rem
 }
 .collection-grid{
   display:grid;
@@ -686,14 +686,14 @@ main{
   background:var(--md-blue-soft)
 }
 .collection h3{
-  font-size:22px;
+  font-size:1.375rem;
   font-weight:500;
   line-height:1.3;
   letter-spacing:-.04em;
   margin:12px 0
 }
 .collection p{
-  font-size:12px;
+  font-size:0.75rem;
   color:var(--md-muted);
   line-height:1.8
 }
@@ -732,18 +732,18 @@ main{
 }
 .resource-name strong{
   font-weight:550;
-  font-size:13px;
+  font-size:0.8125rem;
   display:block
 }
 .resource-name small{
   display:block;
-  font-size:10px;
+  font-size:0.625rem;
   color:var(--md-muted);
   line-height:1.7;
   margin-top:3px
 }
 .resource-row .button{
-  font-size:10px;
+  font-size:0.625rem;
   min-height:33px
 }
 .trust-strip{
@@ -759,10 +759,10 @@ main{
 }
 .trust-strip strong{
   font-weight:500;
-  font-size:13px
+  font-size:0.8125rem
 }
 .trust-strip p{
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   line-height:1.8;
   margin-top:4px
@@ -775,11 +775,11 @@ main{
   padding:24px 0;
   border-top:1px solid var(--md-border);
   color:var(--md-muted);
-  font-size:9px;
+  font-size:0.5625rem;
   line-height:1.8
 }
 .page-footer>span:first-child{
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:550;
   color:var(--md-ink);
   white-space:nowrap
@@ -804,7 +804,7 @@ main{
   border-radius:7px;
   background:transparent;
   color:var(--md-muted);
-  font-size:11px
+  font-size:0.6875rem
 }
 .filter-tabs button[aria-pressed=true]{
   background:var(--md-accent-soft);
@@ -823,11 +823,11 @@ main{
   border-radius:7px;
   background:var(--md-surface);
   padding:9px 12px;
-  font-size:11px;
+  font-size:0.6875rem;
   max-width:100%
 }
 .result-count{
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   margin-bottom:20px
 }
@@ -835,7 +835,7 @@ main{
   display:flex;
   align-items:start;
   gap:11px;
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   line-height:1.8;
   margin:0 0 24px
@@ -861,11 +861,11 @@ main{
 }
 .empty h2{
   font-weight:500;
-  font-size:20px;
+  font-size:1.25rem;
   letter-spacing:-.03em
 }
 .empty p{
-  font-size:12px;
+  font-size:0.75rem;
   line-height:1.8;
   color:var(--md-muted);
   max-width:50ch
@@ -886,7 +886,7 @@ main{
   display:inline-flex;
   align-items:center;
   gap:8px;
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   margin-bottom:26px;
   background:transparent;
@@ -906,19 +906,19 @@ main{
   min-width:0
 }
 .detail-title h1{
-  font-size:35px;
+  font-size:2.1875rem;
   font-weight:500;
   line-height:1.2;
   letter-spacing:-.05em;
   margin:10px 0
 }
 .detail-title p{
-  font-size:13px;
+  font-size:0.8125rem;
   color:var(--md-muted);
   line-height:1.7
 }
 .publisher{
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   display:flex;
   gap:7px;
@@ -946,13 +946,13 @@ main{
   min-width:105px
 }
 .detail-summary span{
-  font-size:9px;
+  font-size:0.5625rem;
   letter-spacing:.06em;
   color:var(--md-muted);
   text-transform:uppercase
 }
 .detail-summary strong{
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:500
 }
 .detail-layout{
@@ -971,7 +971,7 @@ main{
   overflow-x:auto
 }
 .detail-tabs button{
-  font-size:12px;
+  font-size:0.75rem;
   background:transparent;
   padding:10px 0 14px;
   white-space:nowrap;
@@ -984,13 +984,13 @@ main{
   font-weight:550
 }
 .detail-main h2{
-  font-size:20px;
+  font-size:1.25rem;
   letter-spacing:-.025em;
   font-weight:500;
   margin:26px 0 14px
 }
 .detail-main>p,.body-copy{
-  font-size:13px;
+  font-size:0.8125rem;
   line-height:1.9;
   color:var(--md-muted)
 }
@@ -1002,7 +1002,7 @@ main{
   align-self:start
 }
 .detail-sidebar h2{
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:550;
   margin-bottom:16px
 }
@@ -1015,7 +1015,7 @@ main{
   gap:16px;
   border-bottom:1px solid var(--md-border);
   padding:11px 0;
-  font-size:11px
+  font-size:0.6875rem
 }
 .facts>div:last-child{
   border-bottom:0
@@ -1043,7 +1043,7 @@ main{
   margin-top:16px
 }
 .detail-sidebar>p{
-  font-size:10px;
+  font-size:0.625rem;
   line-height:1.8;
   color:var(--md-muted);
   margin-top:14px
@@ -1051,7 +1051,7 @@ main{
 .bullet-list{
   list-style:disc;
   padding-left:18px;
-  font-size:12px;
+  font-size:0.75rem;
   line-height:1.8;
   color:var(--md-muted);
   display:grid;
@@ -1069,7 +1069,7 @@ main{
   border-radius:10px;
   padding:15px;
   background:var(--md-surface);
-  font-size:12px
+  font-size:0.75rem
 }
 .permission-list svg{
   color:var(--md-blue)
@@ -1085,12 +1085,12 @@ main{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  font-size:12px;
+  font-size:0.75rem;
   margin-bottom:16px
 }
 .changelog header small{
   color:var(--md-muted);
-  font-size:10px
+  font-size:0.625rem
 }
 .changelog strong{
   font-weight:550
@@ -1106,11 +1106,11 @@ main{
   color:var(--md-amber)
 }
 .compatibility strong{
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:550
 }
 .compatibility p{
-  font-size:11px;
+  font-size:0.6875rem;
   line-height:1.8;
   margin-top:5px
 }
@@ -1133,7 +1133,7 @@ main{
   gap:4px;
   padding:0 12px;
   border-bottom:1px solid var(--md-border);
-  font-size:8px
+  font-size:0.5rem
 }
 .mock-bar i{
   width:5px;
@@ -1155,7 +1155,7 @@ main{
   background:var(--md-canvas);
   padding:18px 14px;
   color:var(--md-muted);
-  font-size:8px;
+  font-size:0.5rem;
   border-right:1px solid var(--md-border)
 }
 .mock-rail p{
@@ -1169,13 +1169,13 @@ main{
   min-width:0
 }
 .mock-content h3{
-  font-size:18px;
+  font-size:1.125rem;
   letter-spacing:-.03em;
   font-weight:500;
   margin-bottom:15px
 }
 .mock-content>p{
-  font-size:9px;
+  font-size:0.5625rem;
   line-height:1.9;
   color:var(--md-muted)
 }
@@ -1185,7 +1185,7 @@ main{
   gap:12px
 }
 .mock-file-grid div{
-  font-size:8px;
+  font-size:0.5rem;
   color:var(--md-muted)
 }
 .mock-file-grid .glyph{
@@ -1225,7 +1225,7 @@ main{
   background:var(--md-art-clay)
 }
 .preview-figure figcaption{
-  font-size:9px;
+  font-size:0.5625rem;
   color:var(--md-muted);
   margin-top:8px
 }
@@ -1248,7 +1248,7 @@ main{
   flex:1
 }
 .version-change{
-  font-size:10px;
+  font-size:0.625rem;
   color:var(--md-muted);
   display:flex;
   align-items:center;
@@ -1260,12 +1260,12 @@ main{
   font-weight:500
 }
 .update-card>p{
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   line-height:1.8
 }
 .update-card details{
-  font-size:11px;
+  font-size:0.6875rem;
   margin-top:15px
 }
 .update-card summary{
@@ -1274,14 +1274,14 @@ main{
 }
 .update-card .bullet-list{
   margin-top:12px;
-  font-size:11px
+  font-size:0.6875rem
 }
 .update-warning{
   display:flex;
   gap:7px;
   align-items:center;
   color:var(--md-amber);
-  font-size:10px;
+  font-size:0.625rem;
   margin-top:12px
 }
 .operation-card{
@@ -1295,18 +1295,18 @@ main{
   display:flex;
   gap:10px;
   align-items:center;
-  font-size:12px
+  font-size:0.75rem
 }
 .operation-title strong{
   font-weight:550
 }
 .operation-title>span{
   margin-left:auto;
-  font-size:10px;
+  font-size:0.625rem;
   color:var(--md-muted)
 }
 .operation-card>p{
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted);
   line-height:1.8;
   margin:10px 0
@@ -1335,18 +1335,18 @@ main{
   margin-top:12px
 }
 .operation-footer .text-link{
-  font-size:10px
+  font-size:0.625rem
 }
 .receipt{
   margin-top:14px;
   padding-top:14px;
   border-top:1px solid var(--md-border);
-  font-size:10px;
+  font-size:0.625rem;
   color:var(--md-muted);
   line-height:1.8
 }
 .receipt code{
-  font-size:9px;
+  font-size:0.5625rem;
   overflow-wrap:anywhere
 }
 .compare-wrap{
@@ -1357,7 +1357,7 @@ main{
 .compare{
   border-collapse:collapse;
   width:100%;
-  font-size:11px;
+  font-size:0.6875rem;
   min-width:640px
 }
 .compare th,.compare td{
@@ -1385,7 +1385,7 @@ main{
   padding:16px 20px;
   border-radius:10px;
   margin-bottom:28px;
-  font-size:11px;
+  font-size:0.6875rem;
   line-height:1.8
 }
 .offline-banner strong{
@@ -1409,14 +1409,14 @@ main{
   padding:13px 17px;
   background:var(--md-surface);
   box-shadow:var(--md-shadow);
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-ink);
   max-width:calc(100vw - 32px)
 }
 .queue-bar small{
   display:block;
   color:var(--md-muted);
-  font-size:10px;
+  font-size:0.625rem;
   margin-top:2px
 }
 .queue-bar>a{
@@ -1435,7 +1435,7 @@ main{
   z-index:70;
   box-shadow:var(--md-shadow);
   max-width:calc(100vw - 32px);
-  font-size:12px
+  font-size:0.75rem
 }
 dialog{
   border:1px solid var(--md-border);
@@ -1452,13 +1452,13 @@ dialog::backdrop{
   backdrop-filter:blur(3px)
 }
 dialog h2{
-  font-size:24px;
+  font-size:1.5rem;
   font-weight:500;
   letter-spacing:-.04em;
   margin:16px 0 12px
 }
 dialog p{
-  font-size:12px;
+  font-size:0.75rem;
   color:var(--md-muted);
   line-height:1.8;
   margin-bottom:16px
@@ -1474,7 +1474,7 @@ dialog .permission-list{
   gap:7px
 }
 dialog .permission-list li{
-  font-size:11px;
+  font-size:0.6875rem;
   padding:10px
 }
 .no-js{
@@ -1548,7 +1548,7 @@ dialog .permission-list li{
     padding:23px
   }
   .feature-side h2{
-    font-size:22px
+    font-size:1.375rem
   }
   .category-strip{
     grid-template-columns:repeat(3,minmax(0,1fr))
@@ -1561,7 +1561,7 @@ dialog .permission-list li{
     gap:16px
   }
   .detail-title h1{
-    font-size:29px
+    font-size:1.8125rem
   }
 }
 @container store-presentation (max-width: 1000px){
@@ -1572,16 +1572,16 @@ dialog .permission-list li{
     padding:26px 10px
   }
   .brand{
-    font-size:25px;
+    font-size:1.5625rem;
     padding-bottom:28px
   }
   .nav-item{
     gap:9px;
     padding:10px;
-    font-size:11px
+    font-size:0.6875rem
   }
   .nav-label{
-    font-size:8px
+    font-size:0.5rem
   }
   .topbar{
     padding-inline:24px
@@ -1668,7 +1668,7 @@ dialog .permission-list li{
     gap:12px
   }
   .location{
-    font-size:10px
+    font-size:0.625rem
   }
   .global-search{
     width:auto;
@@ -1677,7 +1677,7 @@ dialog .permission-list li{
   }
   .preview-strip{
     padding:9px 20px;
-    font-size:9px
+    font-size:0.5625rem
   }
   .preview-strip>span{
     max-width:none
@@ -1687,16 +1687,16 @@ dialog .permission-list li{
   }
   .preview-strip select{
     max-width:145px;
-    font-size:9px
+    font-size:0.5625rem
   }
   .preview-strip button{
-    font-size:9px
+    font-size:0.5625rem
   }
   .page-heading{
     margin-bottom:27px
   }
   .page-heading h1{
-    font-size:33px
+    font-size:2.0625rem
   }
   .page-footer{
     margin-inline:24px
@@ -1722,7 +1722,7 @@ dialog .permission-list li{
     height:38px
   }
   .global-search input{
-    font-size:11px
+    font-size:0.6875rem
   }
   .preview-strip{
     padding:10px 16px;
@@ -1752,17 +1752,17 @@ dialog .permission-list li{
     gap:12px
   }
   .page-heading h1{
-    font-size:29px
+    font-size:1.8125rem
   }
   .lead{
-    font-size:12px
+    font-size:0.75rem
   }
   .feature{
     padding:25px;
     min-height:290px
   }
   .feature h2{
-    font-size:29px
+    font-size:1.8125rem
   }
   .feature-copy{
     width:85%
@@ -1780,7 +1780,7 @@ dialog .permission-list li{
     margin-bottom:28px
   }
   .category-strip a{
-    font-size:10px;
+    font-size:0.625rem;
     gap:8px
   }
   .app-grid{
@@ -1797,19 +1797,19 @@ dialog .permission-list li{
     gap:14px
   }
   .product-open h3{
-    font-size:16px
+    font-size:1rem
   }
   .section{
     margin-top:28px
   }
   .section-heading h2{
-    font-size:20px
+    font-size:1.25rem
   }
   .collection{
     padding:23px
   }
   .collection h3{
-    font-size:23px
+    font-size:1.4375rem
   }
   .trust-strip{
     align-items:start
@@ -1823,10 +1823,10 @@ dialog .permission-list li{
     height:38px
   }
   .resource-name strong{
-    font-size:12px
+    font-size:0.75rem
   }
   .resource-row .button{
-    font-size:9px;
+    font-size:0.5625rem;
     padding:7px 9px
   }
   .detail-header{
@@ -1838,7 +1838,7 @@ dialog .permission-list li{
     border-radius:16px
   }
   .detail-title h1{
-    font-size:27px
+    font-size:1.6875rem
   }
   .detail-header-actions{
     margin-left:0;
@@ -1863,13 +1863,13 @@ dialog .permission-list li{
     padding:18px
   }
   .mock-content h3{
-    font-size:15px
+    font-size:0.9375rem
   }
   .mock-file-grid{
     gap:8px
   }
   .mock-file-grid div{
-    font-size:7px
+    font-size:0.4375rem
   }
   .mock-window{
     min-height:205px
@@ -1910,11 +1910,11 @@ dialog .permission-list li{
     gap:6px
   }
   .filter-tabs button{
-    font-size:10px;
+    font-size:0.625rem;
     padding:7px 10px
   }
   .filter-selects select{
-    font-size:10px
+    font-size:0.625rem
   }
   .detail-header-actions .button{
     flex:1
@@ -1989,7 +1989,7 @@ dialog .permission-list li{
   display:flex;
   align-items:center;
   gap:6px;
-  font-size:9px;
+  font-size:0.5625rem;
   color:var(--md-muted);
   min-width:0;
   line-height:1.6
@@ -2005,7 +2005,7 @@ dialog .permission-list li{
   opacity:.7
 }
 .stage-list b{
-  font-size:8px;
+  font-size:0.5rem;
   font-weight:500;
   background:var(--md-accent-soft);
   border-radius:4px;
@@ -2021,7 +2021,7 @@ dialog .permission-list li{
   background:var(--md-surface);
   border:1px solid var(--md-border);
   border-radius:10px;
-  font-size:11px;
+  font-size:0.6875rem;
   color:var(--md-muted)
 }
 .queue-summary button{
@@ -2053,7 +2053,7 @@ dialog .permission-list li{
 }
 
 :host { display:block; height:100%; min-height:0; container:store-presentation / inline-size; }
-.presentation-scroll { height:100%; overflow:auto; background:var(--md-canvas); color:var(--md-ink); font:400 13px var(--md-font); }
+.presentation-scroll { height:100%; overflow:auto; background:var(--md-canvas); color:var(--md-ink); font:400 0.8125rem var(--md-font); }
 .presentation-scroll .store-shell { min-height:100%; }
 .presentation-scroll .sidebar { height:100cqh; min-height:560px; }
 .presentation-scroll .page-footer { padding-bottom:30px; }
@@ -2063,3 +2063,7 @@ dialog .permission-list li{
 [hidden] {display:none!important;}
 :host {position:relative;contain:layout paint;}
 @container store-presentation (max-width:800px) {.presentation-scroll .sidebar {position:absolute;top:70px;left:0;bottom:0;height:calc(100% - 70px);min-height:0;}}
+
+/* The host passes canonical preferences; rem remains relative to the document. */
+:host([data-ordax-contrast="high"]) [data-meridian] {--md-border:var(--md-ink);--md-muted:var(--md-ink);}
+:host([data-ordax-motion="reduced"]) *, :host([data-ordax-motion="reduced"]) *::before, :host([data-ordax-motion="reduced"]) *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;}

@@ -8,6 +8,8 @@ import { presentationDestination } from '../../presentation.mjs';
 import { favorites, navigation, getWindowIcon, getWindowTitle } from './config';
 import { Avatar, Brand, AppIcon } from './primitives';
 import { useWebAccount } from './account-context';
+import { useWebPreferences } from './preferences-context';
+import { HOME_SHORTCUTS_PREFERENCE_ID, readFavoriteShortcutIds } from '../../../../services/preferences/home-shortcuts.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
 type HeaderProps = {title:string;theme:'light'|'dark';onMaterial:()=>void;onMenu:()=>void;onOpen:(title:string)=>void};
@@ -25,6 +27,9 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
   const destination=presentationDestination(view);
   const DestinationIcon=destination.target==='desktop'?Monitor:LayoutGrid;
   const {displayName,identity,authorized,offline}=useWebAccount();
+  const {snapshot}=useWebPreferences();
+  const pinnedIds=new Set(readFavoriteShortcutIds(snapshot[HOME_SHORTCUTS_PREFERENCE_ID]));
+  const pinned=favorites.filter(item=>pinnedIds.has(item.id));
   const [startOpen,setStartOpen]=useState(false);
   const [search,setSearch]=useState('');
   const observedMenuRequest=useRef(menuRequest);
@@ -61,7 +66,7 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
   const visible=railDestinations.slice(0,visibleCount>=railDestinations.length?railDestinations.length:Math.max(0,visibleCount-1));
   const menuItems=[...navigation,{name:'Atividades',icon:Clock3},{name:'Notificações',icon:Bell}].filter(item=>item.name!=='Início'&&item.name.toLocaleLowerCase('pt-BR').includes(search.trim().toLocaleLowerCase('pt-BR')));
   const homeMatch='central início'.includes(search.trim().toLocaleLowerCase('pt-BR'));
-  const dockItems=[...favorites,...state.windows.filter(window=>!favorites.some(item=>getWindowTitle(item.name)===getWindowTitle(window.title))).map(window=>({id:window.title,name:window.title,icon:getWindowIcon(window.title),tone:'green' as const}))];
+  const dockItems=[...pinned,...state.windows.filter(window=>!pinned.some(item=>getWindowTitle(item.name)===getWindowTitle(window.title))).map(window=>({id:window.title,name:window.title,icon:getWindowIcon(window.title),tone:'green' as const}))];
   function open(title:string){menuNavigated.current=startOpen;setStartOpen(false);dispatch({type:'open',title:getWindowTitle(title)});}
   function home(){menuNavigated.current=startOpen;setStartOpen(false);dispatch({type:'show-desktop'});onCentral();}
   function dockKeys(event:KeyboardEvent<HTMLDivElement>){

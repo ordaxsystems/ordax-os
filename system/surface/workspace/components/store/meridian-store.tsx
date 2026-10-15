@@ -7,12 +7,13 @@ import { mountStorePresentation } from './presentation/app.js';
 import template from './presentation/template.html?raw';
 import styles from './presentation/styles.css?inline';
 import tokens from '../../../ui/meridian.tokens.css?inline';
+import { ACCESSIBILITY_CONTRAST_PREFERENCE_ID, ACCESSIBILITY_MOTION_PREFERENCE_ID } from '../../../../services/preferences/accessibility.mjs';
 
 /** The same tested presentation as /store-preview; no iframe, hash or host authority. */
 function StorePresentation() {
   const host = useRef<HTMLDivElement>(null);
   const presentation = useRef<ReturnType<typeof mountStorePresentation> | null>(null);
-  const { theme } = useWebPreferences();
+  const { theme, snapshot } = useWebPreferences();
   useEffect(() => {
     if (!host.current) return;
     const root = host.current.shadowRoot ?? host.current.attachShadow({ mode: 'open' });
@@ -22,7 +23,7 @@ function StorePresentation() {
     return () => { instance.destroy(); presentation.current = null; };
   }, []);
   useEffect(() => { presentation.current?.setMaterial(theme === 'dark' ? 'ink' : 'paper'); }, [theme]);
-  return <div ref={host} className="meridian-store-presentation" aria-label="Demonstração da Loja OrdaX"/>;
+  return <div ref={host} className="meridian-store-presentation" data-ordax-contrast={String(snapshot[ACCESSIBILITY_CONTRAST_PREFERENCE_ID])} data-ordax-motion={String(snapshot[ACCESSIBILITY_MOTION_PREFERENCE_ID])} aria-label="Demonstração da Loja OrdaX"/>;
 }
 
 export function StoreExperience({ onOpenApp }: { onOpenApp?: (id: string) => void }) {

@@ -1576,3 +1576,12 @@ reducer, account, preferences, Store and Dialog owners remain unchanged. Planned
 professional profiles remain explicitly identified mocks.
 
 [Checks and screenshots](evidence/meridian-integration-2026-10-14/README.md#chrome-completion).
+
+#### Meridian preferences consistency — 2026-10-14
+
+Appearance miniatures and canonical PT/EN copy reflect Argila/Grafite. The dock
+uses the existing home-shortcuts preference, retaining unpinned running windows
+until closed. Favorite launches reuse the canonical Aura title. Store shadow
+presentation receives contrast/motion attributes from existing preferences; rem
+typography follows document text scale. No new preference authority or runtime
+service is introduced. See the preferences follow-up in the integration evidence.

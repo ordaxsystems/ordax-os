@@ -34,3 +34,10 @@
 [data-meridian] .ordax-store-card {border-radius:14px;background:var(--md-surface);border-color:var(--md-border);}
 [data-meridian] .ordax-store-title {font-weight:500;letter-spacing:-.04em;}
 [data-meridian] .ordax-store-nav-item[aria-pressed=true] {background:var(--md-accent-soft);color:var(--md-accent);border-color:var(--md-border);}
+
+/* Appearance miniatures use the same material variables as their target. */
+[data-meridian] .ordax-settings-theme-preview[data-material-preview] {
+ --ordax-bg:var(--md-canvas);--ordax-app-bg:var(--md-surface);--ordax-panel:var(--md-surface);
+ --ordax-rail-bg:var(--md-rail);--ordax-text:var(--md-ink);--ordax-muted:var(--md-muted);
+ --ordax-accent:var(--md-accent);--ordax-border:var(--md-border);--ordax-shadow-soft:var(--md-shadow-small);
+}

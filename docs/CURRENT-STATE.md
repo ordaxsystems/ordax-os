@@ -1,5 +1,11 @@
 # Current State
 
+Meridian preferences follow-up (2026-10-14): appearance previews/copy now match
+Argila/Grafite, the dock follows persisted favorites while retaining running apps,
+and embedded Store contrast, motion and text scale follow canonical preferences.
+51 targeted tests, both builds, reference verification and browser checks passed.
+[Evidence](evidence/meridian-integration-2026-10-14/README.md#preferences-consistency-follow-up).
+
 Meridian chrome completion (2026-10-14, user follow-up): the Web now uses the
 Meridian context/grouped rail, utility/account footer, persistent Central header
 with destination search, and centered icon dock. Desktop keeps the compact rail;
