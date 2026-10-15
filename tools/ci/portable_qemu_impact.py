@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Classify whether a repository delta requires the heavy Portable/QEMU proof.
 
-The policy is deliberately fail-closed. High-level system source is lightweight only
-when it is not part of the Native runtime import graph and is not a known host/boot
-owner. Unknown system roots and every non-system path reaching this workflow remain
-heavy by default, except explicitly classified producer-neutral helpers or roots.
+The policy is deliberately fail-closed inside the workflow's causal path scope.
+High-level system source is lightweight only when it is not part of the Native
+runtime import graph and is not a known host/boot owner.
+
+GitHub evaluates ``paths`` against the whole pull request and starts a workflow
+when at least one changed file matches. Once running, however, ``git diff`` sees
+*all* files in that pull request. The classifier therefore derives its scope
+from the workflow YAML itself and discards files that could not trigger this
+workflow before applying the heavy/light policy.
 """
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE_COMPOSITION_INDEX = Path("system/composition/native/index.html")
 NATIVE_COMPOSITION_MAIN = Path("system/composition/native/main.mjs")
 NATIVE_BROWSER_HOST = Path("system/surface/runtime/ordax_browser_host.py")
+QEMU_WORKFLOW = Path(".github/workflows/portable-v2-qemu-boot-proof.yml")
 
 PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
@@ -73,6 +79,7 @@ BROWSER_NATIVE_IMPORT_RE = re.compile(
     r"[\"'](/composition/native/[^\"'?#\s]+\.(?:mjs|js))[\"']"
 )
 IMPORT_EXTENSIONS = (".mjs", ".js", ".cjs", ".json")
+WORKFLOW_PATH_ITEM_RE = re.compile(r"^ {6}-\s+(['\"])(.+)\1\s*$")
 
 
 @dataclass(frozen=True)
@@ -107,6 +114,104 @@ def _normalise_path(value: str) -> str:
 
 def _is_presentation_light(path: str) -> bool:
     return path.endswith(".md") or path.startswith(PRESENTATION_LIGHT_PREFIXES)
+
+
+def workflow_path_patterns(root: Path = ROOT) -> tuple[str, ...]:
+    """Return the single canonical push/PR path scope from the workflow YAML.
+
+    The workflow intentionally duplicates its path list for ``push`` and
+    ``pull_request``. Both blocks must remain byte-for-byte equivalent here;
+    drift makes impact classification fail closed instead of guessing.
+    """
+    workflow = root / QEMU_WORKFLOW
+    try:
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"workflow-unreadable:{type(exc).__name__}") from exc
+
+    blocks: list[tuple[str, ...]] = []
+    index = 0
+    while index < len(lines):
+        if lines[index] != "    paths:":
+            index += 1
+            continue
+        index += 1
+        patterns: list[str] = []
+        while index < len(lines):
+            line = lines[index]
+            if not line.strip():
+                index += 1
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= 4:
+                break
+            match = WORKFLOW_PATH_ITEM_RE.fullmatch(line)
+            if match is None:
+                raise ValueError(f"unsupported-workflow-path-line:{index + 1}")
+            patterns.append(match.group(2))
+            index += 1
+        if not patterns:
+            raise ValueError("empty-workflow-path-block")
+        blocks.append(tuple(patterns))
+
+    if len(blocks) != 2:
+        raise ValueError(f"expected-two-workflow-path-blocks:found-{len(blocks)}")
+    if blocks[0] != blocks[1]:
+        raise ValueError("push-pull-workflow-path-scope-drift")
+    return blocks[0]
+
+
+def _github_glob_regex(pattern: str) -> re.Pattern[str]:
+    """Compile the bounded glob syntax currently used by this workflow."""
+    if not pattern or pattern.startswith("!"):
+        raise ValueError("glob-pattern-must-be-positive")
+    out = ["^"]
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            if index + 1 < len(pattern) and pattern[index + 1] == "*":
+                index += 2
+                if index < len(pattern) and pattern[index] == "/":
+                    out.append("(?:.*/)?")
+                    index += 1
+                else:
+                    out.append(".*")
+                continue
+            out.append("[^/]*")
+        elif char == "?":
+            out.append("[^/]")
+        elif char in "[]{}":
+            # The current workflow does not use character classes or brace
+            # expansion. Reject future syntax until matching semantics are added.
+            raise ValueError(f"unsupported-workflow-glob-syntax:{char}")
+        else:
+            out.append(re.escape(char))
+        index += 1
+    out.append("$")
+    return re.compile("".join(out))
+
+
+def _path_matches_workflow(path: str, patterns: tuple[str, ...]) -> bool:
+    matched = False
+    for raw_pattern in patterns:
+        negative = raw_pattern.startswith("!")
+        pattern = raw_pattern[1:] if negative else raw_pattern
+        if _github_glob_regex(pattern).fullmatch(path):
+            matched = not negative
+    return matched
+
+
+def workflow_scoped_paths(paths: Iterable[str], *, root: Path = ROOT) -> tuple[str, ...]:
+    patterns = workflow_path_patterns(root)
+    normalized = {_normalise_path(raw) for raw in paths}
+    return tuple(
+        sorted(
+            path
+            for path in normalized
+            if path and _path_matches_workflow(path, patterns)
+        )
+    )
 
 
 def _path_inside_root(candidate: Path, root: Path) -> Path | None:
@@ -245,9 +350,6 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         if path.startswith(PRODUCER_NEUTRAL_LIGHT_PREFIXES):
             continue
         if not path.startswith("system/"):
-            # The workflow trigger already limits non-system paths to Portable/boot/
-            # release inputs. Treat any such path as heavy rather than maintaining a
-            # second permissive allowlist here.
             reasons.append(f"heavy-non-system:{path}")
             continue
         if _is_presentation_light(path):
@@ -262,6 +364,22 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         reasons.append(f"heavy-unclassified-system:{path}")
 
     return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-runtime-reachable",), changed)
+
+
+def classify_workflow_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
+    """Classify only files that belong to the workflow's canonical YAML scope."""
+    changed = tuple(sorted({p for raw in paths if (p := _normalise_path(raw))}))
+    try:
+        scoped = workflow_scoped_paths(changed, root=root)
+    except Exception as exc:
+        return ImpactResult(
+            True,
+            (f"workflow-scope:{type(exc).__name__}:{exc}",),
+            changed,
+        )
+    if not scoped:
+        return ImpactResult(False, ("outside-workflow-scope-only",), scoped)
+    return classify_paths(scoped, root=root)
 
 
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
@@ -294,7 +412,7 @@ def command_classify(args: argparse.Namespace) -> int:
     else:
         try:
             paths = changed_paths_between(args.base, args.head)
-            result = classify_paths(paths)
+            result = classify_workflow_paths(paths)
         except Exception as exc:  # CI impact classification must fail closed.
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 
