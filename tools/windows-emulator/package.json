@@ -1,0 +1,10 @@
+{
+  "name": "ordax-windows-emulator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.mjs --open /tools/windows-emulator/index.html",
+    "dev:no-open": "vite --config vite.config.mjs"
+  }
+}
