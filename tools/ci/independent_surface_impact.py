@@ -38,6 +38,7 @@ LIGHT_EXACT = {
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_component_cache.py",
     "tests/test_independent_surface_cutover_audit.py",
+    "tests/test_independent_surface_cold_health_contract.py",
     "tests/test_portable_v2_qemu_boot_proof_contract.py",
     "tests/test_portable_component_reuse_workflow.py",
     "tests/test_portable_qemu_impact.py",
@@ -78,7 +79,6 @@ def classify_paths(paths: Iterable[str]) -> ImpactResult:
             continue
         if path in LIGHT_EXACT or path.endswith(".md"):
             continue
-        # Unknown changes reaching this workflow are heavy by design.
         reasons.append(f"unclassified:{path}")
 
     return ImpactResult(bool(reasons), tuple(reasons) or ("contract-only",), changed)
