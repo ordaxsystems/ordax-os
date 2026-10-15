@@ -5,7 +5,9 @@ on:
     paths:
       - "bootstrap/base-update/owner-development/**"
       - "bootstrap/dev-base/ordax-pull"
+      - "bootstrap/dev-base/ordax-run"
       - "system/services/base-update/dev-helpers.sh"
+      - "tests/test_dev_base_helper_refresh.py"
       - "tests/test_owner_remote_recovery.py"
       - ".github/workflows/owner-remote-recovery-contract.yml"
   push:
@@ -13,7 +15,9 @@ on:
     paths:
       - "bootstrap/base-update/owner-development/**"
       - "bootstrap/dev-base/ordax-pull"
+      - "bootstrap/dev-base/ordax-run"
       - "system/services/base-update/dev-helpers.sh"
+      - "tests/test_dev_base_helper_refresh.py"
       - "tests/test_owner_remote_recovery.py"
       - ".github/workflows/owner-remote-recovery-contract.yml"
   workflow_dispatch:
@@ -35,12 +39,15 @@ jobs:
           persist-credentials: false
 
       - name: Verify Owner recovery contract and helper policy
-        run: python3 tests/test_owner_remote_recovery.py
+        run: |
+          python3 tests/test_owner_remote_recovery.py
+          python3 tests/test_dev_base_helper_refresh.py
 
       - name: Verify shell syntax of the update path
         run: |
           /bin/sh -n bootstrap/base-update/owner-development/ordax-remote
           /bin/sh -n bootstrap/dev-base/ordax-pull
+          /bin/sh -n bootstrap/dev-base/ordax-run
           /bin/sh -n system/services/base-update/dev-helpers.sh
 
       - name: Verify exact Runtime release bytes
