@@ -432,3 +432,26 @@ This decision refines earlier USB-only **MVP scope** language in ADRs/docs; it d
 **Consequências:** IA local continua baseline; adapters de provedor externo exigem canal oficialmente/contratualmente suportado, egress e provas; o plugin não cria API para embutir a sessão do ChatGPT Web no nosso painel. Apps first-party declaram intents/manifests verificados, mas nunca grants. Side effects dependem dos atuais Action Catalog, approvals, grants e Action Gateway, com recibos e escopo. Usar ações nativas antes de controle visual, que permanece fallback quando apropriado. `authority=none` permanece invariável na saída do modelo.
 
 **Implementação e gates:** esta é uma decisão, não conclusão de funcionalidades. Revalidar `docs/INTELLIGENCE.md`, `docs/APPLICATION-INTELLIGENCE.md`, `docs/CURRENT-STATE.md`, contratos versionados e owners. As PRs experimentais [Apps #192](https://github.com/ordaxsystems/ordax-apps/pull/192) e [Runtime #63](https://github.com/ordaxsystems/ordax-runtime/pull/63) não habilitam ChatGPT real; [Apps #197](https://github.com/ordaxsystems/ordax-apps/pull/197) não prova Studio Web E2E. O roteiro de handoff está em [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md).
+
+
+## ADR-028 - Space UX is domain-semantic and capability-projected (2026-10-15)
+
+Decision: a Space type owns domain/UX semantics, while runtime availability is projected exclusively from real capability providers. Profile Pack remains the versioned technical composition owner and does not become the owner of Space navigation, dashboard cards, operational metrics or business state.
+
+Canonical flow:
+
+```text
+Space identity + domain.subtype
+  -> allowed capability set
+  -> ready capability providers for that authorized Space
+  -> contextual navigation + dashboard widgets + Space-card metrics
+  -> authorized current-Space context for Aura
+```
+
+A capability declared by a type is not installed/available merely because the type or Profile Pack exists. Missing, unavailable, malformed or failing providers degrade cleanly and cannot block boot/Surface. A widget or summary metric is omitted unless its ready provider supplies the exact value; the UI must not synthesize mock numbers. The global OrdaX sidebar is a separate Surface owner and is never replaced by Space contextual navigation.
+
+Space type definitions may be structured ahead of product promotion, but a `deferred` type publishes no contextual capabilities/navigation/widgets until a later explicit promotion. This allows School, Achegue-se operational and Development semantics to be modeled without advertising them as available products. Existing Pizzaria and Impressão 3D Profile Packs may be used only as a compatibility semantic binding while the Account backend lacks explicit `domain/subtype`; the binding does not confer capability availability.
+
+Aura remains the single OrdaX Intelligence layer. Space projection may provide only current-Space-bound authorized context and never turns Aura into the transactional SSOT. Domain owners remain authoritative for orders, jobs, users, students, payments and other business data.
+
+Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. Projection owner: `system/services/spaces/composition.mjs`.

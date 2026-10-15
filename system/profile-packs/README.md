@@ -166,3 +166,8 @@ Surface UX and physical smoke prove that exact safe path.
 The future simplified creation UX does not expand the current MVP scope: it only defines that, once
 Space creation is exposed, the ordinary user chooses `Pizzaria`, `Impressão 3D` or another Space type
 and OrdaX resolves the corresponding Profile Pack internally.
+
+
+## Space type boundary
+
+Profile Pack manifests intentionally do not own `domain/subtype`, contextual navigation, dashboard widgets, provider readiness or business metrics. Those semantics are resolved by the Space type catalog and provider-backed Space experience composition. Keeping those fields out of manifests prevents Profile Pack activation from being mistaken for business capability availability or from creating a second SSOT for Space UX.

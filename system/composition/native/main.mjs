@@ -106,6 +106,7 @@ import { createMemoryReviewSession } from "../../services/memory/review-session.
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
+import { createSpaceExperienceSource } from "../../services/spaces/composition.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
 import { createProfilePackCatalogFromPacks } from "../../services/profile-packs/catalog.mjs";
@@ -475,6 +476,9 @@ async function start() {
   });
   await identityActions.refresh();
   const spaces = createWebSpacesCatalog(window);
+  // No operational vertical provider is promoted yet. The source is intentionally empty:
+  // domain metrics/navigation appear only when a real owner registers a ready provider.
+  const spaceExperience = createSpaceExperienceSource();
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
     spaces,
@@ -833,6 +837,7 @@ async function start() {
     memoryConflictReview,
     accountLifecycle,
     profileTaxonomy,
+    spaceExperience,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1082,6 +1087,7 @@ async function start() {
       profileComponentInventory.dispose();
       personalOrdax?.dispose();
       spaceSelection.dispose();
+      spaceExperience.dispose();
       spaces.dispose();
       accountSync.destroy();
       preferenceSync.destroy();

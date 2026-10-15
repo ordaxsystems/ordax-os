@@ -25,6 +25,7 @@ import {
 } from "../../contracts/workspace-metadata-source.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { assertSpacesPort, validateSpacesSnapshot } from "../../contracts/spaces.mjs";
+import { assertSpaceExperienceSource } from "../../contracts/space-experience.mjs";
 import {
   assertSpaceSelectionPort,
   validateSpaceSelectionSnapshot,
@@ -124,6 +125,7 @@ export function mountAccountOverviewControls(
   memoryConflictReview = null,
   accountLifecycle = null,
   profileTaxonomy = null,
+  spaceExperience = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -140,6 +142,9 @@ export function mountAccountOverviewControls(
     : assertWorkspaceMetadataSource(workspaceMetadataSource);
   const activationPort = appActivation === null ? null : assertAppActivationPort(appActivation);
   const spacesPort = spaces === null ? null : assertSpacesPort(spaces);
+  const spaceExperiencePort = spaceExperience === null
+    ? null
+    : assertSpaceExperienceSource(spaceExperience);
   const profileProvisioningPort = profileProvisioning === null
     ? null
     : assertProfileProvisioningPort(profileProvisioning);
@@ -689,6 +694,21 @@ export function mountAccountOverviewControls(
       card.dataset.spaceKind = space.kind;
       card.dataset.selected = String(isSelected);
       card.dataset.spaceState = space.state;
+      const experience = spaceExperiencePort?.get(space) ?? null;
+      if (experience?.state === "ready" && experience.spaceCardMetrics.length > 0) {
+        const metrics = node(documentObject, "div", "ordax-account-space-metrics");
+        metrics.dataset.spaceDomainMetrics = "";
+        for (const metric of experience.spaceCardMetrics) {
+          const metricCard = node(documentObject, "span", "ordax-account-space-metric");
+          metricCard.dataset.metricId = metric.id;
+          metricCard.append(
+            node(documentObject, "small", "ordax-account-space-metric-label", metric.label),
+            node(documentObject, "strong", "ordax-account-space-metric-value", String(metric.value)),
+          );
+          metrics.append(metricCard);
+        }
+        card.append(metrics);
+      }
       if (spaceSelectionPort && space.state === "active") {
         const cardActions = node(documentObject, "div", "ordax-account-actions");
         const select = node(
@@ -1618,6 +1638,9 @@ export function mountAccountOverviewControls(
     spaceSelectionSnapshot = validateSpaceSelectionSnapshot(snapshot);
     replaceView();
   });
+  const unsubscribeSpaceExperience = spaceExperiencePort?.subscribe(() => {
+    if (activeSection === "spaces") replaceView();
+  });
   const unsubscribeProfileActivation = profileActivationPort?.subscribe?.((snapshot) => {
     profileActivationSnapshot = validateProfileActivationState(snapshot);
     if (activeSection === "profiles") replaceView();
@@ -1642,6 +1665,7 @@ export function mountAccountOverviewControls(
       memoryReviewControls = null;
       unsubscribeProfileActivation?.();
       unsubscribePreferences?.();
+      unsubscribeSpaceExperience?.();
       unsubscribeSpaceSelection?.();
       unsubscribeSpaces?.();
       unsubscribeWorkspaceMetadata?.();
