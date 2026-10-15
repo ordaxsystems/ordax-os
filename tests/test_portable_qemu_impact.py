@@ -147,16 +147,18 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
 
-    def test_qemu_workflow_change_itself_stays_heavy(self):
+    def test_qemu_workflow_change_uses_focused_contract_instead_of_boot(self):
         result = impact.classify_paths(
-            [".github/workflows/portable-v2-qemu-boot-proof.yml"],
+            [
+                ".github/workflows/portable-v2-qemu-boot-proof.yml",
+                "tests/test_portable_v2_qemu_boot_proof_contract.py",
+                "tests/test_portable_component_reuse_workflow.py",
+                "tests/test_independent_surface_qemu_binding.py",
+            ],
             root=ROOT,
         )
-        self.assertTrue(result.required)
-        self.assertIn(
-            "heavy-exact:.github/workflows/portable-v2-qemu-boot-proof.yml",
-            result.reasons,
-        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("high-level-not-runtime-reachable",))
 
     def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
