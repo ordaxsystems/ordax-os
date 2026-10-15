@@ -71,6 +71,12 @@ CI_GOVERNANCE_LIGHT_EXACT = {
     ".github/workflows/pre-usb-nova-ordax-audit.yml",
     ".github/workflows/runtime-component-candidate.yml",
 }
+ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
+    ".github/workflows/ordax-account-gateway-destination.yml",
+    "docs/contracts/ci-supply-chain.json",
+    "tools/account/resolve_account_gateway_destination.py",
+    "tests/test_account_gateway_destination_deploy.py",
+}
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     "tools/ci/portable_qemu_impact.py",
@@ -293,6 +299,7 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if (
             path in CI_GOVERNANCE_LIGHT_EXACT
+            or path in ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT
             or path in IMPACT_POLICY_LIGHT_EXACT
             or path in SPACE_COMPOSITION_LIGHT_EXACT
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT

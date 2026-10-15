@@ -1,0 +1,126 @@
+﻿name: OrdaX Account Gateway Destination
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ordax-account-gateway-destination.yml'
+      - 'infra/supabase/functions/ordax-account-gateway/**'
+      - 'infra/supabase/functions/_shared/auth_rate_limit.mjs'
+      - 'infra/supabase/functions/_shared/bounded_body.mjs'
+      - 'infra/supabase/functions/_shared/account_privileged_rpc.mjs'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
+      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
+      - 'infra/supabase/functions/_shared/account_email_confirmation.mjs'
+      - 'tools/account/resolve_account_gateway_destination.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ordax-account-gateway-destination
+  cancel-in-progress: false
+
+jobs:
+  deploy-destination:
+    if: github.repository == 'ordaxsystems/ordax-os' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact reviewed main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Reject obsolete or non-main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL="$(git rev-parse HEAD)"
+          CURRENT="$(git ls-remote https://github.com/ordaxsystems/ordax-os.git refs/heads/main | cut -f1)"
+          test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${ACTUAL}" = "${GITHUB_SHA}"
+          test "${CURRENT}" = "${GITHUB_SHA}"
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Resolve reviewed destination project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/account/resolve_account_gateway_destination.py >> "${GITHUB_ENV}"
+
+      - name: Require management credential without printing it
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || {
+            echo 'SUPABASE_ACCESS_TOKEN repository secret is required.' >&2
+            exit 2
+          }
+          echo 'ACCOUNT_GATEWAY_DEPLOY_CREDENTIAL_PRESENT=YES'
+          echo 'ACCOUNT_GATEWAY_DEPLOY_CREDENTIAL_PRINTED=NO'
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.121.0
+
+      - name: Verify pinned CLI and destination source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(supabase --version)" = "2.121.0"
+          grep -Fq 'version: 17' infra/supabase/functions/ordax-account-gateway/index.ts
+          grep -Fq '.select("space_id,owner_user_id,name,kind,state,domain,subtype")' \
+            infra/supabase/functions/ordax-account-gateway/index.ts
+          test -f infra/supabase/functions/_shared/account_transport_admission.mjs
+          test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
+
+      - name: Deploy exact account gateway bundle to destination
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd infra
+          supabase functions deploy ordax-account-gateway \
+            --project-ref "${SUPABASE_PROJECT_REF}" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Smoke destination gateway without changing Auth cutover
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/ordax-account-gateway"
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 \
+            --retry-all-errors "${BASE}/health" > "${RUNNER_TEMP}/health.json"
+          python - "${RUNNER_TEMP}/health.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+          value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert value == {"status": "ok", "service": "ordax-account-gateway", "version": 17}
+          print("ACCOUNT_GATEWAY_DESTINATION_HEALTH=PASS")
+          PY
+
+          status="$(curl --silent --show-error --output "${RUNNER_TEMP}/spaces.json" \
+            --write-out '%{http_code}' "${BASE}/account/spaces")"
+          test "${status}" = "401"
+          python - "${RUNNER_TEMP}/spaces.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+          value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert value.get("error") == "authentication-required"
+          print("ACCOUNT_GATEWAY_DESTINATION_UNAUTH=PASS")
+          PY
