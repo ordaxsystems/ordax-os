@@ -211,6 +211,8 @@ The canonical semantic catalog is `system/services/spaces/type-catalog.mjs`. The
 
 A declared capability is not an entitlement, grant, installed component or live data source. For a contextual item to appear, its provider must return a valid `ready` snapshot for the same authorized Space. A missing, unavailable, malformed or failing provider removes that capability from the projection without breaking Surface. A dashboard/card metric is rendered only when that ready provider supplies the exact metric; zero is valid data, absence is not converted into a fabricated zero.
 
+Capability names are not globally unique owners. Every provider must declare the exact `spaceTypes` it serves. Multiple providers may implement the same capability only when their Space-type scopes are disjoint; the compositor selects by `capability + space type`. This keeps, for example, future Food `orders` and Fabrication `orders` from becoming interchangeable merely because both verticals use the word `orders`.
+
 The global OrdaX sidebar remains independent of this projection. Space-specific navigation is contextual data returned by the Space experience composition and must never replace or mutate the global shell navigation.
 
 Aura uses the same rule. The Native composition now registers `system/services/spaces/aura-provider.mjs` as the first real capability provider. It is ready only when the requested Space is exactly the currently selected authorized Space and the existing selected-Space Intelligence reports inference available. The provider emits no fabricated `aura.summary` metric; that widget remains absent until a real summary owner supplies it. Aura remains consultative and never becomes the transactional source of orders, users, printers, students, payments or other domain state.
@@ -225,7 +227,7 @@ Current structured types:
 | `education.school` | structured | `DEFERRED`; emits no contextual navigation/widgets |
 | `development.software` | structured | `DEFERRED`; one Space can contain many Projects; Studio is only the project-opening tool |
 
-For the current Pizzaria and Impressão 3D showcase Spaces, the resolver may derive `domain.subtype` from the existing canonical Profile binding while the account backend does not yet persist explicit Space semantics. `ordax.spaces/1` also accepts explicit `domain` + `subtype` together for the future canonical backend projection. This compatibility fallback resolves semantics only; it never makes a capability available.
+The canonical account owner now stores Space semantics as paired `ordax_spaces.domain` + `ordax_spaces.subtype` and projects them through `/account/spaces`. New canonical Spaces must use those explicit fields. Nullable rows remain supported only for legacy compatibility; when both fields are absent, the resolver may still derive semantics from the existing Pizzaria/Impressão 3D Profile binding. That fallback is not an ownership source, is not backfilled into the database, and never makes a capability available.
 
 The Development definition models `project` as a many-valued resource owned by the Space and opened with Studio. A repository is not promoted to a Space merely because it exists, and Studio does not become the owner/SSOT of the Project.
 

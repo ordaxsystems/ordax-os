@@ -12,6 +12,8 @@ import {
 } from "../../contracts/intelligence.mjs";
 import { validateSpace } from "../../contracts/spaces.mjs";
 
+const AURA_SPACE_TYPES = Object.freeze(["food.pizzeria", "fabrication.3d-printing"]);
+
 function sameSpaceIdentity(left, right) {
   return (
     left.id === right.id
@@ -44,6 +46,7 @@ export function createSelectedSpaceAuraCapabilityProvider({
   return Object.freeze({
     schema: SPACE_CAPABILITY_PROVIDER_SCHEMA,
     capability: "aura",
+    spaceTypes: AURA_SPACE_TYPES,
     getSnapshot(spaceValue) {
       const space = validateSpace(spaceValue);
       const selected = validateSpaceSelectionSnapshot(selection.getSnapshot());

@@ -115,6 +115,7 @@ test("Aura provider is ready only for the exact currently selected Space", () =>
 
   assert.equal(provider.schema, SPACE_CAPABILITY_PROVIDER_SCHEMA);
   assert.equal(provider.capability, "aura");
+  assert.deepEqual(provider.spaceTypes, ["food.pizzeria", "fabrication.3d-printing"]);
   assert.deepEqual(provider.getSnapshot(current), {
     schema: SPACE_CAPABILITY_SNAPSHOT_SCHEMA,
     state: "ready",
