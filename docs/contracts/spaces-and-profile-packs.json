@@ -29,7 +29,15 @@
     "missing_or_error_provider_degrades_without_surface_failure": true,
     "deferred_type_must_not_publish_contextual_navigation_or_widgets": true,
     "global_sidebar_is_not_space_type_navigation": true,
-    "aura_context_scope": "current-space-only"
+    "aura_context_scope": "current-space-only",
+    "aura_provider": {
+      "owner": "system/services/spaces/aura-provider.mjs",
+      "backing_owner": "selected-space-intelligence",
+      "exact_selected_space_required": true,
+      "inference_availability_required": true,
+      "emits_synthetic_metrics": false,
+      "transactional_authority": false
+    }
   },
   "profile_pack": {
     "definition": "versioned composition of apps, templates, knowledge-source policy, intelligence instructions and optional technical requirements",

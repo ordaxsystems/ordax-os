@@ -78,6 +78,11 @@ IMPACT_POLICY_LIGHT_EXACT = {
     "tests/test_heavy_workflow_path_scope.py",
     "tests/test_native_memory_integration.py",
 }
+SPACE_COMPOSITION_LIGHT_EXACT = {
+    "docs/contracts/spaces-and-profile-packs.json",
+    "tests/test_space_experience.mjs",
+    "tests/test_space_aura_provider.mjs",
+}
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
     "system/supervisor",
@@ -277,12 +282,19 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
             continue
-        if path in CI_GOVERNANCE_LIGHT_EXACT or path in IMPACT_POLICY_LIGHT_EXACT:
+        if (
+            path in CI_GOVERNANCE_LIGHT_EXACT
+            or path in IMPACT_POLICY_LIGHT_EXACT
+            or path in SPACE_COMPOSITION_LIGHT_EXACT
+        ):
+            continue
+        # Markdown and Surface presentation sources cannot alter boot artifacts.
+        # Classify them before the non-system fail-closed rule so docs/*.md do not
+        # accidentally rebuild kernel/initramfs/QEMU.
+        if _is_presentation_light(path):
             continue
         if not path.startswith("system/"):
             reasons.append(f"heavy-non-system:{path}")
-            continue
-        if _is_presentation_light(path):
             continue
         # High-level Native JS is checked by focused contracts/Surface gates. QEMU is
         # reserved for explicit boot/host-coupled owners above and unknown roots.

@@ -213,14 +213,14 @@ A declared capability is not an entitlement, grant, installed component or live 
 
 The global OrdaX sidebar remains independent of this projection. Space-specific navigation is contextual data returned by the Space experience composition and must never replace or mutate the global shell navigation.
 
-Aura uses the same rule. `aura.summary` can appear only through a ready Aura capability provider. Context is accepted only when it is bound to the current Space; Aura remains consultative and never becomes the transactional source of orders, users, printers, students, payments or other domain state.
+Aura uses the same rule. The Native composition now registers `system/services/spaces/aura-provider.mjs` as the first real capability provider. It is ready only when the requested Space is exactly the currently selected authorized Space and the existing selected-Space Intelligence reports inference available. The provider emits no fabricated `aura.summary` metric; that widget remains absent until a real summary owner supplies it. Aura remains consultative and never becomes the transactional source of orders, users, printers, students, payments or other domain state.
 
 Current structured types:
 
 | Space type | Source status | Runtime promotion in this foundation |
 | --- | --- | --- |
-| `food.pizzeria` | MVP structural foundation | eligible for provider-backed projection; no operational provider is invented |
-| `fabrication.3d-printing` | MVP structural foundation | eligible for provider-backed projection; no operational provider is invented |
+| `food.pizzeria` | MVP structural foundation | current-Space Aura provider promoted; business/transaction providers remain absent |
+| `fabrication.3d-printing` | MVP structural foundation | current-Space Aura provider promoted; fabrication/transaction providers remain absent |
 | `product-operations.territorial-platform` | structured | `DEFERRED`; emits no contextual navigation/widgets |
 | `education.school` | structured | `DEFERRED`; emits no contextual navigation/widgets |
 | `development.software` | structured | `DEFERRED`; one Space can contain many Projects; Studio is only the project-opening tool |
