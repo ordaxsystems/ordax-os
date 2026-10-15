@@ -10,13 +10,15 @@
     "runtimeKind": "ordax-os"
   },
   "credential": {
-    "path": "/state/ordax/device-agent/product-device.json",
+    "path": "/state/ordax/native-state/device-agent/product-device.json",
+    "nativeRuntimePath": "/var/lib/ordax/device-agent/product-device.json",
     "mode": "0600",
     "fields": ["device_id", "device_token"],
     "deviceId": "canonical-uuid",
     "deviceToken": "256-bit-lowercase-hex",
     "surfaceReadable": false,
-    "synchronized": false
+    "synchronized": false,
+    "singlePersistentCopy": true
   },
   "lifecycle": {
     "reportMode": "one-shot",

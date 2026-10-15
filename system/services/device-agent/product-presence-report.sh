@@ -5,7 +5,10 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
-AGENT_DIR=$STATE_DIR/device-agent
+# Native Surface persists /var/lib/ordax as the host's native-state directory.
+# Product enrollment writes device-agent/product-device.json through that bind,
+# so the host-side one-shot reporter must read the exact same credential.
+AGENT_DIR=${ORDAX_PRODUCT_DEVICE_AGENT_DIR:-$STATE_DIR/native-state/device-agent}
 CREDENTIAL_FILE=${ORDAX_PRODUCT_DEVICE_CREDENTIAL_FILE:-$AGENT_DIR/product-device.json}
 LAST_RESULT_FILE=$AGENT_DIR/product-presence-last-result
 CONTROL_PLANE_URL=${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}
