@@ -142,10 +142,14 @@ class StableRuntimeProfileTests(unittest.TestCase):
 
     def test_surface_uses_release_sha_and_disables_dev_rescue_in_stable(self):
         text = SURFACE.read_text(encoding="utf-8")
+        identity = text.split("resolve_source_identity() {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("stable-mvp)", identity)
+        self.assertIn("SOURCE_SHA=$SOURCE_SHA_HINT", identity)
+        self.assertIn("owner-development)", identity)
+        self.assertIn('/usr/bin/git -C "$repo_root" rev-parse HEAD', identity)
+        self.assertIn('[ "$candidate_sha" = "$SOURCE_SHA_HINT" ]', identity)
         configure = text.split("configure_graphics_host() {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("stable-mvp)", configure)
-        self.assertIn("SOURCE_SHA=$SOURCE_SHA_HINT", configure)
-        self.assertIn("owner-development)", configure)
+        self.assertIn('is_source_sha "$SOURCE_SHA"', configure)
         self.assertIn('PRODUCT_MODE=${ORDAX_PRODUCT_MODE:-}', text)
         self.assertIn('--product-mode "$PRODUCT_MODE"', text)
         self.assertIn('--distribution-profile "$DISTRIBUTION_PROFILE"', text)

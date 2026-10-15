@@ -889,7 +889,7 @@ is_source_sha() {
     return 0
 }
 
-configure_graphics_host() {
+resolve_source_identity() {
     repo_root=${SYSTEM_ROOT%/system}
     case "$DISTRIBUTION_PROFILE" in
         stable-mvp)
@@ -900,20 +900,38 @@ configure_graphics_host() {
             SOURCE_SHA=$SOURCE_SHA_HINT
             ;;
         owner-development)
-            if [ "$repo_root" != "$SYSTEM_ROOT" ] && [ -x /usr/bin/git ]; then
-                candidate_sha=$(/usr/bin/git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')
-                if is_source_sha "$candidate_sha"; then
-                    SOURCE_SHA=$candidate_sha
-                else
-                    SOURCE_SHA=unknown
-                fi
-            fi
+            is_source_sha "$SOURCE_SHA_HINT" || {
+                echo "ordax-surface: Owner/Development source SHA hint is invalid" >>"$HOST_LOG"
+                return 1
+            }
+            [ "$repo_root" != "$SYSTEM_ROOT" ] && [ -x /usr/bin/git ] || {
+                echo "ordax-surface: Owner/Development source repository is unavailable" >>"$HOST_LOG"
+                return 1
+            }
+            candidate_sha=$(/usr/bin/git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')
+            is_source_sha "$candidate_sha" || {
+                echo "ordax-surface: Owner/Development checkout SHA is invalid" >>"$HOST_LOG"
+                return 1
+            }
+            [ "$candidate_sha" = "$SOURCE_SHA_HINT" ] || {
+                echo "ordax-surface: Owner/Development checkout SHA does not match supervised source SHA" >>"$HOST_LOG"
+                return 1
+            }
+            SOURCE_SHA=$candidate_sha
             ;;
         *)
             echo "ordax-surface: unknown distribution profile" >>"$HOST_LOG"
             return 1
             ;;
     esac
+    return 0
+}
+
+configure_graphics_host() {
+    is_source_sha "$SOURCE_SHA" || {
+        echo "ordax-surface: exact source identity was not resolved before graphics setup" >>"$HOST_LOG"
+        return 1
+    }
     [ -f "$SYSTEM_ROOT/surface/runtime/ordax_browser_host.py" ] || return 1
     mkdir -p "$RUNTIME_ROOT/tmp/ordax-web-cache-$SOURCE_SHA" || return 1
 }
@@ -1323,6 +1341,7 @@ start_native_install_broker || echo "ordax-surface: Native install discovery bro
 [ -e /dev/dri/card0 ] || fallback_with_reason "DRM device /dev/dri/card0 is unavailable"
 reap_stale_runtime_processes || fallback_with_reason "stale runtime processes survived bounded termination; refusing mount reuse"
 clear_stale_runtime_mounts
+resolve_source_identity || fallback_with_reason "failed to resolve exact Surface source identity"
 if ! runtime_is_ready; then
     printf 'OrdaX: preparando Surface grafica...\n'
     # Current-boot, exact-SHA marker. Stable/MVP never acquires APK packages.
