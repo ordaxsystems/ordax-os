@@ -29,6 +29,10 @@ BASE_SOURCE = ROOT / "bootstrap/independent-base/source.json"
 CONFIG = HERE / "configs/ordax_surface_defconfig"
 UUID_NAMESPACE = uuid.UUID("9dc9e517-2e1e-54df-b408-49215ac9ab12")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
+SURFACE_COMPAT_LINKS = {
+    "bin/udevadm": "../sbin/udevadm",
+    "usr/lib/udev/rules.d/60-input-id.rules": "../../../../lib/udev/rules.d/60-input-id.rules",
+}
 
 
 class SurfaceBuildError(RuntimeError):
@@ -94,6 +98,8 @@ def contracts() -> tuple[dict, dict]:
                 raise SurfaceBuildError(f"unsafe {group} runtime path: {path!r}")
     if set(required) & set(forbidden):
         raise SurfaceBuildError("runtime path policy overlaps")
+    if not set(SURFACE_COMPAT_LINKS).issubset(required):
+        raise SurfaceBuildError("Surface compatibility paths are not part of required runtime ABI")
 
     if base.get("$schema") != "prototype-ordax.independent-base-experiment/1":
         raise SurfaceBuildError("canonical Independent Base source contract changed")
@@ -190,33 +196,51 @@ def normalized_member_name(name: str) -> str:
     return name.lstrip("/").rstrip("/")
 
 
-def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str]:
-    """Preserve the current Surface path ABI without changing Buildroot/eudev.
-
-    The canonical Surface/portable mount contract invokes /bin/udevadm. Buildroot's
-    eudev installs it under /sbin for the non-merged-usr layout. Add only the
-    compatibility symlink required by the existing OrdaX consumer; do not fork
-    eudev or change the consumer during the migration proof.
-    """
-    with tarfile.open(rootfs_tar, "r:") as archive:
-        members = {normalized_member_name(member.name): member for member in archive.getmembers()}
-    current = members.get("bin/udevadm")
-    if current is not None:
-        return {"bin/udevadm": "native"}
-    target = members.get("sbin/udevadm")
-    if target is None or not target.isfile():
-        raise SurfaceBuildError("Buildroot eudev did not provide /sbin/udevadm for Surface ABI")
-
-    link = tarfile.TarInfo("bin/udevadm")
+def _compat_symlink(path: str, target: str) -> tarfile.TarInfo:
+    link = tarfile.TarInfo(path)
     link.type = tarfile.SYMTYPE
-    link.linkname = "../sbin/udevadm"
+    link.linkname = target
     link.mode = 0o777
     link.uid = link.gid = 0
     link.uname = link.gname = ""
     link.mtime = 0
+    return link
+
+
+def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str]:
+    """Preserve the current Surface path ABI without changing OrdaX consumers.
+
+    Buildroot/eudev uses /sbin/udevadm and /lib/udev/rules.d in the selected
+    non-merged-usr layout. The canonical Surface and portable mount checks already
+    consume /bin/udevadm and /usr/lib/udev/rules.d/60-input-id.rules. Bind those
+    exact existing paths to the native Buildroot files in the candidate artifact.
+    """
+    with tarfile.open(rootfs_tar, "r:") as archive:
+        members = {normalized_member_name(member.name): member for member in archive.getmembers()}
+
+    required_native = {
+        "bin/udevadm": "sbin/udevadm",
+        "usr/lib/udev/rules.d/60-input-id.rules": "lib/udev/rules.d/60-input-id.rules",
+    }
+    pending: list[tarfile.TarInfo] = []
+    links: dict[str, str] = {}
+    for exposed, native in required_native.items():
+        current = members.get(exposed)
+        if current is not None:
+            raise SurfaceBuildError(
+                f"Buildroot now provides /{exposed} natively; review compatibility binding before changing ABI"
+            )
+        target = members.get(native)
+        if target is None or not target.isfile():
+            raise SurfaceBuildError(f"Buildroot eudev did not provide /{native} for Surface ABI")
+        link_target = SURFACE_COMPAT_LINKS[exposed]
+        pending.append(_compat_symlink(exposed, link_target))
+        links[exposed] = link_target
+
     with tarfile.open(rootfs_tar, "a:") as archive:
-        archive.addfile(link)
-    return {"bin/udevadm": "../sbin/udevadm"}
+        for link in pending:
+            archive.addfile(link)
+    return links
 
 
 def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
@@ -231,12 +255,18 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     if missing:
         raise SurfaceBuildError(f"Buildroot Surface runtime missing required paths: {missing}")
 
-    udevadm = by_name.get("bin/udevadm")
-    if udevadm is None or not udevadm.issym() or udevadm.linkname != "../sbin/udevadm":
-        raise SurfaceBuildError("Surface /bin/udevadm ABI is not bound to Buildroot /sbin/udevadm")
-    native_udevadm = by_name.get("sbin/udevadm")
-    if native_udevadm is None or not native_udevadm.isfile():
-        raise SurfaceBuildError("Buildroot native /sbin/udevadm is missing")
+    native_requirements = {
+        "sbin/udevadm": "Buildroot native /sbin/udevadm is missing",
+        "lib/udev/rules.d/60-input-id.rules": "Buildroot native input udev rule is missing",
+    }
+    for path, message in native_requirements.items():
+        member = by_name.get(path)
+        if member is None or not member.isfile():
+            raise SurfaceBuildError(message)
+    for path, target in SURFACE_COMPAT_LINKS.items():
+        member = by_name.get(path)
+        if member is None or not member.issym() or member.linkname != target:
+            raise SurfaceBuildError(f"Surface /{path} ABI is not bound to native Buildroot path")
 
     forbidden_hits: list[str] = []
     for forbidden in source["forbidden_runtime_paths"]:
@@ -253,7 +283,7 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     return {
         "member_count": len(members),
         "required_runtime_paths": sorted(required),
-        "compatibility_links": {"bin/udevadm": "../sbin/udevadm"},
+        "compatibility_links": dict(SURFACE_COMPAT_LINKS),
         "forbidden_runtime_paths_absent": True,
         "apk_runtime_absent": True,
     }
@@ -276,6 +306,7 @@ def verify_build_config(build_dir: Path) -> str:
         "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
         "BR2_PACKAGE_PYTHON3=y",
         "BR2_PACKAGE_PYTHON_GOBJECT=y",
+        "BR2_PACKAGE_GOBJECT_INTROSPECTION=y",
         "BR2_PACKAGE_XWAYLAND=y",
         "BR2_PACKAGE_SEATD=y",
     )
@@ -404,8 +435,8 @@ def verify(out_dir: Path) -> dict:
     if provenance.get("physical_artifact_authorized") is not False or provenance.get("stable_promotion_authorized") is not False:
         raise SurfaceBuildError("candidate authorization drift")
     inventory = provenance.get("runtime_inventory", {})
-    if inventory.get("compatibility_links") != {"bin/udevadm": "../sbin/udevadm"}:
-        raise SurfaceBuildError("Surface /bin/udevadm compatibility binding is absent from provenance")
+    if inventory.get("compatibility_links") != SURFACE_COMPAT_LINKS:
+        raise SurfaceBuildError("Surface compatibility binding is absent from provenance")
     if inventory.get("apk_runtime_absent") is not True or inventory.get("forbidden_runtime_paths_absent") is not True:
         raise SurfaceBuildError("runtime inventory does not prove Alpine/APK absence")
     image = out_dir / source["artifact"]["name"]
