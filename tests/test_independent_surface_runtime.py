@@ -63,6 +63,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         for marker in (
             "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
             "BR2_SHARED_LIBS=y",
+            "BR2_CCACHE=y",
             "BR2_PACKAGE_EUDEV=y",
             "BR2_PACKAGE_CAGE=y",
             "BR2_PACKAGE_WEBKITGTK=y",
