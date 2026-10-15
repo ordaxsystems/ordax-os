@@ -1,0 +1,43 @@
+{
+  "$schema": "prototype-ordax.product-device-presence/1",
+  "status": "foundation-not-mounted",
+  "authority": "ordax-control-plane-postgresql",
+  "transport": {
+    "direction": "outbound-https-only",
+    "method": "POST",
+    "path": "/v3/product/device/presence",
+    "controlPlaneBaseUrl": "runtime-configured",
+    "runtimeKind": "ordax-os"
+  },
+  "credential": {
+    "path": "/state/ordax/device-agent/product-device.json",
+    "mode": "0600",
+    "fields": ["device_id", "device_token"],
+    "deviceId": "canonical-uuid",
+    "deviceToken": "256-bit-lowercase-hex",
+    "surfaceReadable": false,
+    "synchronized": false
+  },
+  "lifecycle": {
+    "reportMode": "one-shot",
+    "ownsHeartbeatLoop": false,
+    "schedulingOwner": "existing-runtime-heartbeat-after-coordinated-cutover",
+    "enrollmentRequired": true,
+    "enrollmentImplemented": false,
+    "withoutCredential": "inactive-fail-soft",
+    "withoutNetwork": "offline-fail-soft",
+    "bootDependency": false,
+    "surfaceHealthDependency": false,
+    "grantsRemoteActions": false,
+    "opensInboundPort": false,
+    "dualWritesLegacyAndCanonical": false
+  },
+  "production": {
+    "enabled": false,
+    "reason": "control-plane-v3-production-gates-remain-closed"
+  },
+  "ownerDevelopment": {
+    "canaryAllowedAfterAuthenticatedEnrollment": true,
+    "automaticEnrollment": false
+  }
+}
