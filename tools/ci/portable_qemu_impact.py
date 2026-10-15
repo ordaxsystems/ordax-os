@@ -46,6 +46,18 @@ PRODUCER_NEUTRAL_LIGHT_EXACT = {
 PRODUCER_NEUTRAL_LIGHT_PREFIXES = (
     "bootstrap/independent-base/",
 )
+OWNER_DEVELOPMENT_LIGHT_EXACT = {
+    "docs/REMOTE-CONTROL.md",
+    "tests/test_dev_base_helper_refresh.py",
+    "tests/test_owner_remote_recovery.py",
+}
+OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
+    "bootstrap/base-update/owner-development/",
+)
+IMPACT_POLICY_LIGHT_EXACT = {
+    "tools/ci/portable_qemu_impact.py",
+    "tests/test_portable_qemu_impact.py",
+}
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
     "system/supervisor",
@@ -55,8 +67,6 @@ ALWAYS_HEAVY_EXACT = {
     "system/services/base-update/agent.sh",
     "system/services/local-ai/source-lock.json",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
-    "tools/ci/portable_qemu_impact.py",
-    "tests/test_portable_qemu_impact.py",
     "tests/test_heavy_workflow_path_scope.py",
 }
 ALWAYS_HEAVY_PREFIXES = (
@@ -243,6 +253,12 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         if path in PRODUCER_NEUTRAL_LIGHT_EXACT:
             continue
         if path.startswith(PRODUCER_NEUTRAL_LIGHT_PREFIXES):
+            continue
+        if path in OWNER_DEVELOPMENT_LIGHT_EXACT:
+            continue
+        if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
+            continue
+        if path in IMPACT_POLICY_LIGHT_EXACT:
             continue
         if not path.startswith("system/"):
             # The workflow trigger already limits non-system paths to Portable/boot/
