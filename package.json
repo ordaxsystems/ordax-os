@@ -2,6 +2,9 @@
   "name": "prototype-ordax-os-runtime-adapters",
   "private": true,
   "type": "module",
+  "scripts": {
+    "emulator:windows": "vite --config tools/windows-emulator/vite.config.mjs --open /tools/windows-emulator/index.html"
+  },
   "dependencies": {
     "@vercel/oidc": "4.0.0",
     "@radix-ui/react-dialog": "^1.1.15",
