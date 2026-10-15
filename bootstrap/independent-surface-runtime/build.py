@@ -31,10 +31,11 @@ UUID_NAMESPACE = uuid.UUID("9dc9e517-2e1e-54df-b408-49215ac9ab12")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 SURFACE_NATIVE_PATHS = {
     "bin/udevadm": "usr/bin/udevadm",
-    "usr/lib/udev/rules.d/60-input-id.rules": "usr/lib/udev/rules.d/60-input-id.rules",
+    "usr/lib/udev/rules.d/60-input-id.rules": "lib/udev/rules.d/60-input-id.rules",
 }
 SURFACE_COMPAT_LINKS = {
     "bin/udevadm": "../usr/bin/udevadm",
+    "usr/lib/udev/rules.d/60-input-id.rules": "../../../../lib/udev/rules.d/60-input-id.rules",
 }
 
 
@@ -215,9 +216,9 @@ def _compat_symlink(path: str, target: str) -> tarfile.TarInfo:
 def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str]:
     """Preserve the current Surface path ABI without changing OrdaX consumers.
 
-    Buildroot 2026.08/eudev installs udevadm in /usr/bin and its rules in
-    /usr/lib/udev/rules.d. The current OrdaX Surface still consumes
-    /bin/udevadm, so expose only that compatibility path while keeping the
+    Buildroot 2026.08/eudev uses split-/usr in this profile: udevadm is native at
+    /usr/bin while udev rules are native under /lib/udev/rules.d. Expose only
+    the compatibility paths required by the current Surface ABI and keep those
     native Buildroot locations authoritative.
     """
     with tarfile.open(rootfs_tar, "r:") as archive:
@@ -257,10 +258,9 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     missing = sorted(required - names)
     if missing:
         raise SurfaceBuildError(f"Buildroot Surface runtime missing required paths: {missing}")
-
     native_requirements = {
         "usr/bin/udevadm": "Buildroot native /usr/bin/udevadm is missing",
-        "usr/lib/udev/rules.d/60-input-id.rules": "Buildroot native input udev rule is missing",
+        "lib/udev/rules.d/60-input-id.rules": "Buildroot native input udev rule is missing",
     }
     for path, message in native_requirements.items():
         member = by_name.get(path)
@@ -316,6 +316,8 @@ def verify_build_config(build_dir: Path) -> str:
     missing = [marker for marker in required if marker not in text]
     if missing:
         raise SurfaceBuildError(f"Buildroot resolved config lost Surface requirements: {missing}")
+    if "BR2_ROOTFS_MERGED_USR=y" in text:
+        raise SurfaceBuildError("Surface eudev compatibility binding requires the validated split-/usr layout")
     if "BR2_STATIC_LIBS=y" in text:
         raise SurfaceBuildError("graphical Surface runtime cannot use static-only toolchain")
     return sha256_file(config)
