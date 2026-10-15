@@ -66,8 +66,14 @@ class ProductDeviceIdentityTests(unittest.TestCase):
             )
             os.chmod(target, 0o600)
             store.local_path.symlink_to(target)
-            with self.assertRaises(FileExistsError):
-                store.prepare_enrollment()
+            material = store.prepare_enrollment()
+            self.assertFalse(store.local_path.is_symlink())
+            self.assertNotEqual(material.device_token, "c" * 64)
+            self.assertEqual(
+                json.loads(target.read_text(encoding="utf-8")),
+                {"device_token": "c" * 64, "machine_binding_secret": "d" * 64},
+            )
+            self.assertEqual(stat.S_IMODE(store.local_path.stat().st_mode), 0o600)
 
     def test_enrollment_payload_contains_no_raw_secret_or_account_token(self):
         with tempfile.TemporaryDirectory() as temporary:
