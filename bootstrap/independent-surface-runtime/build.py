@@ -29,9 +29,12 @@ BASE_SOURCE = ROOT / "bootstrap/independent-base/source.json"
 CONFIG = HERE / "configs/ordax_surface_defconfig"
 UUID_NAMESPACE = uuid.UUID("9dc9e517-2e1e-54df-b408-49215ac9ab12")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
+SURFACE_NATIVE_PATHS = {
+    "bin/udevadm": "usr/bin/udevadm",
+    "usr/lib/udev/rules.d/60-input-id.rules": "usr/lib/udev/rules.d/60-input-id.rules",
+}
 SURFACE_COMPAT_LINKS = {
-    "bin/udevadm": "../sbin/udevadm",
-    "usr/lib/udev/rules.d/60-input-id.rules": "../../../../lib/udev/rules.d/60-input-id.rules",
+    "bin/udevadm": "../usr/bin/udevadm",
 }
 
 
@@ -98,6 +101,8 @@ def contracts() -> tuple[dict, dict]:
                 raise SurfaceBuildError(f"unsafe {group} runtime path: {path!r}")
     if set(required) & set(forbidden):
         raise SurfaceBuildError("runtime path policy overlaps")
+    if not set(SURFACE_NATIVE_PATHS).issubset(required):
+        raise SurfaceBuildError("Surface native/compatibility paths are not part of required runtime ABI")
     if not set(SURFACE_COMPAT_LINKS).issubset(required):
         raise SurfaceBuildError("Surface compatibility paths are not part of required runtime ABI")
 
@@ -210,29 +215,27 @@ def _compat_symlink(path: str, target: str) -> tarfile.TarInfo:
 def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str]:
     """Preserve the current Surface path ABI without changing OrdaX consumers.
 
-    Buildroot/eudev uses /sbin/udevadm and /lib/udev/rules.d in the selected
-    non-merged-usr layout. The canonical Surface and portable mount checks already
-    consume /bin/udevadm and /usr/lib/udev/rules.d/60-input-id.rules. Bind those
-    exact existing paths to the native Buildroot files in the candidate artifact.
+    Buildroot 2026.08/eudev installs udevadm in /usr/bin and its rules in
+    /usr/lib/udev/rules.d. The current OrdaX Surface still consumes
+    /bin/udevadm, so expose only that compatibility path while keeping the
+    native Buildroot locations authoritative.
     """
     with tarfile.open(rootfs_tar, "r:") as archive:
         members = {normalized_member_name(member.name): member for member in archive.getmembers()}
 
-    required_native = {
-        "bin/udevadm": "sbin/udevadm",
-        "usr/lib/udev/rules.d/60-input-id.rules": "lib/udev/rules.d/60-input-id.rules",
-    }
     pending: list[tarfile.TarInfo] = []
     links: dict[str, str] = {}
-    for exposed, native in required_native.items():
+    for exposed, native in SURFACE_NATIVE_PATHS.items():
+        native_member = members.get(native)
+        if native_member is None or not native_member.isfile():
+            raise SurfaceBuildError(f"Buildroot eudev did not provide /{native} for Surface ABI")
+        if exposed == native:
+            continue
         current = members.get(exposed)
         if current is not None:
             raise SurfaceBuildError(
                 f"Buildroot now provides /{exposed} natively; review compatibility binding before changing ABI"
             )
-        target = members.get(native)
-        if target is None or not target.isfile():
-            raise SurfaceBuildError(f"Buildroot eudev did not provide /{native} for Surface ABI")
         link_target = SURFACE_COMPAT_LINKS[exposed]
         pending.append(_compat_symlink(exposed, link_target))
         links[exposed] = link_target
@@ -256,8 +259,8 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
         raise SurfaceBuildError(f"Buildroot Surface runtime missing required paths: {missing}")
 
     native_requirements = {
-        "sbin/udevadm": "Buildroot native /sbin/udevadm is missing",
-        "lib/udev/rules.d/60-input-id.rules": "Buildroot native input udev rule is missing",
+        "usr/bin/udevadm": "Buildroot native /usr/bin/udevadm is missing",
+        "usr/lib/udev/rules.d/60-input-id.rules": "Buildroot native input udev rule is missing",
     }
     for path, message in native_requirements.items():
         member = by_name.get(path)
