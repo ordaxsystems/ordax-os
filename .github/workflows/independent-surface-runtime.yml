@@ -4,14 +4,24 @@ on:
   pull_request:
     paths:
       - 'bootstrap/independent-surface-runtime/**'
+      - '!bootstrap/independent-surface-runtime/**/*.md'
       - 'bootstrap/independent-base/source.json'
       - 'bootstrap/kernel/source.json'
       - 'tests/test_independent_surface_runtime.py'
       - 'tests/test_independent_surface_qemu_binding.py'
+      - 'tests/test_independent_surface_impact.py'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tools/ci/independent_surface_impact.py'
       - '.github/workflows/independent-surface-runtime.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'docs/contracts/ci-supply-chain.json'
   workflow_dispatch:
+    inputs:
+      force_build:
+        type: boolean
+        description: 'force the expensive Buildroot Surface build/QEMU proof'
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -36,15 +46,50 @@ jobs:
         run: |
           python3 -m unittest \
             tests.test_independent_surface_runtime \
-            tests.test_independent_surface_qemu_binding -v
+            tests.test_independent_surface_qemu_binding \
+            tests.test_independent_surface_impact -v
           python3 -m py_compile \
             bootstrap/independent-surface-runtime/build.py \
-            bootstrap/independent-surface-runtime/prepare_config.py
+            bootstrap/independent-surface-runtime/prepare_config.py \
+            tools/ci/independent_surface_impact.py
           python3 bootstrap/independent-surface-runtime/prepare_config.py check
           python3 bootstrap/independent-surface-runtime/build.py check
 
+  impact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.impact.outputs.required }}
+      reason: ${{ steps.impact.outputs.reason }}
+      changed_count: ${{ steps.impact.outputs.changed_count }}
+    steps:
+      - name: Checkout exact source for Surface impact classification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify whether Surface EROFS bytes can change
+        id: impact
+        env:
+          ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || '' }}
+          ORDAX_IMPACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_FORCE_SURFACE_BUILD: ${{ inputs.force_build || false }}
+        run: |
+          set -euo pipefail
+          force=()
+          if [ "$ORDAX_FORCE_SURFACE_BUILD" = true ]; then
+            force=(--force)
+          fi
+          python3 tools/ci/independent_surface_impact.py \
+            --base "$ORDAX_IMPACT_BASE" \
+            --head "$ORDAX_IMPACT_HEAD" \
+            "${force[@]}" \
+            --github-output "$GITHUB_OUTPUT"
+
   buildroot-surface:
-    needs: contract
+    needs: [contract, impact]
+    if: needs.impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
