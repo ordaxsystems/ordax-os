@@ -133,6 +133,19 @@ class DevelopmentFirmwareTest(unittest.TestCase):
         self.assertIn("zstd", BUILD.PACKAGES)
         self.assertEqual(BUILD.BUILD_ONLY_PACKAGES, ("zstd",))
 
+    def test_owner_development_seeds_bounded_ext4_repair_runtime(self):
+        self.assertIn("e2fsprogs", BUILD.PACKAGES)
+        with tempfile.TemporaryDirectory() as temp:
+            rootfs = Path(temp)
+            e2fsck = rootfs / "sbin/e2fsck"
+            e2fsck.parent.mkdir(parents=True)
+            e2fsck.write_text("repair", encoding="utf-8")
+            e2fsck.chmod(0o755)
+            BUILD._verify_owner_repair_runtime(rootfs)
+            e2fsck.chmod(0o644)
+            with self.assertRaises(BUILD.BuildError):
+                BUILD._verify_owner_repair_runtime(rootfs)
+
     def test_graphical_surface_runtime_is_not_seeded(self):
         for package in (
             "cage",
