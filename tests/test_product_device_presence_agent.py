@@ -19,6 +19,25 @@ class ProductDevicePresenceReporterTests(unittest.TestCase):
         self.assertIn('exit 0', text)
         self.assertNotIn('exit 1', text)
 
+    def test_reporter_uses_same_persistent_native_state_as_enrollment(self):
+        text = REPORTER.read_text(encoding="utf-8")
+        self.assertIn('STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}', text)
+        self.assertIn('AGENT_DIR=${ORDAX_PRODUCT_DEVICE_AGENT_DIR:-$STATE_DIR/native-state/device-agent}', text)
+        self.assertIn('CREDENTIAL_FILE=${ORDAX_PRODUCT_DEVICE_CREDENTIAL_FILE:-$AGENT_DIR/product-device.json}', text)
+        self.assertNotIn('AGENT_DIR=$STATE_DIR/device-agent', text)
+
+        value = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        credential = value["credential"]
+        self.assertEqual(
+            credential["path"],
+            "/state/ordax/native-state/device-agent/product-device.json",
+        )
+        self.assertEqual(
+            credential["nativeRuntimePath"],
+            "/var/lib/ordax/device-agent/product-device.json",
+        )
+        self.assertTrue(credential["singlePersistentCopy"])
+
     def test_reporter_is_one_shot_and_does_not_own_heartbeat(self):
         text = REPORTER.read_text(encoding="utf-8")
         for forbidden in ('while :', 'sleep ', 'PID_FILE', 'trap ', 'setsid ', 'nohup ', '&\n'):
