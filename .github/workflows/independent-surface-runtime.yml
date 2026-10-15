@@ -63,6 +63,10 @@ jobs:
           expected="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
           grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$expected\"" \
             bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+      - name: Resolve exact Kconfig before expensive graphical build
+        run: |
+          python3 bootstrap/independent-surface-runtime/prepare_config.py preflight \
+            --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
       - name: Build and verify Buildroot/musl Surface runtime
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
