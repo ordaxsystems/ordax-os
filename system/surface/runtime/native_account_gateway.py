@@ -278,6 +278,19 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/entitlements/memory-cloud")
 
+    def enroll_product_device(self, body: bytes) -> GatewayReply:
+        if not isinstance(body, bytes) or not body:
+            raise TypeError("Product device enrollment request body must be non-empty bytes")
+        if len(body) > 16 * 1024:
+            raise NativeAccountGatewayError("device-enrollment-request-too-large")
+        with self._lock:
+            return self._request(
+                "POST",
+                "/device/enroll",
+                body=body,
+                content_type="application/json",
+            )
+
     def send_network_message(self, body: bytes) -> GatewayReply:
         if not isinstance(body, bytes) or not body:
             raise TypeError("Network message request body must be non-empty bytes")
