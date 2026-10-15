@@ -133,6 +133,24 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Buildroot eudev did not provide"):
                     self.builder.ensure_surface_runtime_path_compatibility(tar_path)
 
+    def test_workflow_reuses_buildroot_downloads_and_compiler_outputs(self):
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        for marker in (
+            "Restore exact Surface compiler cache",
+            "ordax-independent-surface-ccache-v1-",
+            "Restore Surface Buildroot source download cache",
+            "ordax-independent-surface-dl-v1-",
+            "BR2_CCACHE_DIR:",
+            "BR2_DL_DIR:",
+            "Save Surface Buildroot source download cache",
+            "Sanitize reusable Surface download cache",
+        ):
+            self.assertIn(marker, text)
+        self.assertIn("restore-keys:", text)
+        self.assertIn("-name '*.tmp'", text)
+        self.assertIn("-name '*.part'", text)
+        self.assertIn("-name '*.lock'", text)
+
     def test_workflow_reuses_canonical_qemu_with_same_buildroot_artifact(self):
         text = WORKFLOW_PATH.read_text(encoding="utf-8")
         self.assertIn("if-no-files-found: error", text)
