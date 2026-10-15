@@ -112,11 +112,53 @@ Organiza a promoção da infraestrutura Native já existente: whole-disk, target
 
 Preserva a direção de um produto/uma Surface com runtimes `web | cloud | device | hybrid`, Web real, Files federado, Store sem mocks, Device Bridge, Secure Mesh opcional e Cloud Runtime/VPS somente quando justificado. P1 pós-MVP.
 
+### FAB-001 — OrdaX Fabrication e Impressão 3D
+
+`plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md`
+
+Primeiro vertical comercial recomendado depois da fundação Web/Cloud/Device. Usa a operação real de impressão 3D como dogfooding de pedidos, orçamento, modelos, jobs, print farm, materiais, qualidade, custos, devices e Intelligence. P1 pós-MVP.
+
 ### FOOD-001 — OrdaX Food e piloto Pizza
 
 `plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md`
 
-Transforma a direção já existente do Profile `pizzaria-br@1` em um plano comercial pós-MVP sem inflar o recorte atual do Profile. Define **OrdaX Food** como domínio compartilhado e **Pizza/Pizzaria** como primeiro vertical/piloto, cobrindo Menu, pizza builder, Orders, POS, KDS, estoque/ficha técnica, compras, CRM, Inbox/WhatsApp oficial, delivery, pagamentos, analytics e Intelligence/Autopilot. Reutiliza Account/Spaces/Realtime/Action Gateway/Model Router e proíbe backend, identidade ou authority paralelos. P1 pós-MVP; o Profile Pizzaria mínimo já exigido pelo MVP continua nos owners canônicos atuais.
+Transforma a direção já existente do Profile `pizzaria-br@1` em um plano comercial pós-MVP sem inflar o recorte atual do Profile. Define **OrdaX Food** como domínio compartilhado e **Pizza/Pizzaria** como primeiro vertical/piloto, cobrindo Menu, pizza builder, Orders, POS, KDS, mesas/comandas, estoque/ficha técnica, compras, CRM, Inbox/WhatsApp oficial, delivery, pagamentos, analytics e Intelligence/Autopilot. P1 pós-MVP.
+
+### IDENTITY-001 — membros, convites e acesso a Spaces
+
+`plans/IDENTITY-001-SPACE-MEMBERS-INVITES-AND-ACCESS.md`
+
+Fecha o produto sobre o membership já existente: convites, aceite, expiração, revogação, `owner/admin/member/viewer`, transferência de ownership e auditoria. Funcionário/People não ganha login automaticamente. P1 pós-MVP.
+
+### REL-001 — relações externas e portais
+
+`plans/REL-001-EXTERNAL-RELATIONSHIPS-AND-PORTALS.md`
+
+Fundação horizontal para clientes, pais/responsáveis, alunos e outros externos acessarem projections/actions autorizadas sem virarem membros internos. O domínio mantém o SSOT da relação; REL-001 possui grants/consent/revoke e shell do Portal. P1 pós-MVP.
+
+### ACHEGUESE-001 — integração first-party OrdaX × Achegue-se
+
+`plans/ACHEGUESE-001-FIRST-PARTY-PRODUCT-INTEGRATION.md`
+
+Mantém os produtos separados e integráveis por OAuth/API/events/projections. Regra de produto: **Achegue-se descobre e conecta; OrdaX organiza e opera.** Nenhum banco, credencial privilegiada, release ou SSOT é fundido. P1 de ecossistema pós-MVP dos dois lados.
+
+### TALENT-001 — Identidade profissional, vagas e contratação
+
+`plans/TALENT-001-PROFESSIONAL-IDENTITY-JOBS-AND-HIRING.md`
+
+Identidade profissional fica na Account, fora de Space e fora de Profile Pack. Vagas pertencem a Spaces empregadores; Network/Messaging suportam o fluxo; People e membership entram somente após decisões explícitas. IA é assistiva e não decide contratação. P2.
+
+### EDU-001 — Education e Portal da Família
+
+`plans/EDU-001-ORDAX-EDUCATION-SCHOOL-AND-FAMILY-PORTAL.md`
+
+Define Escola como Space operacional privado: alunos, responsáveis, turmas, presença, notas, autorizações, reuniões, pagamentos e transporte limitado. Pais/alunos usam REL-001; dados de menores nunca viram targeting/publicação territorial. P2.
+
+### MARKET-001 — ofertas, descoberta e Marketplace
+
+`plans/MARKET-001-OFFERS-DISCOVERY-AND-MARKETPLACE.md`
+
+OrdaX pode author/publicar ofertas; Achegue-se é canal territorial natural quando vinculado. Publicação é explícita, revisionada e revogável. Não há ad-tech baseado em dados privados/sensíveis. P2.
 
 ### HARDWARE-001 — Hardware, Drivers e Packs
 
