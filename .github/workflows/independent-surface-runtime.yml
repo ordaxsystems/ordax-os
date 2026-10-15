@@ -7,11 +7,14 @@ on:
       - 'bootstrap/independent-base/source.json'
       - 'bootstrap/kernel/source.json'
       - 'tests/test_independent_surface_runtime.py'
+      - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
       - '.github/workflows/independent-surface-runtime.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -100,5 +103,16 @@ jobs:
           path: |
             ${{ runner.temp }}/ordax-independent-surface/provenance.json
             ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime-buildroot.erofs
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
+
+  portable-qemu:
+    needs: buildroot-surface
+    uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
+    with:
+      base_source: independent
+      surface_source: independent
+      force_run: true
+    permissions:
+      contents: read
+      actions: read
