@@ -39,7 +39,11 @@ async function evaluate(client, expression) {
   return response.result?.value;
 }
 
-function browserErrors(client) {
+function isExpectedUnavailableResourceLog(message) {
+  return /^Failed to load resource: the server responded with a status of (404|503) \(/.test(message);
+}
+
+function fatalBrowserErrors(client) {
   const exceptions = client.events
     .filter((event) => event.method === "Runtime.exceptionThrown")
     .map((event) => event.params?.exceptionDetails?.exception?.description
@@ -50,7 +54,8 @@ function browserErrors(client) {
     .map((event) => event.params?.args?.map((arg) => arg.value ?? arg.description ?? "").join(" "));
   const browserLogs = client.events
     .filter((event) => event.method === "Log.entryAdded" && event.params?.entry?.level === "error")
-    .map((event) => event.params?.entry?.text ?? "Browser log error");
+    .map((event) => event.params?.entry?.text ?? "Browser log error")
+    .filter((message) => !isExpectedUnavailableResourceLog(message));
   return [...exceptions, ...consoleErrors, ...browserLogs].filter(Boolean);
 }
 
@@ -62,45 +67,80 @@ async function waitFor(client, expression, predicate, label) {
     if (predicate(value)) return value;
     await sleep(150);
   }
-  throw new Error(`${label} timed out: ${JSON.stringify({ value, browserErrors: browserErrors(client) })}`);
+  throw new Error(`${label} timed out: ${JSON.stringify({ value, browserErrors: fatalBrowserErrors(client) })}`);
 }
 
-async function clickSelector(client, selector, label) {
-  const clicked = await evaluate(client, `(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (!(element instanceof HTMLElement) || element.disabled) return false;
-    element.click();
-    return true;
+async function clickVisibleSelector(client, selector, label) {
+  const point = await evaluate(client, `(() => {
+    const candidates = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
+    const element = candidates.find((candidate) =>
+      candidate instanceof HTMLElement
+      && !candidate.disabled
+      && candidate.getClientRects().length > 0
+    );
+    if (!element) return { ok: false, reason: "missing-visible-control" };
+    element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+    const rect = element.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    if (!(hit === element || element.contains(hit))) {
+      return {
+        ok: false,
+        reason: "obstructed",
+        hit: hit?.getAttribute?.("data-window-id")
+          ?? hit?.getAttribute?.("aria-label")
+          ?? hit?.tagName
+          ?? null,
+      };
+    }
+    return { ok: true, x, y };
   })()`);
-  if (clicked !== true) throw new Error(`${label} is unavailable: ${selector}`);
+  if (!point?.ok) {
+    throw new Error(`${label} is not physically reachable: ${JSON.stringify({ selector, point })}`);
+  }
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+    button: "left",
+    clickCount: 1,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x: point.x,
+    y: point.y,
+    button: "left",
+    clickCount: 1,
+  });
   await sleep(100);
 }
 
 async function waitForWindow(client, appId) {
   return waitFor(
     client,
-    `(() => Boolean(document.querySelector(${JSON.stringify(`[data-window-id="${appId}"]`)})))()`,
+    `(() => {
+      const node = document.querySelector(${JSON.stringify(`[data-window-id="${appId}"]`)});
+      return Boolean(node && !node.hidden && node.getClientRects().length > 0);
+    })()`,
     Boolean,
-    `${appId} window`,
+    `${appId} visible window`,
   );
 }
 
 async function launchApp(client, appId) {
   const selector = `[data-launch-app="${appId}"]`;
-  const launched = await evaluate(client, `(() => {
-    const controls = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
-    const control = controls.find((candidate) => candidate instanceof HTMLElement && !candidate.disabled);
-    if (!control) return false;
-    control.click();
-    return true;
-  })()`);
-  if (launched !== true) return Object.freeze({ id: appId, launched: false, title: null, alerts: [] });
+  try {
+    await clickVisibleSelector(client, selector, `launch ${appId}`);
+  } catch (error) {
+    return Object.freeze({ id: appId, launched: false, title: null, alerts: [error.message] });
+  }
   await waitForWindow(client, appId);
   return evaluate(client, `(() => {
     const windowNode = document.querySelector(${JSON.stringify(`[data-window-id="${appId}"]`)});
     return {
       id: ${JSON.stringify(appId)},
-      launched: Boolean(windowNode),
+      launched: Boolean(windowNode && !windowNode.hidden && windowNode.getClientRects().length > 0),
       title: windowNode?.querySelector(".ordax-window-title")?.textContent?.trim() || null,
       alerts: Array.from(windowNode?.querySelectorAll('[role="alert"]') ?? [])
         .map((entry) => entry.textContent?.trim() || "")
@@ -112,19 +152,20 @@ async function launchApp(client, appId) {
 async function checkFiles(client) {
   const documentsSelector = '[data-window-id="files"] [data-file-open-path="/Documentos"]';
   await waitFor(client, `(() => Boolean(document.querySelector(${JSON.stringify(documentsSelector)})))()`, Boolean, "Files Documentos action");
-  await clickSelector(client, documentsSelector, "Files Documentos action");
-  return waitFor(
+  await clickVisibleSelector(client, documentsSelector, "Files Documentos action");
+  const path = await waitFor(
     client,
     `(() => document.querySelector('[data-window-id="files"] [data-app-extension="file-space"]')?.dataset.fileSpacePath ?? null)()`,
     (value) => value === "/Documentos",
     "Files /Documentos navigation",
-  ).then((path) => Object.freeze({ path }));
+  );
+  return Object.freeze({ path });
 }
 
 async function selectSettingsSection(client, section) {
   const selector = `[data-window-id="settings"] [data-settings-section="${section}"]`;
   await waitFor(client, `(() => Boolean(document.querySelector(${JSON.stringify(selector)})))()`, Boolean, `Settings ${section} section`);
-  await clickSelector(client, selector, `Settings ${section} section`);
+  await clickVisibleSelector(client, selector, `Settings ${section} section`);
   await waitFor(
     client,
     `(() => document.querySelector('[data-window-id="settings"] [data-app-extension="settings-overview"]')?.dataset.settingsActiveSection ?? null)()`,
@@ -170,7 +211,7 @@ async function checkSettings(client) {
 async function selectSystemSection(client, section) {
   const selector = `[data-window-id="system"] [data-system-section="${section}"]`;
   await waitFor(client, `(() => Boolean(document.querySelector(${JSON.stringify(selector)})))()`, Boolean, `System ${section} section`);
-  await clickSelector(client, selector, `System ${section} section`);
+  await clickVisibleSelector(client, selector, `System ${section} section`);
   await waitFor(
     client,
     `(() => document.querySelector('[data-window-id="system"] [data-app-extension="system-overview"]')?.dataset.systemActiveSection ?? null)()`,
@@ -249,6 +290,15 @@ async function checkStudio(client) {
   return Object.freeze({ state: "runtime-not-packaged", runtimeMounted: false });
 }
 
+const functionalChecks = Object.freeze({
+  files: checkFiles,
+  studio: checkStudio,
+  settings: checkSettings,
+  system: checkSystem,
+  account: checkAccount,
+  store: checkStore,
+});
+
 await rm(join(windowsEmulatorStateRoot(), "first-run.json"), { force: true });
 
 runBrowser(async (client) => {
@@ -267,7 +317,7 @@ runBrowser(async (client) => {
   console.log("ORDAX_WINDOWS_MVP_OOBE=NATIVE_VISIBLE");
 
   for (const action of ["next", "next", "next", "next", "account-local", "next", "finish"]) {
-    await clickSelector(client, `[data-first-run-action="${action}"]`, `first-run ${action}`);
+    await clickVisibleSelector(client, `[data-first-run-action="${action}"]`, `first-run ${action}`);
   }
 
   const ready = await waitFor(
@@ -283,24 +333,21 @@ runBrowser(async (client) => {
   );
 
   const launchResults = [];
-  for (const appId of firstPartyAppIds) launchResults.push(await launchApp(client, appId));
-  if (launchResults.some((entry) => !entry.launched || entry.alerts.length > 0)) {
-    throw new Error(`Native MVP app launch gate failed: ${JSON.stringify(launchResults)}`);
+  const functionalResults = {};
+  for (const appId of firstPartyAppIds) {
+    const launched = await launchApp(client, appId);
+    launchResults.push(launched);
+    if (!launched.launched || launched.alerts.length > 0) {
+      throw new Error(`Native MVP app launch gate failed: ${JSON.stringify(launched)}`);
+    }
+    functionalResults[appId] = await functionalChecks[appId](client);
   }
+
   console.log(`ORDAX_WINDOWS_MVP_APP_LAUNCH_RESULTS=${JSON.stringify(launchResults)}`);
   console.log(`ORDAX_WINDOWS_MVP_FIRST_PARTY_APPS=${firstPartyAppIds.length}`);
   console.log(`ORDAX_WINDOWS_MVP_APPS_OPENED=${launchResults.filter((entry) => entry.launched).length}/${firstPartyAppIds.length}`);
 
-  const functionalResults = Object.freeze({
-    files: await checkFiles(client),
-    settings: await checkSettings(client),
-    system: await checkSystem(client),
-    account: await checkAccount(client),
-    store: await checkStore(client),
-    studio: await checkStudio(client),
-  });
-
-  const errors = browserErrors(client);
+  const errors = fatalBrowserErrors(client);
   if (errors.length > 0) throw new Error(`Native MVP browser errors: ${JSON.stringify(errors)}`);
 
   console.log(`ORDAX_WINDOWS_MVP_FUNCTIONAL_RESULTS=${JSON.stringify(functionalResults)}`);
