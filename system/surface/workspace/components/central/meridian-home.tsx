@@ -4,10 +4,10 @@ import { useWebAccount } from './account-context';
 import dayWallpaper from '@/assets/alpine-day.jpg';
 import nightWallpaper from '@/assets/alpine-night.jpg';
 
-type Props = {theme:'light'|'dark'; setColorTheme:(value:string)=>void; onOpen:(title:string)=>void; onExample:(title:string)=>void; onPrompt:(text:string)=>void};
+type Props = {theme:'light'|'dark'; onOpen:(title:string)=>void; onExample:(title:string)=>void; onPrompt:(text:string)=>void};
 const exampleFiles = [{name:'Direção visual',kind:'Documento · exemplo',icon:FileText},{name:'Referências do projeto',kind:'Pasta · exemplo',icon:Folder},{name:'Ideias para o próximo passo',kind:'Notas · exemplo',icon:FileText}];
 const ecosystems = [{name:'Spaces',note:'Contextos diferentes. O mesmo fio.',icon:Layers3,target:'Espaços'},{name:'Perfis profissionais',note:'Ferramentas que acompanham seu trabalho.',icon:BriefcaseBusiness,target:null},{name:'Dispositivos',note:'Cada tela pode fazer mais.',icon:Monitor,target:'Dispositivos'},{name:'Descobrir',note:'Novas peças para o seu mundo.',icon:ShoppingBag,target:'Loja'}];
-export function MeridianHome({onOpen,onExample,onPrompt,theme,setColorTheme}:Props) {
+export function MeridianHome({onOpen,onExample,onPrompt,theme}:Props) {
   const {identity,displayName,authorized}=useWebAccount();
   const [tab,setTab]=useState<'day'|'work'|'ecosystem'>('day');
   const [prompt,setPrompt]=useState('');
@@ -18,7 +18,6 @@ export function MeridianHome({onOpen,onExample,onPrompt,theme,setColorTheme}:Pro
   const date=new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'numeric',month:'long'}).format(now);
   function submit(event:FormEvent){event.preventDefault();if(prompt.trim())onPrompt(prompt.trim());}
   return <div className="meridian-home">
-    <header className="meridian-header"><div><Layers3 size={18}/><span>Central</span><i>/</i><strong>Início</strong></div><button aria-label={theme==='dark'?'Usar material Argila':'Usar material Grafite'} onClick={()=>setColorTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={19}/>:<Moon size={19}/>}</button></header>
     <div className="meridian-page">
       <section className="meridian-welcome"><div><p className="meridian-eyebrow"><time dateTime={now.toISOString()}>{date}</time><span>·</span>{authorized.activeSpace?.name??'Seu espaço'}</p><h1>{greeting}{identity.state==='signed-in'?', '+displayName:''}.</h1><p>O que importa, mais perto. O resto, no seu tempo.</p></div><button className="meridian-context" onClick={()=>onOpen('Espaços')}><Layers3/><span><small>NO SEU CONTEXTO</small><strong>{authorized.activeSpace?.name??'Escolher um Space'}</strong></span><ArrowUpRight size={16}/></button></section>
       <section className="meridian-hero" aria-label="Sua central OrdaX OS"><img src={theme==='dark'?nightWallpaper:dayWallpaper} alt={theme==='dark'?'Lago alpino sob a luz da lua':'Lago alpino ao amanhecer'} width={1920} height={768}/><div><p className="meridian-eyebrow">SEU ESPAÇO PARA FAZER</p><h2>Uma ideia abre<br/>novos caminhos.</h2><p>Suas ferramentas, seu contexto.<br/>Um lugar para continuar.</p><button onClick={()=>setTab('work')}>Encontre seu próximo passo <ArrowRight size={17}/></button></div><span className="meridian-hero-caption">OrdaX · Central</span></section>

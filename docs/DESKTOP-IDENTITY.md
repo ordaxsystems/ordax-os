@@ -1549,3 +1549,30 @@ The frozen experiment controller/runtime is never imported. Historical reference
 digests are preserved with explicit adaptation history.
 
 Validation and screenshots: [integration evidence](evidence/meridian-integration-2026-10-14/README.md).
+
+
+#### Meridian chrome completion — 2026-10-14
+
+The user identified the preceding chrome as only partially adapted. The Web rail
+now has the canonical symbol/Space selector, principal and ecosystem groups,
+continuity/notifications/settings utilities and a compact real-account identity
+control. Projects, Files, Internet and other existing destinations remain in the
+single navigation menu and dock; no destination is lost to rail fitting. Central
+uses the wide context rail, Desktop the compact icon rail, and mobile a disclosed
+menu. Available rail height uses the existing shared fit policy/slots.
+
+The persistent Central header provides location/Space, destination search,
+material and settings controls. Ctrl/Command K opens that same navigation Dialog;
+Escape returns focus to the originating control. Desktop has no permanent topbar.
+The centered dock has 44px icon targets, stable pinned/open ordering, explicit
+active/open/minimized markers, horizontal overflow cues and Arrow/Home/End focus
+navigation. Pins alone have no running marker. The presentation toggle/launcher
+remain at the start; notifications/system availability remain at the end. Network,
+battery and unread-count fixtures are not fabricated for the real Web.
+
+A shared UI title adapter maps the Intelligence shortcut to the existing Aura
+window; rail/dock cannot create two windows for that same destination. Window
+reducer, account, preferences, Store and Dialog owners remain unchanged. Planned
+professional profiles remain explicitly identified mocks.
+
+[Checks and screenshots](evidence/meridian-integration-2026-10-14/README.md#chrome-completion).

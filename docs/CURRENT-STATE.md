@@ -1,5 +1,14 @@
 # Current State
 
+Meridian chrome completion (2026-10-14, user follow-up): the Web now uses the
+Meridian context/grouped rail, utility/account footer, persistent Central header
+with destination search, and centered icon dock. Desktop keeps the compact rail;
+mobile exposes all destinations through its menu and preserves the full work area.
+Dock ordering and keyboard navigation retain the existing managed windows, and
+Aura/Intelligence labels resolve to one window. The earlier color-only chrome
+adaptation is superseded. Mocks and unavailable service states remain explicit.
+[Chrome validation](evidence/meridian-integration-2026-10-14/README.md#chrome-completion).
+
 Meridian integration (2026-10-14, explicit subsequent user authorization): the
 canonical Web Central now uses the Meridian editorial layout, the existing
 alpine hero images, the canonical symbol and the existing account/preferences/

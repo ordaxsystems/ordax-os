@@ -85,3 +85,40 @@ Meridian experiment on port 4203 is a reference checkout, not the active Web own
 Mocks preserve intended resources for incremental implementation; project files,
 agenda, routines and device integration do not claim a live backend. Account,
 Spaces, Intelligence and official Store availability keep their canonical ports.
+
+
+## Chrome completion
+
+The user identified the rail/nav as only partially adapted. The completed chrome
+uses grouped/context rail, real Space/account controls, utility footer, persistent
+Central header search, centered colored icon dock, start-side view/launcher and
+end-side system availability. Desktop retains the compact rail with Space access;
+mobile has a full-width work area and destination menu. Pending professional
+profiles remain a labelled mock. No new service or experimental controller.
+
+Targeted verification after this correction:
+
+- `node --experimental-strip-types --test tests/test_meridian_navigation.mjs`: 2
+  regressions passed; alias labels reuse/restore one Aura window and retain its
+  draft/geometry and other managed apps.
+- `node --experimental-strip-types --test tests/test_web_store_catalog.mjs`: 6
+  passed, including official catalog isolation and active Desktop Store mounting.
+- `python -m unittest discover -s tests -p test_surface_web_builder.py`: 8 passed.
+- `python -m unittest discover -s tests -p test_surface_ui_contract.py`: 27 passed.
+- Web typecheck/build and the 34-file reference/lifecycle verification passed.
+
+Total: 43 targeted tests passed in this follow-up. Earlier 79-test evidence above
+belongs to the preceding integration. The existing main bundle warning remains
+approximately 728 kB JS / 207 kB gzip. No unrelated dependency was installed.
+
+The dev host was restarted after its resolver cached an import while the new
+module was being created. Final browser checks use the completed module graph and
+compiled bundle. [Chrome browser checks](chrome-browser-results.json) record menu
+search, reusing/restoring windows, Space availability, dock keyboard focus,
+Ctrl K/Escape, responsive menu and planned-resource access.
+
+![Completed Central rail, topbar and centered dock](chrome-central.jpg)
+
+![Completed Desktop compact rail and dock](chrome-desktop.jpg)
+
+![Completed mobile header, work area and dock](chrome-mobile.jpg)

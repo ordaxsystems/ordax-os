@@ -15,6 +15,11 @@ SECURITY_REVIEW=No experimental controller, host service, provider, grants, cred
 TESTS=See docs/evidence/meridian-integration-2026-10-14/README.md; real/fixture catalog isolation and existing lifecycle regressions retained
 DECISION=ADOPTED (presentation only); REFERENCE_ONLY (experiment runtime and fixtures outside the explicitly identified UI examples)
 
+Chrome completion after user follow-up adopts the frozen context/grouped rail,
+utilities/account footer, persistent Central search and centered icon dock. One
+existing metadata catalog retains menu-only destinations; existing window/identity/
+preference/Dialog owners remain. No experimental controller is imported.
+
 The canonical mainline owners and physical/release gates remain unchanged.
 The prior standalone-only placement restriction is superseded by explicit user
 integration authorization; the standalone entry remains a consumer of the same

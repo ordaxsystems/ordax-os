@@ -1,17 +1,12 @@
-import { SIDEBAR_LAYOUT, sidebarNavigationCapacity, sidebarIsExpanded } from "../../../ui/sidebar-layout.mjs";
-import { mountSidebarHints } from "../../../ui/sidebar-hints.mjs";
-import { presentationDestination } from "../../presentation.mjs";
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { WebNotificationCenter } from './notifications';
-import { createElement, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode } from 'react';
-import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronLeft, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
+import { lazy, Suspense, useState, type Dispatch } from 'react';
+import { LayoutGrid, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import meridianWallpaper from '../../../ui/brand/meridian-field.svg';
-import { AccountCard, AccountPanel, AppIcon, Avatar, Brand, Panel, WindowAppIcon } from './primitives';
-import { favorites, navigation, shortcuts, unavailableServices } from './config';
+import { AccountPanel, AppIcon, Panel } from './primitives';
+import { favorites, shortcuts, unavailableServices } from './config';
 import { useWebAccount } from './account-context';
-import { useWebPreferences } from './preferences-context';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
@@ -33,6 +28,7 @@ export function Desktop({ onCentral, dispatch }: Props) {
 }
 export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
+  if (title === 'Perfis profissionais') return <Panel title={title}><span className="meridian-mock-badge">Planejado · mock visual</span><h3>Ferramentas que acompanham seu trabalho.</h3><p className="service-state">Este destino permanece à vista para implementação gradual. Nenhum perfil, pacote ou permissão é ativado nesta demonstração.</p></Panel>;
   if (title === 'Minha conta') return <AccountPanel/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p></Panel>;
   if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;
@@ -44,108 +40,7 @@ export function DesktopContent({ title, open }: PresentationProps & { initialPro
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
 }
 
-type NavigationProps = { onSidebarChange: (mode: 'collapsed' | 'expanded') => void; state: DesktopState; dispatch: Dispatch<DesktopAction>; view: 'central' | 'desktop'; onToggleView: () => void; onCentral: () => void };
-
-// The same mounted navigation owns the launcher, view toggle and all running apps.
-export function WorkspaceNavigation({ state, dispatch, view, onToggleView, onCentral, onSidebarChange }: NavigationProps) {
-  const destination = presentationDestination(view);
-  const DestinationIcon = destination.target === 'desktop' ? Monitor : LayoutGrid;
-  const { displayName } = useWebAccount();
-  const [startOpen, setStartOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const menuNavigation = useRef(false);
-  const menuTrigger = useRef<HTMLButtonElement>(null);
-  const navigationHost = useRef<HTMLElement>(null);
-  const sidebarHost = useRef<HTMLElement>(null);
-  const hintHost = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!hintHost.current || !sidebarHost.current) return;
-    const hints = mountSidebarHints(hintHost.current, sidebarHost.current);
-    return () => hints.destroy();
-  }, []);
-  const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => { setMenuContainer(navigationHost.current?.closest<HTMLElement>('.window-workspace') ?? null); }, []);
-  const dockHost = useRef<HTMLDivElement>(null);
-  const [dockLabelsVisible, setDockLabelsVisible] = useState(true);
-  useLayoutEffect(() => {
-    const host = dockHost.current;
-    if (!host) return;
-    const context = document.createElement('canvas').getContext('2d');
-    let disposed = false;
-    const measure = () => {
-      if (disposed) return;
-      const buttons = [...host.querySelectorAll<HTMLButtonElement>('.desktop-task')];
-      const gap = parseFloat(getComputedStyle(host).columnGap) || 0;
-      const required = buttons.reduce((total, button) => {
-        const label = button.querySelector('span');
-        if (!label) return total;
-        const style = getComputedStyle(button);
-        const textStyle = getComputedStyle(label);
-        if (context) context.font = textStyle.font || textStyle.fontWeight + ' ' + textStyle.fontSize + ' ' + textStyle.fontFamily;
-        const textWidth = context?.measureText(label.textContent ?? '').width ?? 110;
-        const labelWidth = Math.min(textWidth, parseFloat(textStyle.maxWidth) || textWidth);
-        const iconWidth = button.querySelector('svg')?.getBoundingClientRect().width ?? 16;
-        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-        const naturalWidth = padding + iconWidth + (parseFloat(style.columnGap) || 0) + labelWidth;
-        const buttonWidth = Math.min(parseFloat(style.maxWidth) || Infinity, Math.max(parseFloat(style.minWidth) || 44, naturalWidth));
-        return total + Math.ceil(buttonWidth);
-      }, Math.max(0, buttons.length - 1) * gap);
-      setDockLabelsVisible(required <= host.clientWidth);
-    };
-    measure();
-    void document.fonts.ready.then(measure);
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    observer?.observe(host);
-    window.addEventListener('resize', measure);
-    return () => { disposed = true; observer?.disconnect(); window.removeEventListener('resize', measure); };
-  }, [state.windows]);
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  useEffect(() => {
-    const host = navigationHost.current;
-    if (!host) return;
-    const sidebar = host.closest<HTMLElement>('.workspace-sidebar');
-    const measure = () => { setVisibleCount(sidebarNavigationCapacity(host)); if (sidebar) setSidebarExpanded(sidebarIsExpanded(sidebar)); };
-    measure();
-    if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
-    const observer = new ResizeObserver(measure);
-    observer.observe(host);
-    if (sidebar) observer.observe(sidebar);
-    return () => observer.disconnect();
-  }, []);
-  const activeWindow = state.windows.find(window => window.title === state.active && !window.minimized);
-  const activeDestination = activeWindow ? (activeWindow.title === 'Inteligência' ? 'Aura' : activeWindow.title) : null;
-  const homeActive = view === 'central' && activeWindow === undefined;
-  const destinations = navigation.filter(item => item.name !== 'Início');
-  const visibleNavigation = destinations.slice(0, visibleCount >= destinations.length ? destinations.length : Math.max(0, visibleCount - 1));
-  const menuDestinations = [...navigation, { name: 'Notificações', icon: Bell, target: undefined }].filter(item => item.name !== 'Início' && item.name.toLowerCase().includes(search.toLowerCase().trim()));
-  const centralMatch = 'central'.includes(search.toLowerCase().trim());
-  const open = (title: string) => { menuNavigation.current = startOpen; dispatch({ type: 'open', title }); setStartOpen(false); };
-  const returnToCentral = () => { menuNavigation.current = startOpen && state.active !== null; setStartOpen(false); onCentral(); };
-  return <Dialog open={startOpen} onOpenChange={open => { if (open) menuNavigation.current = false; setStartOpen(open); }}>
-    <DialogContent placement="custom" portalContainer={menuContainer} className="desktop-start-menu" onCloseAutoFocus={event => {
-      if (menuNavigation.current) { event.preventDefault(); return; }
-      if (!menuTrigger.current?.getClientRects().length) {
-        event.preventDefault();
-        navigationHost.current?.closest<HTMLElement>('.window-workspace')?.querySelector<HTMLButtonElement>('[data-window-home]')?.focus({ preventScroll: true });
-      }
-    }}><label className="desktop-menu-search"><Search className="size-4"/><input aria-label="Pesquisar destinos" placeholder="Pesquisar aplicativos e painéis" value={search} onChange={e => setSearch(e.target.value)}/></label><DialogTitle className="desktop-menu-heading">Aplicativos e painéis</DialogTitle><DialogDescription className="sr-only">Pesquise um destino e abra seu painel. Escape fecha este menu.</DialogDescription><div className="desktop-menu-apps">{menuDestinations.map(item => <Button variant="ghost" key={item.name} className="desktop-menu-item" data-active={(item.target ?? item.name) === activeDestination} aria-current={(item.target ?? item.name) === activeDestination ? 'page' : undefined} onClick={() => open(item.target ?? item.name)}><item.icon/>{item.name}<ChevronRight className="ml-auto"/></Button>)}{centralMatch && <Button variant="ghost" className="desktop-menu-item" onClick={() => { dispatch({ type: 'show-desktop' }); returnToCentral(); }}><LayoutGrid/>Central<ChevronRight className="ml-auto"/></Button>}</div><div role="status">{menuDestinations.length === 0 && !centralMatch ? <p className="service-state">Nenhum destino encontrado.</p> : null}</div><div className="desktop-menu-footer"><Avatar/><span>{displayName}<small>Minha conta OrdaX</small></span></div></DialogContent>
-    <aside ref={sidebarHost} id="workspace-sidebar" className="os-sidebar workspace-sidebar ordax-product-sidebar" aria-label="Navegação principal">
-      {SIDEBAR_LAYOUT.map(slot => createElement(slot.tag, {
-        key: slot.key, className: slot.className, 'data-sidebar-slot': slot.key,
-        ref: slot.key === 'navigation' ? navigationHost : undefined,
-        'aria-label': slot.key === 'navigation' ? 'Destinos' : undefined,
-      }, ({
-        brand: <Brand/>, home: <>{navigation.filter(item => item.name === 'Início').map(item => <Button key={item.name} variant="ghost" className="os-nav-item" title={item.name} aria-label={item.name} data-window-home="true" data-active={homeActive} aria-current={homeActive ? 'page' : undefined} onClick={() => { dispatch({ type: 'show-desktop' }); returnToCentral(); }}><item.icon/><span>{item.name}</span></Button>)}</>, navigation: <>{visibleNavigation.map(item => <Button key={item.name} variant="ghost" className="os-nav-item" title={item.name} aria-label={item.name} data-active={(item.target ?? item.name) === activeDestination} aria-current={(item.target ?? item.name) === activeDestination ? 'page' : undefined} onClick={() => open(item.target ?? item.name)}><item.icon/><span>{item.name}</span></Button>)}
-        {visibleNavigation.length < destinations.length && <DialogTrigger asChild><Button ref={menuTrigger} variant="ghost" className="os-nav-item" aria-label="Mais destinos" title="Mais destinos" data-active={destinations.some(item => (item.target ?? item.name) === activeDestination) && !visibleNavigation.some(item => (item.target ?? item.name) === activeDestination)} onClick={() => setSearch('')}><MoreHorizontal/><span>Mais</span></Button></DialogTrigger>}</>,
-        account: <AccountCard onNotifications={() => open('Notificações')} onOpen={() => open('Minha conta')}/>, auxiliary: null,
-      } as Record<string, ReactNode>)[slot.key]))}
-    </aside>
-    <div ref={hintHost} data-sidebar-hint-host/>
-    {view === 'central' && <Button variant="ghost" size="icon" className="sidebar-collapse" aria-controls="workspace-sidebar" aria-expanded={sidebarExpanded} aria-label={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} title={sidebarExpanded ? 'Recolher sidebar' : 'Expandir sidebar'} onClick={() => onSidebarChange(sidebarExpanded ? 'collapsed' : 'expanded')}>{sidebarExpanded ? <ChevronLeft/> : <ChevronRight/>}</Button>}
-    <footer className="desktop-taskbar workspace-navigation" aria-label="Navegação inferior"><div className="desktop-taskbar-left"><div className="desktop-running-apps" ref={dockHost} data-labels={dockLabelsVisible ? 'visible' : 'hidden'}>{favorites.filter(item => !state.windows.some(window => window.title === item.name)).map(item => <Button variant="ghost" className="desktop-task" data-pinned="true" key={item.id} aria-label={`Abrir ${item.name} · Fixado`} title={`${item.name} · Fixado`} onClick={() => open(item.name)}><item.icon aria-hidden="true"/><span>{item.name}</span></Button>)}{state.windows.map(w => <Button variant="ghost" className="desktop-task" data-active={state.active === w.title && !w.minimized} data-minimized={w.minimized} aria-current={state.active === w.title && !w.minimized ? 'true' : undefined} title={w.title + (w.minimized ? ' — minimizado' : state.active === w.title ? ' — ativo' : ' — aberto')} key={w.title} data-window-restore={w.title} aria-label={`Restaurar janela ${w.title}`} onClick={() => dispatch({ type: w.minimized ? 'open' : 'focus', title: w.title })}><WindowAppIcon title={w.title}/><span>{w.title}</span></Button>)}</div></div><div className="desktop-tray"><Button variant="ghost" size="icon" className="workspace-view-toggle" data-workspace-switch="true" aria-label={view === 'central' ? 'Abrir área de trabalho' : 'Abrir Central'} title={view === 'central' ? 'Área de trabalho' : 'Central'} aria-pressed={view === 'desktop'} onClick={() => { setStartOpen(false); onToggleView(); }}><DestinationIcon/></Button></div></footer>
-  </Dialog>;
-}
+export { WorkspaceNavigation } from './meridian-navigation';
 
 function SpacesPanel() {
   const { session, identity, catalog, selection, authorized, offline } = useWebAccount();
