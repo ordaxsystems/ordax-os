@@ -3,6 +3,7 @@
   "status": "experimental-not-promotable",
   "purpose": "replace the Alpine/APK Surface runtime with a Buildroot/musl runtime without changing Stable until parity is proven",
   "buildroot_source_contract": "bootstrap/independent-base/source.json",
+  "kernel_source_contract": "bootstrap/kernel/source.json",
   "architecture": "x86_64",
   "libc": "musl",
   "build_profile": "ordax_surface_defconfig",
