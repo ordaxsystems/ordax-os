@@ -1883,3 +1883,28 @@
  .md-sidebar nav :is([data-action="route:profiles"],[data-action="route:store"]) {display:none}
  .md-sidebar-bottom {padding-top:10px}
 }
+
+/* New workspace shortcuts extend the existing global sidebar. */
+[data-meridian] .md-sidebar>nav{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;margin-bottom:14px;padding-right:3px}
+[data-meridian] .md-sidebar>nav>.md-nav-item{flex-shrink:0}
+[data-meridian] .md-global-spaces-shortcuts{flex-shrink:0;border-top:1px solid var(--md-rail-border);padding-top:12px;margin-top:12px}
+[data-meridian] .md-global-spaces-shortcuts summary{font-size:11px;color:var(--md-rail-muted);cursor:pointer;padding:8px 12px}
+[data-meridian] .md-global-spaces-shortcuts>div{display:grid;gap:4px;max-height:190px;overflow:auto;scrollbar-width:thin}
+[data-meridian] .md-global-spaces-shortcuts button{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;border-radius:8px;min-height:38px;text-align:left;padding:9px 12px;color:var(--md-rail-text);font:inherit;font-size:11px;cursor:pointer}
+[data-meridian] .md-global-spaces-shortcuts button:hover{background:var(--md-rail-selected)}
+[data-meridian] .md-global-spaces-shortcuts button svg{flex-shrink:0}
+[data-meridian] .md-global-new-space{margin-top:8px;border:1px solid var(--md-rail-border)!important}
+[data-meridian][data-presentation="desktop"] .md-global-spaces-shortcuts button span{display:none}
+[data-meridian][data-presentation="desktop"] .md-global-spaces-shortcuts button{justify-content:center;padding:10px 0}
+[data-meridian][data-presentation="desktop"] .md-global-spaces-shortcuts summary{font-size:0;text-align:center;padding:8px 0}
+[data-meridian][data-presentation="desktop"] .md-global-spaces-shortcuts summary::after{content:'•••';font-size:12px}
+
+/* Spaces uses the full workspace; connectivity stays beside the system clock. */
+[data-meridian] .md-workspace.md-workspace--without-header{grid-template-rows:minmax(0,1fr) var(--md-dock)}
+[data-meridian][data-presentation="central"] .md-taskbar-end{display:flex}
+[data-meridian] .md-tray-system{color:var(--md-ink)}
+@media(max-width:600px){
+ [data-meridian][data-presentation="central"] .md-tray-system .md-tray-time{display:grid;font-size:11px}
+ [data-meridian][data-presentation="central"] .md-taskbar-end .md-focus-toggle{display:none}
+ [data-meridian][data-presentation="central"] .md-tray-system{gap:6px;padding:4px 6px}
+}

@@ -7,6 +7,8 @@ export const sections = Object.freeze([
  {id:'profiles',label:'Perfis',icon:'profiles',group:'ecossistema'},
  {id:'devices',label:'Dispositivos',icon:'desktop',group:'ecossistema'},
  {id:'store',label:'Descobrir',icon:'store',group:'ecossistema'},
+ {id:'calendar',label:'Calendário',icon:'clock',group:'contexto'},
+ {id:'tasks',label:'Tarefas',icon:'check',group:'contexto'},
  {id:'activity',label:'Continuidade',icon:'clock',group:'contexto'},
  {id:'messages',label:'Conversas',icon:'message',group:'contexto'},
  {id:'automations',label:'Automações',icon:'flow',group:'contexto'},

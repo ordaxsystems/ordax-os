@@ -1,3 +1,4 @@
+import {isSpaceFavorite} from './views/spaces.mjs';
 import { newStoryboard, moveStoryboard, previousStoryboard, storyboardKey } from './journeys/navigation.mjs';
 import { journeyView, journeyFrame, lockScreen, storyboardFields } from './journeys/view.mjs';
 import { createPresentationFeedback, windowAppearance, applyWindowAppearance } from './interactions.mjs';
@@ -22,13 +23,13 @@ export function mountMeridianExperience(root,source,options={}){
  const draftKey=(form,field)=>JSON.stringify([root.dataset.subject,root.dataset.space,form.dataset.form,form.dataset.conversation??form.dataset.file??'',field.name,field.id]);
  function rememberForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]'))if(!field.dataset.draft)formDrafts.set(draftKey(form,field),field.value);}
  function restoreForms(){for(const form of root.querySelectorAll('[data-form]'))for(const field of form.querySelectorAll('input[name],textarea[name]')){const key=draftKey(form,field);if(!field.dataset.draft&&formDrafts.has(key))field.value=formDrafts.get(key);}}
- const ui={review:options.review===true,route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnFocus:null,subject:'lia',locked:false,lockError:false,stage:false,currentStory:null,stories:new Map(),sessions:new Map(),notificationFilter:'unread',dismissed:[],dnd:false,read:[],privateMode:true,sync:true,spaceUnavailable:false,cloudExpired:false,lab:{definitions:options.lab?.storyboards??{},system:options.lab?.systemFixture??{},topics:options.lab?.settingsTopics??[]}};
+ const ui={spacesQuery:'',spacesCategory:'Todos',spacesSort:'recent',spaceFavorites:{},review:options.review===true,route:'central',presentation:'central',tab:'day',material:'paper',panel:null,prompt:'',windows:[],activeWindow:null,compactActive:null,compactCollapsed:false,drafts:{},replies:{},musicPlaying:false,largeText:false,reduceMotion:false,brightness:100,volume:45,returnFocus:null,subject:'lia',locked:false,lockError:false,stage:false,currentStory:null,stories:new Map(),sessions:new Map(),notificationFilter:'unread',dismissed:[],dnd:false,read:[],privateMode:true,sync:true,spaceUnavailable:false,cloudExpired:false,lab:{definitions:options.lab?.storyboards??{},system:options.lab?.systemFixture??{},topics:options.lab?.settingsTopics??[]}};
  if(options.presentation==='desktop')ui.presentation='desktop';
  if(findMaterial(options.material))ui.material=options.material;
  if(sections.some(item=>item.id===options.route))ui.route=options.route;
  function render(resetScroll=false){
   if(destroyed)return;
-  const previousWindows=windowAppearance(root);
+  const previousWindows=windowAppearance(root);const globalNavScroll=root.querySelector('.md-sidebar>nav')?.scrollTop??0;
   rememberForms();const previousSpace=root.dataset.space;const previousSubject=root.dataset.subject;
   const data=readData();
   ui.pendingDraftCount=Object.values(ui.drafts).filter(value=>String(value).trim()).length+[...formDrafts].filter(([key,value])=>{const scope=JSON.parse(key);return scope[0]===contextSubject()&&scope[1]===String(data.activeSpace)&&value.trim();}).length;
@@ -44,7 +45,7 @@ export function mountMeridianExperience(root,source,options={}){
   if(ui.locked){root.innerHTML=lockScreen(ui);feedback.refresh();root.querySelector('.md-stage')?.focus({preventScroll:true});return;}
   if(ui.stage&&ui.currentStory){const {kind,key}=ui.currentStory;const definition=ui.lab.definitions[kind];root.innerHTML=journeyFrame(definition.label,journeyView(kind,definition,ui.stories.get(key),data,ui),true,kind);feedback.refresh();restoreForms();return;}
   const view=ui.presentation==='desktop'?desktop(data,ui):ui.route==='central'?central(data,ui):ui.route==='intelligence'?intelligence(data,ui):explore(data,ui);
-  root.innerHTML=shell(data,ui,view);root.querySelector('.md-main').scrollTop=scroll;
+  root.innerHTML=shell(data,ui,view);root.querySelector('.md-main').scrollTop=scroll;root.querySelector('.md-sidebar>nav').scrollTop=globalNavScroll;
   if(root.dataset.presentationChanged!=='true')applyWindowAppearance(root,previousWindows);
   feedback.refresh();
   if(ui.panel){root.querySelector('.md-panel-root').innerHTML=ui.panel.type==='journey'?currentStoryMarkup(data):panelMarkup(ui.panel,data,ui);const dialog=root.querySelector('dialog');dialog.showModal();dialog.querySelector('.md-panel-body').scrollTop=panelScroll;if(ui.panel.type==='search')dialog.querySelector('input')?.focus();}
@@ -102,6 +103,11 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
    case 'notification-restore':ui.dismissed=ui.dismissed.filter(item=>item!==id);render();break;
    case 'notification-dnd':ui.dnd=!ui.dnd;render();break;
 
+   case 'spaces-template':{const template=readData().spaceTemplates?.find(item=>item.id===id);if(template){openJourney('space',readData().activeSpace,'create');const state=ui.stories.get(ui.currentStory.key);state.fields.template=id;state.fields['confirm:create']=false;render();root.querySelector('#md-journey-spaceName')?.focus();}break;}
+   case 'spaces-filter':if(['Todos','Operação','Desenvolvimento','Favoritos'].includes(id)){ui.spacesCategory=id;render();}break;
+   case 'spaces-sort':ui.spacesSort=ui.spacesSort==='name'?'recent':'name';render();break;
+   case 'spaces-clear':ui.spacesQuery='';ui.spacesCategory='Todos';render();root.querySelector('#md-spaces-search')?.focus();break;
+   case 'spaces-favorite':{const data=readData(),space=data.spaces.find(item=>item.id===id);if(space){ui.spaceFavorites[JSON.stringify([data.presentationSubject,id])]=!isSpaceFavorite(data,ui,space);render();}break;}
    case 'route':navigate(id);break;
    case 'panel':id==='close'?closePanel():openPanel(id);break;
    case 'tab':ui.tab=id;ui.route='central';ui.presentation='central';ui.panel=null;render(true);break;
@@ -141,7 +147,7 @@ if(!ui.panel){const focused=document.activeElement;ui.returnFocus=root.contains(
   for(const selector of ['.md-sidebar','.md-taskbar'])root.querySelector(selector)?.replaceWith(chrome.content.querySelector(selector));
   feedback.refresh();
  },{signal:life.signal});
- root.addEventListener('input',event=>{const target=event.target;if(target.matches('[data-search]'))filter(target.closest('dialog')??target.closest('.md-page'));if(target.dataset.draft)ui.drafts[target.dataset.draft]=target.value;if(target.dataset.range==='brightness'){ui.brightness=Number(target.value);root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));}if(target.dataset.range==='volume')ui.volume=Number(target.value);if(['brightness','volume'].includes(target.dataset.range)){const output=root.querySelector('[data-range-value="'+target.dataset.range+'"]');if(output)output.textContent=target.value+'%';}},{signal:life.signal});
+ root.addEventListener('input',event=>{const target=event.target;if(target.matches('[data-spaces-search]')){ui.spacesQuery=target.value;render();return;}if(target.matches('[data-search]'))filter(target.closest('dialog')??target.closest('.md-page'));if(target.dataset.draft)ui.drafts[target.dataset.draft]=target.value;if(target.dataset.range==='brightness'){ui.brightness=Number(target.value);root.style.setProperty('--md-preview-brightness',String(ui.brightness/100));}if(target.dataset.range==='volume')ui.volume=Number(target.value);if(['brightness','volume'].includes(target.dataset.range)){const output=root.querySelector('[data-range-value="'+target.dataset.range+'"]');if(output)output.textContent=target.value+'%';}},{signal:life.signal});
  root.addEventListener('submit',event=>{const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();const values=new FormData(form);
   if(['new-project'].includes(form.dataset.form)&&!String(values.get('name')??'').trim()){form.querySelector('[name=name]')?.focus();toast('Escolha um nome para continuar.');return;}
   if(['ask','reply'].includes(form.dataset.form)&&!String(values.get(form.dataset.form==='ask'?'prompt':'reply')??'').trim())return;

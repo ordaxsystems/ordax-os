@@ -5,7 +5,7 @@ import { sceneOptions } from '../catalog.mjs';
  * dispatch:(event:{type:string,id?:string,value?:unknown,subject?:string,space?:string})=>void, destroy:()=>void}} MeridianPreviewSource
  */
 export function createMeridianDemoSource() {
- let snapshot = {...structuredClone(demoData),scenario:'connected',activeSpace:'studio',focus:false};
+ let snapshot = {...structuredClone(demoData),scenario:'connected',activeSpace:'achegue',focus:false};
  const listeners = new Set();
  const publish = next => { snapshot = next; for(const listener of listeners) listener(snapshot); };
  return {

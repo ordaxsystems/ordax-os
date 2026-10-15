@@ -1,13 +1,10 @@
+import {spaceExamples,spaceActivityExamples,spaceTemplateExamples} from '../../../ui/spaces/presentation/examples.mjs';
 // Fictional editorial dataset. Never imported by a product composition or adapter.
 export const demoData = {
  person:{name:'Lia Martins',firstName:'Lia',initials:'LM',email:'lia@example.test'},
  dateLabel:'Terça-feira, 13 de outubro', time:'09:41',
  agenda:[{time:'10:30',title:'Tempo para criar',note:'Atlas · Bloco de foco'},{time:'14:00',title:'Revisão com Rafael',note:'Estúdio · 30 minutos'},{time:'16:00',title:'Explorar sem pressa',note:'Seu tempo pessoal'}],
- spaces:[
-  {id:'studio',featuredApps:["studio", "notes", "files", "internet", "editor"],name:'Estúdio',icon:'aura',tone:'clay',description:'Ideias que ganham forma.',members:'Você + 2 pessoas',profile:'Criação & design',modules:['Studio','Arquivos','Quadro de referências'],permission:'Somente este Space',storage:'12,8 GB'},
-  {id:'personal',featuredApps:["notes", "files", "calendar", "music", "intelligence"],name:'Pessoal',icon:'sun',tone:'sage',description:'Seu ritmo. Seu espaço.',members:'Só você',profile:'Pessoal',modules:['Notas','Agenda','Música'],permission:'Privado',storage:'4,2 GB'},
-  {id:'workshop',featuredApps:["editor", "files", "notes", "intelligence"],name:'Oficina 3D',icon:'cube',tone:'blue',description:'Do primeiro esboço ao objeto.',members:'Você + 1 pessoa',profile:'Impressão 3D',modules:['Editor 3D','Fila de produção','Materiais'],permission:'Dispositivos selecionados',storage:'28,6 GB'},
- ],
+ spaces:structuredClone(spaceExamples),
  projects:[
   {id:'atlas',name:'Atlas',description:'Uma identidade em construção.',category:'Identidade visual',updated:'Há 12 minutos',tone:'clay',progress:64,space:'studio'},
   {id:'casa',name:'Casa Aberta',description:'Arquitetura para novas conversas.',category:'Projeto editorial',updated:'Ontem',tone:'sage',progress:38,space:'studio'},
@@ -71,3 +68,7 @@ export const demoData = {
  ],
  tasks:[{id:'t1',title:'Explorar aplicações da marca Atlas',done:false},{id:'t2',title:'Revisar referências com Rafael',done:false},{id:'t3',title:'Organizar o briefing',done:true}],
 };
+
+// Dashboard presentation metadata. Never a production capability or metric source.
+demoData.spaceActivity=structuredClone(spaceActivityExamples);
+demoData.spaceTemplates=structuredClone(spaceTemplateExamples);

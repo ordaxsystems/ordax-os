@@ -1,3 +1,4 @@
+@import url('../../ui/spaces/presentation/styles.css');
 /* Meridian: catalog and workspace surfaces. Loaded only by the experiment. */
 .md-art--clay {
   --art-bg:#ecd5bd;
@@ -2720,3 +2721,4 @@
  .md-desktop-context {padding:14px 20px}
  .md-desktop-shortcuts {top:74px}
 }
+
