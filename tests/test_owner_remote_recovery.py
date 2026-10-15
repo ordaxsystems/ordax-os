@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -47,20 +48,31 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
     ) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         cmdline_file = state.parent / "proc-cmdline"
+        helper_copy = state.parent / "ordax-remote-test"
         if cmdline is None:
             cmdline_file.unlink(missing_ok=True)
         else:
             cmdline_file.write_text(cmdline + "\n", encoding="utf-8")
+
+        marker = "CMDLINE_FILE=/proc/cmdline"
+        self.assertEqual(self.helper.count(marker), 1)
+        instrumented = self.helper.replace(
+            marker,
+            f"CMDLINE_FILE={shlex.quote(str(cmdline_file))}",
+            1,
+        )
+        helper_copy.write_text(instrumented, encoding="utf-8")
+
         env.update(
             {
                 "ORDAX_WORKTREE": str(ROOT),
                 "ORDAX_OWNER_REMOTE_STATE_DIR": str(state),
-                "ORDAX_CMDLINE_FILE": str(cmdline_file),
             }
         )
         env.pop("ORDAX_DISTRIBUTION_PROFILE", None)
+        env.pop("ORDAX_CMDLINE_FILE", None)
         return subprocess.run(
-            ["/bin/sh", str(HELPER_PATH), command],
+            ["/bin/sh", str(helper_copy), command],
             check=False,
             capture_output=True,
             text=True,
@@ -104,7 +116,8 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
             canonical,
         )
         self.assertIn('PIN_BOOT_TOKEN=$(pin_string boot_cmdline_token)', self.helper)
-        self.assertIn('CMDLINE_FILE=${ORDAX_CMDLINE_FILE:-/proc/cmdline}', self.helper)
+        self.assertIn("CMDLINE_FILE=/proc/cmdline", self.helper)
+        self.assertNotIn("ORDAX_CMDLINE_FILE", self.helper)
         self.assertNotIn("ORDAX_DISTRIBUTION_PROFILE", self.helper)
 
     def test_controller_has_no_generic_remote_execution_surface(self):
