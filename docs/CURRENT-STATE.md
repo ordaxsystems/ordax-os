@@ -1800,3 +1800,14 @@ PERSONAL_ORDAX_PUBLIC_STABLE_AUTONOMY=NO
 
 Canonical authority: `docs/PERSONAL-ORDAX.md` +
 `docs/contracts/personal-ordax.json`.
+
+
+## Spaces por domínio/capabilities — fundação source-only — 2026-10-15
+
+A implementação candidata, mantida em branch isolada a partir da `main`, adiciona uma fundação genérica para resolver semântica `domain.subtype`, capabilities permitidas, navegação contextual, widgets/métricas de dashboard, projeção de métricas dos cards de Espaços e contexto Aura por Space. O owner técnico do catálogo é `system/services/spaces/type-catalog.mjs`; o compositor fail-closed é `system/services/spaces/composition.mjs`; contratos versionados ficam em `system/contracts/space-experience.mjs`.
+
+A disponibilidade não nasce do tipo nem do Profile Pack. Uma capability só entra na projeção quando um provider real do owner retorna snapshot `ready` ligado ao mesmo Space. Widget/card exige ainda a métrica exata; ausência não vira zero/mock. Provider ausente, inválido ou com erro degrada sem impedir a Surface. A página Conta > Espaços agora sabe consumir essa projeção genérica, mas a composição Native registra deliberadamente zero providers verticais enquanto os owners operacionais não forem promovidos, portanto nenhuma métrica fictícia aparece.
+
+`food.pizzeria` e `fabrication.3d-printing` estão estruturados como fundação MVP compatível com os Profile Packs existentes. `product-operations.territorial-platform`, `education.school` e `development.software` estão estruturados, porém `DEFERRED`: o compositor publica zero navegação/widget/capability para eles até promoção explícita posterior. Development modela muitos Projects dentro de um único Space e Studio apenas como ferramenta de abertura do Project. Escola preserva REL-001 e não introduz tracking/câmera irrestritos. Achegue-se permanece operacional, não um Space de desenvolvimento.
+
+Profile Pack continua sendo composição técnica versionada e seus manifests não receberam uma segunda cópia de navigation/dashboard/provider state. A sidebar global continua independente da navegação contextual. Nenhum kernel, base, Creator, physical-write ou workflow físico faz parte desta mudança.

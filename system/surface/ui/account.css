@@ -781,3 +781,32 @@
     min-height: 170px;
   }
 }
+
+
+.ordax-account-space-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--ordax-border) 76%, transparent);
+}
+
+.ordax-account-space-metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ordax-account-space-metric-label {
+  overflow: hidden;
+  color: var(--ordax-muted-text);
+  font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ordax-account-space-metric-value {
+  font-family: var(--ordax-font-display);
+  font-size: 0.9rem;
+}
