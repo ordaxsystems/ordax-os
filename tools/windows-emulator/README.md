@@ -23,6 +23,14 @@ npm run emulator:windows
 
 The emulator listens on `127.0.0.1:4202` and opens `/tools/windows-emulator/index.html`.
 
+For the repeatable browser proof, keep the emulator server running and execute:
+
+```bash
+npm run emulator:windows:smoke
+```
+
+The smoke proof uses the repository's Chromium/Edge harness to verify that the emulator initializes without a kernel, renders the real first-run flow, completes local/offline onboarding, persists completion and activates the repository-backed Surface only after OOBE finishes.
+
 ## Current host behavior
 
 - kernel: absent by design;
@@ -31,9 +39,10 @@ The emulator listens on `127.0.0.1:4202` and opens `/tools/windows-emulator/inde
 - online identity actions: unavailable for now, so local-only onboarding remains supported;
 - network/hardware management: unavailable for now and must stay visibly unavailable rather than being faked;
 - post-onboarding Surface: repository `system/composition/web/index.html`;
+- Surface activation: intentionally dormant during first-run and activated after persisted OOBE completion;
 - reset: use the `Reiniciar primeiro uso` development control.
 
-The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state and reset the flow without pretending that native kernel capabilities exist.
+The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state, verify whether the Surface is active and reset the flow without pretending that native kernel capabilities exist.
 
 ## Architecture rule
 
