@@ -64,6 +64,7 @@ INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
     "tests/test_independent_surface_impact.py",
     "tests/test_independent_surface_runtime.py",
     "tests/test_independent_surface_cutover_audit.py",
+    "tests/test_independent_surface_cold_health_contract.py",
     "tools/ci/independent_surface_component_cache.py",
     "tools/ci/independent_surface_impact.py",
     "tools/ci/independent_surface_cutover_audit.py",
