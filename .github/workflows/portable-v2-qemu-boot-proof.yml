@@ -516,20 +516,27 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          independent="$work/independent-surface-runtime"
+          artifact_root="$work/independent-surface-runtime"
+          independent="$artifact_root/ordax-independent-surface"
+          test -d "$independent"
+          test ! -e "$artifact_root/provenance.json"
           source_image="$independent/native-surface-runtime-buildroot.erofs"
           target="$work/surface-runtime/native-surface-runtime.erofs"
           python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$independent" \
             > "$work/metadata/independent-surface-runtime-verify.json"
-          python3 - "$independent/provenance.json" "$ORDAX_SOURCE_COMMIT" <<'PY'
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$independent" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit true \
+            --consumer \
+            --receipt "$work/metadata/independent-surface-component-binding.json"
+          python3 - "$independent/provenance.json" <<'PY'
           import json, pathlib, re, sys
           provenance = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          expected = sys.argv[2]
-          assert re.fullmatch(r'[0-9a-f]{40}', expected)
           assert provenance['$schema'] == 'prototype-ordax.independent-surface-runtime-provenance/1'
           assert provenance['status'] == 'experimental-not-promotable'
-          assert provenance['source_commit'] == expected
+          assert re.fullmatch(r'[0-9a-f]{40}', provenance['source_commit'])
           assert provenance['image']['name'] == 'native-surface-runtime-buildroot.erofs'
           assert re.fullmatch(r'[0-9a-f]{64}', provenance['image']['sha256'])
           assert provenance['package_manager_present'] is False

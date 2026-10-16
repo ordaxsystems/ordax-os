@@ -8,6 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/ci/independent_surface_component_cache.py"
+WORKFLOW = ROOT / ".github/workflows/independent-surface-runtime.yml"
 
 
 def load_module():
@@ -96,6 +97,33 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
                     root=root,
                 )
 
+    def test_consumer_verifies_build_environment_without_requiring_same_runner(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            out = self.make_output(temp / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "test/other-runner/image-v2"
+            with self.assertRaisesRegex(self.mod.CacheError, "build inputs changed"):
+                self.mod.verify(
+                    out,
+                    "2" * 40,
+                    temp / "strict.json",
+                    cache_hit=True,
+                    root=root,
+                )
+            receipt = self.mod.verify(
+                out,
+                "2" * 40,
+                temp / "consumer.json",
+                cache_hit=True,
+                consumer=True,
+                root=root,
+            )
+            self.assertTrue(receipt["consumer_verification"])
+            self.assertEqual(receipt["execution_environment"], "test/linux-x86_64/image-v1")
+            self.assertEqual(receipt["verification_environment"], "test/other-runner/image-v2")
+
     def test_tampering_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
@@ -111,6 +139,41 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
                     cache_hit=True,
                     root=root,
                 )
+
+    def test_workflow_uses_one_durable_content_addressed_surface_store(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("ORDAX_R2_BUCKET: 'ordax-device-artifacts'", workflow)
+        self.assertIn("prefix='ci/surface-runtime/v1'", workflow)
+        self.assertIn("/manifests/${ORDAX_SURFACE_FINGERPRINT}.json", workflow)
+        self.assertIn("/blobs/sha256/${digest}", workflow)
+        self.assertNotIn("r2.dev", workflow)
+
+    def test_workflow_keeps_github_cache_fast_but_r2_durable(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("Restore verified Independent Surface EROFS component", workflow)
+        self.assertIn("Restore verified Independent Surface EROFS from durable R2 store", workflow)
+        self.assertIn("Save verified Independent Surface EROFS component in fast GitHub cache", workflow)
+        self.assertIn("Ensure verified Surface exists in durable R2 store", workflow)
+        self.assertIn("if: steps.surface-reuse-state.outputs.source != 'r2'", workflow)
+        self.assertIn("artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}", workflow)
+        self.assertIn("if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true", workflow)
+
+    def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        marker = "      - name: Build Buildroot/musl Surface runtime on durable artifact miss\n"
+        start = workflow.index(marker)
+        end = workflow.find("\n      - name: ", start + len(marker))
+        block = workflow[start:end]
+        self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", block)
+        self.assertIn("steps.surface-r2.outputs.hit != 'true'", block)
+
+    def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("--header 'If-None-Match: *'", workflow)
+        self.assertIn("secrets.ORDAX_R2_ACCESS_KEY_ID", workflow)
+        self.assertIn("secrets.ORDAX_R2_SECRET_ACCESS_KEY", workflow)
+        self.assertNotRegex(workflow, r"ORDAX_R2_(ACCESS_KEY_ID|SECRET_ACCESS_KEY): '[^']+'")
+        self.assertIn("refusing overwrite", workflow)
 
 
 if __name__ == "__main__":

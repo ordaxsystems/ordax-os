@@ -104,7 +104,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     outputs:
-      artifact_cache_hit: ${{ steps.surface-artifact-cache.outputs.cache-hit }}
+      artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
+      artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
     steps:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -132,28 +133,135 @@ jobs:
           path: ${{ runner.temp }}/ordax-independent-surface
           key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
 
+      - name: Restore verified Independent Surface EROFS from durable R2 store
+        id: surface-r2
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          printf 'hit=false\n' >> "$GITHUB_OUTPUT"
+          if [ -z "${ORDAX_R2_ACCESS_KEY_ID:-}" ] || [ -z "${ORDAX_R2_SECRET_ACCESS_KEY:-}" ]; then
+            echo 'Durable R2 store is not configured for this runner; GitHub cache/build fallback remains available.'
+            exit 0
+          fi
+
+          out="$RUNNER_TEMP/ordax-independent-surface"
+          rm -rf "$out"
+          mkdir -p "$out"
+          endpoint="https://${ORDAX_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          prefix='ci/surface-runtime/v1'
+          manifest_key="${prefix}/manifests/${ORDAX_SURFACE_FINGERPRINT}.json"
+
+          r2_get() {
+            key="$1"
+            destination="$2"
+            tmp="${destination}.partial"
+            rm -f "$tmp"
+            code="$(curl --silent --show-error --retry 3 --retry-all-errors \
+              --connect-timeout 15 --max-time 600 \
+              --aws-sigv4 'aws:amz:auto:s3' \
+              --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
+              --output "$tmp" --write-out '%{http_code}' \
+              "${endpoint}/${ORDAX_R2_BUCKET}/${key}" || true)"
+            case "$code" in
+              200)
+                mv "$tmp" "$destination"
+                return 0
+                ;;
+              404)
+                rm -f "$tmp"
+                return 44
+                ;;
+              *)
+                rm -f "$tmp"
+                echo "R2 GET failed for ${key}: HTTP ${code}" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          if r2_get "$manifest_key" "$out/.ordax-independent-surface-cache.json"; then
+            :
+          else
+            status=$?
+            if [ "$status" -eq 44 ]; then
+              echo 'Durable R2 Surface artifact miss; a fresh build is required.'
+              rm -rf "$out"
+              mkdir -p "$out"
+              exit 0
+            fi
+            exit "$status"
+          fi
+
+          mapfile -t artifact_rows < <(python3 - "$out/.ordax-independent-surface-cache.json" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+          manifest = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          if manifest.get('$schema') != 'prototype-ordax.independent-surface-component-cache/1':
+              raise SystemExit('unexpected durable Surface manifest schema')
+          if manifest.get('input_fingerprint') != '${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}':
+              raise SystemExit('durable Surface manifest fingerprint mismatch')
+          artifacts = manifest.get('artifacts')
+          expected = ('provenance.json', 'native-surface-runtime-buildroot.erofs')
+          if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
+              raise SystemExit('durable Surface manifest artifact set mismatch')
+          for name in expected:
+              entry = artifacts[name]
+              digest = str(entry.get('sha256', ''))
+              if re.fullmatch(r'[0-9a-f]{64}', digest) is None:
+                  raise SystemExit(f'invalid durable digest for {name}')
+              print(f'{name}\t{digest}')
+          PY
+          )
+
+          for row in "${artifact_rows[@]}"; do
+            name="${row%%$'\t'*}"
+            digest="${row#*$'\t'}"
+            blob_key="${prefix}/blobs/sha256/${digest}"
+            if ! r2_get "$blob_key" "$out/$name"; then
+              echo "Durable Surface manifest exists but blob is unavailable: ${name}" >&2
+              exit 1
+            fi
+          done
+
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$out" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit true \
+            --receipt "$RUNNER_TEMP/independent-surface-component-reuse.json"
+          printf 'hit=true\n' >> "$GITHUB_OUTPUT"
+          echo 'Restored cryptographically verified Surface bytes from durable R2 store.'
+
       - name: Install Surface verification dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends erofs-utils util-linux
 
-      - name: Install full Surface Buildroot host dependencies on cache miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+      - name: Install full Surface Buildroot host dependencies on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
           sudo apt-get install -y --no-install-recommends \
             build-essential bc perl bison flex gawk cpio unzip rsync file \
             wget curl patch git xz-utils
 
-      - name: Restore exact Surface compiler cache on artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+      - name: Restore exact Surface compiler cache on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         id: surface-ccache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
           key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
 
-      - name: Restore Surface Buildroot source downloads on artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+      - name: Restore Surface Buildroot source downloads on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         id: surface-download-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -163,7 +271,7 @@ jobs:
             ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
           python3 bootstrap/independent-surface-runtime/prepare_config.py materialize \
             --out bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
@@ -174,7 +282,7 @@ jobs:
             bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
 
       - name: Resolve exact Kconfig before expensive graphical build
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         env:
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
@@ -182,8 +290,8 @@ jobs:
           python3 bootstrap/independent-surface-runtime/prepare_config.py preflight \
             --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
 
-      - name: Build Buildroot/musl Surface runtime on artifact miss
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+      - name: Build Buildroot/musl Surface runtime on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
@@ -200,7 +308,7 @@ jobs:
             --out "$RUNNER_TEMP/ordax-independent-surface"
 
       - name: Record fresh Independent Surface component cache
-        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -208,27 +316,157 @@ jobs:
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --source-commit "$ORDAX_SOURCE_COMMIT"
 
-      - name: Verify Surface cache reuse against current integration commit
+      - name: Verify Surface reuse against current integration commit
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          cache_hit='${{ steps.surface-artifact-cache.outputs.cache-hit }}'
-          if [ "$cache_hit" != true ]; then cache_hit=false; fi
+          reused=false
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ] || [ '${{ steps.surface-r2.outputs.hit }}' = true ]; then
+            reused=true
+          fi
           python3 tools/ci/independent_surface_component_cache.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit "$cache_hit" \
+            --cache-hit "$reused" \
             --receipt "$RUNNER_TEMP/independent-surface-component-reuse.json"
 
-      - name: Save verified Independent Surface EROFS component
+      - name: Resolve verified Surface reuse source
+        id: surface-reuse-state
+        run: |
+          set -euo pipefail
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ]; then
+            source=github-cache
+            reused=true
+          elif [ '${{ steps.surface-r2.outputs.hit }}' = true ]; then
+            source=r2
+            reused=true
+          else
+            source=fresh-build
+            reused=false
+          fi
+          printf 'source=%s\nreused=%s\n' "$source" "$reused" >> "$GITHUB_OUTPUT"
+          echo "Verified Surface source: $source"
+
+      - name: Save verified Independent Surface EROFS component in fast GitHub cache
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface
           key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
 
+      - name: Ensure verified Surface exists in durable R2 store
+        if: steps.surface-reuse-state.outputs.source != 'r2'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ORDAX_R2_ACCESS_KEY_ID:-}" ] || [ -z "${ORDAX_R2_SECRET_ACCESS_KEY:-}" ]; then
+            echo 'Durable R2 credentials are unavailable; verified GitHub cache remains usable, but durable publication was skipped.'
+            exit 0
+          fi
+
+          out="$RUNNER_TEMP/ordax-independent-surface"
+          manifest="$out/.ordax-independent-surface-cache.json"
+          endpoint="https://${ORDAX_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          prefix='ci/surface-runtime/v1'
+          manifest_key="${prefix}/manifests/${ORDAX_SURFACE_FINGERPRINT}.json"
+
+          r2_status() {
+            key="$1"
+            curl --silent --show-error --retry 3 --retry-all-errors \
+              --connect-timeout 15 --max-time 600 \
+              --aws-sigv4 'aws:amz:auto:s3' \
+              --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
+              --head --output /dev/null --write-out '%{http_code}' \
+              "${endpoint}/${ORDAX_R2_BUCKET}/${key}" || true
+          }
+
+          r2_put_immutable() {
+            key="$1"
+            file="$2"
+            code="$(r2_status "$key")"
+            if [ "$code" = 200 ]; then
+              echo "Durable object already exists: $key"
+              return 0
+            fi
+            if [ "$code" != 404 ]; then
+              echo "R2 HEAD failed for ${key}: HTTP ${code}" >&2
+              return 1
+            fi
+            code="$(curl --silent --show-error --retry 3 --retry-all-errors \
+              --connect-timeout 15 --max-time 600 \
+              --aws-sigv4 'aws:amz:auto:s3' \
+              --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
+              --header 'If-None-Match: *' \
+              --upload-file "$file" --output /dev/null --write-out '%{http_code}' \
+              "${endpoint}/${ORDAX_R2_BUCKET}/${key}" || true)"
+            case "$code" in
+              200|201|204)
+                return 0
+                ;;
+              412)
+                echo "Durable object won publication race and remains immutable: $key"
+                return 0
+                ;;
+              *)
+                echo "R2 immutable PUT failed for ${key}: HTTP ${code}" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          mapfile -t artifact_rows < <(python3 - "$manifest" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+          manifest = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          artifacts = manifest.get('artifacts')
+          expected = ('provenance.json', 'native-surface-runtime-buildroot.erofs')
+          if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
+              raise SystemExit('fresh Surface manifest artifact set mismatch')
+          for name in expected:
+              digest = str(artifacts[name].get('sha256', ''))
+              if re.fullmatch(r'[0-9a-f]{64}', digest) is None:
+                  raise SystemExit(f'invalid fresh Surface digest for {name}')
+              print(f'{name}\t{digest}')
+          PY
+          )
+
+          for row in "${artifact_rows[@]}"; do
+            name="${row%%$'\t'*}"
+            digest="${row#*$'\t'}"
+            r2_put_immutable "${prefix}/blobs/sha256/${digest}" "$out/$name"
+          done
+
+          existing_manifest="$RUNNER_TEMP/existing-independent-surface-r2-manifest.json"
+          manifest_status="$(r2_status "$manifest_key")"
+          if [ "$manifest_status" = 200 ]; then
+            code="$(curl --silent --show-error --retry 3 --retry-all-errors \
+              --connect-timeout 15 --max-time 120 \
+              --aws-sigv4 'aws:amz:auto:s3' \
+              --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
+              --output "$existing_manifest" --write-out '%{http_code}' \
+              "${endpoint}/${ORDAX_R2_BUCKET}/${manifest_key}" || true)"
+            test "$code" = 200
+            if ! cmp -s "$manifest" "$existing_manifest"; then
+              echo 'R2 fingerprint manifest already exists with different bytes; refusing overwrite.' >&2
+              exit 1
+            fi
+          elif [ "$manifest_status" = 404 ]; then
+            r2_put_immutable "$manifest_key" "$manifest"
+          else
+            echo "R2 HEAD failed for manifest: HTTP ${manifest_status}" >&2
+            exit 1
+          fi
+          echo 'Fresh verified Surface published to durable content-addressed R2 store.'
+
       - name: Sanitize reusable Surface download cache
-        if: always() && steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        if: always() && steps.surface-reuse-state.outputs.reused != 'true'
         run: |
           if [ -d "$RUNNER_TEMP/ordax-independent-surface-dl" ]; then
             find "$RUNNER_TEMP/ordax-independent-surface-dl" -type f \
@@ -236,14 +474,14 @@ jobs:
           fi
 
       - name: Save Surface Buildroot source download cache
-        if: always() && steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-download-cache.outputs.cache-hit != 'true'
+        if: always() && steps.surface-reuse-state.outputs.reused != 'true' && steps.surface-download-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-dl
           key: ${{ steps.surface-download-cache.outputs.cache-primary-key }}
 
       - name: Save exact Surface compiler cache
-        if: always() && steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-ccache.outputs.cache-hit != 'true'
+        if: always() && steps.surface-reuse-state.outputs.reused != 'true' && steps.surface-ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
@@ -264,7 +502,7 @@ jobs:
 
   portable-qemu:
     needs: buildroot-surface
-    if: needs.buildroot-surface.outputs.artifact_cache_hit != 'true'
+    if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true
     uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
     with:
       base_source: independent

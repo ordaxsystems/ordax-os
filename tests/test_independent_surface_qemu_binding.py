@@ -11,8 +11,8 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
         for marker in (
             "portable-qemu:",
             "needs: buildroot-surface",
-            "if: needs.buildroot-surface.outputs.artifact_cache_hit != 'true'",
-            "artifact_cache_hit: ${{ steps.surface-artifact-cache.outputs.cache-hit }}",
+            "if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true",
+            "artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}",
             "uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
             "base_source: independent",
             "surface_source: independent",
@@ -26,12 +26,14 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
         for marker in (
             "Resolve exact Surface artifact fingerprint",
             "Restore verified Independent Surface EROFS component",
+            "Restore verified Independent Surface EROFS from durable R2 store",
             "ordax-independent-surface-artifact-v1-",
-            "Build Buildroot/musl Surface runtime on artifact miss",
+            "Build Buildroot/musl Surface runtime on durable artifact miss",
             "steps.surface-artifact-cache.outputs.cache-hit != 'true'",
+            "steps.surface-r2.outputs.hit != 'true'",
             "Verify exact Independent Surface EROFS bytes",
             "Record fresh Independent Surface component cache",
-            "Verify Surface cache reuse against current integration commit",
+            "Verify Surface reuse against current integration commit",
             "independent-surface-component-reuse.json",
         ):
             self.assertIn(marker, SURFACE)
@@ -44,9 +46,15 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
             "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
             "ordax-independent-surface-runtime-${{ github.run_id }}",
             "bootstrap/independent-surface-runtime/build.py verify",
-            "provenance['source_commit'] == expected",
+            "tools/ci/independent_surface_component_cache.py verify",
+            "--consumer",
+            'assert re.fullmatch(r\'[0-9a-f]{40}\', provenance[\'source_commit\'])',
+            "independent-surface-component-binding.json",
             "ORDAX_INDEPENDENT_SURFACE_PROVENANCE=VERIFIED",
             "ORDAX_INDEPENDENT_SURFACE_ARTIFACT_BINDING=VERIFIED",
+            'artifact_root="$work/independent-surface-runtime"',
+            'independent="$artifact_root/ordax-independent-surface"',
+            'test ! -e "$artifact_root/provenance.json"',
             "native-surface-runtime-buildroot.erofs",
             'target="$work/surface-runtime/native-surface-runtime.erofs"',
             'test "$source_sha" = "$target_sha"',
@@ -59,6 +67,7 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
             "      - name: Download same-run independent Surface runtime", 1
         )[1].split("      - name: Restore verified release-agent component", 1)[0]
         self.assertNotIn("bootstrap/surface-runtime/build.py build", independent)
+        self.assertNotIn('find "$work/independent-surface-runtime"', independent)
         self.assertNotIn("actions/cache/restore", independent)
         self.assertIn("bootstrap/independent-surface-runtime/build.py verify", independent)
         self.assertIn("native-surface-runtime-buildroot.erofs", independent)

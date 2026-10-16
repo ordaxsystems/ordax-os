@@ -136,9 +136,9 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def test_workflow_reuses_buildroot_downloads_and_compiler_outputs(self):
         text = WORKFLOW_PATH.read_text(encoding="utf-8")
         for marker in (
-            "Restore exact Surface compiler cache on artifact miss",
+            "Restore exact Surface compiler cache on durable artifact miss",
             "ordax-independent-surface-ccache-v1-",
-            "Restore Surface Buildroot source downloads on artifact miss",
+            "Restore Surface Buildroot source downloads on durable artifact miss",
             "ordax-independent-surface-dl-v1-",
             "BR2_CCACHE_DIR:",
             "BR2_DL_DIR:",

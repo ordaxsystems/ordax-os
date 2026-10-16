@@ -46,15 +46,20 @@ def exact_commit(value: str, label: str) -> str:
     return value
 
 
+def validated_environment(value: str, label: str = "cache environment") -> str:
+    value = value.strip()
+    if not value or "\n" in value or "\r" in value or len(value) > 256:
+        raise CacheError(f"invalid {label}")
+    return value
+
+
 def environment() -> str:
     value = os.environ.get("ORDAX_COMPONENT_CACHE_ENVIRONMENT", "").strip()
     if not value:
         if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
             raise CacheError("CI cache environment is required")
         return "local-unpinned"
-    if "\n" in value or "\r" in value or len(value) > 256:
-        raise CacheError("invalid cache environment")
-    return value
+    return validated_environment(value)
 
 
 def input_files(root: Path = ROOT) -> list[Path]:
@@ -71,10 +76,11 @@ def input_files(root: Path = ROOT) -> list[Path]:
     return files
 
 
-def fingerprint(root: Path = ROOT) -> str:
+def fingerprint(root: Path = ROOT, *, build_environment: str | None = None) -> str:
     root = root.resolve()
+    build_environment = validated_environment(build_environment, "build environment") if build_environment is not None else environment()
     digest = hashlib.sha256()
-    digest.update((FINGERPRINT_VERSION + "\0" + environment() + "\0").encode())
+    digest.update((FINGERPRINT_VERSION + "\0" + build_environment + "\0").encode())
     for path in input_files(root):
         relative = path.relative_to(root).as_posix()
         digest.update(relative.encode())
@@ -133,7 +139,15 @@ def record(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
     return value
 
 
-def verify(out_dir: Path, integration_commit: str, receipt: Path, *, cache_hit: bool, root: Path = ROOT) -> dict:
+def verify(
+    out_dir: Path,
+    integration_commit: str,
+    receipt: Path,
+    *,
+    cache_hit: bool,
+    consumer: bool = False,
+    root: Path = ROOT,
+) -> dict:
     integration_commit = exact_commit(integration_commit, "integration commit")
     out_dir = out_dir.resolve()
     manifest_path = out_dir / MANIFEST
@@ -145,10 +159,18 @@ def verify(out_dir: Path, integration_commit: str, receipt: Path, *, cache_hit: 
         raise CacheError(f"cannot read Surface cache manifest: {exc}") from exc
     if manifest.get("$schema") != SCHEMA or manifest.get("fingerprint_version") != FINGERPRINT_VERSION:
         raise CacheError("Surface cache manifest schema/version mismatch")
-    expected_fingerprint = fingerprint(root)
+    build_environment = validated_environment(
+        str(manifest.get("execution_environment", "")),
+        "manifest build environment",
+    )
+    expected_fingerprint = fingerprint(
+        root,
+        build_environment=build_environment if consumer else None,
+    )
     if manifest.get("input_fingerprint") != expected_fingerprint:
         raise CacheError("cached Surface build inputs changed")
-    if manifest.get("execution_environment") != environment():
+    verification_environment = environment()
+    if not consumer and build_environment != verification_environment:
         raise CacheError("cached Surface execution environment changed")
     build_commit = exact_commit(str(manifest.get("build_source_commit", "")), "build source commit")
     prov_commit = exact_commit(str(provenance(out_dir).get("source_commit", "")), "provenance source commit")
@@ -172,7 +194,9 @@ def verify(out_dir: Path, integration_commit: str, receipt: Path, *, cache_hit: 
         "$schema": REUSE_SCHEMA,
         "status": "verified",
         "input_fingerprint": expected_fingerprint,
-        "execution_environment": environment(),
+        "execution_environment": build_environment,
+        "verification_environment": verification_environment,
+        "consumer_verification": bool(consumer),
         "build_source_commit": build_commit,
         "integration_source_commit": integration_commit,
         "reused": bool(cache_hit),
@@ -198,6 +222,7 @@ def main() -> int:
     ver.add_argument("--integration-commit", required=True)
     ver.add_argument("--receipt", required=True, type=Path)
     ver.add_argument("--cache-hit", required=True, choices=("true", "false"))
+    ver.add_argument("--consumer", action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "fingerprint":
@@ -214,6 +239,7 @@ def main() -> int:
                 args.integration_commit,
                 args.receipt,
                 cache_hit=args.cache_hit == "true",
+                consumer=args.consumer,
             ), sort_keys=True))
         return 0
     except (CacheError, OSError) as exc:
