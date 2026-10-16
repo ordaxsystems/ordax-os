@@ -339,7 +339,17 @@ export function mountFirstRunExperience(root, {
         if (registrationPolicy && isIdentityActionSupported(actionsSnapshot, "register")) {
           const legal = el(documentObject, "div", "ordax-first-run-legal"); legal.append(el(documentObject, "strong", "", "Documentos vigentes"));
           const links = el(documentObject, "div", "ordax-first-run-legal-links");
-          for (const [label, document] of [["Privacidade", registrationPolicy.privacy], ["Termos", registrationPolicy.terms]]) { const link = documentObject.createElement("a"); link.href = document.url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = `${label} · v${document.version}`; links.append(link); }
+          const privacy = documentObject.createElement("a");
+          privacy.href = registrationPolicy.privacy.url;
+          privacy.target = "_blank";
+          privacy.rel = "noopener noreferrer";
+          privacy.textContent = `${translateFirstRunText(draft.locale, "Privacidade")} · v${registrationPolicy.privacy.version}`;
+          const terms = documentObject.createElement("a");
+          terms.href = registrationPolicy.terms.url;
+          terms.target = "_blank";
+          terms.rel = "noopener noreferrer";
+          terms.textContent = `${translateFirstRunText(draft.locale, "Termos")} · v${registrationPolicy.terms.version}`;
+          links.append(privacy, terms);
           const acceptance = el(documentObject, "label", "ordax-first-run-legal-acceptance"); const checkbox = documentObject.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = registrationLegalAccepted; checkbox.dataset.firstRunRegistrationLegalAcceptance = ""; checkbox.disabled = identityPending !== null; acceptance.append(checkbox, el(documentObject, "span", "", "Li e aceito os documentos vigentes indicados acima.")); legal.append(links, acceptance); form.append(legal);
         }
       } else form.append(el(documentObject, "p", "ordax-first-run-note", "Informe o e-mail da Conta. A resposta é genérica para não revelar se uma conta existe."));

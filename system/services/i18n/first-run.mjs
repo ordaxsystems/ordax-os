@@ -472,6 +472,13 @@ const TABLES = Object.freeze({
 const LAUNCH_BASELINE_EN_US = Object.freeze({
   "Português (Brasil) · ABNT2": "Portuguese (Brazil) · ABNT2",
   "Progresso da configuração": "Setup progress",
+  "Proteção": "Protection",
+  "Revisão": "Review",
+  "Concluído": "Complete",
+  "O sistema e o estado persistente permanecem no pendrive.": "The system and persistent state remain on the USB drive.",
+  "Voltar ao login": "Back to sign in",
+  "Indisponível": "Unavailable",
+  "Não foi possível confirmar o receipt de conclusão. As configurações já aplicadas foram preservadas para uma nova tentativa idempotente.": "The completion receipt could not be confirmed. Settings already applied were preserved for a new idempotent attempt.",
   "Configuração inicial": "Initial setup",
   "Vamos configurar idioma, entrada, rede, Conta, proteção local e privacidade usando os serviços reais do sistema.": "We'll configure language, input, network, Account, local protection, and privacy using the system's real services.",
   "Você pode usar o OrdaX offline sem criar uma segunda identidade.": "You can use OrdaX offline without creating a second identity.",
