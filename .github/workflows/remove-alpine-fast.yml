@@ -25,6 +25,7 @@ on:
       - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_independent_dev_channel_compatibility.py'
       - 'tests/test_independent_base_experiment.py'
+      - 'tests/test_independent_rootfs_export.py'
       - 'tests/test_independent_network_parity.py'
       - 'tests/test_independent_owner_profile.py'
       - 'tests/test_independent_portable_boot_integration.py'
@@ -68,6 +69,7 @@ jobs:
             tests.test_dev_base_symlink_policy \
             tests.test_independent_dev_channel_compatibility \
             tests.test_independent_base_experiment \
+            tests.test_independent_rootfs_export \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
             tests.test_independent_portable_boot_integration \
@@ -94,10 +96,12 @@ jobs:
             tests/test_alpine_removal_boundary.py \
             tests/test_dev_base_symlink_policy.py \
             tests/test_independent_dev_channel_compatibility.py \
+            tests/test_independent_rootfs_export.py \
             tests/test_independent_owner_profile.py \
             tests/test_independent_portable_boot_integration.py \
             tests/test_kernel_module_payload.py \
             tests/test_firmware_policy_neutral.py \
             tests/test_independent_heavy_workflow.py
           sh -n bootstrap/independent-base/post-build.sh
+          sh -n bootstrap/independent-base/post-image.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
