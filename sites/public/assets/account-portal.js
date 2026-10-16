@@ -384,7 +384,7 @@
     const quickLinks = ["preferencias", "privacidade", "integracoes", "atividade"];
     return `<header class="account-intro"><div><h1 tabindex="-1">${tx("Minha Conta")}</h1><p>${tx("Seu perfil, seus serviços e suas escolhas.")}</p></div>${link("dados-pessoais", "", "button outline", `${icon("user")}${tx("Dados pessoais")}`)}</header>
       <section class="identity-card" aria-labelledby="overview-profile-title">
-        <div class="identity-content"><span class="eyebrow">${tx("SEU PERFIL ORDAX")}</span><div class="identity-person"><span class="identity-avatar">${icon("user")}</span><div><h2 id="overview-profile-title">${tx("Sua conta OrdaX")}</h2><p class="verified-email"${signedIn() && session.email ? ' translate="no"' : ""}>${signedIn() && session.email ? esc(session.email) : tx("E-mail não disponível")}</p></div></div><div class="identity-bottom"><dl><div><dt>${tx("Tipo de conta")}</dt><dd>${tx("Pessoal")}</dd></div><div><dt>${tx("Membro desde")}</dt><dd>${tx("Não disponível")}</dd></div></dl>${link("dados-pessoais", "", "text-link", `${tx("Ver perfil")}${icon("arrow-right")}`)}</div></div>
+        <div class="identity-content"><span class="eyebrow">${tx("SEU PERFIL ORDAX")}</span><div class="identity-person"><span class="identity-avatar">${icon("user")}</span><div><h2 id="overview-profile-title">${tx("Sua conta OrdaX")}</h2><p class="verified-email"${signedIn() && session.email ? ' translate="no"' : ""}>${signedIn() && session.email ? esc(session.email) : tx("E-mail não disponível")}</p></div></div><div class="identity-bottom"><dl><div><dt>${tx("Tipo de conta")}</dt><dd>${tx("Não disponível")}</dd></div><div><dt>${tx("Membro desde")}</dt><dd>${tx("Não disponível")}</dd></div></dl>${link("dados-pessoais", "", "text-link", `${tx("Ver perfil")}${icon("arrow-right")}`)}</div></div>
         <div class="identity-art" aria-hidden="true"><img src="${LANDSCAPE}" width="1920" height="640" alt=""><span>${tx("Uma conta.")}<br>${tx("Todos os seus mundos.")}</span></div>
       </section>
       <div class="account-overview-grid"><div class="overview-primary">
@@ -530,7 +530,7 @@
     document.getElementById("help-clear").hidden = !state.helpQuery;
   }
   function support() {
-    return `<section class="settings-section help-search">${panelHeading("Como podemos ajudar?", { iconName: "help", tone: "cyan" })}<p class="panel-description">${tx("Busque uma resposta ou vá direto à área da sua conta.")}</p><div class="help-search-row"><label class="search-field">${icon("search")}<input id="help-search" type="search" value="${esc(state.helpQuery)}" placeholder="${tx("Busque por assinatura, segurança, faturas...")}" aria-label="${tx("Buscar ajuda")}" aria-controls="faq-list" autocomplete="off"></label><button type="button" class="button ghost icon-button help-clear" id="help-clear" data-reset-help aria-label="${tx("Limpar busca de ajuda")}"${state.helpQuery ? "" : " hidden"}>${icon("close")}</button></div></section>${relatedAreas(["assinatura", "seguranca", "faturamento"], "Atalhos de ajuda")}<div class="help-workbench"><section class="settings-section help-questions" aria-labelledby="faq-heading">${panelHeading("Perguntas frequentes", { id: "faq-heading", end: `<span class="help-result-count" id="help-result-count" role="status" aria-live="polite" aria-atomic="true">${message("account.help.resultCount", { count: matchingFaqs().length })}</span>` })}<div class="faq-list" id="faq-list">${faqContent()}</div></section><aside class="settings-section support-contact" aria-labelledby="support-heading"><span class="management-icon">${icon("mail")}</span><h2 id="support-heading">${tx("Atendimento OrdaX")}</h2>${capabilityBadge("supportChannel")}<p id="support-availability">${tx("O canal de atendimento ainda não está conectado. Por enquanto, nenhuma solicitação pode ser enviada por aqui.")}</p><button type="button" class="button outline" data-open-dialog="support" aria-describedby="support-availability">${tx("Consultar atendimento")}${icon("arrow-right")}</button></aside></div>`;
+    return `<section class="settings-section help-search">${panelHeading("Como podemos ajudar?", { iconName: "help", tone: "cyan" })}<p class="panel-description">${tx("Busque uma resposta ou vá direto à área da sua conta.")}</p><div class="help-search-row"><label class="search-field">${icon("search")}<input id="help-search" type="search" value="${esc(state.helpQuery)}" placeholder="${tx("Busque por assinatura, segurança, faturas...")}" aria-label="${tx("Buscar ajuda")}" aria-controls="faq-list" autocomplete="off"></label><button type="button" class="button ghost icon-button help-clear" id="help-clear" data-reset-help aria-label="${tx("Limpar busca de ajuda")}"${state.helpQuery ? "" : " hidden"}>${icon("close")}</button></div></section>${relatedAreas(["assinatura", "seguranca", "faturamento"], "Atalhos de ajuda")}<div class="help-workbench"><section class="settings-section help-questions" aria-labelledby="faq-heading">${panelHeading("Perguntas frequentes", { id: "faq-heading", end: `<span class="help-result-count" id="help-result-count" role="status" aria-live="polite" aria-atomic="true">${message("account.help.resultCount", { count: matchingFaqs().length })}</span>` })}<div class="faq-list" id="faq-list">${faqContent()}</div></section><aside class="settings-section support-contact" aria-labelledby="support-heading"><span class="management-icon">${icon("mail")}</span><h2 id="support-heading">${tx("Atendimento OrdaX")}</h2>${capabilityBadge("supportChannel")}<p id="support-availability">${tx("O canal de atendimento ainda não está conectado. Por enquanto, nenhuma solicitação pode ser enviada por aqui.")}</p><button type="button" class="button outline" data-open-dialog="support" aria-controls="account-dialog" aria-haspopup="dialog" aria-describedby="support-availability">${tx("Consultar atendimento")}${icon("arrow-right")}</button></aside></div>`;
   }
   const views = { integracoes: integrations, "visao-geral": overview, "dados-pessoais": personal, assinatura: subscription, consumo: consumption, faturamento: billing, seguranca: security, dispositivos: devices, privacidade: privacy, preferencias: preferences, atividade: activity, suporte: support };
 
@@ -552,14 +552,15 @@
     document.getElementById("account-content").innerHTML = state.section === "visao-geral" ? overview() : `${header}<div class="account-detail-layout${availability ? " has-aside" : ""}"><div class="account-detail-body">${views[state.section]()}</div>${availability ? `<aside class="account-detail-aside" aria-label="${tx("Disponibilidade dos recursos")}">${availability}<a class="detail-help-link" href="#suporte">${icon("help")}<span>${tx("Dúvidas sobre esta área?")}</span>${icon("arrow-right")}</a></aside>` : ""}</div>`;
     const crumb = document.getElementById("section-crumb");
     crumb.hidden = state.section === "visao-geral";
-    crumb.innerHTML = state.section === "visao-geral" ? "" : `${icon("chevron-right")}<span>${tx(section.title)}</span>`;
+    crumb.innerHTML = state.section === "visao-geral" ? "" : `${icon("chevron-right")}<span aria-current="page">${tx(section.title)}</span>`;
     document.title = `${i18n?.fromSource(state.section === "visao-geral" ? "Minha Conta" : section.title) ?? section.title} — OrdaX OS`;
     if (focus) document.querySelector("#account-content h1")?.focus({ preventScroll: true });
   }
   function route({ initial = false } = {}) {
     let requested = location.hash.slice(1);
     try { requested = decodeURIComponent(requested); } catch { requested = ""; }
-    if (requested === "conteudo") { document.getElementById("conteudo").focus(); return; }
+    const contentAnchor = requested === "conteudo";
+    if (contentAnchor) requested = state.section;
     if (!byId.has(requested)) requested = "visao-geral";
     const changed = requested !== state.section;
     state.section = requested;
@@ -567,7 +568,8 @@
     if (dialog.open) dialog.close();
     renderNavigation();
     renderContent({ focus: !initial });
-    if (changed) window.scrollTo({ top: 0, behavior: "instant" });
+    if (changed || !initial) window.scrollTo({ top: 0, behavior: "instant" });
+    if (contentAnchor) document.getElementById("conteudo").focus({ preventScroll: true });
   }
 
   const dialog = document.getElementById("account-dialog");
@@ -590,7 +592,7 @@
     const description = kind === "search" ? "Encontre uma área da sua conta." : kind === "support" ? "O canal oficial de suporte ainda não foi configurado. Nenhuma solicitação foi enviada." : "O serviço de notificações ainda não está conectado.";
     document.getElementById("dialog-title").textContent = i18n?.fromSource(title) ?? title;
     document.getElementById("dialog-description").textContent = i18n?.fromSource(description) ?? description;
-    document.getElementById("dialog-content").innerHTML = kind === "search" ? `<label class="search-field">${icon("search")}<span class="sr-only">${tx("Buscar na minha conta")}</span><input id="dialog-search" type="search" value="${esc(state.searchQuery)}" placeholder="${tx("O que você está procurando?")}" autocomplete="off" aria-controls="search-results" autofocus></label><p class="search-caption" id="search-status" role="status" aria-live="polite" aria-atomic="true"></p><nav class="search-results" id="search-results" aria-label="${tx("Áreas da conta")}">${searchResults()}</nav>` : kind === "support" ? action("Entendi", null, { disabled: false, data: "data-close-dialog" }) : `<div class="empty-state compact">${icon("bell")}<h3>${tx("Nenhuma notificação disponível")}</h3><p>${tx("As notificações serão exibidas quando o serviço oficial estiver disponível.")}</p></div>${action("Entendi", null, { disabled: false, data: "data-close-dialog" })}`;
+    document.getElementById("dialog-content").innerHTML = kind === "search" ? `<label class="search-field">${icon("search")}<span class="sr-only">${tx("Buscar na minha conta")}</span><input id="dialog-search" type="search" value="${esc(state.searchQuery)}" placeholder="${tx("O que você está procurando?")}" autocomplete="off" aria-controls="search-results" autofocus></label><p class="search-caption" id="search-status" role="status" aria-live="polite" aria-atomic="true"></p><nav class="search-results" id="search-results" aria-label="${tx("Áreas da conta")}">${searchResults()}</nav>` : kind === "support" ? action("Entendi", null, { disabled: false, data: "data-close-dialog" }) : `${empty("Notificações ainda não disponíveis", "As notificações serão exibidas quando o serviço oficial estiver disponível.", "bell", true)}${action("Entendi", null, { disabled: false, data: "data-close-dialog" })}`;
   }
   function openDialog(kind) {
     if (!dialog.open) dialogReturnTarget = moreDialog.open ? document.getElementById("more-toggle") : document.activeElement;
@@ -620,6 +622,11 @@
     if (event.defaultPrevented) return;
     const control = event.target.closest("button, a");
     if (!control) return;
+    if (control.matches('a[href="#conteudo"]')) {
+      event.preventDefault();
+      document.getElementById("conteudo").focus();
+      return;
+    }
     if (control.matches("[data-refresh-session]")) { if (!layoutPreview) void account.refreshSession(); }
     else if (control.matches("[data-open-dialog]")) openDialog(control.dataset.openDialog);
     else if (control.matches("[data-close-dialog]")) dialog.close();

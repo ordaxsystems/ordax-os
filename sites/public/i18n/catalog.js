@@ -1242,6 +1242,8 @@
   register("account.preferences.scope", "Idioma e aparência se referem ao navegador atual.", "Language and appearance refer to the current browser.");
   register("account.preferences.related", "Perfil e ajuda", "Profile and help");
 
+  register("account.notifications.unavailable", "Notificações ainda não disponíveis", "Notifications not yet available");
+
   register("account.shared.verified", "Recursos verificados", "Verified features");
   register("account.shared.pending", "Os recursos marcados como pendentes ainda aguardam integração.", "Features marked as pending still await integration.");
   register("account.shared.locale", "Idioma do portal", "Portal language");

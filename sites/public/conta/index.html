@@ -8,11 +8,11 @@
   <title>Minha Conta — OrdaX OS</title>
   <link rel="icon" href="/assets/ordax-symbol.png" type="image/png">
   <link rel="stylesheet" href="/assets/ordax-font.css">
-  <link rel="stylesheet" href="/assets/account-dashboard.css?v=meridian-account-12">
+  <link rel="stylesheet" href="/assets/account-dashboard.css?v=meridian-account-13">
   <script src="/i18n/catalog.js" defer></script>
   <script src="/i18n/runtime.js" defer></script>
   <script src="/assets/site.js" defer></script>
-  <script src="/assets/account-portal.js?v=meridian-account-12" defer></script>
+  <script src="/assets/account-portal.js?v=meridian-account-13" defer></script>
 </head>
 <body data-page="conta" class="account-portal" data-meridian data-material="paper">
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
@@ -21,8 +21,8 @@
       <a href="/" class="brand" aria-label="OrdaX OS — início"><img src="/assets/ordax-symbol.png" width="42" height="42" alt=""><span>OrdaX <span class="brand-os">OS</span><sup>™</sup></span></a>
       <div class="topbar-center"><span>Conta OrdaX</span><span class="header-divider" aria-hidden="true"></span><a href="/">Voltar ao site <span aria-hidden="true">↗</span></a></div>
       <div class="topbar-actions">
-        <button type="button" class="button outline search-launch" aria-label="Buscar na minha conta" title="Buscar na minha conta" data-open-dialog="search" aria-controls="account-dialog"><span data-icon="search"></span><span>Buscar na minha conta</span><kbd aria-hidden="true">Ctrl K</kbd></button>
-        <button type="button" class="button ghost icon-button" data-open-dialog="notifications" aria-label="Notificações" title="Notificações" aria-controls="account-dialog"><span data-icon="bell"></span></button>
+        <button type="button" class="button outline search-launch" aria-label="Buscar na minha conta" title="Buscar na minha conta" data-open-dialog="search" aria-controls="account-dialog" aria-haspopup="dialog"><span data-icon="search"></span><span>Buscar na minha conta</span><kbd aria-hidden="true">Ctrl K</kbd></button>
+        <button type="button" class="button ghost icon-button" data-open-dialog="notifications" aria-controls="account-dialog" aria-haspopup="dialog" aria-label="Notificações" title="Notificações"><span data-icon="bell"></span></button>
         <span class="header-divider" aria-hidden="true"></span>
         <button type="button" class="button ghost account-menu" id="profile-menu-trigger" aria-label="Sua conta"><span class="mini-avatar"><span data-icon="user"></span></span><span id="profile-menu-label">Sua conta</span><span data-icon="chevron-down"></span></button>
       </div>
@@ -45,7 +45,7 @@
     <nav class="mobile-nav" id="mobile-navigation" aria-label="Navegação móvel"></nav>
   </div>
   <dialog id="account-dialog" class="account-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description"><button type="button" class="button ghost icon-button dialog-close" data-close-dialog aria-label="Fechar diálogo"><span data-icon="close"></span></button><h2 id="dialog-title"></h2><p id="dialog-description"></p><div id="dialog-content"></div></dialog>
-  <dialog id="more-dialog" class="mobile-more" aria-labelledby="more-title"><div class="flex items-center justify-between mb-3"><h2 id="more-title">Minha Conta</h2><button type="button" class="button ghost icon-button" data-close-more aria-label="Fechar menu"><span data-icon="close"></span></button></div><button type="button" class="button outline more-search" data-open-dialog="search" aria-controls="account-dialog"><span data-icon="search"></span><span>Buscar na minha conta</span></button><nav id="more-navigation" aria-label="Todas as áreas da conta"></nav><div class="more-destinations"><a href="/">Início <span aria-hidden="true">↗</span></a><a href="/web/">OrdaX Web <span aria-hidden="true">↗</span></a></div></dialog>
+  <dialog id="more-dialog" class="mobile-more" aria-labelledby="more-title"><div class="flex items-center justify-between mb-3"><h2 id="more-title">Minha Conta</h2><button type="button" class="button ghost icon-button" data-close-more aria-label="Fechar menu"><span data-icon="close"></span></button></div><button type="button" class="button outline more-search" data-open-dialog="search" aria-controls="account-dialog" aria-haspopup="dialog"><span data-icon="search"></span><span>Buscar na minha conta</span></button><nav id="more-navigation" aria-label="Todas as áreas da conta"></nav><div class="more-destinations"><a href="/">Início <span aria-hidden="true">↗</span></a><a href="/web/">OrdaX Web <span aria-hidden="true">↗</span></a></div></dialog>
   <noscript><p class="noscript-note">Ative o JavaScript para acessar as seções da sua conta. <a href="/login/">Entrar</a> · <a href="/">Voltar ao site</a>.</p></noscript>
 </body>
 </html>
