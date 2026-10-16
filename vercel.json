@@ -9,7 +9,9 @@
       "has": [
         {
           "type": "host",
-          "value": "web\\.ordax\\.com\\.br"
+          "value": {
+            "pre": "web."
+          }
         }
       ],
       "destination": "/ordax/"
