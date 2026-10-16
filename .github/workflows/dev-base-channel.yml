@@ -16,6 +16,7 @@ on:
       - 'system/services/base-update/dev_channel.py'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_dev_base_channel.py'
+      - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - '.github/workflows/dev-base-channel.yml'
@@ -33,6 +34,7 @@ on:
       - 'system/services/base-update/dev_channel.py'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_dev_base_channel.py'
+      - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - '.github/workflows/dev-base-channel.yml'
@@ -62,7 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           python tools/dev-base-channel/build.py check
-          python -m unittest tests.test_dev_base_channel -v
+          python -m unittest \
+            tests.test_dev_base_channel \
+            tests.test_dev_base_symlink_policy -v
 
       - name: Install disposable rootfs selector proof dependency
         run: |

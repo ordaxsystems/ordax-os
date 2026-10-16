@@ -257,6 +257,7 @@ def _download_binding_to_path(
         except Exception:
             pass
 
+
 def _write_synced(path: Path, payload: bytes, mode: int = 0o600) -> None:
     descriptor = os.open(
         path,
@@ -293,9 +294,8 @@ def _fsync_dir(path: Path) -> None:
         os.close(descriptor)
 
 
-
 def _canonical_archive_path(value: str) -> bool:
-    if not isinstance(value, str) or not value or "\\" in value:
+    if not isinstance(value, str) or not value or "\\" in value or "\x00" in value:
         return False
     path = PurePosixPath(value)
     return (
@@ -305,10 +305,62 @@ def _canonical_archive_path(value: str) -> bool:
     )
 
 
+def _confined_symlink_target(member_name: str, linkname: str) -> str:
+    if not _canonical_archive_path(member_name):
+        raise DevBaseChannelError("development rootfs archive has unsafe symlink path")
+    if (
+        not isinstance(linkname, str)
+        or not linkname
+        or "\\" in linkname
+        or "\x00" in linkname
+        or PurePosixPath(linkname).is_absolute()
+    ):
+        raise DevBaseChannelError("development rootfs archive has unsafe symlink target")
+
+    parts = list(PurePosixPath(member_name).parent.parts)
+    for part in PurePosixPath(linkname).parts:
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not parts:
+                raise DevBaseChannelError("development rootfs archive has unsafe symlink escape")
+            parts.pop()
+            continue
+        parts.append(part)
+    if not parts:
+        raise DevBaseChannelError("development rootfs archive has unsafe symlink target")
+    normalized = PurePosixPath(*parts).as_posix()
+    if not _canonical_archive_path(normalized):
+        raise DevBaseChannelError("development rootfs archive has unsafe symlink target")
+    return normalized
+
+
+def _validate_symlink_graph(seen: set[str], symlinks: dict[str, str]) -> None:
+    for name, target in symlinks.items():
+        if target not in seen:
+            raise DevBaseChannelError(
+                f"development rootfs archive has dangling symlink: {name}"
+            )
+        visited = {name}
+        current = target
+        while current in symlinks:
+            if current in visited:
+                raise DevBaseChannelError(
+                    f"development rootfs archive has symlink loop: {name}"
+                )
+            visited.add(current)
+            current = symlinks[current]
+            if current not in seen:
+                raise DevBaseChannelError(
+                    f"development rootfs archive has dangling symlink: {name}"
+                )
+
+
 def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
     members: list[tarfile.TarInfo] = []
     seen: set[str] = set()
     regular_modes: dict[str, int] = {}
+    symlinks: dict[str, str] = {}
     unique_payload_bytes = 0
     try:
         with tarfile.open(path, "r:") as archive:
@@ -339,6 +391,10 @@ def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
                     if (not _canonical_archive_path(target) or target not in regular_modes
                             or member.size != 0 or member.mode != regular_modes[target]):
                         raise DevBaseChannelError("development rootfs archive has unsafe hardlink")
+                elif member.issym():
+                    if member.size != 0:
+                        raise DevBaseChannelError("development rootfs archive has malformed symlink")
+                    symlinks[name] = _confined_symlink_target(name, member.linkname)
                 else:
                     raise DevBaseChannelError(
                         f"development rootfs archive contains unsafe member: {name}"
@@ -346,6 +402,7 @@ def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
     except tarfile.TarError as exc:
         raise DevBaseChannelError("development rootfs archive is invalid") from exc
 
+    _validate_symlink_graph(seen, symlinks)
     missing = sorted(set(REQUIRED_ROOTFS_PATHS) - seen)
     if missing:
         raise DevBaseChannelError(
@@ -358,6 +415,29 @@ def _validate_rootfs_archive(path: Path) -> list[tarfile.TarInfo]:
             f"development rootfs archive is missing required directories: {missing_dirs}"
         )
     return members
+
+
+def _verify_materialized_tree(path: Path) -> None:
+    root = path.resolve(strict=True)
+    for entry in path.rglob("*"):
+        relative = entry.relative_to(path).as_posix()
+        metadata = entry.lstat()
+        if stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode):
+            continue
+        if stat.S_ISLNK(metadata.st_mode):
+            linkname = os.readlink(entry)
+            _confined_symlink_target(relative, linkname)
+            try:
+                resolved = entry.resolve(strict=True)
+                resolved.relative_to(root)
+            except (OSError, RuntimeError, ValueError) as exc:
+                raise DevBaseChannelError(
+                    f"versioned development rootfs has unsafe symlink: {relative}"
+                ) from exc
+            continue
+        raise DevBaseChannelError(
+            f"versioned development rootfs has unsafe object: {relative}"
+        )
 
 
 def verify_versioned_rootfs(
@@ -377,15 +457,16 @@ def verify_versioned_rootfs(
     if marker_value != source_commit:
         raise DevBaseChannelError("versioned development rootfs marker does not match commit")
 
+    _verify_materialized_tree(path)
     for relative in REQUIRED_ROOTFS_PATHS:
         target = path / relative
         try:
-            metadata = target.lstat()
+            metadata = target.stat()
         except OSError as exc:
             raise DevBaseChannelError(
                 f"versioned development rootfs required file is missing: {relative}"
             ) from exc
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        if not stat.S_ISREG(metadata.st_mode):
             raise DevBaseChannelError(
                 f"versioned development rootfs required file is unsafe: {relative}"
             )

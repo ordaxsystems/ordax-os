@@ -13,6 +13,7 @@ on:
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/windows-compat-runtime/**'
+      - 'system/services/base-update/dev_channel.py'
       - 'docs/BUILD-AUTONOMY.md'
       - 'docs/DEVELOPMENT-WORKFLOW.md'
       - 'docs/contracts/hardware-support-matrix.json'
@@ -20,6 +21,7 @@ on:
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_alpine_removal_boundary.py'
+      - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_independent_base_experiment.py'
       - 'tests/test_independent_network_parity.py'
       - 'tests/test_independent_owner_profile.py'
@@ -61,6 +63,7 @@ jobs:
           python3 bootstrap/base/kernel_module_payload.py check
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
+            tests.test_dev_base_symlink_policy \
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
@@ -83,7 +86,9 @@ jobs:
             bootstrap/independent-base/build.py \
             bootstrap/independent-base/qemu_proof.py \
             bootstrap/independent-base/portable_boot_proof.py \
+            system/services/base-update/dev_channel.py \
             tests/test_alpine_removal_boundary.py \
+            tests/test_dev_base_symlink_policy.py \
             tests/test_independent_owner_profile.py \
             tests/test_independent_portable_boot_integration.py \
             tests/test_kernel_module_payload.py \
