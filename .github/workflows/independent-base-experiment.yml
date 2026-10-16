@@ -87,12 +87,14 @@ jobs:
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
             tests.test_kernel_module_payload \
-            tests.test_firmware_policy_neutral -v
+            tests.test_firmware_policy_neutral \
+            tests.test_independent_heavy_workflow -v
           python3 -m py_compile \
             bootstrap/base/firmware_policy.py \
             bootstrap/base/kernel_module_payload.py \
             bootstrap/independent-base/build.py \
-            bootstrap/independent-base/qemu_proof.py
+            bootstrap/independent-base/qemu_proof.py \
+            tests/test_independent_heavy_workflow.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
       - name: Resolve reusable kernel fingerprint
@@ -153,12 +155,7 @@ jobs:
       - name: Bind verified kernel modules to Independent Base
         run: |
           set -euo pipefail
-          kernel_version=$(python3 - <<'PY'
-          import json
-          from pathlib import Path
-          print(json.loads(Path('bootstrap/kernel/source.json').read_text(encoding='utf-8'))['version'])
-          PY
-          )
+          kernel_version=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("bootstrap/kernel/source.json").read_text(encoding="utf-8"))["version"])')
           module_archive="$RUNNER_TEMP/portable-v2-qemu/kernel/kernel-modules-$kernel_version.tar"
           test -f "$module_archive"
           printf 'ORDAX_HOST_PYTHON=%s\n' "$(command -v python3)" >> "$GITHUB_ENV"
@@ -188,6 +185,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ordax-independent/provenance.json
             ${{ runner.temp }}/ordax-independent/kernel-module-payload.json
+            ${{ runner.temp }}/ordax-independent/firmware-coverage.json
             ${{ runner.temp }}/ordax-independent/independent-base.erofs
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
