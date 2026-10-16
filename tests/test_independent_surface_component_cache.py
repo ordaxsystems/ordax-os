@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/ci/independent_surface_component_cache.py"
@@ -124,6 +125,31 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["execution_environment"], "test/linux-x86_64/image-v1")
             self.assertEqual(receipt["verification_environment"], "test/other-runner/image-v2")
 
+    def test_historical_materialized_v1_manifest_is_verified_without_rewrite(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            out = self.make_output(temp / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            manifest_path = out / self.mod.MANIFEST
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            historical = "f" * 64
+            manifest["input_fingerprint"] = historical
+            manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+            original_manifest = manifest_path.read_bytes()
+            with mock.patch.object(self.mod, "legacy_materialized_fingerprint", return_value=historical):
+                receipt = self.mod.verify(
+                    out,
+                    "2" * 40,
+                    temp / "receipt.json",
+                    cache_hit=True,
+                    root=root,
+                )
+            self.assertTrue(receipt["legacy_materialized_manifest"])
+            self.assertEqual(receipt["manifest_input_fingerprint"], historical)
+            self.assertNotEqual(receipt["input_fingerprint"], historical)
+            self.assertEqual(manifest_path.read_bytes(), original_manifest)
+
     def test_tampering_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
@@ -157,6 +183,9 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("if: steps.surface-reuse-state.outputs.source != 'r2'", workflow)
         self.assertIn("artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}", workflow)
         self.assertIn("if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true", workflow)
+        self.assertIn("Restore immutable Surface source defconfig before cache identity record", workflow)
+        self.assertIn("git checkout -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig", workflow)
+        self.assertIn("include-hidden-files: true", workflow)
 
     def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

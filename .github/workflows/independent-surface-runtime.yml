@@ -307,6 +307,12 @@ jobs:
           python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface"
 
+      - name: Restore immutable Surface source defconfig before cache identity record
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        run: |
+          git checkout -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+          git diff --exit-code -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+
       - name: Record fresh Independent Surface component cache
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         env:
@@ -463,7 +469,7 @@ jobs:
             echo "R2 HEAD failed for manifest: HTTP ${manifest_status}" >&2
             exit 1
           fi
-          echo 'Fresh verified Surface published to durable content-addressed R2 store.'
+          echo 'Verified Surface ensured in durable content-addressed R2 store.'
 
       - name: Sanitize reusable Surface download cache
         if: always() && steps.surface-reuse-state.outputs.reused != 'true'
@@ -498,6 +504,7 @@ jobs:
             ${{ runner.temp }}/ordax-independent-surface/.ordax-independent-surface-cache.json
             ${{ runner.temp }}/independent-surface-component-reuse.json
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 7
 
   portable-qemu:
