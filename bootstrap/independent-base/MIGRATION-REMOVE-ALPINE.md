@@ -27,6 +27,8 @@ O gate executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto a
 
 `tests/test_kernel_module_payload.py` trava a nova fronteira neutra de hardware: módulos são derivados do `docs/contracts/hardware-support-matrix.json`, vêm exclusivamente do artefato `kernel-modules-<versão>.tar` do kernel canônico e dependências são resolvidas por kmod/modprobe, sem um segundo parser de `modules.dep`.
 
+`tests/test_firmware_policy_neutral.py` prova que a política compartilhada de firmware é distribuição-neutra, falha fechada quando uma declaração `firmware=` não tem cobertura, rejeita caminhos inseguros e produz receipt com identidade SHA-256 sem baixar firmware por conta própria.
+
 O gate rápido executa `build.py resolve` para `minimal` e `owner-development`. Esse comando baixa/autentica a fonte Buildroot pinada, executa `defconfig` e verifica o `.config` resultante; ele registra explicitamente que não compilou rootfs nem kernel.
 
 Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar cada commit em build completo e sem permitir que a dependência Alpine cresça durante a remoção.
@@ -97,9 +99,11 @@ O kernel continua sendo construído exclusivamente por `bootstrap/kernel/`; seu 
 5. emite receipt com SHA-256 do arquivo de módulos, hardware matrix e arquivos instalados;
 6. não baixa nada e não constrói kernel.
 
-O workflow Portable já exportava `ORDAX_KERNEL_MODULES_ARCHIVE` e `ORDAX_KERNEL_MODULES_RECEIPT`, porém o builder antigo não consumia esse contrato. Essa lacuna foi identificada nesta migração; a nova fronteira neutra existe para fechar o contrato sem reutilizar `alpine_core.py`.
+O workflow Portable já exportava `ORDAX_KERNEL_MODULES_ARCHIVE` e `ORDAX_KERNEL_MODULES_RECEIPT`, porém o builder antigo não consumia esse contrato. Essa lacuna foi fechada no perfil `owner-development`: `post-build.sh` agora exige `ORDAX_HOST_PYTHON`, `ORDAX_KERNEL_MODULES_ARCHIVE` e `ORDAX_KERNEL_MODULES_RECEIPT`, invoca `kernel_module_payload.py install` e não possui fallback que construa ou baixe um segundo kernel.
 
-**Ainda pendente antes de remover `dev-base/build.py`:** ligar o payload neutro ao `owner-development` durante o post-build, selecionar firmware Buildroot compatível com as declarações `firmware=` dos módulos materializados, executar `bootstrap/base/firmware_policy.py` como prova de cobertura e então realizar build/QEMU/hardware do perfil Owner. A dependência Alpine do Dev Base só pode sair da allowlist depois desses gates.
+Após materializar os módulos, o mesmo post-build executa `bootstrap/base/firmware_policy.py check`. A política compartilhada lê as declarações `firmware=` dos módulos selecionados e exige cobertura real no target; se qualquer módulo que requer firmware ficar sem alternativa utilizável, o build Owner falha antes de produzir uma candidata. O receipt de cobertura fica em `/etc/ordax/firmware-coverage.json`.
+
+**Ainda pendente antes de remover `dev-base/build.py`:** declarar no fragmento `owner-development` o provider `linux-firmware` do Buildroot com as famílias compatíveis com os módulos do SSOT, provar esses símbolos pelo gate `resolve`, executar o build real do perfil Owner com o componente de kernel já verificado e então realizar QEMU/prova física. A dependência Alpine do Dev Base só pode sair da allowlist depois desses gates.
 
 ### Fase C — convergência dos consumidores
 
