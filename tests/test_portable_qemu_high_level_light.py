@@ -30,10 +30,12 @@ def test_update_presentation_and_its_focused_contract_do_not_require_portable_qe
 def test_native_account_transport_and_focused_contracts_do_not_require_portable_qemu():
     result = impact.classify_paths([
         "system/surface/runtime/native_account_gateway.py",
+        "docs/contracts/native-account-session.json",
         "infra/supabase/functions/ordax-account-gateway/index.ts",
         "infra/supabase/functions/_shared/space_create_contract.mjs",
         ".github/workflows/ordax-account-gateway-destination.yml",
         "tests/test_native_account_gateway.py",
+        "tests/test_native_account_session_contract.py",
         "tests/test_space_create_bridge.mjs",
         "tests/test_account_gateway_destination_deploy.py",
     ])
