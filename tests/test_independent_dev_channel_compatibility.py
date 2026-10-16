@@ -68,14 +68,22 @@ def write_rootfs(path: Path, *, sh_target: str = "busybox") -> None:
                 add_file(archive, relative, f"fixture:{relative}\n".encode("utf-8"))
 
 
-def write_provenance(path: Path, rootfs: Path, *, rootfs_hash: str | None = None) -> None:
+def write_provenance(
+    path: Path,
+    rootfs: Path,
+    *,
+    rootfs_hash: str | None = None,
+    profile: str = "owner-development",
+    capabilities_verified: bool = True,
+) -> None:
     path.write_text(
         json.dumps(
             {
                 "$schema": "prototype-ordax.independent-base-provenance/1",
                 "status": "candidate-build-only",
                 "source_commit": SOURCE,
-                "profile": "owner-development",
+                "profile": profile,
+                "owner_development_capabilities_verified": capabilities_verified,
                 "artifacts": {
                     "rootfs.tar": rootfs_hash or hashlib.sha256(rootfs.read_bytes()).hexdigest(),
                 },
@@ -158,14 +166,30 @@ class IndependentDevChannelCompatibilityTests(unittest.TestCase):
             rootfs = root / "rootfs.tar"
             provenance = root / "provenance.json"
             write_rootfs(rootfs)
-            write_provenance(provenance, rootfs)
-            value = json.loads(provenance.read_text(encoding="utf-8"))
-            value["profile"] = "minimal"
-            provenance.write_text(json.dumps(value), encoding="utf-8")
+            write_provenance(provenance, rootfs, profile="minimal")
 
             with self.assertRaisesRegex(
                 proof.CompatibilityError,
                 "requires owner-development profile",
+            ):
+                proof.prove(
+                    rootfs=rootfs,
+                    provenance_path=provenance,
+                    expected_commit=SOURCE,
+                    receipt_path=root / "receipt.json",
+                )
+
+    def test_owner_profile_without_capability_proof_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rootfs = root / "rootfs.tar"
+            provenance = root / "provenance.json"
+            write_rootfs(rootfs)
+            write_provenance(provenance, rootfs, capabilities_verified=False)
+
+            with self.assertRaisesRegex(
+                proof.CompatibilityError,
+                "capability proof is missing",
             ):
                 proof.prove(
                     rootfs=rootfs,

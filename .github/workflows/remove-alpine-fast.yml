@@ -22,6 +22,8 @@ on:
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_alpine_removal_boundary.py'
+      - 'tests/test_dev_base_channel.py'
+      - 'tests/test_dev_base_channel_workflow.py'
       - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_independent_dev_channel_compatibility.py'
       - 'tests/test_independent_base_experiment.py'
@@ -32,6 +34,7 @@ on:
       - 'tests/test_kernel_module_payload.py'
       - 'tests/test_firmware_policy_neutral.py'
       - 'tests/test_independent_heavy_workflow.py'
+      - '.github/workflows/dev-base-channel.yml'
       - '.github/workflows/independent-base-experiment.yml'
       - '.github/workflows/remove-alpine-fast.yml'
   workflow_dispatch:
@@ -66,6 +69,8 @@ jobs:
           python3 bootstrap/base/kernel_module_payload.py check
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
+            tests.test_dev_base_channel \
+            tests.test_dev_base_channel_workflow \
             tests.test_dev_base_symlink_policy \
             tests.test_independent_dev_channel_compatibility \
             tests.test_independent_base_experiment \
@@ -92,8 +97,12 @@ jobs:
             bootstrap/independent-base/qemu_proof.py \
             bootstrap/independent-base/portable_boot_proof.py \
             system/services/base-update/dev_channel.py \
+            tools/dev-base-channel/build.py \
+            tools/dev-base-channel/independent_rootfs.py \
             tools/dev-base-channel/prove_independent_rootfs.py \
             tests/test_alpine_removal_boundary.py \
+            tests/test_dev_base_channel.py \
+            tests/test_dev_base_channel_workflow.py \
             tests/test_dev_base_symlink_policy.py \
             tests/test_independent_dev_channel_compatibility.py \
             tests/test_independent_rootfs_export.py \
