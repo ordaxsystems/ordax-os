@@ -16,12 +16,28 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
 mkdir -p "$TARGET_DIR/ordax/bootstrap/network/bin" "$TARGET_DIR/etc/ordax"
 
+remove_exact_symlink() {
+    relative=$1
+    expected=$2
+    path="$TARGET_DIR/$relative"
+    if test -e "$path" || test -L "$path"; then
+        if ! test -L "$path"; then
+            echo "Unexpected Independent Base runtime object: $path" >&2
+            exit 1
+        fi
+        actual=$(readlink "$path")
+        if test "$actual" != "$expected"; then
+            echo "Unexpected Independent Base runtime link: $path -> $actual" >&2
+            exit 1
+        fi
+        rm "$path"
+    fi
+}
+
 # /dev is runtime-owned. Both the portable initramfs and the Owner/Development
 # handoff mount/bind a real devtmpfs over this directory before the target root
 # becomes active. Buildroot's skeleton procfs shortcuts therefore become dead
-# lower-layer content and, worse, reference paths that can only exist after
-# procfs is mounted. Remove only the exact upstream shortcuts we understand;
-# fail closed if their type or target ever changes.
+# lower-layer content and reference paths that only exist after procfs mounts.
 for volatile_dev_link in \
     'fd:../proc/self/fd' \
     'stdin:../proc/self/fd/0' \
@@ -30,20 +46,40 @@ for volatile_dev_link in \
 do
     name=${volatile_dev_link%%:*}
     expected=${volatile_dev_link#*:}
-    path="$TARGET_DIR/dev/$name"
-    if test -e "$path" || test -L "$path"; then
-        if ! test -L "$path"; then
-            echo "Unexpected Independent Base /dev runtime object: $path" >&2
-            exit 1
-        fi
-        actual=$(readlink "$path")
-        if test "$actual" != "$expected"; then
-            echo "Unexpected Independent Base /dev runtime link: $path -> $actual" >&2
-            exit 1
-        fi
-        rm "$path"
-    fi
+    remove_exact_symlink "dev/$name" "$expected"
 done
+
+# The boot capsule mounts procfs before any handoff. A static /etc/mtab link to
+# procfs is therefore not a self-contained Base member and is not needed by the
+# OrdaX runtime. The QEMU gate exercises mount operations without this shortcut.
+remove_exact_symlink "etc/mtab" "../proc/self/mounts"
+
+# Preserve Buildroot's resolver indirection because the canonical DHCP script
+# writes /etc/resolv.conf. Make its /run backing file a real archive member so
+# the symlink is non-dangling before network configuration fills it.
+resolver="$TARGET_DIR/etc/resolv.conf"
+if test -L "$resolver"; then
+    resolver_target=$(readlink "$resolver")
+    if test "$resolver_target" != "../run/resolv.conf"; then
+        echo "Unexpected Independent Base resolver link: $resolver -> $resolver_target" >&2
+        exit 1
+    fi
+    mkdir -p "$TARGET_DIR/run"
+    : > "$TARGET_DIR/run/resolv.conf"
+    chmod 0644 "$TARGET_DIR/run/resolv.conf"
+elif test -e "$resolver" && ! test -f "$resolver"; then
+    echo "Unexpected Independent Base resolver object: $resolver" >&2
+    exit 1
+fi
+
+# BR2_STATIC_LIBS leaves no musl dynamic loader or libc.so in this profile.
+# Buildroot's generic skeleton can still leave a literal ld-musl* shortcut;
+# carrying that dangling loader alias would falsely imply dynamic-link support.
+if test -e "$TARGET_DIR/lib/libc.so" || test -L "$TARGET_DIR/lib/libc.so"; then
+    echo "Independent Base static-link contract unexpectedly contains lib/libc.so" >&2
+    exit 1
+fi
+remove_exact_symlink "lib/ld-musl*" "libc.so"
 
 # Reuse the current owner of DHCP semantics. Do not fork its scripts.
 cp "$ROOT/bootstrap/network/bring-up" "$TARGET_DIR/ordax/bootstrap/network/bring-up"
