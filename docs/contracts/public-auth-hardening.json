@@ -181,7 +181,7 @@
       "20261002225800_account_registration_policy_projection_v1.sql",
       "20261002232500_account_registration_legal_fk_indexes_v1.sql",
       "20261007034500_public_login_legal_receipt_guard_v1.sql",
-      "20261007041500_account_registration_legal_policy_activation_v1.sql",
+      "20261007041500_account_legal_policy_activation_v1.sql",
       "20261008041000_account_registration_intent_email_validation_v2.sql",
       "20261004202500_public_auth_rate_limit_v1.sql",
       "20261007044500_account_legacy_legal_quarantine_v1.sql"
