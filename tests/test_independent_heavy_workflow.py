@@ -41,6 +41,19 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn('python3 -c \'import json; from pathlib import Path;', text)
         self.assertNotIn("<<'PY'", text)
 
+    def test_owner_receipt_paths_are_explicit_and_external(self) -> None:
+        text = self.text()
+        self.assertIn("ORDAX_KERNEL_MODULES_RECEIPT", text)
+        self.assertIn("ORDAX_FIRMWARE_COVERAGE_RECEIPT", text)
+        self.assertIn(
+            '$RUNNER_TEMP/ordax-independent/kernel-module-payload.json',
+            text,
+        )
+        self.assertIn(
+            '$RUNNER_TEMP/ordax-independent/firmware-coverage.json',
+            text,
+        )
+
     def test_rootfs_build_and_verify_use_same_profile(self) -> None:
         text = self.text()
         self.assertGreaterEqual(
