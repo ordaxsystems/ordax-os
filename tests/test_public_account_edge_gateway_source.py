@@ -52,13 +52,18 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("export function stripEdgeFunctionPrefix(", self.transport)
         self.assertIn('pathname.startsWith(prefix + "/")', self.transport)
         self.assertIn("export function isPublicBridgeRoute(method, pathname)", self.transport)
-        for route, method in (
-            ("/account/export", "GET"),
-            ("/account/spaces", "GET"),
-            ("/account/entitlements/memory-cloud", "GET"),
-            ("/account/close", "POST"),
+        for route, method, pre_activation in (
+            ("/account/export", "GET", False),
+            ("/account/spaces", "GET", True),
+            ("/account/entitlements/memory-cloud", "GET", False),
+            ("/account/close", "POST", False),
         ):
-            self.assertIn(f'["{route}", "{method}"]', self.transport)
+            flag = "true" if pre_activation else "false"
+            self.assertIn(
+                f'["{route}", Object.freeze({{ method: "{method}", preActivation: {flag} }})]',
+                self.transport,
+            )
+        self.assertIn("export function isPublicAccountPreActivationRoute(method, pathname)", self.transport)
         self.assertIn('stripEdgeFunctionPrefix(url.pathname, "ordax-public-account-gateway")', self.edge)
         self.assertIn('accountGatewayRoutePath(url.pathname)', self.inner)
         self.assertIn('isPublicBridgeRoute(method, parsed.pathname)', self.proxy)
