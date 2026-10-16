@@ -1,6 +1,8 @@
 # Base independente OrdaX — experimento isolado
 
-**Estado (13/10/2026):** capacidade independente experimental **não promovível**. A Fase 2 de boot portátil e a Fase 3 de saúde gráfica real foram validadas em QEMU, incluindo release assinado, recuperação e segundo boot `current` (prova [#38422187862](https://github.com/ordaxsystems/ordax-os/actions/runs/38422187862) e integração [PR #1746](https://github.com/ordaxsystems/ordax-os/pull/1746)). Isso não comprova Secure Boot, equivalência em hardware físico, firmware/Wi-Fi ou autorização de migração. A autoridade e o acompanhamento desses gates continuam no [issue #1730](https://github.com/ordaxsystems/ordax-os/issues/1730). Esta pasta não cria outra distribuição, linha de atualização, gerenciador de pacotes ou boot de produção.
+**Estado (16/10/2026):** capacidade independente experimental **não promovível**, agora usada também como única trilha técnica da migração temporária `platform/remove-alpine`. A Fase 2 de boot portátil e a Fase 3 de saúde gráfica real já foram validadas em QEMU, incluindo release assinado, recuperação e segundo boot `current`. Isso não comprova Secure Boot, equivalência em hardware físico, firmware/Wi-Fi ou autorização de migração. Esta pasta não cria outra distribuição, linha de atualização, gerenciador de pacotes ou boot de produção.
+
+A migração não cria um segundo owner: ela reutiliza este diretório e segue `MIGRATION-REMOVE-ALPINE.md`. `main` continua sendo a única source authority; a branch temporária existe apenas para impedir que builds longos da base bloqueiem o desenvolvimento normal.
 
 ## Escolha técnica
 
@@ -10,20 +12,41 @@ O perfil Buildroot usa `bootstrap/kernel/source.json` como única versão de cab
 
 ## Limites importantes
 
-- A base atual Alpine dos perfis Development e Stable permanece intacta.
-- Não há SSH, Git, Wi-Fi, firmware de notebooks, gerenciamento de pacotes ou serviços de produto nesta base mínima; DHCP com Ethernet/QEMU user NAT é o escopo.
+- A base Alpine dos perfis Development e Stable continua ativa em `main` até o corte final comprovado; não será removida prematuramente.
+- A branch `platform/remove-alpine` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
+- Não há SSH, Git, Wi-Fi, firmware de notebooks, gerenciamento de pacotes ou serviços de produto nesta base mínima; DHCP com Ethernet/QEMU user NAT é o escopo atualmente comprovado.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
-- **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato.
-- O teste QEMU usa o kernel **real** `bootstrap/kernel/build.py` e valida seu provenance. Testa montagem EROFS somente-leitura e escrita rejeitada, imagem ext4 descartável persistente, DHCP e falha segura de EROFS inválido. O QEMU usa `snapshot=on` para permitir emulação IDE com backend COW descartável sem modificar os bytes originais de EROFS, cuja integridade é novamente verificada por SHA-256. Não prova UEFI, mídia física, EROFS/OverlayFS do fluxo portátil completo nem equivalência de recuperação assinada.
+- **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato enquanto os gates de promoção permanecerem fechados.
+- O teste QEMU usa o kernel **real** `bootstrap/kernel/build.py` e valida seu provenance. Testa montagem EROFS somente-leitura e escrita rejeitada, imagem ext4 descartável persistente, DHCP e falha segura de EROFS inválido. O QEMU usa `snapshot=on` para permitir emulação IDE com backend COW descartável sem modificar os bytes originais de EROFS, cuja integridade é novamente verificada por SHA-256.
 - Exige execução de CI Linux; nenhum passo pertence à estação de trabalho do usuário.
+
+## Política de CI da migração
+
+O loop de desenvolvimento e a prova de plataforma são deliberadamente diferentes:
+
+```text
+push em platform/remove-alpine
+ -> .github/workflows/remove-alpine-fast.yml
+ -> contratos + unitários + sintaxe + invariantes estáticos
+ -> sem Buildroot/kernel/full USB
+
+marco estrutural / integração final
+ -> .github/workflows/independent-base-experiment.yml
+ -> Buildroot real + kernel canônico verificado + QEMU
+ -> evidência/provenance
+```
+
+O gate rápido não substitui o pesado. Ele existe para evitar recompilar a plataforma inteira após mudanças que ainda podem ser rejeitadas por testes baratos. Mudanças normais em `system/`, Surface, apps, contas, Spaces e Web continuam independentes quando seus owners não alteram a base.
 
 ## Uso de recursos no builder
 
-A compilação `make -j` do Buildroot usa **captura limitada de stdout/stderr** no builder oficial: o processo pai conserva só os últimos 10 KiB de saída para diagnosticar falhas, evitando que logs extensos consumam RAM proporcional à duração do build. Comandos menores que precisam de sua saída completa (como `stat` ou `blkid`) mantêm a captura tradicional. O teste `test_large_build_output_stays_bounded_without_losing_failure_tail` mede o pico de memória Python em uma carga sintética de 16 MiB e valida a retenção do diagnóstico. Isso otimiza **o processo de compilação no host**, não é uma medida de RAM, CPU ou boot do sistema operacional no QEMU ou no hardware físico.
+A compilação `make -j` do Buildroot usa **captura limitada de stdout/stderr** no builder oficial: o processo pai conserva só os últimos 10 KiB de saída para diagnosticar falhas, evitando que logs extensos consumam RAM proporcional à duração do build. Comandos menores que precisam de sua saída completa mantêm a captura tradicional.
+
+Cache permitido deve ser verificável e derivado de inputs versionados. O kernel já pode ser reutilizado por fingerprint no workflow pesado. Diretórios mutáveis de compilação não são evidência e não podem atravessar commits como substituto de build/verificação.
 
 ## Métricas mínimas observáveis (sem promoção)
 
-O recibo do QEMU mínimo inclui bytes reais de EROFS, initramfs e kernel; tempo total de processo QEMU no host; e medições do guest via `/proc`: `MemTotal - MemAvailable` (memória em uso aproximada), percentual de ticks CPU ocupados **desde o início do kernel**, quantidade de processos na hora da prova e uptime do kernel até o marcador de conclusão. A prova recusa medidas ausentes, duplicadas ou inválidas. Não confundir essas medidas pontuais com pico de RAM, consumo médio de CPU, tempo de boot de firmware/UEFI, Surface gráfica ou tamanho da imagem USB completa. O cenário é QEMU mínimo com 384 MiB/1 vCPU, não equipamento físico. Não se inicia serviço extra, não há alterações no PID1 portátil oficial, no estado dos slots ou no canal Stable.
+O recibo do QEMU mínimo inclui bytes reais de EROFS, initramfs e kernel; tempo total de processo QEMU no host; e medições do guest via `/proc`: memória em uso aproximada, percentual de ticks CPU ocupados desde o início do kernel, quantidade de processos e uptime até o marcador de conclusão. Não confundir essas medidas pontuais com pico de RAM, consumo médio de CPU, tempo de boot de firmware/UEFI, Surface gráfica ou tamanho da imagem USB completa.
 
 ## Entrypoints reproduzíveis
 
@@ -31,12 +54,11 @@ O recibo do QEMU mínimo inclui bytes reais de EROFS, initramfs e kernel; tempo 
 python3 bootstrap/independent-base/build.py check
 python3 -m unittest tests.test_independent_base_experiment -v
 
-# Linux isolado com as dependências de CI e saídas FORA do repositório:
+# Build pesado apenas quando o gate de plataforma exigir:
 python3 bootstrap/independent-base/build.py build \
   --out /tmp/ordax-independent-base --cache /tmp/ordax-buildroot-cache --jobs 4
 python3 bootstrap/independent-base/build.py verify --out /tmp/ordax-independent-base
 
-# Compilar o kernel com o builder canônico, sem segundo kernel:
 python3 bootstrap/kernel/build.py build --jobs 4
 python3 bootstrap/independent-base/qemu_proof.py \
   --out /tmp/ordax-independent-base \
@@ -44,22 +66,24 @@ python3 bootstrap/independent-base/qemu_proof.py \
   --result /tmp/ordax-independent-qemu-result.json
 ```
 
-**Critério de conclusão:** Buildroot executado, proveniência/artefatos verificados, QEMU com duas inicializações e uma falha de EROFS inválido, logs seriais e receipts com SHA-256 anexados à PR, reconciliação da main mais recente e revisão dos owners. **NÃO** substituir a base Stable sem testes equivalentes do initramfs/portable-v2, segurança, módulos, firmware, Wi-Fi, assinatura e rollback.
-
 ## Mapeamento de dependências atuais
 
-| Componente | Dependência atual | Classificação | Estratégia |
+| Componente | Dependência atual | Classificação | Estratégia na migração |
 |---|---|---|---|
-| `bootstrap/base/alpine_core.py` | Alpine minirootfs, espelho APK, `apk add` | distribuição | manter atual até substituição integral |
-| `bootstrap/stable-base/build.py` | `apk`, `proot`, lock de pacotes `-rN` | distribuição + build | não alterar |
-| `bootstrap/dev-base/build.py` | importa `alpine_core.py` | distribuição | não alterar |
-| `bootstrap/base/runtime_policy.py` | `apk del`, chaves APK | distribuição | substituir só depois de demonstrar paridade |
-| `bootstrap/base/firmware_policy.py` | módulos/firmware ELF/kernel | política independente, entrada ainda via Alpine | reutilizar em etapa de hardware |
-| `bootstrap/initramfs/build.py` | BusyBox oficial + `musl-gcc` | projetos independentes / ferramenta de build | preservar |
-| `bootstrap/network/build.py` | BusyBox oficial + `musl-gcc` | independente / ferramenta de build | preservar scripts e contrato |
-| `bootstrap/native-initramfs/build.py` | builder Ubuntu pinado | outro perfil/build | fora do escopo |
-| `bootstrap/surface-runtime`, Wine | pacotes APK de runtime | perfil de aplicativos | fora do escopo |
+| `bootstrap/base/alpine_core.py` | Alpine minirootfs, espelho APK, `apk add` | distribuição | remover somente após último consumidor migrado |
+| `bootstrap/stable-base/build.py` | `alpine_core.py`/APK e parâmetros Stable | distribuição + build | separar responsabilidades neutras e convergir para base independente |
+| `bootstrap/dev-base/build.py` | importa `alpine_core.py` | distribuição | migrar depois que Git/rede/CA do perfil Development tiverem paridade comprovada |
+| `bootstrap/base/runtime_policy.py` | `apk del`, chaves APK | distribuição | eliminar após consumidores deixarem de depender de APK |
+| `bootstrap/base/firmware_policy.py` | módulos/firmware ELF/kernel | política independente, entrada ainda via Alpine | preservar e reutilizar como política neutra |
+| `bootstrap/initramfs/build.py` | BusyBox oficial + `musl-gcc` | independente | preservar |
+| `bootstrap/network/build.py` | BusyBox oficial + `musl-gcc` | independente | preservar scripts e contrato |
+| `bootstrap/native-initramfs/build.py` | builder Ubuntu pinado | outro perfil/build | fora do corte Alpine da base portátil |
+| `bootstrap/surface-runtime` | runtime hoje obtido via pacotes APK | consumidor de distribuição | migrar sem colocar gerenciador de pacotes no runtime base |
 
-O teste mantém os logs seriais de cada inicialização em `<resultado>-serial/` e inclui SHA-256 no recibo. O fluxo atual só prova **direct-kernel boot descartável**; não substitui a verificação criptográfica dos artefatos portáteis oficiais.
+A ordem de trabalho e os critérios de corte estão em `MIGRATION-REMOVE-ALPINE.md`. Não criar wrapper permanente para manter duas bases ativas.
 
-**Resultado de execução:** não preencher indicadores PASS sem a execução correspondente. Os resultados são produzidos por `provenance.json` e `qemu-result.json`; runs CI e seus logs são as evidências primárias.
+## Critério de conclusão
+
+Buildroot, proveniência, boot, rede, firmware, Wi-Fi, Git/CA quando exigidos, Surface/runtime, recovery e rollback devem alcançar paridade suficiente com os contratos canônicos. Depois disso, os consumers Alpine são removidos, a prova pesada final passa, os contratos/promotions são atualizados e a branch temporária é integrada e apagada.
+
+**Resultado de execução:** não preencher indicadores PASS sem a execução correspondente. Runs CI, provenance e receipts continuam sendo as evidências primárias.
