@@ -16,6 +16,11 @@ the 4201 application: product runtime hosting and its strict-CSP browser proof
 remain required before enabling that launch. Main promotion and deployment must
 be verified separately from these local results.
 [Scope](DESKTOP-IDENTITY.md#web-meridian-account-backed-spaces-and-pending-integrations--2026-10-16).
+PR #1859 contains the preserved integration. Promotion remains pending: the
+English Surface audit finds unlocalized shared Meridian examples (767 literals);
+those examples are retained. Additional boot/policy contract regressions pass
+locally (36 tests); the browser proof has been reconciled with the current layout.
+See [CI evidence](evidence/meridian-web-2026-10-16/README.md#ci-review-of-pr-1859).
 
 Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
 shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.

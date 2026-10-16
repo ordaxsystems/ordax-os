@@ -486,29 +486,14 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             state["PHYSICAL_AUTHORIZATION_ELIGIBLE"],
             "YES_PREFLIGHT_ONLY_EXPLICIT_OWNER_CONSENT_PENDING",
         )
-        self.assertIn("canonical release trust público: **PASS**", mvp)
-        self.assertIn(
-            "CANONICAL_V4_RELEASE_PROOF_HISTORY=PASS_BOUND_VERSIONED_PRERELEASE_PRE_HARDENING",
-            mvp,
-        )
-        self.assertIn(
-            "CANONICAL_V4_RELEASE_PROOF_CURRENT_MAIN=PASS_POST_HARDENING_SIGNED_HTTPS_MATERIALIZED_AND_BOUND",
-            mvp,
-        )
-        self.assertIn(
-            "FIRST_STABLE_MVP_USB_WRITE=PASS_AUTHORIZED_CONTROLLED_PROOF_PRE_HARDENING",
-            mvp,
-        )
-        self.assertIn("FIRST_STABLE_MVP_USB_READBACK=PASS_17_OF_17_PRE_HARDENING", mvp)
-        self.assertIn("FIRST_STABLE_MVP_USB_UEFI_BOOT=PASS_PHYSICAL_PRE_HARDENING", mvp)
-        self.assertIn(
-            "CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_EXPLICIT_OWNER_AUTHORIZATION_AND_LIVE_USB_PROOF",
-            mvp,
-        )
-        self.assertNotIn("CURRENT_MAIN_STABLE_MVP_PHYSICAL_RETEST=PENDING_FRESH_AUTHORIZATION", mvp)
-        self.assertIn("O MVP público oferece **pt-BR e en-US**", mvp)
-        self.assertNotIn("canonical release trust público: pendente", mvp)
-        self.assertNotIn("O primeiro uso Native oferece **pt-BR, en-US, es-ES, de-DE e fr-FR**", mvp)
+        # MVP is the launch policy, not a second dated evidence snapshot.
+        # Exact trust, release and physical authorization values are checked
+        # against CURRENT-STATE and machine-readable owners above.
+        self.assertIn("Baseline de Lançamento — OrdaX", mvp)
+        self.assertIn("docs/CURRENT-STATE.md", mvp)
+        self.assertIn("contratos machine-readable", mvp)
+        self.assertIn("Nunca alterar um gate para fazer uma UI parecer funcional.", mvp)
+        self.assertIn("Uma capacidade independente em desenvolvimento", mvp)
 
         self.assertNotIn("fresh owner authorization for the current 17-artifact / 39-operation writer context", agents)
         self.assertNotIn("canonical v4 signed/materialized release aggregate proof + binding", agents)

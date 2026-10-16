@@ -109,3 +109,39 @@ builder packages the portal only, whereas the canonical Web bundle remains separ
 Enabling `/web/` requires composing that verified artifact at a separate same-origin
 product path and proving the current strict CSP, including the shared mock styles.
 No auth/recovery, payment, native device or physical release gate was enabled.
+
+
+### CI review of PR #1859
+
+The first remote run passed the public source/unit/build checks, Intelligence,
+release-bundle tooling, native app-data binding and legal hash integrity. It exposed
+these additional issues before main promotion:
+
+- Native boot tests matched the exact opening HTML tag and rejected its additive
+  Meridian attribute. Assertions now parse the language attribute while preserving
+  neutral pre-JavaScript copy and boot readiness checks.
+- Baseline policy tests still demanded dated physical-proof snapshots inside MVP.md,
+  which current main has already replaced with the Launch Baseline policy. Exact
+  release/physical values remain checked against CURRENT-STATE and their contracts;
+  MVP policy and public USB availability are verified separately. These four suites
+  pass locally: 36 tests.
+- Public browser proof still expected the prior hero, three cards and management
+  grid. It now verifies the current profile hero, four cards, aligned columns and
+  all management destinations, retaining overflow, focus, keyboard, session and
+  no-invented-data checks.
+- The optional Lovable-source workflow referenced an absent sites/account-ui export
+  whenever the unrelated public locale catalog changed. It now triggers only on
+  its own export; Public Site Candidate continues to test the real shared catalog.
+
+The English Surface audit still fails: 767 direct PT-BR literals in the newly shared
+Meridian journeys/Space examples bypass the existing locale owner. This is an open
+implementation issue, not an exemption to the audit. No mock was removed, no gate
+was relaxed, and main/public replacement was not performed.
+
+The canonical Web build recipe produced and verified the bundle for exact commit
+`5bd4e9dad7f907348f183e6d213b5131c3c72b18`. Manual browser review of the public
+bundle on local port 64615 confirmed its current hierarchy and unavailable-session
+state under the real CSP. Automated local Chromium/Edge proof could not complete
+because the disposable browser process failed on this Windows host; remote Linux
+browser proof remains required. The public portal bundle does not contain the Web
+application, and that independent packaging/strict-CSP gate remains open.

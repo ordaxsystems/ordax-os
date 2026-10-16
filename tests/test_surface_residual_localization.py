@@ -129,9 +129,9 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
         self.assertNotIn("Não foi possível iniciar a interface", boot)
         for html_path in (NATIVE_HTML, WEB_HTML):
             html = html_path.read_text(encoding="utf-8")
-            self.assertIn(
-                '<html lang="und">' if html_path == NATIVE_HTML else '<html lang="pt-BR">',
+            self.assertRegex(
                 html,
+                r'<html\b[^>]*\blang="und"[^>]*>' if html_path == NATIVE_HTML else r'<html\b[^>]*\blang="pt-BR"[^>]*>',
             )
             self.assertIn("data-ordax-boot-status>OrdaX</span>", html)
             self.assertNotIn("Preparando OrdaX…", html)

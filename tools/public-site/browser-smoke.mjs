@@ -75,7 +75,9 @@ async function provePublicAccount(client, url, evidenceDir) {
     const report = await evaluate(`(() => {
       const box = element => element.getBoundingClientRect();
       const phone = innerWidth <= 760;
-      const cards = [...document.querySelectorAll('.summary-grid > article')];
+      const cards = [...document.querySelectorAll('.account-overview-grid .account-card')];
+      const columns = [...document.querySelectorAll('.account-overview-grid > div')];
+      const overviewTargets = new Set([...document.querySelectorAll('#account-content a[href^="#"]')].map(link => link.hash));
       const sidebar = [...document.querySelectorAll('#sidebar-navigation a, .sidebar-bottom a[data-section]')];
       const nav = [...document.querySelectorAll('#mobile-navigation > *')];
       return {
@@ -84,13 +86,13 @@ async function provePublicAccount(client, url, evidenceDir) {
         canonicalPage: document.body.dataset.page === 'conta' && location.pathname === '/conta/',
         onePresentation: document.querySelectorAll('#account-content').length === 1,
         allSections: sidebar.length === 12 && new Set(sidebar.map(link => link.hash)).size === 12,
-        overview: !!document.querySelector('.overview-hero h1') && !!document.querySelector('.profile-banner'),
-        summaryCards: cards.length === 3,
-        primaryTilesAligned: innerWidth < 1200 || cards.every(card => Math.abs(box(card).top - box(cards[0]).top) < 2),
+        overview: !!document.querySelector('.account-intro h1') && !!document.querySelector('.identity-card [id=overview-profile-title]'),
+        summaryCards: cards.length === 4,
+        primaryTilesAligned: innerWidth < 1200 || columns.length === 2 && Math.abs(box(columns[0]).top - box(columns[1]).top) < 2,
         singleUsageChart: document.querySelectorAll('.usage-chart').length === 1,
         emptyChart: !!document.querySelector('.chart-empty') && !document.querySelector('.usage-chart polyline'),
-        decorativePlanSymbol: !!document.querySelector('.plan-body img[src="/assets/ordax-symbol.png"]'),
-        managementSections: document.querySelectorAll('.management-grid a').length === 9,
+        decorativeProfileArt: !!document.querySelector('.identity-card .identity-art[aria-hidden="true"]') && getComputedStyle(document.querySelector('.identity-art')).backgroundImage.includes("account-landscape.jpg"),
+        managementSections: ['dados-pessoais','assinatura','faturamento','consumo','seguranca','dispositivos','preferencias','privacidade','integracoes','atividade','suporte'].every(id => overviewTargets.has('#' + id)),
         mobileWebReachable: !!document.querySelector('#more-dialog a[href="/web/"]'),
         noInventedIdentity: !document.querySelector('.verified-email').textContent.includes('@'),
         accountNavigation: nav.length === 5 && nav.slice(0,4).map(item => item.hash).join(',') === '#visao-geral,#assinatura,#consumo,#seguranca' && nav[4].id === 'more-toggle',
@@ -127,8 +129,8 @@ async function provePublicAccount(client, url, evidenceDir) {
     await click(width <= 760 ? '#more-dialog [data-open-dialog=search]' : '.topbar [data-open-dialog=search]');
     if (!await evaluate('document.activeElement.id === "dialog-search"')) throw new Error('account search focus failed');
     await evaluate('document.querySelector("#dialog-search").value = "dispositivos"; document.querySelector("#dialog-search").dispatchEvent(new Event("input", { bubbles: true }))');
-    if (!await evaluate('document.querySelectorAll("#search-results a").length === 1')) throw new Error('account search filtering failed');
-    await click('#search-results a');
+    if (!await evaluate("!!document.querySelector('#search-results a[href=\"#dispositivos\"]')")) throw new Error('account search filtering failed');
+    await click('#search-results a[href="#dispositivos"]');
     await sleep(50);
     if (!await evaluate('location.hash === "#dispositivos" && document.activeElement.matches("#account-content h1") && !document.querySelector("#account-dialog").open')) throw new Error('search section routing/focus failed');
     await evaluate('location.hash = "#consumo"');
