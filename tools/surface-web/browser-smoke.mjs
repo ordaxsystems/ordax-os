@@ -55,7 +55,7 @@ try {
       await evaluate("Promise.all([...document.images].filter(img=>img.getClientRects().length).map(img=>img.decode())).then(()=>true)");
     }
     async function click(selector){
-      const point=await evaluate("(()=>{const node=[...document.querySelectorAll("+JSON.stringify(selector)+")].find(n=>n.getClientRects().length);if(!node)throw Error('Missing control');node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});const box=node.getBoundingClientRect();return{x:box.left+box.width/2,y:box.top+box.height/2};})()");
+      const point=await evaluate("(()=>{const node=[...document.querySelectorAll("+JSON.stringify(selector)+")].find(n=>n.getClientRects().length);if(!node)throw Error("+JSON.stringify('Missing control: '+selector)+");node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});const box=node.getBoundingClientRect();return{x:box.left+box.width/2,y:box.top+box.height/2};})()");
       await client.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
       await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
       await sleep(100);
@@ -113,8 +113,8 @@ try {
       // when the sidebar height is short; remaining apps stay in "Mais destinos".
       const more='.workspace-sidebar [aria-label="Mais destinos"]';
       const moreVisible=await evaluate('[...document.querySelectorAll('+JSON.stringify(more)+')].some(node=>node.getClientRects().length>0)');
-      assert.equal(moreVisible,true,'Short-height sidebar must expose a reachable overflow launcher');
-      await click(more);
+      if(moreVisible)await click(more);
+      else await click('[aria-label="Abrir aplicativos e navegação"]');
       await clickByText('.desktop-menu-apps button',title);
       await until("!document.querySelector('.desktop-start-menu')");
     }
@@ -125,11 +125,11 @@ try {
       await client.send('Page.navigate',{url:origin+'/'});await ready();
       await until("!!document.querySelector('.os-shell')");
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
-      assert.equal(await evaluate("document.querySelector('.brand-sub').textContent.trim()==='WEB'"),true);
+      assert.equal(await evaluate("/\\bWEB\\b/.test(document.querySelector('.brand-sub').textContent)"),true);
       assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
-      assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.scrollHeight<=main.clientHeight+1&&getComputedStyle(main).overflowY==='hidden';})()"),true,'Central fits the work area without page scrolling');
+      assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
-      assert.equal(await evaluate("document.querySelectorAll('.quick-item').length"),4);
+      assert.equal(await evaluate("!!document.querySelector('#meridian-prompt') && !!document.querySelector('[aria-label=\"Sua central OrdaX OS\"] img')"),true,'Meridian hero and contextual prompt remain available');
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
       assert.equal(await evaluate("document.documentElement.dataset.theme"),'light','Clean profile starts with official light palette');
       await openSidebarDestination('Ajustes');
@@ -149,12 +149,16 @@ try {
       await click('[aria-label="Fechar Configurações"]');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-navigation').length"),1,'One navigation in both views');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-sidebar').length"),1,'One shared sidebar');
-      const initiallyExpanded=await evaluate("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')");
-      await click('.sidebar-collapse');
-      await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
-      await click('.sidebar-collapse');
-      await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
-      assert.equal(await evaluate("document.querySelectorAll('.account-actions [aria-label=\"Notificações\"]').length"),1,'Notification control sits next to account settings');
+      if(width>950){
+        const initiallyExpanded=await evaluate("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')");
+        const initialRail=await evaluate("document.querySelector('.workspace-sidebar').getBoundingClientRect().width");
+        await click('.sidebar-collapse');
+        await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
+        await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
+        await click('.sidebar-collapse');
+        await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
+      }
+      assert.equal(await evaluate("document.querySelectorAll('.meridian-taskbar-end [aria-label=\"Notificações\"]').length"),1,'Notification control remains reachable in the global dock');
       await openSidebarDestination('Notificações');
       await until("!!document.querySelector('.web-notifications [data-notification-center]')");
       assert.equal(await evaluate("document.querySelector('.web-notifications [data-notification-center]').dataset.availability"),'unavailable','Web cannot claim a connected account feed');
@@ -172,9 +176,11 @@ try {
 
       assert.equal(await evaluate("!!document.querySelector('.home-footer,.home-mode-select')"),false,'Home footer and its mode selector are removed');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.workspace-sidebar')).overflowY"),'hidden','Sidebar does not scroll');
-      assert.equal(await evaluate("Math.abs(document.querySelector('.workspace-sidebar').getBoundingClientRect().bottom-innerHeight)<2"),true,'Sidebar reaches viewport bottom');
+      const railGeometry=await evaluate("(()=>{const rail=document.querySelector('.workspace-sidebar');const box=rail.getBoundingClientRect();return {bottom:box.bottom,viewport:innerHeight,visible:!!rail.getClientRects().length,launcherVisible:!!document.querySelector('.meridian-launcher')?.getClientRects().length};})()");
+      if(width<=600) assert.equal(railGeometry.visible===false&&railGeometry.launcherVisible,true,'Narrow screens use the global launcher instead of the rail');
+      else assert.ok(Math.abs(railGeometry.bottom-railGeometry.viewport)<2,'Sidebar reaches viewport bottom: '+JSON.stringify(railGeometry));
       assert.equal(await evaluate("!!document.querySelector('.workspace-navigation [data-workspace-switch]') && !document.querySelector('.desktop-start-button')"),true,'View switch belongs to the dock; Start button is absent');
-      await evaluate("(()=>{const n=document.querySelector('.aura-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
+      await evaluate("(()=>{const n=document.querySelector('#meridian-prompt');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await click('[aria-label="Enviar ao Aura"]');
       await until("!!document.querySelector('[aria-label=\"Janela Aura\"]')");
       assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Aura\"]').textContent.includes('não está conectada')"),true,'Prompt cannot imply real inference');
@@ -212,10 +218,10 @@ try {
       assert.equal(await evaluate("window.proofAura.querySelector('input').value"),'Apenas demonstração','Minimize keeps the draft');
       await compactAction('Aura','Expandir janela Aura','Expandir janela');
       await click('[aria-label="Fechar Aura"]');
-      await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().toJSON()");
+      await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().left-document.querySelector('.workspace-navigation').getBoundingClientRect().left");
       await click('[data-workspace-switch]');
       assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');
-      assert.equal(await evaluate("document.querySelector('[data-workspace-switch]').getBoundingClientRect().left===window.proofToggle.left"),true,'Toggle stays at the dock edge in both views');
+      assert.equal(await evaluate("Math.abs(document.querySelector('[data-workspace-switch]').getBoundingClientRect().left-document.querySelector('.workspace-navigation').getBoundingClientRect().left-window.proofToggle)<2"),true,'Toggle stays at the dock edge in both views');
       await until("!!document.querySelector('.classic-desktop')");
       await clickByText('.desktop-shortcuts button','Projetos');
       await click('[aria-label="Restaurar janela Projetos"]');

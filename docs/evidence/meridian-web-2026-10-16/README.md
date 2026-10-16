@@ -181,3 +181,35 @@ new regression. This closes the shared text-owner defect; it does not assert a p
 Web runtime, live authenticated E2E or physical USB readiness. The earlier Web browser
 proof also still expects pre-Meridian chrome and must be reconciled while retaining
 its window, geometry, keyboard, service-gating and notification checks.
+
+## Local follow-up after f2e529a5
+
+Remote English audit succeeds at `f2e529a5a9000c0cf63a549029633629a8cf2532`.
+Public Site Candidate and Foundation Contract exposed a static-reader incompatibility:
+the generated catalog exports were not literal tables. The local correction uses
+the existing explicit `Object.freeze` table convention, preserving all 1,139 IDs
+and both translations. Public source checks and 40 Python public/catalog/builder
+tests now pass. All 101 Web/Meridian regressions and the 34-reference verifier pass.
+
+Local UI corrections restore Central's manual sidebar mode through its existing
+presentation owner, retain Settings appearance selector markers and label dock
+restoration with the actual managed window title. No planned UI or mock was removed.
+The existing browser regression now follows Meridian's global navigation and hero
+while retaining window lifecycle, geometry, draft and service-gating checks.
+Partial Chromium runs exposed the appearance marker and Aura restore-label defects
+above. An automatic-review usage limit initially prevented the next run; it was
+cleared on continuation. Visual review also caught the old absolute edge positioning
+inherited by the collapse button; it now occupies its real auxiliary rail slot.
+
+The final official Chromium run passes all seven viewports: 1440×900, 1024×768,
+820×650, 760×650, 390×844, 320×568 and 844×390. Proof retains theme persistence,
+stable app nodes/drafts, compact and desktop lifecycle/geometry, unavailable
+notifications/AI and horizontal-fit assertions. Narrow screens explicitly verify
+the global launcher replaces the hidden rail. The production Web build and
+34-reference verifier pass after the CSS correction. Generated report/screenshots:
+`out/meridian-web-current-browser/` (local output, not release provenance).
+
+These follow-up corrections are saved with this evidence on the existing feature
+branch, beyond the remote commit identified above. Main/public replacement and
+production runtime packaging with strict-CSP proof remain pending. No physical USB
+or authenticated E2E claim is made.

@@ -234,3 +234,13 @@
 
 .meridian-account-panel{width:100%;max-width:1000px;margin:0 auto;padding:24px}
 @media(max-width:640px){.meridian-account-panel{padding:18px}}
+
+/* Central retains manual rail sizing through the shared presentation owner. */
+.meridian-rail .sidebar-collapse {position:static;transform:none;display:flex;align-items:center;justify-content:center;width:100%;height:44px;min-height:44px;border-radius:var(--md-radius-small);cursor:pointer;}
+@media(min-width:951px) {
+ .window-workspace.meridian-workspace[data-view=central][data-sidebar=collapsed] {--workspace-rail:72px;--sidebar-visual-width:72px;}
+ .window-workspace.meridian-workspace[data-view=central][data-sidebar=expanded] {--workspace-rail:208px;--sidebar-visual-width:208px;}
+ .meridian-workspace[data-sidebar=collapsed] .meridian-rail :is(.brand>div,.meridian-rail-space>span:nth-child(2),.meridian-rail-space>svg,.os-nav-item>span,.meridian-nav-label,.meridian-rail-context,.meridian-rail-account>span:nth-child(2),.meridian-rail-account>svg) {display:none!important;}
+ .meridian-workspace[data-sidebar=collapsed] .meridian-rail-space {justify-content:center;padding-inline:0;}
+}
+@media(max-width:950px) {.meridian-rail .sidebar-collapse {display:none;}}

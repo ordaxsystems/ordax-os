@@ -26,6 +26,19 @@ and the 34-reference verifier pass. Public runtime packaging and complete Web
 browser proof still require validation before promotion.
 See [CI evidence](evidence/meridian-web-2026-10-16/README.md#ci-review-of-pr-1859).
 
+Local follow-up after remote commit `f2e529a5a9000c0cf63a549029633629a8cf2532`:
+the catalog now uses explicit literal tables compatible with the public builder's
+static reader. Central's manual sidebar sizing and Settings appearance markers are
+restored, and dock restore labels use the managed window title. 101 Web/Meridian
+tests, 40 Python public/catalog/builder tests and the 34-reference verifier pass.
+The adapted Web browser regression now passes all seven viewports (320–1440px,
+including landscape), preserving theme persistence, navigation, window lifecycle,
+drafts, compact geometry and unavailable-backend checks. Central's collapse control
+uses normal rail layout instead of inheriting the old edge positioning. The earlier
+automatic-review usage blocker was cleared on continuation. These follow-up changes
+are saved with this evidence on the existing branch. Main/public promotion remains
+pending production runtime packaging and its strict-CSP proof.
+
 Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
 shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
 The Meridian reference re-exports those owners. Real controls remain intact; example
