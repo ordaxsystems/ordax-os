@@ -2067,3 +2067,8 @@ dialog .permission-list li{
 /* The host passes canonical preferences; rem remains relative to the document. */
 :host([data-ordax-contrast="high"]) [data-meridian] {--md-border:var(--md-ink);--md-muted:var(--md-ink);}
 :host([data-ordax-motion="reduced"]) *, :host([data-ordax-motion="reduced"]) *::before, :host([data-ordax-motion="reduced"]) *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;}
+
+.resource-tags{margin-top:18px}
+.resource-platforms,.update-requirements{margin-top:12px}
+.resource-permissions-intro{margin-bottom:20px}
+.loading-recovery{margin-top:24px}

@@ -18,7 +18,12 @@ function StorePresentation() {
   useEffect(() => {
     if (!host.current) return;
     const root = host.current.shadowRoot ?? host.current.attachShadow({ mode: 'open' });
-    root.innerHTML = `<style>${tokens}\n${styles}</style>${template}`;
+    // CSS comes exclusively from the bundled presentation owners. Constructed
+    // sheets scope it to this root without injecting CSP-blocked style elements.
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(`${tokens}\n${styles}`);
+    root.adoptedStyleSheets = [sheet];
+    root.innerHTML = template;
     const instance = mountStorePresentation(root, { embedded: true });
     presentation.current = instance;
     return () => { instance.destroy(); presentation.current = null; };

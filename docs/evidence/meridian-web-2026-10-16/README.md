@@ -213,3 +213,34 @@ These follow-up corrections are saved with this evidence on the existing feature
 branch, beyond the remote commit identified above. Main/public replacement and
 production runtime packaging with strict-CSP proof remain pending. No physical USB
 or authenticated E2E claim is made.
+
+## Public-policy preparation
+
+At `8ea37ae4abddf7143e659ba1234a34e39f1b34fc`, remote Surface Web Candidate,
+Foundation Contract, Public Site Candidate and English localization all pass.
+This does not prove the separately gated public Web runtime is available.
+
+Store and Space examples now use constructed, root-scoped stylesheets with the
+same bundled token/presentation CSS. This retains font asset processing and avoids
+injecting inline style elements. The Store's five static spacing attributes were
+moved to its existing stylesheet; runtime logo CSSOM and every mock/action remain.
+20 targeted Store/Spaces tests, TypeScript, production build and reference
+verification pass. Browser coverage now opens both presentations and checks their
+adopted sheets and actual computed Meridian token under the active policy.
+
+The official Web smoke accepts `--public-policy vercel.json` to read the real
+global publication headers. It records policy violations and retained document
+styles, and fails rather than accepting blocked resources. The strict run reaches
+both styled examples and the complete first-viewport lifecycle, then fails on four
+`style-src-elem`/`inline` violations. The retained document style is Sonner CSS
+(14,916 characters; SHA-256
+`4ad11a5feb1ee984bba6a8f3af330803429a5fdcc5ffccc086f4176407b97a96`).
+Transient dependency styles also require investigation; the retained style alone
+does not attribute every event. Local diagnostics live in
+`out/meridian-web-public-policy/`. No policy/header was relaxed, no dependency
+payload patched, and no public runtime enabled. This failing strict proof remains
+an explicit publication blocker, separate from the normal Web regression.
+
+After these changes the normal official Web regression passes again in all seven
+viewports, including the new Store/Spaces scoped-style checks at 1440px. This normal
+pass does not override the separate strict-policy failure above.

@@ -39,6 +39,17 @@ automatic-review usage blocker was cleared on continuation. These follow-up chan
 are saved with this evidence on the existing branch. Main/public promotion remains
 pending production runtime packaging and its strict-CSP proof.
 
+Public-policy follow-up: CI for `8ea37ae4abddf7143e659ba1234a34e39f1b34fc`
+passes Surface Web Candidate, Foundation Contract, Public Site Candidate and
+English localization. Store/Spaces shadow presentations now adopt their existing
+bundled CSS through constructed sheets, and Store markup uses stylesheet classes
+for static spacing. All examples/actions are retained. The official Web browser
+proof can optionally serve the actual global headers from `vercel.json` using
+`--public-policy vercel.json`. That strict run confirms the scoped presentations
+render but fails on four `style-src-elem` violations from UI dependency styles;
+the retained document style identifies Sonner. No CSP allowlist or security header
+was relaxed, and public runtime activation remains blocked by this actual proof.
+
 Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
 shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
 The Meridian reference re-exports those owners. Real controls remain intact; example

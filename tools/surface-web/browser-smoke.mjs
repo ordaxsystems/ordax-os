@@ -6,10 +6,14 @@ import {resolve, relative, isAbsolute, sep, join, extname} from 'node:path';
 import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
 
 const args=process.argv.slice(2);
-if (args.some((value,index)=>index%2===0&&!['--bundle-dir','--evidence-dir'].includes(value))) throw Error('Unsupported argument');
+if(args.length%2)throw Error('Arguments require values');
+if (args.some((value,index)=>index%2===0&&!['--bundle-dir','--evidence-dir','--public-policy'].includes(value))) throw Error('Unsupported argument');
 const value=(key,fallback)=>args.includes(key)?args[args.indexOf(key)+1]:fallback;
 const bundle=resolve(value('--bundle-dir','out/web-client'));
 const evidence=resolve(value('--evidence-dir','out/web-viewport-proof'));
+const policyPath=value('--public-policy',null);
+const publicHeaders=policyPath?JSON.parse(await readFile(resolve(policyPath),'utf8')).headers.find(rule=>rule.source==='/(.*)')?.headers:null;
+if(policyPath&&!publicHeaders?.some(header=>header.key.toLowerCase()==='content-security-policy'))throw Error('Public policy must define the global CSP');
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.jpg':'image/jpeg','.woff2':'font/woff2','.json':'application/json'};
 const server=createServer(async(request,response)=>{
   try {
@@ -20,7 +24,7 @@ const server=createServer(async(request,response)=>{
     // Resolve the file before emitting HTTP 200. A missing asset must never
     // commit success headers and then crash the entire Chromium smoke server.
     const bytes = await readFile(path);
-    response.writeHead(200,{'content-type':mime[extname(path)]??'application/octet-stream'});
+    response.writeHead(200,{...Object.fromEntries((publicHeaders??[]).map(header=>[header.key,header.value])),'content-type':mime[extname(path)]??'application/octet-stream'});
     response.end(bytes);
   } catch {
     if (!response.headersSent) {
@@ -37,6 +41,7 @@ await mkdir(evidence,{recursive:true});
 try {
   for (const path of ['/web2','/web2/','/preview/']) assert.equal((await fetch(origin+path)).status,404,'Only the canonical root is mounted');
   const reports=await runBrowser(async client=>{
+    if(publicHeaders)await client.send('Page.addScriptToEvaluateOnNewDocument',{source:"window.surfacePolicyViolations=[];document.addEventListener('securitypolicyviolation',event=>window.surfacePolicyViolations.push({directive:event.effectiveDirective,blocked:event.blockedURI,source:event.sourceFile,line:event.lineNumber}));"});
     async function evaluate(expression){
       const reply=await client.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
       if(reply.exceptionDetails)throw Error(reply.exceptionDetails.exception?.description??'Evaluation failed');
@@ -130,6 +135,17 @@ try {
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("!!document.querySelector('#meridian-prompt') && !!document.querySelector('[aria-label=\"Sua central OrdaX OS\"] img')"),true,'Meridian hero and contextual prompt remain available');
+      if(width===1440){
+        await openSidebarDestination('Loja');
+        await until("!!document.querySelector('.meridian-store-presentation')?.shadowRoot?.querySelector('[data-meridian]')");
+        assert.equal(await evaluate("(()=>{const root=document.querySelector('.meridian-store-presentation').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store examples use the canonical bundled stylesheet without inline style elements');
+        await click('[aria-label="Fechar Loja"]');
+        await openSidebarDestination('Espaços');
+        await clickByText('.meridian-spaces-context-actions button','Ver exemplos completos');
+        await until("!!document.querySelector('.meridian-spaces-presentation')?.shadowRoot?.querySelector('[data-spaces-page]')");
+        assert.equal(await evaluate("(()=>{const root=document.querySelector('.meridian-spaces-presentation').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Space examples retain the shared tokens in their scoped stylesheet');
+        await click('[aria-label="Fechar Espaços"]');
+      }
       const before=await evaluate("getComputedStyle(document.body).backgroundColor");
       assert.equal(await evaluate("document.documentElement.dataset.theme"),'light','Clean profile starts with official light palette');
       await openSidebarDestination('Ajustes');
@@ -243,7 +259,13 @@ try {
       await until("!!document.querySelector('.os-shell')");
       const shot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
       await writeFile(join(evidence,'central-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
-      results.push({width,height,primaryCentral:true,themePersistence:true,mobileNavigation:width<=760,desktopLifecycle:true,compactLifecycle:true,stableAppNode:true,promptUnconnected:true,noHorizontalOverflow:true});
+      if(publicHeaders){
+        const violations=await evaluate('window.surfacePolicyViolations');
+        await writeFile(join(evidence,'policy-'+width+'x'+height+'.json'),JSON.stringify(violations,null,2)+'\n');
+        if(violations.length)await writeFile(join(evidence,'blocked-styles-'+width+'x'+height+'.json'),JSON.stringify(await evaluate("[...document.querySelectorAll('style')].map(node=>({attributes:[...node.attributes].map(attr=>[attr.name,attr.value]),css:node.textContent}))"),null,2)+'\n');
+        assert.deepEqual(violations,[],'Web must satisfy the public policy without blocked resources');
+      }
+      results.push({width,height,primaryCentral:true,themePersistence:true,mobileNavigation:width<=760,desktopLifecycle:true,compactLifecycle:true,stableAppNode:true,promptUnconnected:true,noHorizontalOverflow:true,...(publicHeaders?{publicPolicy:true}:{})});
       console.log('SURFACE_VIEWPORT=PASS '+width+'x'+height);
     }
     return results;

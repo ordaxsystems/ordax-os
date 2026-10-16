@@ -17,7 +17,10 @@ function SpacesPresentation({onOpen}:{onOpen:(title:string)=>void}){
  useEffect(()=>{
   if(!host.current)return;
   const root=host.current.shadowRoot??host.current.attachShadow({mode:'open'});
-  root.innerHTML=`<style>${tokens}\n${styles}</style><div data-meridian><div class="md-page--spaces" data-spaces-page></div><dialog class="md-space-dialog" aria-label="Detalhes do exemplo de espaço"></dialog></div>`;
+  const sheet=new CSSStyleSheet();
+  sheet.replaceSync(`${tokens}\n${styles}`);
+  root.adoptedStyleSheets=[sheet];
+  root.innerHTML=`<div data-meridian><div class="md-page--spaces" data-spaces-page></div><dialog class="md-space-dialog" aria-label="Detalhes do exemplo de espaço"></dialog></div>`;
   const presentation=mountSpacesPresentation(root,{locale,onNavigate:(title:string)=>navigate.current(title)});instance.current=presentation;
   return()=>{presentation.destroy();instance.current=null;};
  },[locale]);
