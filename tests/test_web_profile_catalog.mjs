@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 
 let server, reader;
 before(async () => {
-  server = await createServer({ configFile: false, root: fileURLToPath(new URL('../system/composition/web', import.meta.url)), server: { middlewareMode: true }, appType: 'custom' });
+  server = await createServer({ configFile: false, root: fileURLToPath(new URL('../system/composition/web', import.meta.url)), server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   reader = (await server.ssrLoadModule('/profile-catalog.ts')).readWebProfileCatalog;
 });
 after(async () => { await server?.close(); });

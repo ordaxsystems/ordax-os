@@ -46,11 +46,16 @@ export function DesktopContent({ title, open }: PresentationProps & { initialPro
 
 export { WorkspaceNavigation } from './meridian-navigation';
 
-function SpacesPanel() {
+export function SpacesPanel() {
   const { session, identity, catalog, selection, authorized, offline } = useWebAccount();
   const [error, setError] = useState<string | null>(null);
-  const message = offline ? 'Sem conexão. Seus Spaces serão consultados quando a conexão voltar.' : catalog.state === 'loading' ? 'Carregando seus Spaces…'
-    : identity.state !== 'signed-in' ? 'Entre na conta para consultar seus Spaces.'
+  const [query, setQuery] = useState('');
+  const loading = catalog.state === 'loading';
+  const kinds = { personal: 'Pessoal', work: 'Trabalho', professional: 'Profissional' };
+  const normalized = query.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').trim();
+  const visible = authorized.ready ? authorized.visibleSpaces.filter(space => space.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').includes(normalized)) : [];
+  const message = offline ? 'Sem conexão. Seus Spaces serão consultados quando a conexão voltar.' : loading ? 'Carregando seus Spaces…'
+    : identity.state !== 'signed-in' ? identity.state === 'signed-out' ? 'Entre na conta para consultar seus Spaces.' : 'O serviço de conta não está disponível neste ambiente.'
     : catalog.state === 'error' ? 'Não foi possível consultar seus Spaces. Tente atualizar a conexão.'
     : authorized.ready ? 'Nenhum Space está disponível para esta conta.' : 'A consulta de Spaces não está disponível.';
   function selectSpace(id: string) {
@@ -62,11 +67,18 @@ function SpacesPanel() {
     try { session.selection.select(id); }
     catch { setError('Este Space não está disponível. Atualize a conexão e escolha novamente.'); }
   }
-  return <Panel title="Seus Spaces" action="Atualizar" onAction={() => { setError(null); void session.refresh().catch(() => {}); }}>
-    {authorized.ready && authorized.visibleSpaces.length > 0
-      ? <div className="modal-list">{authorized.visibleSpaces.map(space => <Button variant="ghost" className="space-switch space-choice" key={space.id} disabled={offline || space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} title={space.name} onClick={() => selectSpace(space.id)}><AppIcon icon={WalletCards} tone="lime"/><span className="space-choice-name">{space.name}</span><span className="project-meta">{space.state !== 'active' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Escolher'}</span></Button>)}</div>
-      : <p className="service-state" role="status">{message}</p>}
-    {selection.state === 'selected' && <div className="account-service-actions"><Button variant="outline" onClick={() => { session.selection.clear(); setError(null); }}>Limpar seleção</Button></div>}
+  return <Panel title="Seus Spaces" className="meridian-account-spaces" actionControl={<Button variant="outline" disabled={offline || loading} onClick={() => { setError(null); void session.refresh().catch(() => setError('Não foi possível atualizar a conexão. Tente novamente.')); }}>{loading ? 'Consultando…' : 'Atualizar conexão'}</Button>}>
+    <p className="meridian-account-spaces-scope">Dados consultados pelo serviço da sua conta. Os exemplos completos continuam disponíveis acima.</p>
+    {authorized.activeSpace && <section className="meridian-account-space-active" aria-label="Espaço em uso"><span className="meridian-space-symbol"><WalletCards aria-hidden="true"/></span><div><small>ESPAÇO EM USO</small><h3>{authorized.activeSpace.name}</h3><p>{kinds[authorized.activeSpace.kind as keyof typeof kinds]} · Contexto selecionado nesta sessão</p></div><Button variant="outline" onClick={() => { session.selection.clear(); setError(null); }}>Limpar seleção</Button></section>}
+    {authorized.ready && authorized.visibleSpaces.length > 0 ? <>
+      <div className="meridian-account-spaces-tools"><label>Buscar nos meus espaços<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Nome do espaço"/></label><span>{visible.length} de {authorized.visibleSpaces.length} espaços</span></div>
+      {visible.length ? <div className="meridian-account-space-grid">{visible.map(space => <article key={space.id} className="meridian-account-space-card" data-selected={authorized.activeSpace?.id === space.id}>
+        <span className="meridian-space-symbol"><WalletCards aria-hidden="true"/></span><span className="meridian-space-kind">{kinds[space.kind as keyof typeof kinds]}</span>
+        <h3>{space.name}</h3><p>{space.state === 'archived' ? 'Espaço arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado nesta sessão' : 'Disponível na sua conta'}</p>
+        <dl><div><dt>Perfil vinculado</dt><dd>{space.profilePack ?? 'Nenhum perfil vinculado'}</dd></div></dl>
+        <Button variant={authorized.activeSpace?.id === space.id ? 'outline' : 'default'} disabled={offline || space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} onClick={() => selectSpace(space.id)}>{space.state === 'archived' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Usar este espaço'}</Button>
+      </article>)}</div> : <div className="meridian-account-spaces-empty" role="status"><h3>Nenhum espaço corresponde à busca.</h3><Button variant="outline" onClick={() => setQuery('')}>Limpar busca</Button></div>}
+    </> : <div className="meridian-account-spaces-empty" role="status" data-integration={!authorized.ready && !loading && (offline || identity.state !== 'signed-out') ? 'pending' : undefined}><WalletCards aria-hidden="true"/><h3>{offline ? 'Sem conexão com a conta' : loading ? 'Consultando sua conta' : authorized.ready ? 'Seus espaços aparecerão aqui' : identity.state === 'signed-out' ? 'Entre para ver seus espaços' : 'Conexão com a conta pendente'}</h3><p>{message}</p></div>}
     {error && <p className="service-state" role="alert">{error}</p>}
     <p className="service-state" role="status">{authorized.activeSpace ? 'Space atual: ' + authorized.activeSpace.name : authorized.ready ? 'Escolha um Space para definir o contexto desta sessão.' : 'Nenhum contexto de Space está disponível.'}</p>
     <p className="service-state">A escolha vale nesta sessão e não concede acesso a arquivos, dispositivos ou IA.</p>

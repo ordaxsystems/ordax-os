@@ -206,3 +206,28 @@
 .meridian-spaces-presentation{display:block;min-width:0}
 
 .desktop-window-body:has(>.meridian-spaces-experience){padding:0}
+
+/* Integration state is presentation only; ports and canonical authorization remain owners. */
+.meridian-workspace .meridian-integration-status{display:inline-flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--md-danger) 28%,var(--md-border));border-radius:6px;padding:3px 8px;background:color-mix(in srgb,var(--md-danger) 6%,var(--md-surface));color:var(--md-danger);font-size:.6875rem;line-height:1.5;white-space:normal;max-width:100%}
+.meridian-workspace .meridian-integration-status::before{content:'';width:5px;height:5px;flex-shrink:0;border-radius:50%;background:currentColor}
+.meridian-workspace .meridian-integration-note summary>.meridian-integration-status{margin:8px 8px 8px 0}
+.meridian-workspace .wm-topic-status,.meridian-workspace .wm-mock-label{color:var(--md-danger)}
+.meridian-account-spaces{min-width:0;width:100%;max-width:1240px;padding:24px;margin:0 auto}.meridian-spaces-context-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.meridian-account-spaces-scope{font-size:.8125rem;line-height:1.7;color:var(--md-muted);margin:0 0 18px}
+.meridian-account-space-active{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:22px;border:1px solid var(--md-border);border-radius:14px;background:var(--md-subtle);margin-bottom:22px}
+.meridian-account-space-active>div{flex:1;min-width:160px}.meridian-account-space-active small{font-size:.625rem;letter-spacing:.08em;color:var(--md-sage)}
+.meridian-account-space-active h3{font-size:1.5rem;line-height:1.25;overflow-wrap:anywhere;margin:6px 0}.meridian-account-space-active p{font-size:.8125rem;color:var(--md-muted)}
+.meridian-space-symbol{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border-radius:12px;background:var(--md-sage-soft);color:var(--md-sage)}
+.meridian-account-spaces-tools{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px;color:var(--md-muted);font-size:.75rem}
+.meridian-account-spaces-tools label{display:grid;gap:7px;flex:1;max-width:420px;min-width:0}.meridian-account-spaces-tools input{width:100%;min-height:44px;border:1px solid var(--md-border);border-radius:8px;padding:10px 12px;background:var(--md-surface);color:var(--md-ink)}
+.meridian-account-space-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px}
+.meridian-account-space-card{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:20px;min-width:0;border:1px solid var(--md-border);border-radius:14px;background:var(--md-surface)}
+.meridian-account-space-card[data-selected=true]{border-color:var(--md-sage);background:var(--md-sage-soft)}
+.meridian-space-kind{margin-left:auto;font-size:.6875rem;color:var(--md-muted)}
+.meridian-account-space-card h3{flex-basis:100%;font-size:1.125rem;line-height:1.4;overflow-wrap:anywhere}.meridian-account-space-card>p{flex-basis:100%;font-size:.8125rem;color:var(--md-muted);margin-top:-8px}
+.meridian-account-space-card dl{flex-basis:100%;border-top:1px solid var(--md-border);padding-top:14px;font-size:.75rem}.meridian-account-space-card dt{color:var(--md-muted)}.meridian-account-space-card dd{margin:5px 0 0;overflow-wrap:anywhere}
+.meridian-account-space-card>button{width:100%;min-height:44px;margin-top:auto}
+.meridian-account-spaces-empty{display:grid;justify-items:start;gap:12px;padding:26px;border:1px solid var(--md-border);border-radius:14px;background:var(--md-subtle)}
+.meridian-account-spaces-empty[data-integration=pending]{border-color:color-mix(in srgb,var(--md-danger) 28%,var(--md-border))}.meridian-account-spaces-empty[data-integration=pending]>svg{color:var(--md-danger)}
+.meridian-account-spaces-empty h3{font-size:1rem}.meridian-account-spaces-empty p{font-size:.8125rem;line-height:1.7;color:var(--md-muted)}
+
+@media(max-width:640px){.meridian-account-spaces{padding:18px}.meridian-account-space-active{padding:18px}.meridian-account-space-active>button{width:100%}.meridian-account-spaces-tools label{max-width:none;flex-basis:100%}}

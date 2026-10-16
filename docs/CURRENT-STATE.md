@@ -1,5 +1,14 @@
 # Current State
 
+Web Meridian integration follow-up (2026-10-16): the real account-backed Spaces
+view now opens first, with Meridian cards and authorized session-only selection.
+Complete mocks remain explicitly accessible. Central's Profile shortcut opens the
+canonical bundled catalog; pending integrations use red text badges and preserve
+planned controls. 72 targeted tests, TypeScript and reference verification pass.
+The local Vite origin still lacks a configured authenticated gateway; no live account
+E2E, build, main promotion or USB readiness is claimed.
+[Scope](DESKTOP-IDENTITY.md#web-meridian-account-backed-spaces-and-pending-integrations--2026-10-16).
+
 Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
 shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
 The Meridian reference re-exports those owners. Real controls remain intact; example

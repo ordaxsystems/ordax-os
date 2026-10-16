@@ -8,7 +8,7 @@ const pending = {
   continuity: ['O sistema possui serviços de sincronização e memória de conta.', 'Falta integrar o fluxo autorizado à sessão Web. Sincronizar metadados não equivale a restaurar arquivos, aplicativos ou toda a sessão.'],
 } as const;
 export function IntegrationNote({area}: {area: keyof typeof pending}) {
-  return <details className="meridian-integration-note"><summary>O que falta conectar</summary>
+  return <details className="meridian-integration-note"><summary><span className="meridian-integration-status">Backend pendente</span> O que falta conectar</summary>
     <p>Visão planejada preservada para evolução.</p><ul>{pending[area].map(note => <li key={note}>{note}</li>)}</ul>
   </details>;
 }

@@ -1646,8 +1646,8 @@ canonical preferences and no iframe. Opening another window does not reset its s
 The canonical account Spaces panel remains intact and separately accessible. It
 still reads only authorized membership and uses the existing selection/session
 owner. Fictional examples never become account memberships or backend metrics.
-The presentation defaults to the account panel when its authorized projection is
-ready, otherwise to explicitly identified examples. Achegue-se is the example in
+The presentation opens on the real account panel, including explicit unavailable
+states. Complete examples remain accessible through a separate mode switch. Achegue-se is the example in
 use; Estúdio takes its former primary-card position. The Achegue-se cover reuses
 `workspace/assets/demo-salvador-1.jpg`; it is illustrative, not remotely fetched.
 
@@ -1712,3 +1712,39 @@ reference loading path. No npm, automated tests, type-check or build were run fo
 this change, as requested. Remaining work is capability-by-capability mapping to
 existing native services and authorized Web device transport; unsupported behavior
 must stay visibly planned until its contract/backend is available.
+
+
+### Web Meridian account-backed Spaces and pending integrations — 2026-10-16
+
+The active Web composition now opens Spaces on its account-backed view. It reuses
+`useWebAccount`, `deriveAuthorizedSpaces`, the existing same-origin `/auth/session`
+and `/account/spaces` readers and the canonical session-only selection service.
+Meridian cards display only validated names, kind, profile linkage and selection.
+The active banner requires a selected authorized Space. No orders, financial
+metrics, covers, membership mutations or operational capabilities are inferred.
+Anonymous, offline, failed and successfully empty catalogs remain distinct.
+
+The complete Spaces dashboard/examples remain behind “Ver exemplos completos”,
+with their renderer, templates, metrics, favorites and simulated creation intact.
+The Central ecosystem's professional-profile entry now opens the existing real
+bundled Profile catalog instead of the example dialog. This is catalog consultation,
+not backend activation or Profile provisioning.
+
+Pending integrations receive a shared red text badge (“Backend pendente”) and
+expandable explanations. The Central reads Intelligence availability from its
+existing port, distinguishes offline/busy/error, and does not compose a provider.
+Account status must not claim online connectivity from a cached identity. Settings'
+planned controls stay visible; their real preference controls remain unchanged.
+
+Validation: 72 targeted Node tests pass, including six new account-backed Spaces
+rendering/authorization cases, TypeScript and the 34-reference verification. The
+existing adaptation digests were reconciled after review; historical source hashes
+and all verification assertions remain intact. SSR test servers explicitly disable
+HMR/WebSocket ports and dependency scanning that is irrelevant to their proof.
+The candidate workflow includes the same regression command and relevant triggers.
+
+Manual review on the existing port 4201 confirmed the pending account state, the
+complete examples toggle and the two bundled professional profiles. This local
+Vite origin has no configured authenticated gateway; successful live account/backend
+E2E is not claimed. No production build, deployment, main merge or USB validation
+was performed. Detailed evidence: [2026-10-16](evidence/meridian-web-2026-10-16/README.md).

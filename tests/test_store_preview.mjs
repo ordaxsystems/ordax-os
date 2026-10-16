@@ -7,7 +7,7 @@ let server, session, data, domain, catalog;
 before(async () => {
   server = await createServer({
     configFile: fileURLToPath(new URL('../tools/surface-web/vite.store-preview.config.ts', import.meta.url)),
-    server: { middlewareMode: true, hmr: false, watch: null },
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null },
     appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] },
   });
   const load = path => server.ssrLoadModule('/@fs/' + fileURLToPath(new URL('../' + path, import.meta.url)));
