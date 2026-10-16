@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Classify whether a repository delta requires the heavy Portable/QEMU proof.
 
-The policy is deliberately fail-closed. High-level system source is lightweight only
-when it is not part of the Native runtime import graph and is not a known host/boot
-owner. Unknown system roots and every non-system path reaching this workflow remain
-heavy by default, except explicitly classified producer-neutral helpers or roots.
+The policy is deliberately fail-closed at boot/host boundaries. High-level system
+source is covered by focused contract/Surface gates even when imported by Native startup,
+so it does not justify rebuilding initramfs or booting QEMU by itself. Unknown system
+roots and every non-system path reaching this workflow remain heavy by default, except
+explicitly classified producer-neutral helpers or roots.
 """
 from __future__ import annotations
 
@@ -36,6 +37,7 @@ HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/profile-packs/",
     "system/components/",
     "system/diagnostics/",
+    "system/composition/native/",
 )
 PRODUCER_NEUTRAL_LIGHT_EXACT = {
     ".github/workflows/independent-base-experiment.yml",
@@ -57,10 +59,62 @@ OWNER_DEVELOPMENT_LIGHT_EXACT = {
 OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
     "bootstrap/base-update/owner-development/",
 )
+CI_GOVERNANCE_LIGHT_EXACT = {
+    ".github/workflows/account-memory-local-continuity-flush.yml",
+    ".github/workflows/account-memory-protected-mutations.yml",
+    ".github/workflows/account-memory-sync-foundation.yml",
+    ".github/workflows/application-action-capability-foundation.yml",
+    ".github/workflows/component-trusted-context.yml",
+    ".github/workflows/first-party-app-delivery.yml",
+    ".github/workflows/intelligence-foundation.yml",
+    ".github/workflows/native-intelligence-service-foundation.yml",
+    ".github/workflows/pre-usb-nova-ordax-audit.yml",
+    ".github/workflows/runtime-component-candidate.yml",
+    ".github/workflows/app-sdk-contract.yml",
+    ".github/workflows/notes-externalization-boundary.yml",
+    ".github/workflows/service-update-inventory.yml",
+    "tools/ci/app_sdk_impact.mjs",
+    "tools/ci/service_update_impact.mjs",
+    "tests/test_causal_workflow_impact.mjs",
+}
+ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
+    ".github/workflows/ordax-account-gateway-destination.yml",
+    "docs/contracts/ci-supply-chain.json",
+    "tools/account/resolve_account_gateway_destination.py",
+    "tests/test_account_gateway_destination_deploy.py",
+}
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_heavy_workflow_path_scope.py",
+    "tests/test_native_memory_integration.py",
+    "tests/test_surface_boot_screen.py",
+    "tests/test_power_actions.mjs",
+    "tests/test_update_presentation_pinned.mjs",
+    "tests/test_portable_qemu_high_level_light.py",
+}
+PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
+    "docs/contracts/product-device-presence.json",
+    "system/services/device-agent/product-presence-report.sh",
+    "tests/test_product_device_presence_agent.py",
+}
+ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
+    "infra/supabase/functions/ordax-account-gateway/index.ts",
+    "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
+    "infra/supabase/product/migrations/20261015195800_space_semantics_write_guard_v1.sql",
+    "services/public-identity/supabase_account.py",
+    "tests/test_account_spaces_source.py",
+    "tests/test_spaces_catalog.mjs",
+    "tests/test_supabase_account_provider.py",
+}
+SPACE_COMPOSITION_LIGHT_EXACT = {
+    "docs/contracts/spaces-and-profile-packs.json",
+    "tests/test_account_canonical_navigation.py",
+    "tests/test_space_aura_provider.mjs",
+    "tests/test_space_experience.mjs",
+    "tests/test_space_presentation.mjs",
+    "tests/test_space_switcher.mjs",
 }
 ALWAYS_HEAVY_EXACT = {
     "system/entrypoint",
@@ -70,13 +124,14 @@ ALWAYS_HEAVY_EXACT = {
     "system/services/telemetry/relay.json",
     "system/services/base-update/agent.sh",
     "system/services/local-ai/source-lock.json",
+    "system/services/local-ai/runtime.mjs",
+    "system/services/components/probation-orchestrator.mjs",
+    "system/composition/native/component-probation.mjs",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
-    "tests/test_heavy_workflow_path_scope.py",
 }
 ALWAYS_HEAVY_PREFIXES = (
     "system/surface/bin/",
     "system/surface/runtime/",
-    "system/composition/native/",
 )
 IMPORT_RE = re.compile(
     r"(?:^|\n)\s*(?:import|export)\s+(?:[^\"']*?\s+from\s+)?[\"'](\.[^\"']+)[\"']"
@@ -260,21 +315,33 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
             continue
-        if path in IMPACT_POLICY_LIGHT_EXACT:
+        if (
+            path in CI_GOVERNANCE_LIGHT_EXACT
+            or path in ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT
+            or path in IMPACT_POLICY_LIGHT_EXACT
+            or path in PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT
+            or path in SPACE_COMPOSITION_LIGHT_EXACT
+            or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
+        ):
+            continue
+        # Markdown and Surface presentation sources cannot alter boot artifacts.
+        # Classify them before the non-system fail-closed rule so docs/*.md do not
+        # accidentally rebuild kernel/initramfs/QEMU.
+        if _is_presentation_light(path):
             continue
         if not path.startswith("system/"):
             reasons.append(f"heavy-non-system:{path}")
             continue
-        if _is_presentation_light(path):
+        # High-level Native JS is checked by focused contracts/Surface gates. QEMU is
+        # reserved for explicit boot/host-coupled owners above and unknown roots.
+        if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
             continue
         if path in reachable:
             reasons.append(f"native-runtime-reachable:{path}")
             continue
-        if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
-            continue
         reasons.append(f"heavy-unclassified-system:{path}")
 
-    return ImpactResult(bool(reasons), tuple(reasons) or ("high-level-not-runtime-reachable",), changed)
+    return ImpactResult(bool(reasons), tuple(reasons) or ("no-heavy-portable-impact",), changed)
 
 
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:

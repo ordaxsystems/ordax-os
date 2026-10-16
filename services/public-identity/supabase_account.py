@@ -12,6 +12,7 @@ key is accepted or used here.
 from __future__ import annotations
 
 import json
+import re
 from typing import Mapping, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -20,6 +21,7 @@ from urllib.request import Request, urlopen
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 MAX_VISIBLE_SPACES = 64
 EXPORT_SCHEMA = "prototype-ordax.account-export/1"
+SPACE_SEMANTIC_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$")
 
 
 class SupabaseAccountError(RuntimeError):
@@ -81,6 +83,23 @@ def _validated_publishable_key(value: str) -> str:
     if len(value) < len("sb_publishable_") + 8 or len(value) > 512:
         raise ValueError("Supabase publishable key length is invalid")
     return value
+
+
+def _space_semantics(row: dict) -> tuple[str, str] | None:
+    domain = row.get("domain")
+    subtype = row.get("subtype")
+    if domain is None and subtype is None:
+        return None
+    if (
+        not isinstance(domain, str)
+        or not isinstance(subtype, str)
+        or not 1 <= len(domain) <= 80
+        or not 1 <= len(subtype) <= 80
+        or SPACE_SEMANTIC_IDENTIFIER.fullmatch(domain) is None
+        or SPACE_SEMANTIC_IDENTIFIER.fullmatch(subtype) is None
+    ):
+        raise SupabaseAccountError("provider-invalid-spaces-response")
+    return domain, subtype
 
 
 class SupabaseAccountProvider:
@@ -150,7 +169,7 @@ class SupabaseAccountProvider:
             "GET",
             self.project_url
             + "/rest/v1/ordax_spaces"
-            + "?select=space_id,owner_user_id,name,kind,state"
+            + "?select=space_id,owner_user_id,name,kind,state,domain,subtype"
             + "&order=created_at.asc"
             + f"&limit={MAX_VISIBLE_SPACES + 1}",
             headers,
@@ -209,6 +228,7 @@ class SupabaseAccountProvider:
             name = row.get("name")
             kind = row.get("kind")
             state = row.get("state")
+            semantics = _space_semantics(row)
             if (
                 not isinstance(space_id, str)
                 or not space_id
@@ -225,14 +245,15 @@ class SupabaseAccountProvider:
             ):
                 raise SupabaseAccountError("provider-invalid-spaces-response")
             seen.add(space_id)
-            spaces.append(
-                {
-                    "id": space_id,
-                    "ownerId": owner_id,
-                    "name": name,
-                    "kind": kind,
-                    "state": state,
-                    "profilePack": pack_by_space.get(space_id),
-                }
-            )
+            projected = {
+                "id": space_id,
+                "ownerId": owner_id,
+                "name": name,
+                "kind": kind,
+                "state": state,
+                "profilePack": pack_by_space.get(space_id),
+            }
+            if semantics is not None:
+                projected["domain"], projected["subtype"] = semantics
+            spaces.append(projected)
         return spaces

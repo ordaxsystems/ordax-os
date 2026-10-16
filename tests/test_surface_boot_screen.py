@@ -45,8 +45,10 @@ class SurfaceBootScreenTests(unittest.TestCase):
             html = path.read_text(encoding="utf-8")
             if path == NATIVE_HTML:
                 self.assertIn('href="../../surface/ui/boot-screen.css"', html)
+                self.assertIn('data-ready-gate="next-stage"', html)
             else:
                 self.assertIn("../../surface/ui/boot-screen.css", WEB_MAIN.read_text(encoding="utf-8"))
+                self.assertNotIn('data-ready-gate="next-stage"', html)
             self.assertIn('id="ordax-boot-screen"', html)
             self.assertIn('data-ordax-boot-status', html)
             self.assertIn('data-ordax-boot-status>OrdaX</span>', html)
@@ -63,7 +65,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
                 html.index('src="./main.mjs"' if path == NATIVE_HTML else 'src="./main.tsx"'),
             )
 
-    def test_loading_controller_has_ready_and_visible_failure_states(self):
+    def test_loading_controller_has_ready_gate_and_visible_failure_states(self):
         controller = BOOT_SCREEN.read_text(encoding="utf-8")
         css = BOOT_CSS.read_text(encoding="utf-8")
 
@@ -71,30 +73,40 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn("setStage", controller)
         self.assertIn("ready()", controller)
         self.assertIn("fail(", controller)
+        self.assertIn('const READY_GATE_NEXT_STAGE = "next-stage"', controller)
+        self.assertIn("readyPending", controller)
+        self.assertIn("queueMicrotask", controller)
+        self.assertIn("readyGate !== READY_GATE_NEXT_STAGE", controller)
+        self.assertIn("readyPending && readyGate === READY_GATE_NEXT_STAGE", controller)
         self.assertIn('element.hidden = true', controller)
+        self.assertIn('element.hidden = false', controller)
         self.assertIn('element.dataset.state = "error"', controller)
         self.assertIn(".ordax-boot-screen", css)
         self.assertIn(".ordax-boot-spinner", css)
         self.assertIn("prefers-reduced-motion", css)
 
-    def test_native_reveals_real_shell_before_optional_store(self):
-        for path in (NATIVE_MAIN,):
-            source = path.read_text(encoding="utf-8")
-            self.assertIn("createSurfaceBootScreen", source)
-            self.assertIn('"surface.boot.loadingSurface"', source)
-            self.assertIn("translateSurfaceMessage", source)
-            self.assertIn("bootScreen.ready()", source)
-            self.assertIn('"surface.boot.failed"', source)
-            self.assertNotIn('componentId: "notes"', source)
-            self.assertNotIn('componentId: "internet"', source)
-            self.assertLess(
-                source.index("bootScreen.ready()"),
-                source.index("void updateWatcher.markHealthy()"),
-            )
-            self.assertLess(
-                source.index("void updateWatcher.markHealthy()"),
-                source.index("storeCatalogComposition = await storeCatalogCompositionPromise"),
-            )
+    def test_native_acknowledges_health_early_but_reveals_after_first_run_stage(self):
+        source = NATIVE_MAIN.read_text(encoding="utf-8")
+        self.assertIn("createSurfaceBootScreen", source)
+        self.assertIn('"surface.boot.loadingSurface"', source)
+        self.assertIn("translateSurfaceMessage", source)
+        self.assertIn("bootScreen.ready()", source)
+        self.assertIn('"surface.boot.failed"', source)
+        self.assertNotIn('componentId: "notes"', source)
+        self.assertNotIn('componentId: "internet"', source)
+
+        ready = source.index("bootScreen.ready()")
+        healthy = source.index("void updateWatcher.markHealthy()")
+        store = source.index("storeCatalogComposition = await storeCatalogCompositionPromise")
+        first_run_stage = source.index(
+            'bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"))'
+        )
+        first_run_mount = source.index("mountFirstRunExperience(root")
+
+        self.assertLess(ready, healthy)
+        self.assertLess(healthy, store)
+        self.assertLess(store, first_run_stage)
+        self.assertLess(first_run_stage, first_run_mount)
 
     def test_web_finishes_boot_after_workspace_mount_and_uses_shared_failure_copy(self):
         source = WEB_MAIN.read_text(encoding="utf-8")

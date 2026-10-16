@@ -14,7 +14,10 @@ on:
       - 'bootstrap/recovery/**'
       - 'tools/dev-base-channel/**'
       - 'system/services/base-update/dev_channel.py'
+      - 'tools/ci/portable_component_cache.py'
       - 'tests/test_dev_base_channel.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_creator_kernel_reuse_workflows.py'
       - '.github/workflows/dev-base-channel.yml'
   pull_request:
     paths:
@@ -28,7 +31,10 @@ on:
       - 'bootstrap/recovery/**'
       - 'tools/dev-base-channel/**'
       - 'system/services/base-update/dev_channel.py'
+      - 'tools/ci/portable_component_cache.py'
       - 'tests/test_dev_base_channel.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_creator_kernel_reuse_workflows.py'
       - '.github/workflows/dev-base-channel.yml'
   workflow_dispatch:
 
@@ -92,9 +98,19 @@ jobs:
           publish=false
           if ! git rev-parse HEAD^ >/dev/null 2>&1; then
             publish=true
-          elif git diff --name-only HEAD^ HEAD | grep -Eq \
-              '^(bootstrap/kernel/|bootstrap/initramfs/|bootstrap/dev-base/|bootstrap/recovery/|tools/dev-base-channel/|\.github/workflows/dev-base-channel\.yml$)'; then
-            publish=true
+          else
+            while IFS= read -r path; do
+              case "$path" in
+                bootstrap/kernel/candidates/*|bootstrap/kernel/candidate_pipeline.py|bootstrap/kernel/update_engine.py|bootstrap/kernel/module_archive.py)
+                  ;;
+                bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-diagnose|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint)
+                  ;;
+                bootstrap/kernel/*|bootstrap/initramfs/*|bootstrap/dev-base/*|bootstrap/recovery/*|tools/dev-base-channel/*)
+                  publish=true
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only HEAD^ HEAD --)
           fi
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
           echo "DEV_BASE_BYTES_CHANGED=$publish"
@@ -116,19 +132,78 @@ jobs:
             dwarves kmod xz-utils pkg-config musl-tools binutils bzip2 \
             e2fsprogs util-linux proot
 
-      - name: Build exact-commit kernel and initramfs
+      - name: Resolve reusable kernel fingerprint
         if: steps.changes.outputs.publish == 'true'
+        id: component-fingerprints
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/dev-base-channel/metadata"
+          python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified kernel component
+        if: steps.changes.outputs.publish == 'true'
+        id: kernel-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+
+      - name: Build kernel candidate on verified cache miss
+        if: steps.changes.outputs.publish == 'true' && steps.kernel-cache.outputs.cache-hit != 'true'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           python bootstrap/kernel/build.py check
           python bootstrap/kernel/build.py build --jobs 4
-          python bootstrap/kernel/verify.py out/kernel
 
+      - name: Verify kernel component and exact integration binding
+        if: steps.changes.outputs.publish == 'true'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          metadata="$RUNNER_TEMP/dev-base-channel/metadata"
+          cache_hit='${{ steps.kernel-cache.outputs.cache-hit }}'
+          if [ "$cache_hit" != 'true' ]; then
+            cache_hit=false
+          fi
+          python bootstrap/kernel/verify.py out/kernel
+          if [ "$cache_hit" = 'false' ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component kernel \
+              --out-dir out/kernel \
+              --source-commit "$ORDAX_SOURCE_COMMIT" \
+              > "$metadata/kernel-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component kernel \
+            --out-dir out/kernel \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$cache_hit" \
+            --receipt "$metadata/kernel-component-reuse.json"
+
+      - name: Save verified kernel component
+        if: steps.changes.outputs.publish == 'true' && steps.kernel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/kernel
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+
+      - name: Build exact-commit development Base and initramfs
+        if: steps.changes.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
           module_tar="$(find out/kernel -maxdepth 1 -type f -name 'kernel-modules-*.tar' -print -quit)"
           test -n "$module_tar"
-          sudo env GITHUB_SHA="$GITHUB_SHA"             python bootstrap/dev-base/build.py               --kernel-modules "$module_tar"               --out-dir out/dev-rootfs
+          sudo env GITHUB_SHA="$GITHUB_SHA" \
+            python bootstrap/dev-base/build.py \
+              --kernel-modules "$module_tar" \
+              --out-dir out/dev-rootfs
           sudo chown -R "$(id -u):$(id -g)" out/dev-rootfs
           test -f out/dev-rootfs/provenance.json
           test -d out/dev-rootfs/rootfs

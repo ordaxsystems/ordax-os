@@ -463,21 +463,21 @@
       "major": 1,
       "name": "spaces",
       "schema": "ordax.spaces/1",
-      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_git_blob": "391c484214cf2293174db88ac728594d36d0a74f",
       "source_path": "system/contracts/spaces.mjs"
     },
     {
       "major": 1,
       "name": "spaces-profile-packs",
       "schema": "ordax.profile-packs/1",
-      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_git_blob": "391c484214cf2293174db88ac728594d36d0a74f",
       "source_path": "system/contracts/spaces.mjs"
     },
     {
       "major": 1,
       "name": "spaces-snapshot",
       "schema": "ordax.spaces-snapshot/1",
-      "source_git_blob": "ab7a97c613f62d8d70065a669d52fb7c983ed76f",
+      "source_git_blob": "391c484214cf2293174db88ac728594d36d0a74f",
       "source_path": "system/contracts/spaces.mjs"
     },
     {

@@ -106,6 +106,8 @@ import { createMemoryReviewSession } from "../../services/memory/review-session.
 import { createMemoryReviewViewModel } from "../../services/memory/review-view-model.mjs";
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
+import { createSpaceExperienceSource } from "../../services/spaces/composition.mjs";
+import { createSelectedSpaceAuraCapabilityProvider } from "../../services/spaces/aura-provider.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
 import { createProfilePackCatalogFromPacks } from "../../services/profile-packs/catalog.mjs";
@@ -539,6 +541,16 @@ async function start() {
         identitySessionPort: identitySession,
         spaceSelectionPort: spaceSelection,
       });
+  // Aura is the first promoted Space capability provider because its existing owner
+  // is already current-Space-bound. Transactional vertical capabilities remain unavailable
+  // until their own Space-scoped SSOTs exist. No synthetic dashboard metric is emitted here.
+  const selectedSpaceAuraCapability = createSelectedSpaceAuraCapabilityProvider({
+    spaceSelectionPort: spaceSelection,
+    intelligencePort: selectedSpaceIntelligence,
+  });
+  const spaceExperience = createSpaceExperienceSource({
+    providers: [selectedSpaceAuraCapability],
+  });
   installNativeIntelligenceHostBridge({
     windowRef: window,
     intelligencePort: selectedSpaceIntelligence,
@@ -833,6 +845,7 @@ async function start() {
     memoryConflictReview,
     accountLifecycle,
     profileTaxonomy,
+    spaceExperience,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1082,6 +1095,7 @@ async function start() {
       profileComponentInventory.dispose();
       personalOrdax?.dispose();
       spaceSelection.dispose();
+      spaceExperience.dispose();
       spaces.dispose();
       accountSync.destroy();
       preferenceSync.destroy();

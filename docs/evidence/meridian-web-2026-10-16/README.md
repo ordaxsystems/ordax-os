@@ -74,3 +74,38 @@ The same tests are registered in the existing candidate workflow. In the existin
 4201 browser, sign-in/signup remain disabled with the actual unavailable gateway
 state and red explanation. No actual signup, credential entry, live authentication,
 production gateway configuration, deployment, build or main merge was performed.
+
+
+## Main reconciliation and release preparation
+
+The user authorized promotion to main/public replacement when validated. Reconciled
+with `0d9832ed38bba21ac0c99a509c7a5464776aeaeb`, keeping current boot, CI,
+Space composition and emulator basepath corrections. No experimental Meridian host
+was merged. Historical reference hashes remain unchanged; the Web composition
+adaptation records both its Meridian imports and the current emulator correction.
+
+Local checks after reconciliation:
+
+- Web regression: 96 passed, no failures or skips.
+- Public Account/localization/session/legal regression: 42 Node tests passed.
+- Public source, account entry UX, brand, hosting and Web builder: 52 Python tests passed.
+- Web TypeScript and Vite production build passed (initial JS chunk 798.90 kB,
+  226.09 kB gzip; size warning remains a performance follow-up).
+- Canonical 34-reference verifier passed.
+- Public site source/build/integrity verification passed as a local rehearsal;
+  final deployment provenance must name the committed source, not this working-tree rehearsal.
+
+The public UI tests were reconciled with the user-approved layout without relaxing
+session, legal, native-form, no-fake-account or unsupported-action gates. The compact
+More menu now excludes primary navigation routes. Added missing product-name locale
+entries; unsupported account actions remain disabled and all planned sections remain.
+The plan catalog tolerates an absent template without inventing plan availability.
+
+Publishing limits: the canonical Vercel connector returned 403 for the configured
+team/project; local GitHub CLI has no authenticated session and Vercel CLI is not
+installed. Git remote access and the connected GitHub account remain usable. Public
+product runtime launch is still disabled by its existing contract. The public site
+builder packages the portal only, whereas the canonical Web bundle remains separate.
+Enabling `/web/` requires composing that verified artifact at a separate same-origin
+product path and proving the current strict CSP, including the shared mock styles.
+No auth/recovery, payment, native device or physical release gate was enabled.

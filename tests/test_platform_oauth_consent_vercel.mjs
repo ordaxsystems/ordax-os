@@ -20,12 +20,37 @@ test("canonical first-party consent handles a bounded OAuth request without coll
   assert.match(text, /client\.auth\.oauth\.getAuthorizationDetails/);
   assert.match(text, /client\.auth\.oauth\.approveAuthorization/);
   assert.match(text, /client\.auth\.oauth\.denyAuthorization/);
+  assert.match(text, /client\.auth\.getUser/);
   assert.match(text, /auth\.signInWithPassword/);
   assert.match(text, /shouldCreateUser:false/);
   assert.match(text, /the_authorization_id-123/);
   assert.match(text, /https:\/\/ordax\.com\.br\/oauth\/consent/);
   assert.doesNotMatch(text, /eobcxuyvhkvdmkbaihwh/);
   assert.doesNotMatch(text, /service_role|SUPABASE_SERVICE_ROLE_KEY|anon\.supabase\.co/);
+});
+
+test("desktop OAuth keeps the Supabase redirect recoverable before navigating", async () => {
+  const response = oauthConsentResponse(new Request(consentUrl), config);
+  const text = await response.text();
+  assert.match(text, /id="clientReturn"/);
+  assert.match(text, /function returnToClient\(value\)/);
+  assert.match(text, /q\('clientReturn'\)\.href=target\.href/);
+  assert.match(text, /location\.assign\(target\.href\)/);
+  assert.match(text, /Concluir no ORDAX Studio/);
+  assert.match(text, /returnToClient\(data\.redirect_url\)/);
+  assert.doesNotMatch(text, /fetch\([^\n]*127\.0\.0\.1/);
+});
+
+test("expired authorization is fail-closed and tells the user to restart the ChatGPT connection", async () => {
+  const response = oauthConsentResponse(new Request(consentUrl), config);
+  const text = await response.text();
+  assert.match(text, /authorizationExpired/);
+  assert.match(text, /error\?\.status===404/);
+  assert.match(text, /Este pedido do ChatGPT expirou/);
+  assert.match(text, /q\('approve'\)\.disabled=true/);
+  assert.match(text, /q\('deny'\)\.disabled=true/);
+  assert.match(text, /show\('clientReturn',false\)/);
+  assert.match(text, /await load\(\)/);
 });
 
 test("authorization_id is required, single, bounded and not interpreted as JavaScript", () => {

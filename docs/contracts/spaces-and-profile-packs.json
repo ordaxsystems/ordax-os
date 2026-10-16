@@ -3,16 +3,70 @@
   "status": "pre-mvp-foundation",
   "space_port": "ordax.spaces/1",
   "profile_pack_port": "ordax.profile-packs/1",
+  "space_type_definition_schema": "ordax.space-type-definition/2",
+  "space_type_catalog_schema": "ordax.space-type-catalog/2",
+  "space_capability_provider_schema": "ordax.space-capability-provider/2",
+  "space_experience_schema": "ordax.space-experience/1",
   "ownership": {
     "account_profile_is_not_a_professional_profile": true,
     "spaces_are_account_owned_or_membership_scoped": true,
-    "space_membership_does_not_share_account_private_memory": true
+    "space_membership_does_not_share_account_private_memory": true,
+    "profile_pack_owns_technical_composition": true,
+    "space_type_owns_domain_and_ux_semantics": true,
+    "capability_provider_owns_runtime_availability_and_data": true,
+    "surface_owns_no_domain_business_data": true,
+    "aura_is_not_a_transactional_ssot": true
   },
-  "space_kinds": ["personal", "work", "professional"],
-  "member_roles": ["owner", "admin", "member", "viewer"],
+  "space_kinds": [
+    "personal",
+    "work",
+    "professional"
+  ],
+  "member_roles": [
+    "owner",
+    "admin",
+    "member",
+    "viewer"
+  ],
+  "space_type": {
+    "catalog_owner": "system/services/spaces/type-catalog.mjs",
+    "presentation_owner": "system/services/spaces/presentation.mjs",
+    "type_label_is_localized_message_id": true,
+    "explicit_semantics_precede_legacy_profile_fallback": true,
+    "composition_owner": "system/services/spaces/composition.mjs",
+    "declared_capability_is_not_availability": true,
+    "contextual_navigation_requires_ready_capability_provider": true,
+    "dashboard_widget_requires_ready_capability_and_metric": true,
+    "spaces_card_metric_requires_ready_provider_metric": true,
+    "missing_or_error_provider_degrades_without_surface_failure": true,
+    "deferred_type_must_not_publish_contextual_navigation_or_widgets": true,
+    "global_sidebar_is_not_space_type_navigation": true,
+    "aura_context_scope": "current-space-only",
+    "aura_provider": {
+      "owner": "system/services/spaces/aura-provider.mjs",
+      "backing_owner": "selected-space-intelligence",
+      "exact_selected_space_required": true,
+      "inference_availability_required": true,
+      "emits_synthetic_metrics": false,
+      "transactional_authority": false,
+      "space_types": [
+        "food.pizzeria",
+        "fabrication.3d-printing"
+      ]
+    },
+    "provider_requires_explicit_space_types": true,
+    "same_capability_provider_scopes_must_be_disjoint": true,
+    "provider_selection_key": "capability+space-type",
+    "canonical_semantics_owner": "public.ordax_spaces.domain+subtype",
+    "account_projection_includes_explicit_semantics": true,
+    "profile_binding_is_legacy_semantic_fallback_only": true,
+    "semantic_columns_nullable_for_legacy_rows": true
+  },
   "profile_pack": {
-    "definition": "versioned composition of apps, templates, knowledge-source policy, intelligence instructions and optional capabilities",
+    "definition": "versioned composition of apps, templates, knowledge-source policy, intelligence instructions and optional technical requirements",
     "forks_the_os": false,
+    "owns_space_domain_navigation_or_dashboard": false,
+    "declares_runtime_business_data_availability": false,
     "may_auto_grant_privilege": false,
     "may_install_unverified_code": false,
     "knowledge_sources_require_provenance": true,

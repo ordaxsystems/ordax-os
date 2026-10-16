@@ -5,6 +5,8 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["OrdaX Web", "OrdaX Web"],
+    ["OrdaX OS", "OrdaX OS"],
     ["Espaço pessoal OrdaX", "OrdaX personal space"],
     ["/ não disponível", "/ unavailable"],
     ["ESPAÇO PESSOAL", "PERSONAL SPACE"],

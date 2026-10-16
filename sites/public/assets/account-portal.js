@@ -378,7 +378,7 @@
   function planCatalog() {
     const template = document.getElementById("account-plan-catalog");
     // Names come exclusively from the catalog inserted by the existing public builder.
-    const names = Array.from(template?.content.querySelectorAll(".plan-catalog li") ?? [], node => node.textContent.trim()).filter(Boolean);
+    const names = Array.from(template?.content?.querySelectorAll(".plan-catalog li") ?? [], node => node.textContent.trim()).filter(Boolean);
     if (!names.length) return empty("Catálogo de planos indisponível", "Os planos e benefícios serão exibidos aqui quando o catálogo oficial estiver disponível.", "crown", true);
     return `<ul class="plan-catalog">${names.map(name => `<li><span class="status-tag">${tx("Em preparação")}</span><h3 translate="no">${esc(name)}</h3><p class="plan-price">${tx("Preço não publicado")}</p><p class="plan-detail">${tx("Os benefícios e limites comerciais ainda não estão disponíveis para consulta.")}</p>${action("Selecionar plano", null, { small: true })}</li>`).join("")}</ul>`;
   }
@@ -553,7 +553,8 @@
     renderSidebarToggle();
     document.getElementById("sidebar-navigation").innerHTML = navigationGroups.map(group => `<div class="nav-group"><p class="nav-group-label">${tx(group.title)}</p>${group.ids.map(id => navigationEntry(byId.get(id))).join("")}</div>`).join("");
     document.getElementById("mobile-navigation").innerHTML = mobileSections.map(item => `<a href="#${item.id}"${state.section === item.id ? ' class="active" aria-current="page"' : ""}>${icon(byId.get(item.id).icon)}<span>${tx(item.label)}</span></a>`).join("") + `<button type="button" class="button ghost${mobileSectionIds.has(state.section) ? "" : " active"}" id="more-toggle" data-open-more aria-controls="more-dialog" aria-expanded="${moreDialog.open}">${icon("more")}<span>${tx("Mais")}</span></button>`;
-    document.getElementById("more-navigation").innerHTML = navigationGroups.map(group => `<div class="nav-group"><p class="nav-group-label">${tx(group.title)}</p>${group.ids.map(id => navigationEntry(byId.get(id), "more-link")).join("")}</div>`).join("") + navigationEntry(byId.get("suporte"), "more-link");
+    const moreGroups = navigationGroups.map(group => ({ ...group, ids: group.ids.filter(id => !mobileSectionIds.has(id)) })).filter(group => group.ids.length);
+    document.getElementById("more-navigation").innerHTML = moreGroups.map(group => `<div class="nav-group"><p class="nav-group-label">${tx(group.title)}</p>${group.ids.map(id => navigationEntry(byId.get(id), "more-link")).join("")}</div>`).join("") + navigationEntry(byId.get("suporte"), "more-link");
     const supportLink = root.querySelector('.sidebar-bottom [data-section="suporte"]');
     supportLink.classList.toggle("active", state.section === "suporte");
     if (state.section === "suporte") supportLink.setAttribute("aria-current", "page"); else supportLink.removeAttribute("aria-current");

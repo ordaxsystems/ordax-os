@@ -8,6 +8,8 @@ STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 PREVIOUS_FILE=$STATE_DIR/previous-commit
 CURRENT_FILE=$STATE_DIR/current-commit
 PINNED_FILE=$STATE_DIR/pinned-commit
+BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
+AUTOMATIC_ROLLBACK_RECOVERY=${ORDAX_AUTOMATIC_ROLLBACK_RECOVERY:-0}
 DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout
 GIT_TIMEOUT_SECONDS=${ORDAX_BOOT_GIT_TIMEOUT_SECONDS:-45}
 GIT_LOW_SPEED_TIME=${ORDAX_BOOT_GIT_LOW_SPEED_SECONDS:-15}
@@ -24,6 +26,11 @@ case "$GIT_LOW_SPEED_TIME" in
     ''|*[!0-9]*) GIT_LOW_SPEED_TIME=15 ;;
 esac
 [ "$GIT_LOW_SPEED_TIME" -ge 5 ] 2>/dev/null || GIT_LOW_SPEED_TIME=15
+
+case "$AUTOMATIC_ROLLBACK_RECOVERY" in
+    0|1) ;;
+    *) AUTOMATIC_ROLLBACK_RECOVERY=0 ;;
+esac
 
 GIT_TERMINAL_PROMPT=0
 export GIT_TERMINAL_PROMPT
@@ -42,6 +49,17 @@ is_sha() {
     case "$value" in
         ''|*[!0-9a-f]*) return 1 ;;
     esac
+}
+
+read_state() {
+    source=$1
+    value=""
+    [ -f "$source" ] && [ ! -L "$source" ] || {
+        printf '%s' ""
+        return 0
+    }
+    IFS= read -r value <"$source" || true
+    printf '%s' "$value"
 }
 
 write_state() {
@@ -235,6 +253,27 @@ if [ -z "$remote_sha" ]; then
     exit 1
 fi
 
+recovery_pinned=""
+recovery_rejected=""
+if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
+    recovery_pinned=$(read_state "$PINNED_FILE")
+    recovery_rejected=$(read_state "$BOOT_REJECTED_FILE")
+    recovery_current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    if ! is_sha "$recovery_pinned" || ! is_sha "$recovery_rejected" || ! is_sha "$recovery_current" || \
+       [ "$recovery_current" != "$recovery_pinned" ] || [ "$recovery_rejected" = "$recovery_pinned" ]; then
+        echo "ordax-git: estado de rollback automatico invalido; known-good preservado" >&2
+        exit 1
+    fi
+    if [ "$remote_sha" = "$recovery_pinned" ]; then
+        echo "ordax-git: main ainda aponta para o known-good fixado; rollback preservado" >&2
+        exit 1
+    fi
+    if [ "$remote_sha" = "$recovery_rejected" ]; then
+        echo "ordax-git: main ainda aponta para a entrega rejeitada; rollback preservado" >&2
+        exit 1
+    fi
+fi
+
 if ! checkout_metadata_valid "$WORKTREE"; then
     echo "ordax-git: checkout ausente ou inconsistente; reconstruindo sem reutilizar estado Git local" >&2
     replace_runtime_checkout "$remote_sha" invalid || exit 1
@@ -266,6 +305,14 @@ fi
 
 current=$(git -C "$WORKTREE" rev-parse HEAD)
 write_state "$CURRENT_FILE" "$current"
-rm -f "$PINNED_FILE"
+if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
+    if [ "$current" = "$recovery_pinned" ] || [ "$current" = "$recovery_rejected" ]; then
+        echo "ordax-git: recuperacao nao produziu uma entrega nova segura; rollback preservado" >&2
+        exit 1
+    fi
+    rm -f "$PINNED_FILE" "$BOOT_REJECTED_FILE"
+else
+    rm -f "$PINNED_FILE"
+fi
 refresh_dev_helpers "$current"
 printf 'ORDAX_SOURCE_SHA=%s\n' "$current"

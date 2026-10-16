@@ -64,7 +64,21 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertLess(candidate_write, candidate_connect)
         self.assertLess(candidate_connect, promote)
         self.assertIn('a rede salva anteriormente foi preservada', text)
-        self.assertIn('use ordax-network --choose para escolher outra rede', text)
+        self.assertIn('WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}', text)
+        self.assertIn('autenticacao falhou; confira a senha ou escolha outra rede', text)
+        self.assertIn('setup_attempt=$((setup_attempt + 1))', text)
+
+    def test_first_boot_wifi_retries_invalid_credentials_without_falling_to_shell(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}', text)
+        self.assertIn('while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do', text)
+        self.assertIn('a senha WPA/WPA2 deve ter entre 8 e 63 caracteres; tente novamente', text)
+        self.assertIn('autenticacao falhou; confira a senha ou escolha outra rede', text)
+        self.assertIn('force_choose=1', text)
+        self.assertLess(
+            text.index('if connect_wifi_conf "$CANDIDATE_CONF"; then'),
+            text.index('setup_attempt=$((setup_attempt + 1))', text.index('if connect_wifi_conf "$CANDIDATE_CONF"; then')),
+        )
 
     def test_password_has_brief_character_feedback_then_mask(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
@@ -96,8 +110,10 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
 
     def test_maintenance_shell_reestablishes_controlling_tty(self) -> None:
         text = DEV_INIT.read_text(encoding="utf-8")
-        self.assertIn('if [ -x /bin/setsid ]; then', text)
-        self.assertIn('exec /bin/setsid -c /bin/sh', text)
+        self.assertIn('if /bin/busybox setsid --help >/dev/null 2>&1; then', text)
+        self.assertIn('if [ -r /dev/tty ] && /bin/busybox test -t 0 2>/dev/null; then', text)
+        self.assertIn('exec /bin/busybox setsid -c /bin/sh', text)
+        self.assertIn('exec /bin/busybox setsid /bin/sh', text)
         self.assertIn("printf 'Rede:         ordax-network", text)
 
 
