@@ -1,4 +1,4 @@
-"""Canonical OrdaX public host: exactly one Git/Vercel project and auth origin.
+"""Canonical OrdaX public host and Web host use explicit Vercel project ownership.
 
 Vercel project-alias records perform host redirects *before* filesystem
 delivery. Source-defined host redirects were insufficient for static /conta/.
@@ -41,14 +41,17 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertNotIn(CANONICAL, EXPECTED_HOSTS)
         self.assertNotIn("redirects", self.config)
 
-    def test_single_origin_auth_proxy_and_auto_git_deployment(self):
+    def test_public_and_web_auth_proxy_and_auto_git_deployment(self):
         self.assertEqual(
-            [(r["source"], r["destination"]) for r in self.config["rewrites"]],
+            self.config["rewrites"],
             [
-                ("/oauth/consent", "/api/oauth-consent"),
-                ("/auth/:path*", "/api/account-proxy?ordax_path=/auth/:path*"),
-                ("/sync/:path*", "/api/account-proxy?ordax_path=/sync/:path*"),
-                ("/account/:path*", "/api/account-proxy?ordax_path=/account/:path*"),
+                {"source": "/auth/:path*", "has": [{"type": "host", "value": {"pre": "web."}}], "destination": "/api/web-account-proxy?ordax_path=/auth/:path*"},
+                {"source": "/sync/:path*", "has": [{"type": "host", "value": {"pre": "web."}}], "destination": "/api/web-account-proxy?ordax_path=/sync/:path*"},
+                {"source": "/account/:path*", "has": [{"type": "host", "value": {"pre": "web."}}], "destination": "/api/web-account-proxy?ordax_path=/account/:path*"},
+                {"source": "/oauth/consent", "destination": "/api/oauth-consent"},
+                {"source": "/auth/:path*", "destination": "/api/account-proxy?ordax_path=/auth/:path*"},
+                {"source": "/sync/:path*", "destination": "/api/account-proxy?ordax_path=/sync/:path*"},
+                {"source": "/account/:path*", "destination": "/api/account-proxy?ordax_path=/account/:path*"},
             ],
         )
         self.assertEqual(self.config["git"]["deploymentEnabled"], {"**": False, "main": True})
@@ -63,12 +66,17 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(migration["pull_request_validation_owner"], "github-actions-public-site-candidate")
         self.assertEqual(self.contract["vercel_adapter"]["canonical_public_origin"], "https://ordax.com.br")
 
-    def test_source_build_gates_only_public_site_inputs(self):
-        self.assertEqual(self.config["outputDirectory"], "out/public-deployment")
-        self.assertEqual(
-            self.config["ignoreCommand"],
-            "sh tools/public-site/should_skip_vercel_build.sh",
-        )
+    def test_shared_vercel_dispatcher_is_the_only_active_build_owner(self):
+        self.assertEqual(self.config["outputDirectory"], "out/vercel")
+        self.assertEqual(self.config["buildCommand"], "python3 tools/vercel/build.py")
+        self.assertEqual(self.config["ignoreCommand"], "sh tools/vercel/should_skip_build.sh")
+        adapter = self.contract["vercel_adapter"]
+        self.assertEqual(adapter["static_output_directory"], "out/vercel")
+        self.assertEqual(adapter["build_dispatcher"], "tools/vercel/build.py")
+        self.assertEqual(adapter["ignored_build_owner"], "tools/vercel/should_skip_build.sh")
+        self.assertEqual(adapter["web_runtime"]["mount_path"], "/")
+        self.assertEqual(adapter["web_runtime"]["canonical_origin"], "https://web.ordax.com.br")
+        self.assertNotIn("/ordax/", self.contract["routing"]["static_routes"])
 
 
 if __name__ == "__main__":

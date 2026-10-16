@@ -13,6 +13,8 @@ VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
 DEPLOYMENT_PROOF = ROOT / "tools" / "public-site" / "prove_deployment.py"
 PUBLIC_EDGE_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
 SHARED_AUTH_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "_shared" / "auth_rate_limit.mjs"
+PUBLIC_VERCEL_PROJECT_ID = "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC"
+WEB_VERCEL_PROJECT_ID = "prj_ftACluUqk6i9DoD9GPIwmgURwckP"
 
 
 class PublicSiteDeploymentTests(unittest.TestCase):
@@ -22,22 +24,19 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
 
-    def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
-        self.assertEqual(
-            self.vercel["ignoreCommand"],
-            "sh tools/public-site/should_skip_vercel_build.sh",
-        )
+    def test_vercel_ignore_build_is_fail_safe_and_project_aware(self):
+        self.assertEqual(self.vercel["ignoreCommand"], "sh tools/vercel/should_skip_build.sh")
         self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"**": False, "main": True})
-        script = ROOT / "tools/public-site/should_skip_vercel_build.sh"
+        script = ROOT / "tools/vercel/should_skip_build.sh"
         self.assertTrue(script.is_file())
 
         with tempfile.TemporaryDirectory() as temp:
             work = Path(temp)
+
             def git(*args):
                 result = subprocess.run(
                     ["git", *args], cwd=work, text=True,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    check=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
                 )
                 return result.stdout.strip()
 
@@ -53,11 +52,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                     "commit", "-m", message)
                 return git("rev-parse", "HEAD")
 
-            def ignored(previous, current, environment="preview"):
+            def ignored(previous, current, project_id=PUBLIC_VERCEL_PROJECT_ID):
                 env = dict(os.environ)
                 env["VERCEL_GIT_PREVIOUS_SHA"] = previous
                 env["VERCEL_GIT_COMMIT_SHA"] = current
-                env["VERCEL_ENV"] = environment
+                env["VERCEL_PROJECT_ID"] = project_id
                 result = subprocess.run(
                     ["sh", str(script)], cwd=work, env=env,
                     capture_output=True, text=True, check=False,
@@ -68,46 +67,47 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("sites/public/index.html", "<h1>OrdaX</h1>")
             write("docs/README.md", "initial documentation")
             initial = commit("initial")
-            # First deployment, missing current ref and a shallow history
-            # must BUILD (1), not skip (0) or fatal-exit (128).
             self.assertEqual(ignored("", initial), 1)
             self.assertEqual(ignored(initial, ""), 1)
             self.assertEqual(ignored("f" * 40, initial), 1)
             self.assertEqual(ignored(initial, "f" * 40), 1)
+            self.assertEqual(ignored(initial, initial), 1)
 
             write("docs/README.md", "documentation only")
             docs_only = commit("unrelated documentation")
             self.assertEqual(ignored(initial, docs_only), 0)
-            # Git production now uses the same canonical input change filter:
-            # unrelated OS commits do not consume a new public deployment.
-            self.assertEqual(ignored(initial, docs_only, "production"), 0)
-            self.assertEqual(ignored(docs_only, docs_only, "production"), 0)
-            self.assertEqual(ignored(docs_only, docs_only, "preview"), 0)
+            self.assertEqual(ignored(initial, docs_only, WEB_VERCEL_PROJECT_ID), 0)
 
             write("sites/public/index.html", "<h1>OrdaX updated</h1>")
-            site_change = commit("public site change")
-            self.assertEqual(ignored(docs_only, site_change), 1)
+            public_change = commit("public site change")
+            self.assertEqual(ignored(docs_only, public_change), 1)
+            self.assertEqual(ignored(docs_only, public_change, WEB_VERCEL_PROJECT_ID), 0)
 
-            write("infra/supabase/functions/_shared/bounded_body.mjs",
-                  "export const bound = 64;")
+            write("infra/supabase/functions/_shared/bounded_body.mjs", "export const bound = 64;")
             shared_change = commit("shared HTTP boundary change")
-            self.assertEqual(ignored(site_change, shared_change), 1)
+            self.assertEqual(ignored(public_change, shared_change), 1)
+            self.assertEqual(ignored(public_change, shared_change, WEB_VERCEL_PROJECT_ID), 1)
 
             write("package.json", '{"private": true}')
             dependency_change = commit("dependency changed")
             self.assertEqual(ignored(shared_change, dependency_change), 1)
+            self.assertEqual(ignored(shared_change, dependency_change, WEB_VERCEL_PROJECT_ID), 1)
 
             write("platform/releases/publications.json", '{"status":"no-public-releases","releases":[]}')
             releases_change = commit("public release owner changed")
             self.assertEqual(ignored(dependency_change, releases_change), 1)
+            self.assertEqual(ignored(dependency_change, releases_change, WEB_VERCEL_PROJECT_ID), 0)
 
             write("tools/public-site/build.py", "# canonical site builder changed")
-            builder_change = commit("canonical site builder changed")
-            self.assertEqual(ignored(releases_change, builder_change), 1)
+            public_builder_change = commit("canonical site builder changed")
+            self.assertEqual(ignored(releases_change, public_builder_change), 1)
+            self.assertEqual(ignored(releases_change, public_builder_change, WEB_VERCEL_PROJECT_ID), 0)
 
             write("system/surface/workspace/components/central/central.tsx", "// Web layout changed")
-            web_change = commit("shared Web changed")
-            self.assertEqual(ignored(builder_change, web_change), 1)
+            web_change = commit("Web changed")
+            self.assertEqual(ignored(public_builder_change, web_change), 0)
+            self.assertEqual(ignored(public_builder_change, web_change, WEB_VERCEL_PROJECT_ID), 1)
+            self.assertEqual(ignored(public_builder_change, web_change, "prj_unknown"), 1)
 
     def test_cloudflare_exclusive_zone_is_active_with_independent_runtime_proof_pending(self):
         migration = self.contract["cloudflare_dns_migration"]
@@ -430,9 +430,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
-        self.assertEqual(self.vercel["outputDirectory"], "out/public-deployment")
-        self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-deployment")
-        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/deployment.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/deployment.py verify")
+        self.assertEqual(self.vercel["outputDirectory"], "out/vercel")
+        self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/vercel")
+        self.assertEqual(self.vercel["buildCommand"], "python3 tools/vercel/build.py")
+        self.assertEqual(self.vercel["ignoreCommand"], "sh tools/vercel/should_skip_build.sh")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")
