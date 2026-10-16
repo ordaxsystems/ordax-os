@@ -132,6 +132,25 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn("firmware-coverage.json", script)
         self.assertIn("ORDAX_INDEPENDENT_OWNER", script)
 
+    def test_owner_hardware_receipts_are_embedded_exactly(self) -> None:
+        script = POST_BUILD.read_text(encoding="utf-8")
+        self.assertIn(
+            'cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-payload.json"',
+            script,
+        )
+        self.assertIn(
+            'cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-payload.json"',
+            script,
+        )
+        self.assertIn(
+            'cp "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"',
+            script,
+        )
+        self.assertIn(
+            'cmp -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"',
+            script,
+        )
+
     def test_minimal_profile_rejects_owner_capability_leakage(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
         self.assertIn("Owner/Development capability leaked into minimal profile", script)
