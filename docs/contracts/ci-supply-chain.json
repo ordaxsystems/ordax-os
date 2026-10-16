@@ -56,6 +56,11 @@
       "version_label": "v6"
     },
     {
+      "uses": "actions/download-artifact",
+      "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+      "version_label": "v8.0.2"
+    },
+    {
       "uses": "oven-sh/setup-bun",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6",
       "version_label": "v2.2.0"
