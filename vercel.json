@@ -5,6 +5,16 @@
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "web\\.ordax\\.com\\.br"
+        }
+      ],
+      "destination": "/ordax/"
+    },
+    {
       "source": "/oauth/consent",
       "destination": "/api/oauth-consent"
     },
