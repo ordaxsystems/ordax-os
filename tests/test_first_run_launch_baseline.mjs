@@ -9,6 +9,7 @@ const ui=read('system/surface/ui/first-run.mjs');
 const css=read('system/surface/ui/first-run.css');
 const lock=read('system/surface/ui/local-session-lock.mjs');
 const native=read('system/composition/native/main.mjs');
+const windowsEmulator=read('tools/windows-emulator/main.mjs');
 const provenance=read('docs/architecture/MERIDIAN-PROVENANCE.md');
 
 test('launch-baseline journey is explicit and canonical',()=>{
@@ -31,6 +32,13 @@ test('first run consumes existing owners instead of Meridian backends',()=>{
  assert.ok(!ui.includes('experiments/meridian'));
  assert.ok(!ui.includes('localStorage'));
  assert.ok(!ui.includes('sessionStorage'));
+});
+
+test('Windows emulator preserves canonical confirmed preference semantics',()=>{
+ assert.ok(windowsEmulator.includes('createPreferenceRuntime'));
+ assert.ok(windowsEmulator.includes('PREFERENCE_STORE_SCHEMA'));
+ assert.ok(windowsEmulator.includes('saveConfirmed(next)'));
+ assert.ok(!windowsEmulator.includes('schema: "ordax.preference-runtime/1"'));
 });
 
 test('completion is fail-closed and protects ambiguous receipt writes',()=>{
