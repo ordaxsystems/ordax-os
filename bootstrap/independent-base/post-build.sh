@@ -53,6 +53,36 @@ if test "$PROFILE" = owner-development; then
         exit 1
     }
 
+    # Kernel modules are a separately verified canonical component. Reuse the
+    # archive supplied by the integration workflow; never compile or download a
+    # second kernel from the Buildroot base build.
+    test -n "${ORDAX_HOST_PYTHON:-}" || {
+        echo "Owner/Development requires ORDAX_HOST_PYTHON" >&2
+        exit 1
+    }
+    test -n "${ORDAX_KERNEL_MODULES_ARCHIVE:-}" || {
+        echo "Owner/Development requires ORDAX_KERNEL_MODULES_ARCHIVE" >&2
+        exit 1
+    }
+    test -n "${ORDAX_KERNEL_MODULES_RECEIPT:-}" || {
+        echo "Owner/Development requires ORDAX_KERNEL_MODULES_RECEIPT" >&2
+        exit 1
+    }
+    test -f "$ROOT/bootstrap/base/kernel_module_payload.py"
+    test -f "$ROOT/bootstrap/base/firmware_policy.py"
+    "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/kernel_module_payload.py" install \
+        --archive "$ORDAX_KERNEL_MODULES_ARCHIVE" \
+        --target "$TARGET_DIR" \
+        --receipt "$ORDAX_KERNEL_MODULES_RECEIPT"
+
+    # A module payload without matching firmware is not a valid Owner base.
+    # This deliberately fails until Buildroot provides coverage for the actual
+    # firmware= declarations found in the selected canonical modules.
+    "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/firmware_policy.py" check \
+        --rootfs "$TARGET_DIR" \
+        --receipt "$TARGET_DIR/etc/ordax/firmware-coverage.json" \
+        --log-prefix ORDAX_INDEPENDENT_OWNER
+
     mkdir -p "$TARGET_DIR/usr/local/bin" "$TARGET_DIR/state" "$TARGET_DIR/workspace" "$TARGET_DIR/home" "$TARGET_DIR/root" "$TARGET_DIR/run" "$TARGET_DIR/tmp"
     chmod 1777 "$TARGET_DIR/tmp"
     for helper in ordax-network ordax-pull ordax-rollback ordax-run ordax-diagnose; do
