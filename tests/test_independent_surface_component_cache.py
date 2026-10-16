@@ -182,7 +182,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("Ensure verified Surface exists in durable R2 store", workflow)
         self.assertIn("if: steps.surface-reuse-state.outputs.source != 'r2'", workflow)
         self.assertIn("artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}", workflow)
-        self.assertIn("if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true", workflow)
+        self.assertIn("if: needs.buildroot-surface.result == 'success'", workflow)
         self.assertIn("Restore immutable Surface source defconfig before cache identity record", workflow)
         self.assertIn("git checkout -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig", workflow)
         self.assertIn("include-hidden-files: true", workflow)

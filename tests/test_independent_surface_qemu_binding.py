@@ -7,11 +7,11 @@ SURFACE = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text
 
 
 class IndependentSurfaceQemuBindingTests(unittest.TestCase):
-    def test_surface_workflow_calls_canonical_portable_proof_only_for_new_bytes(self):
+    def test_surface_workflow_calls_canonical_portable_proof_for_verified_bytes(self):
         for marker in (
             "portable-qemu:",
             "needs: buildroot-surface",
-            "if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true",
+            "if: needs.buildroot-surface.result == 'success'",
             "artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}",
             "uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
             "base_source: independent",

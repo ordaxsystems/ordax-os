@@ -509,7 +509,9 @@ jobs:
 
   portable-qemu:
     needs: buildroot-surface
-    if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true
+    # Proof is independent from compilation: verified reused bytes must still be
+    # exercised by the canonical Independent QEMU gate. Cache hits only skip build.
+    if: needs.buildroot-surface.result == 'success'
     uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
     with:
       base_source: independent
