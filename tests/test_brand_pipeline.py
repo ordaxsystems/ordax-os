@@ -136,7 +136,12 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
             references = set(re.findall(r"var\((--ordax-[a-z-]+)", css))
             self.assertFalse(references - definitions, (asset, references - definitions))
-            self.assertRegex(css, r"var\(--(?:ordax-font|md-font)\)")
+            # account-dashboard owns presentation and must consume the shared
+            # typography token directly. web-entry is composition-only and
+            # inherits typography from account.css; forcing another font
+            # declaration there would create a second presentation owner.
+            if asset == "account-dashboard.css":
+                self.assertRegex(css, r"var\(--(?:ordax-font|md-font)\)")
         for route in ("conta", "web"):
             markup = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
             self.assertTrue('src="/assets/ordax-symbol.png"' in markup or 'class="ordax-symbol"' in markup)
