@@ -85,6 +85,11 @@ IMPACT_POLICY_LIGHT_EXACT = {
     "tests/test_native_memory_integration.py",
     "tests/test_surface_boot_screen.py",
 }
+PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
+    "docs/contracts/product-device-presence.json",
+    "system/services/device-agent/product-presence-report.sh",
+    "tests/test_product_device_presence_agent.py",
+}
 ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
     "infra/supabase/functions/ordax-account-gateway/index.ts",
     "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
@@ -305,6 +310,7 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             path in CI_GOVERNANCE_LIGHT_EXACT
             or path in ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT
             or path in IMPACT_POLICY_LIGHT_EXACT
+            or path in PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT
             or path in SPACE_COMPOSITION_LIGHT_EXACT
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
         ):

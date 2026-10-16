@@ -164,6 +164,31 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_product_device_presence_slice_does_not_require_portable_qemu(self):
+        result = impact.classify_paths(
+            [
+                "docs/contracts/product-device-presence.json",
+                "system/services/device-agent/product-presence-report.sh",
+                "tests/test_product_device_presence_agent.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_product_device_presence_exception_does_not_hide_unrelated_change(self):
+        result = impact.classify_paths(
+            [
+                "docs/contracts/product-device-presence.json",
+                "system/services/device-agent/product-presence-report.sh",
+                "tests/test_product_device_presence_agent.py",
+                "tests/test_product_device_enrollment.py",
+            ],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertIn("heavy-non-system:tests/test_product_device_enrollment.py", result.reasons)
+
     def test_non_system_trigger_is_heavy_by_default(self):
         result = impact.classify_paths(["bootstrap/kernel/source.json"], root=ROOT)
         self.assertTrue(result.required)
