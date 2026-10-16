@@ -31,25 +31,41 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         )
         self.assertEqual(owner["purpose"], "owner-development-parity-without-alpine")
 
-    def test_owner_profile_declares_only_required_additional_capabilities(self) -> None:
+    def test_owner_profile_declares_userspace_and_buildroot_firmware_provider(self) -> None:
         lines = {
             line.strip()
             for line in FRAGMENT.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         }
-        required = {
+        required_userspace = {
             "BR2_PACKAGE_CA_CERTIFICATES=y",
             "BR2_PACKAGE_GIT=y",
             "BR2_PACKAGE_IW=y",
             "BR2_PACKAGE_WPA_SUPPLICANT=y",
             "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
         }
-        self.assertEqual(lines, required)
+        self.assertTrue(required_userspace.issubset(lines))
+        firmware = lines - required_userspace
+        self.assertIn("BR2_PACKAGE_LINUX_FIRMWARE=y", firmware)
+        self.assertGreater(len(firmware), 1)
+        self.assertTrue(
+            all(line.startswith("BR2_PACKAGE_LINUX_FIRMWARE") for line in firmware),
+            firmware,
+        )
         self.assertNotIn("BR2_PACKAGE_KMOD=y", lines)
         self.assertNotIn("BR2_PACKAGE_ZSTD=y", lines)
         text = FRAGMENT.read_text(encoding="utf-8").lower()
         self.assertNotIn("alpine", text)
         self.assertNotIn("apk", text)
+
+    def test_builder_validates_fragment_without_second_firmware_family_list(self) -> None:
+        text = BUILD.read_text(encoding="utf-8")
+        self.assertIn('OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"', text)
+        self.assertIn("validate_owner_fragment", text)
+        self.assertIn('owner["fragment_config"]', text)
+        self.assertNotIn("OWNER_FIRMWARE_CONFIG = (", text)
+        self.assertNotIn("IWLWIFI_22000", text)
+        self.assertNotIn("ATHEROS_9271", text)
 
     def test_post_build_uses_explicit_profile_instead_of_capability_guessing(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
