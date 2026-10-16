@@ -94,6 +94,9 @@ IMPACT_POLICY_LIGHT_EXACT = {
     "tests/test_update_presentation_pinned.mjs",
     "tests/test_portable_qemu_high_level_light.py",
 }
+INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT = {
+    ".github/workflows/independent-surface-runtime.yml",
+}
 PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "docs/contracts/product-device-presence.json",
     "system/services/device-agent/product-presence-report.sh",
@@ -306,6 +309,17 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")
+            continue
+        # The exact Independent Base source contract defines runtime bytes and stays heavy.
+        # Other Independent Base files remain producer-neutral under their dedicated proof.
+        if path == "bootstrap/independent-base/source.json":
+            reasons.append(f"independent-base-source-contract:{path}")
+            continue
+        # Independent Surface byte owners are proved by independent-surface-runtime.yml.
+        # Do not duplicate that proof through the generic Portable/QEMU impact workflow.
+        if path.startswith("bootstrap/independent-surface-runtime/"):
+            continue
+        if path in INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT:
             continue
         if path in PRODUCER_NEUTRAL_LIGHT_EXACT:
             continue
