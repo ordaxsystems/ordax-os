@@ -1,76 +1,45 @@
-# OrdaX Windows Emulator
+# OrdaX Windows MVP Emulator
 
-Development-only host for running the OrdaX post-boot experience on Windows without booting the Linux kernel, initramfs or USB image.
+Development host for the same **Native Surface used by the OrdaX MVP USB**. This is not OrdaX Web and is not a separate distribution.
 
-## Purpose
+## What it runs
 
-- reuse the real OrdaX first-run UI and contracts;
-- load the repository-backed Surface in the same development session;
-- enable fast UI work with Vite reload instead of rebuilding kernel/rootfs/media;
-- provide a stable browser window that MCP/Desktop tooling can inspect and interact with;
-- follow the same local-first `main` update cadence used by the Owner/Development USB;
-- keep the Dev USB as the authority for real boot, hardware, kernel and native integration.
+`npm run emulator:windows` starts a local-first supervisor, watches `origin/main` every 5 seconds when the worktree is clean, launches Vite on `127.0.0.1:4202`, waits until the real Native composition is healthy, and then opens a dedicated Windows preview window at:
 
-This is an execution target, not a third OrdaX distribution.
+`http://127.0.0.1:4202/system/composition/native/`
 
-## Run
+The preview is owned by the emulator supervisor rather than Vite's generic `--open` behavior, so startup fails instead of silently opening the wrong route or no usable window. The UI, OOBE, launcher, apps and product contracts are the Native MVP composition. The Windows host only replaces the Linux/kernel-facing boundary.
 
-From the repository root:
+## Fidelity rule
 
-```bash
-npm install
+Do not copy or fork the MVP UI into this directory. Emulator-specific code may only implement host transport, hardware/system adapters, development supervision and verification. If a feature exists in the MVP, the emulator must consume the same Surface/service/contract code.
+
+Current Windows-backed native ports include:
+
+- first-run state persistence;
+- local Surface session credentials/lock state using the MVP scrypt policy and retry backoff;
+- preferences persistence;
+- isolated MVP user File Space with listing, import/export, text read, rename, copy, move, trash/restore and bounded previews;
+- anonymous/unconfigured account session boundary;
+- network status from the real Windows interfaces;
+- system metrics from the real Windows host;
+- power/battery status from Windows when available;
+- privileged App Data bootstrap bridge (bindings are expanded as MVP app-data ports are wired).
+
+Hardware actions that cannot safely be performed by a development emulator must remain unavailable until a contract-correct Windows adapter exists. They must never be faked merely to make a UI look enabled.
+
+## Commands
+
+```text
 npm run emulator:windows
-```
-
-The emulator listens on `127.0.0.1:4202` and opens `/tools/windows-emulator/index.html`.
-
-For a Vite-only session without Git synchronization:
-
-```bash
 npm run emulator:windows:vite
-```
-
-## Development update behavior
-
-The normal `npm run emulator:windows` command starts `dev-supervisor.mjs` before Vite.
-
-The supervisor mirrors the Owner/Development USB update cadence where that behavior is safe on a developer worktree:
-
-- starts the local checkout immediately; network is not on the critical path;
-- targets `origin/main` by default (`ORDAX_REPO_BRANCH` may override it);
-- checks the remote every 5 seconds by default (`ORDAX_UPDATE_INTERVAL_SECONDS` may override it, minimum 5 seconds);
-- uses bounded `git ls-remote`/`git fetch` calls;
-- applies remote movement only as a clean `--ff-only` fast-forward;
-- if Git/network fails, the running emulator is preserved;
-- if the worktree contains local development edits, automatic Git application pauses instead of deleting those edits; Vite hot reload remains active;
-- if local HEAD and `origin/main` have diverged, automatic application pauses rather than resetting or force-updating the worktree.
-
-That last distinction is intentional. The physical Dev USB owns a disposable runtime checkout and may repair it automatically; the Windows emulator is also an active source-development worktree, so it must not erase edits made by the developer or GPT/MCP.
-
-## Current host behavior
-
-- kernel: absent by design;
-- first-run: real `system/surface/ui/first-run.mjs`;
-- first-run persistence: browser `localStorage`, isolated under emulator-specific keys;
-- online identity actions: unavailable for now, so local-only onboarding remains supported;
-- network/hardware management: unavailable for now and must stay visibly unavailable rather than being faked;
-- post-onboarding Surface: repository `system/composition/web/index.html`;
-- reset: use the `Reiniciar primeiro uso` development control.
-
-The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state and reset the flow without pretending that native kernel capabilities exist.
-
-## Smoke proof
-
-With the emulator running:
-
-```bash
 npm run emulator:windows:smoke
 ```
 
-The smoke proof opens an isolated Chromium/Edge session and validates the real OOBE contract. It also contains the full OOBE-to-Surface proof for execution on a machine with the complete workspace dependencies installed.
+The smoke test resets only the emulator's first-run state, opens the real Native MVP composition, completes the real OOBE and requires a ready Native workspace with launcher apps. JavaScript exceptions fail the test.
 
-## Architecture rule
+Persistent emulator state is stored outside the repository under the Windows local application-data directory (`OrdaX/MvpEmulator`).
 
-Do not copy Surface/OOBE implementation into this directory. Emulator-only code may provide host adapters and development controls, while product UI and business rules remain owned by `system/`.
+## Authority
 
-Do not add kernel, Buildroot, initramfs or Creator steps to this target. Changes that only affect this emulator or shared UI should not require kernel/media builds.
+The physical MVP USB remains authoritative for Linux kernel, initramfs, bootloader, device drivers and exact physical-hardware behavior. For Surface/OOBE/apps/services, the emulator must run the same Native MVP code so visual and functional corrections made during development carry directly to the USB product.
