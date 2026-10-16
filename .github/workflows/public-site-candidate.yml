@@ -5,6 +5,15 @@ on:
     branches: [main]
     paths:
       - 'sites/public/**'
+      - 'system/**'
+      - 'tools/surface-web/**'
+      - 'tools/source_graph.py'
+      - 'third_party/licenses/**'
+      - 'tests/test_surface_web_builder.py'
+      - 'docs/evidence/web-*-reference-*.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/test_public_deployment_bundle.py'
       - 'deploy/public-site/**'
       - 'api/account-proxy.mjs'
       - 'vercel.json'
@@ -87,6 +96,15 @@ on:
   pull_request:
     paths:
       - 'sites/public/**'
+      - 'system/**'
+      - 'tools/surface-web/**'
+      - 'tools/source_graph.py'
+      - 'third_party/licenses/**'
+      - 'tests/test_surface_web_builder.py'
+      - 'docs/evidence/web-*-reference-*.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/test_public_deployment_bundle.py'
       - 'deploy/public-site/**'
       - 'api/account-proxy.mjs'
       - 'vercel.json'
@@ -285,4 +303,40 @@ jobs:
           name: ordax-public-site-${{ github.sha }}
           path: out/public-site/
           if-no-files-found: error
+          retention-days: 14
+
+  public-deployment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Install locked Web build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify independent artifact composition
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_public_deployment_bundle tests.test_surface_web_builder -v
+          python tools/public-site/deployment.py build --source-commit "$GITHUB_SHA"
+          python tools/public-site/deployment.py verify
+          python tools/public-site/deployment.py build --source-commit "$GITHUB_SHA" --out-dir "$RUNNER_TEMP/public-deployment-repeat"
+          diff -qr out/public-deployment "$RUNNER_TEMP/public-deployment-repeat"
+      - name: Prove mounted Web with public policy
+        run: node tools/surface-web/browser-smoke.mjs --bundle-dir out/public-deployment --mount-path /ordax/ --public-policy vercel.json --evidence-dir out/mounted-web-proof
+      - name: Upload public deployment and viewport evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-public-deployment-${{ github.sha }}
+          path: |
+            out/public-deployment/
+            out/mounted-web-proof/
+          if-no-files-found: warn
           retention-days: 14

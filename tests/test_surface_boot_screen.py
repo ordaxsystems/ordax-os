@@ -52,9 +52,9 @@ class SurfaceBootScreenTests(unittest.TestCase):
             self.assertIn('id="ordax-boot-screen"', html)
             self.assertIn('data-ordax-boot-status', html)
             self.assertIn('data-ordax-boot-status>OrdaX</span>', html)
-            self.assertIn(
-                '<html lang="und">' if path == NATIVE_HTML else '<html lang="pt-BR">',
+            self.assertRegex(
                 html,
+                r'<html\b[^>]*\blang="und"[^>]*>' if path == NATIVE_HTML else r'<html\b[^>]*\blang="pt-BR"[^>]*>',
             )
             self.assertLess(
                 html.index('id="ordax-boot-screen"'),

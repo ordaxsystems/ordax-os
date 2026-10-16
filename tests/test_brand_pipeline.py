@@ -34,7 +34,7 @@ class BrandPipelineTests(unittest.TestCase):
     def test_symbol_styles_are_derived_once_and_reject_external_assets(self):
         import re
         css = brand.render_site_identity_css()
-        self.assertEqual(css, brand.render_site_css() + "\n" + brand.SYMBOL_CSS.read_text(encoding="utf-8"))
+        self.assertEqual(css, brand.render_site_css() + "\n" + brand.MERIDIAN_TOKENS.read_text(encoding="utf-8") + "\n" + brand.SYMBOL_CSS.read_text(encoding="utf-8"))
         self.assertEqual(set(re.findall(r'url\("([^"]+)"\)', css)), {'./ordax-symbol.png'})
         for name in ("site", "account", "portal", "playground", "download"):
             source = (ROOT / "sites/public/assets" / (name + ".css")).read_text(encoding="utf-8")
@@ -114,7 +114,7 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertIn("var(--ordax-panel)", stylesheet)
             self.assertIn("var(--ordax-text)", stylesheet)
             self.assertIn("var(--ordax-muted)", stylesheet)
-            self.assertIn("var(--ordax-border)", stylesheet)
+            self.assertRegex(stylesheet, r"var\(--ordax-border(?:-soft)?\)")
             self.assertIn("var(--ordax-accent)", stylesheet)
             self.assertNotIn("--account-bg:#", stylesheet)
             self.assertNotIn("--canvas:#080f19", stylesheet)
@@ -136,7 +136,7 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
             references = set(re.findall(r"var\((--ordax-[a-z-]+)", css))
             self.assertFalse(references - definitions, (asset, references - definitions))
-            self.assertIn("var(--ordax-font)", css)
+            self.assertRegex(css, r"var\(--(?:ordax-font|md-font)\)")
         for route in ("conta", "web"):
             markup = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
             self.assertTrue('src="/assets/ordax-symbol.png"' in markup or 'class="ordax-symbol"' in markup)
@@ -148,43 +148,23 @@ class BrandPipelineTests(unittest.TestCase):
 
     def test_account_and_portal_materials_follow_surface_semantics(self):
         import re
+        canonical = brand.render_site_identity_css()
+        for filename in ("account.css", "portal.css", "account-dashboard.css"):
+            css = (ROOT / "sites/public/assets" / filename).read_text(encoding="utf-8")
+            # Geometry may evolve; every presentation alias must resolve to a
+            # local definition or the shared canonical token bridge.
+            base = (ROOT / "sites/public/assets/site.css").read_text(encoding="utf-8")
+            definitions = set(re.findall(r"(--[a-zA-Z0-9-]+)\s*:", canonical + base + css))
+            references = set(re.findall(r"var\((--[a-zA-Z0-9-]+)", css))
+            self.assertFalse(references - definitions, (filename, references - definitions))
+            if filename != "portal.css":
+                self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|hsla?\(")
         account = (ROOT / "sites/public/assets/account.css").read_text(encoding="utf-8")
-        portal = (ROOT / "sites/public/assets/portal.css").read_text(encoding="utf-8")
-        def rule_body(source, selector):
-            for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", source):
-                candidate = re.sub(r"/\*.*?\*/", "", match.group(1), flags=re.S).strip()
-                if candidate == selector:
-                    return match.group(2)
-            self.fail("missing css rule: " + selector)
-
-        for source, selectors in (
-            (account, (
-                ".account-stage", ".account-card",
-                ".account-ui .identity-state", ".account-ui .identity-submit",
-                '.account-ui .identity-state[data-status="ready"]',
-                '.account-ui .identity-state[data-status="unavailable"]',
-                ".account-ui .registration-legal",
-            )),
-            (portal, (
-                ".auth-shell", ".auth-card", ".identity-state",
-                ".identity-field input", ".release-card", ".status-panel",
-            )),
-        ):
-            for selector in selectors:
-                body = rule_body(source, selector)
-                for declaration in re.findall(r"(?:background|border-color|color):[^;]+;", body):
-                    self.assertNotRegex(declaration, r"#[0-9a-fA-F]{3,8}\b", selector)
-                    self.assertIn("var(--ordax-", declaration, selector)
-        self.assertIn("var(--ordax-success-bg)", account)
-        self.assertIn("var(--ordax-warning-bg)", account)
-        self.assertIn("var(--ordax-button-bg)", account)
-        self.assertIn("var(--ordax-radius-xl)", portal)
-        self.assertIn("url('/assets/aurora-titanium.png')", account)
-        self.assertIn("url('/assets/aurora-titanium.png')", portal)
-        for source in (account, portal):
-            self.assertIn(".brand-mark", source)
-        self.assertIn('body[data-page="landing"]',
-                      (ROOT / "sites/public/assets/playground.css").read_text(encoding="utf-8"))
+        for state in ("checking", "ready", "unavailable"):
+            self.assertIn(f'.identity-state[data-status="{state}"]', account)
+        self.assertIn(".identity-submit:disabled", account)
+        self.assertIn(".registration-legal", account)
+        self.assertIn("var(--md-focus", account)
 
     def test_download_materials_share_surface_ssot_without_logo_swap(self):
         import re

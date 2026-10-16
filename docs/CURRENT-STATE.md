@@ -1,5 +1,152 @@
 # Current State
 
+Web Meridian integration follow-up (2026-10-16): the real account-backed Spaces
+view now opens first, with Meridian cards and authorized session-only selection.
+Complete mocks remain explicitly accessible. Central's Profile shortcut opens the
+canonical bundled catalog; pending integrations use red text badges and preserve
+planned controls. The follow-up also composes server-confirmed signup readiness,
+with bounded policy reads and cancellation. 96 targeted tests, TypeScript and
+reference verification pass.
+The branch has been reconciled with main `0d9832ed38bba21ac0c99a509c7a5464776aeaeb`.
+Web production compilation passes. Public-portal regression also passes (42 Node
+tests and 52 Python tests); the compact More menu no longer repeats primary routes.
+The local Vite origin still lacks a configured authenticated gateway. No live account
+E2E or USB readiness is claimed. Public `/web/` remains a gated portal entry, not
+the 4201 application: product runtime hosting and its strict-CSP browser proof
+remain required before enabling that launch. Main promotion and deployment must
+be verified separately from these local results.
+[Scope](DESKTOP-IDENTITY.md#web-meridian-account-backed-spaces-and-pending-integrations--2026-10-16).
+PR #1859 contains the preserved integration. The shared Meridian journeys and
+Space examples now consume the existing Surface language catalog in pt-BR/en-US
+(1,139 stable message IDs). Their scenario/step/option identities and confirmation
+gates are preserved. Web uses the regional preference; Native uses its localization
+port. 101 Web/Meridian regressions and 28 locale regressions pass locally, including
+the formerly failing English rendering audit. TypeScript, production Web compilation
+and the 34-reference verifier pass. Public runtime packaging and complete Web
+browser proof still require validation before promotion.
+See [CI evidence](evidence/meridian-web-2026-10-16/README.md#ci-review-of-pr-1859).
+
+Local follow-up after remote commit `f2e529a5a9000c0cf63a549029633629a8cf2532`:
+the catalog now uses explicit literal tables compatible with the public builder's
+static reader. Central's manual sidebar sizing and Settings appearance markers are
+restored, and dock restore labels use the managed window title. 101 Web/Meridian
+tests, 40 Python public/catalog/builder tests and the 34-reference verifier pass.
+The adapted Web browser regression now passes all seven viewports (320–1440px,
+including landscape), preserving theme persistence, navigation, window lifecycle,
+drafts, compact geometry and unavailable-backend checks. Central's collapse control
+uses normal rail layout instead of inheriting the old edge positioning. The earlier
+automatic-review usage blocker was cleared on continuation. These follow-up changes
+are saved with this evidence on the existing branch. Main/public promotion remains
+pending production runtime packaging and its strict-CSP proof.
+
+Public-policy follow-up: CI for `8ea37ae4abddf7143e659ba1234a34e39f1b34fc`
+passes Surface Web Candidate, Foundation Contract, Public Site Candidate and
+English localization. Store/Spaces shadow presentations now adopt their existing
+bundled CSS through constructed sheets, and Store markup uses stylesheet classes
+for static spacing. All examples/actions are retained. The official Web browser
+proof can optionally serve the actual global headers from `vercel.json` using
+`--public-policy vercel.json`. That strict run confirms the scoped presentations
+render but fails on four `style-src-elem` violations from UI dependency styles;
+the retained document style identifies Sonner. No CSP allowlist or security header
+was relaxed, and public runtime activation remains blocked by this actual proof.
+
+Public-policy correction: a build-only adapter now replaces stylesheet element
+delivery for the exact locked Sonner and react-style-singleton inputs with native
+constructed sheets. Upstream CSS and component APIs/reference counting remain
+unchanged; unexpected source hashes or missing adapter coverage fail the build.
+The adapter is included in the canonical Web source receipt. Four adapter lifecycle/
+integrity tests, eight builder tests, typecheck/build and reference verification
+pass. The official Web regression now passes all seven viewports under the original
+`vercel.json` global headers with zero CSP violations. CI now requires that strict
+proof. This supersedes the local CSS blocker above; independent public runtime
+packaging/deployment and authenticated E2E remain pending.
+
+Public deployment composition (source-ready): `tools/public-site/deployment.py`
+now builds/verifies the existing public portal at `/` and the existing Web builder
+at `/ordax/`, requiring the same source commit and preserving both manifests/files.
+The deployment receipt rejects corruption, extra files and component path escape.
+Vercel configuration targets `out/public-deployment`; its same-origin account
+rewrites and security headers remain intact. Public Site Candidate also validates
+composition repeatability and the mounted Web under the real policy. Local mounted
+browser proof passes all seven viewports, and 44 targeted packaging/portal/builder
+tests pass. This is source/local-candidate proof, not a production deployment:
+`runtime_deployment_verified` remains false, and `/web/` activation is unchanged.
+
+Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
+shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
+The Meridian reference re-exports those owners. Real controls remain intact; example
+completion does not execute backend operations. No build or physical USB validation
+was performed. [Scope](DESKTOP-IDENTITY.md#shared-settings-journeys--2026-10-15).
+
+Web Settings layout (2026-10-15): Settings adopts the Meridian category grid and
+panels while preserving all real Web preference controls and account navigation.
+Unconnected device features remain visible as labelled examples. No branch merge,
+npm, automated tests or build for this change.
+[Scope](DESKTOP-IDENTITY.md#web-settings-meridian-layout--2026-10-15).
+
+Spaces presentation follow-up (2026-10-15): the Web Spaces window now shares the
+Meridian dashboard renderer/styles/examples with the isolated preview. Authorized
+account consultation and selection remain separate and unchanged. Covers, metrics
+and creation examples do not imply backend support. The branch incorporates current
+main through `7e71ead5`; no automated checks or build were run for this follow-up.
+[Scope](DESKTOP-IDENTITY.md#shared-spaces-presentation--2026-10-15).
+
+Profile categories and parity notes (2026-10-14): Web consultation now reuses the
+canonical taxonomy for parent/category/niche filters and retains valid profiles
+when taxonomy is unavailable. Existing unsupported screens expose collapsed
+compatibility notes; planned features and Store sessions remain intact.
+[Scope](DESKTOP-IDENTITY.md#profile-categories-and-visible-parity-notes--2026-10-14).
+
+Meridian backend compatibility review (2026-10-14): the user requires retaining
+all planned frontend functionality and deferring integrations whose backend is
+narrower. Web professional profiles now additionally consult the canonical bundled
+active-profile catalog, without activation or replacing planned content. Other
+backend/transport gaps remain explicit; no remote service is newly enabled.
+[Compatibility matrix](DESKTOP-IDENTITY.md#meridian-backend-compatibility-review--2026-10-14).
+
+Meridian preferences follow-up (2026-10-14): appearance previews/copy now match
+Argila/Grafite, the dock follows persisted favorites while retaining running apps,
+and embedded Store contrast, motion and text scale follow canonical preferences.
+51 targeted tests, both builds, reference verification and browser checks passed.
+[Evidence](evidence/meridian-integration-2026-10-14/README.md#preferences-consistency-follow-up).
+
+Meridian chrome completion (2026-10-14, user follow-up): the Web now uses the
+Meridian context/grouped rail, utility/account footer, persistent Central header
+with destination search, and centered icon dock. Desktop keeps the compact rail;
+mobile exposes all destinations through its menu and preserves the full work area.
+Dock ordering and keyboard navigation retain the existing managed windows, and
+Aura/Intelligence labels resolve to one window. The earlier color-only chrome
+adaptation is superseded. Mocks and unavailable service states remain explicit.
+[Chrome validation](evidence/meridian-integration-2026-10-14/README.md#chrome-completion).
+
+Meridian integration (2026-10-14, explicit subsequent user authorization): the
+canonical Web Central now uses the Meridian editorial layout, the existing
+alpine hero images, the canonical symbol and the existing account/preferences/
+window owners. Planned project, agenda, file and routine examples stay visible
+and labelled as mocks, as requested. The Store presentation is shared between
+`/store-preview/` and the actual Web Store window, with scoped CSS/session
+lifecycle and no iframe or global hash navigation. A ready official catalog
+opens in the real view; when the Web transport is absent, the planned view
+remains available with a distinct switch to the fail-closed real catalog.
+Shared Meridian tokens/style also load in the Native/USB composition and style
+its existing Store; Native operations and hardware gates are unchanged.
+The older standalone-only scope below records the preceding delivery and is
+superseded only as to placement by this explicit integration request.
+[Scope and validation](DESKTOP-IDENTITY.md#meridian-web-and-store-integration--2026-10-14).
+
+Store visual preview (2026-10-14, isolated source): `/store-preview/` is an
+explicitly requested standalone presentation page under `system/composition/web/`,
+using Meridian Argila/Grafite colors and the existing demo catalog/session reducer.
+It includes discovery, resource details, library and type-specific simulated
+operations. It is not mounted in the production workspace and does not add an
+installation port, official inventory or material preference. After explicit user
+authorization, 69 targeted automated tests, Web type-check/build, the dedicated
+preview build, reference verification and 28 browser checks passed. The preview
+build is emitted separately to `out/store-preview`; no production entry is added.
+[Validation evidence](evidence/store-preview-2026-10-14/README.md) covers session
+mocks and source/build compatibility, not real installation or physical proof.
+[Scope and limits](DESKTOP-IDENTITY.md#isolated-store-visual-preview--2026-10-14).
+
 Notification UX (2026-10-13): Web/USB now share the notification center renderer
 and CSS. Explicit read/filter/dismiss/Do Not Disturb actions consume the existing
 port. Native updater events retain their original runtime/store/bridge owners;

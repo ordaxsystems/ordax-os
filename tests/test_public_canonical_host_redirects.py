@@ -64,7 +64,7 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(self.contract["vercel_adapter"]["canonical_public_origin"], "https://ordax.com.br")
 
     def test_source_build_gates_only_public_site_inputs(self):
-        self.assertEqual(self.config["outputDirectory"], "out/public-site")
+        self.assertEqual(self.config["outputDirectory"], "out/public-deployment")
         self.assertEqual(
             self.config["ignoreCommand"],
             "sh tools/public-site/should_skip_vercel_build.sh",

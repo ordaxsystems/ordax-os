@@ -87,7 +87,13 @@ export const findItem = (id: string) => catalog.find(i => i.id === id) ?? null;
 const norm = (v: string) => v.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 export function searchCatalog(query: string, kind: Kind | 'all' = 'all', items: StoreItem[] = catalog): StoreItem[] {
   const q = norm(query.trim());
-  return items.filter(i => (kind === 'all' || i.kind === kind) && (!q || norm([i.name, i.tagline, i.developer, ...i.tags].join(' ')).includes(q)));
+  return items.filter(i => (kind === 'all' || i.kind === kind) && (!q || norm([
+    i.name, i.tagline, i.description, i.developer, kindMeta[i.kind].label, ...i.tags,
+    ...('category' in i ? [i.category] : []),
+    ...('capabilities' in i ? i.capabilities : []),
+    ...('provides' in i ? i.provides : []),
+    ...('tasks' in i ? i.tasks : []),
+  ].join(' ')).includes(q)));
 }
 
 /** Platform labels for apps/connectors; never claims availability. */

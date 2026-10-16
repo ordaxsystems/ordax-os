@@ -2,6 +2,52 @@
 
 Status: CANONICAL LEDGER
 
+## Meridian Web and Store integration — 2026-10-14
+
+BACKEND_PARITY=User requires planned features retained; additive active Profile consultation reuses canonical bundled loader/catalog. Other partial transports/lifecycles remain deferred per DESKTOP-IDENTITY compatibility matrix.
+
+FOLLOW_UP=Canonical preferences now drive dock favorites and embedded contrast/motion/text scale; material preview/copy matches Meridian; no new preference or service owner
+
+COMPONENT=Canonical Web Central/Desktop and Store presentation; shared Native/USB visual policy
+REFERENCE_REPOSITORY=ordaxsystems/ordax-os
+REFERENCE_COMMIT=e7cf628a01878c484d47997721518fe6f2330c10
+REFERENCE_PATH=Meridian visual freeze, meridian-field.svg, palette/glyph subset already adopted by standalone Store
+RESPONSIBILITY=Editorial visual hierarchy, rail/dock/window presentation, Argila/Grafite colors and shared Store visuals
+WHY_NEEDED=Explicit later user request to integrate Meridian into Web, retain planned mocks, integrate Store and reuse existing hero imagery
+DEPENDENCIES=Existing Central account/preferences/window owners, Store catalog provider and session reducer, canonical symbol/font/alpine assets
+SECURITY_REVIEW=No experimental controller, host service, provider, grants, credentials, OAuth, downloader or execution authority imported; examples labelled and session-only
+TESTS=See docs/evidence/meridian-integration-2026-10-14/README.md; real/fixture catalog isolation and existing lifecycle regressions retained
+DECISION=ADOPTED (presentation only); REFERENCE_ONLY (experiment runtime and fixtures outside the explicitly identified UI examples)
+
+Chrome completion after user follow-up adopts the frozen context/grouped rail,
+utilities/account footer, persistent Central search and centered icon dock. One
+existing metadata catalog retains menu-only destinations; existing window/identity/
+preference/Dialog owners remain. No experimental controller is imported.
+
+The canonical mainline owners and physical/release gates remain unchanged.
+The prior standalone-only placement restriction is superseded by explicit user
+integration authorization; the standalone entry remains a consumer of the same
+shared renderer. No second official catalog, preferences store or window manager.
+
+## Isolated Store visual preview — 2026-10-14
+
+COMPONENT=Standalone Store presentation preview in system/composition/web/store-preview
+REFERENCE_REPOSITORY=ordaxsystems/ordax-os
+REFERENCE_COMMIT=e7cf628a01878c484d47997721518fe6f2330c10
+REFERENCE_PATH=docs/design/MERIDIAN-VISUAL-SYSTEM.md; system/surface/experiments/meridian/meridian.tokens.css; system/surface/experiments/meridian/icons.mjs
+RESPONSIBILITY=Argila/Grafite palette, presentation glyphs and perceptual Store composition
+WHY_NEEDED=Explicit request for an isolated Store page using Meridian colors and visual identity
+DEPENDENCIES=Existing demo catalog and session reducer, first-run selection policy, OS symbol and Inter asset
+SECURITY_REVIEW=Presentation-only assets; no experiment shell/controller, official port, host API, grants, credentials or execution imported
+TESTS=Explicitly authorized after initial presentation; 69 targeted automated tests passed, Web type-check/build and dedicated preview build passed, 34 reference files verified, 28 browser checks passed; docs/evidence/store-preview-2026-10-14/README.md; no physical or release proof claimed
+DECISION=ADOPTED (isolated palette/glyph subset); REFERENCE_ONLY (visual composition)
+
+The production Store renderer/CSS is not changed. All added version/date/size
+metadata and operation progress are explicitly illustrative and cannot become
+host inventory. The page is a local presentation entry, not a new runtime owner
+or promotion of the experimental Meridian visual system into preferences.
+[Scope and limits](DESKTOP-IDENTITY.md#isolated-store-visual-preview--2026-10-14).
+
 ## Web Central presentation — 2026-10-11
 
 COMPONENT=Surface Web Central and classic desktop presentation

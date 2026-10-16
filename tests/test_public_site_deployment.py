@@ -105,6 +105,10 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             builder_change = commit("canonical site builder changed")
             self.assertEqual(ignored(releases_change, builder_change), 1)
 
+            write("system/surface/workspace/components/central/central.tsx", "// Web layout changed")
+            web_change = commit("shared Web changed")
+            self.assertEqual(ignored(builder_change, web_change), 1)
+
     def test_cloudflare_exclusive_zone_is_active_with_independent_runtime_proof_pending(self):
         migration = self.contract["cloudflare_dns_migration"]
         self.assertEqual(migration["purpose"], "ordax-os-only")
@@ -426,9 +430,9 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(public_edge_rate_limit["shared_policy_deployed"])
 
     def test_vercel_routes_auth_sync_and_bounded_account_surface_through_server_function(self):
-        self.assertEqual(self.vercel["outputDirectory"], "out/public-site")
-        self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-site")
-        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify")
+        self.assertEqual(self.vercel["outputDirectory"], "out/public-deployment")
+        self.assertEqual(self.contract["vercel_adapter"]["static_output_directory"], "out/public-deployment")
+        self.assertEqual(self.vercel["buildCommand"], "python3 tools/public-site/build.py check && python3 tools/public-site/deployment.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/deployment.py verify")
         rewrites = {item["source"]: item["destination"] for item in self.vercel["rewrites"]}
         self.assertEqual(rewrites["/auth/:path*"], "/api/account-proxy?ordax_path=/auth/:path*")
         self.assertEqual(rewrites["/sync/:path*"], "/api/account-proxy?ordax_path=/sync/:path*")

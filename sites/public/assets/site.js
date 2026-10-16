@@ -24,6 +24,18 @@
     );
   }
 
+  // Eligibility is shared by form rendering and local preview navigation.
+  // These are presentation routes only; /auth endpoints are never rewritten.
+  const IDENTITY_PREVIEW_PATHS = new Set([
+    "/login/", "/cadastro/", "/recuperar/", "/recuperar/nova-senha/",
+  ]);
+  function isIdentityLayoutPreview() {
+    return document.body?.classList?.contains?.("account-ui")
+      && IDENTITY_PREVIEW_PATHS.has(window.location.pathname)
+      && ["127.0.0.1", "localhost", "[::1]"].includes(window.location.hostname)
+      && new URLSearchParams(window.location.search).get("preview") === "layout";
+  }
+
   async function loadJson(path, signal) {
     const response = await fetch(path, {
       method: "GET",
@@ -664,6 +676,34 @@
     if (!state || !form) return;
 
     const kind = form.dataset.identityForm;
+    // Explicit, local-only presentation mode. Render the SAME native form,
+    // inert and disabled, without querying Identity or loading Turnstile.
+    // This does not enable the public sign-in flow or simulate a session.
+    const layoutPreview = ["login", "register", "recover", "recover-complete"].includes(kind)
+      && isIdentityLayoutPreview();
+    if (layoutPreview) {
+      form.removeAttribute("action");
+      form.inert = true;
+      for (const control of form.querySelectorAll("input, button")) control.disabled = true;
+      form.onsubmit = (event) => event.preventDefault();
+      form.hidden = false;
+      if (kind === "register") {
+        // Show existing legal controls as an inert illustration, never a
+        // verified policy or recorded acceptance. Live registration below
+        // still requires its server-owned, hash-verified legal documents.
+        const legal = form.querySelector("[data-registration-legal]");
+        if (legal) legal.hidden = false;
+      }
+      state.dataset.status = "preview";
+      state.removeAttribute("aria-busy");
+      const title = state.querySelector("strong");
+      const detail = state.querySelector("p");
+      if (title) title.textContent = t("identity.layoutPreview.title");
+      if (detail) detail.textContent = t("identity.layoutPreview.detail");
+      document.body.dataset.identityReady = "false";
+      document.body.dataset.identityPreview = "layout";
+      return;
+    }
     const routes = {
       login: ["/auth/login", config?.identity?.login_url],
       register: ["/auth/register", config?.identity?.register_url],
@@ -1036,6 +1076,25 @@
     ) {
       await renderIdentity(config);
     }
+  }
+
+  if (isIdentityLayoutPreview()) {
+    // Preserve the explicit read-only context for ordinary identity links,
+    // including new-tab clicks. Let the browser perform native navigation.
+    const preserveLayoutPreview = (event) => {
+      if (event.defaultPrevented || event.button > 1) return;
+      const link = event.target?.closest?.("a[href]");
+      if (!link) return;
+      let target;
+      try { target = new URL(link.href, window.location.href); }
+      catch { return; }
+      if (target.origin !== window.location.origin
+          || !IDENTITY_PREVIEW_PATHS.has(target.pathname)) return;
+      target.searchParams.set("preview", "layout");
+      link.href = target.href;
+    };
+    document.addEventListener("click", preserveLayoutPreview, true);
+    document.addEventListener("auxclick", preserveLayoutPreview, true);
   }
 
   document.addEventListener("ordax:localechange", () => {

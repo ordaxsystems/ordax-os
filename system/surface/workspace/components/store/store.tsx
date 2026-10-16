@@ -39,7 +39,7 @@ function primaryAction(i: StoreItem, st: ProductStatus): { label: string; op: Op
   return { label: 'Instalar', op: 'install' };
 }
 
-export function StoreExperience({ onOpenApp }: { onOpenApp?: ((id: string) => void) | undefined }) {
+export function OfficialStoreExperience({ onOpenApp }: { onOpenApp?: ((id: string) => void) | undefined }) {
   const snapshot = useStoreCatalog();
   const [demo, setDemo] = useState(false);
   // A mode change disposes timers and session state; simulations never become host state.
@@ -315,3 +315,6 @@ function KindBody({ item, ctx }: { item: StoreItem; ctx: Ctx }) {
     case 'package': return <Facts rows={[['Tipo', item.packageType], ['Versão', item.version], ['Ativação', item.activation]]}/>;
   }
 }
+
+// Compatibility for existing host consumers; the official view stays fail-closed.
+export { OfficialStoreExperience as StoreExperience };

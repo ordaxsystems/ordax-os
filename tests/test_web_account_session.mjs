@@ -17,18 +17,20 @@ function fixture(sessionValue = signedOut, { online = true } = {}) {
   const windowRef = new EventTarget();
   const document = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   const requests = [];
-  const server = { session: sessionValue, readSpaces: () => response(catalog(server.session.subject)) };
+  const server = { session: sessionValue, readSpaces: () => response(catalog(server.session.subject)), readPolicy: () => ({ok: false, status: 503}) };
+  const navigations = [];
   Object.assign(windowRef, {
-    navigator: { onLine: online }, document,
+    navigator: { onLine: online }, document, location: {assign: path => navigations.push(path)},
     fetch: async (path, options) => {
       requests.push({ path, options });
       if (path === '/auth/session') return response(server.session);
       if (path === '/account/spaces') return server.readSpaces(options);
+      if (path === '/auth/registration-policy') return server.readPolicy(options);
       if (path === '/auth/logout') { server.session = signedOut; return response({}); }
       throw Error('Unexpected endpoint');
     },
   });
-  return { windowRef, requests, server, session: createWebAccountSession(windowRef) };
+  return { windowRef, requests, server, navigations, session: createWebAccountSession(windowRef) };
 }
 function deferred() {
   let resolve;
@@ -42,7 +44,7 @@ test('anonymous refresh reads no Spaces and shares one in-flight session request
     const first = f.session.refresh();
     assert.equal(f.session.refresh(), first);
     await first;
-    assert.equal(f.requests.length, 1);
+    assert.deepEqual(f.requests.map(request => request.path), ['/auth/session', '/auth/registration-policy']);
     assert.equal(f.session.identity.getSnapshot().state, 'signed-out');
     assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in']);
     assert.equal(f.session.spaces.getSnapshot().state, 'idle');
@@ -347,4 +349,109 @@ test('late cancelled identity body cannot replace the subject verified after rec
     assert.equal(f.session.identity.getSnapshot().subjectId, 'account-a');
     assert.equal(f.session.spaces.getSnapshot().spaces[0].ownerId, 'account-a');
   } finally { f.session.dispose(); }
+});
+
+
+const registrationPolicy = enabled => ({
+  $schema: 'prototype-ordax.registration-legal-policy/1', active: true, registrationEnabled: enabled,
+  policyId: '11111111-1111-4111-8111-111111111111',
+  privacy: {version: '2026-10-02', effectiveDate: '2026-10-02', sha256: 'a'.repeat(64), url: 'https://ordax.example/privacidade/'},
+  terms: {version: '2026-10-02', effectiveDate: '2026-10-02', sha256: 'b'.repeat(64), url: 'https://ordax.example/termos/'},
+});
+
+test('anonymous Web registration follows validated server policy and revalidates before navigation', async () => {
+  const f = fixture();
+  let enabled = true;
+  f.server.readPolicy = options => {
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.redirect, 'error');
+    return response(registrationPolicy(enabled));
+  };
+  try {
+    await f.session.refresh();
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in', 'register']);
+    await f.session.actions.execute('register');
+    assert.deepEqual(f.navigations, ['/cadastro/']);
+    enabled = false;
+    await assert.rejects(f.session.actions.execute('register'));
+    assert.deepEqual(f.navigations, ['/cadastro/'], 'Revoked policy must not navigate again');
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in']);
+  } finally { f.session.dispose(); }
+});
+
+test('invalid or failed registration policy never enables signup and does not block sign-in', async () => {
+  const f = fixture();
+  try {
+    f.server.readPolicy = () => response({registrationEnabled: true});
+    await f.session.refresh();
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-in']);
+    f.server.readPolicy = () => { throw Error('gateway unavailable'); };
+    await f.session.refresh();
+    await assert.rejects(f.session.actions.execute('register'));
+    assert.equal(f.requests.some(request => request.path === '/account/spaces'), false);
+    await f.session.actions.execute('sign-in');
+    assert.deepEqual(f.navigations, ['/login/']);
+  } finally { f.session.dispose(); }
+});
+
+test('signed-in and unavailable identities do not query public signup policy', async () => {
+  for (const value of [signedIn('account-a'), {$schema: 'prototype-ordax.public-identity-session/1', provider: 'unconfigured'}]) {
+    const f = fixture(value);
+    try {
+      await f.session.refresh();
+      assert.equal(f.requests.some(request => request.path === '/auth/registration-policy'), false);
+      assert.equal(f.session.actions.getSnapshot().supportedActions.includes('register'), false);
+    } finally { f.session.dispose(); }
+  }
+});
+
+test('offline aborts a stalled signup policy and ignores its late permission', async () => {
+  const f = fixture();
+  const late = deferred(), started = deferred();
+  let signal;
+  f.server.readPolicy = options => { signal = options.signal; started.resolve(); return late.promise; };
+  try {
+    const pending = f.session.refresh();
+    await started.promise;
+    f.windowRef.navigator.onLine = false;
+    f.windowRef.dispatchEvent(new Event('offline'));
+    await pending;
+    assert.equal(signal.aborted, true);
+    late.resolve(response(registrationPolicy(true)));
+    await Promise.resolve();
+    assert.equal(f.session.actions.getSnapshot().supportedActions.includes('register'), false);
+  } finally { f.session.dispose(); }
+});
+
+test('account replacement cancels old anonymous signup permission', async () => {
+  const f = fixture();
+  const late = deferred(), started = deferred();
+  let signal;
+  f.server.readPolicy = options => { signal = options.signal; started.resolve(); return late.promise; };
+  try {
+    const pending = f.session.refresh();
+    await started.promise;
+    f.server.session = signedIn('account-b');
+    await f.session.identity.refresh();
+    await pending;
+    assert.equal(signal.aborted, true);
+    late.resolve(response(registrationPolicy(true)));
+    await Promise.resolve();
+    assert.deepEqual(f.session.actions.getSnapshot().supportedActions, ['sign-out']);
+  } finally { f.session.dispose(); }
+});
+
+test('disposing Web session aborts a pending registration policy', async () => {
+  const f = fixture();
+  const late = deferred(), started = deferred();
+  let signal;
+  f.server.readPolicy = options => { signal = options.signal; started.resolve(); return late.promise; };
+  const pending = f.session.refresh();
+  await started.promise;
+  f.session.dispose();
+  await pending;
+  assert.equal(signal.aborted, true);
+  late.resolve(response(registrationPolicy(true)));
+  await Promise.resolve();
+  assert.equal(f.session.actions.getSnapshot().supportedActions.includes('register'), false);
 });

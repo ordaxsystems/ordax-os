@@ -101,7 +101,7 @@ test('one Store renderer displays ready host entries and defaults to official mo
   const { renderToStaticMarkup } = await import('react-dom/server');
   const server = await createServer({
     configFile: new URL('../tools/surface-web/vite.config.ts', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'),
-    server: { middlewareMode: true }, appType: 'custom',
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
     optimizeDeps: { noDiscovery: true, include: [] },
   });
   try {

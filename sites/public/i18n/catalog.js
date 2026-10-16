@@ -5,6 +5,8 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["OrdaX Web", "OrdaX Web"],
+    ["OrdaX OS", "OrdaX OS"],
     ["Espaço pessoal OrdaX", "OrdaX personal space"],
     ["/ não disponível", "/ unavailable"],
     ["ESPAÇO PESSOAL", "PERSONAL SPACE"],
@@ -301,8 +303,8 @@
     ["Entrar na", "Sign in to your"],
     ["Conta OrdaX.", "OrdaX Account."],
     ["Continue de onde parou quando o acesso público estiver disponível.", "Continue where you left off when public access becomes available."],
-    ["Serviço de identidade ainda não configurado", "Identity service is not configured yet"],
-    ["Quando a integração for ativada, o acesso será conectado ao serviço seguro de identidade e sessão da OrdaX.", "When the integration is enabled, sign-in will connect to OrdaX's secure identity and session service."],
+    ["Acesso temporariamente indisponível", "Sign-in temporarily unavailable"],
+    ["Não foi possível liberar o acesso agora. Tente novamente mais tarde.", "Sign-in could not be enabled right now. Please try again later."],
     ["E-mail", "Email"],
     ["Senha", "Password"],
     ["Esqueci minha senha", "Forgot my password"],
@@ -330,8 +332,8 @@
     ["NOVA CONTA", "NEW ACCOUNT"],
     ["Crie sua", "Create your"],
     ["Registre seu acesso quando o cadastro público estiver disponível.", "Register your access when public registration becomes available."],
-    ["Cadastro ainda não configurado", "Registration is not configured yet"],
-    ["O botão será habilitado somente quando existir um endpoint de identidade aprovado para o portal.", "The button will be enabled only when an approved identity endpoint exists for the portal."],
+    ["Cadastro temporariamente indisponível", "Registration temporarily unavailable"],
+    ["Não foi possível liberar o cadastro agora. Tente novamente mais tarde.", "Registration could not be enabled right now. Please try again later."],
     ["Use pelo menos 12 caracteres.", "Use at least 12 characters."],
     ["Leia os Termos e a Política de Privacidade antes de criar sua conta:", "Read the Terms and Privacy Policy before creating your account:"],
     ["Li e aceito os Termos de Uso e a Política de Privacidade.", "I have read and accept the Terms of Use and Privacy Policy."],
@@ -362,8 +364,8 @@
     ["O pedido é enviado ao owner real de identidade. A conclusão usa uma sessão de recuperação protegida pelo servidor.", "The request is sent to the real identity owner. Completion uses a server-protected recovery session."],
     ["RECUPERAÇÃO", "RECOVERY"],
     ["Solicitar recuperação", "Request recovery"],
-    ["Recuperação ainda não configurada", "Recovery is not configured yet"],
-    ["Este recurso será habilitado somente depois que o fluxo completo e o endereço HTTPS forem aprovados.", "This feature will be enabled only after the complete flow and HTTPS address are approved."],
+    ["Recuperação temporariamente indisponível", "Recovery temporarily unavailable"],
+    ["Não foi possível liberar a recuperação agora. Tente novamente mais tarde.", "Recovery could not be enabled right now. Please try again later."],
     ["Enviar instruções", "Send instructions"],
     ["Lembrou a senha?", "Remembered your password?"],
     ["Voltar para entrar", "Back to sign in"],
@@ -376,8 +378,8 @@
     ["Esta etapa só funciona depois que o servidor valida o link enviado por e-mail e cria uma sessão de recuperação curta e protegida.", "This step works only after the server validates the emailed link and creates a short, protected recovery session."],
     ["NOVA SENHA", "NEW PASSWORD"],
     ["Atualizar senha", "Update password"],
-    ["Conclusão da recuperação ainda não ativada", "Recovery completion is not enabled yet"],
-    ["O formulário será habilitado somente quando o fluxo de recuperação estiver aprovado de ponta a ponta.", "The form will be enabled only when the recovery flow is approved end to end."],
+    ["Alteração de senha indisponível", "Password change unavailable"],
+    ["Não foi possível liberar a alteração de senha agora. Tente novamente mais tarde.", "Password changes could not be enabled right now. Please try again later."],
     ["Nova senha", "New password"],
     ["Confirmar nova senha", "Confirm new password"],
     ["Salvar nova senha", "Save new password"],
@@ -1056,7 +1058,7 @@
 
   const SEMANTIC = Object.freeze({
     "account.usage.unavailablePeriod": ["Dados indisponíveis · {period}", "Data unavailable · {period}"],
-    "account.activity.period": ["Acessos e alterações de {period} serão exibidos quando o serviço de atividade estiver conectado.", "Sign-ins and changes from {period} will appear when the activity service is connected."],
+    "account.activity.period": ["O histórico de “{period}” será exibido quando o serviço de atividade estiver conectado.", "History for “{period}” will appear when the activity service is connected."],
     "account.mobile.navigation": ["Navegação da conta no celular", "Mobile account navigation"],
     "account.search.matches": ["Seções encontradas: {count}.", "Sections found: {count}."],
     "web.entry.checking.title": ["Verificando disponibilidade", "Checking availability"],
@@ -1082,20 +1084,20 @@
     "locale.selector.en-US": ["Inglês (EUA)", "English (US)"],
     "identity.login.ready.title": ["Acesso disponível", "Sign-in available"],
     "identity.login.ready.detail": ["Continue para o serviço seguro de identidade OrdaX.", "Continue to the secure OrdaX identity service."],
-    "identity.login.gated.title": ["Serviço de identidade ainda não configurado", "Identity service is not configured yet"],
-    "identity.login.gated.detail": ["Quando a integração for ativada, o acesso será conectado ao serviço seguro de identidade e sessão da OrdaX.", "When the integration is enabled, sign-in will connect to OrdaX's secure identity and session service."],
+    "identity.login.gated.title": ["Acesso temporariamente indisponível", "Sign-in temporarily unavailable"],
+    "identity.login.gated.detail": ["Não foi possível liberar o acesso agora. Tente novamente mais tarde.", "Sign-in could not be enabled right now. Please try again later."],
     "identity.register.ready.title": ["Cadastro disponível", "Registration available"],
     "identity.register.ready.detail": ["Continue para o serviço seguro de criação da conta OrdaX.", "Continue to the secure OrdaX account creation service."],
-    "identity.register.gated.title": ["Cadastro ainda não configurado", "Registration is not configured yet"],
-    "identity.register.gated.detail": ["O botão será habilitado somente quando existir um endpoint de identidade aprovado para o portal.", "The button will be enabled only when an approved identity endpoint exists for the portal."],
+    "identity.register.gated.title": ["Cadastro temporariamente indisponível", "Registration temporarily unavailable"],
+    "identity.register.gated.detail": ["Não foi possível liberar o cadastro agora. Tente novamente mais tarde.", "Registration could not be enabled right now. Please try again later."],
     "identity.recover.ready.title": ["Recuperação disponível", "Recovery available"],
     "identity.recover.ready.detail": ["Informe o e-mail da Conta OrdaX para receber as instruções de recuperação.", "Enter the OrdaX Account email to receive recovery instructions."],
-    "identity.recover.gated.title": ["Recuperação ainda não configurada", "Recovery is not configured yet"],
-    "identity.recover.gated.detail": ["Este recurso será habilitado somente depois que o fluxo completo e o endereço HTTPS forem aprovados.", "This feature will be enabled only after the complete flow and HTTPS address are approved."],
+    "identity.recover.gated.title": ["Recuperação temporariamente indisponível", "Recovery temporarily unavailable"],
+    "identity.recover.gated.detail": ["Não foi possível liberar a recuperação agora. Tente novamente mais tarde.", "Recovery could not be enabled right now. Please try again later."],
     "identity.recoverComplete.ready.title": ["Sessão de recuperação validada", "Recovery session validated"],
     "identity.recoverComplete.ready.detail": ["Defina e confirme a nova credencial para concluir a recuperação.", "Set and confirm the new credential to complete recovery."],
-    "identity.recoverComplete.gated.title": ["Conclusão da recuperação ainda não ativada", "Recovery completion is not enabled yet"],
-    "identity.recoverComplete.gated.detail": ["O formulário será habilitado somente quando o fluxo de recuperação estiver aprovado de ponta a ponta.", "The form will be enabled only when the recovery flow is approved end to end."],
+    "identity.recoverComplete.gated.title": ["Alteração de senha indisponível", "Password change unavailable"],
+    "identity.recoverComplete.gated.detail": ["Não foi possível liberar a alteração de senha agora. Tente novamente mais tarde.", "Password changes could not be enabled right now. Please try again later."],
     "account.session.checking.title": ["Verificando sua sessão", "Verifying your session"],
     "account.session.checking.detail": ["Consultando o serviço oficial de identidade.", "Checking the official identity service."],
     "account.session.active.title": ["Sessão ativa e verificada", "Active, verified session"],
@@ -1146,6 +1148,395 @@
     messages["en-US"][id] = enUS;
     if (sourceIndex[ptBR] === undefined) sourceIndex[ptBR] = id;
   }
+
+  register("landing.navigation.control", "Controle e segurança", "Control and security");
+  register("landing.navigation.questions", "Dúvidas", "Questions");
+
+  register("identity.javascriptRequired", "Ative o JavaScript para acessar sua conta. Os links de privacidade e termos continuam disponíveis.", "Enable JavaScript to access your account. Privacy and terms links remain available.");
+  register("identity.layoutPreview.title", "Prévia de layout", "Layout preview");
+  register("identity.layoutPreview.detail", "Somente leitura. Nenhum dado é enviado e nenhuma sessão é iniciada.", "Read only. No data is sent and no session is started.");
+
+  register("account.help.resultCount", "Resultados: {count}", "Results: {count}");
+  register("account.help.channel", "Atendimento da conta", "Account support");
+  register("account.help.intro", "Busque uma resposta ou vá direto à área da sua conta.", "Find an answer or go straight to the relevant account area.");
+  register("account.help.shortcuts", "Atalhos de ajuda", "Help shortcuts");
+  register("account.help.clear", "Limpar busca de ajuda", "Clear help search");
+  register("account.help.empty", "Nenhuma resposta encontrada", "No answers found");
+  register("account.help.emptyHint", "Tente buscar por plano, fatura, senha ou dados.", "Try searching for plan, invoice, password or data.");
+  register("account.help.reset", "Ver todas as perguntas", "View all questions");
+  register("account.help.support", "Atendimento OrdaX", "OrdaX support");
+  register("account.help.pending", "O canal de atendimento ainda não está conectado. Por enquanto, nenhuma solicitação pode ser enviada por aqui.", "The support channel is not connected yet. For now, requests cannot be sent here.");
+  register("account.help.availability", "Consultar atendimento", "Check support availability");
+  register("account.help.usageAnswer", "Em Consumo e limites, escolha o recurso e o período que deseja consultar. Os valores serão exibidos quando a medição de uso estiver conectada.", "In Usage and limits, choose the resource and period you want to view. Values will appear when usage metering is connected.");
+  register("account.help.securityAnswer", "Consulte a sessão deste navegador em Segurança e acesso. Alteração de senha, verificação em duas etapas e recuperação ainda aguardam integração.", "View this browser session in Security and access. Password changes, two-step verification and recovery still await integration.");
+  register("account.activity.intro", "Acessos e alterações da sua conta, organizados por período.", "Account sign-ins and changes, organized by period.");
+  register("account.activity.unavailable", "Histórico ainda não disponível", "History not yet available");
+  register("account.activity.unknown", "Sem acesso ao histórico, não é possível confirmar a ausência de eventos neste período.", "Without access to the history, it is not possible to confirm that no events occurred during this period.");
+  register("account.activity.related", "Acesso e proteção", "Access and protection");
+
+  register("account.subscription.limitsTitle", "Limites da conta", "Account limits");
+  register("account.subscription.preparation", "Em preparação", "In preparation");
+  register("account.subscription.pricePending", "Preço não publicado", "Price not published");
+  register("account.subscription.benefitsPending", "Os benefícios e limites comerciais ainda não estão disponíveis para consulta.", "Commercial benefits and limits are not yet available to view.");
+  register("account.subscription.select", "Selecionar plano", "Select plan");
+  register("account.subscription.currentPending", "Seu plano será exibido quando os dados da assinatura estiverem disponíveis.", "Your plan will appear when subscription details are available.");
+  register("account.subscription.changesPending", "Alterações e cancelamento aguardam a conexão com o serviço de assinatura.", "Changes and cancellation await connection to the subscription service.");
+  register("account.subscription.usageLink", "Ver consumo", "View usage");
+  register("account.subscription.limitsIntro", "Consulte a capacidade disponível para cada recurso da sua conta.", "View the capacity available for each account resource.");
+  register("account.subscription.limitsPending", "Os limites serão exibidos quando os benefícios da conta estiverem conectados.", "Limits will appear when account benefits are connected.");
+  register("account.subscription.compareIntro", "Compare as opções quando o catálogo oficial estiver disponível.", "Compare the options when the official catalog is available.");
+  register("account.subscription.related", "Consumo e faturamento", "Usage and billing");
+
+  register("account.billing.summary", "Resumo de pagamento", "Payment summary");
+  register("account.billing.amountUnavailable", "Valor não disponível", "Amount unavailable");
+  register("account.billing.due", "Vencimento", "Due date");
+  register("account.billing.methodsUnavailable", "Métodos não disponíveis", "Payment methods unavailable");
+  register("account.billing.methodsPending", "Os métodos cadastrados aparecerão quando o serviço de pagamentos estiver conectado.", "Saved methods will appear when the payment service is connected.");
+  register("account.billing.changesPending", "A consulta e as alterações de pagamento aguardam integração.", "Payment viewing and changes await integration.");
+  register("account.billing.historyIntro", "Consulte e baixe suas faturas, recibos e documentos de cobrança.", "View and download your invoices, receipts and billing documents.");
+  register("account.billing.documentsUnavailable", "Documentos ainda não disponíveis", "Documents not yet available");
+  register("account.billing.historyUnknown", "O histórico indisponível não confirma a ausência de cobranças.", "Unavailable history does not confirm that there are no charges.");
+  register("account.billing.taxIdentity", "Identificação fiscal", "Tax identification");
+  register("account.billing.contactAddress", "Contato e endereço", "Contact and address");
+  register("account.billing.related", "Assinatura e consumo", "Subscription and usage");
+
+  register("account.profile.sessionEmail", "E-mail da sessão atual. A alteração ainda não está disponível.", "Email from the current session. Changes are not available yet.");
+  register("account.profile.photoIntro", "Uma imagem para identificar seu perfil nos serviços OrdaX.", "An image to identify your profile across OrdaX services.");
+  register("account.profile.photoPending", "A alteração da foto aguarda integração.", "Changing your photo awaits integration.");
+  register("account.profile.identityIntro", "Como você se identifica nos serviços OrdaX.", "How you identify yourself across OrdaX services.");
+  register("account.profile.displayNameHint", "Nome pelo qual você prefere ser chamado.", "The name you prefer to be called.");
+  register("account.profile.contactIntro", "Seu e-mail de acesso e suas informações de contato.", "Your sign-in email and contact information.");
+  register("account.profile.emailPending", "O e-mail será exibido quando a consulta da conta estiver disponível.", "Your email will appear when account details are available.");
+  register("account.profile.phonePending", "A consulta e a edição do telefone aguardam integração.", "Viewing and editing your phone number await integration.");
+  register("account.profile.editPending", "As alterações de perfil e contato ainda não estão disponíveis.", "Profile and contact changes are not available yet.");
+  register("account.profile.related", "Segurança e privacidade do perfil", "Profile security and privacy");
+
+  register("account.access.sessionScope", "Esta sessão não informa o estado da senha, da verificação em duas etapas ou de outros acessos.", "This session does not indicate the status of your password, two-step verification or other sign-ins.");
+  register("account.access.protectionPending", "Os controles de proteção aguardam integração. Não é possível confirmar sua configuração atual.", "Protection controls await integration. Their current configuration cannot be confirmed.");
+  register("account.access.relatedPrivacy", "Acesso e privacidade", "Access and privacy");
+  register("account.access.devicesIntro", "Consulte os acessos vinculados à sua conta e gerencie outras sessões.", "View access linked to your account and manage other sessions.");
+  register("account.access.deviceColumn", "Dispositivo", "Device");
+  register("account.access.activityColumn", "Última atividade", "Last activity");
+  register("account.access.devicesUnavailable", "Dispositivos ainda não disponíveis", "Devices not yet available");
+  register("account.access.revokePending", "A lista e o encerramento remoto de sessões aguardam integração.", "The session list and remote sign-out await integration.");
+  register("account.access.relatedHistory", "Proteção e histórico da conta", "Account protection and history");
+
+  register("account.dataAccess.exportPending", "A solicitação de exportação aguarda integração.", "Data export requests await integration.");
+  register("account.dataAccess.deletionPending", "A exclusão da conta ainda não está disponível.", "Account deletion is not available yet.");
+  register("account.dataAccess.revocationDescription", "Controle o acesso de aplicativos e serviços à sua conta.", "Control how apps and services access your account.");
+  register("account.dataAccess.revocationPending", "A revogação de conexões aguarda integração.", "Revoking connections awaits integration.");
+  register("account.dataAccess.consentsUnknown", "Os estados de uso de dados ainda não estão disponíveis. Nenhuma escolha é alterada nesta tela.", "Data-use settings are not available yet. No choices are changed on this screen.");
+  register("account.dataAccess.preferencesLink", "Ver preferências", "View preferences");
+  register("account.dataAccess.manageData", "Gerenciar meus dados", "Manage my data");
+  register("account.dataAccess.manageDataIntro", "Solicite uma cópia dos dados ou gerencie a exclusão da conta.", "Request a copy of your data or manage account deletion.");
+  register("account.dataAccess.relatedPreferences", "Preferências e acesso aos dados", "Preferences and data access");
+  register("account.dataAccess.connectionsIntro", "Consulte os aplicativos autorizados e as permissões de cada conexão.", "View authorized apps and the permissions for each connection.");
+  register("account.dataAccess.appColumn", "Aplicativo ou serviço", "App or service");
+  register("account.dataAccess.permissionsColumn", "Permissões", "Permissions");
+  register("account.dataAccess.connectionsUnavailable", "Conexões ainda não disponíveis", "Connections not yet available");
+  register("account.dataAccess.connectionsUnknown", "Sem a consulta, não é possível confirmar quais conexões estão autorizadas.", "Without the lookup, it is not possible to confirm which connections are authorized.");
+  register("account.dataAccess.appsAccess", "Acesso dos aplicativos", "App access");
+  register("account.dataAccess.relatedAccess", "Acesso e dados da conta", "Account access and data");
+
+  register("account.usage.chartContext", "Histórico indisponível: {resource} · {period}", "History unavailable: {resource} · {period}");
+  register("account.usage.related", "Plano e pagamentos", "Plan and payments");
+  register("account.preferences.portal", "Preferências do portal", "Portal preferences");
+  register("account.preferences.scope", "Idioma e aparência se referem ao navegador atual.", "Language and appearance refer to the current browser.");
+  register("account.preferences.related", "Perfil e ajuda", "Profile and help");
+
+  register("account.notifications.unavailable", "Notificações ainda não disponíveis", "Notifications not yet available");
+
+  register("account.shared.verified", "Recursos verificados", "Verified features");
+  register("account.shared.pending", "Os recursos marcados como pendentes ainda aguardam integração.", "Features marked as pending still await integration.");
+  register("account.shared.locale", "Idioma do portal", "Portal language");
+  register("account.shared.appearance", "Aparência do portal", "Portal appearance");
+  register("account.shared.communications", "Preferências de comunicação", "Communication preferences");
+  register("account.shared.browser", "Neste navegador", "In this browser");
+  register("account.shared.local", "Preferências locais", "Local preferences");
+  register("account.shared.preferencesOwner", "Preferências OrdaX", "OrdaX preferences");
+  register("account.shared.availability", "Os recursos marcados como pendentes ainda aguardam integração. As preferências locais valem somente neste navegador.", "Features marked as pending still await integration. Local preferences apply only in this browser.");
+  register("account.shared.accessTypes", "Tipos de acesso", "Access types");
+  register("account.shared.mobile", "Dispositivos móveis", "Mobile devices");
+  register("account.shared.consents", "Consulte suas escolhas de uso de dados e de comunicação.", "Review your data use and communication choices.");
+  register("account.shared.languageHelp", "Escolha o idioma usado neste portal. Esta escolha vale para este navegador.", "Choose the language used in this portal. This choice applies to this browser.");
+  register("account.shared.appearanceHelp", "Esta é a aparência atual deste portal.", "This is the current appearance of this portal.");
+  register("account.shared.currentVisual", "Visual atual", "Current appearance");
+  register("account.shared.connections", "Conexões da conta", "Account connections");
+  register("account.shared.manageConnections", "Gerenciar conexões", "Manage connections");
+  register("account.shared.revokeConnections", "Revogar conexões", "Revoke connections");
+
+  register("account.details.exportUsage", "Exportação de consumo", "Usage export");
+  register("account.details.currentSubscription", "Assinatura atual", "Current subscription");
+  register("account.details.subscriptionIntro", "Consulte seu plano, o ciclo de cobrança e a próxima renovação.", "Check your plan, billing cycle, and next renewal.");
+  register("account.details.catalogUnavailable", "Catálogo de planos indisponível", "Plan catalog unavailable");
+  register("account.details.catalogPending", "Os planos e benefícios serão exibidos aqui quando o catálogo oficial estiver disponível.", "Plans and benefits will appear here when the official catalog is available.");
+  register("account.details.resources", "Recursos da conta", "Account resources");
+  register("account.details.resourceIntro", "Consulte o uso e os limites de cada recurso.", "Check usage and limits for each resource.");
+  register("account.details.usageHistory", "Histórico de utilização", "Usage history");
+  register("account.details.usagePending", "Selecione um recurso e um período. Os valores serão exibidos quando a medição estiver conectada.", "Select a resource and a period. Values will appear when usage metering is connected.");
+  register("account.details.unverifiedSession", "Sessão não verificada", "Session not verified");
+  register("account.details.password", "Senha usada para entrar na sua conta.", "Password used to sign in to your account.");
+  register("account.details.protection", "Proteção da conta", "Account protection");
+  register("account.details.fiscalIntro", "Informações usadas nos documentos de cobrança.", "Information used on billing documents.");
+
+  register("account.structure.profilePending", "A edição dos dados e da foto ainda não está disponível.", "Profile and photo editing are not available yet.");
+  register("account.structure.personalInfo", "Informações pessoais", "Personal information");
+  register("account.structure.contact", "Contato", "Contact");
+  register("account.structure.navAccount", "Minha conta", "My account");
+  register("account.structure.navServices", "Plano e serviços", "Plan and services");
+  register("account.structure.navSecurity", "Segurança e privacidade", "Security and privacy");
+  register("account.structure.navPreferences", "Preferências e conexões", "Preferences and connections");
+  register("account.structure.preview", "Somente visualização. Recursos pendentes estão sinalizados nas seções.", "View only. Pending features are identified in each section.");
+  register("account.structure.intro", "Seu perfil, seus serviços e suas escolhas.", "Your profile, services, and choices.");
+  register("account.structure.profile", "SEU PERFIL ORDAX", "YOUR ORDAX PROFILE");
+  register("account.structure.email", "E-mail não disponível", "Email unavailable");
+  register("account.structure.type", "Tipo de conta", "Account type");
+  register("account.structure.oneAccount", "Uma conta.", "One account.");
+  register("account.structure.services", "Plano e faturamento", "Plan and billing");
+  register("account.structure.details", "Ver detalhes", "View details");
+  register("account.structure.resource", "Recurso", "Resource");
+  register("account.structure.use", "Uso", "Usage");
+  register("account.structure.limit", "Limite", "Limit");
+  register("account.structure.history", "Histórico de consumo", "Usage history");
+  register("account.structure.access", "Acesso e preferências", "Access and preferences");
+  register("account.structure.safety", "Cuide do acesso à sua conta e dos dispositivos conectados.", "Manage access to your account and connected devices.");
+  register("account.structure.choices", "Preferências e dados", "Preferences and data");
+  register("account.structure.help", "Encontre respostas sobre sua conta, assinatura e segurança.", "Find answers about your account, subscription, and security.");
+  register("account.structure.back", "Voltar ao site", "Back to the website");
+  register("account.structure.availability", "Disponibilidade dos recursos", "Feature availability");
+  register("account.structure.areaHelp", "Dúvidas sobre esta área?", "Questions about this area?");
+
+  register("account.refinement.searchClear", "Limpar busca", "Clear search");
+  register("account.refinement.searchKeyboard", "Use as setas para navegar e Enter para abrir.", "Use the arrow keys to navigate and Enter to open.");
+  register("account.refinement.searchSingle", "Área encontrada: {count}", "Area found: {count}");
+  register("account.refinement.searchCount", "Áreas encontradas: {count}", "Areas found: {count}");
+  register("account.refinement.searchHint", "Tente buscar por senha, faturas, perfil ou dispositivos.", "Try searching for password, invoices, profile, or devices.");
+  register("account.refinement.searchAreas", "Áreas da conta", "Account areas");
+  register("account.refinement.availability", "Consulte o que já está conectado e o que ainda aguarda integração. Os recursos pendentes permanecem nesta seção.", "See what is connected and what still awaits integration. Pending features remain in this section.");
+  register("account.refinement.light", "Claro", "Light");
+  register("account.refinement.pendingEdit", "A edição aguarda a integração deste recurso.", "Editing awaits integration of this feature.");
+  register("account.refinement.state", "Estado da conta", "Account status");
+
+  // Account presentation consumes the same Meridian identity tokens.
+  register("account.meridian.sessionPreview", "A prévia não representa uma sessão autenticada.", "This preview does not represent an authenticated session.");
+  register("account.meridian.001", "Prévia local da Conta", "Local Account preview");
+  register("account.meridian.002", "Prévia da conta", "Account preview");
+  register("account.meridian.003", "Explore as seções. Nenhuma sessão é simulada e nenhuma alteração é salva na conta. Recursos sem conexão permanecem sinalizados.", "Explore the sections. No session is simulated and no changes are saved to the account. Disconnected features remain identified.");
+  register("account.meridian.004", "Ver tela de acesso", "View sign-in screen");
+  register("account.meridian.005", "Somente leitura", "Read only");
+  register("account.meridian.006", "RECURSOS DESTA SEÇÃO", "FEATURES IN THIS SECTION");
+  register("account.meridian.007", "Novas possibilidades em evolução", "New possibilities in development");
+
+  // Recovery pages reuse the public identity components and form preview.
+  register("recovery.meridian.001", "Seu acesso.", "Your access.");
+  register("recovery.meridian.002", "Um novo começo.", "A fresh start.");
+  register("recovery.meridian.003", "Esqueceu a senha? A recuperação começa pelo e-mail cadastrado na sua Conta OrdaX.", "Forgot your password? Recovery starts with the email registered to your OrdaX Account.");
+  register("recovery.meridian.004", "Recupere seu acesso.", "Recover your access.");
+  register("recovery.meridian.005", "Informe o e-mail da sua conta para receber as instruções de recuperação.", "Enter your account email to receive recovery instructions.");
+  register("recovery.meridian.006", "Recuperação temporariamente indisponível", "Recovery temporarily unavailable");
+  register("recovery.meridian.007", "Não foi possível liberar a recuperação agora. Tente novamente mais tarde.", "Recovery could not be enabled right now. Please try again later.");
+  register("recovery.meridian.008", "Um passo de cada vez.", "One step at a time.");
+  register("recovery.meridian.009", "Solicite as instruções e use o link recebido para definir uma nova senha.", "Request the instructions and use the link you receive to set a new password.");
+  register("recovery.meridian.010", "Um novo acesso.", "A fresh sign-in.");
+  register("recovery.meridian.011", "A mesma conta.", "The same account.");
+  register("recovery.meridian.012", "Escolha uma nova senha para continuar usando sua Conta OrdaX. A alteração depende de um link de recuperação válido.", "Choose a new password to continue using your OrdaX Account. A valid recovery link is required to make the change.");
+  register("recovery.meridian.013", "Defina sua nova senha.", "Set your new password.");
+  register("recovery.meridian.014", "Digite e confirme a senha que você quer usar no próximo acesso.", "Enter and confirm the password you want to use for your next sign-in.");
+  register("recovery.meridian.015", "Alteração de senha indisponível", "Password change unavailable");
+  register("recovery.meridian.016", "Não foi possível liberar a alteração de senha agora. Tente novamente mais tarde.", "Password changes could not be enabled right now. Please try again later.");
+  register("recovery.meridian.017", "Cuide do seu acesso.", "Take care of your access.");
+  register("recovery.meridian.018", "Não compartilhe sua senha nem os links de recuperação da sua conta.", "Do not share your password or your account recovery links.");
+  register("recovery.meridian.019", "Sua nova senha", "Your new password");
+  register("recovery.meridian.020", "Repita a nova senha", "Repeat your new password");
+
+  // Registration uses the shared public identity presentation.
+  register("register.meridian.001", "SEU PRIMEIRO PASSO", "YOUR FIRST STEP");
+  register("register.meridian.002", "Crie sua identidade no OrdaX e escolha como fazer parte desse universo. Você continua no controle dos seus dados.", "Create your OrdaX identity and choose how to be part of this universe. You stay in control of your data.");
+  register("register.meridian.003", "Sua nova Conta OrdaX", "Your new OrdaX Account");
+  register("register.meridian.004", "Comece com seu e-mail", "Start with your email");
+  register("register.meridian.005", "Conheça os termos antes de continuar", "Read the terms before continuing");
+  register("register.meridian.006", "Proteção para o seu acesso", "Protection for your access");
+  register("register.meridian.007", "Leia os Termos e a Política de Privacidade para entender como sua conta e seus dados são tratados.", "Read the Terms and Privacy Policy to understand how your account and data are handled.");
+  register("register.meridian.008", "Crie sua Conta OrdaX.", "Create your OrdaX Account.");
+  register("register.meridian.009", "Informe seu e-mail, escolha uma senha e leia os termos para começar.", "Enter your email, choose a password and read the terms to get started.");
+  register("register.meridian.010", "O cadastro será liberado quando a conexão segura estiver disponível.", "Registration will be enabled when a secure connection is available.");
+
+  // Login presentation; Identity behavior and readiness remain in site.js.
+  register("login.meridian.001", "Seus mundos.", "Your worlds.");
+  register("login.meridian.002", "Uma identidade.", "One identity.");
+  register("login.meridian.003", "Um lugar para acessar sua Conta OrdaX e cuidar da sua identidade. No seu ritmo, com suas escolhas.", "A place to access your OrdaX Account and manage your identity. At your pace, with your choices.");
+  register("login.meridian.004", "Sua Conta OrdaX", "Your OrdaX Account");
+  register("login.meridian.005", "Seu acesso ao universo OrdaX", "Your access to the OrdaX universe");
+  register("login.meridian.006", "Proteção para o seu acesso", "Protection for your access");
+  register("login.meridian.007", "Você escolhe o que compartilhar. Recursos conectados são liberados conforme ficam disponíveis.", "You choose what to share. Connected features are enabled as they become available.");
+  register("login.meridian.008", "CONTA ORDAX", "ORDAX ACCOUNT");
+  register("login.meridian.009", "Bem-vindo de volta.", "Welcome back.");
+  register("login.meridian.010", "Entre com seu e-mail e senha para continuar.", "Sign in with your email and password to continue.");
+  register("login.meridian.015", "O formulário de acesso será liberado quando a conexão segura estiver disponível.", "The sign-in form will be enabled when a secure connection is available.");
+  register("login.meridian.016", "Seu universo começa aqui.", "Your universe begins here.");
+
+  // Public landing narrative; same locale registry as the rest of the portal.
+  register("landing.ecosystem.001", "OrdaX reúne sistema, apps, projetos e inteligência em um ambiente para sua vida e seu trabalho. Conheça a experiência e as formas de começar.", "OrdaX brings your system, apps, projects and intelligence together for life and work. Explore the experience and ways to get started.");
+  register("landing.ecosystem.002", "EXPLORE POR DENTRO", "EXPLORE FROM WITHIN");
+  register("landing.ecosystem.003", "Veja uma ideia ganhar contexto.", "See an idea gain context.");
+  register("landing.ecosystem.004", "Abra o projeto Aurora, explore os arquivos e descubra como a inteligência pode participar do trabalho.", "Open the Aurora project, explore its files and discover how intelligence can help with your work.");
+  register("landing.ecosystem.005", "Conheça o OrdaX OS — USB.", "Explore OrdaX OS — USB.");
+  register("landing.ecosystem.006", "Experiência", "Experience");
+  register("landing.ecosystem.007", "Espaços", "Spaces");
+  register("landing.ecosystem.008", "Aplicativos", "Apps");
+  register("landing.ecosystem.009", "Onde usar", "Where to use it");
+  register("landing.ecosystem.010", "PESSOAS, IDEIAS E POSSIBILIDADES", "PEOPLE, IDEAS AND POSSIBILITIES");
+  register("landing.ecosystem.011", "Tudo o que você faz.", "Everything you do.");
+  register("landing.ecosystem.012", "Um universo que conecta.", "A universe that connects.");
+  register("landing.ecosystem.013", "OrdaX reúne sistema, aplicativos e inteligência para organizar sua vida, criar projetos e cuidar do seu trabalho. Cada contexto encontra seu espaço. Você continua no controle.", "OrdaX brings your system, apps and intelligence together to organize your life, create projects and manage your work. Every context has its space. You stay in control.");
+  register("landing.ecosystem.014", "Explorar a demonstração", "Explore the demo");
+  register("landing.ecosystem.015", "Conhecer o OrdaX OS", "Discover OrdaX OS");
+  register("landing.ecosystem.016", "Produto em desenvolvimento. Demonstração interativa, sem instalar.", "Product in development. Interactive demo, no installation required.");
+  register("landing.ecosystem.017", "PARA A VIDA. PARA O TRABALHO.", "FOR LIFE. FOR WORK.");
+  register("landing.ecosystem.018", "Um sistema. Seus diferentes mundos.", "One system. Your different worlds.");
+  register("landing.ecosystem.019", "Conheça a ideia", "Discover the idea");
+  register("landing.ecosystem.020", "DO DIA A DIA AO PRÓXIMO PROJETO", "FROM EVERYDAY LIFE TO YOUR NEXT PROJECT");
+  register("landing.ecosystem.021", "Menos coisas espalhadas.", "Fewer scattered pieces.");
+  register("landing.ecosystem.022", "Mais sentido entre elas.", "More connections between them.");
+  register("landing.ecosystem.023", "Um arquivo sozinho conta uma parte da história. O OrdaX aproxima arquivos, aplicativos, atividades e contexto para ajudar você a seguir de onde parou.", "A file on its own tells part of the story. OrdaX brings files, apps, activity and context closer together to help you pick up where you left off.");
+  register("landing.ecosystem.024", "Organize por projeto.", "Organize by project.");
+  register("landing.ecosystem.025", "Reúna objetivos, referências, arquivos e próximos passos em torno do que você quer realizar. Projetos vão além de desenvolvimento de software.", "Bring goals, references, files and next steps together around what you want to achieve. Projects go beyond software development.");
+  register("landing.ecosystem.026", "Mude de contexto.", "Switch context.");
+  register("landing.ecosystem.027", "Sua vida pessoal, uma ideia nova e a rotina da empresa podem ter espaços próprios, sem perder a familiaridade do sistema.", "Your personal life, a new idea and your business routine can each have their own space, with the same familiar system.");
+  register("landing.ecosystem.028", "Pense com assistência.", "Think with assistance.");
+  register("landing.ecosystem.029", "Inteligência perto do trabalho, com o contexto que você permite compartilhar e ações que dependem da sua autorização.", "Intelligence close to your work, with the context you allow it to use and actions that require your authorization.");
+  register("landing.ecosystem.030", "ESPAÇOS", "SPACES");
+  register("landing.ecosystem.031", "O seu jeito de trabalhar", "Your way of working");
+  register("landing.ecosystem.032", "tem lugar aqui.", "belongs here.");
+  register("landing.ecosystem.033", "Um Space é um ambiente dedicado ao que você faz. Ele reúne projetos, ferramentas e informações relevantes para aquele contexto. Você escolhe o que faz parte dele.", "A Space is an environment dedicated to what you do. It brings together projects, tools and information relevant to that context. You choose what belongs in it.");
+  register("landing.ecosystem.034", "Seus espaços, suas possibilidades", "Your spaces, your possibilities");
+  register("landing.ecosystem.035", "EXEMPLOS DE USO", "USAGE EXAMPLES");
+  register("landing.ecosystem.036", "Pessoal", "Personal");
+  register("landing.ecosystem.037", "Uma vida além das abas.", "Life beyond browser tabs.");
+  register("landing.ecosystem.038", "Estudos, planos, referências e projetos que são só seus.", "Studies, plans, references and projects of your own.");
+  register("landing.ecosystem.039", "Notas · Arquivos · Calendário", "Notes · Files · Calendar");
+  register("landing.ecosystem.040", "Pequeno negócio", "Small business");
+  register("landing.ecosystem.041", "Cada rotina no seu lugar.", "Every routine in its place.");
+  register("landing.ecosystem.042", "Da pizzaria à empresa: ambientes pensados para diferentes atividades.", "From a pizzeria to a company: environments designed for different activities.");
+  register("landing.ecosystem.043", "Equipe · Rotina · Projetos", "Team · Routine · Projects");
+  register("landing.ecosystem.044", "Criação e impressão 3D", "Creation and 3D printing");
+  register("landing.ecosystem.045", "Da ideia à próxima peça.", "From an idea to the next piece.");
+  register("landing.ecosystem.046", "Modelos, referências e etapas de criação em um mesmo contexto.", "Models, references and creative stages in one context.");
+  register("landing.ecosystem.047", "Modelos · Arquivos · Etapas", "Models · Files · Stages");
+  register("landing.ecosystem.048", "Desenvolvimento", "Development");
+  register("landing.ecosystem.049", "Espaço para construir.", "Room to build.");
+  register("landing.ecosystem.050", "Projetos, arquivos e ferramentas para explorar soluções com o Studio.", "Projects, files and tools for exploring solutions with Studio.");
+  register("landing.ecosystem.051", "Projetos · Studio · Ferramentas", "Projects · Studio · Tools");
+  register("landing.ecosystem.052", "Possibilidades em evolução. Os recursos específicos de cada atividade estão em desenvolvimento; estes exemplos não representam soluções comerciais prontas.", "Evolving possibilities. Features for each activity are in development; these examples do not represent finished commercial solutions.");
+  register("landing.ecosystem.053", "Conectar também é uma escolha.", "Connection is a choice, too.");
+  register("landing.ecosystem.054", "A proposta do OrdaX Network é aproximar Spaces, comunidades, grupos e mensagens, com participação opcional. Sua conta pessoal não se torna pública automaticamente.", "OrdaX Network aims to bring Spaces, communities, groups and messages together through optional participation. Your personal account does not become public automatically.");
+  register("landing.ecosystem.055", "Em desenvolvimento", "In development");
+  register("landing.ecosystem.056", "Inteligência que acompanha", "Intelligence that follows");
+  register("landing.ecosystem.057", "o que você está fazendo.", "what you are working on.");
+  register("landing.ecosystem.058", "A assistência faz parte do OrdaX inteiro. Ajuda a relacionar informações, entender o contexto e preparar o próximo passo nos seus projetos e Spaces.", "Assistance is part of the whole OrdaX experience. It helps connect information, understand context and prepare the next step in your projects and Spaces.");
+  register("landing.ecosystem.059", "Explore a Intelligence na demonstração", "Explore Intelligence in the demo");
+  register("landing.ecosystem.060", "COMO A EXPERIÊNCIA É PENSADA", "HOW THE EXPERIENCE IS DESIGNED");
+  register("landing.ecosystem.061", "Você escolhe o contexto.", "You choose the context.");
+  register("landing.ecosystem.062", "O projeto, os arquivos e as referências relevantes. Memory ajuda a manter o que importa para continuar.", "The project, files and relevant references. Memory helps retain what matters so you can keep going.");
+  register("landing.ecosystem.063", "A inteligência ajuda a entender.", "Intelligence helps you understand.");
+  register("landing.ecosystem.064", "Análises, conexões e sugestões a partir do contexto permitido.", "Analysis, connections and suggestions based on the permitted context.");
+  register("landing.ecosystem.065", "Você decide a próxima ação.", "You decide the next action.");
+  register("landing.ecosystem.066", "Uma sugestão não é uma autorização. Ferramentas e ações respeitam as permissões do ambiente.", "A suggestion is not authorization. Tools and actions respect the permissions of your environment.");
+  register("landing.ecosystem.067", "Inferência local já integra o desenvolvimento do OrdaX OS. A disponibilidade depende do modo, do modelo e do dispositivo; o acesso público ainda está em evolução.", "Local inference is already part of OrdaX OS development. Availability depends on the mode, model and device; public access is still evolving.");
+  register("landing.ecosystem.068", "Modelos, com escolha.", "Models, with choice.");
+  register("landing.ecosystem.069", "O caminho inclui modelos locais e provedores externos. Cada integração precisa estar disponível e ser autorizada.", "The direction includes local models and external providers. Each integration must be available and authorized.");
+  register("landing.ecosystem.070", "Sua IA externa, com limites.", "Your external AI, with boundaries.");
+  register("landing.ecosystem.071", "Conectar uma ferramenta como o ChatGPT ao OrdaX é outra experiência, em evolução, com permissões próprias. Isso não libera controle automático do computador.", "Connecting a tool such as ChatGPT to OrdaX is a separate, evolving experience with its own permissions. It does not grant automatic control of your computer.");
+  register("landing.ecosystem.072", "APLICATIVOS QUE FAZEM PARTE", "APPS THAT BELONG");
+  register("landing.ecosystem.073", "Das pequenas tarefas", "From small tasks");
+  register("landing.ecosystem.074", "às grandes ideias.", "to big ideas.");
+  register("landing.ecosystem.075", "Um ecossistema próprio para escrever, organizar, criar e desenvolver. Conta, Ajustes, Sistema e Loja dão suporte à experiência.", "An ecosystem of its own for writing, organizing, creating and developing. Account, Settings, System and Store support the experience.");
+  register("landing.ecosystem.076", "Arquivos", "Files");
+  register("landing.ecosystem.077", "Documentos e referências", "Documents and references");
+  register("landing.ecosystem.078", "Notas", "Notes");
+  register("landing.ecosystem.079", "Ideias que merecem ficar", "Ideas worth keeping");
+  register("landing.ecosystem.080", "Internet", "Internet");
+  register("landing.ecosystem.081", "Pesquisa e descoberta", "Research and discovery");
+  register("landing.ecosystem.082", "Projetos", "Projects");
+  register("landing.ecosystem.083", "Trabalho com contexto", "Work with context");
+  register("landing.ecosystem.084", "Activity", "Activity");
+  register("landing.ecosystem.085", "O percurso do seu trabalho", "The journey of your work");
+  register("landing.ecosystem.086", "Utilitários", "Utilities");
+  register("landing.ecosystem.087", "Calculadora, Relógio e Conversor", "Calculator, Clock and Converter");
+  register("landing.ecosystem.088", "Criação e mídia", "Creation and media");
+  register("landing.ecosystem.089", "Imagens, PDF, Mídia e Desenho", "Images, PDF, Media and Drawing");
+  register("landing.ecosystem.090", "Ferramentas", "Tools");
+  register("landing.ecosystem.091", "Cores, Texto e Mapa de Caracteres", "Colors, Text and Character Map");
+  register("landing.ecosystem.092", "Portfólio em desenvolvimento. Os aplicativos incluídos e os recursos disponíveis variam conforme o modo e a versão publicada.", "Portfolio in development. Included apps and available features vary by mode and published release.");
+  register("landing.ecosystem.093", "Um lugar para desenvolver", "A place to develop");
+  register("landing.ecosystem.094", "o que vem depois.", "what comes next.");
+  register("landing.ecosystem.095", "Arquivos, edição, Git, tarefas, checkpoints e prévias no contexto do projeto. O Studio participa do ecossistema de Projetos, com ferramentas autorizadas e liberdade de escolha de provedor de IA.", "Files, editing, Git, tasks, checkpoints and previews in your project context. Studio participates in the Projects ecosystem, with authorized tools and freedom to choose an AI provider.");
+  register("landing.ecosystem.096", "IDEIA", "IDEA");
+  register("landing.ecosystem.097", "PROJETO", "PROJECT");
+  register("landing.ecosystem.098", "CRIAÇÃO", "CREATION");
+  register("landing.ecosystem.099", "Em desenvolvimento para OrdaX OS e Windows. Recursos e integrações evoluem por ambiente.", "In development for OrdaX OS and Windows. Features and integrations evolve for each environment.");
+  register("landing.ecosystem.100", "LOJA ORDAX", "ORDAX STORE");
+  register("landing.ecosystem.101", "Seu OrdaX pode", "Your OrdaX can");
+  register("landing.ecosystem.102", "ganhar possibilidades.", "gain new possibilities.");
+  register("landing.ecosystem.103", "Descobrir aplicativos, acompanhar instalações e gerenciar atualizações em um lugar. A Loja apresenta os componentes; o sistema verifica e autoriza a instalação.", "Discover apps, track installations and manage updates in one place. The Store presents components; the system verifies and authorizes installation.");
+  register("landing.ecosystem.104", "Descoberta de aplicativos", "App discovery");
+  register("landing.ecosystem.105", "Instalação e gerenciamento", "Installation and management");
+  register("landing.ecosystem.106", "Atualizações de componentes", "Component updates");
+  register("landing.ecosystem.107", "Experiência em evolução. Modelos, conectores e extensões fazem parte da direção futura, conforme forem liberados.", "An evolving experience. Models, connectors and extensions are part of the future direction, as they become available.");
+  register("landing.ecosystem.108", "UM ORDAX, VÁRIAS FORMAS DE ACESSAR", "ONE ORDAX, MANY WAYS TO ACCESS IT");
+  register("landing.ecosystem.109", "O mesmo universo.", "The same universe.");
+  register("landing.ecosystem.110", "Mais caminhos até ele.", "More ways to reach it.");
+  register("landing.ecosystem.111", "Computador, navegador e telefone fazem parte da mesma direção: sua identidade, seus Spaces e seus projetos acompanhando você. Cada modo tem seu próprio ritmo de disponibilidade.", "Computer, browser and phone share one direction: your identity, Spaces and projects following you. Each mode has its own availability timeline.");
+  register("landing.ecosystem.112", "Inicie o computador por um USB preparado pelo OrdaX Creator.", "Start your computer from a USB prepared with OrdaX Creator.");
+  register("landing.ecosystem.113", "Em homologação", "Under validation");
+  register("landing.ecosystem.114", "Conhecer o caminho USB", "Explore the USB path");
+  register("landing.ecosystem.115", "A experiência OrdaX no navegador, com acesso sujeito à liberação.", "The OrdaX experience in your browser, with access subject to availability.");
+  register("landing.ecosystem.116", "Consultar acesso ao Web", "Check Web access");
+  register("landing.ecosystem.117", "A direção para Android e iPhone, com uma experiência adaptada à tela.", "The direction for Android and iPhone, with an experience adapted to the screen.");
+  register("landing.ecosystem.118", "Mais uma forma de acessar o ecossistema no computador.", "Another way to access the ecosystem on your computer.");
+  register("landing.ecosystem.119", "O sistema no disco interno. Instalação pública ainda não liberada.", "The system on your internal drive. Public installation is not yet enabled.");
+  register("landing.ecosystem.120", "A continuidade completa entre dispositivos ainda está em desenvolvimento. A conexão entre notebook e telefone nesta página é uma simulação, não uma sincronização de conta.", "Full continuity across devices is still in development. The connection between the laptop and phone on this page is a simulation, not account synchronization.");
+  register("landing.ecosystem.121", "COMEÇAR PELO USB", "START WITH USB");
+  register("landing.ecosystem.122", "Seu computador.", "Your computer.");
+  register("landing.ecosystem.123", "Um novo ambiente.", "A new environment.");
+  register("landing.ecosystem.124", "OrdaX OS é o sistema operacional do ecossistema. O caminho público inicial é o USB, com preparação guiada pelo Creator e versões oficiais disponibilizadas na página de download.", "OrdaX OS is the operating system of the ecosystem. The initial public path is USB, with preparation guided by Creator and official releases listed on the download page.");
+  register("landing.ecosystem.125", "Ver preparação e downloads", "View preparation and downloads");
+  register("landing.ecosystem.126", "Prepare seu USB.", "Prepare your USB.");
+  register("landing.ecosystem.127", "Consulte uma versão autorizada e siga as orientações do OrdaX Creator para preparar a mídia.", "Find an authorized release and follow OrdaX Creator guidance to prepare your media.");
+  register("landing.ecosystem.128", "Inicie o OrdaX.", "Start OrdaX.");
+  register("landing.ecosystem.129", "Inicie um computador compatível pelo USB e siga as orientações de configuração.", "Boot a compatible computer from USB and follow the setup instructions.");
+  register("landing.ecosystem.130", "Faça o espaço ser seu.", "Make the space your own.");
+  register("landing.ecosystem.131", "Explore o sistema, seus aplicativos e projetos. Conta online é opcional para o uso básico pelo USB.", "Explore the system, its apps and projects. An online account is optional for basic USB use.");
+  register("landing.ecosystem.132", "CONFIANÇA NO DIA A DIA", "EVERYDAY CONFIDENCE");
+  register("landing.ecosystem.133", "Evoluir, com você", "Evolving, with you");
+  register("landing.ecosystem.134", "no controle.", "in control.");
+  register("landing.ecosystem.135", "Permissões, separação de dados e recuperação fazem parte da base do OrdaX. As proteções evoluem junto com a validação do sistema nos dispositivos compatíveis.", "Permissions, data separation and recovery are part of the OrdaX foundation. Protections evolve alongside system validation on compatible devices.");
+  register("landing.ecosystem.136", "Ações autorizadas.", "Authorized actions.");
+  register("landing.ecosystem.137", "Acesso a ferramentas e dados deve respeitar o que você permite, inclusive quando há inteligência artificial envolvida.", "Access to tools and data must respect what you permit, including when artificial intelligence is involved.");
+  register("landing.ecosystem.138", "Atualizações verificadas.", "Verified updates.");
+  register("landing.ecosystem.139", "O sistema verifica componentes oficiais antes de ativá-los. A evolução de um componente não precisa exigir a troca de todo o ambiente.", "The system verifies official components before activating them. Evolving a component does not have to mean replacing the whole environment.");
+  register("landing.ecosystem.140", "Um caminho para voltar.", "A way back.");
+  register("landing.ecosystem.141", "Recuperação e retorno à versão conhecida fazem parte do projeto. Falhas em componentes opcionais devem ficar isoladas para preservar o funcionamento do sistema.", "Recovery and returning to a known version are part of the design. Failures in optional components should remain isolated to preserve system operation.");
+  register("landing.ecosystem.142", "ANTES DE COMEÇAR", "BEFORE YOU START");
+  register("landing.ecosystem.143", "Pode perguntar.", "Good questions.");
+  register("landing.ecosystem.144", "Preciso criar uma conta?", "Do I need an account?");
+  register("landing.ecosystem.145", "Não para o uso básico do OrdaX OS pelo USB. A Conta OrdaX é o caminho para os serviços de identidade e recursos conectados que estiverem disponíveis. Entrar ou criar uma conta acontece nas páginas próprias, fora da demonstração.", "Not for basic OrdaX OS use from USB. OrdaX Account provides access to identity services and connected features as they become available. Sign-in and registration happen on their own pages, outside the demo.");
+  register("landing.ecosystem.146", "Preciso estar sempre conectado?", "Do I always need to be online?");
+  register("landing.ecosystem.147", "A aquisição inicial do sistema e o download de atualizações podem precisar de rede. Depois de uma versão verificada estar disponível no dispositivo, o sistema prevê inicialização offline. Recursos online continuam dependendo de conexão.", "Initial system acquisition and update downloads may require a network. Once a verified release is available on the device, the system supports offline startup. Online features still require a connection.");
+  register("landing.ecosystem.148", "Já posso instalar no disco do computador?", "Can I install it on my computer drive yet?");
+  register("landing.ecosystem.149", "A instalação pública do OrdaX OS — Nativo ainda não está liberada. O caminho público inicial é o USB. Consulte a página de download para saber quais versões e orientações estão autorizadas.", "Public installation of OrdaX OS — Native is not enabled yet. The initial public path is USB. Check the download page for authorized releases and guidance.");
+  register("landing.ecosystem.150", "Tudo o que aparece na demonstração está disponível?", "Is everything in the demo available?");
+  register("landing.ecosystem.151", "A demonstração apresenta a experiência com dados fictícios, respostas de IA predefinidas e continuidade simulada. Aplicativos e recursos são liberados conforme a evolução de cada modo. Ela não cria conta, não executa modelos e não altera um dispositivo real.", "The demo presents the experience with fictional data, preset AI responses and simulated continuity. Apps and features are released as each mode evolves. It does not create an account, run models or change a real device.");
+  register("landing.ecosystem.152", "OrdaX serve só para empresas?", "Is OrdaX only for businesses?");
+  register("landing.ecosystem.153", "Não. Organizar arquivos, estudar, criar, planejar e desenvolver projetos também fazem parte da proposta. Spaces profissionais expandem a experiência para negócios e equipes, sem tornar uma empresa requisito para usar o sistema.", "No. Organizing files, studying, creating, planning and developing projects are also part of the experience. Professional Spaces extend it to businesses and teams without requiring a business to use the system.");
+  register("landing.ecosystem.154", "IDEIAS ORGANIZAM REALIDADES", "IDEAS ORGANIZE REALITIES");
+  register("landing.ecosystem.155", "O próximo espaço", "The next space");
+  register("landing.ecosystem.156", "é o seu.", "is yours.");
+  register("landing.ecosystem.157", "Conheça a experiência hoje. Acompanhe os caminhos para começar.", "Explore the experience today. Discover the ways to get started.");
+  register("landing.ecosystem.158", "Preparação e downloads", "Preparation and downloads");
+  register("landing.ecosystem.159", "Já tem uma conta? Acesse a Conta OrdaX.", "Already have an account? Open OrdaX Account.");
+  register("landing.ecosystem.160", "Um universo para sua vida e seu trabalho.", "A universe for your life and work.");
+  register("landing.ecosystem.161", "Conta", "Account");
 
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);

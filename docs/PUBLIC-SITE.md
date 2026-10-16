@@ -64,9 +64,17 @@ As quatro rotas usam primitives `account-*` compartilhados e mantêm o fluxo mob
 
 `assets/site.js` continua sendo o owner do comportamento de readiness, navegação autenticada, política de registro, Turnstile e habilitação dos formulários. CSS não decide disponibilidade de autenticação.
 
+As quatro telas de identidade podem ser vistas localmente com `?preview=layout`: `/login/`, `/cadastro/`, `/recuperar/` e `/recuperar/nova-senha/`, apenas em loopback (`127.0.0.1`, `localhost` ou `[::1]`). O mesmo formulário nativo é apresentado com `inert`, controles desabilitados e sem `action`, identificado como somente leitura. Esse modo não libera autenticação, não carrega Turnstile e não inicia sessão; a navegação do cabeçalho mantém seu owner de sessão existente. Fora desse modo local explícito, os gates reais continuam mantendo o formulário oculto/desabilitado até readiness; não existe um segundo formulário de demonstração. No cadastro, o mesmo bloco legal é mostrado de forma inerte, sem fabricar versão de política, marcar aceite ou liberar registro. Recuperação e nova senha usam o mesmo modo somente leitura, sem enviar e-mail, validar links ou alterar credenciais. A navegação entre essas quatro rotas preserva `preview=layout` somente nesse contexto local explícito; links legais, serviços e navegação pública normal não são alterados.
+
 ### `/conta/` é um portal, não um formulário de entrada
 
 `/conta/` pertence ao mesmo modelo de Conta OrdaX, mas é uma superfície autenticada de aplicação. Ela não deve ser fundida artificialmente ao CSS dos formulários públicos apenas por compartilhar o conceito de Conta.
+
+A apresentação continua em `assets/account-dashboard.css` e `assets/account-portal.js`, consumindo os tokens Meridian da Surface pelo mesmo bridge de marca. `/conta/?preview=layout` é uma apresentação local em loopback: navegação, busca e filtros podem ser explorados, mas nenhuma sessão autenticada, plano, cobrança ou consumo é fabricado. O menu de sessão e as alterações de conta ficam bloqueados; as capacidades e seus estados pendentes permanecem visíveis. A abertura normal de `/conta/` mantém o cliente e a leitura de sessão oficiais.
+
+A composição da Conta agrupa a navegação por assunto e concentra a visão geral em perfil, serviços, consumo e segurança. As telas internas separam a tarefa principal do inventário de integrações; assinatura e faturamento usam estados indisponíveis explícitos, e os filtros de consumo mudam somente a apresentação enquanto a medição não estiver conectada. Os planos continuam vindo do catálogo canônico injetado pelo build: a prévia de source sem esse catálogo exibe o estado pendente, sem duplicar preços ou benefícios. As opções do catálogo usam os nomes gerados por esse owner, sem presumir um plano contratado. A visão geral e os limites da assinatura reutilizam a mesma apresentação de recursos; capacidade, cobrança e renovação permanecem indisponíveis até seus serviços estarem conectados. Pagamentos separa o resumo de cobrança, os documentos e a identificação fiscal; os campos e as ações mantêm os mesmos componentes da Conta e explicam sua indisponibilidade sem presumir ausência de cobranças ou métodos cadastrados.
+
+O catálogo de apresentação em `account-portal.js` usa IDs estáveis de capacidades, compartilhados pela busca, pelo inventário de integrações e pelos indicadores dos controles, incluindo as categorias de consumo. Cabeçalhos, campos, linhas de configuração e estados sem dados usam os mesmos renderizadores; as descrições dos campos são vinculadas por IDs estáveis. Dados pessoais separa foto, identificação e contato, mantendo o e-mail da sessão em somente leitura. Segurança e dispositivos usam o mesmo cartão de sessão: a verificação deste navegador não confirma senha, verificação em duas etapas ou outros acessos. Estados de proteção e ações de exportação, exclusão e revogação vêm dos mesmos IDs de capacidades. Dispositivos, faturas e conexões compartilham a tabela de registros indisponíveis; indisponibilidade não é tratada como lista vazia confirmada. A disponibilidade de sessão/e-mail deriva exclusivamente do snapshot de `OrdaXPublicAccount`; idioma e aparência são apresentados como locais a este navegador, e as demais capacidades continuam pendentes. Esse catálogo descreve a UI e não implementa readiness, autorização, persistência ou outro backend de conta. Os atalhos contextuais e as respostas de ajuda apontam para o mesmo catálogo de seções da navegação. A navegação móvel usa o mesmo catálogo de seções, e o atalho de acessibilidade mantém a seção atual sem substituir a rota. A visão geral não presume tipo de conta nem dados cadastrais sem consulta oficial. A busca global e a busca de ajuda compartilham o controle com opção de limpar e contagem acessível. A busca global também permite navegar pelos resultados com as setas e abrir uma área com Enter; os rótulos do menu compacto acompanham o estado e o idioma. A busca de ajuda filtra o conteúdo local; o histórico indisponível não equivale a ausência de eventos, e a entrada de atendimento preserva o estado pendente sem enviar solicitações.
 
 A implementação atualmente promovida na `main` continua sendo a autoridade até uma substituição **atômica** ser aprovada. O candidato React/Lovable do PR `#1596` não é fonte de verdade enquanto permanecer draft/bloqueado; não mantenha duas UIs de Conta ativas no produto depois de uma eventual promoção.
 
@@ -177,6 +185,26 @@ python tools/public-site/build.py verify --out-dir out/public-site
 ```
 
 O `Public Site Candidate` é o gate de PR da superfície pública. Ele deve validar build determinístico, contratos, localização e testes de browser/viewport aplicáveis.
+
+O hosting compõe esse artefato com o Web, sem importar a Surface no portal:
+
+```bash
+npm ci --ignore-scripts --no-audit --no-fund
+python tools/public-site/deployment.py build --source-commit <40-hex-sha>
+python tools/public-site/deployment.py verify
+```
+
+O resultado em `out/public-deployment` conserva os arquivos e manifests dos dois
+builders: portal na raiz e Web em `/ordax/`, compilado com esse `--mount-path` pelo
+builder Web. Os componentes devem corresponder ao mesmo commit. A composição
+verifica hashes, rejeita arquivos extras/links e não amplia a lista de arquivos
+aceitos pelo builder do portal. O CI também verifica repetibilidade e a experiência
+montada com os cabeçalhos públicos reais. A configuração Vercel usa esse resultado;
+isso declara o deployment alvo, não uma observação de produção já atualizada.
+
+A entrada autenticada `/web/` continua sujeita aos seus gates de sessão e ativação.
+Hospedar o runtime em `/ordax/` não habilita login/cadastro, backend ou provedor e
+não transforma exemplos preservados em operações reais.
 
 Para provar o domínio real sem credenciais:
 

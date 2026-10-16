@@ -116,7 +116,7 @@
     "team": "ordaxsystems",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
-    "static_output_directory": "out/public-site",
+    "static_output_directory": "out/public-deployment",
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "provider_specific_browser_api": false,
@@ -195,7 +195,18 @@
     "product_cookie_envelope_header": "x-ordax-cookie-envelope",
     "product_cookie_envelope_source_ready": true,
     "product_cookie_envelope_deployed": false,
-    "canonical_public_origin_deployment_verified": false
+    "canonical_public_origin_deployment_verified": false,
+    "artifact_composition": {
+      "recipe": "tools/public-site/deployment.py",
+      "portal_recipe": "tools/public-site/build.py",
+      "web_recipe": "tools/surface-web/build.py",
+      "runtime_path": "/ordax/",
+      "same_source_commit_required": true,
+      "preserves_component_receipts": true,
+      "runtime_hosting_source_ready": true,
+      "runtime_deployment_verified": false,
+      "account_entry_activation_changed": false
+    }
   },
   "public_edge_gateway": {
     "status": "canonical-supabase-v3-oidc-admission-proven-service-bridge-unprovisioned",
@@ -297,7 +308,8 @@
       "/releases/catalog.json",
       "/licencas/",
       "/privacidade/",
-      "/termos/"
+      "/termos/",
+      "/ordax/"
     ],
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
