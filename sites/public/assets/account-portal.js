@@ -339,6 +339,9 @@
   function empty(title, description, iconName = "document", compact = false) {
     return `<div class="empty-state${compact ? " compact" : ""}"><span class="empty-icon">${icon(iconName)}</span><h3>${tx(title)}</h3><p>${tx(description)}</p><span class="unavailable-chip"><span></span>${tx("Serviços não conectados")}</span></div>`;
   }
+  function searchControl({ id, value, label, placeholder, resultsId, clearId = `${id}-clear`, clearLabel = "Limpar busca", describedBy = "" }) {
+    return `<div class="account-search-control"><label class="search-field">${icon("search")}<span class="sr-only">${tx(label)}</span><input id="${esc(id)}" type="search" value="${esc(value)}" placeholder="${tx(placeholder)}" aria-controls="${esc(resultsId)}"${describedBy ? ` aria-describedby="${esc(describedBy)}"` : ""} autocomplete="off"></label><button type="button" class="button ghost icon-button search-clear" id="${esc(clearId)}" data-clear-search="${esc(id)}" aria-label="${tx(clearLabel)}" aria-controls="${esc(resultsId)}"${value ? "" : " hidden"}>${icon("close")}</button></div>`;
+  }
   function pendingRecords({ caption, columns, title, description, iconName = "document" }) {
     return `<table class="records-table"><caption class="sr-only">${tx(caption)}</caption><thead><tr>${columns.map(label => `<th scope="col">${tx(label)}</th>`).join("")}</tr></thead><tbody><tr><td colspan="${columns.length}">${empty(title, description, iconName, true)}</td></tr></tbody></table>`;
   }
@@ -530,14 +533,24 @@
     document.getElementById("help-clear").hidden = !state.helpQuery;
   }
   function support() {
-    return `<section class="settings-section help-search">${panelHeading("Como podemos ajudar?", { iconName: "help", tone: "cyan" })}<p class="panel-description">${tx("Busque uma resposta ou vá direto à área da sua conta.")}</p><div class="help-search-row"><label class="search-field">${icon("search")}<input id="help-search" type="search" value="${esc(state.helpQuery)}" placeholder="${tx("Busque por assinatura, segurança, faturas...")}" aria-label="${tx("Buscar ajuda")}" aria-controls="faq-list" autocomplete="off"></label><button type="button" class="button ghost icon-button help-clear" id="help-clear" data-reset-help aria-label="${tx("Limpar busca de ajuda")}"${state.helpQuery ? "" : " hidden"}>${icon("close")}</button></div></section>${relatedAreas(["assinatura", "seguranca", "faturamento"], "Atalhos de ajuda")}<div class="help-workbench"><section class="settings-section help-questions" aria-labelledby="faq-heading">${panelHeading("Perguntas frequentes", { id: "faq-heading", end: `<span class="help-result-count" id="help-result-count" role="status" aria-live="polite" aria-atomic="true">${message("account.help.resultCount", { count: matchingFaqs().length })}</span>` })}<div class="faq-list" id="faq-list">${faqContent()}</div></section><aside class="settings-section support-contact" aria-labelledby="support-heading"><span class="management-icon">${icon("mail")}</span><h2 id="support-heading">${tx("Atendimento OrdaX")}</h2>${capabilityBadge("supportChannel")}<p id="support-availability">${tx("O canal de atendimento ainda não está conectado. Por enquanto, nenhuma solicitação pode ser enviada por aqui.")}</p><button type="button" class="button outline" data-open-dialog="support" aria-controls="account-dialog" aria-haspopup="dialog" aria-describedby="support-availability">${tx("Consultar atendimento")}${icon("arrow-right")}</button></aside></div>`;
+    return `<section class="settings-section help-search">${panelHeading("Como podemos ajudar?", { iconName: "help", tone: "cyan" })}<p class="panel-description">${tx("Busque uma resposta ou vá direto à área da sua conta.")}</p>${searchControl({ id: "help-search", value: state.helpQuery, label: "Buscar ajuda", placeholder: "Busque por assinatura, segurança, faturas...", resultsId: "faq-list", clearId: "help-clear", clearLabel: "Limpar busca de ajuda" })}</section>${relatedAreas(["assinatura", "seguranca", "faturamento"], "Atalhos de ajuda")}<div class="help-workbench"><section class="settings-section help-questions" aria-labelledby="faq-heading">${panelHeading("Perguntas frequentes", { id: "faq-heading", end: `<span class="help-result-count" id="help-result-count" role="status" aria-live="polite" aria-atomic="true">${message("account.help.resultCount", { count: matchingFaqs().length })}</span>` })}<div class="faq-list" id="faq-list">${faqContent()}</div></section><aside class="settings-section support-contact" aria-labelledby="support-heading"><span class="management-icon">${icon("mail")}</span><h2 id="support-heading">${tx("Atendimento OrdaX")}</h2>${capabilityBadge("supportChannel")}<p id="support-availability">${tx("O canal de atendimento ainda não está conectado. Por enquanto, nenhuma solicitação pode ser enviada por aqui.")}</p><button type="button" class="button outline" data-open-dialog="support" aria-controls="account-dialog" aria-haspopup="dialog" aria-describedby="support-availability">${tx("Consultar atendimento")}${icon("arrow-right")}</button></aside></div>`;
   }
   const views = { integracoes: integrations, "visao-geral": overview, "dados-pessoais": personal, assinatura: subscription, consumo: consumption, faturamento: billing, seguranca: security, dispositivos: devices, privacidade: privacy, preferencias: preferences, atividade: activity, suporte: support };
 
   function navigationEntry(section, className = "sidebar-link") {
     return `<a href="#${section.id}" title="${tx(section.title)}" aria-label="${tx(section.title)}" class="${className}${state.section === section.id ? " active" : ""}" data-section="${section.id}"${state.section === section.id ? ' aria-current="page"' : ""}>${icon(section.icon)}<span>${tx(section.title)}</span></a>`;
   }
+  function renderSidebarToggle() {
+    const control = document.getElementById("sidebar-toggle");
+    const collapsed = root.classList.contains("sidebar-collapsed");
+    const label = i18n.fromSource(collapsed ? "Expandir menu" : "Recolher menu");
+    control.setAttribute("aria-expanded", String(!collapsed));
+    control.setAttribute("aria-label", label);
+    control.title = label;
+    control.innerHTML = icon(collapsed ? "panel-open" : "panel-close");
+  }
   function renderNavigation() {
+    renderSidebarToggle();
     document.getElementById("sidebar-navigation").innerHTML = navigationGroups.map(group => `<div class="nav-group"><p class="nav-group-label">${tx(group.title)}</p>${group.ids.map(id => navigationEntry(byId.get(id))).join("")}</div>`).join("");
     document.getElementById("mobile-navigation").innerHTML = mobileSections.map(item => `<a href="#${item.id}"${state.section === item.id ? ' class="active" aria-current="page"' : ""}>${icon(byId.get(item.id).icon)}<span>${tx(item.label)}</span></a>`).join("") + `<button type="button" class="button ghost${mobileSectionIds.has(state.section) ? "" : " active"}" id="more-toggle" data-open-more aria-controls="more-dialog" aria-expanded="${moreDialog.open}">${icon("more")}<span>${tx("Mais")}</span></button>`;
     document.getElementById("more-navigation").innerHTML = navigationGroups.map(group => `<div class="nav-group"><p class="nav-group-label">${tx(group.title)}</p>${group.ids.map(id => navigationEntry(byId.get(id), "more-link")).join("")}</div>`).join("") + navigationEntry(byId.get("suporte"), "more-link");
@@ -584,7 +597,10 @@
   }
   function updateSearchStatus() {
     const status = document.getElementById("search-status");
-    if (status) status.textContent = i18n.t("account.refinement.searchCount", { count: matchingSections().length });
+    const count = matchingSections().length;
+    if (status) status.textContent = i18n.t(count === 1 ? "account.refinement.searchSingle" : "account.refinement.searchCount", { count });
+    const clear = document.getElementById("dialog-search-clear");
+    if (clear) clear.hidden = !state.searchQuery;
   }
   function renderDialog() {
     const kind = state.dialog;
@@ -592,7 +608,7 @@
     const description = kind === "search" ? "Encontre uma área da sua conta." : kind === "support" ? "O canal oficial de suporte ainda não foi configurado. Nenhuma solicitação foi enviada." : "O serviço de notificações ainda não está conectado.";
     document.getElementById("dialog-title").textContent = i18n?.fromSource(title) ?? title;
     document.getElementById("dialog-description").textContent = i18n?.fromSource(description) ?? description;
-    document.getElementById("dialog-content").innerHTML = kind === "search" ? `<label class="search-field">${icon("search")}<span class="sr-only">${tx("Buscar na minha conta")}</span><input id="dialog-search" type="search" value="${esc(state.searchQuery)}" placeholder="${tx("O que você está procurando?")}" autocomplete="off" aria-controls="search-results" autofocus></label><p class="search-caption" id="search-status" role="status" aria-live="polite" aria-atomic="true"></p><nav class="search-results" id="search-results" aria-label="${tx("Áreas da conta")}">${searchResults()}</nav>` : kind === "support" ? action("Entendi", null, { disabled: false, data: "data-close-dialog" }) : `${empty("Notificações ainda não disponíveis", "As notificações serão exibidas quando o serviço oficial estiver disponível.", "bell", true)}${action("Entendi", null, { disabled: false, data: "data-close-dialog" })}`;
+    document.getElementById("dialog-content").innerHTML = kind === "search" ? `${searchControl({ id: "dialog-search", value: state.searchQuery, label: "Buscar na minha conta", placeholder: "O que você está procurando?", resultsId: "search-results", describedBy: "search-shortcuts" })}<p class="search-shortcuts" id="search-shortcuts">${tx("Use as setas para navegar e Enter para abrir.")}</p><p class="search-caption" id="search-status" role="status" aria-live="polite" aria-atomic="true"></p><nav class="search-results" id="search-results" aria-label="${tx("Áreas da conta")}">${searchResults()}</nav>` : kind === "support" ? action("Entendi", null, { disabled: false, data: "data-close-dialog" }) : `${empty("Notificações ainda não disponíveis", "As notificações serão exibidas quando o serviço oficial estiver disponível.", "bell", true)}${action("Entendi", null, { disabled: false, data: "data-close-dialog" })}`;
   }
   function openDialog(kind) {
     if (!dialog.open) dialogReturnTarget = moreDialog.open ? document.getElementById("more-toggle") : document.activeElement;
@@ -633,9 +649,8 @@
     else if (control.matches("[data-open-more]")) { if (moreDialog.open) closeMore(); else { moreDialog.showModal(); control.setAttribute("aria-expanded", "true"); } }
     else if (control.matches("[data-close-more]")) closeMore();
     else if (control.id === "sidebar-toggle") {
-      const collapsed = root.classList.toggle("sidebar-collapsed");
-      const label = i18n?.fromSource(collapsed ? "Expandir menu" : "Recolher menu") ?? (collapsed ? "Expandir menu" : "Recolher menu");
-      control.setAttribute("aria-expanded", String(!collapsed)); control.setAttribute("aria-label", label); control.title = label; control.innerHTML = icon(collapsed ? "panel-open" : "panel-close");
+      root.classList.toggle("sidebar-collapsed");
+      renderSidebarToggle();
     } else if (control.matches("[data-usage-tab]")) {
       state.tab = control.dataset.usageTab; renderContent(); document.getElementById(`usage-tab-${state.tab}`).focus({ preventScroll: true });
     } else if (control.matches("[data-faq]")) {
@@ -645,8 +660,18 @@
         button.setAttribute("aria-expanded", String(expanded));
         document.getElementById(button.getAttribute("aria-controls")).hidden = !expanded;
       });
-    } else if (control.matches("[data-reset-help]")) {
-      state.helpQuery = ""; document.getElementById("help-search").value = ""; updateHelpResults(); document.getElementById("help-search").focus();
+    } else if (control.matches("[data-clear-search]")) {
+      const input = document.getElementById(control.dataset.clearSearch);
+      input.value = "";
+      if (input.id === "dialog-search") {
+        state.searchQuery = "";
+        document.getElementById("search-results").innerHTML = searchResults();
+        updateSearchStatus();
+      } else {
+        state.helpQuery = "";
+        updateHelpResults();
+      }
+      input.focus();
     } else if (control.matches('a[href^="#"]')) {
       if (dialog.open) dialog.close(); closeMore();
       if (control.getAttribute("href") === location.hash) route();
@@ -663,6 +688,19 @@
   });
   document.addEventListener("keydown", event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openDialog("search"); }
+    if (state.dialog === "search" && ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) {
+      const results = [...document.querySelectorAll("#search-results > a")];
+      const input = document.getElementById("dialog-search");
+      const fromInput = event.target === input;
+      const result = event.target.closest("#search-results > a");
+      if (fromInput && event.key === "Enter" && results.length === 1) {
+        event.preventDefault(); results[0].click();
+      } else if (results.length && event.key !== "Enter" && (fromInput || result)) {
+        event.preventDefault();
+        const index = fromInput ? (event.key === "ArrowDown" ? 0 : results.length - 1) : results.indexOf(result) + (event.key === "ArrowDown" ? 1 : -1);
+        (index < 0 ? input : results[Math.min(index, results.length - 1)]).focus();
+      }
+    }
     const tab = event.target.closest("[data-usage-tab]");
     if (tab && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       event.preventDefault(); const keys = Object.keys(resourceTabs); const index = keys.indexOf(state.tab);

@@ -1304,6 +1304,9 @@
   register("account.structure.availability", "Disponibilidade dos recursos", "Feature availability");
   register("account.structure.areaHelp", "Dúvidas sobre esta área?", "Questions about this area?");
 
+  register("account.refinement.searchClear", "Limpar busca", "Clear search");
+  register("account.refinement.searchKeyboard", "Use as setas para navegar e Enter para abrir.", "Use the arrow keys to navigate and Enter to open.");
+  register("account.refinement.searchSingle", "Área encontrada: {count}", "Area found: {count}");
   register("account.refinement.searchCount", "Áreas encontradas: {count}", "Areas found: {count}");
   register("account.refinement.searchHint", "Tente buscar por senha, faturas, perfil ou dispositivos.", "Try searching for password, invoices, profile, or devices.");
   register("account.refinement.searchAreas", "Áreas da conta", "Account areas");
