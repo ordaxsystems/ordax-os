@@ -96,6 +96,26 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn("Incomplete Owner/Development target capability set", script)
         self.assertIn("ORDAX_OWNER_DEVELOPMENT_PROFILE=YES", script)
 
+    def test_owner_profile_requires_verified_kernel_component_inputs(self) -> None:
+        script = POST_BUILD.read_text(encoding="utf-8")
+        for variable in (
+            "ORDAX_HOST_PYTHON",
+            "ORDAX_KERNEL_MODULES_ARCHIVE",
+            "ORDAX_KERNEL_MODULES_RECEIPT",
+        ):
+            self.assertIn(f"requires {variable}", script)
+        self.assertIn('bootstrap/base/kernel_module_payload.py" install', script)
+        self.assertIn('--archive "$ORDAX_KERNEL_MODULES_ARCHIVE"', script)
+        self.assertIn('--receipt "$ORDAX_KERNEL_MODULES_RECEIPT"', script)
+        self.assertNotIn("bootstrap/kernel/build.py", script)
+
+    def test_owner_profile_fails_without_firmware_coverage(self) -> None:
+        script = POST_BUILD.read_text(encoding="utf-8")
+        self.assertIn('bootstrap/base/firmware_policy.py" check', script)
+        self.assertIn('--rootfs "$TARGET_DIR"', script)
+        self.assertIn("firmware-coverage.json", script)
+        self.assertIn("ORDAX_INDEPENDENT_OWNER", script)
+
     def test_minimal_profile_rejects_owner_capability_leakage(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
         self.assertIn("Owner/Development capability leaked into minimal profile", script)
