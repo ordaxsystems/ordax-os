@@ -29,13 +29,20 @@ import '../../surface/ui/meridian.css';
 import '../../surface/workspace/components/central/meridian.css';
 const readWebProfileCatalog = (signal: AbortSignal) => import('./profile-catalog').then(module => module.readWebProfileCatalog(signal));
 
+type IdentitySnapshot = {
+  state: 'unavailable' | 'signed-out' | 'signed-in';
+  subjectId: string | null;
+  displayName: string | null;
+};
+
 document.documentElement.setAttribute('data-meridian', '');
 const boot = createSurfaceBootScreen(document);
 // This composition currently uses pt-BR; boot text still has one canonical catalog.
 const text = (id: keyof typeof SURFACE_BOOT_SOURCE_MESSAGES) => SURFACE_BOOT_SOURCE_MESSAGES[id];
 boot.setStage(text('surface.boot.loadingSurface'));
-const root = document.querySelector('#ordax-root');
-if (!root) throw new Error('OrdaX composition root is missing #ordax-root');
+const rootCandidate = document.querySelector('#ordax-root');
+if (!rootCandidate) throw new Error('OrdaX composition root is missing #ordax-root');
+const compositionRoot: Element = rootCandidate;
 let reactRoot: Root | undefined;
 let releaseIdentityGate = () => {};
 const route = createRootRoute();
@@ -87,7 +94,7 @@ const webBasepath = import.meta.env.BASE_URL === './'
 const router = createRouter({basepath: webBasepath,
   trailingSlash: 'always', routeTree: route.addChildren([web])});
 
-function leaveWorkspaceForSession(snapshot: ReturnType<typeof accountSession.identity.getSnapshot>) {
+function leaveWorkspaceForSession(snapshot: IdentitySnapshot) {
   const decision = decideWebEntry(snapshot, { allowLocalLayoutPreview: localLayoutPreview });
   if (decision === 'workspace') return false;
   reactRoot?.unmount();
@@ -108,12 +115,12 @@ async function startAuthenticatedWorkspace() {
   // until the canonical same-origin session endpoint has positively identified
   // the user. Anonymous or unavailable identity never becomes a workspace.
   await accountSession.refresh();
-  if (leaveWorkspaceForSession(accountSession.identity.getSnapshot())) return;
+  if (leaveWorkspaceForSession(accountSession.identity.getSnapshot() as IdentitySnapshot)) return;
 
-  releaseIdentityGate = accountSession.identity.subscribe(snapshot => {
+  releaseIdentityGate = accountSession.identity.subscribe((snapshot: IdentitySnapshot) => {
     leaveWorkspaceForSession(snapshot);
   });
-  reactRoot = createRoot(root);
+  reactRoot = createRoot(compositionRoot);
   reactRoot.render(<WorkspaceBoundary><RouterProvider router={router}/></WorkspaceBoundary>);
 }
 
