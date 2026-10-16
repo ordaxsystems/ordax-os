@@ -7,7 +7,7 @@ const UPDATE_LABELS = Object.freeze({
   "pull-error": "Falha ao atualizar",
   "rolled-back": "Atualização revertida",
   rejected: "Entrega bloqueada",
-  pinned: "Entrega fixada",
+  pinned: "Atualizações pausadas por rollback",
   disabled: "Atualização indisponível",
   unavailable: "Estado indisponível",
 });
@@ -23,6 +23,7 @@ export function updateIsAlerting(snapshot) {
     "pull-error",
     "rolled-back",
     "rejected",
+    "pinned",
   ].includes(snapshot?.status);
 }
 
