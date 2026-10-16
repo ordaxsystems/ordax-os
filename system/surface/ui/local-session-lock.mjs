@@ -112,8 +112,11 @@ export function mountLocalSessionLock(
     reveal.className = "ordax-local-session-lock-reveal";
     reveal.dataset.localSessionSecretToggle = "";
     reveal.setAttribute("aria-pressed", String(secretVisible));
-    reveal.setAttribute("aria-label", secretVisible ? "Ocultar senha" : "Mostrar senha");
-    reveal.textContent = secretVisible ? "Ocultar" : "Mostrar";
+    reveal.setAttribute(
+      "aria-label",
+      t(secretVisible ? "localSession.lock.secret.hideLabel" : "localSession.lock.secret.showLabel"),
+    );
+    reveal.textContent = t(secretVisible ? "localSession.lock.secret.hide" : "localSession.lock.secret.show");
     reveal.disabled = pending;
     secretRow.append(input, reveal);
     label.append(secretRow);
