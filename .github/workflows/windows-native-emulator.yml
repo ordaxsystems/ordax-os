@@ -1,0 +1,113 @@
+name: Windows Native Emulator
+
+on:
+  pull_request:
+    paths:
+      - 'tools/windows-emulator/**'
+      - 'tools/browser-proof/**'
+      - 'system/composition/native/**'
+      - 'system/surface/**'
+      - 'system/apps/**'
+      - 'system/adapters/native/**'
+      - 'system/contracts/**'
+      - 'system/services/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/windows-native-emulator.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/windows-emulator/**'
+      - 'tools/browser-proof/**'
+      - 'system/composition/native/**'
+      - 'system/surface/**'
+      - 'system/apps/**'
+      - 'system/adapters/native/**'
+      - 'system/contracts/**'
+      - 'system/services/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/windows-native-emulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-emulator-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify runner Node runtime
+        shell: pwsh
+        run: |
+          node --version
+          node -e "if (Number(process.versions.node.split('.')[0]) < 22) process.exit(1)"
+
+      - name: Install locked UI dependencies
+        shell: pwsh
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Validate emulator and Studio sources
+        shell: pwsh
+        run: |
+          node --check tools/windows-emulator/native-mvp-smoke.mjs
+          node --check tools/windows-emulator/native-host.mjs
+          node --test tests/test_studio_app.mjs tests/test_app_sdk_studio_ports.mjs
+
+      - name: Prove Native MVP on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stdout = Join-Path $env:RUNNER_TEMP 'ordax-windows-emulator-vite.out.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'ordax-windows-emulator-vite.err.log'
+          $vite = Start-Process -FilePath 'node' -ArgumentList @(
+            'node_modules/vite/bin/vite.js',
+            '--config', 'tools/windows-emulator/vite.config.mjs',
+            '--host', '127.0.0.1',
+            '--port', '4202',
+            '--strictPort'
+          ) -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 80; $attempt += 1) {
+              if ($vite.HasExited) {
+                throw "Vite exited before the emulator became ready. ExitCode=$($vite.ExitCode)"
+              }
+              try {
+                $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:4202/system/composition/native/' -TimeoutSec 2
+                if ($response.StatusCode -eq 200) {
+                  $ready = $true
+                  break
+                }
+              } catch {
+                Start-Sleep -Milliseconds 250
+              }
+            }
+            if (-not $ready) {
+              throw 'Windows Native Emulator did not become ready on 127.0.0.1:4202'
+            }
+
+            npm run emulator:windows:smoke
+            if ($LASTEXITCODE -ne 0) {
+              throw "Native MVP smoke failed with exit code $LASTEXITCODE"
+            }
+          } finally {
+            if (-not $vite.HasExited) {
+              Stop-Process -Id $vite.Id -Force -ErrorAction SilentlyContinue
+            }
+            if (Test-Path $stdout) {
+              Write-Host '--- Vite stdout ---'
+              Get-Content $stdout
+            }
+            if (Test-Path $stderr) {
+              Write-Host '--- Vite stderr ---'
+              Get-Content $stderr
+            }
+          }

@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { createServer } from 'vite';
+import { windowsEmulatorStateRoot } from './native-host.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
@@ -9,10 +12,15 @@ const BRANCH = process.env.ORDAX_REPO_BRANCH ?? 'main';
 const UPDATE_INTERVAL_MS = Math.max(5, Number.parseInt(process.env.ORDAX_UPDATE_INTERVAL_SECONDS ?? '5', 10) || 5) * 1000;
 const REMOTE_TIMEOUT_MS = Math.max(5, Number.parseInt(process.env.ORDAX_REMOTE_TIMEOUT_SECONDS ?? '20', 10) || 20) * 1000;
 const FETCH_TIMEOUT_MS = Math.max(10, Number.parseInt(process.env.ORDAX_FETCH_TIMEOUT_SECONDS ?? '45', 10) || 45) * 1000;
+const PREVIEW_URL = 'http://127.0.0.1:4202/system/composition/native/';
+const PREVIEW_READY_TIMEOUT_MS = Math.max(5, Number.parseInt(process.env.ORDAX_PREVIEW_READY_TIMEOUT_SECONDS ?? '20', 10) || 20) * 1000;
 
 let stopping = false;
 let syncRunning = false;
 let timer = null;
+let viteServer = null;
+let previewProcess = null;
+let previewProfileRoot = null;
 
 function git(args, timeout = FETCH_TIMEOUT_MS) {
   const result = spawnSync('git', ['-C', REPO_ROOT, ...args], {
@@ -55,6 +63,90 @@ function isAncestor(ancestor, descendant) {
 
 function log(message) {
   process.stderr.write(`ordax-emulator: ${message}\n`);
+}
+
+function edgeExecutable() {
+  if (process.platform !== 'win32') return null;
+  const candidates = [
+    process.env['ProgramFiles(x86)'],
+    process.env.ProgramFiles,
+    process.env.LOCALAPPDATA,
+  ]
+    .filter(Boolean)
+    .map((base) => join(base, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+async function waitForPreviewReady() {
+  const startedAt = Date.now();
+  let lastError = null;
+  while (!stopping && Date.now() - startedAt < PREVIEW_READY_TIMEOUT_MS) {
+    try {
+      const response = await fetch(PREVIEW_URL, { cache: 'no-store' });
+      if (response.ok) {
+        const html = await response.text();
+        if (html.includes('id="ordax-root"') && html.includes('src="./main.mjs"')) return;
+        lastError = new Error('native composition marker missing');
+      } else {
+        lastError = new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  throw new Error(`preview did not become ready at ${PREVIEW_URL}: ${lastError?.message ?? 'timeout'}`);
+}
+
+async function openPreviewWindow() {
+  await waitForPreviewReady();
+  if (stopping) return;
+
+  if (process.platform !== 'win32') {
+    log(`preview ready at ${PREVIEW_URL}; automatic preview window is Windows-only`);
+    return;
+  }
+
+  const edge = edgeExecutable();
+  if (!edge) {
+    throw new Error('Microsoft Edge runtime was not found; cannot create the Windows emulator preview window');
+  }
+
+  previewProfileRoot = join(
+    windowsEmulatorStateRoot(),
+    'preview-sessions',
+    `session-${process.pid}`,
+  );
+  rmSync(previewProfileRoot, { recursive: true, force: true });
+  mkdirSync(previewProfileRoot, { recursive: true });
+
+  previewProcess = spawn(edge, [
+    `--app=${PREVIEW_URL}`,
+    '--new-window',
+    '--start-maximized',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-background-mode',
+    `--user-data-dir=${previewProfileRoot}`,
+  ], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: false,
+  });
+
+  const previewError = await new Promise((resolvePromise) => {
+    const settle = setTimeout(() => resolvePromise(null), 1_000);
+    previewProcess.once('error', (error) => {
+      clearTimeout(settle);
+      resolvePromise(error);
+    });
+    previewProcess.once('exit', (code, signal) => {
+      clearTimeout(settle);
+      resolvePromise(new Error(`preview process exited before creating a window (${signal ?? code ?? 'unknown'})`));
+    });
+  });
+  if (previewError) throw previewError;
+  log(`preview process running at ${PREVIEW_URL}`);
 }
 
 function syncMainOnce() {
@@ -114,45 +206,65 @@ function syncMainOnce() {
   }
 }
 
-const viteEntry = resolve(REPO_ROOT, 'node_modules/vite/bin/vite.js');
-const vite = spawn(process.execPath, [
-  viteEntry,
-  '--config',
-  'tools/windows-emulator/vite.config.mjs',
-  '--open',
-  '/tools/windows-emulator/index.html',
-], {
-  cwd: REPO_ROOT,
-  stdio: 'inherit',
-  windowsHide: false,
-});
+function stopPreviewProcess() {
+  if (previewProcess && previewProcess.exitCode === null) {
+    if (process.platform === 'win32' && Number.isInteger(previewProcess.pid)) {
+      spawnSync('taskkill.exe', ['/PID', String(previewProcess.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+        timeout: 5_000,
+      });
+    } else {
+      previewProcess.kill('SIGTERM');
+    }
+  }
+  previewProcess = null;
+  if (previewProfileRoot) {
+    rmSync(previewProfileRoot, { recursive: true, force: true });
+    previewProfileRoot = null;
+  }
+}
 
-function stop(signal = 'SIGTERM') {
+async function stop() {
   if (stopping) return;
   stopping = true;
   if (timer) clearInterval(timer);
-  if (!vite.killed) vite.kill(signal);
+  timer = null;
+  stopPreviewProcess();
+  if (viteServer) {
+    const server = viteServer;
+    viteServer = null;
+    await server.close();
+  }
 }
 
-vite.once('error', (error) => {
-  log(`Vite failed to start: ${error.message}`);
+async function start() {
+  log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
+  syncMainOnce();
+  timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
+  timer.unref();
+
+  viteServer = await createServer({
+    configFile: resolve(REPO_ROOT, 'tools/windows-emulator/vite.config.mjs'),
+  });
+  await viteServer.listen();
+  viteServer.printUrls();
+  viteServer.httpServer?.once('error', (error) => {
+    if (stopping) return;
+    log(`Vite server failed: ${error.message}`);
+    process.exitCode = 1;
+    void stop();
+  });
+  await openPreviewWindow();
+}
+
+process.once('SIGINT', () => void stop());
+process.once('SIGTERM', () => void stop());
+
+try {
+  await start();
+} catch (error) {
+  log(`emulator startup failed: ${error.message}`);
   process.exitCode = 1;
-  stop();
-});
-
-vite.once('exit', (code, signal) => {
-  if (timer) clearInterval(timer);
-  if (!stopping && code !== 0) {
-    log(`Vite exited unexpectedly (${signal ?? code ?? 'unknown'}); development supervisor is stopping`);
-    process.exitCode = code ?? 1;
-  }
-  stopping = true;
-});
-
-process.once('SIGINT', () => stop('SIGINT'));
-process.once('SIGTERM', () => stop('SIGTERM'));
-
-log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
-syncMainOnce();
-timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
-timer.unref();
+  await stop();
+}

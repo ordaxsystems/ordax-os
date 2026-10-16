@@ -4,20 +4,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { get as httpGet } from 'node:http';
 function which(command) {
   const result = spawnSync('sh', ['-lc', `command -v ${JSON.stringify(command)}`], { encoding: 'utf8' });
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
 function findBrowser() {
-  const candidates = [
-    process.env.ORDAX_CHROME_BIN,
-    ...(process.platform === 'win32' ? [join(process.env['PROGRAMFILES'] ?? '', 'Google/Chrome/Application/chrome.exe'), join(process.env['PROGRAMFILES(X86)'] ?? '', 'Google/Chrome/Application/chrome.exe'), join(process.env['LOCALAPPDATA'] ?? '', 'Google/Chrome/Application/chrome.exe'), join(process.env['PROGRAMFILES(X86)'] ?? '', 'Microsoft/Edge/Application/msedge.exe'), join(process.env['PROGRAMFILES'] ?? '', 'Microsoft/Edge/Application/msedge.exe')] : []),
-    which('google-chrome'),
-    which('google-chrome-stable'),
-    which('chromium'),
-    which('chromium-browser'),
-  ].filter(Boolean);
+  const platformCandidates = process.platform === 'win32'
+    ? [
+        join(process.env['PROGRAMFILES'] ?? '', 'Google/Chrome/Application/chrome.exe'),
+        join(process.env['PROGRAMFILES(X86)'] ?? '', 'Google/Chrome/Application/chrome.exe'),
+        join(process.env['LOCALAPPDATA'] ?? '', 'Google/Chrome/Application/chrome.exe'),
+        join(process.env['PROGRAMFILES(X86)'] ?? '', 'Microsoft/Edge/Application/msedge.exe'),
+        join(process.env['PROGRAMFILES'] ?? '', 'Microsoft/Edge/Application/msedge.exe'),
+      ]
+    : [
+        which('google-chrome'),
+        which('google-chrome-stable'),
+        which('chromium'),
+        which('chromium-browser'),
+      ];
+  const candidates = [process.env.ORDAX_CHROME_BIN, ...platformCandidates].filter(Boolean);
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
@@ -27,8 +35,31 @@ function findBrowser() {
 const STARTUP_TIMEOUT_MS = 60_000;
 const CDP_PROBE_TIMEOUT_MS = 3_000;
 const STDERR_LIMIT = 8_000;
+const BROWSER_PROOF_DEBUG = process.env.ORDAX_BROWSER_PROOF_DEBUG === '1';
+const debug = (message) => { if (BROWSER_PROOF_DEBUG) console.log(`BROWSER_PROOF_DEBUG=${message}`); };
 
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+
+function readLoopbackJson(url, timeoutMs = CDP_PROBE_TIMEOUT_MS) {
+  return new Promise((resolvePromise, reject) => {
+    const request = httpGet(url, { timeout: timeoutMs }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => {
+        const status = response.statusCode ?? 0;
+        if (status < 200 || status >= 300) {
+          reject(new Error(`HTTP ${status}`));
+          return;
+        }
+        try { resolvePromise(JSON.parse(body)); }
+        catch (error) { reject(new Error(`invalid loopback JSON: ${error.message}`)); }
+      });
+    });
+    request.once('timeout', () => request.destroy(new Error('loopback request timed out')));
+    request.once('error', reject);
+  });
+}
 
 function appendDiagnostic(current, chunk) {
   const combined = current + chunk;
@@ -84,23 +115,19 @@ async function waitForDevTools(
       throw new Error(`failed to spawn Chromium: ${spawnError.message}`);
     }
     const exitState = getExitState();
-    if (exitState) {
+    const windowsLauncherHandedOff = process.platform === 'win32' && exitState?.code === 0;
+    if (exitState && !windowsLauncherHandedOff) {
       throw new Error(
         `Chromium exited before CDP became ready (${exitSummary(exitState)}); stderr=${JSON.stringify(getStderr())}`,
       );
     }
 
-    const controller = new AbortController();
     const requestTimeoutMs = Math.min(CDP_PROBE_TIMEOUT_MS, remainingMs);
-    const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
-      const response = await fetch(endpoint, { signal: controller.signal });
-      if (response.ok) return;
-      lastError = new Error(`HTTP ${response.status}`);
+      await readLoopbackJson(endpoint, requestTimeoutMs);
+      return;
     } catch (error) {
       lastError = error;
-    } finally {
-      clearTimeout(timer);
     }
 
     const pauseMs = Math.min(50, deadline - Date.now());
@@ -178,11 +205,16 @@ class CdpClient {
 }
 
 export { sleep };
-export async function runBrowser(proof) {
+export async function runBrowser(proof, options = {}) {
   if (typeof WebSocket !== 'function') throw new Error('Node >=22.18 is required by browser proof');
   const browser = findBrowser();
+  debug(`browser=${browser}`);
   const cdpPort = await reserveLoopbackPort();
+  debug(`cdp-port=${cdpPort}`);
   const profile = await mkdtemp(join(tmpdir(), 'ordax-browser-smoke-'));
+  const initialUrl = typeof options?.initialUrl === 'string' && options.initialUrl.trim()
+    ? options.initialUrl
+    : 'about:blank';
   const args = [
     '--headless=new',
     '--disable-gpu',
@@ -196,8 +228,11 @@ export async function runBrowser(proof) {
     '--remote-debugging-address=127.0.0.1',
     `--remote-debugging-port=${cdpPort}`,
     `--user-data-dir=${profile}`,
-    'about:blank',
+    initialUrl,
   ];
+  if (typeof options?.windowSize === 'string' && /^\d{3,5},\d{3,5}$/.test(options.windowSize)) {
+    args.unshift(`--window-size=${options.windowSize}`);
+  }
   if (typeof process.getuid === 'function' && process.getuid() === 0) args.unshift('--no-sandbox');
 
   const child = spawn(browser, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -205,6 +240,7 @@ export async function runBrowser(proof) {
   let exitState = null;
   let spawnError = null;
   let passed = false;
+  child.stdout.resume();
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk) => { stderr = appendDiagnostic(stderr, chunk); });
   child.once('exit', (code, signal) => { exitState = { code, signal }; });
@@ -212,26 +248,26 @@ export async function runBrowser(proof) {
   let client = null;
   try {
     const startupStartedAt = Date.now();
+    debug('waiting-for-cdp');
     await waitForDevTools(
       cdpPort,
       () => exitState,
       () => spawnError,
       () => stderr,
     );
+    debug('cdp-ready');
     const startupMs = Date.now() - startupStartedAt;
     console.log(`SURFACE_BROWSER_STARTUP_MS=${startupMs}`);
-    const pagesResponse = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
-    if (!pagesResponse.ok) {
-      throw new Error(`Chromium CDP target list failed with HTTP ${pagesResponse.status}`);
-    }
-    const pages = await pagesResponse.json();
+    const pages = await readLoopbackJson(`http://127.0.0.1:${cdpPort}/json/list`);
     const page = pages.find((item) => item.type === 'page');
     if (!page) throw new Error('Chromium did not expose a page target');
     client = new CdpClient(page.webSocketDebuggerUrl);
     await client.open();
+    debug('websocket-open');
     await client.send('Runtime.enable');
     await client.send('Page.enable');
     await client.send('Log.enable');
+    debug('proof-start');
     const result = await proof(client);
     if (client.events.some(event => event.method === 'Runtime.exceptionThrown'))
       throw new Error('Browser emitted a JavaScript exception');
@@ -239,13 +275,15 @@ export async function runBrowser(proof) {
     return result;
   } finally {
     // Ask Chromium to release its own profile before terminating the process.
-    if (client && child.exitCode === null) {
+    if (client) {
       await client.send('Browser.close').catch(() => {});
-      await new Promise(done => {
-        if (child.exitCode !== null) return done();
-        const timer = setTimeout(done, 2000);
-        child.once('exit', () => { clearTimeout(timer); done(); });
-      });
+      if (child.exitCode === null) {
+        await new Promise(done => {
+          if (child.exitCode !== null) return done();
+          const timer = setTimeout(done, 2000);
+          child.once('exit', () => { clearTimeout(timer); done(); });
+        });
+      }
     }
     client?.close();
     if (child.exitCode === null) {
