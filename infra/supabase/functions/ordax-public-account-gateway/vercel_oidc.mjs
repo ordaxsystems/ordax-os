@@ -1,7 +1,10 @@
 const PUBLIC_SITE_HEADER = "x-ordax-public-site";
 const VERCEL_OIDC_ISSUER = "https://oidc.vercel.com/ordaxsystems";
 const VERCEL_OIDC_AUDIENCE = "https://vercel.com/ordaxsystems";
-const VERCEL_OIDC_SUBJECT = "owner:ordaxsystems:project:ordax-os-public:environment:production";
+const VERCEL_OIDC_SUBJECTS = Object.freeze([
+  "owner:ordaxsystems:project:ordax-os-public:environment:production",
+  "owner:ordaxsystems:project:ordax-web:environment:production",
+]);
 const JWT_RE = /^[A-Za-z0-9_-]{16,4096}\.[A-Za-z0-9_-]{2,16384}\.[A-Za-z0-9_-]{16,16384}$/;
 
 let runtimeVerifierPromise;
@@ -27,7 +30,6 @@ async function runtimeVerifier() {
       return (token) => jwtVerify(token, jwks, {
         issuer: VERCEL_OIDC_ISSUER,
         audience: VERCEL_OIDC_AUDIENCE,
-        subject: VERCEL_OIDC_SUBJECT,
         algorithms: ["RS256", "ES256"],
       });
     });
@@ -67,7 +69,8 @@ export async function verifyPublicProxyIdentity(
   if (
     payload.iss !== VERCEL_OIDC_ISSUER
     || payload.aud !== VERCEL_OIDC_AUDIENCE
-    || payload.sub !== VERCEL_OIDC_SUBJECT
+    || typeof payload.sub !== "string"
+    || !VERCEL_OIDC_SUBJECTS.includes(payload.sub)
   ) {
     return { ok: false, code: "public-proxy-authentication-required" };
   }
@@ -75,16 +78,16 @@ export async function verifyPublicProxyIdentity(
   return {
     ok: true,
     source: "vercel-production-oidc",
-    subject: VERCEL_OIDC_SUBJECT,
+    subject: payload.sub,
   };
 }
 
 export const VERCEL_PUBLIC_PROXY_IDENTITY = Object.freeze({
   issuer: VERCEL_OIDC_ISSUER,
   audience: VERCEL_OIDC_AUDIENCE,
-  subject: VERCEL_OIDC_SUBJECT,
+  subjects: VERCEL_OIDC_SUBJECTS,
   jwks: "https://oidc.vercel.com/.well-known/jwks",
   environment: "production",
-  project: "ordax-os-public",
+  projects: Object.freeze(["ordax-os-public", "ordax-web"]),
   team: "ordaxsystems",
 });
