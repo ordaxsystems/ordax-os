@@ -3,12 +3,18 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 from importlib.util import module_from_spec, spec_from_file_location
 import json
+import os
 from pathlib import Path
 import re
+import shutil
 import stat
+import sys
+import tarfile
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -112,3 +118,128 @@ def validate(
         "rootfs_size": metadata.st_size,
         "members": members,
     }
+
+
+def _require_real_directory(path: Path, label: str) -> None:
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise IndependentRootfsError(f"{label} is missing or unsafe") from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise IndependentRootfsError(f"{label} is missing or unsafe")
+
+
+def _verify_seed_tree(path: Path) -> None:
+    try:
+        consumer._verify_materialized_tree(path)
+    except consumer.DevBaseChannelError as exc:
+        raise IndependentRootfsError(
+            f"materialized Independent rootfs is unsafe: {exc}"
+        ) from exc
+
+    for relative in consumer.REQUIRED_ROOTFS_PATHS:
+        target = path / relative
+        try:
+            metadata = target.stat()
+        except OSError as exc:
+            raise IndependentRootfsError(
+                f"materialized Independent rootfs is missing required file: {relative}"
+            ) from exc
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & 0o111 == 0:
+            raise IndependentRootfsError(
+                f"materialized Independent rootfs has unsafe required file: {relative}"
+            )
+
+    for relative in consumer.REQUIRED_ROOTFS_DIRS:
+        target = path / relative
+        try:
+            metadata = target.lstat()
+        except OSError as exc:
+            raise IndependentRootfsError(
+                f"materialized Independent rootfs is missing required directory: {relative}"
+            ) from exc
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+            raise IndependentRootfsError(
+                f"materialized Independent rootfs has unsafe required directory: {relative}"
+            )
+
+
+def materialize(
+    *,
+    rootfs: Path,
+    provenance_path: Path,
+    expected_commit: str,
+    destination: Path,
+) -> dict:
+    """Atomically materialize an authenticated Owner rootfs with safe symlinks preserved."""
+    validated = validate(
+        rootfs=rootfs,
+        provenance_path=provenance_path,
+        expected_commit=expected_commit,
+    )
+    parent = destination.parent
+    _require_real_directory(parent, "Independent rootfs destination parent")
+    if destination.exists() or destination.is_symlink():
+        raise IndependentRootfsError("Independent rootfs destination must not exist")
+
+    temporary = Path(
+        tempfile.mkdtemp(prefix=f".{destination.name}.", dir=str(parent))
+    )
+    published = False
+    try:
+        with tarfile.open(rootfs, "r:") as archive:
+            archive.extractall(
+                temporary,
+                members=validated["members"],
+                filter="data",
+            )
+        _verify_seed_tree(temporary)
+        os.replace(temporary, destination)
+        published = True
+        return {
+            "destination": destination,
+            "rootfs_sha256": validated["rootfs_sha256"],
+            "rootfs_size": validated["rootfs_size"],
+            "members": validated["members"],
+            "provenance": validated["provenance"],
+        }
+    except (tarfile.TarError, OSError) as exc:
+        raise IndependentRootfsError(
+            f"Independent rootfs materialization failed: {exc}"
+        ) from exc
+    finally:
+        if not published and temporary.exists():
+            shutil.rmtree(temporary, ignore_errors=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    materialize_parser = subparsers.add_parser(
+        "materialize",
+        help="materialize an authenticated owner-development rootfs.tar",
+    )
+    materialize_parser.add_argument("--rootfs", required=True, type=Path)
+    materialize_parser.add_argument("--provenance", required=True, type=Path)
+    materialize_parser.add_argument("--expected-commit", required=True)
+    materialize_parser.add_argument("--destination", required=True, type=Path)
+    args = parser.parse_args()
+
+    try:
+        result = materialize(
+            rootfs=args.rootfs,
+            provenance_path=args.provenance,
+            expected_commit=args.expected_commit,
+            destination=args.destination,
+        )
+    except (IndependentRootfsError, OSError) as exc:
+        print(f"independent-rootfs: ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"INDEPENDENT_ROOTFS_MATERIALIZED={result['destination']}")
+    print(f"INDEPENDENT_ROOTFS_SHA256={result['rootfs_sha256']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

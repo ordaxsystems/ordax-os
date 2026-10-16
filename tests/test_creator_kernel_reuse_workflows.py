@@ -99,22 +99,35 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertNotIn("bootstrap/kernel/build.py", build)
         self.assertIn("bootstrap/initramfs/build.py build --jobs 4", build)
 
-    def test_owner_dev_diagnose_is_dev_base_only_and_reuses_kernel(self):
+    def test_owner_dev_diagnose_uses_independent_owner_rootfs_and_reuses_kernel(self):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV_DIAGNOSE)
         trigger = workflow.split("permissions:", 1)[0]
-        self.assertNotIn("      - 'bootstrap/dev-base/**'", trigger)
-        for path in (
+        for legacy in (
             "bootstrap/base/alpine_core.py",
-            "bootstrap/base/firmware_policy.py",
             "bootstrap/base/runtime_policy.py",
             "bootstrap/dev-base/build.py",
         ):
+            self.assertNotIn(legacy, trigger)
+            self.assertNotIn(legacy, workflow)
+        for path in (
+            "bootstrap/base/firmware_policy.py",
+            "bootstrap/base/kernel_module_payload.py",
+            "bootstrap/independent-base/**",
+            "system/services/base-update/dev_channel.py",
+            "tools/dev-base-channel/**",
+        ):
             self.assertIn(f"      - '{path}'", trigger)
-        self.assertNotIn("Build and verify boot ESP", workflow)
-        self.assertNotIn("Build and verify initramfs", workflow)
-        dev_base = self.step_block(workflow, "Build and verify Git development base")
-        self.assertNotIn("bootstrap/kernel/build.py", dev_base)
-        self.assertNotIn("bootstrap/initramfs/build.py", dev_base)
+
+        self.assertNotIn("proot", workflow.lower())
+        self.assertNotIn("alpine-minirootfs", workflow)
+        build = self.step_block(workflow, "Build and verify Owner Independent Base")
+        self.assertNotIn("bootstrap/kernel/build.py", build)
+        self.assertIn("bootstrap/independent-base/build.py build", build)
+        self.assertIn("--profile owner-development", build)
+        self.assertIn("prove_independent_rootfs.py", build)
+        self.assertIn("independent_rootfs.py materialize", build)
+        self.assertIn('assert provenance["physical_artifact_authorized"] is False', build)
+        self.assertIn('assert provenance["signed_release_equivalence_proven"] is False', build)
 
     def test_owner_dev_publication_remains_main_only(self):
         workflow = self.workflow(OWNER_DEV)

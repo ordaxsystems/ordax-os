@@ -122,6 +122,55 @@ class IndependentDevChannelCompatibilityTests(unittest.TestCase):
             self.assertGreaterEqual(result["symlink_members"], 1)
             self.assertEqual(json.loads(receipt.read_text(encoding="utf-8")), result)
 
+    def test_authenticated_owner_rootfs_materializes_safe_symlinks_atomically(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rootfs = root / "rootfs.tar"
+            provenance = root / "provenance.json"
+            destination_parent = root / "materialized"
+            destination_parent.mkdir()
+            destination = destination_parent / "rootfs"
+            write_rootfs(rootfs)
+            write_provenance(provenance, rootfs)
+
+            result = proof.policy.materialize(
+                rootfs=rootfs,
+                provenance_path=provenance,
+                expected_commit=SOURCE,
+                destination=destination,
+            )
+
+            self.assertEqual(result["destination"], destination)
+            self.assertTrue(destination.is_dir())
+            self.assertTrue((destination / "bin/sh").is_symlink())
+            self.assertEqual((destination / "bin/sh").readlink().as_posix(), "busybox")
+            self.assertEqual(
+                (destination / "bin/sh").resolve(strict=True),
+                (destination / "bin/busybox").resolve(strict=True),
+            )
+            consumer._verify_materialized_tree(destination)
+
+    def test_materializer_refuses_existing_destination(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rootfs = root / "rootfs.tar"
+            provenance = root / "provenance.json"
+            destination = root / "rootfs"
+            destination.mkdir()
+            write_rootfs(rootfs)
+            write_provenance(provenance, rootfs)
+
+            with self.assertRaisesRegex(
+                proof.CompatibilityError,
+                "destination must not exist",
+            ):
+                proof.policy.materialize(
+                    rootfs=rootfs,
+                    provenance_path=provenance,
+                    expected_commit=SOURCE,
+                    destination=destination,
+                )
+
     def test_consumer_rejects_escaping_symlink_from_independent_rootfs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
