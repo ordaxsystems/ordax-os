@@ -5,6 +5,7 @@ on:
     branches:
       - 'platform/remove-alpine'
     paths:
+      - 'bootstrap/base/kernel_module_payload.py'
       - 'bootstrap/independent-base/**'
       - 'bootstrap/network/**'
       - 'bootstrap/dev-base/**'
@@ -13,6 +14,7 @@ on:
       - 'bootstrap/windows-compat-runtime/**'
       - 'docs/BUILD-AUTONOMY.md'
       - 'docs/DEVELOPMENT-WORKFLOW.md'
+      - 'docs/contracts/hardware-support-matrix.json'
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
@@ -20,6 +22,7 @@ on:
       - 'tests/test_independent_base_experiment.py'
       - 'tests/test_independent_network_parity.py'
       - 'tests/test_independent_owner_profile.py'
+      - 'tests/test_kernel_module_payload.py'
       - '.github/workflows/remove-alpine-fast.yml'
   workflow_dispatch:
 
@@ -50,11 +53,13 @@ jobs:
           set -euo pipefail
           python3 bootstrap/independent-base/build.py check --profile minimal
           python3 bootstrap/independent-base/build.py check --profile owner-development
+          python3 bootstrap/base/kernel_module_payload.py check
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity \
-            tests.test_independent_owner_profile -v
+            tests.test_independent_owner_profile \
+            tests.test_kernel_module_payload -v
       - name: Resolve Buildroot profiles without compiling rootfs or kernel
         run: |
           set -euo pipefail
@@ -65,10 +70,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile \
+            bootstrap/base/kernel_module_payload.py \
             bootstrap/independent-base/build.py \
             bootstrap/independent-base/qemu_proof.py \
             bootstrap/independent-base/portable_boot_proof.py \
             tests/test_alpine_removal_boundary.py \
-            tests/test_independent_owner_profile.py
+            tests/test_independent_owner_profile.py \
+            tests/test_kernel_module_payload.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
