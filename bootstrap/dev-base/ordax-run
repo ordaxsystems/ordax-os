@@ -13,6 +13,7 @@ STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 PINNED_FILE=$STATE_DIR/pinned-commit
 BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
+OWNER_UPDATE_STAGE_TIMEOUT=${ORDAX_STAGE_TIMEOUT_SECONDS:-60}
 ENTRY_PID=""
 TAIL_PID=""
 WATCH_PID=""
@@ -38,6 +39,12 @@ is_sha() {
     esac
     return 0
 }
+
+case "$OWNER_UPDATE_STAGE_TIMEOUT" in
+    ''|*[!0-9]*) OWNER_UPDATE_STAGE_TIMEOUT=60 ;;
+esac
+[ "$OWNER_UPDATE_STAGE_TIMEOUT" -ge 15 ] 2>/dev/null || OWNER_UPDATE_STAGE_TIMEOUT=60
+[ "$OWNER_UPDATE_STAGE_TIMEOUT" -le 300 ] 2>/dev/null || OWNER_UPDATE_STAGE_TIMEOUT=300
 
 read_state_value() {
     path=$1
@@ -212,6 +219,7 @@ start_guardian_tail
 ORDAX_DISTRIBUTION_PROFILE=owner-development \
 ORDAX_PRODUCT_MODE=usb \
 ORDAX_SOURCE_SHA="$source_sha" \
+ORDAX_STAGE_TIMEOUT_SECONDS="$OWNER_UPDATE_STAGE_TIMEOUT" \
     "$ENTRYPOINT" &
 ENTRY_PID=$!
 
