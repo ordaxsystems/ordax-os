@@ -19,6 +19,42 @@
   ],
   "rewrites": [
     {
+      "source": "/auth/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "destination": "/api/web-account-proxy?ordax_path=/auth/:path*"
+    },
+    {
+      "source": "/sync/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "destination": "/api/web-account-proxy?ordax_path=/sync/:path*"
+    },
+    {
+      "source": "/account/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "destination": "/api/web-account-proxy?ordax_path=/account/:path*"
+    },
+    {
       "source": "/oauth/consent",
       "destination": "/api/oauth-consent"
     },
