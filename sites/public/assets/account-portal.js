@@ -188,9 +188,9 @@
   const periods = Object.freeze({ month: "Este mês", week: "Últimos 7 dias", thirty: "Últimos 30 dias", year: "Este ano" });
   const resourceTabs = Object.freeze({ overview: "Visão geral", ai: "IA", storage: "Armazenamento", apis: "APIs" });
   const resources = Object.freeze([
-    { id: "ai", name: "Créditos de IA", label: "Inteligência artificial", icon: "cpu", tone: "violet" },
-    { id: "storage", name: "Armazenamento", label: "Armazenamento", icon: "disk", tone: "cyan" },
-    { id: "apis", name: "APIs e serviços", label: "APIs e serviços", icon: "zap", tone: "mint" }
+    { id: "ai", capabilityId: "aiUsage", name: "Créditos de IA", label: "Inteligência artificial", icon: "cpu", tone: "violet" },
+    { id: "storage", capabilityId: "storageUsage", name: "Armazenamento", label: "Armazenamento", icon: "disk", tone: "cyan" },
+    { id: "apis", capabilityId: "apiUsage", name: "APIs e serviços", label: "APIs e serviços", icon: "zap", tone: "mint" }
   ]);
   const privacyOptions = Object.freeze([
     { title: "Dados essenciais", description: "Dados necessários para o funcionamento e a segurança da conta.", iconName: "lock" },
@@ -353,9 +353,9 @@
   function selectPeriod(id, value, all = true) {
     return `<label class="period-filter"><span>${tx(id === "activity-period" ? "Período de atividade" : "Período de consumo")}</span><span class="period-select"><select id="${id}" data-period="${id}">${Object.entries(periods).filter(([key]) => all || key !== "year").map(([key, label]) => `<option value="${key}"${value === key ? " selected" : ""}>${tx(label)}</option>`).join("")}</select>${icon("chevron-down")}</span></label>`;
   }
-  function chart(period = "month") {
+  function chart(period = "month", resource = resourceTabs.overview) {
     const translatedPeriod = (i18n?.fromSource(periods[period]) ?? periods[period]).toLocaleLowerCase(i18n?.getLocale() ?? "pt-BR");
-    return `<div class="usage-chart" role="img" aria-label="${tx("Seu consumo aparecerá aqui")}"><div class="chart-field"><div class="chart-grid" aria-hidden="true"></div><div class="chart-empty">${icon("chart")}<span>${tx("Seu consumo aparecerá aqui")}</span><small>${message("account.usage.unavailablePeriod", { period: translatedPeriod })}</small></div></div></div>`;
+    return `<div class="usage-chart" role="img" aria-label="${message("account.usage.chartContext", { resource: i18n.fromSource(resource), period: translatedPeriod })}"><div class="chart-field"><div class="chart-grid" aria-hidden="true"></div><div class="chart-empty">${icon("chart")}<span>${tx("Seu consumo aparecerá aqui")}</span><small>${message("account.usage.unavailablePeriod", { period: translatedPeriod })}</small></div></div></div>`;
   }
   function integration(section) {
     if (!section.owner) return "";
@@ -420,7 +420,14 @@
   }
   function consumption() {
     const selectedResources = resources.filter(resource => state.tab === "overview" || resource.id === state.tab);
-    return `<section class="settings-section usage-workbench"><header class="usage-controls"><div><h2>${tx("Recursos da conta")}</h2><p>${tx("Consulte o uso e os limites de cada recurso.")}</p></div>${selectPeriod("usage-period", state.period)}</header><div class="segment-tabs" role="tablist" aria-label="${tx("Consumo e limites")}">${Object.entries(resourceTabs).map(([key, title]) => `<button type="button" class="button ghost${state.tab === key ? " selected" : ""}" role="tab" id="usage-tab-${key}" data-usage-tab="${key}" aria-selected="${state.tab === key}" aria-controls="usage-panel" tabindex="${state.tab === key ? "0" : "-1"}">${tx(title)}</button>`).join("")}</div><div id="usage-panel" role="tabpanel" aria-labelledby="usage-tab-${state.tab}" tabindex="0"><div class="usage-summary">${selectedResources.map(resource => `<article class="usage-stat"><div class="usage-stat-heading">${icon(resource.icon, resource.tone)}<h3>${tx(resource.name)}</h3></div><dl>${["Uso", "Limite"].map(label => `<div><dt>${tx(label)}</dt><dd aria-label="${tx("Não disponível")}">—</dd></div>`).join("")}</dl><p>${tx("Uso e limite indisponíveis")}</p></article>`).join("")}</div><section class="usage-chart-panel"><header class="chart-heading"><div><h3>${tx("Histórico de utilização")}</h3><p>${tx(resourceTabs[state.tab])} · ${tx(periods[state.period])}</p></div>${action("Exportar", "download", { small: true })}</header><div class="chart-legend">${selectedResources.map(resource => `<span><i class="legend-${resource.tone}"></i>${tx(resource.label)}</span>`).join("")}</div>${chart(state.period)}</section></div><p class="usage-data-note">${icon("info")}${tx("Selecione um recurso e um período. Os valores serão exibidos quando a medição estiver conectada.")}</p></section>`;
+    return `<section class="settings-section usage-workbench" aria-labelledby="usage-heading">
+      <header class="usage-controls"><div><h2 id="usage-heading">${tx("Recursos da conta")}</h2><p>${tx("Consulte o uso e os limites de cada recurso.")}</p></div>${selectPeriod("usage-period", state.period)}</header>
+      <div class="segment-tabs" role="tablist" aria-label="${tx("Consumo e limites")}">${Object.entries(resourceTabs).map(([key, title]) => `<button type="button" class="button ghost${state.tab === key ? " selected" : ""}" role="tab" id="usage-tab-${key}" data-usage-tab="${key}" aria-selected="${state.tab === key}" aria-controls="usage-panel" tabindex="${state.tab === key ? "0" : "-1"}">${tx(title)}</button>`).join("")}</div>
+      <div id="usage-panel" role="tabpanel" aria-labelledby="usage-tab-${state.tab}" tabindex="0">
+        <div class="usage-summary${selectedResources.length === 1 ? " is-single" : ""}">${selectedResources.map(resource => `<article class="usage-stat"><div class="usage-stat-heading">${icon(resource.icon, resource.tone)}<h3>${tx(resource.name)}</h3></div><dl>${["Uso", "Limite"].map(label => `<div><dt>${tx(label)}</dt><dd aria-label="${tx("Não disponível")}">—</dd></div>`).join("")}</dl>${capabilityBadge(resource.capabilityId)}</article>`).join("")}</div>
+        <section class="usage-chart-panel" aria-labelledby="usage-history-heading"><header class="chart-heading"><div><h3 id="usage-history-heading">${tx("Histórico de utilização")}</h3><p>${tx(resourceTabs[state.tab])} · ${tx(periods[state.period])}</p></div><div class="chart-actions">${capabilityBadge("usageHistory")}${action("Exportar", "download", { small: true, describedBy: "usage-data-status" })}</div></header><div class="chart-legend">${selectedResources.map(resource => `<span><i class="legend-${resource.tone}"></i>${tx(resource.label)}</span>`).join("")}</div>${chart(state.period, resourceTabs[state.tab])}</section>
+      </div><p class="usage-data-note" id="usage-data-status">${icon("info")}${tx("Selecione um recurso e um período. Os valores serão exibidos quando a medição estiver conectada.")}</p>
+    </section>${relatedAreas(["assinatura", "faturamento"], "Plano e pagamentos")}`;
   }
   function billing() {
     return `<section class="settings-section billing-summary" aria-labelledby="billing-summary-heading">
@@ -481,9 +488,13 @@
   function preferences() {
     const locales = window.OrdaXPublicI18nCatalog?.supportedLocales ?? [];
     const material = document.body.dataset.material === "ink" ? "Escuro" : "Claro";
-    return `<div class="preferences-grid"><section class="settings-section preference-panel">${panelHeading("Idioma do portal", { iconName: "globe", tone: "cyan", end: capabilityBadge("portalLocale") })}<p class="panel-description">${tx("Escolha o idioma usado neste portal. Esta escolha vale para este navegador.")}</p><label class="locale-field" for="account-locale"><span>${tx("Idioma preferido")}</span><select id="account-locale">${locales.map(locale => `<option value="${esc(locale)}"${i18n.getLocale() === locale ? " selected" : ""}>${message(`locale.selector.${locale}`)}</option>`).join("")}</select></label></section>
-        <section class="settings-section preference-panel">${panelHeading("Aparência", { iconName: "devices", tone: "cyan", end: capabilityBadge("portalAppearance") })}<p class="panel-description">${tx("Esta é a aparência atual deste portal.")}</p><div class="appearance-preview" aria-hidden="true"><span class="appearance-preview-bar"></span><span class="appearance-preview-rail"></span><span class="appearance-preview-content"><i></i><i></i><i></i></span></div><div class="appearance-current"><span>${tx("Visual atual")}</span><span class="profile-label">${tx(material)}</span></div></section></div>
-      <section class="settings-section communication-settings">${panelHeading("Notificações e comunicações", { iconName: "bell", tone: "cyan", end: capabilityBadge("communications") })}<p class="panel-description">${tx("Preferências da conta estarão disponíveis quando o serviço oficial estiver conectado.")}</p>${communicationOptions.map(option => settingRow({ ...option, control: capabilityBadge("communications") })).join("")}</section>`;
+    return `<section class="settings-section portal-preferences" aria-labelledby="portal-preferences-heading">
+      ${panelHeading("Preferências do portal", { id: "portal-preferences-heading", iconName: "sliders", tone: "cyan" })}<p class="panel-description">${tx("Idioma e aparência se referem ao navegador atual.")}</p>
+      <div class="preferences-grid"><article class="preference-panel"><div class="preference-heading"><h3>${tx(capabilityDefinitions.portalLocale.title)}</h3>${capabilityBadge("portalLocale")}</div><p class="preference-description" id="account-locale-hint">${tx("Escolha o idioma usado neste portal. Esta escolha vale para este navegador.")}</p><label class="locale-field" for="account-locale"><span>${tx("Idioma preferido")}</span><select id="account-locale" aria-describedby="account-locale-hint">${locales.map(locale => `<option value="${esc(locale)}"${i18n.getLocale() === locale ? " selected" : ""}>${message(`locale.selector.${locale}`)}</option>`).join("")}</select></label></article>
+        <article class="preference-panel"><div class="preference-heading"><h3>${tx("Aparência")}</h3>${capabilityBadge("portalAppearance")}</div><p class="preference-description">${tx("Esta é a aparência atual deste portal.")}</p><div class="appearance-option"><div class="appearance-preview" aria-hidden="true"><span class="appearance-preview-bar"></span><span class="appearance-preview-rail"></span><span class="appearance-preview-content"><i></i><i></i><i></i></span></div><div class="appearance-current"><span>${tx("Visual atual")}</span><strong>${tx(material)}</strong></div></div></article></div>
+    </section>
+    <section class="settings-section communication-settings" aria-labelledby="communications-heading">${panelHeading("Notificações e comunicações", { id: "communications-heading", iconName: "bell", tone: "cyan" })}<p class="panel-description">${tx("Preferências da conta estarão disponíveis quando o serviço oficial estiver conectado.")}</p>${communicationOptions.map(option => settingRow({ ...option, status: capabilityBadge("communications") })).join("")}<div class="panel-actions communication-actions">${link("privacidade", "", "text-link", `${tx(byId.get("privacidade").title)}${icon("arrow-right")}`)}</div></section>
+    ${relatedAreas(["dados-pessoais", "suporte"], "Perfil e ajuda")}`;
   }
   function integrations() {
     return `<section class="settings-section connection-settings" aria-labelledby="connections-heading">

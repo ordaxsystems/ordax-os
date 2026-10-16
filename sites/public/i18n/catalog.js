@@ -1236,6 +1236,12 @@
   register("account.dataAccess.appsAccess", "Acesso dos aplicativos", "App access");
   register("account.dataAccess.relatedAccess", "Acesso e dados da conta", "Account access and data");
 
+  register("account.usage.chartContext", "Histórico indisponível: {resource} · {period}", "History unavailable: {resource} · {period}");
+  register("account.usage.related", "Plano e pagamentos", "Plan and payments");
+  register("account.preferences.portal", "Preferências do portal", "Portal preferences");
+  register("account.preferences.scope", "Idioma e aparência se referem ao navegador atual.", "Language and appearance refer to the current browser.");
+  register("account.preferences.related", "Perfil e ajuda", "Profile and help");
+
   register("account.shared.verified", "Recursos verificados", "Verified features");
   register("account.shared.pending", "Os recursos marcados como pendentes ainda aguardam integração.", "Features marked as pending still await integration.");
   register("account.shared.locale", "Idioma do portal", "Portal language");

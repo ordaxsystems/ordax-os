@@ -163,7 +163,8 @@ body.account-portal .unavailable-chip{font-size:11px;color:var(--subtle);display
 body.account-portal .unavailable-chip>span{width:4px;height:4px;border-radius:50%;background:var(--subtle)}
 body.account-portal .segment-tabs{display:flex;padding:4px;border:1px solid var(--border);border-radius:var(--control-radius);min-width:0;flex-wrap:wrap;width:fit-content;max-width:100%;background:var(--secondary);gap:4px;}
 body.account-portal .segment-tabs button{color:var(--muted-foreground);font-size:12px;height:auto;min-height:38px;padding:8px 12px;}
-body.account-portal .segment-tabs button.selected{color:var(--foreground);background:var(--card);border-color:var(--border);}
+body.account-portal .segment-tabs button.selected{color:var(--md-sage);background:var(--card);border-color:var(--md-sage);}
+body.account-portal .segment-tabs .button.selected:not(:disabled):hover{color:var(--md-sage);background:var(--card)}
 body.account-portal .period-select{display:flex;align-items:center;position:relative}
 body.account-portal .period-select select{appearance:none;padding-right:35px;font-size:13px}
 body.account-portal .period-select>svg{position:absolute;right:10px;width:12px;height:12px;pointer-events:none;color:var(--muted-foreground)}
@@ -433,14 +434,19 @@ body.account-portal .usage-summary{display:grid;grid-template-columns:repeat(3,m
 body.account-portal .usage-stat{min-width:0;padding:14px;border:1px solid var(--border);border-radius:var(--control-radius);background:var(--background)}
 body.account-portal .usage-stat-heading{display:flex;align-items:center;gap:7px;min-width:0}
 body.account-portal .usage-stat-heading>svg{width:17px;height:17px}
-body.account-portal .usage-stat-heading h3{font-size:12px;font-weight:500;line-height:1.5;overflow-wrap:anywhere}
+body.account-portal .usage-stat-heading h3{font-size:13px;font-weight:500;line-height:1.5;overflow-wrap:anywhere}
 body.account-portal .usage-stat dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0 10px}
 body.account-portal .usage-stat dt{font-size:11px;color:var(--muted-foreground)}
 body.account-portal .usage-stat dd{font-size:23px;line-height:1.5;font-weight:500;margin:0}
-body.account-portal .usage-stat>p{font-size:10px;color:var(--muted-foreground);line-height:1.6}
+body.account-portal .usage-stat>.status-tag{display:inline-flex;margin-top:4px}
+body.account-portal .usage-summary.is-single{grid-template-columns:minmax(0,1fr)}
+body.account-portal .usage-summary.is-single>.usage-stat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 24px;padding:18px}
+body.account-portal .usage-summary.is-single .usage-stat dl{grid-column:2;grid-row:1/3;gap:36px;margin:0;min-width:140px}
+body.account-portal .usage-summary.is-single .usage-stat>.status-tag{grid-column:1;justify-self:start;margin:0}
+body.account-portal .chart-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 body.account-portal .usage-chart-panel{padding-top:20px;border-top:1px solid var(--border);margin-top:20px}
 body.account-portal .usage-chart-panel h3{font-size:15px;font-weight:500}
-body.account-portal .usage-chart-panel .usage-chart{height:200px}
+body.account-portal .usage-chart-panel .usage-chart{height:180px}
 body.account-portal .usage-data-note{display:flex;align-items:flex-start;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;line-height:1.7;color:var(--muted-foreground)}
 body.account-portal .usage-data-note>svg{width:16px;height:16px;flex-shrink:0;margin-top:2px;color:var(--md-sage)}
 body.account-portal .usage-workbench [role=tabpanel]:focus-visible{outline:2px solid var(--md-focus);outline-offset:5px;border-radius:var(--control-radius)}
@@ -486,18 +492,26 @@ body.account-portal .data-operations>.setting-row,body.account-portal .connectio
 body.account-portal .data-operations>.setting-row>.button,body.account-portal .connection-permissions>.setting-row>.button{grid-column:2;justify-self:start}
 body.account-portal .consent-settings .setting-row>.text-link{grid-column:2;justify-self:start}
 }
-body.account-portal .preferences-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px;align-items:stretch}
-body.account-portal .preferences-grid>.settings-section{margin:0}
+body.account-portal .preferences-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:22px;align-items:start}
+body.account-portal .preference-heading{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+body.account-portal .preference-heading h3{font-size:14px;font-weight:500}
+body.account-portal .preference-description{font-size:12px;line-height:1.75;color:var(--muted-foreground);margin-top:10px}
+body.account-portal .appearance-option{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:center;margin-top:16px}
+body.account-portal .communication-settings>.setting-row{border-bottom:0}
+body.account-portal .communication-settings>.setting-row+.setting-row{border-top:1px solid var(--border)}
+body.account-portal .communication-actions{border-top:1px solid var(--border)}
 body.account-portal .preference-panel{display:flex;flex-direction:column;min-width:0}
-body.account-portal .locale-field{display:grid;gap:8px;min-width:0;padding-top:20px;margin-top:auto;font-size:12px}
+body.account-portal .locale-field{display:grid;gap:8px;min-width:0;margin-top:16px;font-size:12px}
 body.account-portal .locale-field select{width:100%;min-height:44px;font-size:14px}
-body.account-portal .appearance-preview{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-rows:18px 1fr;height:96px;min-height:96px;margin-top:18px;border:1px solid var(--border);border-radius:var(--control-radius);overflow:hidden;background:var(--background)}
+body.account-portal .appearance-preview{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-rows:18px 1fr;height:72px;min-height:72px;margin:0;border:1px solid var(--border);border-radius:var(--control-radius);overflow:hidden;background:var(--background)}
 body.account-portal .appearance-preview-bar{grid-column:1/-1;border-bottom:1px solid var(--border);background:var(--card)}
 body.account-portal .appearance-preview-rail{background:var(--md-rail)}
 body.account-portal .appearance-preview-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
 body.account-portal .appearance-preview-content>i{display:block;border:1px solid var(--border);border-radius:4px;background:var(--card)}
 body.account-portal .appearance-preview-content>i:first-child{grid-column:1/-1;max-height:10px;border:0;background:var(--md-subtle)}
-body.account-portal .appearance-current{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:11px;color:var(--muted-foreground)}
+body.account-portal .appearance-current{display:grid;gap:5px;font-size:11px;color:var(--muted-foreground)}
+body.account-portal .appearance-current strong{font-size:14px;font-weight:500;color:var(--foreground)}
+@media(max-width:760px){body.account-portal .preferences-grid{grid-template-columns:minmax(0,1fr);gap:22px}body.account-portal .preference-panel+.preference-panel{border-top:1px solid var(--border);padding-top:20px}}
 
 /* Account structure: one identity panel and a purposeful overview. */
 body.account-portal .account-main>*{max-width:1360px;margin-inline:auto}
@@ -643,8 +657,10 @@ body.account-portal summary:focus-visible{outline:2px solid var(--md-focus);outl
  body.account-portal .usage-summary{grid-template-columns:minmax(0,1fr);gap:10px}
  body.account-portal .usage-stat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 14px}
  body.account-portal .usage-stat dl{grid-column:2;grid-row:1/3;gap:18px;margin:0;min-width:90px}
- body.account-portal .usage-stat>p{grid-column:1}
+ body.account-portal .usage-stat>.status-tag{grid-column:1;justify-self:start}
  body.account-portal .usage-stat dd{font-size:20px}
+ body.account-portal .usage-summary.is-single .usage-stat dl{gap:18px;min-width:90px}
+ body.account-portal .usage-summary.is-single>.usage-stat{gap:8px 14px;padding:14px}
  body.account-portal .usage-controls .period-filter{width:100%}
  body.account-portal .subscription-plan h3{font-size:23px}
  body.account-portal .subscription-facts{grid-template-columns:minmax(0,1fr);gap:14px;padding-block:16px}
