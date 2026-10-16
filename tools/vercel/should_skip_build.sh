@@ -37,19 +37,19 @@ case "$project" in
     ;;
   prj_ftACluUqk6i9DoD9GPIwmgURwckP)
     # The Web artifact consumes the Surface plus the exact canonical login
-    # dependency closure. Unrelated public portal pages must not rebuild Web.
+    # dependency closure. Unrelated public portal pages and the public artifact
+    # builder must not rebuild Web.
     if git diff --quiet "$previous" "$current" -- \
       system \
       sites/public/login/index.html \
       sites/public/assets/site.css \
       sites/public/assets/account.css \
-      sites/public/assets/ordax-design-tokens.css \
       sites/public/assets/site.js \
       sites/public/i18n/catalog.js \
       sites/public/i18n/runtime.js \
       sites/public/config/public-site.json \
+      tools/public-site/public_html_render.py \
       tools/surface-web \
-      tools/public-site \
       tools/brand \
       tools/source_graph.py \
       tools/vercel \
