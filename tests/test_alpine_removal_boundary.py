@@ -11,7 +11,6 @@ BOOTSTRAP = ROOT / "bootstrap"
 # shrink over time; adding a new production consumer is an architectural
 # regression and requires an explicit migration decision.
 ALLOWED_PYTHON_REFERENCES = {
-    "bootstrap/dev-base/_build_core.py",
     "bootstrap/dev-base/build.py",
     "bootstrap/stable-base/build.py",
     "bootstrap/surface-runtime/build.py",
