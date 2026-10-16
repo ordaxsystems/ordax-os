@@ -65,18 +65,21 @@ recover_automatic_rollback_pin() {
     [ "$rejected" != "$pinned" ] || return 0
 
     echo "ordax-run: rollback automatico detectado; procurando uma main mais nova sem abandonar o known-good"
-    if ORDAX_WORKTREE="$WORKTREE" ORDAX_STATE_DIR="$STATE_DIR" "$PULL_BIN"; then
+    if ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 \
+            ORDAX_WORKTREE="$WORKTREE" \
+            ORDAX_STATE_DIR="$STATE_DIR" \
+            "$PULL_BIN"; then
         refreshed=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-        if is_sha "$refreshed" && [ "$refreshed" != "$pinned" ] && [ ! -e "$PINNED_FILE" ]; then
-            rm -f "$BOOT_REJECTED_FILE" >/dev/null 2>&1 || true
+        if is_sha "$refreshed" && [ "$refreshed" != "$pinned" ] && [ "$refreshed" != "$rejected" ] && \
+           [ ! -e "$PINNED_FILE" ] && [ ! -e "$BOOT_REJECTED_FILE" ]; then
             echo "ordax-run: rollback automatico liberado por uma main mais nova: $refreshed"
             return 0
         fi
-        echo "ordax-run: sincronizacao nao produziu uma entrega nova; mantendo known-good $pinned" >&2
+        echo "ordax-run: sincronizacao nao confirmou uma entrega nova segura; mantendo protecao de rollback" >&2
         return 0
     fi
 
-    echo "ordax-run: main ainda indisponivel; mantendo known-good $pinned e continuando offline" >&2
+    echo "ordax-run: main ainda indisponivel ou sem entrega nova segura; mantendo known-good $pinned" >&2
     return 0
 }
 
