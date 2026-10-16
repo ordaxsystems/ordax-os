@@ -19,11 +19,15 @@ O desenvolvimento da migração usa dois níveis distintos.
 
 ### Gate rápido por push
 
-`.github/workflows/remove-alpine-fast.yml` roda somente em `platform/remove-alpine` para mudanças relevantes e valida contratos, testes unitários, sintaxe e compilação Python sem compilar Buildroot, kernel ou imagem USB inteira.
+`.github/workflows/remove-alpine-fast.yml` roda somente em `platform/remove-alpine` para mudanças relevantes e valida contratos, testes unitários, sintaxe e a resolução real do Kconfig Buildroot sem compilar rootfs, kernel ou imagem USB inteira.
 
-O gate também executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto atual de consumidores Python de `bootstrap/base/alpine_core.py`. Novos consumidores são proibidos; a allowlist só pode encolher à medida que a migração avança.
+O gate executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto atual de consumidores Python de `bootstrap/base/alpine_core.py`. Novos consumidores são proibidos; a allowlist só pode encolher à medida que a migração avança.
 
-`tests/test_independent_owner_profile.py` trava a arquitetura do perfil Owner/Development: ele deve derivar do mesmo `ordax_minimal_defconfig`, adicionar apenas capacidades declaradas em fragmento e reutilizar os helpers canônicos do Dev USB sem copiar sua lógica.
+`tests/test_independent_owner_profile.py` trava a arquitetura do perfil Owner/Development: ele deriva do mesmo `ordax_minimal_defconfig`, adiciona capacidades declaradas em fragmento e reutiliza os helpers canônicos do Dev USB sem copiar sua lógica.
+
+`tests/test_kernel_module_payload.py` trava a nova fronteira neutra de hardware: módulos são derivados do `docs/contracts/hardware-support-matrix.json`, vêm exclusivamente do artefato `kernel-modules-<versão>.tar` do kernel canônico e dependências são resolvidas por kmod/modprobe, sem um segundo parser de `modules.dep`.
+
+O gate rápido executa `build.py resolve` para `minimal` e `owner-development`. Esse comando baixa/autentica a fonte Buildroot pinada, executa `defconfig` e verifica o `.config` resultante; ele registra explicitamente que não compilou rootfs nem kernel.
 
 Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar cada commit em build completo e sem permitir que a dependência Alpine cresça durante a remoção.
 
@@ -35,7 +39,7 @@ Executar o gate pesado somente quando necessário:
 
 1. manualmente durante marcos da migração;
 2. no PR final de integração quando os paths afetados o exigirem;
-3. depois de mudanças estruturais em Buildroot, kernel, EROFS, boot handoff ou rede mínima.
+3. depois de mudanças estruturais em Buildroot, kernel, EROFS, boot handoff, rede mínima ou payload físico de hardware.
 
 O gate pesado não deve ser tornado obrigatório para mudanças comuns de Surface, apps, contas, Spaces ou Web que não alterem os owners de plataforma.
 
@@ -70,11 +74,32 @@ A paridade do Dev USB não cria outra distribuição nem outro builder. `source.
 - `minimal`: prova portátil mínima já existente;
 - `owner-development`: o mesmo defconfig base mais `configs/owner-development.fragment`.
 
-O fragmento Owner/Development declara somente as capacidades hoje exigidas pelo fluxo de desenvolvimento: CA certificates, Git, `iw`, `kmod`, `wpa_supplicant`/`wpa_passphrase` e `zstd`. Não existe APK, Alpine minirootfs ou gerenciador de pacotes de runtime nesse perfil.
+O fragmento Owner/Development contém somente capacidades de userspace atualmente necessárias ao Dev USB: CA certificates, Git, `iw`, `wpa_supplicant` e `wpa_passphrase`. `kmod` não foi adicionado porque `/sbin/modprobe` já pertence à base BusyBox canônica; `zstd` também não foi carregado, porque era uma necessidade do antigo fluxo Alpine de materialização de firmware e não existe consumidor comprovado no runtime Owner atual.
 
-`post-build.sh` continua sendo o único pós-build da Independent Base. Ele instala os helpers canônicos `ordax-network`, `ordax-pull`, `ordax-rollback`, `ordax-run`, `ordax-diagnose`, `ordax-dev-init` e recovery diretamente de seus owners existentes somente quando o target contém o conjunto completo de capacidades Owner/Development. Presença parcial falha fechada.
+`build.py` aceita `--profile minimal|owner-development`. Defconfig e fragmento usados entram na provenance com SHA-256, e `BR2_ROOTFS_POST_SCRIPT_ARGS` transmite a identidade do perfil de forma explícita ao único `post-build.sh`; não existe detecção por presença acidental de binários.
 
-Este estágio ainda não declara paridade concluída: o builder principal precisa aceitar explicitamente a seleção `owner-development` e a prova pesada deve demonstrar que o grafo Buildroot resolve e executa essas capacidades. Até essa prova, `dev-base/build.py` continua ativo e Alpine não é removido desse consumidor.
+O Kconfig real do Buildroot 2026.08 já foi resolvido para os dois perfis no Fast Gate. CA/Git/`iw`/`wpa_supplicant` foram aceitos pelo grafo Buildroot sem compilação do rootfs/kernel. Isso prova resolução de configuração, não funcionamento físico nem paridade final.
+
+`post-build.sh` instala os helpers canônicos `ordax-network`, `ordax-pull`, `ordax-rollback`, `ordax-run`, `ordax-diagnose`, `ordax-dev-init` e recovery diretamente de seus owners existentes somente no perfil `owner-development` e apenas quando o target contém o conjunto completo de capacidades exigidas. Presença parcial falha fechada; o perfil `minimal` falha se capacidades Owner vazarem para ele.
+
+#### Hardware Owner/Development sem segundo SSOT
+
+O baseline Wi-Fi não é redefinido pela Independent Base. A autoridade existente é `docs/contracts/hardware-support-matrix.json`, entrada `wifi-after-base-start`, que define módulos, coldplug e limites de claim.
+
+O kernel continua sendo construído exclusivamente por `bootstrap/kernel/`; seu `kernel-modules-<versão>.tar` é um componente verificável separado. A Independent Base não compila outro kernel e não mantém outra lista de módulos.
+
+`bootstrap/base/kernel_module_payload.py` é a fronteira neutra criada para consumir esse artefato:
+
+1. lê os módulos exigidos diretamente da hardware matrix;
+2. rejeita TAR inseguro e exige uma única identidade de release;
+3. usa kmod/modprobe e o `modules.dep` do próprio artefato para resolver dependências;
+4. materializa somente módulos selecionados + metadata necessária no target;
+5. emite receipt com SHA-256 do arquivo de módulos, hardware matrix e arquivos instalados;
+6. não baixa nada e não constrói kernel.
+
+O workflow Portable já exportava `ORDAX_KERNEL_MODULES_ARCHIVE` e `ORDAX_KERNEL_MODULES_RECEIPT`, porém o builder antigo não consumia esse contrato. Essa lacuna foi identificada nesta migração; a nova fronteira neutra existe para fechar o contrato sem reutilizar `alpine_core.py`.
+
+**Ainda pendente antes de remover `dev-base/build.py`:** ligar o payload neutro ao `owner-development` durante o post-build, selecionar firmware Buildroot compatível com as declarações `firmware=` dos módulos materializados, executar `bootstrap/base/firmware_policy.py` como prova de cobertura e então realizar build/QEMU/hardware do perfil Owner. A dependência Alpine do Dev Base só pode sair da allowlist depois desses gates.
 
 ### Fase C — convergência dos consumidores
 
@@ -137,7 +162,7 @@ Da mesma forma, a migração não pode mascarar falhas usando mocks, bypasses, d
 
 ## Cache e builds longos
 
-A otimização correta é reutilizar componentes autenticados e content-addressed, não pular verificação. O workflow pesado já reutiliza o kernel verificado por fingerprint. Próximas otimizações devem priorizar cache seguro de downloads e componentes Buildroot cuja identidade seja derivada de inputs versionados.
+A otimização correta é reutilizar componentes autenticados e content-addressed, não pular verificação. Os workflows de boot já reutilizam o kernel verificado por fingerprint. Próximas otimizações devem priorizar cache seguro de downloads e componentes Buildroot cuja identidade seja derivada de inputs versionados.
 
 Não compartilhar diretórios mutáveis de build entre commits como se fossem artefatos verificados.
 
@@ -147,6 +172,7 @@ A política geral permanece nos owners existentes:
 
 - `docs/DEVELOPMENT-WORKFLOW.md` — branch temporária e loop de desenvolvimento;
 - `docs/BUILD-AUTONOMY.md` — separação entre gates baratos e provas caras;
+- `docs/contracts/hardware-support-matrix.json` — SSOT do baseline e limites de suporte físico;
 - `bootstrap/independent-base/README.md` — estado e limites da implementação Buildroot;
 - `docs/CURRENT-STATE.md` — só deve declarar a troca como estado corrente depois que o corte estiver integrado em `main` e comprovado; a existência desta branch não muda o estado Stable/canônico.
 
