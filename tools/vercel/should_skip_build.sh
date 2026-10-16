@@ -38,14 +38,19 @@ case "$project" in
   prj_ftACluUqk6i9DoD9GPIwmgURwckP)
     if git diff --quiet "$previous" "$current" -- \
       system \
+      sites/public \
       tools/surface-web \
+      tools/public-site \
+      tools/brand \
       tools/source_graph.py \
       tools/vercel \
       third_party/licenses \
+      platform/releases/publications.json \
       api \
       lib/account-proxy-core.mjs \
       infra/supabase/functions/ordax-public-account-gateway \
       infra/supabase/functions/_shared \
+      docs/contracts \
       docs/evidence/web-layout-reference-2026-10-10.json \
       docs/evidence/web-central-reference-2026-10-11.json \
       package.json package-lock.json vercel.json; then
