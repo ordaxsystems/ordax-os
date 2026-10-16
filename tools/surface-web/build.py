@@ -40,7 +40,9 @@ def sha256_bytes(data: bytes) -> str:
 def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
     """Build inputs owned by Surface, thin composition, shared boot/i18n and one lock."""
     inputs = {
-        ENTRYPOINT, PurePosixPath("system/composition/web/main.tsx"),
+        ENTRYPOINT,
+        PurePosixPath("system/composition/web/main.tsx"),
+        PurePosixPath("system/composition/web/auth-entry-gate.mjs"),
         PurePosixPath("package.json"), PurePosixPath("package-lock.json"),
         PurePosixPath("tools/surface-web/package.json"),
         PurePosixPath("tools/surface-web/vite.config.ts"),
@@ -225,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "build":
             return command_build(args)
         return command_verify(args)
-    except (BundleError, OSError, ValueError, json.JSONDecodeError) as exc:
+    except (BundleError, SourceGraphError, OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"WEB_CLIENT_ERROR={exc}", file=sys.stderr)
         return 1
 
