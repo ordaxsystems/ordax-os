@@ -8,6 +8,7 @@ Unknown projects fail closed instead of publishing the wrong product surface.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -24,14 +25,17 @@ SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 WEB_DEPLOYMENT_MANIFEST = "web-deployment-manifest.json"
 WEB_DEPLOYMENT_SCHEMA = "prototype-ordax.web-deployment-bundle/1"
 PUBLIC_ORIGIN = "https://ordax.com.br"
-WEB_IDENTITY_SUPPORT_FILES = (
+WEB_IDENTITY_SOURCE_FILES = (
     "assets/site.css",
     "assets/account.css",
-    "assets/ordax-design-tokens.css",
     "assets/site.js",
     "i18n/catalog.js",
     "i18n/runtime.js",
     "config/public-site.json",
+)
+WEB_IDENTITY_SUPPORT_FILES = (
+    *WEB_IDENTITY_SOURCE_FILES,
+    "assets/ordax-design-tokens.css",
 )
 
 
@@ -43,6 +47,20 @@ def run(*args: str) -> None:
     result = subprocess.run(args, cwd=ROOT, check=False)
     if result.returncode:
         raise DeploymentBuildError("command failed: " + " ".join(args))
+
+
+def load_helper(path: Path, module_name: str, attribute: str):
+    if path.is_symlink() or not path.is_file():
+        raise DeploymentBuildError(f"missing canonical build helper: {path}")
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise DeploymentBuildError(f"cannot load canonical build helper: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    helper = getattr(module, attribute, None)
+    if not callable(helper):
+        raise DeploymentBuildError(f"canonical build helper is missing {attribute}: {path}")
+    return helper
 
 
 def clean_output() -> None:
@@ -76,77 +94,102 @@ def copy_unique(source: Path, destination: Path) -> None:
     shutil.copyfile(source, destination)
 
 
-def compose_web_identity_bootstrap(source_commit: str) -> None:
-    """Derive the minimal Web login closure from the canonical public Account.
-
-    The dedicated Web host owns its own HttpOnly session cookie, so anonymous
-    users need a same-origin credential POST. The public Account presentation
-    remains the single source: only the exact login dependency closure is copied
-    into the Web artifact; unrelated portal assets and routes are never copied.
-    """
-    candidate = ROOT / "out" / "web-identity-bootstrap"
-    if candidate.is_symlink():
-        raise DeploymentBuildError("refusing linked Web identity bootstrap directory")
-    if candidate.exists():
-        shutil.rmtree(candidate)
-    try:
-        run(sys.executable, "tools/public-site/build.py", "check")
-        run(
-            sys.executable,
-            "tools/public-site/build.py",
-            "build",
-            "--source-commit",
-            source_commit,
-            "--out-dir",
-            str(candidate),
-        )
-        run(sys.executable, "tools/public-site/build.py", "verify", "--out-dir", str(candidate))
-
-        for relative in WEB_IDENTITY_SUPPORT_FILES:
-            copy_unique(candidate / relative, OUTPUT / relative)
-
-        source_login = candidate / "login" / "index.html"
-        login_html = source_login.read_text(encoding="utf-8")
-        # Account creation/recovery, legal documents and portal-only destinations
-        # keep their canonical public owner. Only password sign-in is hosted on
-        # Web because its resulting cookie must be host-only for web.ordax.com.br.
-        for route in ("cadastro", "recuperar", "privacidade", "termos", "download", "licencas"):
-            login_html = login_html.replace(
-                f'href="/{route}/"',
-                f'href="{PUBLIC_ORIGIN}/{route}/"',
-            )
-        login_destination = OUTPUT / "login" / "index.html"
-        if login_destination.exists():
-            raise DeploymentBuildError("Web login path already exists")
-        login_destination.parent.mkdir(parents=True, exist_ok=True)
-        login_destination.write_text(login_html, encoding="utf-8")
-
-        config = json.loads((OUTPUT / "config" / "public-site.json").read_text(encoding="utf-8"))
-        if config.get("identity", {}).get("login_url") != "/auth/login":
-            raise DeploymentBuildError("Web login bootstrap lost canonical same-origin auth route")
-        if not re.fullmatch(r"0x[A-Za-z0-9_-]{20,80}", str(config.get("identity", {}).get("turnstile_sitekey", ""))):
-            raise DeploymentBuildError("Web login bootstrap requires the canonical Turnstile sitekey")
-        if 'data-identity-form="login"' not in login_html:
-            raise DeploymentBuildError("Web login bootstrap is missing the canonical login form")
-        if "/ordax/" in login_html:
-            raise DeploymentBuildError("legacy /ordax mount leaked into Web login bootstrap")
-
-        # Every local static dependency named by the login document must exist in
-        # the final artifact. Product navigation is intentionally excluded here.
-        local_static = set(re.findall(r'(?:href|src)="(/(?:assets|i18n|config)/[^"?#]+)', login_html))
-        missing = sorted(path for path in local_static if not (OUTPUT / path.lstrip("/")).is_file())
-        if missing:
-            raise DeploymentBuildError(f"Web login static dependency closure is incomplete: {missing}")
-    finally:
-        shutil.rmtree(candidate, ignore_errors=True)
-
-
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def compose_web_identity_bootstrap(source_commit: str) -> None:
+    """Derive the minimal Web login closure from canonical Account sources.
+
+    The dedicated Web host owns its own HttpOnly session cookie, so anonymous
+    users need a same-origin credential POST. This composition consumes the same
+    checked-in Account presentation, the same deterministic HTML renderer and
+    the same brand compiler as the public portal without invoking the portal's
+    whole artifact builder. That keeps the two Vercel products independent while
+    retaining one presentation and one brand source of truth.
+    """
+    del source_commit  # provenance is recorded by the final deployment manifest.
+    public_source = ROOT / "sites" / "public"
+    if public_source.is_symlink() or not public_source.is_dir():
+        raise DeploymentBuildError("canonical public Account source is unavailable")
+
+    render_public_html = load_helper(
+        ROOT / "tools/public-site/public_html_render.py",
+        "_ordax_web_public_html_render",
+        "render_public_html",
+    )
+    render_site_identity_css = load_helper(
+        ROOT / "tools/brand/build.py",
+        "_ordax_web_brand_compiler",
+        "render_site_identity_css",
+    )
+
+    for relative in WEB_IDENTITY_SOURCE_FILES:
+        copy_unique(public_source / relative, OUTPUT / relative)
+
+    token_destination = OUTPUT / "assets/ordax-design-tokens.css"
+    if token_destination.exists():
+        raise DeploymentBuildError("Web identity token bridge collides with Surface output")
+    token_destination.parent.mkdir(parents=True, exist_ok=True)
+    token_destination.write_text(render_site_identity_css(), encoding="utf-8")
+
+    source_login = public_source / "login/index.html"
+    if source_login.is_symlink() or not source_login.is_file():
+        raise DeploymentBuildError("canonical login presentation is unavailable")
+    login_html = render_public_html(source_login.read_text(encoding="utf-8"))
+
+    # Match the public portal's deterministic cache-busting for the shared
+    # generated token bridge and shared presentation runtime. Stable bytes keep
+    # stable URLs; there is no clock-based versioning.
+    for asset in ("assets/ordax-design-tokens.css", "assets/site.js"):
+        version = sha256_file(OUTPUT / asset)[:16]
+        pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
+        login_html = re.sub(
+            pattern,
+            lambda match: match[1] + "/" + asset + "?v=" + version + match[2],
+            login_html,
+        )
+
+    # Account creation/recovery, legal documents and portal-only destinations
+    # keep their canonical public owner. Only password sign-in is hosted on Web
+    # because its resulting cookie must be host-only for web.ordax.com.br.
+    for route in ("cadastro", "recuperar", "privacidade", "termos", "download", "licencas"):
+        login_html = login_html.replace(
+            f'href="/{route}/"',
+            f'href="{PUBLIC_ORIGIN}/{route}/"',
+        )
+
+    login_destination = OUTPUT / "login/index.html"
+    if login_destination.exists():
+        raise DeploymentBuildError("Web login path already exists")
+    login_destination.parent.mkdir(parents=True, exist_ok=True)
+    login_destination.write_text(login_html, encoding="utf-8")
+
+    config = json.loads((OUTPUT / "config/public-site.json").read_text(encoding="utf-8"))
+    if config.get("identity", {}).get("login_url") != "/auth/login":
+        raise DeploymentBuildError("Web login bootstrap lost canonical same-origin auth route")
+    if not re.fullmatch(
+        r"0x[A-Za-z0-9_-]{20,80}",
+        str(config.get("identity", {}).get("turnstile_sitekey", "")),
+    ):
+        raise DeploymentBuildError("Web login bootstrap requires the canonical Turnstile sitekey")
+    if 'data-identity-form="login"' not in login_html:
+        raise DeploymentBuildError("Web login bootstrap is missing the canonical login form")
+    if "/ordax/" in login_html:
+        raise DeploymentBuildError("legacy /ordax mount leaked into Web login bootstrap")
+
+    # Every local static dependency named by the login document must exist in
+    # the final artifact. Product navigation is intentionally excluded here.
+    local_static = set(
+        re.findall(r'(?:href|src)="(/(?:assets|i18n|config)/[^"?#]+)', login_html)
+    )
+    missing = sorted(path for path in local_static if not (OUTPUT / path.lstrip("/")).is_file())
+    if missing:
+        raise DeploymentBuildError(f"Web login static dependency closure is incomplete: {missing}")
 
 
 def write_web_deployment_manifest(source_commit: str) -> None:
