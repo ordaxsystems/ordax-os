@@ -145,3 +145,11 @@ state under the real CSP. Automated local Chromium/Edge proof could not complete
 because the disposable browser process failed on this Windows host; remote Linux
 browser proof remains required. The public portal bundle does not contain the Web
 application, and that independent packaging/strict-CSP gate remains open.
+
+
+Manual responsive follow-up: the 390px public Account More menu contains exactly
+its remaining destinations, with no primary navigation duplicates. Opening
+Integrations closes the menu, focuses its H1 and produces no horizontal overflow.
+The 1440px review also confirms the second overview column is a semantic aside,
+and profile decoration is the source-pinned local image. Browser proof selectors
+now reflect those actual elements while retaining alignment and decorative-alt checks.

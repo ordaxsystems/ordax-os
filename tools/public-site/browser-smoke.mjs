@@ -76,7 +76,7 @@ async function provePublicAccount(client, url, evidenceDir) {
       const box = element => element.getBoundingClientRect();
       const phone = innerWidth <= 760;
       const cards = [...document.querySelectorAll('.account-overview-grid .account-card')];
-      const columns = [...document.querySelectorAll('.account-overview-grid > div')];
+      const columns = [...document.querySelectorAll('.account-overview-grid > *')];
       const overviewTargets = new Set([...document.querySelectorAll('#account-content a[href^="#"]')].map(link => link.hash));
       const sidebar = [...document.querySelectorAll('#sidebar-navigation a, .sidebar-bottom a[data-section]')];
       const nav = [...document.querySelectorAll('#mobile-navigation > *')];
@@ -91,7 +91,7 @@ async function provePublicAccount(client, url, evidenceDir) {
         primaryTilesAligned: innerWidth < 1200 || columns.length === 2 && Math.abs(box(columns[0]).top - box(columns[1]).top) < 2,
         singleUsageChart: document.querySelectorAll('.usage-chart').length === 1,
         emptyChart: !!document.querySelector('.chart-empty') && !document.querySelector('.usage-chart polyline'),
-        decorativeProfileArt: !!document.querySelector('.identity-card .identity-art[aria-hidden="true"]') && getComputedStyle(document.querySelector('.identity-art')).backgroundImage.includes("account-landscape.jpg"),
+        decorativeProfileArt: !!document.querySelector('.identity-card .identity-art[aria-hidden="true"] img[src="/assets/account-landscape.jpg"][alt=""]'),
         managementSections: ['dados-pessoais','assinatura','faturamento','consumo','seguranca','dispositivos','preferencias','privacidade','integracoes','atividade','suporte'].every(id => overviewTargets.has('#' + id)),
         mobileWebReachable: !!document.querySelector('#more-dialog a[href="/web/"]'),
         noInventedIdentity: !document.querySelector('.verified-email').textContent.includes('@'),
