@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   contracts:
-    name: Contracts and static proof
+    name: Contracts and Buildroot profile resolution
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -55,6 +55,12 @@ jobs:
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile -v
+      - name: Resolve Buildroot profiles without compiling rootfs or kernel
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/ordax-independent-resolution-cache"
+          python3 bootstrap/independent-base/build.py resolve --profile minimal --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve --profile owner-development --cache "$cache"
       - name: Validate scripts without compiling Buildroot
         run: |
           set -euo pipefail
