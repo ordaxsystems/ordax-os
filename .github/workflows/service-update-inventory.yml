@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'system/services/**'
-      - 'system/apps/**'
+      - 'system/apps/component-catalog.mjs'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/contracts/component-update-compatibility.json'
@@ -13,6 +13,8 @@ on:
       - 'system/contracts/component-update-compatibility.mjs'
       - 'tools/runtime-component-channel/check_production_readiness.py'
       - 'tools/service-update-inventory.mjs'
+      - 'tools/ci/service_update_impact.mjs'
+      - 'tests/test_causal_workflow_impact.mjs'
       - 'tools/component-package/compatibility.mjs'
       - 'tests/test_service_update_inventory.mjs'
       - 'tests/test_service_update_readiness.mjs'
@@ -23,7 +25,7 @@ on:
     branches: [main]
     paths:
       - 'system/services/**'
-      - 'system/apps/**'
+      - 'system/apps/component-catalog.mjs'
       - 'docs/contracts/runtime-component-package.json'
       - 'docs/contracts/runtime-component-trust-policy.json'
       - 'docs/contracts/component-update-compatibility.json'
@@ -32,6 +34,8 @@ on:
       - 'system/contracts/component-update-compatibility.mjs'
       - 'tools/runtime-component-channel/check_production_readiness.py'
       - 'tools/service-update-inventory.mjs'
+      - 'tools/ci/service_update_impact.mjs'
+      - 'tests/test_causal_workflow_impact.mjs'
       - 'tools/component-package/compatibility.mjs'
       - 'tests/test_service_update_inventory.mjs'
       - 'tests/test_service_update_readiness.mjs'
@@ -43,7 +47,34 @@ permissions:
   contents: read
 
 jobs:
+  impact:
+    name: Native service inventory impact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.classify.outputs.required }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - name: Checkout exact source with comparison history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify available Node runtime
+        run: |
+          node --version
+          node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)'
+      - name: Classify native service inventory impact
+        id: classify
+        env:
+          ORDAX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ORDAX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node tools/ci/service_update_impact.mjs classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
+
   audit-native-services:
+    needs: impact
+    if: needs.impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

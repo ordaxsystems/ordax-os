@@ -6,10 +6,13 @@ on:
       - "system/contracts/**"
       - "sdk/app-sdk-v1/**"
       - "tools/app-sdk/**"
+      - "tools/ci/app_sdk_impact.mjs"
+      - "tests/test_causal_workflow_impact.mjs"
       - "tests/test_app_sdk_app_data.mjs"
       - "tests/test_app_sdk_application_actions.mjs"
       - "tests/test_application_action_manifest.mjs"
       - "tests/test_application_action_provider.mjs"
+      - "tests/test_app_sdk_projects_ports.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - "tests/test_app_sdk_browser_ports.mjs"
       - "tests/test_app_sdk_network_draft.mjs"
@@ -25,10 +28,13 @@ on:
       - "system/contracts/**"
       - "sdk/app-sdk-v1/**"
       - "tools/app-sdk/**"
+      - "tools/ci/app_sdk_impact.mjs"
+      - "tests/test_causal_workflow_impact.mjs"
       - "tests/test_app_sdk_app_data.mjs"
       - "tests/test_app_sdk_application_actions.mjs"
       - "tests/test_application_action_manifest.mjs"
       - "tests/test_application_action_provider.mjs"
+      - "tests/test_app_sdk_projects_ports.mjs"
       - "tests/test_app_sdk_studio_ports.mjs"
       - "tests/test_app_sdk_browser_ports.mjs"
       - "tests/test_app_sdk_network_draft.mjs"
@@ -43,7 +49,34 @@ permissions:
   contents: read
 
 jobs:
+  app-sdk-impact:
+    name: App SDK Causal Impact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.classify.outputs.required }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - name: Checkout exact source with comparison history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify available Node runtime
+        run: |
+          node --version
+          node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)'
+      - name: Classify public App SDK impact
+        id: classify
+        env:
+          ORDAX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ORDAX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node tools/ci/app_sdk_impact.mjs classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
+
   app-sdk-contract:
+    needs: app-sdk-impact
+    if: needs.app-sdk-impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact source
