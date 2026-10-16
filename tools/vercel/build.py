@@ -24,6 +24,15 @@ SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 WEB_DEPLOYMENT_MANIFEST = "web-deployment-manifest.json"
 WEB_DEPLOYMENT_SCHEMA = "prototype-ordax.web-deployment-bundle/1"
 PUBLIC_ORIGIN = "https://ordax.com.br"
+WEB_IDENTITY_SUPPORT_FILES = (
+    "assets/site.css",
+    "assets/account.css",
+    "assets/ordax-design-tokens.css",
+    "assets/site.js",
+    "i18n/catalog.js",
+    "i18n/runtime.js",
+    "config/public-site.json",
+)
 
 
 class DeploymentBuildError(RuntimeError):
@@ -67,23 +76,13 @@ def copy_unique(source: Path, destination: Path) -> None:
     shutil.copyfile(source, destination)
 
 
-def copy_tree_unique(source: Path, destination: Path) -> None:
-    if source.is_symlink() or not source.is_dir():
-        raise DeploymentBuildError(f"invalid Web identity support directory: {source}")
-    for path in sorted(source.rglob("*")):
-        if path.is_symlink():
-            raise DeploymentBuildError(f"linked Web identity support input: {path}")
-        if path.is_file():
-            copy_unique(path, destination / path.relative_to(source))
-
-
 def compose_web_identity_bootstrap(source_commit: str) -> None:
-    """Derive Web login from the canonical public Account presentation.
+    """Derive the minimal Web login closure from the canonical public Account.
 
     The dedicated Web host owns its own HttpOnly session cookie, so anonymous
     users need a same-origin credential POST. The public Account presentation
-    remains the single source: this step copies only its verified login runtime
-    into the Web artifact and never copies the public portal root.
+    remains the single source: only the exact login dependency closure is copied
+    into the Web artifact; unrelated portal assets and routes are never copied.
     """
     candidate = ROOT / "out" / "web-identity-bootstrap"
     if candidate.is_symlink():
@@ -103,16 +102,15 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
         )
         run(sys.executable, "tools/public-site/build.py", "verify", "--out-dir", str(candidate))
 
-        copy_tree_unique(candidate / "assets", OUTPUT / "assets")
-        copy_tree_unique(candidate / "i18n", OUTPUT / "i18n")
-        copy_tree_unique(candidate / "config", OUTPUT / "config")
+        for relative in WEB_IDENTITY_SUPPORT_FILES:
+            copy_unique(candidate / relative, OUTPUT / relative)
 
         source_login = candidate / "login" / "index.html"
         login_html = source_login.read_text(encoding="utf-8")
-        # Account creation/recovery and legal documents keep their canonical
-        # public owner. Only password sign-in is hosted on Web because the
-        # resulting session cookie must be host-only for web.ordax.com.br.
-        for route in ("cadastro", "recuperar", "privacidade", "termos"):
+        # Account creation/recovery, legal documents and portal-only destinations
+        # keep their canonical public owner. Only password sign-in is hosted on
+        # Web because its resulting cookie must be host-only for web.ordax.com.br.
+        for route in ("cadastro", "recuperar", "privacidade", "termos", "download", "licencas"):
             login_html = login_html.replace(
                 f'href="/{route}/"',
                 f'href="{PUBLIC_ORIGIN}/{route}/"',
@@ -132,6 +130,13 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
             raise DeploymentBuildError("Web login bootstrap is missing the canonical login form")
         if "/ordax/" in login_html:
             raise DeploymentBuildError("legacy /ordax mount leaked into Web login bootstrap")
+
+        # Every local static dependency named by the login document must exist in
+        # the final artifact. Product navigation is intentionally excluded here.
+        local_static = set(re.findall(r'(?:href|src)="(/(?:assets|i18n|config)/[^"?#]+)', login_html))
+        missing = sorted(path for path in local_static if not (OUTPUT / path.lstrip("/")).is_file())
+        if missing:
+            raise DeploymentBuildError(f"Web login static dependency closure is incomplete: {missing}")
     finally:
         shutil.rmtree(candidate, ignore_errors=True)
 
@@ -162,6 +167,7 @@ def write_web_deployment_manifest(source_commit: str) -> None:
         "login_presentation_owner": "sites/public/login/index.html",
         "login_runtime_owner": "sites/public/assets/site.js",
         "host_only_session_required": True,
+        "identity_support_files": list(WEB_IDENTITY_SUPPORT_FILES),
         "files": records,
     }
     (OUTPUT / WEB_DEPLOYMENT_MANIFEST).write_text(
