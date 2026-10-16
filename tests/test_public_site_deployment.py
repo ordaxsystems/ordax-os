@@ -20,8 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "contracts" / "public-site-deployment.json"
 NGINX = ROOT / "deploy" / "public-site" / "nginx.conf"
 VERCEL = ROOT / "vercel.json"
-VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
+VERCEL_PROXY_ENTRY = ROOT / "api" / "account-proxy.mjs"
+VERCEL_PROXY_CORE = ROOT / "lib" / "account-proxy-core.mjs"
 RUNTIME_EVIDENCE = ROOT / "docs" / "evidence" / "web-account-runtime-2026-10-16.json"
+PUBLIC_VERCEL_PROJECT_ID = "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC"
 
 
 class PublicSiteDeploymentTests(unittest.TestCase):
@@ -29,15 +31,16 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.nginx = NGINX.read_text(encoding="utf-8")
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
-        self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
+        self.vercel_proxy_entry = VERCEL_PROXY_ENTRY.read_text(encoding="utf-8")
+        self.vercel_proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
 
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
             self.vercel["ignoreCommand"],
-            "sh tools/public-site/should_skip_vercel_build.sh",
+            "sh tools/vercel/should_skip_build.sh",
         )
         self.assertEqual(self.vercel["git"]["deploymentEnabled"], {"**": False, "main": True})
-        script = ROOT / "tools" / "public-site" / "should_skip_vercel_build.sh"
+        script = ROOT / "tools" / "vercel" / "should_skip_build.sh"
         self.assertTrue(script.is_file())
 
         with tempfile.TemporaryDirectory() as temp:
@@ -69,6 +72,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 env["VERCEL_GIT_PREVIOUS_SHA"] = previous
                 env["VERCEL_GIT_COMMIT_SHA"] = current
                 env["VERCEL_ENV"] = environment
+                env["VERCEL_PROJECT_ID"] = PUBLIC_VERCEL_PROJECT_ID
                 result = subprocess.run(
                     ["sh", str(script)], cwd=work, env=env,
                     capture_output=True, text=True, check=False,
@@ -202,6 +206,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(adapter["set_cookie_http_only_required"])
         self.assertFalse(adapter["upstream_absolute_redirect_allowed"])
         self.assertFalse(adapter["upstream_protocol_relative_redirect_allowed"])
+        self.assertEqual(
+            self.vercel_proxy_entry,
+            'export * from "../lib/account-proxy-core.mjs";\n'
+            'export { default } from "../lib/account-proxy-core.mjs";\n',
+        )
         self.assertIn("getVercelOidcToken", self.vercel_proxy)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", self.vercel_proxy)
 
