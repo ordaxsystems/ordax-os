@@ -7,10 +7,16 @@ on:
     paths:
       - 'bootstrap/independent-base/**'
       - 'bootstrap/network/**'
-      - 'bootstrap/stable-base/ordax-stable-init'
+      - 'bootstrap/dev-base/**'
+      - 'bootstrap/stable-base/**'
+      - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'docs/BUILD-AUTONOMY.md'
+      - 'docs/DEVELOPMENT-WORKFLOW.md'
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_alpine_removal_boundary.py'
       - 'tests/test_independent_base_experiment.py'
       - 'tests/test_independent_network_parity.py'
       - '.github/workflows/remove-alpine-fast.yml'
@@ -38,11 +44,12 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Validate Independent Base contracts
+      - name: Validate Independent Base contracts and migration boundary
         run: |
           set -euo pipefail
           python3 bootstrap/independent-base/build.py check
           python3 -m unittest \
+            tests.test_alpine_removal_boundary \
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity -v
       - name: Validate scripts without compiling Buildroot
@@ -51,6 +58,7 @@ jobs:
           python3 -m py_compile \
             bootstrap/independent-base/build.py \
             bootstrap/independent-base/qemu_proof.py \
-            bootstrap/independent-base/portable_boot_proof.py
+            bootstrap/independent-base/portable_boot_proof.py \
+            tests/test_alpine_removal_boundary.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
