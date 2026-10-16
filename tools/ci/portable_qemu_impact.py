@@ -70,6 +70,12 @@ CI_GOVERNANCE_LIGHT_EXACT = {
     ".github/workflows/native-intelligence-service-foundation.yml",
     ".github/workflows/pre-usb-nova-ordax-audit.yml",
     ".github/workflows/runtime-component-candidate.yml",
+    ".github/workflows/app-sdk-contract.yml",
+    ".github/workflows/notes-externalization-boundary.yml",
+    ".github/workflows/service-update-inventory.yml",
+    "tools/ci/app_sdk_impact.mjs",
+    "tools/ci/service_update_impact.mjs",
+    "tests/test_causal_workflow_impact.mjs",
 }
 ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
     ".github/workflows/ordax-account-gateway-destination.yml",
