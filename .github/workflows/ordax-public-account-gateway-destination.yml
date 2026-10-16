@@ -71,24 +71,20 @@ jobs:
             infra/supabase/functions/_shared/account_service_bridge.mjs
           test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
 
-      - name: Resolve management credential availability without printing it
-        id: credential
+      - name: Require management credential without printing it
         shell: bash
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
-            echo '::warning::PUBLIC_ACCOUNT_GATEWAY=NOT_DEPLOYED (configure repository secret SUPABASE_ACCESS_TOKEN)'
-            echo 'enabled=false' >> "${GITHUB_OUTPUT}"
-            exit 0
+            echo '::error::PUBLIC_ACCOUNT_GATEWAY=BLOCKED (repository secret SUPABASE_ACCESS_TOKEN is required)'
+            exit 1
           fi
-          echo 'enabled=true' >> "${GITHUB_OUTPUT}"
           echo 'PUBLIC_ACCOUNT_GATEWAY_DEPLOY_CREDENTIAL_PRESENT=YES'
           echo 'PUBLIC_ACCOUNT_GATEWAY_DEPLOY_CREDENTIAL_PRINTED=NO'
 
       - name: Ensure dedicated internal service bridge
-        if: steps.credential.outputs.enabled == 'true'
         shell: bash
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -98,13 +94,11 @@ jobs:
             --project-ref "${SUPABASE_PROJECT_REF}"
 
       - name: Set up pinned Supabase CLI
-        if: steps.credential.outputs.enabled == 'true'
         uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.121.0
 
       - name: Deploy exact public account gateway bundle
-        if: steps.credential.outputs.enabled == 'true'
         shell: bash
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -118,7 +112,6 @@ jobs:
             --use-api
 
       - name: Confirm deployment action executed
-        if: steps.credential.outputs.enabled == 'true'
         shell: bash
         run: |
           set -euo pipefail
