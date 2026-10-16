@@ -1,0 +1,66 @@
+name: Space Creation Authority v1 Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'system/services/spaces/type-catalog.mjs'
+      - 'system/profile-packs/pizzaria-br/v1/manifest.json'
+      - 'system/profile-packs/impressao-3d-br/v1/manifest.json'
+      - 'infra/supabase/product/migrations/20261016014500_space_creation_authority_v1.sql'
+      - 'tests/test_space_creation_authority.mjs'
+      - 'tests/sql/test_space_creation_authority_v1.sql'
+      - '.github/workflows/space-creation-authority-v1-proof.yml'
+  pull_request:
+    paths:
+      - 'system/services/spaces/type-catalog.mjs'
+      - 'system/profile-packs/pizzaria-br/v1/manifest.json'
+      - 'system/profile-packs/impressao-3d-br/v1/manifest.json'
+      - 'infra/supabase/product/migrations/20261016014500_space_creation_authority_v1.sql'
+      - 'tests/test_space_creation_authority.mjs'
+      - 'tests/sql/test_space_creation_authority_v1.sql'
+      - '.github/workflows/space-creation-authority-v1-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  space-creation-authority-v1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Check canonical projection and source contract
+        run: |
+          set -euo pipefail
+          node --check system/services/spaces/type-catalog.mjs
+          node --check tests/test_space_creation_authority.mjs
+          node --test tests/test_space_creation_authority.mjs
+
+      - name: Prove server-authoritative creation on PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_creation_authority_v1.sql
