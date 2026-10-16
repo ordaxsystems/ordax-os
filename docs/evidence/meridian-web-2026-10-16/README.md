@@ -244,3 +244,32 @@ an explicit publication blocker, separate from the normal Web regression.
 After these changes the normal official Web regression passes again in all seven
 viewports, including the new Store/Spaces scoped-style checks at 1440px. This normal
 pass does not override the separate strict-policy failure above.
+
+## Public-policy blocker closure
+
+The previous strict-policy failure is superseded by the following verified change.
+`tools/surface-web/dependency-styles.mjs` adapts only the delivery of CSS from the
+locked Sonner 2.0.8 module and react-style-singleton 2.2.3 ES2015 singleton module
+during production compilation. It does not modify node_modules, upstream component
+APIs, toast contents, modal behavior or CSS. Sonner retains its exact stylesheet;
+the modal singleton retains reference counting and removes only its own constructed
+sheet. Existing document sheets are preserved. Unexpected input SHA-256 or missing
+dependency coverage rejects the build and requires review, instead of silently
+accepting changed upstream code. The adapter itself is in the canonical receipt's
+source graph. Development/SSR transformations remain the normal Vite path.
+
+Validation: four adapter integrity/lifecycle regressions and eight canonical builder
+regressions pass; TypeScript, production build and 34-reference verification pass.
+The official Chromium smoke passes all seven viewports with
+`--public-policy vercel.json`, zero policy violations, and the original security
+headers unchanged. This includes Store/Spaces computed styles, menus, focus,
+window lifecycle, theme persistence, compact geometry and unavailable backends.
+Current local report: `out/meridian-web-public-policy/report.json`; older blocked
+style diagnostics in that directory are historical and do not describe this run.
+The Surface Web Candidate workflow now requires the strict-policy smoke and
+adapter regressions. Initial JS remains over the existing chunk-size warning
+threshold (924.42 kB / 257.93 kB gzip); the warning was not suppressed.
+
+This closes the source CSS/CSP defect, not public runtime hosting, authenticated
+E2E or physical USB readiness. The portal remains a separate artifact, and no
+runtime/config/provider gate has been activated by this change.

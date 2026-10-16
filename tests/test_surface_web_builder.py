@@ -15,6 +15,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
         graph = {str(path) for path in MODULE.discover_graph(ROOT)}
         for expected in (
             "system/composition/web/main.tsx", "system/surface/workspace/components/web/shell.tsx",
+            "tools/surface-web/dependency-styles.mjs",
             "system/surface/workspace/components/web/window.tsx", "package-lock.json",
             "system/surface/ui/brand/ordax-symbol.png", "system/surface/ui/tokens.css",
             "system/surface/ui/fonts/inter-latin-wght-normal.woff2",

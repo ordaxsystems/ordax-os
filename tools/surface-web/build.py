@@ -44,6 +44,7 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
         PurePosixPath("package.json"), PurePosixPath("package-lock.json"),
         PurePosixPath("tools/surface-web/package.json"),
         PurePosixPath("tools/surface-web/vite.config.ts"),
+        PurePosixPath("tools/surface-web/dependency-styles.mjs"),
         PurePosixPath("tools/surface-web/tsconfig.json"),
         PurePosixPath("docs/evidence/web-layout-reference-2026-10-10.json"),
         PurePosixPath("docs/evidence/web-central-reference-2026-10-11.json"),

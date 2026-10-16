@@ -50,6 +50,17 @@ render but fails on four `style-src-elem` violations from UI dependency styles;
 the retained document style identifies Sonner. No CSP allowlist or security header
 was relaxed, and public runtime activation remains blocked by this actual proof.
 
+Public-policy correction: a build-only adapter now replaces stylesheet element
+delivery for the exact locked Sonner and react-style-singleton inputs with native
+constructed sheets. Upstream CSS and component APIs/reference counting remain
+unchanged; unexpected source hashes or missing adapter coverage fail the build.
+The adapter is included in the canonical Web source receipt. Four adapter lifecycle/
+integrity tests, eight builder tests, typecheck/build and reference verification
+pass. The official Web regression now passes all seven viewports under the original
+`vercel.json` global headers with zero CSP violations. CI now requires that strict
+proof. This supersedes the local CSS blocker above; independent public runtime
+packaging/deployment and authenticated E2E remain pending.
+
 Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
 shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
 The Meridian reference re-exports those owners. Real controls remain intact; example
