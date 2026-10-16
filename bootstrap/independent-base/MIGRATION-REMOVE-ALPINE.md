@@ -124,7 +124,15 @@ Os dois receipts externos são incorporados **com os mesmos bytes** ao rootfs an
 
 `cmp -s` exige identidade entre cada receipt externo e sua cópia embutida. Como `provenance.json` autentica `independent-base.erofs` por SHA-256, a candidata imutável passa a vincular transitivamente os receipts, o archive de módulos, a hardware matrix e os firmwares observados sem criar um segundo sistema de provenance.
 
-**Ainda pendente antes de remover `dev-base/build.py`:** executar o build real `owner-development` com o componente de kernel já verificado, passar a prova QEMU e depois registrar prova física no Dev USB/hardware alvo. Somente depois desses gates a dependência Alpine do Dev Base pode sair da allowlist e o builder antigo pode ser removido.
+#### Evidência Owner/Development de 2026-10-16
+
+O run pesado `Independent Base Experiment #121` comprovou o build real `owner-development`: kernel canônico reutilizado e revalidado, archive de módulos exato, cobertura de firmware, Buildroot, `wpa_passphrase` em `/usr/sbin`, EROFS e provenance passaram. O mesmo SHA também passou `Independent Portable v2 Integration #97`, portanto o handoff portátil oficial com a candidata independente permanece verde.
+
+A única falha de `#121` ocorreu no smoke direto de laboratório, antes do PID1 de prova: o serial registrou `Initramfs unpacking failed: write error` seguido de `VFS: Unable to mount root fs`. O `rootfs.cpio.gz` Owner observado tinha 79.756.629 bytes comprimidos e 199.650.304 bytes descomprimidos, enquanto o harness ainda fixava QEMU em 384 MiB. Esse harness carrega uma cópia completa do rootfs como initramfs **e** anexa o EROFS para provar imutabilidade/recovery; isso não é o caminho de boot portátil oficial e não define requisito mínimo de RAM do produto.
+
+O orçamento do smoke direto passa a ser explícito por perfil: `minimal=384 MiB` e `owner-development=768 MiB`, registrado no receipt. O próximo run pesado deve provar esse ajuste; ele não substitui a prova portátil oficial, que já passou, nem a prova física.
+
+**Ainda pendente antes de remover `dev-base/build.py`:** obter QEMU direto verde com o orçamento de laboratório corrigido e depois registrar prova física no Dev USB/hardware alvo. Somente depois desses gates a dependência Alpine do Dev Base pode sair da allowlist e o builder antigo pode ser removido.
 
 ### Fase C — convergência dos consumidores
 
