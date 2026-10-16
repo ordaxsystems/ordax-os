@@ -8,8 +8,10 @@ on:
       - 'bootstrap/kernel/build.py'
       - 'bootstrap/kernel/verify.py'
       - 'bootstrap/kernel/verify_upstream_signature.py'
+      - 'bootstrap/kernel/module_archive.py'
       - 'bootstrap/kernel/source.json'
       - 'bootstrap/kernel/config/ordax.fragment'
+      - 'docs/contracts/hardware-support-matrix.json'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
       - '.github/workflows/independent-base-experiment.yml'
@@ -47,8 +49,16 @@ jobs:
             erofs-utils e2fsprogs util-linux qemu-system-x86
       - name: Verify isolated contract and regressions
         run: |
-          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_network_parity -v
-          python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
+          python3 -m unittest \
+            tests.test_independent_base_experiment \
+            tests.test_independent_network_parity \
+            tests.test_kernel_module_archive \
+            tests.test_independent_kernel_module_workflow -v
+          python3 -m py_compile \
+            bootstrap/independent-base/build.py \
+            bootstrap/independent-base/module_parity.py \
+            bootstrap/independent-base/qemu_proof.py \
+            bootstrap/kernel/module_archive.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
       - name: Resolve reusable kernel fingerprint
@@ -67,12 +77,6 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
-      - name: Build rootfs from official Buildroot source
-        run: |
-          python3 bootstrap/independent-base/build.py build \
-            --out "$RUNNER_TEMP/ordax-independent" \
-            --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
-          python3 bootstrap/independent-base/build.py verify --out "$RUNNER_TEMP/ordax-independent"
       - name: Build canonical OrdaX kernel on verified cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
         env:
@@ -112,6 +116,32 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+      - name: Build rootfs from official Buildroot source with verified kernel modules
+        run: |
+          set -euo pipefail
+          kernel_version="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('bootstrap/kernel/source.json').read_text(encoding='utf-8'))['version'])
+          PY
+          )"
+          kernel_dir="$RUNNER_TEMP/portable-v2-qemu/kernel"
+          module_archive="$kernel_dir/kernel-modules-$kernel_version.tar"
+          base_out="$RUNNER_TEMP/ordax-independent"
+          test -f "$module_archive"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"
+          python3 bootstrap/independent-base/build.py build \
+            --out "$base_out" \
+            --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
+          python3 bootstrap/independent-base/module_parity.py verify \
+            --kernel-modules "$module_archive" \
+            --selection-receipt "$base_out/kernel-module-selection.json" \
+            --rootfs-tar "$base_out/rootfs.tar" \
+            --base-provenance "$base_out/provenance.json" \
+            --out "$base_out/kernel-module-parity.json"
+          python3 bootstrap/independent-base/build.py verify --out "$base_out"
       - name: QEMU real kernel, EROFS and ext4 persistence/recovery
         run: |
           python3 bootstrap/independent-base/qemu_proof.py \
@@ -125,6 +155,8 @@ jobs:
           name: ordax-independent-base-experiment-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/ordax-independent/provenance.json
+            ${{ runner.temp }}/ordax-independent/kernel-module-selection.json
+            ${{ runner.temp }}/ordax-independent/kernel-module-parity.json
             ${{ runner.temp }}/ordax-independent/independent-base.erofs
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
