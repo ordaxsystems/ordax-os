@@ -2,13 +2,15 @@
 """Thin Native-host integration for receipt-bound App Data capabilities.
 
 The canonical host remains the owner of request provenance and all existing
-system APIs. This module only intercepts the opaque App Data route and delegates
-everything else unchanged.
+system APIs. This module only intercepts the opaque App Data route plus the
+Device Profile write needed to reconcile an authenticated Product device name;
+everything else delegates unchanged.
 """
 
 from __future__ import annotations
 
 import errno
+import json
 import os
 import sys
 from contextlib import contextmanager
@@ -31,7 +33,15 @@ from native_app_data_endpoint import (
     AppDataEndpointRequestError,
 )
 from native_app_install_identity import DEFAULT_RECEIPT_ROOT
-from native_host_server import NativeHostHandler, NativeHostServer
+from native_host_server import (
+    DEVICE_PROFILE_PATH,
+    MAX_DEVICE_PROFILE_BODY,
+    NativeHostHandler,
+    NativeHostServer,
+    normalize_device_display_name,
+    read_device_profile,
+    write_device_profile,
+)
 
 
 class NativeAppDataHostServer(NativeHostServer):
@@ -141,6 +151,34 @@ class NativeAppDataHostHandler(NativeHostHandler):
             return None, 400, "Native App Data request body is incomplete"
         return body, 200, ""
 
+    def _serve_device_profile_update(self) -> None:
+        """Persist the canonical profile, then best-effort reconcile Product identity."""
+        payload = self._read_json_body(MAX_DEVICE_PROFILE_BODY)
+        if payload is None or set(payload) != {"displayName"}:
+            self._empty(400)
+            return
+        try:
+            current = read_device_profile()
+            updated = {
+                "schema": current["schema"],
+                "devicePublicId": current["devicePublicId"],
+                "displayName": normalize_device_display_name(payload["displayName"]),
+            }
+            write_device_profile(updated)
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            print(
+                f"ordax-native-host: could not persist device profile: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            self._empty(500)
+            return
+
+        reconcile = getattr(self.server.account_gateway, "reconcile_device_profile", None)
+        if callable(reconcile):
+            reconcile(updated)
+        self._write_json(200, updated)
+
     def do_GET(self) -> None:  # noqa: N802
         if not self._is_app_data_path():
             super().do_GET()
@@ -160,6 +198,12 @@ class NativeAppDataHostHandler(NativeHostHandler):
         self._empty(405)
 
     def do_POST(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path == DEVICE_PROFILE_PATH:
+            if self.client_address[0] != "127.0.0.1":
+                self._empty(403)
+                return
+            self._serve_device_profile_update()
+            return
         if not self._is_app_data_path():
             super().do_POST()
             return
