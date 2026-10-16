@@ -68,6 +68,10 @@ if test "$PROFILE" = owner-development; then
         echo "Owner/Development requires ORDAX_KERNEL_MODULES_RECEIPT" >&2
         exit 1
     }
+    test -n "${ORDAX_FIRMWARE_COVERAGE_RECEIPT:-}" || {
+        echo "Owner/Development requires ORDAX_FIRMWARE_COVERAGE_RECEIPT" >&2
+        exit 1
+    }
     test -f "$ROOT/bootstrap/base/kernel_module_payload.py"
     test -f "$ROOT/bootstrap/base/firmware_policy.py"
     "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/kernel_module_payload.py" install \
@@ -76,12 +80,14 @@ if test "$PROFILE" = owner-development; then
         --receipt "$ORDAX_KERNEL_MODULES_RECEIPT"
 
     # A module payload without matching firmware is not a valid Owner base.
-    # This deliberately fails until Buildroot provides coverage for the actual
-    # firmware= declarations found in the selected canonical modules.
+    # Generate one external receipt for CI/evidence, then embed those exact
+    # verified bytes into the immutable target. Never generate two receipts.
     "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/firmware_policy.py" check \
         --rootfs "$TARGET_DIR" \
-        --receipt "$TARGET_DIR/etc/ordax/firmware-coverage.json" \
+        --receipt "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" \
         --log-prefix ORDAX_INDEPENDENT_OWNER
+    test -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT"
+    cp "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"
 
     mkdir -p "$TARGET_DIR/usr/local/bin" "$TARGET_DIR/state" "$TARGET_DIR/workspace" "$TARGET_DIR/home" "$TARGET_DIR/root" "$TARGET_DIR/run" "$TARGET_DIR/tmp"
     chmod 1777 "$TARGET_DIR/tmp"
