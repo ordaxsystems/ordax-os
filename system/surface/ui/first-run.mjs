@@ -48,6 +48,39 @@ function el(documentObject, tag, className = "", text = undefined) {
   return node;
 }
 
+function passwordVisibilityIcon(documentObject, visible) {
+  const svg = documentObject.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  const eye = documentObject.createElementNS("http://www.w3.org/2000/svg", "path");
+  eye.setAttribute("d", "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z");
+  const pupil = documentObject.createElementNS("http://www.w3.org/2000/svg", "circle");
+  pupil.setAttribute("cx", "12");
+  pupil.setAttribute("cy", "12");
+  pupil.setAttribute("r", "2.5");
+  svg.append(eye, pupil);
+  if (visible) {
+    const slash = documentObject.createElementNS("http://www.w3.org/2000/svg", "path");
+    slash.setAttribute("d", "m4 4 16 16");
+    svg.append(slash);
+  }
+  return svg;
+}
+
+function identityCredentialFailureMessage(error) {
+  const status = Number(error?.status);
+  if (status === 401) return "E-mail ou senha incorretos.";
+  if (status === 429) return "Muitas tentativas. Tente novamente em alguns instantes.";
+  if (status === 503) return "A Conta OrdaX está temporariamente indisponível. O uso local continua disponível.";
+  return "A ação de conta não pôde ser concluída. O uso local continua disponível.";
+}
+
 function action(documentObject, label, id, primary = false) {
   const button = el(
     documentObject,
@@ -155,6 +188,7 @@ export function mountFirstRunExperience(
   let identityMessage = "";
   let identityEmailDraft = "";
   let identityPasswordDraft = "";
+  let identityPasswordVisible = false;
   let selectedIdentitySubjectId = null;
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
@@ -183,6 +217,7 @@ export function mountFirstRunExperience(
     networkOrdinal += 1;
     passwordDraft = "";
     identityPasswordDraft = "";
+    identityPasswordVisible = false;
     selectedIdentitySubjectId = null;
     localSessionSecretDraft = "";
     localSessionConfirmDraft = "";
@@ -468,16 +503,31 @@ export function mountFirstRunExperience(
       email.disabled = identityPending !== null;
       emailField.append(email);
 
-      const passwordField = el(documentObject, "label", "ordax-first-run-field");
+      const passwordField = el(documentObject, "div", "ordax-first-run-field");
       passwordField.append(el(documentObject, "span", "", "Senha"));
+      const passwordControl = el(documentObject, "div", "ordax-first-run-password-control");
       const password = documentObject.createElement("input");
-      password.type = "password";
+      password.type = identityPasswordVisible ? "text" : "password";
       password.autocomplete = "current-password";
       password.maxLength = 1024;
       password.value = identityPasswordDraft;
       password.dataset.firstRunIdentityPassword = "";
       password.disabled = identityPending !== null;
-      passwordField.append(password);
+      password.setAttribute("aria-label", translateFirstRunText(draft.locale, "Senha"));
+      const passwordVisibility = el(documentObject, "button", "ordax-first-run-password-visibility");
+      passwordVisibility.type = "button";
+      passwordVisibility.dataset.firstRunAction = "identity-password-visibility";
+      passwordVisibility.disabled = identityPending !== null;
+      passwordVisibility.setAttribute("aria-pressed", String(identityPasswordVisible));
+      const visibilityLabel = translateFirstRunText(
+        draft.locale,
+        identityPasswordVisible ? "Ocultar senha" : "Mostrar senha",
+      );
+      passwordVisibility.setAttribute("aria-label", visibilityLabel);
+      passwordVisibility.title = visibilityLabel;
+      passwordVisibility.append(passwordVisibilityIcon(documentObject, identityPasswordVisible));
+      passwordControl.append(password, passwordVisibility);
+      passwordField.append(passwordControl);
       form.append(emailField, passwordField);
 
       if (
@@ -800,6 +850,7 @@ export function mountFirstRunExperience(
         }
       : null;
     identityPasswordDraft = "";
+    identityPasswordVisible = false;
     identityPending = kind;
     identityMessage = "";
     render();
@@ -823,8 +874,10 @@ export function mountFirstRunExperience(
         : result?.confirmationRequired
           ? "Cadastro recebido. Confirme seu e-mail para entrar."
           : "A autenticação foi iniciada. O uso local continua disponível.";
-    } catch {
-      if (!destroyed) identityMessage = "A ação de conta não pôde ser concluída. O uso local continua disponível.";
+    } catch (error) {
+      if (!destroyed) identityMessage = credentialInput
+        ? identityCredentialFailureMessage(error)
+        : "A ação de conta não pôde ser concluída. O uso local continua disponível.";
     } finally {
       if (!destroyed) {
         identityPending = null;
@@ -870,7 +923,16 @@ export function mountFirstRunExperience(
     const button = event.target.closest("[data-first-run-action]");
     if (!button || !overlay.contains(button) || button.disabled) return;
     const kind = button.dataset.firstRunAction;
-    if (kind === "back") go(stepIndex - 1);
+    if (kind === "identity-password-visibility") {
+      identityPasswordVisible = !identityPasswordVisible;
+      render();
+      const password = overlay.querySelector("[data-first-run-identity-password]");
+      if (password instanceof HTMLInputElement) {
+        password.focus();
+        const caret = password.value.length;
+        password.setSelectionRange(caret, caret);
+      }
+    } else if (kind === "back") go(stepIndex - 1);
     else if (kind === "next" && STEPS[stepIndex] === "security") void continueSecurity();
     else if (kind === "next") go(stepIndex + 1);
     else if (kind === "finish") void finish();

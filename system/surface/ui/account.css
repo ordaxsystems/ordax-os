@@ -631,6 +631,102 @@
   }
 }
 
+.ordax-account-credential-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ordax-account-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--ordax-text);
+  font-size: 0.7rem;
+}
+
+.ordax-account-field > span {
+  color: var(--ordax-muted);
+  font-size: 0.68rem;
+  font-weight: 620;
+}
+
+.ordax-account-field input {
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: color-mix(in srgb, var(--ordax-subtle-bg) 72%, transparent);
+  color: var(--ordax-text);
+  padding: 0 11px;
+  font: inherit;
+  outline: none;
+}
+
+.ordax-account-field input:focus-visible {
+  border-color: var(--ordax-accent);
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 1px;
+}
+
+.ordax-account-password-control {
+  position: relative;
+  min-width: 0;
+}
+
+.ordax-account-password-control input {
+  padding-right: 48px;
+}
+
+.ordax-account-password-visibility {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  width: 40px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--ordax-radius-sm);
+  background: transparent;
+  color: var(--ordax-muted);
+  cursor: pointer;
+}
+
+.ordax-account-password-visibility:hover:not(:disabled),
+.ordax-account-password-visibility:focus-visible:not(:disabled) {
+  background: var(--ordax-hover-bg);
+  color: var(--ordax-text);
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: -1px;
+}
+
+.ordax-account-password-visibility svg {
+  width: 19px;
+  height: 19px;
+}
+
+.ordax-account-password-visibility:disabled,
+.ordax-account-field input:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+@media (max-width: 620px) {
+  .ordax-account-credential-form {
+    grid-template-columns: 1fr;
+  }
+
+  .ordax-account-password-visibility {
+    width: 44px;
+    height: 40px;
+  }
+}
+
 .ordax-account-registration-legal {
   display: grid;
   gap: 9px;

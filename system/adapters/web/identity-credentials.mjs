@@ -5,6 +5,14 @@ import {
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
 
+export class IdentityCredentialRequestError extends Error {
+  constructor(status) {
+    super(`Identity credential request failed: ${status}`);
+    this.name = "IdentityCredentialRequestError";
+    this.status = Number(status);
+  }
+}
+
 async function submit(windowRef, path, credentials, { registration = false } = {}) {
   const value = registration
     ? validateIdentityRegistrationInput(credentials)
@@ -28,7 +36,7 @@ async function submit(windowRef, path, credentials, { registration = false } = {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
   if (!(response.ok || response.status === 303 || response.status === 0)) {
-    throw new Error(`Identity credential request failed: ${response.status}`);
+    throw new IdentityCredentialRequestError(response.status);
   }
   return Object.freeze({ authenticated: true, confirmationRequired: false });
 }
