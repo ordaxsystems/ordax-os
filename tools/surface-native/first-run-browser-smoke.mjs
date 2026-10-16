@@ -25,14 +25,14 @@ async function sources(){
  }
  return Object.fromEntries([...found].map(([p,s])=>[p,s.replace(RE,(all,sub)=>all.replace(sub,key(dependency(p,sub)))).replace(DYNAMIC,(all,sub)=>all.replace(sub,key(dependency(p,sub))))]));
 }
-async function scenario(modules,css){
+async function scenario(modules,css,entry,nativeStateAdapter){
  document.open();document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><main id="proof-root"></main></body></html>');document.close();
  const style=document.createElement('style');style.textContent=css;document.head.append(style);
  const urls={},map={};
  for(const [path,source] of Object.entries(modules)){urls[path]=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));map['ordax-oobe/'+path.split('/').map(encodeURIComponent).join('/')]=urls[path];}
  const script=document.createElement('script');script.type='importmap';script.textContent=JSON.stringify({imports:map});document.head.append(script);
- const {mountFirstRunExperience}=await import(urls[ENTRY]);
- const {createNativeFirstRunStateStore}=await import(urls[NATIVE_STATE_ADAPTER]);
+ const {mountFirstRunExperience}=await import(urls[entry]);
+ const {createNativeFirstRunStateStore}=await import(urls[nativeStateAdapter]);
  const root=document.querySelector('#proof-root');
  const delay=()=>new Promise(done=>setTimeout(done,0));
  const get=kind=>document.querySelector('[data-first-run-action="'+kind+'"]');
@@ -100,5 +100,5 @@ async function scenario(modules,css){
 }
 const modules=await sources();
 const css=(await Promise.all(['system/surface/ui/tokens.css','system/surface/ui/first-run.css'].map(p=>readFile(join(ROOT,p),'utf8')))).join('\n');
-const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+')';
+const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+','+JSON.stringify(ENTRY)+','+JSON.stringify(NATIVE_STATE_ADAPTER)+')';
 runBrowser(async client=>{const response=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description??response.exceptionDetails.text);const result=response.result?.value;if(!result?.passed)throw Error('OOBE browser assertions: '+JSON.stringify(result));console.log('ORDAX_FIRST_RUN_CHROMIUM_E2E=PASS');console.log('ORDAX_FIRST_RUN_ASSERTIONS='+result.assertions);}).catch(error=>{console.error(error);process.exitCode=1;});

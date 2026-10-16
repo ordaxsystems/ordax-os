@@ -10,6 +10,7 @@ const css=read('system/surface/ui/first-run.css');
 const lock=read('system/surface/ui/local-session-lock.mjs');
 const native=read('system/composition/native/main.mjs');
 const windowsEmulator=read('tools/windows-emulator/main.mjs');
+const firstRunBrowserSmoke=read('tools/surface-native/first-run-browser-smoke.mjs');
 const provenance=read('docs/architecture/MERIDIAN-PROVENANCE.md');
 
 test('launch-baseline journey is explicit and canonical',()=>{
@@ -32,6 +33,14 @@ test('first run consumes existing owners instead of Meridian backends',()=>{
  assert.ok(!ui.includes('experiments/meridian'));
  assert.ok(!ui.includes('localStorage'));
  assert.ok(!ui.includes('sessionStorage'));
+});
+
+test('Chromium First Run smoke serializes its module entry dependencies',()=>{
+ assert.ok(firstRunBrowserSmoke.includes('scenario(modules,css,entry,nativeStateAdapter)'));
+ assert.ok(firstRunBrowserSmoke.includes('import(urls[entry])'));
+ assert.ok(firstRunBrowserSmoke.includes('import(urls[nativeStateAdapter])'));
+ assert.ok(firstRunBrowserSmoke.includes('JSON.stringify(ENTRY)'));
+ assert.ok(firstRunBrowserSmoke.includes('JSON.stringify(NATIVE_STATE_ADAPTER)'));
 });
 
 test('Windows emulator preserves canonical confirmed preference semantics',()=>{
