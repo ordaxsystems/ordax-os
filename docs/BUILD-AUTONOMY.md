@@ -117,6 +117,23 @@ The shared product source may feed several delivery modes, but those delivery ar
 
 This lets future targets and features be added without turning every commit into a kernel/full-product rebuild. The `public-site` artifact is owned by `tools/public-site/build.py` and its contract in `docs/contracts/public-site.json`; it is intentionally distinct from the `web-client` product mode.
 
+## Long-running platform builds
+
+A platform build that legitimately takes hours must not become the default feedback loop for unrelated development. The correct optimization is to separate **cheap correctness gates** from **expensive artifact proofs** while preserving the same source contracts.
+
+For a temporary migration branch, a fast gate may validate contracts, unit tests, syntax and static invariants without producing the complete platform artifact. The expensive proof remains mandatory when its affected owner reaches a structural milestone or final integration gate.
+
+For the current Alpine-removal migration:
+
+- `platform/remove-alpine` is temporary and subordinate to `main`;
+- `.github/workflows/remove-alpine-fast.yml` is the branch feedback gate and deliberately does not build Buildroot, the kernel or a full USB image;
+- `.github/workflows/independent-base-experiment.yml` remains the heavy Buildroot + verified-kernel + QEMU proof;
+- the existing Buildroot implementation in `bootstrap/independent-base/` is reused rather than copied or forked;
+- caches may reuse authenticated, content-addressed inputs/components, but an unverified mutable build directory must never be treated as proof;
+- Surface/app/Web-only changes must not trigger the heavy base proof unless the dependency graph says a platform owner changed.
+
+This split changes scheduling, not standards: no fast gate may authorize Stable promotion, physical media, release signing or substitution of a missing heavy proof.
+
 ## Native system release assembly
 
 The `native-system-release` is not identical to a raw copy of the shared `system/` tree. Some privileged Native capabilities require prebuilt host executables that browsers and shared JavaScript must never implement directly.
