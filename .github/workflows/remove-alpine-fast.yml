@@ -48,7 +48,8 @@ jobs:
       - name: Validate Independent Base contracts and migration boundary
         run: |
           set -euo pipefail
-          python3 bootstrap/independent-base/build.py check
+          python3 bootstrap/independent-base/build.py check --profile minimal
+          python3 bootstrap/independent-base/build.py check --profile owner-development
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
             tests.test_independent_base_experiment \
