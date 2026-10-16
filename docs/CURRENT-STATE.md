@@ -1,5 +1,16 @@
 # Current State
 
+Public Web deployment verified (2026-10-16, 14:25 UTC): PR #1859 is merged into
+main at `16d3fc2ed40abb417027a5b8731a7e2e59491f4d`. The canonical Vercel project's
+GitHub status reports deployment completion; https://ordax.com.br/ serves the
+portal and https://ordax.com.br/ordax/ serves the Meridian Web runtime. All 56
+component files match the public deployment manifest byte-for-byte, and the
+deployed CSP matches the original public policy. This supersedes the pending
+hosting/publication observations below. Mocks and unavailable-backend indicators
+remain intact. The authenticated `/web/` launch configuration and account/provider
+gates are unchanged; authenticated E2E is not claimed. Evidence:
+`docs/evidence/meridian-web-2026-10-16/production-proof.json`.
+
 Web Meridian integration follow-up (2026-10-16): the real account-backed Spaces
 view now opens first, with Meridian cards and authorized session-only selection.
 Complete mocks remain explicitly accessible. Central's Profile shortcut opens the

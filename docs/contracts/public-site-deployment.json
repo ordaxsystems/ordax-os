@@ -204,8 +204,14 @@
       "same_source_commit_required": true,
       "preserves_component_receipts": true,
       "runtime_hosting_source_ready": true,
-      "runtime_deployment_verified": false,
-      "account_entry_activation_changed": false
+      "runtime_deployment_verified": true,
+      "account_entry_activation_changed": false,
+      "runtime_observed_source_commit": "16d3fc2ed40abb417027a5b8731a7e2e59491f4d",
+      "runtime_observed_at": "2026-10-16T14:25:37.082043+00:00",
+      "runtime_observed_manifest_sha256": "b01ef28471a7857892d59e6b8a6b578c5f832f9afe538739cf2fe76ec0f77695",
+      "runtime_verified_component_files": 56,
+      "runtime_observed_deployment_url": "https://vercel.com/ordaxsystems/ordax-os-public/5FefdJ7aPfMqx5vcTPYFe5A1r47q",
+      "runtime_evidence": "docs/evidence/meridian-web-2026-10-16/production-proof.json"
     }
   },
   "public_edge_gateway": {

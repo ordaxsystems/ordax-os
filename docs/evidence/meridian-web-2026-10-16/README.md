@@ -312,3 +312,22 @@ passes (14 tests). GitHub Actions supply-chain verification passes. All workflow
 for prior head `371df54b`, including strict-policy Surface Web Candidate and QEMU,
 are green. These results do not assert the new composition's remote CI/deployment
 has completed; fresh exact-commit evidence is required before promotion.
+
+## Verified production deployment
+
+PR #1859 was merged into main as `16d3fc2ed40abb417027a5b8731a7e2e59491f4d`
+after Web, public deployment/portal and Foundation CI passed. The independent
+QEMU workflow was still running at promotion; no physical USB readiness was inferred.
+Vercel's GitHub commit status reports `Deployment has completed` for the canonical
+ordaxsystems/ordax-os-public deployment. At 2026-10-16 14:25 UTC, anonymous HTTPS
+reads confirmed the exact merge commit in the public aggregate manifest, HTTP 200
+for `/` and `/ordax/`, all 56 component files' lengths/SHA-256, and the original
+public CSP. The aggregate manifest is the 57th file; its own SHA-256 is recorded
+in `production-proof.json`. This supersedes earlier pending-hosting observations.
+
+The Vercel MCP connection returned 403 for the ordaxsystems scope and no Vercel CLI
+was installed. Deployment completion was therefore checked through the official
+Vercel GitHub status plus the actual public origin; no alternate project, scope,
+proxy, credential or hosting was used. Account/provider gates and authenticated
+`/web/` launch activation remain unchanged. Public runtime availability does not
+prove authenticated E2E or hardware/USB behavior.
