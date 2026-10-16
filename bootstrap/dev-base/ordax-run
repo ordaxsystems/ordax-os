@@ -9,6 +9,10 @@ GUARDIAN_LOG=$UPDATE_RUN_DIR/guardian.log
 SURFACE_RUNTIME_PROVISION_MARKER=${ORDAX_SURFACE_RUNTIME_PROVISION_MARKER:-/run/ordax-surface/runtime-provisioning-source-sha}
 PRODUCT_CONTROL_PLANE_URL=${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}
 PRODUCT_CONTROL_PLANE_CONFIG=$WORKTREE/bootstrap/base-update/owner-development/product-control-plane-origin
+STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
+PINNED_FILE=$STATE_DIR/pinned-commit
+BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
+PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
 ENTRY_PID=""
 TAIL_PID=""
 WATCH_PID=""
@@ -32,6 +36,47 @@ is_sha() {
     case "$value" in
         ''|*[!0-9a-f]*) return 1 ;;
     esac
+    return 0
+}
+
+read_state_value() {
+    path=$1
+    value=""
+    [ -f "$path" ] && [ ! -L "$path" ] || {
+        printf '%s' ""
+        return 0
+    }
+    IFS= read -r value <"$path" || true
+    printf '%s' "$value"
+}
+
+recover_automatic_rollback_pin() {
+    [ -x "$PULL_BIN" ] || return 0
+    [ -s "$PINNED_FILE" ] && [ ! -L "$PINNED_FILE" ] || return 0
+    [ -s "$BOOT_REJECTED_FILE" ] && [ ! -L "$BOOT_REJECTED_FILE" ] || return 0
+
+    pinned=$(read_state_value "$PINNED_FILE")
+    rejected=$(read_state_value "$BOOT_REJECTED_FILE")
+    current=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    is_sha "$pinned" || return 0
+    is_sha "$rejected" || return 0
+    is_sha "$current" || return 0
+    [ "$current" = "$pinned" ] || return 0
+    [ "$rejected" != "$pinned" ] || return 0
+
+    echo "ordax-run: rollback automatico detectado; procurando uma main mais nova sem abandonar o known-good"
+    if ORDAX_WORKTREE="$WORKTREE" ORDAX_STATE_DIR="$STATE_DIR" "$PULL_BIN"; then
+        refreshed=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+        if is_sha "$refreshed" && [ "$refreshed" != "$pinned" ] && [ ! -e "$PINNED_FILE" ]; then
+            rm -f "$BOOT_REJECTED_FILE" >/dev/null 2>&1 || true
+            echo "ordax-run: rollback automatico liberado por uma main mais nova: $refreshed"
+            return 0
+        fi
+        echo "ordax-run: sincronizacao nao produziu uma entrega nova; mantendo known-good $pinned" >&2
+        return 0
+    fi
+
+    echo "ordax-run: main ainda indisponivel; mantendo known-good $pinned e continuando offline" >&2
     return 0
 }
 
@@ -136,6 +181,8 @@ start_guardian_tail() {
     fi
     TAIL_PID=$!
 }
+
+recover_automatic_rollback_pin
 
 [ -x "$ENTRYPOINT" ] || fail "$ENTRYPOINT nao existe ou nao e executavel"
 
