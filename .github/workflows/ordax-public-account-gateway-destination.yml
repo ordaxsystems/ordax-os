@@ -1,0 +1,113 @@
+name: OrdaX Public Account Gateway Destination
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ordax-public-account-gateway-destination.yml'
+      - 'infra/supabase/functions/ordax-public-account-gateway/**'
+      - 'infra/supabase/functions/_shared/auth_rate_limit.mjs'
+      - 'infra/supabase/functions/_shared/bounded_body.mjs'
+      - 'infra/supabase/functions/_shared/account_privileged_rpc.mjs'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
+      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
+      - 'infra/supabase/functions/_shared/account_cookie_policy.mjs'
+      - 'tools/account/resolve_account_gateway_destination.py'
+      - 'tests/test_public_proxy_vercel_oidc.mjs'
+      - 'tests/test_public_account_edge_gateway_source.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ordax-public-account-gateway-destination
+  cancel-in-progress: false
+
+jobs:
+  deploy-destination:
+    if: github.repository == 'ordaxsystems/ordax-os' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact reviewed main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Reject obsolete or non-main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL="$(git rev-parse HEAD)"
+          CURRENT="$(git ls-remote https://github.com/ordaxsystems/ordax-os.git refs/heads/main | cut -f1)"
+          test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${ACTUAL}" = "${GITHUB_SHA}"
+          test "${CURRENT}" = "${GITHUB_SHA}"
+
+      - name: Resolve reviewed destination project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/account/resolve_account_gateway_destination.py >> "${GITHUB_ENV}"
+
+      - name: Verify public gateway security contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/test_public_proxy_vercel_oidc.mjs
+          python -m unittest tests.test_public_account_edge_gateway_source -v
+          grep -Fq 'owner:ordaxsystems:project:ordax-os-public:environment:production' \
+            infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs
+          grep -Fq 'owner:ordaxsystems:project:ordax-web:environment:production' \
+            infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs
+          ! grep -Fq 'environment:preview' \
+            infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs
+          ! grep -Fq 'jogo-brasils-projects' \
+            infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs
+          test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
+
+      - name: Resolve management credential availability without printing it
+        id: credential
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo '::warning::PUBLIC_ACCOUNT_GATEWAY=NOT_DEPLOYED (configure repository secret SUPABASE_ACCESS_TOKEN)'
+            echo 'enabled=false' >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo 'enabled=true' >> "${GITHUB_OUTPUT}"
+          echo 'PUBLIC_ACCOUNT_GATEWAY_DEPLOY_CREDENTIAL_PRESENT=YES'
+          echo 'PUBLIC_ACCOUNT_GATEWAY_DEPLOY_CREDENTIAL_PRINTED=NO'
+
+      - name: Set up pinned Supabase CLI
+        if: steps.credential.outputs.enabled == 'true'
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.121.0
+
+      - name: Deploy exact public account gateway bundle
+        if: steps.credential.outputs.enabled == 'true'
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$(supabase --version)" = "2.121.0"
+          cd infra
+          supabase functions deploy ordax-public-account-gateway \
+            --project-ref "${SUPABASE_PROJECT_REF}" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Confirm deployment action executed
+        if: steps.credential.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'PUBLIC_ACCOUNT_GATEWAY_DEPLOY=PASS'
+          echo "PUBLIC_ACCOUNT_GATEWAY_SOURCE_COMMIT=${GITHUB_SHA}"
