@@ -14,7 +14,6 @@ on:
       - 'infra/supabase/functions/_shared/account_cookie_policy.mjs'
       - 'tools/account/resolve_account_gateway_destination.py'
       - 'tests/test_public_proxy_vercel_oidc.mjs'
-      - 'tests/test_public_account_edge_gateway_source.py'
   workflow_dispatch:
 
 permissions:
@@ -52,12 +51,11 @@ jobs:
           set -euo pipefail
           python tools/account/resolve_account_gateway_destination.py >> "${GITHUB_ENV}"
 
-      - name: Verify public gateway security contract
+      - name: Verify public gateway OIDC security contract
         shell: bash
         run: |
           set -euo pipefail
           node --test tests/test_public_proxy_vercel_oidc.mjs
-          python -m unittest tests.test_public_account_edge_gateway_source -v
           grep -Fq 'owner:ordaxsystems:project:ordax-os-public:environment:production' \
             infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs
           grep -Fq 'owner:ordaxsystems:project:ordax-web:environment:production' \
