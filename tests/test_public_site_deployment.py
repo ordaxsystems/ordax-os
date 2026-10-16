@@ -284,6 +284,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             ["ordax.com.br", "web.ordax.com.br", "www.ordax.com.br"],
         )
         self.assertFalse(bot["production_e2e_verified"])
+
     def test_nginx_adapter_is_loopback_only_and_does_not_replace_vercel_identity(self):
         adapter = self.contract["adapter"]
         self.assertEqual(adapter["kind"], "nginx-loopback-behind-https-terminator")
