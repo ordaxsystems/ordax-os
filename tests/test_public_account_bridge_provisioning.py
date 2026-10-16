@@ -8,6 +8,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "tools" / "account" / "ensure_public_account_bridge.py"
+WORKFLOW_PATH = ROOT / ".github" / "workflows" / "ordax-public-account-gateway-destination.yml"
 SPEC = importlib.util.spec_from_file_location("ensure_public_account_bridge", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 module = importlib.util.module_from_spec(SPEC)
@@ -56,6 +57,17 @@ class PublicAccountBridgeProvisioningTests(unittest.TestCase):
     def test_cli_requires_management_token(self) -> None:
         with mock.patch.dict(os.environ, {}, clear=True):
             self.assertEqual(module.main(["--project-ref", self.project_ref]), 1)
+
+    def test_destination_workflow_fails_closed_when_management_token_is_missing(self) -> None:
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertIn("secrets.SUPABASE_ACCESS_TOKEN", text)
+        self.assertIn("PUBLIC_ACCOUNT_GATEWAY=BLOCKED", text)
+        self.assertIn("exit 1", text)
+        self.assertNotIn("PUBLIC_ACCOUNT_GATEWAY=NOT_DEPLOYED", text)
+        self.assertNotIn("enabled=false", text)
+        self.assertNotIn("steps.credential.outputs.enabled", text)
+        self.assertIn("Ensure dedicated internal service bridge", text)
+        self.assertIn("Deploy exact public account gateway bundle", text)
 
 
 if __name__ == "__main__":
