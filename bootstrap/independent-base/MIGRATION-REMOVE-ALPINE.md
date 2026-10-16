@@ -23,11 +23,13 @@ O desenvolvimento da migração usa dois níveis distintos.
 
 O gate executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto atual de consumidores Python de `bootstrap/base/alpine_core.py`. Novos consumidores são proibidos; a allowlist só pode encolher à medida que a migração avança.
 
-`tests/test_independent_owner_profile.py` trava a arquitetura do perfil Owner/Development: ele deriva do mesmo `ordax_minimal_defconfig`, adiciona capacidades declaradas em fragmento e reutiliza os helpers canônicos do Dev USB sem copiar sua lógica.
+`tests/test_independent_owner_profile.py` trava a arquitetura do perfil Owner/Development: ele deriva do mesmo `ordax_minimal_defconfig`, adiciona capacidades declaradas em fragmento, reutiliza os helpers canônicos do Dev USB sem copiar sua lógica e exige que os receipts de módulos/firmware sejam embutidos exatamente no rootfs Owner.
 
-`tests/test_kernel_module_payload.py` trava a nova fronteira neutra de hardware: módulos são derivados do `docs/contracts/hardware-support-matrix.json`, vêm exclusivamente do artefato `kernel-modules-<versão>.tar` do kernel canônico e dependências são resolvidas por kmod/modprobe, sem um segundo parser de `modules.dep`.
+`tests/test_kernel_module_payload.py` trava a fronteira neutra de hardware: módulos são derivados do `docs/contracts/hardware-support-matrix.json`, vêm exclusivamente do artefato `kernel-modules-<versão>.tar` do kernel canônico e dependências são resolvidas por kmod/modprobe, sem um segundo parser de `modules.dep`.
 
 `tests/test_firmware_policy_neutral.py` prova que a política compartilhada de firmware é distribuição-neutra, falha fechada quando uma declaração `firmware=` não tem cobertura, rejeita caminhos inseguros e produz receipt com identidade SHA-256 sem baixar firmware por conta própria.
+
+`tests/test_independent_heavy_workflow.py` trava a estrutura da prova cara: kernel canônico verificado antes do rootfs, archive de módulos exato, receipts externos explícitos, mesmo perfil no build/verify e upload das evidências de hardware.
 
 O gate rápido executa `build.py resolve` para `minimal` e `owner-development`. Esse comando baixa/autentica a fonte Buildroot pinada, executa `defconfig` e verifica o `.config` resultante; ele registra explicitamente que não compilou rootfs nem kernel.
 
@@ -35,7 +37,17 @@ Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar
 
 ### Gate pesado
 
-`.github/workflows/independent-base-experiment.yml` continua sendo a prova pesada existente, com Buildroot, kernel verificável e QEMU. Ele não é o loop de desenvolvimento diário.
+`.github/workflows/independent-base-experiment.yml` continua sendo a única prova pesada existente, com Buildroot, kernel verificável e QEMU. Ele não é o loop de desenvolvimento diário e não foi duplicado para a migração.
+
+O workflow aceita `workflow_dispatch` com `minimal|owner-development`. Em PR originado de `platform/remove-alpine`, seleciona `owner-development`; demais PRs continuam usando `minimal`. A ordem é deliberada:
+
+1. resolver fingerprint e restaurar/construir o kernel canônico;
+2. verificar o componente e sua ligação ao commit de integração;
+3. localizar o `kernel-modules-<versão>.tar` exato;
+4. expor archive/receipts ao build Owner;
+5. construir e verificar o rootfs Buildroot;
+6. executar QEMU com o kernel real;
+7. publicar provenance e receipts observados.
 
 Executar o gate pesado somente quando necessário:
 
@@ -76,11 +88,13 @@ A paridade do Dev USB não cria outra distribuição nem outro builder. `source.
 - `minimal`: prova portátil mínima já existente;
 - `owner-development`: o mesmo defconfig base mais `configs/owner-development.fragment`.
 
-O fragmento Owner/Development contém somente capacidades de userspace atualmente necessárias ao Dev USB: CA certificates, Git, `iw`, `wpa_supplicant` e `wpa_passphrase`. `kmod` não foi adicionado porque `/sbin/modprobe` já pertence à base BusyBox canônica; `zstd` também não foi carregado, porque era uma necessidade do antigo fluxo Alpine de materialização de firmware e não existe consumidor comprovado no runtime Owner atual.
+O fragmento Owner/Development declara as capacidades de userspace necessárias ao Dev USB — CA certificates, Git, `iw`, `wpa_supplicant` e `wpa_passphrase` — e o provider `linux-firmware` com as famílias necessárias ao baseline atual. `kmod` não foi adicionado porque `/sbin/modprobe` já pertence à base BusyBox canônica; `zstd` também não foi carregado, porque era uma necessidade do antigo fluxo Alpine de materialização de firmware e não existe consumidor comprovado no runtime Owner atual.
+
+As famílias de firmware vivem somente no fragmento Buildroot. `build.py` não mantém uma segunda lista: aceita apenas símbolos no namespace `BR2_PACKAGE_LINUX_FIRMWARE...` além do conjunto fixo de userspace e exige que cada símbolo declarado sobreviva à resolução Kconfig.
 
 `build.py` aceita `--profile minimal|owner-development`. Defconfig e fragmento usados entram na provenance com SHA-256, e `BR2_ROOTFS_POST_SCRIPT_ARGS` transmite a identidade do perfil de forma explícita ao único `post-build.sh`; não existe detecção por presença acidental de binários.
 
-O Kconfig real do Buildroot 2026.08 já foi resolvido para os dois perfis no Fast Gate. CA/Git/`iw`/`wpa_supplicant` foram aceitos pelo grafo Buildroot sem compilação do rootfs/kernel. Isso prova resolução de configuração, não funcionamento físico nem paridade final.
+O Kconfig real do Buildroot 2026.08 já foi resolvido para os dois perfis no Fast Gate, inclusive o provider/famílias de firmware Owner. Isso prova resolução de configuração, não funcionamento físico nem paridade final.
 
 `post-build.sh` instala os helpers canônicos `ordax-network`, `ordax-pull`, `ordax-rollback`, `ordax-run`, `ordax-diagnose`, `ordax-dev-init` e recovery diretamente de seus owners existentes somente no perfil `owner-development` e apenas quando o target contém o conjunto completo de capacidades exigidas. Presença parcial falha fechada; o perfil `minimal` falha se capacidades Owner vazarem para ele.
 
@@ -99,11 +113,18 @@ O kernel continua sendo construído exclusivamente por `bootstrap/kernel/`; seu 
 5. emite receipt com SHA-256 do arquivo de módulos, hardware matrix e arquivos instalados;
 6. não baixa nada e não constrói kernel.
 
-O workflow Portable já exportava `ORDAX_KERNEL_MODULES_ARCHIVE` e `ORDAX_KERNEL_MODULES_RECEIPT`, porém o builder antigo não consumia esse contrato. Essa lacuna foi fechada no perfil `owner-development`: `post-build.sh` agora exige `ORDAX_HOST_PYTHON`, `ORDAX_KERNEL_MODULES_ARCHIVE` e `ORDAX_KERNEL_MODULES_RECEIPT`, invoca `kernel_module_payload.py install` e não possui fallback que construa ou baixe um segundo kernel.
+O perfil `owner-development` exige `ORDAX_HOST_PYTHON`, `ORDAX_KERNEL_MODULES_ARCHIVE`, `ORDAX_KERNEL_MODULES_RECEIPT` e `ORDAX_FIRMWARE_COVERAGE_RECEIPT`. Não existe fallback que construa ou baixe um segundo kernel.
 
-Após materializar os módulos, o mesmo post-build executa `bootstrap/base/firmware_policy.py check`. A política compartilhada lê as declarações `firmware=` dos módulos selecionados e exige cobertura real no target; se qualquer módulo que requer firmware ficar sem alternativa utilizável, o build Owner falha antes de produzir uma candidata. O receipt de cobertura fica em `/etc/ordax/firmware-coverage.json`.
+Após materializar os módulos, o mesmo post-build executa `bootstrap/base/firmware_policy.py check`. A política compartilhada lê as declarações `firmware=` dos módulos selecionados e exige cobertura real no target; se qualquer módulo que requer firmware ficar sem alternativa utilizável, o build Owner falha antes de produzir uma candidata.
 
-**Ainda pendente antes de remover `dev-base/build.py`:** declarar no fragmento `owner-development` o provider `linux-firmware` do Buildroot com as famílias compatíveis com os módulos do SSOT, provar esses símbolos pelo gate `resolve`, executar o build real do perfil Owner com o componente de kernel já verificado e então realizar QEMU/prova física. A dependência Alpine do Dev Base só pode sair da allowlist depois desses gates.
+Os dois receipts externos são incorporados **com os mesmos bytes** ao rootfs antes da geração da imagem:
+
+- `/etc/ordax/kernel-module-payload.json`;
+- `/etc/ordax/firmware-coverage.json`.
+
+`cmp -s` exige identidade entre cada receipt externo e sua cópia embutida. Como `provenance.json` autentica `independent-base.erofs` por SHA-256, a candidata imutável passa a vincular transitivamente os receipts, o archive de módulos, a hardware matrix e os firmwares observados sem criar um segundo sistema de provenance.
+
+**Ainda pendente antes de remover `dev-base/build.py`:** executar o build real `owner-development` com o componente de kernel já verificado, passar a prova QEMU e depois registrar prova física no Dev USB/hardware alvo. Somente depois desses gates a dependência Alpine do Dev Base pode sair da allowlist e o builder antigo pode ser removido.
 
 ### Fase C — convergência dos consumidores
 
