@@ -18,6 +18,14 @@ if ! git cat-file -e "$current^{commit}" 2>/dev/null; then
   exit 1
 fi
 
+# An explicit redeploy of the same source commit may exist specifically to
+# apply changed production environment variables or provider configuration.
+# Treat same-SHA deployments as builds; skipping them would freeze stale
+# runtime configuration even though the source itself is unchanged.
+if [ "$previous" = "$current" ]; then
+  exit 1
+fi
+
 # Only an unchanged public site and its directly imported modules may skip.
 # A git error is always treated as 'build', never as 'ignore'.
 if git diff --quiet "$previous" "$current" -- \
