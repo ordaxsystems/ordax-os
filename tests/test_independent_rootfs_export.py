@@ -1,4 +1,4 @@
-"""Fast proof for the Independent Base product-facing rootfs.tar export."""
+"""Fast proof for the Independent Base product-facing rootfs export."""
 from __future__ import annotations
 
 import hashlib
@@ -12,7 +12,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPORTER = ROOT / "bootstrap/independent-base/post-image.sh"
+POST_BUILD = ROOT / "bootstrap/independent-base/post-build.sh"
 DEFCONFIG = ROOT / "bootstrap/independent-base/configs/ordax_minimal_defconfig"
+RUNTIME_DEV_LINKS = {
+    "fd": "../proc/self/fd",
+    "stdin": "../proc/self/fd/0",
+    "stdout": "../proc/self/fd/1",
+    "stderr": "../proc/self/fd/2",
+}
 
 
 def digest(path: Path) -> str:
@@ -23,7 +30,22 @@ def digest(path: Path) -> str:
     return value.hexdigest()
 
 
+def executable_fixture(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    path.chmod(0o755)
+
+
 class IndependentRootfsExportTests(unittest.TestCase):
+    def _minimal_post_build_target(self, root: Path) -> Path:
+        target = root / "target"
+        (target / "dev").mkdir(parents=True)
+        executable_fixture(target / "sbin/modprobe")
+        executable_fixture(target / "sbin/ip")
+        for name, linkname in RUNTIME_DEV_LINKS.items():
+            os.symlink(linkname, target / "dev" / name)
+        return target
+
     def test_exporter_is_executable_and_bound_to_buildroot_post_image(self):
         mode = EXPORTER.stat().st_mode
         self.assertTrue(stat.S_ISREG(mode))
@@ -35,6 +57,38 @@ class IndependentRootfsExportTests(unittest.TestCase):
             ),
             1,
         )
+
+    def test_post_build_removes_only_runtime_owned_devtmpfs_shortcuts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self._minimal_post_build_target(Path(tmp))
+            result = subprocess.run(
+                [str(POST_BUILD), str(target), "minimal"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name in RUNTIME_DEV_LINKS:
+                self.assertFalse((target / "dev" / name).exists())
+                self.assertFalse((target / "dev" / name).is_symlink())
+            self.assertTrue((target / "dev").is_dir())
+
+    def test_post_build_fails_closed_if_runtime_dev_link_drifted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self._minimal_post_build_target(Path(tmp))
+            (target / "dev/fd").unlink()
+            os.symlink("../tmp/not-procfs", target / "dev/fd")
+            result = subprocess.run(
+                [str(POST_BUILD), str(target), "minimal"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Unexpected Independent Base /dev runtime link", result.stderr)
+            self.assertTrue((target / "dev/fd").is_symlink())
 
     def test_export_is_canonical_symlink_preserving_and_deterministic(self):
         with tempfile.TemporaryDirectory() as tmp:
