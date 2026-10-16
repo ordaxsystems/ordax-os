@@ -36,9 +36,21 @@ case "$project" in
     fi
     ;;
   prj_ftACluUqk6i9DoD9GPIwmgURwckP)
+    # The Web artifact consumes the Surface plus the exact canonical login
+    # dependency closure. Unrelated public portal pages and the public artifact
+    # builder must not rebuild Web.
     if git diff --quiet "$previous" "$current" -- \
       system \
+      sites/public/login/index.html \
+      sites/public/assets/site.css \
+      sites/public/assets/account.css \
+      sites/public/assets/site.js \
+      sites/public/i18n/catalog.js \
+      sites/public/i18n/runtime.js \
+      sites/public/config/public-site.json \
+      tools/public-site/public_html_render.py \
       tools/surface-web \
+      tools/brand \
       tools/source_graph.py \
       tools/vercel \
       third_party/licenses \
@@ -46,6 +58,7 @@ case "$project" in
       lib/account-proxy-core.mjs \
       infra/supabase/functions/ordax-public-account-gateway \
       infra/supabase/functions/_shared \
+      docs/contracts \
       docs/evidence/web-layout-reference-2026-10-10.json \
       docs/evidence/web-central-reference-2026-10-11.json \
       package.json package-lock.json vercel.json; then
