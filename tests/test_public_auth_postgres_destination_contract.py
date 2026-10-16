@@ -1,4 +1,4 @@
-"""Fail-closed checks for account provider cutover; no parallel identity authority."""
+"""Fail-closed checks for Account runtime transport and public activation boundaries."""
 
 from __future__ import annotations
 
@@ -18,20 +18,24 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         cls.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         cls.destination = cls.contract["postgresql_destination"]
 
-    def test_only_existing_provider_is_current_until_promotion(self):
+    def test_transport_proof_does_not_authorize_public_account_activation(self):
         stage = self.destination
         self.assertFalse(stage["parallel_identity_write_enabled"])
-        self.assertTrue(stage["project_ref"])
+        self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["source_owner"].endswith("/migrations"))
-        if not stage["functional_provider_cutover_complete"]:
-            self.assertNotEqual(self.contract["target"]["project_ref"], stage["project_ref"])
-            self.assertFalse(stage["public_registration_enabled"])
-            self.assertFalse(stage["public_login_enabled"])
-            self.assertFalse(stage["public_account_gateway_deployed"])
-            self.assertFalse(stage["active_legal_policy_present"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertTrue(stage["destination_service_transport_runtime_verified"])
+        self.assertFalse(stage["functional_provider_cutover_complete"])
+        self.assertFalse(stage["public_registration_enabled"])
+        self.assertFalse(stage["public_login_enabled"])
+        self.assertFalse(stage["active_legal_policy_present"])
 
-    def test_promotion_requires_proven_runtime_not_just_migrations(self):
+    def test_promotion_still_requires_unproven_account_lifecycle_gates(self):
         stage = self.destination
+        self.assertFalse(stage["provider_settings_e2e_verified"])
+        self.assertFalse(stage["session_revocation_e2e_verified"])
+        self.assertFalse(stage["recovery_e2e_verified"])
         if stage["functional_provider_cutover_complete"]:
             for name in (
                 "public_account_gateway_deployed",
@@ -44,17 +48,20 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             self.assertFalse(stage["public_login_enabled"])
             self.assertFalse(stage["public_registration_enabled"])
 
-    def test_destination_runtime_remains_closed_despite_sql_readiness(self):
+    def test_destination_runtime_is_live_but_public_activation_remains_closed(self):
         stage = self.destination
         self.assertTrue(stage["database_rate_limit_full_sql_proof_passed"])
         self.assertTrue(stage["database_rate_limit_test_rows_rolled_back"])
         self.assertTrue(stage["legacy_legal_quarantine_applied"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertTrue(stage["destination_named_bridge_runtime_e2e_verified"])
         self.assertFalse(stage["public_auth_rate_limit_runtime_e2e_verified"])
         self.assertFalse(stage["public_login_enabled"])
         self.assertFalse(stage["public_registration_enabled"])
         self.assertFalse(stage["parallel_identity_write_enabled"])
 
-    def test_live_sync_export_sql_proof_cannot_be_confused_with_public_runtime(self):
+    def test_live_sync_export_sql_proof_cannot_be_confused_with_public_activation(self):
         stage = self.destination
         self.assertTrue(stage["sync_export_db_boundary_proven"])
         self.assertTrue(stage["sync_request_subject_bridge_deployed"])
@@ -71,7 +78,7 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             stage["sync_request_subject_bridge_migration_name"],
             "sync_request_subject_bridge_v1",
         )
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         self.assertFalse(stage["account_export_runtime_e2e_verified"])
         self.assertFalse(stage["sync_runtime_e2e_verified"])
         self.assertFalse(stage["public_login_enabled"])
@@ -91,24 +98,28 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
             migration.read_text(encoding="utf-8").lower(),
         )
 
-    def test_staging_gateway_and_vercel_destination_evidence_are_distinct(self):
+    def test_live_gateway_and_vercel_runtime_evidence_are_current(self):
         stage = self.destination
-        self.assertEqual(stage["project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(stage["internal_gateway_staging_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 6)
+        self.assertEqual(stage["internal_gateway_staging_version"], 13)
         self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
-        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
-        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         self.assertTrue(stage["destination_vercel_public_project_found"])
-        self.assertEqual(stage["destination_vercel_public_project_evidence_source"], "docs/contracts/public-site-deployment.json")
-        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
+        self.assertEqual(
+            stage["destination_vercel_public_project_evidence_source"],
+            "docs/contracts/public-site-deployment.json",
+        )
+        self.assertTrue(stage["destination_vercel_oidc_binding_verified"])
         self.assertEqual(stage["destination_vercel_team_slug"], "ordaxsystems")
         self.assertEqual(stage["destination_vercel_public_project_name"], "ordax-os-public")
-        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
-        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertTrue(stage["destination_vercel_oidc_runtime_e2e_verified"])
         self.assertFalse(stage["public_login_enabled"])
         self.assertFalse(stage["public_registration_enabled"])
+        self.assertEqual(stage["internal_gateway_staging_artifact_sha256_observation_version"], 6)
+        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
+        evidence = ROOT / stage["runtime_evidence"]
+        self.assertTrue(evidence.is_file())
         source = ROOT / stage["internal_gateway_staging_source"]
         gateway = source.read_text(encoding="utf-8")
         self.assertIn("const PUBLIC_SITE_ACCOUNT_ENABLED = false;", gateway)
@@ -120,8 +131,8 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
     def test_named_bridge_requires_custom_handler_auth_not_platform_jwt(self):
         stage = self.destination
         self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
-        self.assertFalse(stage["destination_service_transport_runtime_verified"])
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["destination_service_transport_runtime_verified"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         self.assertFalse(stage["public_login_enabled"])
         outer = (ROOT / stage["destination_gateway_transport_source_reference"]).read_text(encoding="utf-8")
         inner = (ROOT / stage["destination_gateway_auth_source_reference"]).read_text(encoding="utf-8")
@@ -134,19 +145,17 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("headers: upstreamHeaders(req, bridgeKey)", outer)
         self.assertTrue(stage["destination_gateway_platform_auth_reference"].startswith("https://supabase.com/"))
 
-    def test_named_service_bridge_is_not_production_credential_evidence(self):
+    def test_named_service_bridge_is_proven_without_recording_secret_value(self):
         stage = self.destination
         self.assertTrue(stage["destination_named_bridge_source_prepared"])
-        self.assertEqual(
-            stage["destination_named_bridge_key_name"],
-            "ordax_account_public_bridge",
-        )
-        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
-        self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
-        self.assertFalse(stage["destination_service_transport_runtime_verified"])
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertEqual(stage["destination_named_bridge_key_name"], "ordax_account_public_bridge")
+        self.assertTrue(stage["destination_named_bridge_key_provisioned"])
+        self.assertTrue(stage["destination_named_bridge_runtime_e2e_verified"])
+        self.assertTrue(stage["destination_service_transport_runtime_verified"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         self.assertFalse(stage["public_login_enabled"])
         self.assertFalse(stage["public_registration_enabled"])
+        self.assertNotIn("secret_value", stage)
         helper = (
             ROOT / "infra" / "supabase" / "functions" / "_shared"
             / "account_service_bridge.mjs"
@@ -154,17 +163,15 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn('ACCOUNT_BRIDGE_KEY_NAME = "ordax_account_public_bridge"', helper)
         self.assertIn("authenticatedAccountBridge(", helper)
 
-    def test_new_oidc_source_is_scoped_without_runtime_activation(self):
+    def test_oidc_source_and_production_runtime_are_both_scoped(self):
         stage = self.destination
         self.assertTrue(stage["destination_vercel_oidc_source_updated"])
         self.assertEqual(stage["destination_vercel_oidc_source_expected_team"], "ordaxsystems")
         self.assertEqual(stage["destination_vercel_oidc_source_expected_project"], "ordax-os-public")
         self.assertTrue(stage["destination_vercel_public_project_found"])
-        self.assertEqual(stage["destination_vercel_public_project_evidence_source"], "docs/contracts/public-site-deployment.json")
-        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
-        self.assertFalse(stage["destination_vercel_oidc_binding_verified"])
-        self.assertFalse(stage["destination_vercel_oidc_runtime_e2e_verified"])
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["destination_vercel_oidc_binding_verified"])
+        self.assertTrue(stage["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         source = (
             ROOT / "infra" / "supabase" / "functions"
             / "ordax-public-account-gateway" / "vercel_oidc.mjs"
@@ -175,19 +182,17 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         )
         self.assertNotIn('jogo-brasils-projects', source)
 
-    def test_gateway_v3_is_deployed_but_runtime_promotion_is_still_blocked(self):
+    def test_gateway_v13_transport_is_live_without_promoting_account_activation(self):
         stage = self.destination
         self.assertTrue(stage["destination_transport_admission_source_prepared"])
         self.assertTrue(stage["destination_transport_admission_deployed"])
-        self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
         self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 6)
-        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
-        self.assertFalse(stage["internal_gateway_runtime_e2e_verified"])
-        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
-        self.assertFalse(stage["destination_named_bridge_runtime_e2e_verified"])
-        self.assertFalse(stage["destination_service_transport_runtime_verified"])
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertEqual(stage["internal_gateway_staging_version"], 13)
+        self.assertTrue(stage["internal_gateway_runtime_e2e_verified"])
+        self.assertTrue(stage["destination_named_bridge_key_provisioned"])
+        self.assertTrue(stage["destination_named_bridge_runtime_e2e_verified"])
+        self.assertTrue(stage["destination_service_transport_runtime_verified"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         self.assertFalse(stage["public_login_enabled"])
         self.assertFalse(stage["public_registration_enabled"])
         self.assertFalse(stage["functional_provider_cutover_complete"])
@@ -198,17 +203,15 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertIn("authorizeAccountTransport(req, path", gateway)
         self.assertIn("supabase.auth.getUser(access)", gateway)
 
-    def test_staging_v5_exact_shared_route_and_sync_fixes_are_deployed_without_public_release(self):
+    def test_shared_route_and_sync_hardening_remain_deployed(self):
         stage = self.destination
         self.assertTrue(stage["internal_gateway_route_prefix_hardening_deployed"])
         self.assertTrue(stage["internal_gateway_sync_mutation_object_guard_deployed"])
-        self.assertEqual(stage["internal_gateway_staging_version"], 6)
+        self.assertEqual(stage["internal_gateway_staging_version"], 13)
         self.assertFalse(stage["internal_gateway_staging_verify_jwt"])
-        self.assertEqual(len(stage["internal_gateway_staging_artifact_sha256"]), 64)
-        self.assertFalse(stage["destination_transport_admission_negative_http_verified"])
-        self.assertFalse(stage["destination_named_bridge_key_provisioned"])
-        self.assertFalse(stage["destination_service_transport_runtime_verified"])
-        self.assertFalse(stage["public_account_gateway_deployed"])
+        self.assertTrue(stage["destination_named_bridge_key_provisioned"])
+        self.assertTrue(stage["destination_service_transport_runtime_verified"])
+        self.assertTrue(stage["public_account_gateway_deployed"])
         self.assertFalse(stage["public_registration_enabled"])
         self.assertFalse(stage["public_login_enabled"])
         owner = (
