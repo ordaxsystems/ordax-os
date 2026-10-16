@@ -297,6 +297,43 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
+def resolve_profile(cache: Path, profile: str) -> dict:
+    source, kernel, stable, network = contracts()
+    for prog in ("make", "gcc"):
+        if not shutil.which(prog):
+            raise BaseError(f"required Buildroot profile-resolution tool is missing: {prog}")
+    temp = Path(tempfile.mkdtemp(prefix="ordax-independent-resolve-"))
+    try:
+        archive = source_archive(source, cache.resolve())
+        br = safe_unpack(archive, temp, source["buildroot"]["version"])
+        generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
+        inputs = generate_defconfig(source, kernel, profile, generated)
+        build_dir = temp / "br-output"
+        cmd = [
+            "make", "-C", str(br), f"O={build_dir}",
+            f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}",
+        ]
+        run(*cmd, "defconfig")
+        config_path = build_dir / ".config"
+        if config_path.is_symlink() or not config_path.is_file():
+            raise BaseError("Buildroot did not materialize resolved .config")
+        config = config_path.read_text(encoding="utf-8")
+        verify_resolved_config(config, kernel, profile)
+        return {
+            "status": "profile-resolution-pass",
+            "profile": profile,
+            "profile_inputs": profile_provenance(inputs),
+            "buildroot_sha256": digest(archive),
+            "kernel": kernel["version"],
+            "erofs": stable["rootfs"]["format"],
+            "network": network["prototype_scope"],
+            "rootfs_compiled": False,
+            "kernel_compiled": False,
+        }
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+
 def verify_iproute2_minimal_build(build_dir: Path) -> dict:
     """Bind the version-scoped minimal patch to the source Buildroot actually built."""
     package_root = build_dir / "build"
@@ -387,7 +424,7 @@ def verify_surface_ip_identity(target: Path) -> dict:
 
 def verify_owner_target(target: Path) -> None:
     required_exec = {
-        "usr/bin/git": ROOT / "bootstrap/dev-base/ordax-pull",
+        "usr/bin/git": None,
         "usr/sbin/iw": None,
         "usr/sbin/wpa_supplicant": None,
         "usr/bin/wpa_passphrase": None,
@@ -403,7 +440,7 @@ def verify_owner_target(target: Path) -> None:
         path = target / relative
         if not path.is_file() or not os.access(path, os.X_OK):
             raise BaseError(f"Owner/Development executable missing: /{relative}")
-        if canonical is not None and relative != "usr/bin/git" and digest(path) != digest(canonical):
+        if canonical is not None and digest(path) != digest(canonical):
             raise BaseError(f"Owner/Development helper differs from canonical source: /{relative}")
     ca_store = target / "etc/ssl/certs/ca-certificates.crt"
     if not ca_store.is_file() or ca_store.stat().st_size == 0:
@@ -632,7 +669,7 @@ def verify(out: Path, profile: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "build", "verify"))
+    parser.add_argument("action", choices=("check", "resolve", "build", "verify"))
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default="minimal")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
@@ -650,6 +687,8 @@ def main() -> int:
                 "erofs": stable["rootfs"]["format"],
                 "network": network["prototype_scope"],
             }))
+        elif args.action == "resolve":
+            print(json.dumps(resolve_profile(args.cache, args.profile), sort_keys=True))
         else:
             if args.out is None:
                 raise BaseError("--out required")
