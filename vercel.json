@@ -3,9 +3,9 @@
   "framework": null,
   "outputDirectory": "out/public-deployment",
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
+      "src": "^/$",
       "has": [
         {
           "type": "host",
@@ -14,8 +14,10 @@
           }
         }
       ],
-      "destination": "/ordax/"
-    },
+      "dest": "/ordax/"
+    }
+  ],
+  "rewrites": [
     {
       "source": "/oauth/consent",
       "destination": "/api/oauth-consent"
