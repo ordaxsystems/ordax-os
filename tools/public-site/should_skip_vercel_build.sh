@@ -18,11 +18,27 @@ if ! git cat-file -e "$current^{commit}" 2>/dev/null; then
   exit 1
 fi
 
+# An explicit redeploy of the same source commit may exist specifically to
+# apply changed production environment variables or provider configuration.
+# Treat same-SHA deployments as builds; skipping them would freeze stale
+# runtime configuration even though the source itself is unchanged.
+if [ "$previous" = "$current" ]; then
+  exit 1
+fi
+
 # Only an unchanged public site and its directly imported modules may skip.
 # A git error is always treated as 'build', never as 'ignore'.
 if git diff --quiet "$previous" "$current" -- \
   sites/public \
+  system \
+  tools/surface-web \
+  tools/source_graph.py \
+  third_party/licenses \
+  docs/evidence/web-layout-reference-2026-10-10.json \
+  docs/evidence/web-central-reference-2026-10-11.json \
   api/account-proxy.mjs \
+  api/web-account-proxy.mjs \
+  lib/account-proxy-core.mjs \
   api/oauth-consent.mjs \
   infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs \
   infra/supabase/functions/_shared/bounded_body.mjs \

@@ -36,8 +36,8 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         )
         stable = profiles["profiles"]["stable-mvp"]
         # Planning scope is additive; runtime activation is an independent gate.
-        self.assertIn("Escopo revisado: MVP integrado, progressivo e verificável", scope)
-        self.assertIn("OrdaX Native (SSD/NVMe/HD)", scope)
+        self.assertIn("Baseline de Lançamento — OrdaX", scope)
+        self.assertIn("Native em disco", scope)
         self.assertIn("ADR-026 - Integrated MVP scope is distinct from per-release availability", decisions)
         self.assertEqual(stable["mvp_execution_mode"], "usb-only")
         self.assertFalse(stable["native_install_capability_enabled"])
@@ -61,8 +61,8 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         download = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
         account = (ROOT / "sites/public/conta/index.html").read_text(encoding="utf-8")
         account_controller = (ROOT / "sites/public/assets/account-portal.js").read_text(encoding="utf-8")
-        self.assertIn("diretamente pelo pendrive", landing)
-        self.assertIn("pós-MVP", landing)
+        self.assertIn("Inicie o computador por um USB preparado pelo OrdaX Creator.", landing)
+        self.assertIn("Em homologação", landing)
         self.assertNotIn("Usar ou instalar", landing)
         self.assertNotIn("Usar ou instalar", download)
         self.assertIn("não altera o SSD/NVMe/HD interno", download)
@@ -71,7 +71,7 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         contract = json.loads(
             (ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8")
         )
-        self.assertIn('src="/assets/account-portal.js"', account)
+        self.assertRegex(account, r'src="/assets/account-portal\.js(?:\?[^" ]*)?"')
         self.assertIn("Assinaturas pagas ainda não estão disponíveis", account_controller)
         self.assertFalse(contract["commerce"]["billing_implemented"])
         self.assertFalse(contract["commerce"]["pricing_published"])

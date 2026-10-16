@@ -161,6 +161,7 @@ The product may present one simple flow, but implementation must preserve explic
 Failure in Profile provisioning must not silently corrupt or recreate the Space. If activation cannot complete, the product must expose a safe recoverable state.
 The source now has an authority-free **creation preflight** before step 1 mutates anything. For an MVP-foundation type, that preflight resolves only an explicit exact default Profile identity (currently `pizzaria-br@1` or `impressao-3d-br@1`) against the real published Profile catalog. It never chooses an alias, "latest" version or first matching binding. Deferred/unknown types and missing exact Profiles fail closed. The preflight exposes no Space-create, Profile-provision or activation authority; successful resolution only hands off to the existing Profile provisioning validation path.
 
+
 ## Existing MVP boundary
 
 The current MVP already has bounded Profile Pack candidates such as `pizzaria-br@1` and `impressao-3d-br@1`. Their current small compositions remain governed by MVP/Profile owners.

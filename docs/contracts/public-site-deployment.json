@@ -116,7 +116,7 @@
     "team": "ordaxsystems",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
-    "static_output_directory": "out/public-site",
+    "static_output_directory": "out/public-deployment",
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "provider_specific_browser_api": false,
@@ -195,7 +195,24 @@
     "product_cookie_envelope_header": "x-ordax-cookie-envelope",
     "product_cookie_envelope_source_ready": true,
     "product_cookie_envelope_deployed": false,
-    "canonical_public_origin_deployment_verified": false
+    "canonical_public_origin_deployment_verified": false,
+    "artifact_composition": {
+      "recipe": "tools/public-site/deployment.py",
+      "portal_recipe": "tools/public-site/build.py",
+      "web_recipe": "tools/surface-web/build.py",
+      "runtime_path": "/ordax/",
+      "same_source_commit_required": true,
+      "preserves_component_receipts": true,
+      "runtime_hosting_source_ready": true,
+      "runtime_deployment_verified": true,
+      "account_entry_activation_changed": false,
+      "runtime_observed_source_commit": "16d3fc2ed40abb417027a5b8731a7e2e59491f4d",
+      "runtime_observed_at": "2026-10-16T14:25:37.082043+00:00",
+      "runtime_observed_manifest_sha256": "b01ef28471a7857892d59e6b8a6b578c5f832f9afe538739cf2fe76ec0f77695",
+      "runtime_verified_component_files": 56,
+      "runtime_observed_deployment_url": "https://vercel.com/ordaxsystems/ordax-os-public/5FefdJ7aPfMqx5vcTPYFe5A1r47q",
+      "runtime_evidence": "docs/evidence/meridian-web-2026-10-16/production-proof.json"
+    }
   },
   "public_edge_gateway": {
     "status": "canonical-supabase-v3-oidc-admission-proven-service-bridge-unprovisioned",
@@ -297,7 +314,8 @@
       "/releases/catalog.json",
       "/licencas/",
       "/privacidade/",
-      "/termos/"
+      "/termos/",
+      "/ordax/"
     ],
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",

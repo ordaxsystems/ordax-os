@@ -1,3 +1,4 @@
+import {mountSettingsJourneys} from './journeys/settings-mount.mjs';
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { assertLocalAiPort, validateLocalAiSnapshot } from "../../contracts/local-ai.mjs";
 import { BUNDLED_LOCAL_AI_MODEL_CANDIDATE } from "../../services/local-ai/model-candidate.generated.mjs";
@@ -209,6 +210,7 @@ export function mountSettingsOverviewControls(
     localSession === null ? null : assertLocalSessionPort(localSession);
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
   const documentObject = root.ownerDocument;
+  let settingsExamples = null;
 
   let hostSnapshot = validateSurfaceSnapshot(hostPort.getSnapshot());
   let preferenceSnapshot = preferences.getSnapshot();
@@ -1223,6 +1225,12 @@ export function mountSettingsOverviewControls(
     const view = node(documentObject, "div", "ordax-settings-view");
     renderHeader(view);
     renderSectionNavigation(view);
+    if (activeSection === "appearance") {
+      const examples = node(documentObject, "div", "wm-shared-native-settings");
+      settingsExamples ??= mountSettingsJourneys(root, {mode:"usb",getLocale:localization.getLocale});
+      examples.innerHTML = settingsExamples.overview();
+      view.append(examples);
+    }
     if (["appearance", "accessibility", "regional"].includes(activeSection)) {
       renderPreferences(view, activeSection);
       if (activeSection === "regional") renderKeyboardLayout(view);
@@ -1633,6 +1641,7 @@ export function mountSettingsOverviewControls(
   return Object.freeze({
     destroy() {
       destroyed = true;
+      settingsExamples?.destroy();
       networkReadOrdinal += 1;
       networkManagementReadOrdinal += 1;
       networkActionOrdinal += 1;

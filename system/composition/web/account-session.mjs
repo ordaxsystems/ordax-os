@@ -4,22 +4,38 @@ import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
 import { createWebSpaceSelectionStore } from "../../adapters/web/space-selection.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
+import { createWebRegistrationPolicyReader } from "../../adapters/web/identity-credentials.mjs";
 
 // Composition only: the adapters retain all validation, credentials and state.
 export function createWebAccountSession(windowRef = globalThis.window) {
   const identity = createWebIdentitySession(windowRef);
-  const actions = createWebIdentityActions(windowRef, identity);
-  const spaces = createWebSpacesCatalog(windowRef);
-  // The domain service owns subject changes, catalog invalidation and selection.
-  const selection = createSpaceSelectionRuntime({
-    identitySession: identity, spaces, store: createWebSpaceSelectionStore(),
-  });
   const surface = createWebSurfaceHost(windowRef, {
     readAccountIdentityAvailable: () => identity.getSnapshot().state !== "unavailable",
   });
   let pending = null;
   let disposed = false;
-  const releaseIdentity = identity.subscribe(() => surface.refresh());
+  const registrationPolicy = createWebRegistrationPolicyReader(windowRef);
+  const actions = createWebIdentityActions(windowRef, identity, {
+    registrationPolicy: () => {
+      if (disposed || identity.getSnapshot().state !== "signed-out"
+        || surface.getSnapshot().connectivity === "offline") {
+        return { registrationEnabled: false };
+      }
+      return registrationPolicy.read();
+    },
+  });
+  const spaces = createWebSpacesCatalog(windowRef);
+  // The domain service owns subject changes, catalog invalidation and selection.
+  const selection = createSpaceSelectionRuntime({
+    identitySession: identity, spaces, store: createWebSpaceSelectionStore(),
+  });
+  const releaseIdentity = identity.subscribe(snapshot => {
+    surface.refresh();
+    if (snapshot.state !== "signed-out") {
+      registrationPolicy.cancel();
+      void actions.refresh();
+    }
+  });
   let connectivity = surface.getSnapshot().connectivity;
   let connectivityRevision = 0;
   const releaseSurface = surface.subscribe(snapshot => {
@@ -30,6 +46,8 @@ export function createWebAccountSession(windowRef = globalThis.window) {
     if (connectivity === "offline") {
       identity.cancelRefresh();
       spaces.reset();
+      registrationPolicy.cancel();
+      void actions.refresh();
     }
   });
   function refresh() {
@@ -44,6 +62,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
         if (disposed || surface.getSnapshot().connectivity === "offline") break;
         if (revision !== connectivityRevision) continue;
         if (identity.getSnapshot().state === "signed-in") await spaces.refresh();
+        else if (identity.getSnapshot().state === "signed-out") await actions.refresh();
         if (revision === connectivityRevision) break;
       }
     })().finally(() => { pending = null; });
@@ -68,6 +87,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
       releaseSurface();
       selection.dispose();
       actions.dispose();
+      registrationPolicy.dispose();
       spaces.dispose();
       identity.dispose();
       surface.dispose();

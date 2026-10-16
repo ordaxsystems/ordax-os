@@ -5,6 +5,13 @@ import test from "node:test";
 
 const source = fs.readFileSync("sites/public/assets/account-portal.js", "utf8");
 
+function assertDisabledAction(markup, label) {
+  const button = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)]
+    .find(match => match[2].replace(/<[^>]*>/g, "").trim() === label);
+  assert.ok(button, `missing action: ${label}`);
+  assert.match(button[1], /\bdisabled(?:\s|$)/, `${label} must remain disabled`);
+}
+
 // The fixture supplies only the contracted presentation port. Identity and
 // native menu behavior are exercised separately with the real portal client.
 function fixture(hash = "#dados-pessoais") {
@@ -12,7 +19,7 @@ function fixture(hash = "#dados-pessoais") {
   const get = id => {
     if (!nodes.has(id)) nodes.set(id, { id, innerHTML: "", textContent: "", dataset: {},
       hidden: false, disabled: false, open: false, attributes: new Map(),
-      classList: { toggle() {}, remove() {} }, querySelectorAll: () => [],
+      classList: { toggle() {}, remove() {}, contains: () => false }, querySelectorAll: () => [],
       setAttribute(name, value) { this.attributes.set(name, value); },
       removeAttribute(name) { this.attributes.delete(name); },
       addEventListener() {}, close() { this.open = false; }, contains: () => false,
@@ -68,7 +75,7 @@ test("canonical account renders only the verified session email, safely escaped,
   assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"));
   assert.ok(!html.includes("<img src=x"));
   assert.ok(html.includes("readonly autocomplete=\"off\""));
-  assert.ok(/<button[^>]+disabled>Salvar alterações<\/button>/.test(html));
+  assertDisabledAction(html, "Salvar alterações");
   assert.equal(f.get("profile-menu-label").textContent, "Meu perfil");
   assert.equal(f.binds - f.disposals, 1, "only one menu binding remains after each render");
   f.emit("checking");
@@ -83,9 +90,9 @@ test("security shows the current verified browser session without inventing 2FA 
   const html = f.get("account-content").innerHTML;
   assert.ok(html.includes("person@example.test"));
   assert.ok(html.includes("Esta consulta confirma apenas a sessão atual. Não lista outros dispositivos."));
-  assert.ok(/<button[^>]+disabled>Alterar senha<\/button>/.test(html));
-  assert.ok(/<button[^>]+disabled>Configurar<\/button>/.test(html));
-  assert.ok(html.includes("Status não disponível"));
+  assertDisabledAction(html, "Alterar senha");
+  assertDisabledAction(html, "Configurar");
+  assert.ok(html.includes("Os controles de proteção aguardam integração."));
   f.emit("leaving");
   assert.ok(!f.get("account-content").innerHTML.includes("person@example.test"));
   assert.equal(f.get("profile-menu-trigger").disabled, true);
@@ -107,7 +114,7 @@ test("anonymous and unavailable states retain real sign-in navigation and action
 
 test("integrations retain an honest unavailable state", () => {
   const connections = fixture("#integracoes");
-  assert.ok(connections.get("account-content").innerHTML.includes("Integrações não disponíveis"));
+  assert.ok(connections.get("account-content").innerHTML.includes("Conexões ainda não disponíveis"));
 });
 
 test("official preferences have no simulated notification settings or extra language persistence", () => {
@@ -126,8 +133,8 @@ test("subscription states its actual availability and keeps uncontracted purchas
   f.emit("authenticated", "person@example.test");
   const html = f.get("account-content").innerHTML;
   assert.ok(html.includes("Assinaturas pagas ainda não estão disponíveis."));
-  assert.ok(/<button[^>]+disabled>Alterar plano<\/button>/.test(html));
-  assert.ok(/<button[^>]+disabled>Cancelar assinatura<\/button>/.test(html));
+  assertDisabledAction(html, "Alterar plano");
+  assertDisabledAction(html, "Cancelar assinatura");
   assert.ok(!html.includes("<form"));
 });
 
@@ -142,7 +149,7 @@ test("mobile navigation and More partition every account section without repeate
   assert.equal(new Set([...primary, ...more]).size, primary.length + more.length);
   assert.deepEqual([...primary, ...more].sort(), [...sidebar, "suporte"].sort());
   assert.ok(f.get("mobile-navigation").innerHTML.includes('class="button ghost active"'));
-  assert.ok(f.get("more-navigation").innerHTML.includes('href="#integracoes" aria-current="page"'));
+  assert.match(f.get("more-navigation").innerHTML, /<a(?=[^>]*href="#integracoes")(?=[^>]*aria-current="page")[^>]*>/);
 });
 
 

@@ -1,9 +1,85 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "outputDirectory": "out/public-site",
+  "outputDirectory": "out/public-deployment",
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
+  "routes": [
+    {
+      "src": "^/ordax/$",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "status": 308,
+      "dest": "/"
+    },
+    {
+      "src": "^/ordax/index\\.html$",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "status": 308,
+      "dest": "/"
+    },
+    {
+      "src": "^/$",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "dest": "/ordax/"
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/auth/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "destination": "/api/web-account-proxy?ordax_path=/auth/:path*"
+    },
+    {
+      "source": "/sync/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "destination": "/api/web-account-proxy?ordax_path=/sync/:path*"
+    },
+    {
+      "source": "/account/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "destination": "/api/web-account-proxy?ordax_path=/account/:path*"
+    },
     {
       "source": "/oauth/consent",
       "destination": "/api/oauth-consent"
@@ -227,6 +303,33 @@
           "value": "no-referrer"
         }
       ]
+    },
+    {
+      "source": "/ordax/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/ordax/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/ordax/assets/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ],
   "git": {
@@ -235,5 +338,6 @@
       "main": true
     }
   },
-  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/build.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/build.py verify"
+  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/deployment.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/deployment.py verify",
+  "installCommand": "npm ci --ignore-scripts --no-audit --no-fund"
 }

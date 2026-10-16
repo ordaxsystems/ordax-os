@@ -54,7 +54,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
         self.assertTrue(SHARED.is_file())
         self.assertFalse((PUBLIC / "assets/login.css").exists())
         self.assertFalse((PUBLIC / "assets/cadastro.css").exists())
-        css = SHARED.read_text(encoding="utf-8")
+        css = "".join(SHARED.read_text(encoding="utf-8").split())
         for part in (
             ".account-ui",
             ".account-stage",
@@ -66,8 +66,8 @@ class PublicAccountEntryUxTests(unittest.TestCase):
             ".account-quicklinks",
             ".account-ui .identity-form[hidden]",
             ".account-ui [hidden]",
-            'grid-template-areas:"story access"',
-            "display:flex;flex-direction:column;min-height:0",
+            'grid-template-columns:minmax(0,1fr)minmax(0,1fr)',
+            "display:flex;flex-direction:column;min-height:100dvh",
             ".account-access{order:1",
             ".account-story{order:2",
             "@media(max-width:780px)",
@@ -75,7 +75,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
             "@media(prefers-reduced-motion:reduce)",
             ":focus-visible",
         ):
-            self.assertIn(part, css)
+            self.assertIn("".join(part.split()), css)
         for obsolete in (
             ".login-stage", ".signup-stage", ".login-card", ".signup-card",
             ".login-nav-actions", ".signup-nav-actions",
@@ -91,7 +91,7 @@ class PublicAccountEntryUxTests(unittest.TestCase):
             self.assertIn("/assets/site.css", styles)
             self.assertEqual(
                 [value for value in styles if "account.css" in value],
-                ["/assets/account.css?v=account-ux-4"],
+                ["/assets/account.css?v=identity-meridian-4"],
             )
             self.assertNotIn("/assets/portal.css", styles)
             self.assertTrue(any(
@@ -179,17 +179,17 @@ class PublicAccountEntryUxTests(unittest.TestCase):
         ))
         recovery, _ = self.read("recuperar")
         recovery_complete, _ = self.read("recuperar/nova-senha")
-        self.assertIn("Recuperação ainda não configurada", recovery)
-        self.assertIn("Conclusão da recuperação ainda não ativada", recovery_complete)
+        self.assertIn("Recuperação temporariamente indisponível", recovery)
+        self.assertIn("Alteração de senha indisponível", recovery_complete)
         self.assertIn('name="password_confirmation"', recovery_complete)
 
     def test_shared_visual_layout_keeps_loading_and_auth_separate(self):
-        css = SHARED.read_text(encoding="utf-8")
+        css = "".join(SHARED.read_text(encoding="utf-8").split())
         self.assertNotRegex(css, r"(?i)@import\s|https?://")
-        self.assertIn(".account-ui [hidden]{display:none!important}", css)
+        self.assertIn(".account-ui[hidden]{display:none!important}", css)
         for route in IDENTITY_PAGES:
             html, _ = self.read(route)
-            self.assertIn('href="/assets/account.css?v=account-ux-4"', html)
+            self.assertIn('href="/assets/account.css?v=identity-meridian-4"', html)
             self.assertIn('class="account-side-footer"', html)
             self.assertIn('class="account-quicklinks"', html)
             self.assertIn('class="account-card"', html)

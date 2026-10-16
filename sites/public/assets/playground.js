@@ -26,7 +26,7 @@
     body: t("playground.note.initialBody"),
   });
   let noteDefaults = defaultNote();
-  const initial = () => ({theme: "dark", title: noteDefaults.title, body: noteDefaults.body, done: false, analysis: "idle", accepted: false});
+  const initial = () => ({theme: "light", title: noteDefaults.title, body: noteDefaults.body, done: false, analysis: "idle", accepted: false});
   let state = initial();
   const views = new Map(screens.map(screen => [screen, {app: "projects", folder: "", file: ""}]));
   let noticeTimer;

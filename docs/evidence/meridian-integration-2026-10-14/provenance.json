@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-14",
+  "referenceRepository": "ordaxsystems/ordax-os",
+  "referenceCommit": "e7cf628a01878c484d47997721518fe6f2330c10",
+  "scope": "User-authorized visual adoption only; no experiment runtime",
+  "assets": [
+    {
+      "source": "system/surface/experiments/meridian/assets/meridian-field.svg",
+      "target": "system/surface/ui/brand/meridian-field.svg",
+      "sha256": "1bb1e4a8aa10e189ea8057f64a2b760e1032b3ad653e54bbec974b2495243928"
+    }
+  ],
+  "reusedCanonicalAssets": [
+    "system/surface/workspace/assets/alpine-day.jpg",
+    "system/surface/workspace/assets/alpine-night.jpg",
+    "system/surface/ui/brand/ordax-symbol.png",
+    "system/surface/ui/fonts/inter-latin-wght-normal.woff2"
+  ]
+}

@@ -4,6 +4,21 @@ import {
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
+import { createWebJsonReader } from "./json-read.mjs";
+
+// Read-only lifecycle extension. The gateway owns activation and legal metadata.
+export function createWebRegistrationPolicyReader(windowRef = globalThis.window) {
+  const reader = createWebJsonReader(windowRef);
+  return Object.freeze({
+    async read() {
+      const response = await reader.read("/auth/registration-policy");
+      if (!response.ok) throw new Error(`Registration policy request failed: ${response.status}`);
+      return validateRegistrationPolicy(response.value);
+    },
+    cancel: reader.cancel,
+    dispose: reader.dispose,
+  });
+}
 
 async function submit(windowRef, path, credentials, { registration = false } = {}) {
   const value = registration
@@ -37,20 +52,10 @@ export function createSameOriginIdentityCredentials(windowRef = globalThis.windo
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Identity credentials adapter requires window.fetch");
   }
+  const policy = createWebRegistrationPolicyReader(windowRef);
   return Object.freeze({
     schema: IDENTITY_CREDENTIALS_SCHEMA,
-    async registrationPolicy() {
-      const response = await windowRef.fetch("/auth/registration-policy", {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
-        throw new Error(`Registration policy request failed: ${response.status}`);
-      }
-      return validateRegistrationPolicy(await response.json());
-    },
+    registrationPolicy: policy.read,
     signIn(credentials) {
       return submit(windowRef, "/auth/login", credentials);
     },
