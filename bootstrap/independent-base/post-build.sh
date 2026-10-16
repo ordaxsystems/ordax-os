@@ -2,8 +2,16 @@
 set -eu
 # Runs only inside Buildroot's disposable target tree.
 TARGET_DIR=$1
+PROFILE=${2:-}
 test -n "$TARGET_DIR"
 test -d "$TARGET_DIR"
+case "$PROFILE" in
+    minimal|owner-development) ;;
+    *)
+        echo "Unknown Independent Base profile: ${PROFILE:-<empty>}" >&2
+        exit 1
+        ;;
+esac
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
 mkdir -p "$TARGET_DIR/ordax/bootstrap/network/bin" "$TARGET_DIR/etc/ordax"
@@ -26,11 +34,9 @@ cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stabl
 chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
 test -x "$TARGET_DIR/sbin/modprobe"
 
-# Owner/Development is a capability profile of this same Independent Base.
-# Detect it from the built target, not from a parallel owner or copied config:
-# Git + iw + wpa_supplicant + wpa_passphrase must all exist before Dev helpers
-# are installed. A partially resolved profile fails closed later in verification.
-if test -x "$TARGET_DIR/usr/bin/git" || test -x "$TARGET_DIR/usr/sbin/wpa_supplicant"; then
+if test "$PROFILE" = owner-development; then
+    # Owner/Development is an explicit capability profile of this same
+    # Independent Base. Do not infer the profile from incidental binaries.
     for required in \
         "$TARGET_DIR/usr/bin/git" \
         "$TARGET_DIR/usr/sbin/iw" \
@@ -42,6 +48,10 @@ if test -x "$TARGET_DIR/usr/bin/git" || test -x "$TARGET_DIR/usr/sbin/wpa_suppli
             exit 1
         fi
     done
+    test -s "$TARGET_DIR/etc/ssl/certs/ca-certificates.crt" || {
+        echo "Owner/Development CA trust store is missing" >&2
+        exit 1
+    }
 
     mkdir -p "$TARGET_DIR/usr/local/bin" "$TARGET_DIR/state" "$TARGET_DIR/workspace" "$TARGET_DIR/home" "$TARGET_DIR/root" "$TARGET_DIR/run" "$TARGET_DIR/tmp"
     chmod 1777 "$TARGET_DIR/tmp"
@@ -58,6 +68,19 @@ if test -x "$TARGET_DIR/usr/bin/git" || test -x "$TARGET_DIR/usr/sbin/wpa_suppli
     cp "$ROOT/bootstrap/recovery/entrypoint" "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
     chmod 0755 "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
     printf 'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n' > "$TARGET_DIR/etc/ordax/owner-development"
+else
+    # The minimal proof must remain minimal. If Owner capabilities leak into
+    # this profile, fail instead of silently widening the canonical base.
+    for unexpected in \
+        "$TARGET_DIR/usr/bin/git" \
+        "$TARGET_DIR/usr/sbin/wpa_supplicant" \
+        "$TARGET_DIR/etc/ordax/owner-development"
+    do
+        if test -e "$unexpected"; then
+            echo "Owner/Development capability leaked into minimal profile: $unexpected" >&2
+            exit 1
+        fi
+    done
 fi
 
 # This parity slice has exactly one iproute2 runtime consumer: /sbin/ip.
@@ -92,7 +115,20 @@ do
     fi
 done
 printf 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL\n' > "$TARGET_DIR/etc/ordax/independent-base"
-if test -e "$TARGET_DIR/etc/alpine-release" || test -e "$TARGET_DIR/sbin/apk" || test -e "$TARGET_DIR/lib/apk" || test -e "$TARGET_DIR/etc/apk"; then
-    echo "Alpine/APK unexpectedly present in independent rootfs" >&2
-    exit 1
-fi
+for forbidden in \
+    "$TARGET_DIR/etc/alpine-release" \
+    "$TARGET_DIR/sbin/apk" \
+    "$TARGET_DIR/lib/apk" \
+    "$TARGET_DIR/etc/apk" \
+    "$TARGET_DIR/usr/bin/opkg" \
+    "$TARGET_DIR/bin/opkg" \
+    "$TARGET_DIR/usr/bin/dpkg" \
+    "$TARGET_DIR/usr/bin/apt" \
+    "$TARGET_DIR/usr/bin/apt-get" \
+    "$TARGET_DIR/usr/bin/rpm"
+do
+    if test -e "$forbidden"; then
+        echo "Runtime package manager or Alpine dependency unexpectedly present: $forbidden" >&2
+        exit 1
+    fi
+done
