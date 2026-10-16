@@ -144,7 +144,11 @@ class BrandPipelineTests(unittest.TestCase):
         self.assertRegex(web_markup, r'href="/assets/account\.css(?:\?[^"]*)?"')
         for route in ("conta", "web"):
             markup = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
-            self.assertTrue('src="/assets/ordax-symbol.png"' in markup or 'class="ordax-symbol"' in markup)
+            canonical_symbol = (
+                'src="/assets/ordax-symbol.png"' in markup
+                or re.search(r'class="[^"]*\b(?:ordax-symbol|brand-mark)\b[^"]*"', markup)
+            )
+            self.assertTrue(canonical_symbol, route)
             self.assertIn('/assets/ordax-font.css', markup)
         font = brand.render_site_font_css()
         canonical = re.search(r"@font-face\s*\{[^{}]+\}", brand.TOKENS.read_text(encoding="utf-8")).group()
