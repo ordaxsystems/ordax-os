@@ -54,8 +54,6 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertEqual(contract["documents"]["terms"]["version"], "2026.10.09")
         binding = contract["registration_binding"]
         self.assertTrue(binding["policy_activation_source_ready"])
-        # Provider state is observed by the live, service-owned projection.
-        # A source contract must not freeze dynamic database state as false.
         for stale_runtime_flag in (
             "active_legal_policy_present",
             "policy_projection_active_policy_present",
@@ -95,19 +93,28 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertFalse(legal["account_activation_ready"])
         config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
         self.assertTrue(config["legal"]["auth_only_source_enabled"])
-        # A build remains possible even when the external deployed policy
-        # is not attested; release validation remains a separate operation.
         self.assertGreater(len(build.validate_source(SITE)), 0)
 
-    def test_auth_hardening_gate_is_not_ready(self):
+    def test_auth_transport_is_live_but_account_activation_gate_is_not_ready(self):
         contract = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))
-        self.assertEqual(contract["status"], "public-auth-disabled-bridge-unprovisioned-legal-pending")
+        self.assertEqual(
+            contract["status"],
+            "web-auth-runtime-proven-public-account-activation-gated",
+        )
         observation = contract["current_observation"]
+        destination = contract["postgresql_destination"]
         self.assertEqual(observation["leaked_password_protection"], "enabled-product-gateway")
         self.assertTrue(observation["product_leaked_password_protection_verified"])
         self.assertFalse(observation["provider_leaked_password_protection_enabled"])
         self.assertEqual(observation["provider_leaked_password_protection_advisor"], "disabled-warn")
+        self.assertTrue(observation["same_origin_session_owner_deployed"])
+        self.assertTrue(observation["public_edge_provenance_e2e_verified"])
+        self.assertTrue(destination["destination_service_transport_runtime_verified"])
+        self.assertTrue(destination["destination_named_bridge_runtime_e2e_verified"])
         self.assertFalse(observation["public_login_enabled"])
+        self.assertFalse(destination["public_registration_enabled"])
+        self.assertFalse(destination["recovery_e2e_verified"])
+        self.assertFalse(destination["session_revocation_e2e_verified"])
 
     def test_runtime_config_matches_not_ready_gate(self):
         config = json.loads((SITE / "config" / "public-site.json").read_text(encoding="utf-8"))
