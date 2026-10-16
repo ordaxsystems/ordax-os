@@ -30,6 +30,7 @@ if git diff --quiet "$previous" "$current" -- \
   docs/evidence/web-central-reference-2026-10-11.json \
   api/account-proxy.mjs \
   api/web-account-proxy.mjs \
+  lib/account-proxy-core.mjs \
   api/oauth-consent.mjs \
   infra/supabase/functions/ordax-public-account-gateway/public_request_context.mjs \
   infra/supabase/functions/_shared/bounded_body.mjs \

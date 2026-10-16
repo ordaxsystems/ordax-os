@@ -1,4 +1,4 @@
-import { proxyPublicAccountRequest } from "./account-proxy.mjs";
+import { proxyPublicAccountRequest } from "../lib/account-proxy-core.mjs";
 
 export const ORDAX_WEB_PUBLIC_ORIGIN = "https://web.ordax.com.br";
 
