@@ -16,6 +16,7 @@ on:
       - 'tools/dev-base-channel/**'
       - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_independent_dev_channel_compatibility.py'
+      - 'tests/test_independent_rootfs_export.py'
       - 'docs/contracts/hardware-support-matrix.json'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
@@ -90,6 +91,7 @@ jobs:
             tests.test_dev_base_symlink_policy \
             tests.test_independent_dev_channel_compatibility \
             tests.test_independent_base_experiment \
+            tests.test_independent_rootfs_export \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
             tests.test_kernel_module_payload \
@@ -104,8 +106,10 @@ jobs:
             tools/dev-base-channel/prove_independent_rootfs.py \
             tests/test_dev_base_symlink_policy.py \
             tests/test_independent_dev_channel_compatibility.py \
+            tests/test_independent_rootfs_export.py \
             tests/test_independent_heavy_workflow.py
           sh -n bootstrap/independent-base/post-build.sh
+          sh -n bootstrap/independent-base/post-image.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
