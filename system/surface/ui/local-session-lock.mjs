@@ -20,6 +20,7 @@ export function mountLocalSessionLock(
   let snapshot = validateLocalSessionSnapshot(port.getSnapshot());
   let overlay = null;
   let pending = false;
+  let secretVisible = false;
   let messageId = null;
   let destroyed = false;
   let previousInert = root.inert;
@@ -85,7 +86,7 @@ export function mountLocalSessionLock(
     const label = documentObject.createElement("label");
     label.textContent = t("localSession.lock.secretLabel");
     const input = documentObject.createElement("input");
-    input.type = "password";
+    input.type = secretVisible ? "text" : "password";
     input.autocomplete = "current-password";
     input.minLength = 6;
     input.maxLength = 128;
@@ -104,7 +105,18 @@ export function mountLocalSessionLock(
         );
       }
     }
-    label.append(input);
+    const secretRow = documentObject.createElement("div");
+    secretRow.className = "ordax-local-session-lock-secret-row";
+    const reveal = documentObject.createElement("button");
+    reveal.type = "button";
+    reveal.className = "ordax-local-session-lock-reveal";
+    reveal.dataset.localSessionSecretToggle = "";
+    reveal.setAttribute("aria-pressed", String(secretVisible));
+    reveal.setAttribute("aria-label", secretVisible ? "Ocultar senha" : "Mostrar senha");
+    reveal.textContent = secretVisible ? "Ocultar" : "Mostrar";
+    reveal.disabled = pending;
+    secretRow.append(input, reveal);
+    label.append(secretRow);
     const button = documentObject.createElement("button");
     button.type = "submit";
     button.textContent = pending
@@ -126,6 +138,13 @@ export function mountLocalSessionLock(
         input.focus();
       }
     });
+  };
+
+  const onClick = (event) => {
+    const toggle = event.target.closest?.("[data-local-session-secret-toggle]");
+    if (!toggle || !overlay?.contains(toggle) || pending) return;
+    secretVisible = !secretVisible;
+    render({ preserveSecret: true });
   };
 
   const onSubmit = (event) => {
@@ -159,6 +178,7 @@ export function mountLocalSessionLock(
     });
   };
 
+  documentObject.addEventListener("click", onClick);
   documentObject.addEventListener("submit", onSubmit);
   const unsubscribeSession = port.subscribe((next) => {
     snapshot = validateLocalSessionSnapshot(next);
@@ -176,6 +196,7 @@ export function mountLocalSessionLock(
       destroyed = true;
       unsubscribeSession();
       unsubscribeLocalization();
+      documentObject.removeEventListener("click", onClick);
       documentObject.removeEventListener("submit", onSubmit);
       removeOverlay();
     },

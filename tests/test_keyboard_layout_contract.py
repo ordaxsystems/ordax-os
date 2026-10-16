@@ -111,7 +111,9 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
                 "restart_required_when_configured_differs_from_applied"
             ]
         )
-        self.assertFalse(contract["first_run"]["selector_exposed"])
+        self.assertTrue(contract["first_run"]["selector_exposed"])
+        self.assertFalse(contract["first_run"]["immediate_apply_claim_allowed"])
+        self.assertEqual(contract["first_run"]["restart_offer_owner"], "canonical-power-actions")
 
         capabilities = json.loads(CAPABILITIES.read_text(encoding="utf-8"))
         entries = {entry["id"]: entry for entry in capabilities["capabilities"]}

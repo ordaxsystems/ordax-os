@@ -2,7 +2,9 @@ export const FIRST_RUN_STATE_STORE_SCHEMA = "ordax.first-run-state-store/1";
 export const FIRST_RUN_STATE_SCHEMA = "ordax.first-run-state/1";
 
 export const FIRST_RUN_SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US", "es-ES", "de-DE", "fr-FR"]);
-export const FIRST_RUN_PUBLIC_MVP_LOCALES = Object.freeze(["pt-BR", "en-US"]);
+export const FIRST_RUN_PUBLIC_LAUNCH_LOCALES = Object.freeze(["pt-BR", "en-US"]);
+// Compatibility alias for older consumers; the Launch Baseline constant is authoritative.
+export const FIRST_RUN_PUBLIC_MVP_LOCALES = FIRST_RUN_PUBLIC_LAUNCH_LOCALES;
 export const FIRST_RUN_SUPPORTED_TIME_ZONES = Object.freeze([
   "America/Bahia",
   "America/Sao_Paulo",

@@ -168,3 +168,23 @@
     transform: none;
   }
 }
+
+.ordax-local-session-lock-secret-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.ordax-local-session-lock-form .ordax-local-session-lock-reveal {
+  min-width: 82px;
+  border-color: var(--ordax-border);
+  background: var(--ordax-panel);
+  color: var(--ordax-text);
+  box-shadow: none;
+}
+
+@media (max-width: 420px) {
+  .ordax-local-session-lock-secret-row {
+    grid-template-columns: 1fr;
+  }
+}

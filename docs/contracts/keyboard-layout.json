@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.keyboard-layout/1",
   "status": "native-persistent-next-surface-start",
-  "product_scope": "stable-mvp-usb-only",
+  "product_scope": "launch-baseline-usb",
   "owners": {
     "contract": "system/contracts/keyboard-layout.mjs",
     "presentation": "system/services/input/keyboard-layout.mjs",
@@ -45,8 +45,11 @@
     "settings_visible_only_when_native_capability_present": true
   },
   "first_run": {
-    "selector_exposed": false,
-    "reason": "The current Cage session reads XKB settings at compositor startup. The OOBE must not imply immediate keyboard reconfiguration until a safe live/session-restart handoff exists."
+    "selector_exposed": true,
+    "apply_handoff": "persist-native-owner-then-next-surface-start",
+    "immediate_apply_claim_allowed": false,
+    "restart_offer_owner": "canonical-power-actions",
+    "reason": "Cage reads XKB at compositor startup; First Run persists the canonical layout and explicitly reports restartRequired instead of simulating live reconfiguration."
   },
   "safety": {
     "arbitrary_xkb_values_accepted": false,

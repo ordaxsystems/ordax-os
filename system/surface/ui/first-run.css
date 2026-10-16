@@ -37,10 +37,8 @@
   overflow: hidden;
   border: 1px solid var(--ordax-border);
   border-radius: var(--ordax-radius-xl);
-  background: color-mix(in srgb, var(--ordax-surface) 92%, transparent);
-  box-shadow: var(--ordax-shadow), var(--ordax-glow-soft);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  background: var(--ordax-surface);
+  box-shadow: var(--ordax-shadow);
 }
 
 .ordax-first-run-progress {
@@ -371,9 +369,7 @@
   gap: 8px;
   padding: 14px clamp(28px, 6vw, 72px);
   border-top: 1px solid var(--ordax-border-soft);
-  background: color-mix(in srgb, var(--ordax-panel) 74%, var(--ordax-app-bg));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--ordax-panel);
 }
 
 .ordax-first-run-footer .ordax-first-run-action:first-child:not(:last-child) {
@@ -445,7 +441,7 @@
   }
 
   .ordax-first-run-steps {
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(11, minmax(0, 1fr));
     gap: 6px;
   }
 
@@ -529,4 +525,66 @@
   flex: 0 0 auto;
   margin: 2px 0 0;
   accent-color: var(--ordax-accent);
+}
+
+.ordax-first-run-choice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ordax-first-run-choice,
+.ordax-first-run-switch-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--ordax-border-soft);
+  border-radius: var(--ordax-radius-lg);
+  background: var(--ordax-panel);
+}
+
+.ordax-first-run-choice input,
+.ordax-first-run-switch-card input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  accent-color: var(--ordax-accent);
+}
+
+.ordax-first-run-choice span,
+.ordax-first-run-switch-card span {
+  display: grid;
+  gap: 4px;
+}
+
+.ordax-first-run-choice small,
+.ordax-first-run-switch-card small {
+  color: var(--ordax-muted);
+  line-height: 1.45;
+}
+
+.ordax-first-run-secret-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.ordax-first-run-secret-toggle {
+  min-width: 82px;
+}
+
+.ordax-first-run-choice:has(input:focus-visible),
+.ordax-first-run-switch-card:has(input:focus-visible) {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .ordax-first-run-secret-row,
+  .ordax-first-run-connect {
+    grid-template-columns: 1fr;
+  }
+
+  .ordax-first-run-secret-toggle {
+    width: 100%;
+  }
 }

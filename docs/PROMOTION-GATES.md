@@ -383,3 +383,10 @@ Only if Remote Core or another remote-management feature is later adopted as a s
 ## Promotion decision
 
 Only after the applicable canonical Gates 0-12 pass may the repository be declared a successor candidate. Owner/Development `PASS_PHYSICAL_DEVELOPMENT_USB` evidence reduces bring-up uncertainty but never substitutes for canonical trust, Stable/MVP media, canonical update/recovery or public-write authorization. In particular, the existence of a tagged unbound native raw-disk backend does not authorize physical mutation. No physical write is permitted while canonical release trust, canonical-trust media proof, public apply reachability, physical artifact authorization or explicit destructive authorization remain open.
+## First Run / Meridian Launch-Baseline scope (2026-10-16)
+
+The current Launch Baseline authorizes completion of the already-canonical Native/USB First Run without promoting the experimental Meridian shell. Promotion of this OOBE requires real owners for every exposed operation, confirmed persistence for required preferences, a durable First Run receipt, secret-safe Account/local-session separation, canonical network management, honest unavailable/offline states, keyboard/focus accessibility and responsive verification.
+
+The historical Meridian `PR-01 only` rule remains in force for the proposed general shell/Workspace-reader migration. It does not require removing valid First Run capabilities merely because their Meridian storyboard predates the current Launch Baseline. B-08 is considered addressed only for the First Run preference path when confirmed-save and rollback tests pass; B-09 remains unchanged because this flow creates no composite Workspace reader.
+
+This gate does not authorize a physical USB write, Stable publication, kernel/initramfs/Base rebuild, or automatic promotion. Those remain separate gates under their existing owners.

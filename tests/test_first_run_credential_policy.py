@@ -15,7 +15,7 @@ class FirstRunCredentialPolicyTests(unittest.TestCase):
         form_end = source.index("body.append(form);", source.index("const renderSecurity"))
         visible_policy = source.index(f'"{POLICY_TEXT}"', form_end)
         optional_path = source.index(f'"{OPTIONAL_TEXT}"', visible_policy)
-        reactive_error = source.index("if (localSessionMessage)", optional_path)
+        reactive_error = source.index("status(body, localSessionMessage)", optional_path)
 
         self.assertLess(form_end, visible_policy)
         self.assertLess(visible_policy, optional_path)
@@ -24,8 +24,7 @@ class FirstRunCredentialPolicyTests(unittest.TestCase):
 
     def test_visible_policy_matches_the_enforced_minimum(self):
         source = FIRST_RUN.read_text(encoding="utf-8")
-        self.assertIn("secret.minLength = 6;", source)
-        self.assertIn("confirm.minLength = 6;", source)
+        self.assertGreaterEqual(source.count("minLength: 6"), 2)
         self.assertIn("localSessionSecretDraft.length < 6", source)
 
     def test_existing_policy_copy_remains_localized(self):

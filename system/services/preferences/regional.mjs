@@ -1,5 +1,5 @@
 import {
-  FIRST_RUN_PUBLIC_MVP_LOCALES,
+  FIRST_RUN_PUBLIC_LAUNCH_LOCALES,
   FIRST_RUN_SUPPORTED_LOCALES,
   FIRST_RUN_SUPPORTED_TIME_ZONES,
 } from "../../contracts/first-run-state-store.mjs";
@@ -24,7 +24,7 @@ const TIME_ZONE_LABELS = Object.freeze({
 });
 
 export const REGIONAL_LOCALE_OPTIONS = Object.freeze(
-  FIRST_RUN_PUBLIC_MVP_LOCALES.map((value) =>
+  FIRST_RUN_PUBLIC_LAUNCH_LOCALES.map((value) =>
     Object.freeze({ value, label: LOCALE_LABELS[value] ?? value })),
 );
 
@@ -58,7 +58,7 @@ export const regionalLocalePreference = choicePreference({
   id: REGIONAL_LOCALE_PREFERENCE_ID,
   title: "Idioma",
   description:
-    "O MVP público oferece Português (Brasil) e English. Español, Deutsch e Français permanecem reconhecidos para compatibilidade e futura reativação quando a Surface correspondente estiver completa.",
+    "O lançamento público oferece Português (Brasil) e English. Español, Deutsch e Français permanecem reconhecidos para compatibilidade e futura reativação quando a Surface correspondente estiver completa.",
   defaultValue: "pt-BR",
   options: REGIONAL_LOCALE_OPTIONS,
   values: LOCALES,

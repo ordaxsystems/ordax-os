@@ -1,7 +1,7 @@
 {
   "$schema": "prototype-ordax.first-run/1",
-  "status": "native-foundation-implemented",
-  "scope": "mvp-usb-first-use",
+  "status": "launch-baseline-native-functional",
+  "scope": "launch-baseline-usb-first-use",
   "owners": {
     "state_semantics": "system/services/state/first-run.mjs",
     "state_port": "system/contracts/first-run-state-store.mjs",
@@ -10,7 +10,11 @@
     "surface_ui": "system/surface/ui/first-run.mjs",
     "local_session_contract": "system/contracts/local-session.mjs",
     "local_session_adapter": "system/adapters/native/local-session.mjs",
-    "local_session_ui": "system/surface/ui/local-session-lock.mjs"
+    "local_session_ui": "system/surface/ui/local-session-lock.mjs",
+    "preference_runtime": "system/contracts/preference-runtime.mjs",
+    "keyboard_layout": "system/contracts/keyboard-layout.mjs",
+    "device_profile": "system/contracts/device-profile.mjs",
+    "identity_credentials": "system/contracts/identity-credentials.mjs"
   },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
@@ -24,24 +28,27 @@
     "corrupt_existing_receipt_must_not_be_overwritten": true,
     "concurrent_completion_posts_serialized": true,
     "directory_entry_fsync_required_before_acknowledgement": true,
-    "post_completion_regional_edits_owner": "settings"
+    "post_completion_regional_edits_owner": "settings",
+    "preferences_confirmed_before_receipt": true,
+    "rollback_attempted_when_pre_receipt_configuration_fails": true
   },
   "flow": [
     "welcome",
-    "regional",
+    "language",
+    "keyboard",
+    "region",
     "network",
-    "security",
     "account",
+    "security",
     "privacy",
-    "ready"
+    "name",
+    "review",
+    "complete"
   ],
   "regional": {
     "complete_locales": [
       "pt-BR",
-      "en-US",
-      "es-ES",
-      "de-DE",
-      "fr-FR"
+      "en-US"
     ],
     "completeness_scope": "first-run-oobe-only",
     "surface_complete_locales": [
@@ -56,25 +63,25 @@
       "fr-FR": "migration-in-progress"
     },
     "default_locale": "pt-BR",
-    "launch_locale_policy": "mvp-public-pt-br-en-us-retain-hidden-oobe-translations",
+    "launch_locale_policy": "launch-baseline-public-pt-br-en-us-retain-hidden-oobe-translations",
     "default_time_zone": "America/Bahia",
     "time_zone_preference": "regional.time-zone",
     "missing_preference_recovery": "seed-from-completed-first-run",
     "existing_preference_overwrite_allowed": false,
     "editable_after_first_run_in_settings": true,
     "keyboard_layout_contract": "docs/contracts/keyboard-layout.json",
-    "keyboard_layout_selector_exposed": false,
-    "keyboard_layout_selector_gate": "safe-current-session-apply-or-pre-surface-handoff",
-    "public_mvp_locales": [
-      "pt-BR",
-      "en-US"
-    ],
+    "keyboard_layout_selector_exposed": true,
+    "keyboard_layout_selector_gate": "durable-native-config-plus-explicit-next-surface-apply",
     "retained_compatible_locales": [
       "es-ES",
       "de-DE",
       "fr-FR"
     ],
-    "public_selector_must_only_offer_surface_ready_locales": true
+    "public_selector_must_only_offer_surface_ready_locales": true,
+    "public_launch_locales": [
+      "pt-BR",
+      "en-US"
+    ]
   },
   "network": {
     "skippable": true,
@@ -101,16 +108,14 @@
     "register_capability_driven": true,
     "provider_unavailable_must_not_block_completion": true,
     "identity_subject_must_not_enter_first_run_state": true,
-    "cloud_sync_required_for_mvp": false,
     "identity_selection_requires_current_subject_at_completion": true,
     "identity_selection_requires_fresh_session_read": true,
     "identity_subject_in_first_run_receipt": false,
-    "expired_or_changed_identity_returns_to_account_step": true
-  },
-  "mvp": {
-    "runs_from_usb": true,
-    "permanent_internal_disk_install_exposed": false,
-    "web_mode_uses_this_device_oobe": false
+    "expired_or_changed_identity_returns_to_account_step": true,
+    "recovery_capability_driven": true,
+    "recovery_response_must_not_enumerate_accounts": true,
+    "password_must_not_be_reused_as_local_secret": true,
+    "cloud_sync_required_for_launch": false
   },
   "security": {
     "local_session_optional": true,
@@ -128,5 +133,32 @@
     "network_independent": true,
     "protection_scope": "surface-session-not-storage-encryption",
     "configurable_after_first_run_in_settings": true
+  },
+  "privacy": {
+    "owner": "preferences",
+    "memory_auto_capture_preference": "memory.auto-capture",
+    "confirmed_persistence_required": true,
+    "false_success_forbidden": true
+  },
+  "device_profile": {
+    "optional_when_capability_unavailable": true,
+    "owner": "system/contracts/device-profile.mjs",
+    "display_name_persisted_by_native_owner": true,
+    "false_success_forbidden": true
+  },
+  "review": {
+    "second_authoritative_store_allowed": false,
+    "reads_same_draft_and_live_owners": true
+  },
+  "completion": {
+    "receipt_owner": "first-run-state-store",
+    "receipt_written_after_required_owner_writes": true,
+    "persistence_failure_blocks_completion": true,
+    "surface_transition_only_after_durable_receipt": true
+  },
+  "launch_baseline": {
+    "runs_from_usb": true,
+    "permanent_internal_disk_install_exposed": false,
+    "web_mode_uses_this_device_oobe": false
   }
 }
