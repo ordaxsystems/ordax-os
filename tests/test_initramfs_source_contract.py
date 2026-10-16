@@ -60,7 +60,7 @@ class InitramfsSourceContractTests(unittest.TestCase):
 
     def test_pid1_understands_only_new_storage_handoff(self):
         self.assertIn("findfs LABEL=ORDAX", INIT)
-        self.assertIn("mount -t ext4 -o ro \"$ORDAX_DEVICE\" /ordax", INIT)
+        self.assertIn("mount -t ext4 -o ro,noload \"$ORDAX_DEVICE\" /ordax", INIT)
         self.assertIn("mount -t ext4 -o rw,errors=remount-ro \"$ORDAX_DEVICE\" /ordax", INIT)
         self.assertIn('/sbin/ordax-grow-ext4 --check "$ORDAX_DEVICE"', INIT)
         self.assertIn('/sbin/ordax-grow-ext4 "$ORDAX_DEVICE" /ordax', INIT)
