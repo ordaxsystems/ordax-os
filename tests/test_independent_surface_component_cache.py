@@ -97,6 +97,33 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
                     root=root,
                 )
 
+    def test_consumer_verifies_build_environment_without_requiring_same_runner(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_root(temp / "repo")
+            out = self.make_output(temp / "out", "1" * 40)
+            self.mod.record(out, "1" * 40, root)
+            os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "test/other-runner/image-v2"
+            with self.assertRaisesRegex(self.mod.CacheError, "build inputs changed"):
+                self.mod.verify(
+                    out,
+                    "2" * 40,
+                    temp / "strict.json",
+                    cache_hit=True,
+                    root=root,
+                )
+            receipt = self.mod.verify(
+                out,
+                "2" * 40,
+                temp / "consumer.json",
+                cache_hit=True,
+                consumer=True,
+                root=root,
+            )
+            self.assertTrue(receipt["consumer_verification"])
+            self.assertEqual(receipt["execution_environment"], "test/linux-x86_64/image-v1")
+            self.assertEqual(receipt["verification_environment"], "test/other-runner/image-v2")
+
     def test_tampering_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
@@ -126,9 +153,10 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("Restore verified Independent Surface EROFS component", workflow)
         self.assertIn("Restore verified Independent Surface EROFS from durable R2 store", workflow)
         self.assertIn("Save verified Independent Surface EROFS component in fast GitHub cache", workflow)
-        self.assertIn("Publish fresh verified Surface to durable R2 store", workflow)
+        self.assertIn("Ensure verified Surface exists in durable R2 store", workflow)
+        self.assertIn("if: steps.surface-reuse-state.outputs.source != 'r2'", workflow)
         self.assertIn("artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}", workflow)
-        self.assertIn("if: needs.buildroot-surface.outputs.artifact_reused != 'true'", workflow)
+        self.assertIn("if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true", workflow)
 
     def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

@@ -354,8 +354,8 @@ jobs:
           path: ${{ runner.temp }}/ordax-independent-surface
           key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
 
-      - name: Publish fresh verified Surface to durable R2 store
-        if: steps.surface-reuse-state.outputs.reused != 'true'
+      - name: Ensure verified Surface exists in durable R2 store
+        if: steps.surface-reuse-state.outputs.source != 'r2'
         env:
           ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
           ORDAX_R2_BUCKET: 'ordax-device-artifacts'
@@ -502,7 +502,7 @@ jobs:
 
   portable-qemu:
     needs: buildroot-surface
-    if: needs.buildroot-surface.outputs.artifact_reused != 'true'
+    if: needs.buildroot-surface.outputs.artifact_reused != 'true' || inputs.force_build == true
     uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
     with:
       base_source: independent
