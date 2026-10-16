@@ -118,7 +118,7 @@
     "team": "ordaxsystems",
     "project_config_source": "vercel.json",
     "function_source": "api/account-proxy.mjs",
-    "static_output_directory": "out/public-deployment",
+    "static_output_directory": "out/vercel",
     "identity_prefix": "/auth/",
     "sync_prefix": "/sync/",
     "provider_specific_browser_api": false,
@@ -199,7 +199,9 @@
     "product_cookie_envelope_deployed": true,
     "canonical_public_origin_deployment_verified": true,
     "runtime_evidence": "docs/evidence/web-account-runtime-2026-10-16.json",
-    "artifact_composition": {
+    "build_dispatcher": "tools/vercel/build.py",
+    "ignored_build_owner": "tools/vercel/should_skip_build.sh",
+    "historical_single_origin_composition": {
       "recipe": "tools/public-site/deployment.py",
       "portal_recipe": "tools/public-site/build.py",
       "web_recipe": "tools/surface-web/build.py",
@@ -214,7 +216,20 @@
       "runtime_observed_manifest_sha256": "b01ef28471a7857892d59e6b8a6b578c5f832f9afe538739cf2fe76ec0f77695",
       "runtime_verified_component_files": 56,
       "runtime_observed_deployment_url": "https://vercel.com/ordaxsystems/ordax-os-public/5FefdJ7aPfMqx5vcTPYFe5A1r47q",
-      "runtime_evidence": "docs/evidence/meridian-web-2026-10-16/production-proof.json"
+      "runtime_evidence": "docs/evidence/meridian-web-2026-10-16/production-proof.json",
+      "status": "superseded-by-separate-ordax-web-project",
+      "current_vercel_topology": false
+    },
+    "web_runtime": {
+      "project": "ordax-web",
+      "project_id": "prj_ftACluUqk6i9DoD9GPIwmgURwckP",
+      "canonical_origin": "https://web.ordax.com.br",
+      "mount_path": "/",
+      "static_output_directory": "out/vercel",
+      "build_dispatcher": "tools/vercel/build.py",
+      "domain_project_move_pending": true,
+      "domain_current_project": "ordax-os-public",
+      "domain_target_project": "ordax-web"
     }
   },
   "public_edge_gateway": {
