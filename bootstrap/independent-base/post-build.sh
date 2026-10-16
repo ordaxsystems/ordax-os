@@ -78,6 +78,9 @@ if test "$PROFILE" = owner-development; then
         --archive "$ORDAX_KERNEL_MODULES_ARCHIVE" \
         --target "$TARGET_DIR" \
         --receipt "$ORDAX_KERNEL_MODULES_RECEIPT"
+    test -s "$ORDAX_KERNEL_MODULES_RECEIPT"
+    cp "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-payload.json"
+    cmp -s "$ORDAX_KERNEL_MODULES_RECEIPT" "$TARGET_DIR/etc/ordax/kernel-module-payload.json"
 
     # A module payload without matching firmware is not a valid Owner base.
     # Generate one external receipt for CI/evidence, then embed those exact
@@ -88,6 +91,7 @@ if test "$PROFILE" = owner-development; then
         --log-prefix ORDAX_INDEPENDENT_OWNER
     test -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT"
     cp "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"
+    cmp -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"
 
     mkdir -p "$TARGET_DIR/usr/local/bin" "$TARGET_DIR/state" "$TARGET_DIR/workspace" "$TARGET_DIR/home" "$TARGET_DIR/root" "$TARGET_DIR/run" "$TARGET_DIR/tmp"
     chmod 1777 "$TARGET_DIR/tmp"
