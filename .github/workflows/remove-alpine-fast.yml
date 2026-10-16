@@ -24,6 +24,7 @@ on:
       - 'tests/test_independent_network_parity.py'
       - 'tests/test_independent_owner_profile.py'
       - 'tests/test_kernel_module_payload.py'
+      - 'tests/test_firmware_policy_neutral.py'
       - '.github/workflows/remove-alpine-fast.yml'
   workflow_dispatch:
 
@@ -60,7 +61,8 @@ jobs:
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
-            tests.test_kernel_module_payload -v
+            tests.test_kernel_module_payload \
+            tests.test_firmware_policy_neutral -v
       - name: Resolve Buildroot profiles without compiling rootfs or kernel
         run: |
           set -euo pipefail
@@ -78,6 +80,7 @@ jobs:
             bootstrap/independent-base/portable_boot_proof.py \
             tests/test_alpine_removal_boundary.py \
             tests/test_independent_owner_profile.py \
-            tests/test_kernel_module_payload.py
+            tests/test_kernel_module_payload.py \
+            tests/test_firmware_policy_neutral.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
