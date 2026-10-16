@@ -31,13 +31,14 @@ IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
 IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
 SUPPORTED_PROFILES = ("minimal", "owner-development")
-OWNER_REQUIRED_CONFIG = (
+OWNER_USERSPACE_CONFIG = (
     "BR2_PACKAGE_CA_CERTIFICATES=y",
     "BR2_PACKAGE_GIT=y",
     "BR2_PACKAGE_IW=y",
     "BR2_PACKAGE_WPA_SUPPLICANT=y",
     "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
 )
+OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -75,6 +76,43 @@ def run(*args: str, cwd: Path | None = None, bounded_output: bool = False) -> st
     if code:
         raise BaseError(f"{' '.join(argv)} failed ({code}):\n" + output[-10000:])
     return output
+
+
+def config_lines(path: Path) -> set[str]:
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
+def validate_owner_fragment(path: Path) -> set[str]:
+    lines = config_lines(path)
+    missing_userspace = sorted(set(OWNER_USERSPACE_CONFIG) - lines)
+    if missing_userspace:
+        raise BaseError(
+            "Owner/Development fragment lost required userspace capabilities: "
+            + ", ".join(missing_userspace)
+        )
+    firmware = {
+        line
+        for line in lines
+        if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
+    }
+    if f"{OWNER_FIRMWARE_CONFIG_PREFIX}=y" not in firmware:
+        raise BaseError("Owner/Development fragment must select Buildroot linux-firmware")
+    unexpected = sorted(lines - set(OWNER_USERSPACE_CONFIG) - firmware)
+    if unexpected:
+        raise BaseError(
+            "Owner/Development fragment contains unsupported configuration: "
+            + ", ".join(unexpected)
+        )
+    if len(firmware) <= 1:
+        raise BaseError("Owner/Development linux-firmware provider has no selected family")
+    text = path.read_text(encoding="utf-8").lower()
+    if "alpine" in text or "apk" in text:
+        raise BaseError("Owner/Development fragment reintroduced Alpine/APK")
+    return lines
 
 
 def contracts() -> tuple[dict, dict, dict, dict]:
@@ -159,29 +197,26 @@ def profile_inputs(source: dict, profile: str) -> dict:
     if fragment is not None and (fragment.is_symlink() or not fragment.is_file()):
         raise BaseError(f"profile fragment is missing or unsafe: {fragment_value}")
 
-    base_text = defconfig.read_text(encoding="utf-8")
+    base_lines = config_lines(defconfig)
     if profile == "minimal":
-        leaked = [symbol for symbol in OWNER_REQUIRED_CONFIG if symbol in base_text]
+        leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & base_lines)
+        leaked_firmware = sorted(
+            line for line in base_lines if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX)
+        )
+        leaked = leaked_userspace + leaked_firmware
         if leaked:
             raise BaseError(f"Owner capability leaked into minimal defconfig: {leaked}")
+        fragment_lines: set[str] = set()
     else:
         assert fragment is not None
-        fragment_lines = {
-            line.strip()
-            for line in fragment.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("#")
-        }
-        if fragment_lines != set(OWNER_REQUIRED_CONFIG):
-            raise BaseError("Owner/Development fragment capability set drift")
-        fragment_text = fragment.read_text(encoding="utf-8").lower()
-        if "alpine" in fragment_text or "apk" in fragment_text:
-            raise BaseError("Owner/Development fragment reintroduced Alpine/APK")
+        fragment_lines = validate_owner_fragment(fragment)
 
     return {
         "profile": profile,
         "purpose": spec["purpose"],
         "defconfig": defconfig,
         "fragment": fragment,
+        "fragment_config": sorted(fragment_lines),
     }
 
 
@@ -194,6 +229,7 @@ def profile_provenance(inputs: dict) -> dict:
         "defconfig_sha256": digest(inputs["defconfig"]),
         "fragment": None if fragment is None else str(fragment.relative_to(ROOT)),
         "fragment_sha256": None if fragment is None else digest(fragment),
+        "fragment_config": inputs["fragment_config"],
     }
 
 
@@ -229,13 +265,22 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
             raise BaseError(f"Buildroot rejected required configuration {key}")
 
     if profile == "owner-development":
-        for key in OWNER_REQUIRED_CONFIG:
+        source = json.loads(SOURCE.read_text(encoding="utf-8"))
+        owner = profile_inputs(source, profile)
+        for key in owner["fragment_config"]:
             if key not in config:
-                raise BaseError(f"Buildroot rejected Owner/Development capability {key}")
+                raise BaseError(f"Buildroot rejected Owner/Development configuration {key}")
         if "BR2_PACKAGE_KMOD=y" in config:
             raise BaseError("Owner/Development duplicated BusyBox modprobe with kmod")
     else:
-        leaked = [key for key in OWNER_REQUIRED_CONFIG if key in config]
+        config_set = set(config.splitlines())
+        leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & config_set)
+        leaked_firmware = sorted(
+            line
+            for line in config_set
+            if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
+        )
+        leaked = leaked_userspace + leaked_firmware
         if leaked:
             raise BaseError(f"minimal profile resolved Owner capabilities: {leaked}")
 
