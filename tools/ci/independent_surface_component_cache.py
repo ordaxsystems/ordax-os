@@ -197,6 +197,9 @@ def verify(
         str(manifest.get("execution_environment", "")),
         "manifest build environment",
     )
+    verification_environment = environment()
+    if not consumer and build_environment != verification_environment:
+        raise CacheError("cached Surface execution environment changed")
     fingerprint_environment = build_environment if consumer else None
     expected_fingerprint = fingerprint(root, build_environment=fingerprint_environment)
     manifest_fingerprint = str(manifest.get("input_fingerprint", ""))
@@ -209,9 +212,6 @@ def verify(
         if manifest_fingerprint != historical_fingerprint:
             raise CacheError("cached Surface build inputs changed")
         legacy_materialized_manifest = True
-    verification_environment = environment()
-    if not consumer and build_environment != verification_environment:
-        raise CacheError("cached Surface execution environment changed")
     build_commit = exact_commit(str(manifest.get("build_source_commit", "")), "build source commit")
     prov_commit = exact_commit(str(provenance(out_dir).get("source_commit", "")), "provenance source commit")
     if prov_commit != build_commit:
