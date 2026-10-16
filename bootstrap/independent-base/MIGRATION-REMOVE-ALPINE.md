@@ -23,6 +23,8 @@ O desenvolvimento da migração usa dois níveis distintos.
 
 O gate também executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto atual de consumidores Python de `bootstrap/base/alpine_core.py`. Novos consumidores são proibidos; a allowlist só pode encolher à medida que a migração avança.
 
+`tests/test_independent_owner_profile.py` trava a arquitetura do perfil Owner/Development: ele deve derivar do mesmo `ordax_minimal_defconfig`, adicionar apenas capacidades declaradas em fragmento e reutilizar os helpers canônicos do Dev USB sem copiar sua lógica.
+
 Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar cada commit em build completo e sem permitir que a dependência Alpine cresça durante a remoção.
 
 ### Gate pesado
@@ -60,6 +62,19 @@ Provar que a Independent Base cobre os requisitos hoje atendidos pela base Alpin
 - persistência e recovery fora do rootfs imutável;
 - firmware/drivers conforme owners canônicos;
 - suporte ao runtime da Surface sem introduzir gerenciador de pacotes no runtime base.
+
+#### Perfil Owner/Development no mesmo owner Buildroot
+
+A paridade do Dev USB não cria outra distribuição nem outro builder. `source.json` registra dois perfis do mesmo owner:
+
+- `minimal`: prova portátil mínima já existente;
+- `owner-development`: o mesmo defconfig base mais `configs/owner-development.fragment`.
+
+O fragmento Owner/Development declara somente as capacidades hoje exigidas pelo fluxo de desenvolvimento: CA certificates, Git, `iw`, `kmod`, `wpa_supplicant`/`wpa_passphrase` e `zstd`. Não existe APK, Alpine minirootfs ou gerenciador de pacotes de runtime nesse perfil.
+
+`post-build.sh` continua sendo o único pós-build da Independent Base. Ele instala os helpers canônicos `ordax-network`, `ordax-pull`, `ordax-rollback`, `ordax-run`, `ordax-diagnose`, `ordax-dev-init` e recovery diretamente de seus owners existentes somente quando o target contém o conjunto completo de capacidades Owner/Development. Presença parcial falha fechada.
+
+Este estágio ainda não declara paridade concluída: o builder principal precisa aceitar explicitamente a seleção `owner-development` e a prova pesada deve demonstrar que o grafo Buildroot resolve e executa essas capacidades. Até essa prova, `dev-base/build.py` continua ativo e Alpine não é removido desse consumidor.
 
 ### Fase C — convergência dos consumidores
 
