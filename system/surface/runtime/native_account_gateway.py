@@ -1,9 +1,14 @@
 """Device-local client for the OrdaX account gateway.
 
 This adapter is intentionally provider-neutral. It speaks only to the OrdaX
-same-origin gateway protocol over HTTPS and stores the resulting OrdaX session
-cookies as device-bound credentials. Those cookies never enter Surface JS and
-must never be synchronized.
+same-origin gateway protocol over HTTPS. Account access/refresh cookies live only
+in this Native Host process: they never enter Surface JS, are never synchronized,
+and are never persisted to removable-media storage in plaintext.
+
+A legacy session path is accepted only so older plaintext session files can be
+removed during startup. Persistent account sessions require a future encrypted
+vault explicitly bound to device-local unlock; file permissions alone are not a
+credential-at-rest boundary for removable USB media.
 """
 
 from __future__ import annotations
@@ -21,7 +26,6 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
-MAX_SESSION_BYTES = 32 * 1024
 COOKIE_NAMES = frozenset(("ordax_access", "ordax_refresh"))
 COOKIE_VALUE_RE = re.compile(r"^[^;\r\n]{1,16384}$")
 
@@ -97,67 +101,53 @@ def _parse_set_cookies(values: tuple[str, ...], existing: Mapping[str, str]) -> 
     return next_cookies
 
 
+def _purge_legacy_plaintext_session(path: str) -> None:
+    """Remove the former plaintext cookie file without following filesystem links.
+
+    Refusing to continue when a credential-bearing entry cannot be removed is
+    deliberate: silently leaving a previously valid refresh token on removable
+    media would preserve the exposure this hardening is intended to eliminate.
+    Directories are not legacy credential files and are left untouched.
+    """
+    try:
+        existing = os.lstat(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise NativeAccountGatewayError("legacy-session-inspection-failed") from exc
+
+    if stat.S_ISDIR(existing.st_mode):
+        return
+
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise NativeAccountGatewayError("legacy-session-purge-failed") from exc
+
+
 class NativeAccountGateway:
     def __init__(
         self,
         origin: str,
-        session_path: str,
+        legacy_session_path: str,
         *,
         timeout_seconds: float = 15.0,
     ) -> None:
         self.base_url = _validated_base_url(origin)
-        if not os.path.isabs(session_path):
-            raise ValueError("session path must be absolute")
-        self.session_path = session_path
+        if not os.path.isabs(legacy_session_path):
+            raise ValueError("legacy session path must be absolute")
+        self.legacy_session_path = legacy_session_path
         self.timeout_seconds = timeout_seconds
         self._lock = threading.Lock()
         self._opener = build_opener(_NoRedirect())
-        self._cookies = self._load_session()
+        _purge_legacy_plaintext_session(self.legacy_session_path)
+        self._cookies: dict[str, str] = {}
 
     @property
     def configured(self) -> bool:
         return True
-
-    def _load_session(self) -> dict[str, str]:
-        try:
-            st = os.stat(self.session_path, follow_symlinks=False)
-            if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_SESSION_BYTES:
-                return {}
-            if st.st_mode & 0o077:
-                return {}
-            with open(self.session_path, "r", encoding="utf-8") as handle:
-                value = json.load(handle)
-        except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
-            return {}
-        if not isinstance(value, dict) or set(value) - COOKIE_NAMES:
-            return {}
-        result: dict[str, str] = {}
-        for name, cookie_value in value.items():
-            if isinstance(cookie_value, str) and COOKIE_VALUE_RE.fullmatch(cookie_value):
-                result[name] = cookie_value
-        return result
-
-    def _persist_session(self) -> None:
-        directory = os.path.dirname(self.session_path)
-        os.makedirs(directory, mode=0o700, exist_ok=True)
-        temporary = f"{self.session_path}.tmp.{os.getpid()}.{threading.get_ident()}"
-        try:
-            flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
-            if hasattr(os, "O_NOFOLLOW"):
-                flags |= os.O_NOFOLLOW
-            descriptor = os.open(temporary, flags, 0o600)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                json.dump(self._cookies, handle, separators=(",", ":"), sort_keys=True)
-                handle.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, self.session_path)
-            os.chmod(self.session_path, 0o600)
-        finally:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
 
     def _request(
         self,
@@ -199,7 +189,6 @@ class NativeAccountGateway:
         set_cookies = response_headers.get("set-cookie", ())
         if set_cookies:
             self._cookies = _parse_set_cookies(set_cookies, self._cookies)
-            self._persist_session()
 
         return GatewayReply(status=status, headers=response_headers, body=raw)
 
@@ -254,7 +243,6 @@ class NativeAccountGateway:
         with self._lock:
             reply = self._request("POST", "/auth/logout", body=b"", content_type="application/json")
             self._cookies = {}
-            self._persist_session()
             return reply
 
     def account_export(self) -> GatewayReply:
