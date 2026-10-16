@@ -105,7 +105,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             out = self.make_output(temp / "out", "1" * 40)
             self.mod.record(out, "1" * 40, root)
             os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "test/other-runner/image-v2"
-            with self.assertRaisesRegex(self.mod.CacheError, "build inputs changed"):
+            with self.assertRaisesRegex(self.mod.CacheError, "execution environment changed"):
                 self.mod.verify(
                     out,
                     "2" * 40,
