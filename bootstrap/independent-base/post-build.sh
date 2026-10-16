@@ -15,6 +15,36 @@ esac
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
 mkdir -p "$TARGET_DIR/ordax/bootstrap/network/bin" "$TARGET_DIR/etc/ordax"
+
+# /dev is runtime-owned. Both the portable initramfs and the Owner/Development
+# handoff mount/bind a real devtmpfs over this directory before the target root
+# becomes active. Buildroot's skeleton procfs shortcuts therefore become dead
+# lower-layer content and, worse, reference paths that can only exist after
+# procfs is mounted. Remove only the exact upstream shortcuts we understand;
+# fail closed if their type or target ever changes.
+for volatile_dev_link in \
+    'fd:../proc/self/fd' \
+    'stdin:../proc/self/fd/0' \
+    'stdout:../proc/self/fd/1' \
+    'stderr:../proc/self/fd/2'
+do
+    name=${volatile_dev_link%%:*}
+    expected=${volatile_dev_link#*:}
+    path="$TARGET_DIR/dev/$name"
+    if test -e "$path" || test -L "$path"; then
+        if ! test -L "$path"; then
+            echo "Unexpected Independent Base /dev runtime object: $path" >&2
+            exit 1
+        fi
+        actual=$(readlink "$path")
+        if test "$actual" != "$expected"; then
+            echo "Unexpected Independent Base /dev runtime link: $path -> $actual" >&2
+            exit 1
+        fi
+        rm "$path"
+    fi
+done
+
 # Reuse the current owner of DHCP semantics. Do not fork its scripts.
 cp "$ROOT/bootstrap/network/bring-up" "$TARGET_DIR/ordax/bootstrap/network/bring-up"
 cp "$ROOT/bootstrap/network/udhcpc.script" "$TARGET_DIR/ordax/bootstrap/network/udhcpc.script"
