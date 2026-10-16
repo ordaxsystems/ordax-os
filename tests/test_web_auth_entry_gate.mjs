@@ -16,11 +16,15 @@ test('canonical Web mounts the workspace only for an authenticated session', () 
   assert.equal(decideWebEntry(null), 'unavailable');
 });
 
-test('only an explicit localhost layout preview bypasses the account gate', () => {
-  const local = { location: { hostname: 'localhost', search: '?preview=layout' } };
-  const remote = { location: { hostname: 'web.ordax.com.br', search: '?preview=layout' } };
-  assert.equal(isLocalWebLayoutPreview(local), true);
-  assert.equal(isLocalWebLayoutPreview(remote), false);
+test('only loopback layout proofs bypass the account gate', () => {
+  const explicitLocal = { location: { hostname: 'localhost', pathname: '/', search: '?preview=layout' } };
+  const mountedProof = { location: { hostname: '127.0.0.1', pathname: '/ordax/', search: '' } };
+  const remoteExplicit = { location: { hostname: 'web.ordax.com.br', pathname: '/', search: '?preview=layout' } };
+  const remoteMounted = { location: { hostname: 'web.ordax.com.br', pathname: '/ordax/', search: '' } };
+  assert.equal(isLocalWebLayoutPreview(explicitLocal), true);
+  assert.equal(isLocalWebLayoutPreview(mountedProof), true);
+  assert.equal(isLocalWebLayoutPreview(remoteExplicit), false);
+  assert.equal(isLocalWebLayoutPreview(remoteMounted), false);
   assert.equal(
     decideWebEntry({ state: 'signed-out' }, { allowLocalLayoutPreview: true }),
     'workspace',
