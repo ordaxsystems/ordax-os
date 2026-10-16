@@ -45,55 +45,21 @@ jobs:
       - name: Validate GitHub Actions supply chain
         run: python tools/verify/github_actions_supply_chain.py
 
-      # Temporary branch-only diagnostics. These steps are removed before merge;
-      # they expose the failing method through Actions step metadata because the
-      # connector cannot read the private raw job log body.
-      - name: Diagnose Account contract - transport activation boundary
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_transport_proof_does_not_authorize_public_account_activation -v
-
-      - name: Diagnose Account contract - lifecycle gates
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_promotion_still_requires_unproven_account_lifecycle_gates -v
-
-      - name: Diagnose Account contract - live runtime closed activation
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_destination_runtime_is_live_but_public_activation_remains_closed -v
-
-      - name: Diagnose Account contract - sync export boundary
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_live_sync_export_sql_proof_cannot_be_confused_with_public_activation -v
-
-      - name: Diagnose Account contract - runtime evidence
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_live_gateway_and_vercel_runtime_evidence_are_current -v
-
-      - name: Diagnose Account contract - bridge handler auth
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_named_bridge_requires_custom_handler_auth_not_platform_jwt -v
-
-      - name: Diagnose Account contract - named bridge proof
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_named_service_bridge_is_proven_without_recording_secret_value -v
-
-      - name: Diagnose Account contract - OIDC scope
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_oidc_source_and_production_runtime_are_both_scoped -v
-
-      - name: Diagnose Account contract - gateway v13 boundary
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_gateway_v13_transport_is_live_without_promoting_account_activation -v
-
-      - name: Diagnose Account contract - shared hardening
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_shared_route_and_sync_hardening_remain_deployed -v
-
-      - name: Diagnose Account contract - migration ownership
-        continue-on-error: true
-        run: python -m unittest tests.test_public_auth_postgres_destination_contract.AccountPostgresCutoverContractTests.test_migration_sources_are_single_owned_and_versioned -v
-
       - name: Run foundation regressions
-        run: python -m unittest discover -s tests -p 'test_*.py' -v
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -p 'test_*.py' -v 2>&1 | tee foundation-regressions.log
+
+      # Temporary branch-only diagnostic artifact; removed before merge.
+      - name: Upload foundation regression log
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: foundation-regressions-${{ github.sha }}
+          path: foundation-regressions.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Validate product family version identities
         run: node --test tests/test_product_family.mjs
