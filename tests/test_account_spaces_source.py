@@ -21,7 +21,7 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn('.select("space_id,owner_user_id,name,kind,state,domain,subtype")', source)
         self.assertIn("SPACE_SEMANTIC_IDENTIFIER", source)
         self.assertIn('.limit(MAX_VISIBLE_SPACES + 1)', source)
-        self.assertIn('version: 17', source)
+        self.assertIn('version: 18', source)
 
         start = source.index('if (path === "/account/spaces" && req.method === "GET")')
         end = source.index('if (path === "/sync/snapshot"', start)

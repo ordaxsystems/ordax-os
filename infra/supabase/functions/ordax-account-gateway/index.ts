@@ -8,6 +8,7 @@ import {
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
+import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
@@ -1132,7 +1133,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 17 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 18 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
@@ -1219,6 +1220,68 @@ Deno.serve(async (req: Request) => {
       return error(502, "account-export-failed", "Não foi possível gerar a exportação da Conta OrdaX.");
     }
     return json(200, data, session.cookies);
+  }
+
+  if (path === "/account/spaces/create" && req.method === "POST") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para criar um Space.",
+      }, session.cookies);
+    }
+
+    let request;
+    try {
+      request = parseSpaceCreateRequest(
+        await boundedBody(req),
+        req.headers.get("content-type") ?? "",
+      );
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "invalid-space-create-request";
+      return error(400, code, "Revise os dados informados para criar o Space.");
+    }
+
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc(
+        "ordax_create_space_v1",
+        spaceCreateRpcArgs(request),
+      );
+      if (rpcError) {
+        const code = typeof rpcError.message === "string" ? rpcError.message : "space-create-failed";
+        if ([
+          "invalid-space-name",
+          "space-type-not-creatable",
+          "space-create-idempotency-key-required",
+        ].includes(code)) {
+          return error(400, code, "Não foi possível criar este Space com os dados informados.");
+        }
+        if (["space-create-idempotency-conflict", "owned-space-limit-reached"].includes(code)) {
+          return error(409, code, "A criação deste Space entrou em conflito com o estado atual da conta.");
+        }
+        if (code === "authentication-required" || code === "ordax-account-required") {
+          return error(401, "authentication-required", "Entre novamente na Conta OrdaX.");
+        }
+        return error(502, "space-create-failed", "Não foi possível criar o Space.");
+      }
+      if (!Array.isArray(data) || data.length !== 1) {
+        return error(502, "space-create-failed", "Não foi possível validar o Space criado.");
+      }
+      let projected;
+      try {
+        projected = projectSpaceCreateResult(data[0], {
+          subjectId: session.user.id,
+          request,
+        });
+      } catch {
+        return error(502, "space-create-failed", "Não foi possível validar o Space criado.");
+      }
+      return json(projected.created ? 201 : 200, projected, session.cookies);
+    } catch {
+      return error(503, "space-create-unavailable", "A criação de Spaces está temporariamente indisponível.");
+    }
   }
 
   if (path === "/account/spaces" && req.method === "GET") {

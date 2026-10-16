@@ -80,8 +80,16 @@ CI_GOVERNANCE_LIGHT_EXACT = {
 ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
     ".github/workflows/ordax-account-gateway-destination.yml",
     "docs/contracts/ci-supply-chain.json",
+    "docs/contracts/native-account-session.json",
+    "infra/supabase/functions/_shared/space_create_contract.mjs",
     "tools/account/resolve_account_gateway_destination.py",
     "tests/test_account_gateway_destination_deploy.py",
+    "tests/test_native_account_gateway.py",
+    "tests/test_native_account_session_contract.py",
+    "tests/test_space_create_bridge.mjs",
+}
+NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT = {
+    "system/surface/runtime/native_account_gateway.py",
 }
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
@@ -303,6 +311,8 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
     for path in changed:
         if path in ALWAYS_HEAVY_EXACT:
             reasons.append(f"heavy-exact:{path}")
+            continue
+        if path in NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT:
             continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")

@@ -250,6 +250,45 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(reply.status, 200)
             self.assertEqual(calls, [("GET", "/account/spaces", {})])
 
+    def test_space_create_posts_only_canonical_intent_without_provider_credentials(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=201,
+                    headers={},
+                    body=b'{"$schema":"prototype-ordax.space-create/1","created":true}',
+                )
+
+            client._request = fake_request
+            reply = client.create_space(
+                name="Minha Pizzaria",
+                domain="food",
+                subtype="pizzeria",
+                idempotency_key="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            )
+
+            self.assertEqual(reply.status, 201)
+            self.assertEqual(len(calls), 1)
+            method, route, kwargs = calls[0]
+            self.assertEqual((method, route), ("POST", "/account/spaces/create"))
+            self.assertEqual(kwargs["content_type"], "application/json")
+            payload = json.loads(kwargs["body"].decode("utf-8"))
+            self.assertEqual(payload, {
+                "name": "Minha Pizzaria",
+                "domain": "food",
+                "subtype": "pizzeria",
+                "idempotencyKey": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            })
+            serialized = kwargs["body"].decode("utf-8").lower()
+            self.assertNotIn("supabase", serialized)
+            self.assertNotIn("service_role", serialized)
+            self.assertNotIn("profile", serialized)
+
     def test_memory_entitlement_read_is_get_only_and_reuses_process_session(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
@@ -323,6 +362,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("legal_acceptance", source)
         self.assertIn("/account/export", source)
         self.assertIn("/account/spaces", source)
+        self.assertIn("/account/spaces/create", source)
         self.assertIn("/account/entitlements/memory-cloud", source)
         self.assertIn("/sync/objects", source)
         self.assertIn("/sync/snapshot", source)
@@ -330,7 +370,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("/network/v2/messages/send", source)
         self.assertNotIn("_persist_session", source)
         self.assertNotIn("_load_session", source)
-        self.assertNotIn("json.dump", source)
+        self.assertNotIn("json.dump(", source)
         self.assertNotIn("open(self.legacy_session_path", source)
         self.assertNotIn("/device/enroll", source)
         self.assertNotIn("/v3/device/setup", source)
