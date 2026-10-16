@@ -161,6 +161,7 @@ jobs:
           printf 'ORDAX_HOST_PYTHON=%s\n' "$(command -v python3)" >> "$GITHUB_ENV"
           printf 'ORDAX_KERNEL_MODULES_ARCHIVE=%s\n' "$module_archive" >> "$GITHUB_ENV"
           printf 'ORDAX_KERNEL_MODULES_RECEIPT=%s\n' "$RUNNER_TEMP/ordax-independent/kernel-module-payload.json" >> "$GITHUB_ENV"
+          printf 'ORDAX_FIRMWARE_COVERAGE_RECEIPT=%s\n' "$RUNNER_TEMP/ordax-independent/firmware-coverage.json" >> "$GITHUB_ENV"
       - name: Build rootfs from official Buildroot source
         run: |
           set -euo pipefail
