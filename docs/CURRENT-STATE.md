@@ -1,5 +1,13 @@
 # Current State
 
+Public Web entry Meridian correction (2026-10-16): `/web/` now opts into the
+canonical Meridian material and reuses `account.css`'s identity layout/components
+for header, access card, buttons, state panel and responsive composition. Its own
+stylesheet contains only page spacing and semantic error treatment; the separate
+legacy palette/layout was removed. Session readiness and authenticated launch
+remain unchanged. Public source/build, nine session/navigation regressions,
+16 identity/contract regressions and bilingual localization checks pass.
+
 Public Web deployment verified (2026-10-16, 14:25 UTC): PR #1859 is merged into
 main at `16d3fc2ed40abb417027a5b8731a7e2e59491f4d`. The canonical Vercel project's
 GitHub status reports deployment completion; https://ordax.com.br/ serves the

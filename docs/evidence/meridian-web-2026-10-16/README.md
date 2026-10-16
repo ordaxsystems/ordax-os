@@ -331,3 +331,20 @@ Vercel GitHub status plus the actual public origin; no alternate project, scope,
 proxy, credential or hosting was used. Account/provider gates and authenticated
 `/web/` launch activation remain unchanged. Public runtime availability does not
 prove authenticated E2E or hardware/USB behavior.
+
+## Public Web entry visual correction
+
+`/web/` retained the older standalone Web-entry palette and layout after runtime
+publication. It now uses `data-meridian`/`paper`, the same `account-ui` components
+and `account.css` as the public identity pages. Its page stylesheet has only
+composition spacing and semantic error treatment, using shared variables. The
+header, restrained story hierarchy, access card, actions, legal links and narrow
+layout now share the identity presentation rather than duplicating it. The real
+session controller, readiness states and hidden authenticated launch remain intact.
+
+Validation: canonical public source/build checks pass; nine account-entry/header
+navigation tests and 16 identity/contract tests pass; localization passes for both
+languages across all 11 public routes. Browser review confirms the Meridian paper
+background, shared stylesheet/token imports and no horizontal overflow at the
+available narrow browser width (582 CSS px). The preview's unavailable-session
+state remains honest; this does not claim a new account/backend integration.
