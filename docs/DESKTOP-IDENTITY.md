@@ -1748,3 +1748,27 @@ complete examples toggle and the two bundled professional profiles. This local
 Vite origin has no configured authenticated gateway; successful live account/backend
 E2E is not claimed. No production build, deployment, main merge or USB validation
 was performed. Detailed evidence: [2026-10-16](evidence/meridian-web-2026-10-16/README.md).
+
+
+### Web account registration policy — 2026-10-16
+
+The Web account composition now consults the existing `/auth/registration-policy`
+only after a confirmed anonymous session. It uses the canonical legal-policy
+validator through the existing identity-credentials adapter and bounded same-origin
+JSON reader. Signed-in/unconfigured sessions do not issue this read. Offline,
+identity replacement and disposal cancel pending requests and prevent stale
+permissions from enabling signup. Credential submission is unchanged; the shared
+credential adapter reuses the same bounded policy reader.
+
+Identity actions revalidate a previously allowed registration policy before opening
+`/cadastro/`. This only navigates: account creation, terms acceptance and activation
+remain with the existing public form/gateway. The Account window preserves visible
+sign-in/signup controls, disables unsupported actions, and explains the pending
+service in red. No localhost gateway bypass, provider credentials or production
+configuration change was introduced.
+
+Regression: 96 targeted tests, TypeScript and reference verification pass. Eight new
+cases cover server-enabled/invalid/revoked policies, anonymous vs signed-in scope,
+offline/account-change/disposal cancellation and rendered signup gating. Manual
+review on 4201 confirms the unavailable-service state. Authenticated live-gateway
+E2E remains pending; no main promotion or deployment is claimed.

@@ -1,5 +1,5 @@
 import { projectSidebarAccount, sidebarAccountMarkup } from "../../../ui/sidebar-account.mjs";
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronRight, UserRound, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getWindowIcon, unavailableServices, type IconTone } from './config';
@@ -30,12 +30,13 @@ export function AccountCard({ onOpen, onNotifications }: { onOpen: () => void; o
 // Commands delegate to the existing identity-actions port; no local authentication.
 export function AccountPanel() {
   const { session, identity, actions, displayName, offline } = useWebAccount();
+  const registrationHint = useId();
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [error, setError] = useState<string | null>(null);
-  async function perform(action?: 'sign-in' | 'sign-out') {
+  async function perform(action?: 'sign-in' | 'sign-out' | 'register') {
     if (inFlight.current) return;
     if (session.surface.getSnapshot().connectivity === 'offline') {
       setError('Você está offline. Reconecte para atualizar a conta.');
@@ -47,14 +48,16 @@ export function AccountPanel() {
     catch { if (mounted.current) setError('Não foi possível concluir a operação. Tente novamente.'); }
     finally { inFlight.current = false; if (mounted.current) setPending(false); }
   }
-  return <Panel title="Minha conta"><div className="account-service-content">
+  return <Panel title="Minha conta" className="meridian-account-panel"><div className="account-service-content">
     <div className="account-service-profile"><Avatar/><div><strong>{displayName}</strong><p className="project-meta">{offline ? 'Sem conexão. Os dados da sessão podem estar desatualizados.' : identity.state === 'signed-in' ? 'Identidade confirmada pelo serviço OrdaX.' : identity.state === 'signed-out' ? 'Entre para consultar seus Spaces e dados autorizados.' : 'Não foi possível conectar sua conta.'}</p></div></div>
     <div className="account-service-actions">
       <Button variant="outline" disabled={pending || offline} onClick={() => void perform()}>{pending ? 'Atualizando…' : 'Atualizar conexão'}</Button>
-      {actions.supportedActions.includes('sign-in') && <Button disabled={pending || offline} onClick={() => void perform('sign-in')}>Entrar</Button>}
+      {identity.state !== 'signed-in' && <Button disabled={pending || offline || !actions.supportedActions.includes('sign-in')} onClick={() => void perform('sign-in')}>Entrar</Button>}
+      {identity.state !== 'signed-in' && <Button variant="outline" disabled={pending || offline || !actions.supportedActions.includes('register')} aria-describedby={!actions.supportedActions.includes('register') ? registrationHint : undefined} onClick={() => void perform('register')}>Criar conta</Button>}
       {actions.supportedActions.includes('sign-out') && <Button variant="outline" disabled={pending || offline} onClick={() => void perform('sign-out')}>Sair da conta</Button>}
       <Button variant="outline" asChild><a href="/conta/">Gerenciar minha conta<ChevronRight/></a></Button>
     </div>
+    {identity.state !== 'signed-in' && !actions.supportedActions.includes('register') && <p className="meridian-integration-status" id={registrationHint}>Cadastro indisponível até confirmação do serviço.</p>}
     {error && <p role="alert" className="project-meta">{error}</p>}
     <p className="project-meta">{unavailableServices.storage}</p>
     <p className="project-meta">Plano e cobrança aguardam o serviço de assinatura.</p>

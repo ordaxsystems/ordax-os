@@ -4,7 +4,7 @@ Date: 2026-10-16 (America/Sao_Paulo)
 Branch: `feat/store-meridian-layout`; base commit `b75dfddc32104163839ee0ad2595a17a88cfa946`.
 Scope: the working-tree changes saved with this evidence; not main or a release.
 
-## Validation executed
+## Initial Spaces increment validation
 
 - `npm.cmd run typecheck --workspace tools/surface-web`: exit 0.
 - `node --experimental-strip-types tools/surface-web/checks/verify.mjs`: exit 0,
@@ -52,3 +52,25 @@ explicit pending text. Browser screenshot review confirmed the desktop layout.
 
 No production build, installation, deployment, main merge, USB image generation,
 physical device operation or successful authenticated-gateway E2E is claimed.
+
+
+## Registration-policy follow-up
+
+Base: `33115542c17facbdcf76c56899c308d5c91dcb23` on the same feature branch.
+The regression command above additionally includes `tests/test_identity_actions.mjs`
+and `tests/test_identity_credentials.mjs`. Result: 96 passed, 0 failed, 0 skipped.
+TypeScript and the 34-reference verifier also pass. The existing historical source
+hashes remain intact; reviewed adaptations cover Account presentation and composition.
+
+New behavior: confirmed anonymous Web sessions read the existing canonical signup
+policy with the bounded/cancellable same-origin reader. Already signed-in and
+unconfigured sessions do not query it. The real Account window keeps signup visible,
+with an explanatory disabled state until permitted. Registration navigation performs
+a fresh policy check; it does not create an account or accept legal terms.
+
+New tests cover enabled/revoked/invalid/unavailable policies, sign-in remaining usable,
+request scope, offline/account-change/disposal cancellation and SSR button gating.
+The same tests are registered in the existing candidate workflow. In the existing
+4201 browser, sign-in/signup remain disabled with the actual unavailable gateway
+state and red explanation. No actual signup, credential entry, live authentication,
+production gateway configuration, deployment, build or main merge was performed.

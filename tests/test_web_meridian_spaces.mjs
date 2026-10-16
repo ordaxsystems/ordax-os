@@ -6,7 +6,7 @@ import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createWebAccountSession} from '../system/composition/web/account-session.mjs';
 
-let server, WebAccountProvider, SpacesPanel, SpacesExperience;
+let server, WebAccountProvider, SpacesPanel, SpacesExperience, AccountPanel;
 before(async () => {
   server = await createServer({
     configFile: fileURLToPath(new URL('../tools/surface-web/vite.config.ts', import.meta.url)),
@@ -14,8 +14,8 @@ before(async () => {
     appType: 'custom', optimizeDeps: {noDiscovery: true, include: []},
   });
   const load = file => server.ssrLoadModule('/@fs/' + fileURLToPath(new URL('../system/surface/workspace/components/central/' + file, import.meta.url)));
-  [{WebAccountProvider}, {SpacesPanel}, {SpacesExperience}] = await Promise.all([
-    load('account-context.tsx'), load('desktop.tsx'), load('spaces-experience.tsx'),
+  [{WebAccountProvider}, {SpacesPanel}, {SpacesExperience}, {AccountPanel}] = await Promise.all([
+    load('account-context.tsx'), load('desktop.tsx'), load('spaces-experience.tsx'), load('primitives.tsx'),
   ]);
 });
 after(async () => { await server?.close(); });
@@ -23,13 +23,14 @@ after(async () => { await server?.close(); });
 const anonymous = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: false, status: 'signed-out'};
 const account = {$schema: 'prototype-ordax.public-identity-session/1', provider: 'configured', authenticated: true, status: 'authenticated', subject: 'account-a', email: 'account-a@example.invalid'};
 const space = (id = 'studio', overrides = {}) => ({id, name: 'Estúdio <real>', kind: 'work', state: 'active', ownerId: account.subject, ...overrides});
-function fixture({identity = account, spaces = [space()], failed = false} = {}) {
+function fixture({identity = account, spaces = [space()], failed = false, policy = null} = {}) {
   const windowRef = Object.assign(new EventTarget(), {
     navigator: {onLine: true}, document: Object.assign(new EventTarget(), {visibilityState: 'visible'}),
   });
-  const state = {identity, spaces, failed};
+  const state = {identity, spaces, failed, policy};
   windowRef.fetch = async path => {
     if (path === '/auth/session') return new Response(JSON.stringify(state.identity));
+    if (path === '/auth/registration-policy') return new Response(JSON.stringify(state.policy), {status: state.policy ? 200 : 503});
     if (path === '/account/spaces') {
       if (state.failed) throw Error('catalog unavailable');
       return new Response(JSON.stringify({$schema: 'prototype-ordax.account-spaces/1', spaces: state.spaces}));
@@ -115,5 +116,36 @@ test('only a successfully consulted empty account displays the empty catalog mes
     assert.match(html, /Catálogo confirmado pelo serviço da conta/);
     assert.match(html, /Nenhum Space está disponível para esta conta/);
     assert.doesNotMatch(html, /Conexão com a conta pendente/);
+  } finally { f.session.dispose(); }
+});
+
+
+test('Account preserves disabled signup with an explanation while gateway policy is unavailable', async () => {
+  const f = fixture({identity: anonymous});
+  try {
+    await f.session.refresh();
+    const html = renderToStaticMarkup(createElement(WebAccountProvider, {session: f.session}, createElement(AccountPanel)));
+    const button = html.match(/<button\b[^>]*>Criar conta<\/button>/)?.[0];
+    assert.ok(button?.includes('disabled=""'));
+    assert.match(button, /aria-describedby=/);
+    assert.match(html, /Cadastro indisponível até confirmação do serviço/);
+    assert.match(html, />Entrar<\/button>/);
+  } finally { f.session.dispose(); }
+});
+
+test('Account enables signup only after receiving the canonical server policy', async () => {
+  const policy = {
+    $schema: 'prototype-ordax.registration-legal-policy/1', active: true, registrationEnabled: true,
+    policyId: '11111111-1111-4111-8111-111111111111',
+    privacy: {version: '2026-10-02', effectiveDate: '2026-10-02', sha256: 'a'.repeat(64), url: 'https://ordax.example/privacidade/'},
+    terms: {version: '2026-10-02', effectiveDate: '2026-10-02', sha256: 'b'.repeat(64), url: 'https://ordax.example/termos/'},
+  };
+  const f = fixture({identity: anonymous, policy});
+  try {
+    await f.session.refresh();
+    const html = renderToStaticMarkup(createElement(WebAccountProvider, {session: f.session}, createElement(AccountPanel)));
+    const button = html.match(/<button\b[^>]*>Criar conta<\/button>/)?.[0];
+    assert.ok(button && !button.includes('disabled='));
+    assert.doesNotMatch(html, /Cadastro indisponível até confirmação do serviço/);
   } finally { f.session.dispose(); }
 });

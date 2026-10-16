@@ -817,8 +817,8 @@
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "6912647b30195bd60a27b605684fc403912655397fe7dedc7b3e05a59942d775",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained.",
+      "adaptedSha256": "e0bae6828c294dbf3e8c478e45a48a4353283ec1aee633124cc3e5006dc421a8",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-16: Account keeps signup visible but disabled until the canonical server policy grants register; existing identity-actions own navigation, revalidation and session state. No credentials or legal acceptance are collected by this panel.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -962,7 +962,9 @@
       "target": "system/composition/web/account-session.mjs",
       "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
       "owner": "OrdaX OS Surface",
-      "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle"
+      "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle",
+      "adaptedSha256": "c9ed5f5bdbc582fdc5cec3e62ab1f651c0c856575970b63a769a9af120c2b26e",
+      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged."
     },
     {
       "target": "system/surface/workspace/components/central/account-context.tsx",
@@ -1034,7 +1036,9 @@
       "target": "system/adapters/web/identity-actions.mjs",
       "owner": "OrdaX OS Web adapter",
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
-      "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133"
+      "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133",
+      "adaptedSha256": "d90984fce4264f7c6e89cf31a712698c9d81ef647bdc368373e19e0c70056d15",
+      "adaptation": " 2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here."
     },
     {
       "target": "system/adapters/web/spaces.mjs",
