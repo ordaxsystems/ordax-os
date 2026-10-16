@@ -2,6 +2,23 @@ import { PRODUCT_VERSION } from "./product-version.mjs";
 
 export const PRODUCT_FAMILY_SCHEMA = "ordax.product-family/1";
 
+// Public naming/origin identity only. Availability, routing, authentication and
+// deployment proof remain with their respective owners and must fail closed.
+export const PRODUCT_FAMILY_PUBLIC_ENDPOINTS = Object.freeze({
+  site: Object.freeze({
+    displayName: "OrdaX",
+    origin: "https://ordax.com.br",
+    role: "public-site",
+  }),
+  web: Object.freeze({
+    displayName: "OrdaX Web",
+    origin: "https://web.ordax.com.br",
+    presentationUrl: "https://ordax.com.br/web/",
+    role: "product-runtime",
+    availabilityOwner: "web-deployment",
+  }),
+});
+
 // One shared product source and account. These are presentation identities,
 // not new capability IDs, boot modes, deployment authorities or repositories.
 export const PRODUCT_FAMILY_MODES = Object.freeze([
