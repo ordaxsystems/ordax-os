@@ -1,0 +1,45 @@
+name: Public Account Bridge Candidate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/public-account-bridge-candidate.yml'
+      - '.github/workflows/ordax-public-account-gateway-destination.yml'
+      - 'tools/account/ensure_public_account_bridge.py'
+      - 'tests/test_public_account_bridge_provisioning.py'
+      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-account-bridge-candidate.yml'
+      - '.github/workflows/ordax-public-account-gateway-destination.yml'
+      - 'tools/account/ensure_public_account_bridge.py'
+      - 'tests/test_public_account_bridge_provisioning.py'
+      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Verify bridge provisioning contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest tests.test_public_account_bridge_provisioning -v
+          grep -Fq 'ordax_account_public_bridge' infra/supabase/functions/_shared/account_service_bridge.mjs
+          grep -Fq 'ensure_public_account_bridge.py' .github/workflows/ordax-public-account-gateway-destination.yml
+          ! grep -Fq 'SUPABASE_SERVICE_ROLE_KEY' tools/account/ensure_public_account_bridge.py
+          ! grep -Fq 'reveal=true' tools/account/ensure_public_account_bridge.py
