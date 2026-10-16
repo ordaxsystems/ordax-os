@@ -525,7 +525,7 @@
   }
   function faqContent() {
     const matches = matchingFaqs();
-    return matches.length ? matches.map(faq => `<article class="faq-item"><h3><button type="button" class="button ghost" id="faq-question-${faq.id}" data-faq="${faq.id}" aria-expanded="${state.faq === faq.id}" aria-controls="faq-answer-${faq.id}">${tx(faq.q)}${icon("chevron-down")}</button></h3><div class="faq-answer" id="faq-answer-${faq.id}" aria-labelledby="faq-question-${faq.id}"${state.faq === faq.id ? "" : " hidden"}><p>${tx(faq.a)}</p>${link(faq.section, "", "text-link", `${tx(byId.get(faq.section).title)}${icon("arrow-right")}`)}</div></article>`).join("") : `<div class="help-empty">${icon("search")}<h3>${tx("Nenhuma resposta encontrada")}</h3><p>${tx("Tente buscar por plano, fatura, senha ou dados.")}</p><button type="button" class="button outline h-8" data-reset-help>${tx("Ver todas as perguntas")}</button></div>`;
+    return matches.length ? matches.map(faq => `<article class="faq-item"><h3><button type="button" class="button ghost" id="faq-question-${faq.id}" data-faq="${faq.id}" aria-expanded="${state.faq === faq.id}" aria-controls="faq-answer-${faq.id}">${tx(faq.q)}${icon("chevron-down")}</button></h3><div class="faq-answer" id="faq-answer-${faq.id}" aria-labelledby="faq-question-${faq.id}"${state.faq === faq.id ? "" : " hidden"}><p>${tx(faq.a)}</p>${link(faq.section, "", "text-link", `${tx(byId.get(faq.section).title)}${icon("arrow-right")}`)}</div></article>`).join("") : `<div class="help-empty">${icon("search")}<h3>${tx("Nenhuma resposta encontrada")}</h3><p>${tx("Tente buscar por plano, fatura, senha ou dados.")}</p><button type="button" class="button outline h-8" data-clear-search="help-search" aria-controls="faq-list">${tx("Ver todas as perguntas")}</button></div>`;
   }
   function updateHelpResults() {
     document.getElementById("faq-list").innerHTML = faqContent();
@@ -687,6 +687,7 @@
     else if (event.target.id === "account-locale") i18n.setLocale(event.target.value);
   });
   document.addEventListener("keydown", event => {
+    if (event.defaultPrevented || event.isComposing) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openDialog("search"); }
     if (state.dialog === "search" && ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) {
       const results = [...document.querySelectorAll("#search-results > a")];

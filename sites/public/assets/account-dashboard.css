@@ -65,6 +65,7 @@ body.account-portal .sidebar-collapsed .sidebar-link span,body.account-portal .s
 body.account-portal .sidebar-collapsed .sidebar-heading{padding:0;justify-content:center}
 body.account-portal .sidebar-collapsed .sidebar-link{padding:0;justify-content:center}
 body.account-portal .sidebar-collapsed .brand{padding-left:17px}
+body.account-portal .account-main :is(a,button,input,select,summary){scroll-margin-block:calc(var(--md-bar) + 16px) 20px}
 body.account-portal .account-main{margin-left:var(--sidebar-width);min-height:100vh;transition:margin .2s;min-width:0;max-width:none;padding:calc(var(--md-bar) + 20px) 28px 24px;}
 body.account-portal .breadcrumb{display:flex;align-items:center;gap:9px;color:var(--subtle);height:auto;flex-wrap:wrap;font-size:11px;margin-bottom:8px;min-height:24px;}
 body.account-portal .breadcrumb>svg{width:11px;height:11px}
@@ -264,7 +265,7 @@ body.account-portal .profile-edit{grid-template-columns:60px minmax(0,1fr);gap:1
 body.account-portal .profile-edit>.button{grid-column:2;justify-self:start}
 body.account-portal .large-avatar{width:60px;height:60px;align-self:start}
 }
-@media(max-width:640px){body.account-portal .button{min-height:44px;max-width:100%;white-space:normal}body.account-portal .icon-button{width:44px;height:44px}body.account-portal input,body.account-portal select{font-size:16px}body.account-portal .search-field input,body.account-portal .help-search input{font-size:16px}
+@media(max-width:640px){body.account-portal .button{min-height:44px;height:auto;max-width:100%;white-space:normal}body.account-portal .button.h-8{height:auto}body.account-portal .account-main :is(a,button,input,select,summary){scroll-margin-block:80px calc(92px + env(safe-area-inset-bottom))}body.account-portal .public-locale-select,body.account-portal .period-filter select{min-height:44px}body.account-portal .icon-button{width:44px;height:44px}body.account-portal input,body.account-portal select{font-size:16px}body.account-portal .search-field input,body.account-portal .help-search input{font-size:16px}
 body.account-portal .help-search+.related-areas .related-area{align-items:center;padding-block:10px}
 body.account-portal .help-search+.related-areas .related-area small{display:none}
 body.account-portal .help-search+.related-areas .related-area strong{margin-top:0}
