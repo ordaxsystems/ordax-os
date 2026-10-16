@@ -268,6 +268,23 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(bot["secret_may_exist_in_repository"])
         self.assertFalse(bot["token_forwarded_to_inner_gateway"])
 
+    def test_web_runtime_cutover_ssot_matches_canonical_domain_ownership(self):
+        web = self.contract["vercel_adapter"]["web_runtime"]
+        self.assertEqual(web["project"], "ordax-web")
+        self.assertEqual(web["project_id"], "prj_ftACluUqk6i9DoD9GPIwmgURwckP")
+        self.assertEqual(web["canonical_origin"], "https://web.ordax.com.br")
+        self.assertEqual(web["mount_path"], "/")
+        self.assertFalse(web["domain_project_move_pending"])
+        self.assertEqual(web["domain_current_project"], "ordax-web")
+        self.assertEqual(web["domain_target_project"], "ordax-web")
+
+        bot = self.contract["bot_protection"]
+        self.assertEqual(
+            bot["hostname_allowlist"],
+            ["ordax.com.br", "web.ordax.com.br", "www.ordax.com.br"],
+        )
+        self.assertFalse(bot["production_e2e_verified"])
+
     def test_nginx_adapter_is_loopback_only_and_does_not_replace_vercel_identity(self):
         adapter = self.contract["adapter"]
         self.assertEqual(adapter["kind"], "nginx-loopback-behind-https-terminator")
