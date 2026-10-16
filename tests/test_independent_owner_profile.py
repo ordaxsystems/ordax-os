@@ -105,7 +105,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "$TARGET_DIR/usr/bin/git",
             "$TARGET_DIR/usr/sbin/iw",
             "$TARGET_DIR/usr/sbin/wpa_supplicant",
-            "$TARGET_DIR/usr/bin/wpa_passphrase",
+            "$TARGET_DIR/usr/sbin/wpa_passphrase",
         ):
             self.assertIn(target, script)
         self.assertIn("Owner/Development CA trust store is missing", script)

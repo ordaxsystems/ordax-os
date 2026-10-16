@@ -472,7 +472,7 @@ def verify_owner_target(target: Path) -> None:
         "usr/bin/git": None,
         "usr/sbin/iw": None,
         "usr/sbin/wpa_supplicant": None,
-        "usr/bin/wpa_passphrase": None,
+        "usr/sbin/wpa_passphrase": None,
         "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
         "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
         "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",

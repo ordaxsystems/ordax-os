@@ -17,6 +17,7 @@ import sys
 from build import ROOT, BaseError, CANONICAL_HANDOFF, contracts, digest, verify
 
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+INDEPENDENT_PORTABLE_PROFILE = "minimal"
 
 
 def regular_file(path: Path, label: str) -> Path:
@@ -80,7 +81,7 @@ def prove(args: argparse.Namespace) -> dict:
         staged_base = regular_file(args.stable_base, "portable-v2 staged base")
         if digest(staged_base) != digest(candidate):
             raise BaseError("staged portable EROFS differs from independent Buildroot source")
-    receipt = verify(base_dir)
+    receipt = verify(base_dir, INDEPENDENT_PORTABLE_PROFILE)
     if receipt.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
         raise BaseError("candidate handoff is not the canonical owner")
     if receipt.get("source_commit") != args.source_commit:

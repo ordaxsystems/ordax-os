@@ -23,6 +23,7 @@ on:
       - 'tests/test_independent_base_experiment.py'
       - 'tests/test_independent_network_parity.py'
       - 'tests/test_independent_owner_profile.py'
+      - 'tests/test_independent_portable_boot_integration.py'
       - 'tests/test_kernel_module_payload.py'
       - 'tests/test_firmware_policy_neutral.py'
       - 'tests/test_independent_heavy_workflow.py'
@@ -63,6 +64,7 @@ jobs:
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
+            tests.test_independent_portable_boot_integration \
             tests.test_kernel_module_payload \
             tests.test_firmware_policy_neutral \
             tests.test_independent_heavy_workflow -v
@@ -83,6 +85,7 @@ jobs:
             bootstrap/independent-base/portable_boot_proof.py \
             tests/test_alpine_removal_boundary.py \
             tests/test_independent_owner_profile.py \
+            tests/test_independent_portable_boot_integration.py \
             tests/test_kernel_module_payload.py \
             tests/test_firmware_policy_neutral.py \
             tests/test_independent_heavy_workflow.py

@@ -85,6 +85,8 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertEqual(official.count('sudo -E python3 "$proof_runner"'), 2)
         self.assertIn("ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING", official)
         adapter = (BASE / "portable_boot_proof.py").read_text()
+        self.assertIn('INDEPENDENT_PORTABLE_PROFILE = "minimal"', adapter)
+        self.assertIn('verify(base_dir, INDEPENDENT_PORTABLE_PROFILE)', adapter)
         self.assertIn('"--out", str(qemu_result)', adapter)
         self.assertIn('command(argv)  # official portable PID1 QEMU harness', adapter)
         self.assertIn('"--initramfs", str(initramfs_out / "initramfs.cpio.gz")', adapter)
