@@ -112,16 +112,13 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.assertIn("supabase.auth.getUser(access)", self.inner)
         self.assertIn('"public-account-boundary-authentication-required"', self.inner)
         transport_index = self.inner.index("authorizeAccountTransport(req, path")
-        handler_markers = [
-            marker for marker in (
-                'if (method === "GET" && path === "/account/spaces")',
-                'if (method === "GET" && path === "/account/export")',
-                'if (method === "POST" && path === "/account/close")',
-            )
-            if marker in self.inner
-        ]
-        self.assertTrue(handler_markers)
+        handler_markers = (
+            'if (path === "/account/spaces" && req.method === "GET")',
+            'if (path === "/account/export" && req.method === "GET")',
+            'if (path === "/account/close" && req.method === "POST")',
+        )
         for marker in handler_markers:
+            self.assertIn(marker, self.inner)
             self.assertLess(transport_index, self.inner.index(marker))
 
     def test_rate_limits_and_request_body_limits_are_server_authoritative(self):
