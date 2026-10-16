@@ -10,10 +10,12 @@ on:
       - 'docs/contracts/entitlements.json'
       - 'infra/supabase/product/migrations/20261016014500_space_creation_authority_v1.sql'
       - 'infra/supabase/product/migrations/20261016043000_space_active_quota_guard_v1.sql'
+      - 'infra/supabase/product/migrations/20261016050000_remove_legacy_space_actor_authority_v1.sql'
       - 'tests/test_space_creation_authority.mjs'
       - 'tests/test_space_active_quota_guard.mjs'
       - 'tests/sql/test_space_creation_authority_v1.sql'
       - 'tests/sql/test_space_active_quota_guard_v1.sql'
+      - 'tests/sql/test_remove_legacy_space_actor_authority_v1.sql'
       - '.github/workflows/space-creation-authority-v1-proof.yml'
   pull_request:
     paths:
@@ -23,10 +25,12 @@ on:
       - 'docs/contracts/entitlements.json'
       - 'infra/supabase/product/migrations/20261016014500_space_creation_authority_v1.sql'
       - 'infra/supabase/product/migrations/20261016043000_space_active_quota_guard_v1.sql'
+      - 'infra/supabase/product/migrations/20261016050000_remove_legacy_space_actor_authority_v1.sql'
       - 'tests/test_space_creation_authority.mjs'
       - 'tests/test_space_active_quota_guard.mjs'
       - 'tests/sql/test_space_creation_authority_v1.sql'
       - 'tests/sql/test_space_active_quota_guard_v1.sql'
+      - 'tests/sql/test_remove_legacy_space_actor_authority_v1.sql'
       - '.github/workflows/space-creation-authority-v1-proof.yml'
   workflow_dispatch:
 
@@ -78,3 +82,8 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_active_quota_guard_v1.sql
+
+      - name: Prove legacy actor authority is absent
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_remove_legacy_space_actor_authority_v1.sql
