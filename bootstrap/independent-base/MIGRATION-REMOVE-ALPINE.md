@@ -21,7 +21,9 @@ O desenvolvimento da migração usa dois níveis distintos.
 
 `.github/workflows/remove-alpine-fast.yml` roda somente em `platform/remove-alpine` para mudanças relevantes e valida contratos, testes unitários, sintaxe e compilação Python sem compilar Buildroot, kernel ou imagem USB inteira.
 
-Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar cada commit em build completo.
+O gate também executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto atual de consumidores Python de `bootstrap/base/alpine_core.py`. Novos consumidores são proibidos; a allowlist só pode encolher à medida que a migração avança.
+
+Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar cada commit em build completo e sem permitir que a dependência Alpine cresça durante a remoção.
 
 ### Gate pesado
 
@@ -42,6 +44,7 @@ O gate pesado não deve ser tornado obrigatório para mudanças comuns de Surfac
 - [x] criar `platform/remove-alpine` a partir da `main` atual;
 - [x] adicionar gate rápido sem build completo;
 - [x] preservar o workflow pesado existente como prova de integração;
+- [x] congelar a fronteira de novos consumidores de `alpine_core.py`;
 - [ ] manter a branch atualizada com `main` sem reescrever histórico compartilhado.
 
 ### Fase B — paridade da base
@@ -61,13 +64,26 @@ Provar que a Independent Base cobre os requisitos hoje atendidos pela base Alpin
 
 Migrar consumidores que ainda importam `bootstrap/base/alpine_core.py` ou assumem APK/Alpine para APIs e artefatos neutros de distribuição.
 
+A fronteira Python inicial, congelada pelo teste de regressão, é:
+
+- `bootstrap/dev-base/_build_core.py`;
+- `bootstrap/dev-base/build.py`;
+- `bootstrap/stable-base/build.py`;
+- `bootstrap/surface-runtime/build.py`;
+- `bootstrap/surface-runtime/discover_lock.py`;
+- `bootstrap/windows-compat-runtime/configure_probe.py`.
+
+Referências de compliance, cache, contratos, testes e evidência podem continuar descrevendo Alpine enquanto ele ainda existe, mas não podem criar novo consumidor de runtime/base.
+
 A ordem deve reduzir duplicação, não criar wrappers permanentes:
 
 1. identificar dependências reais de Alpine;
 2. separar responsabilidade genérica de responsabilidade específica da distro;
 3. mover lógica genérica para owner neutro somente quando houver mais de um consumidor legítimo;
-4. migrar `dev-base`, `stable-base` e `surface-runtime` para o owner canônico escolhido;
-5. remover wrappers de compatibilidade assim que o último consumidor desaparecer.
+4. migrar primeiro consumidores cuja semântica já exista na Independent Base;
+5. migrar `dev-base`, `stable-base`, `surface-runtime` e compatibilidade Windows conforme seus gates específicos;
+6. remover wrappers de compatibilidade assim que o último consumidor desaparecer;
+7. reduzir a allowlist de `test_alpine_removal_boundary.py` no mesmo commit que elimina cada referência.
 
 ### Fase D — prova sem Alpine
 
@@ -107,6 +123,15 @@ Da mesma forma, a migração não pode mascarar falhas usando mocks, bypasses, d
 A otimização correta é reutilizar componentes autenticados e content-addressed, não pular verificação. O workflow pesado já reutiliza o kernel verificado por fingerprint. Próximas otimizações devem priorizar cache seguro de downloads e componentes Buildroot cuja identidade seja derivada de inputs versionados.
 
 Não compartilhar diretórios mutáveis de build entre commits como se fossem artefatos verificados.
+
+## Documentação canônica relacionada
+
+A política geral permanece nos owners existentes:
+
+- `docs/DEVELOPMENT-WORKFLOW.md` — branch temporária e loop de desenvolvimento;
+- `docs/BUILD-AUTONOMY.md` — separação entre gates baratos e provas caras;
+- `bootstrap/independent-base/README.md` — estado e limites da implementação Buildroot;
+- `docs/CURRENT-STATE.md` — só deve declarar a troca como estado corrente depois que o corte estiver integrado em `main` e comprovado; a existência desta branch não muda o estado Stable/canônico.
 
 ## Critério de conclusão
 
