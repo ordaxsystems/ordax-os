@@ -90,6 +90,9 @@ IMPACT_POLICY_LIGHT_EXACT = {
     "tests/test_heavy_workflow_path_scope.py",
     "tests/test_native_memory_integration.py",
     "tests/test_surface_boot_screen.py",
+    "tests/test_power_actions.mjs",
+    "tests/test_update_presentation_pinned.mjs",
+    "tests/test_portable_qemu_high_level_light.py",
 }
 PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "docs/contracts/product-device-presence.json",
