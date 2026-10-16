@@ -8,7 +8,8 @@ RATE_LIMIT_POLICY = ROOT / "infra" / "supabase" / "functions" / "_shared" / "aut
 REQUEST_CONTEXT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_request_context.mjs"
 OIDC = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "vercel_oidc.mjs"
 INNER_EDGE = ROOT / "infra" / "supabase" / "functions" / "ordax-account-gateway" / "index.ts"
-VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
+VERCEL_PROXY_CORE = ROOT / "lib" / "account-proxy-core.mjs"
+VERCEL_PROXY_WRAPPER = ROOT / "api" / "account-proxy.mjs"
 
 
 class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
@@ -19,7 +20,14 @@ class PublicAccountEdgeGatewaySourceTests(unittest.TestCase):
         self.request_context = REQUEST_CONTEXT.read_text(encoding="utf-8")
         self.oidc = OIDC.read_text(encoding="utf-8")
         self.inner = INNER_EDGE.read_text(encoding="utf-8")
-        self.proxy = VERCEL_PROXY.read_text(encoding="utf-8")
+        self.proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
+        self.proxy_wrapper = VERCEL_PROXY_WRAPPER.read_text(encoding="utf-8")
+
+    def test_vercel_entrypoint_is_minimal_reexport_of_shared_proxy_core(self):
+        self.assertEqual(
+            self.proxy_wrapper.strip(),
+            'export * from "../lib/account-proxy-core.mjs";\nexport { default } from "../lib/account-proxy-core.mjs";',
+        )
 
     def test_public_and_internal_gateways_use_one_exact_route_parser(self):
         shared = (

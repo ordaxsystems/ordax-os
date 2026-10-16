@@ -136,7 +136,12 @@ class BrandPipelineTests(unittest.TestCase):
             self.assertNotRegex(css, r"--ordax-[a-z-]+\s*:")
             references = set(re.findall(r"var\((--ordax-[a-z-]+)", css))
             self.assertFalse(references - definitions, (asset, references - definitions))
-            self.assertRegex(css, r"var\(--(?:ordax-font|md-font)\)")
+            if asset == "account-dashboard.css":
+                self.assertRegex(css, r"var\(--(?:ordax-font|md-font)\)")
+        shared_account_css = (ROOT / "sites/public/assets/account.css").read_text(encoding="utf-8")
+        self.assertRegex(shared_account_css, r"var\(--(?:ordax-font|md-font)\)")
+        web_markup = (ROOT / "sites/public/web/index.html").read_text(encoding="utf-8")
+        self.assertRegex(web_markup, r'href="/assets/account\.css(?:\?[^"]*)?"')
         for route in ("conta", "web"):
             markup = (ROOT / f"sites/public/{route}/index.html").read_text(encoding="utf-8")
             self.assertTrue('src="/assets/ordax-symbol.png"' in markup or 'class="ordax-symbol"' in markup)

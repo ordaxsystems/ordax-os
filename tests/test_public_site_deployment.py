@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "contracts" / "public-site-deployment.json"
 NGINX = ROOT / "deploy" / "public-site" / "nginx.conf"
 VERCEL = ROOT / "vercel.json"
-VERCEL_PROXY = ROOT / "api" / "account-proxy.mjs"
+VERCEL_PROXY_CORE = ROOT / "lib" / "account-proxy-core.mjs"
+VERCEL_PROXY_WRAPPER = ROOT / "api" / "account-proxy.mjs"
 DEPLOYMENT_PROOF = ROOT / "tools" / "public-site" / "prove_deployment.py"
 PUBLIC_EDGE_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "ordax-public-account-gateway" / "public_auth_rate_limit.mjs"
 SHARED_AUTH_RATE_LIMIT = ROOT / "infra" / "supabase" / "functions" / "_shared" / "auth_rate_limit.mjs"
@@ -22,7 +23,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.nginx = NGINX.read_text(encoding="utf-8")
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
-        self.vercel_proxy = VERCEL_PROXY.read_text(encoding="utf-8")
+        self.vercel_proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
+        self.vercel_proxy_wrapper = VERCEL_PROXY_WRAPPER.read_text(encoding="utf-8")
 
     def test_vercel_ignore_build_is_fail_safe_and_project_aware(self):
         self.assertEqual(self.vercel["ignoreCommand"], "sh tools/vercel/should_skip_build.sh")
