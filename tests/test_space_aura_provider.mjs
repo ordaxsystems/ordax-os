@@ -17,7 +17,9 @@ function space(overrides = {}) {
     name: "Pizzaria",
     kind: "professional",
     state: "active",
-    profilePack: "pizzaria-br",
+    profilePack: null,
+    domain: "food",
+    subtype: "pizzeria",
     ...overrides,
   };
 }
@@ -125,6 +127,8 @@ test("Aura provider is ready only for the exact currently selected Space", () =>
   });
   assert.equal(provider.getSnapshot(space({ id: "pizza-2" })).state, "unavailable");
   assert.equal(provider.getSnapshot(space({ ownerId: "foreign-owner" })).state, "unavailable");
+  assert.equal(provider.getSnapshot(space({ domain: "fabrication", subtype: "3d-printing" })).state, "unavailable");
+  assert.equal(provider.getSnapshot(space({ profilePack: "pizzaria-br" })).state, "unavailable");
 });
 
 test("Aura provider follows real Intelligence availability without inventing a summary metric", () => {
