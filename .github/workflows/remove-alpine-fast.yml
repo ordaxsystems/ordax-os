@@ -15,6 +15,7 @@ on:
       - 'bootstrap/windows-compat-runtime/**'
       - 'system/services/base-update/dev_channel.py'
       - 'tools/dev-base-channel/**'
+      - 'tools/creator/proof/disposable_media.py'
       - 'docs/BUILD-AUTONOMY.md'
       - 'docs/DEVELOPMENT-WORKFLOW.md'
       - 'docs/contracts/hardware-support-matrix.json'
@@ -35,7 +36,9 @@ on:
       - 'tests/test_kernel_module_payload.py'
       - 'tests/test_firmware_policy_neutral.py'
       - 'tests/test_independent_heavy_workflow.py'
+      - 'tests/test_physical_media_contract.py'
       - '.github/workflows/creator-owner-build-diagnose.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
       - '.github/workflows/dev-base-channel.yml'
       - '.github/workflows/independent-base-experiment.yml'
       - '.github/workflows/remove-alpine-fast.yml'
@@ -83,7 +86,8 @@ jobs:
             tests.test_independent_portable_boot_integration \
             tests.test_kernel_module_payload \
             tests.test_firmware_policy_neutral \
-            tests.test_independent_heavy_workflow -v
+            tests.test_independent_heavy_workflow \
+            tests.test_physical_media_contract -v
       - name: Resolve Buildroot profiles without compiling rootfs or kernel
         run: |
           set -euo pipefail
@@ -103,6 +107,7 @@ jobs:
             tools/dev-base-channel/build.py \
             tools/dev-base-channel/independent_rootfs.py \
             tools/dev-base-channel/prove_independent_rootfs.py \
+            tools/creator/proof/disposable_media.py \
             tests/test_alpine_removal_boundary.py \
             tests/test_creator_kernel_reuse_workflows.py \
             tests/test_dev_base_channel.py \
@@ -114,7 +119,8 @@ jobs:
             tests/test_independent_portable_boot_integration.py \
             tests/test_kernel_module_payload.py \
             tests/test_firmware_policy_neutral.py \
-            tests/test_independent_heavy_workflow.py
+            tests/test_independent_heavy_workflow.py \
+            tests/test_physical_media_contract.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/post-image.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init

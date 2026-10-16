@@ -5,14 +5,59 @@ on:
     branches: [main]
     paths:
       - 'boot/esp/**'
+      - 'bootstrap/base/firmware_policy.py'
+      - 'bootstrap/base/kernel_module_payload.py'
+      - 'bootstrap/independent-base/**'
+      - '!bootstrap/independent-base/**/*.md'
       - 'bootstrap/kernel/**'
       - '!bootstrap/kernel/candidates/**'
       - '!bootstrap/kernel/candidate_pipeline.py'
       - '!bootstrap/kernel/update_engine.py'
       - 'bootstrap/initramfs/**'
       - 'bootstrap/dev/**'
-      - 'bootstrap/dev-base/**'
+      - 'bootstrap/dev-base/ordax-dev-init'
+      - 'bootstrap/dev-base/ordax-diagnose'
+      - 'bootstrap/dev-base/ordax-network'
+      - 'bootstrap/dev-base/ordax-pull'
+      - 'bootstrap/dev-base/ordax-rollback'
+      - 'bootstrap/dev-base/ordax-run'
       - 'bootstrap/recovery/**'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
+      - 'tools/creator/**'
+      - 'tools/release-signing/**'
+      - '!tools/release-signing/windows/**'
+      - '!tools/release-signing/promote_public_trust.py'
+      - '!tools/release-signing/cmd/ordax-physical-release-signing/**'
+      - '!tools/release-signing/README.md'
+      - 'docs/contracts/minimal-bootstrap.json'
+      - 'docs/contracts/physical-media.json'
+      - 'docs/contracts/distribution-profiles.json'
+      - '.github/workflows/creator-owner-dev-git.yml'
+  pull_request:
+    paths:
+      - 'boot/esp/**'
+      - 'bootstrap/base/firmware_policy.py'
+      - 'bootstrap/base/kernel_module_payload.py'
+      - 'bootstrap/independent-base/**'
+      - '!bootstrap/independent-base/**/*.md'
+      - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
+      - 'bootstrap/initramfs/**'
+      - 'bootstrap/dev/**'
+      - 'bootstrap/dev-base/ordax-dev-init'
+      - 'bootstrap/dev-base/ordax-diagnose'
+      - 'bootstrap/dev-base/ordax-network'
+      - 'bootstrap/dev-base/ordax-pull'
+      - 'bootstrap/dev-base/ordax-rollback'
+      - 'bootstrap/dev-base/ordax-run'
+      - 'bootstrap/recovery/**'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
       - '!tools/release-signing/windows/**'
@@ -26,21 +71,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: creator-owner-dev-git-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-publish:
+  build-and-prove:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    env:
+      ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.ORDAX_SOURCE_COMMIT }}
           persist-credentials: false
 
       - name: Set up Python
@@ -68,18 +115,19 @@ jobs:
           python -m unittest tests.test_owner_dev_bundle_verifier -v
           python -m unittest tests.test_owner_dev_helper_storage_profile -v
           python -m unittest tests.test_owner_published_release -v
+          python -m unittest tests.test_physical_media_contract -v
 
       - name: Install build dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            gcc gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
-            dwarves kmod xz-utils pkg-config musl-tools binutils bzip2 \
-            gpg gpg-agent \
-            meson ninja-build gperf libcap-dev libmount-dev libblkid-dev \
-            liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
-            gdisk dosfstools e2fsprogs mtools util-linux proot
+            build-essential gcc gcc-13 g++ make bc perl bison flex openssl \
+            libssl-dev libelf-dev dwarves kmod xz-utils pkg-config musl-tools \
+            binutils bzip2 gawk cpio unzip rsync file wget curl patch git \
+            gpg gpg-agent meson ninja-build gperf libcap-dev libmount-dev \
+            libblkid-dev liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
+            gdisk dosfstools e2fsprogs mtools util-linux erofs-utils
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
       - name: Resolve reusable kernel fingerprint
@@ -102,16 +150,12 @@ jobs:
 
       - name: Build kernel candidate on verified cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           python bootstrap/kernel/build.py check
           python bootstrap/kernel/build.py build --jobs 4
 
       - name: Verify kernel component and exact integration binding
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           metadata="$RUNNER_TEMP/owner-dev/metadata"
@@ -142,9 +186,7 @@ jobs:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
-      - name: Build boot initramfs and Git development base
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build boot initramfs and Owner Independent Base
         run: |
           set -euo pipefail
           python boot/esp/build.py check
@@ -153,22 +195,45 @@ jobs:
           python bootstrap/initramfs/build.py check
           python bootstrap/initramfs/build.py build --jobs 4
           python bootstrap/initramfs/build.py verify
-          proot --version
-          sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-            --out-dir out/dev-base
-          rootfs=out/dev-base/rootfs
-          sudo touch "$rootfs/dev/null"
-          cleanup_dev_null() {
-            sudo rm -f "$rootfs/dev/null"
-          }
-          trap cleanup_dev_null EXIT
-          sudo chroot "$rootfs" /usr/bin/git --version
-          cleanup_dev_null
-          trap - EXIT
+
+          independent="$RUNNER_TEMP/creator-owner-independent"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$independent/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$independent/firmware-coverage.json"
+          python3 bootstrap/independent-base/build.py build \
+            --profile owner-development \
+            --out "$independent" \
+            --cache "$RUNNER_TEMP/creator-owner-buildroot-cache" \
+            --jobs 4
+          python3 bootstrap/independent-base/build.py verify \
+            --profile owner-development \
+            --out "$independent"
+          python3 tools/dev-base-channel/prove_independent_rootfs.py \
+            --rootfs "$independent/rootfs.tar" \
+            --provenance "$independent/provenance.json" \
+            --expected-commit "$ORDAX_SOURCE_COMMIT" \
+            --receipt "$independent/dev-channel-rootfs-compatibility.json"
+
+          mkdir -p out/dev-base
+          python3 tools/dev-base-channel/independent_rootfs.py materialize \
+            --rootfs "$independent/rootfs.tar" \
+            --provenance "$independent/provenance.json" \
+            --expected-commit "$ORDAX_SOURCE_COMMIT" \
+            --destination out/dev-base/rootfs
+
           test -x out/dev-base/rootfs/sbin/ordax-dev-init
           test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
-          test -z "$(sudo find "$rootfs/dev" -mindepth 1 -print -quit)"
+          test -z "$(find out/dev-base/rootfs/dev -mindepth 1 -print -quit)"
+          python - "$independent/provenance.json" <<'PY'
+          import json, pathlib, sys
+          provenance = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert provenance['profile'] == 'owner-development'
+          assert provenance['owner_development_capabilities_verified'] is True
+          assert provenance['physical_artifact_authorized'] is False
+          assert provenance['signed_release_equivalence_proven'] is False
+          print('OWNER_CREATOR_INDEPENDENT_BASE=PASS')
+          PY
 
       - name: Create ephemeral prototype trust for Creator provenance
         run: |
@@ -184,14 +249,12 @@ jobs:
           signer="$PWD/out/owner-prototype/ordax-release-signing"
           private="$RUNNER_TEMP/owner-prototype-private.pem"
           trust="$RUNNER_TEMP/owner-prototype-trust.json"
-          # Source-pinned public release trust must never be overwritten by a
-          # temporary Owner/Development identity generated during CI.
           test ! -e "$private"
           test ! -e "$trust"
           "$signer" generate-key \
             --private-key "$private" \
             --trust "$trust" \
-            --key-id owner-dev-${GITHUB_SHA::12}
+            --key-id owner-dev-${ORDAX_SOURCE_COMMIT::12}
           test -s "$private"
           test -s "$trust"
           echo "$private" > "$RUNNER_TEMP/owner-prototype-private-path"
@@ -310,8 +373,8 @@ jobs:
           popd >/dev/null
           sudo mkdir -p "$stage/ORDAX/dev-base"
           sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
-          if sudo find "$stage" -type l -print -quit | grep -q .; then
-            echo 'development seed may not contain symlinks' >&2
+          if find "$stage/ORDAX-ESP" -type l -print -quit | grep -q .; then
+            echo 'ESP may not contain symlinks' >&2
             exit 1
           fi
           echo "$stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
@@ -331,6 +394,9 @@ jobs:
           proof = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert proof['status'] == 'pass'
           assert proof['physical_write_authorized'] is False
+          assert proof['checks']['ext4_symlinks_reverified_from_filesystem'] is True
+          assert proof['partitions'][0]['verified_symlink_count'] == 0
+          assert proof['partitions'][1]['verified_symlink_count'] > 0
           assert all(proof['checks'].values())
           PY
 
@@ -345,7 +411,7 @@ jobs:
           prepared = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert prepared['$schema'] == 'prototype-ordax.creator-prepared-ext4-growth-proof/1'
           assert prepared['status'] == 'pass'
-          assert prepared['source_commit'] == os.environ['GITHUB_SHA']
+          assert prepared['source_commit'] == os.environ['ORDAX_SOURCE_COMMIT']
           assert prepared['ext4']['bootstrap_entrypoint_path'] == '/bootstrap/entrypoint'
           assert prepared['ext4']['bootstrap_entrypoint_mode_before'] == prepared['ext4']['bootstrap_entrypoint_mode_after']
           assert prepared['ext4']['bootstrap_entrypoint_sha256_before'] == prepared['ext4']['bootstrap_entrypoint_sha256_after']
@@ -387,7 +453,7 @@ jobs:
           data = {
               '$schema': 'prototype-ordax.creator-owner-physical/1',
               'status': 'owner-prototype-write-enabled',
-              'source_commit': os.environ['GITHUB_SHA'],
+              'source_commit': os.environ['ORDAX_SOURCE_COMMIT'],
               'creator_version': json.loads(pathlib.Path('tools/creator/version.json').read_text(encoding='utf-8'))['version'],
               'canonical_public_release': False,
               'ephemeral_prototype_trust': True,
@@ -412,7 +478,7 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
               -tags 'ordax_raw_backend' \
-              -ldflags="-s -w -X main.buildSourceCommit=$GITHUB_SHA -X main.buildReleaseSourceCommit=$GITHUB_SHA -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildStorageProfile=owner-development -X main.buildPhysicalWriteAuthorized=YES" \
+              -ldflags="-s -w -X main.buildSourceCommit=$ORDAX_SOURCE_COMMIT -X main.buildReleaseSourceCommit=$ORDAX_SOURCE_COMMIT -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildStorageProfile=owner-development -X main.buildPhysicalWriteAuthorized=YES" \
               -o "$bundle/ordax-creator-physical-test.exe" \
               ./cmd/ordax-creator-physical-test
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
@@ -477,7 +543,7 @@ jobs:
           zip_size="$(stat -c '%s' "$release/OrdaX-Creator-Owner-Prototype.zip")"
           printf '%s  %s\n' "$zip_sha" 'OrdaX-Creator-Owner-Prototype.zip' > "$release/SHA256SUMS.txt"
           version="$(python3 -c 'import json; print(json.load(open("tools/creator/version.json", encoding="utf-8"))["version"])')"
-          python - "$release/creator-owner-update.json" "$GITHUB_SHA" "$version" "$zip_sha" "$zip_size" <<'PY'
+          python - "$release/creator-owner-update.json" "$ORDAX_SOURCE_COMMIT" "$version" "$zip_sha" "$zip_size" <<'PY'
           import json, pathlib, sys
           output, source, version, digest, size = sys.argv[1:]
           data = {
@@ -496,13 +562,13 @@ jobs:
 
           echo "OWNER_CREATOR_THEME_SHA256=$theme_sha"
           echo "OWNER_CREATOR_SYMBOL_SHA256=$symbol_sha"
-          echo "OWNER_BUNDLE_SOURCE=$GITHUB_SHA"
+          echo "OWNER_BUNDLE_SOURCE=$ORDAX_SOURCE_COMMIT"
           echo "OWNER_BUNDLE_SHA256=$zip_sha"
           echo "OWNER_SEED_SHA256=$seed_sha"
           echo 'OWNER_GUI_RAW_BACKEND_LINKED=NO'
           echo 'OWNER_RAW_HELPER_SEPARATE=YES'
 
-      - name: Verify exact Owner Development ZIP before publication
+      - name: Verify exact Owner Development ZIP before distribution
         run: |
           set -euo pipefail
           release="$GITHUB_WORKSPACE/out/owner-prototype/release"
@@ -510,9 +576,9 @@ jobs:
             --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
             --metadata "$release/creator-owner-update.json" \
             --checksums "$release/SHA256SUMS.txt" \
-            --source-commit "$GITHUB_SHA"
+            --source-commit "$ORDAX_SOURCE_COMMIT"
 
-      - name: Destroy ephemeral private key before publish
+      - name: Destroy ephemeral private key before distribution
         run: |
           set -euo pipefail
           private="$(cat "$RUNNER_TEMP/owner-prototype-private-path")"
@@ -521,39 +587,17 @@ jobs:
           rm -f "$RUNNER_TEMP/owner-prototype-trust.json"
           rm -f out/owner-prototype/ordax-release-signing
 
-      - name: Publish development Creator bundle
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          repo='ordaxsystems/ordax-os'
-          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
-          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
-            gh release create creator-owner-prototype --repo "$repo" --target "$GITHUB_SHA" \
-              --title 'OrdaX Creator - Development Git USB' --prerelease \
-              --notes 'Development-only Git USB.'
-          fi
-          gh release upload creator-owner-prototype \
-            "$release/OrdaX-Creator-Owner-Prototype.zip" "$release/SHA256SUMS.txt" \
-            "$release/LEIA-ME.txt" "$release/creator-owner-update.json" \
-            --repo "$repo" --clobber
-          gh release delete-asset creator-owner-prototype 'OrdaX-Creator.exe' \
-            --repo "$repo" --yes || true
-          # The tag is the stable address of the Owner/Development channel, not
-          # the source identity of the mutable asset. GitHub may deny release
-          # metadata PATCH (HTTP 403) even when authorized asset upload succeeds.
-          # Never depend on moving the historical tag or updating its target.
-          gh api "repos/$repo/releases/tags/creator-owner-prototype" > "$RUNNER_TEMP/owner-published-release.json"
-          python3 tools/creator/verify_owner_published_release.py \
-            --release "$RUNNER_TEMP/owner-published-release.json" \
-            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
-            --metadata "$release/creator-owner-update.json" \
-            --checksums "$release/SHA256SUMS.txt" \
-            --readme "$release/LEIA-ME.txt" \
-            --source-commit "$GITHUB_SHA"
-          echo 'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE'
-          echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
-          echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=YES'
+      - name: Upload verified Owner Development proof bundle
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: creator-owner-development-proof-${{ env.ORDAX_SOURCE_COMMIT }}
+          path: |
+            out/owner-prototype/release/OrdaX-Creator-Owner-Prototype.zip
+            out/owner-prototype/release/SHA256SUMS.txt
+            out/owner-prototype/release/LEIA-ME.txt
+            out/owner-prototype/release/creator-owner-update.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Cleanup ephemeral private material
         if: ${{ always() }}
@@ -563,7 +607,74 @@ jobs:
             private="$(cat "$RUNNER_TEMP/owner-prototype-private-path")"
             rm -f "$private"
           fi
-          # Covers failure between exclusive private-key creation and pointer creation.
           rm -f "$RUNNER_TEMP/owner-prototype-private.pem"
           rm -f "$RUNNER_TEMP/owner-prototype-trust.json"
           rm -f out/owner-prototype/ordax-release-signing
+
+  publish:
+    needs: build-and-prove
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      ORDAX_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Checkout exact published source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.ORDAX_SOURCE_COMMIT }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Download exact verified Owner Development bundle
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: creator-owner-development-proof-${{ env.ORDAX_SOURCE_COMMIT }}
+          path: out/owner-prototype/release
+
+      - name: Reverify exact bundle before mutable release publication
+        run: |
+          set -euo pipefail
+          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
+          python tools/creator/verify_owner_dev_bundle.py \
+            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
+            --metadata "$release/creator-owner-update.json" \
+            --checksums "$release/SHA256SUMS.txt" \
+            --source-commit "$ORDAX_SOURCE_COMMIT"
+
+      - name: Publish development Creator bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo='ordaxsystems/ordax-os'
+          release="$GITHUB_WORKSPACE/out/owner-prototype/release"
+          if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
+            gh release create creator-owner-prototype --repo "$repo" --target "$ORDAX_SOURCE_COMMIT" \
+              --title 'OrdaX Creator - Development Git USB' --prerelease \
+              --notes 'Development-only Git USB.'
+          fi
+          gh release upload creator-owner-prototype \
+            "$release/OrdaX-Creator-Owner-Prototype.zip" "$release/SHA256SUMS.txt" \
+            "$release/LEIA-ME.txt" "$release/creator-owner-update.json" \
+            --repo "$repo" --clobber
+          gh release delete-asset creator-owner-prototype 'OrdaX-Creator.exe' \
+            --repo "$repo" --yes || true
+          gh api "repos/$repo/releases/tags/creator-owner-prototype" > "$RUNNER_TEMP/owner-published-release.json"
+          python3 tools/creator/verify_owner_published_release.py \
+            --release "$RUNNER_TEMP/owner-published-release.json" \
+            --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
+            --metadata "$release/creator-owner-update.json" \
+            --checksums "$release/SHA256SUMS.txt" \
+            --readme "$release/LEIA-ME.txt" \
+            --source-commit "$ORDAX_SOURCE_COMMIT"
+          echo 'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE'
+          echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
+          echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=YES'
