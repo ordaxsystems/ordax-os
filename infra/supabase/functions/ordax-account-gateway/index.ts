@@ -7,7 +7,7 @@ import {
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
-import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
+import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
@@ -1102,7 +1102,8 @@ Deno.serve(async (req: Request) => {
   }
 
   if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED
-    && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))) {
+    && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))
+    && !isPublicAccountPreActivationRoute(req.method, path)) {
     if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
     if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
     if (path === "/auth/logout" && req.method === "POST") {
