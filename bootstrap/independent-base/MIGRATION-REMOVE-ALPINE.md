@@ -45,6 +45,7 @@ O gate pesado não deve ser tornado obrigatório para mudanças comuns de Surfac
 - [x] adicionar gate rápido sem build completo;
 - [x] preservar o workflow pesado existente como prova de integração;
 - [x] congelar a fronteira de novos consumidores de `alpine_core.py`;
+- [x] remover o wrapper legado `bootstrap/dev-base/_build_core.py`, que apenas reexportava `alpine_core.py` e preservava monkey-patching histórico sem consumidor ativo;
 - [ ] manter a branch atualizada com `main` sem reescrever histórico compartilhado.
 
 ### Fase B — paridade da base
@@ -64,16 +65,15 @@ Provar que a Independent Base cobre os requisitos hoje atendidos pela base Alpin
 
 Migrar consumidores que ainda importam `bootstrap/base/alpine_core.py` ou assumem APK/Alpine para APIs e artefatos neutros de distribuição.
 
-A fronteira Python inicial, congelada pelo teste de regressão, é:
+A fronteira Python atual, congelada pelo teste de regressão, é:
 
-- `bootstrap/dev-base/_build_core.py`;
 - `bootstrap/dev-base/build.py`;
 - `bootstrap/stable-base/build.py`;
 - `bootstrap/surface-runtime/build.py`;
 - `bootstrap/surface-runtime/discover_lock.py`;
 - `bootstrap/windows-compat-runtime/configure_probe.py`.
 
-Referências de compliance, cache, contratos, testes e evidência podem continuar descrevendo Alpine enquanto ele ainda existe, mas não podem criar novo consumidor de runtime/base.
+A fronteira caiu de seis para cinco consumidores com a remoção do wrapper legado. Referências de compliance, cache, contratos, testes e evidência podem continuar descrevendo Alpine enquanto ele ainda existe, mas não podem criar novo consumidor de runtime/base.
 
 A ordem deve reduzir duplicação, não criar wrappers permanentes:
 
@@ -84,6 +84,8 @@ A ordem deve reduzir duplicação, não criar wrappers permanentes:
 5. migrar `dev-base`, `stable-base`, `surface-runtime` e compatibilidade Windows conforme seus gates específicos;
 6. remover wrappers de compatibilidade assim que o último consumidor desaparecer;
 7. reduzir a allowlist de `test_alpine_removal_boundary.py` no mesmo commit que elimina cada referência.
+
+Não é permitido reduzir a contagem apenas trocando o nome do arquivo importado, copiando helpers Alpine para outro diretório ou duplicando lógica. A redução só conta quando a dependência real de Alpine/APK diminui ou quando código legado comprovadamente sem consumidor é removido.
 
 ### Fase D — prova sem Alpine
 
