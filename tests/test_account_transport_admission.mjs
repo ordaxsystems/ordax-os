@@ -6,6 +6,7 @@ import {
   stripEdgeFunctionPrefix,
   isNativeBootstrapRoute,
   isPublicBridgeRoute,
+  isPublicAccountPreActivationRoute,
 } from "../infra/supabase/functions/_shared/account_transport_admission.mjs";
 
 const bridgeName = "ordax_account_public_bridge";
@@ -74,6 +75,13 @@ test("public bridge is constrained to same exact route policy at all three hops"
       path, { rawBridgeSecretKeys: bridgeEnv },
     );
     assert.deepEqual(result, { ok: false, code: "public-account-route-not-allowed" });
+  }
+});
+
+test("pre-activation public Account capability is exact and read-only", () => {
+  assert.equal(isPublicAccountPreActivationRoute("GET", "/account/spaces"), true);
+  for (const [method, path] of [["POST", "/account/spaces"], ["GET", "/account/export"], ["GET", "/account/entitlements/memory-cloud"], ["POST", "/account/close"], ["GET", "/sync/snapshot"], ["GET", "/account/spaces/other"]]) {
+    assert.equal(isPublicAccountPreActivationRoute(method, path), false, method + " " + path);
   }
 });
 
