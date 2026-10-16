@@ -1,3 +1,4 @@
+import {REGIONAL_LOCALE_PREFERENCE_ID} from '../../../../services/preferences/regional.mjs';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {Button} from '@/components/ui/button';
 import {useWebAccount} from './account-context';
@@ -11,15 +12,16 @@ function SpacesPresentation({onOpen}:{onOpen:(title:string)=>void}){
  const navigate=useRef(onOpen);
  useEffect(()=>{navigate.current=onOpen;},[onOpen]);
  const instance=useRef<ReturnType<typeof mountSpacesPresentation>|null>(null);
- const {theme}=useWebPreferences();
+ const {theme,snapshot}=useWebPreferences();
+ const locale=String(snapshot[REGIONAL_LOCALE_PREFERENCE_ID]??'pt-BR');
  useEffect(()=>{
   if(!host.current)return;
   const root=host.current.shadowRoot??host.current.attachShadow({mode:'open'});
   root.innerHTML=`<style>${tokens}\n${styles}</style><div data-meridian><div class="md-page--spaces" data-spaces-page></div><dialog class="md-space-dialog" aria-label="Detalhes do exemplo de espaço"></dialog></div>`;
-  const presentation=mountSpacesPresentation(root,{onNavigate:(title:string)=>navigate.current(title)});instance.current=presentation;
+  const presentation=mountSpacesPresentation(root,{locale,onNavigate:(title:string)=>navigate.current(title)});instance.current=presentation;
   return()=>{presentation.destroy();instance.current=null;};
- },[]);
- useEffect(()=>{instance.current?.setMaterial(theme==='dark'?'ink':'paper');},[theme]);
+ },[locale]);
+ useEffect(()=>{instance.current?.setMaterial(theme==='dark'?'ink':'paper');},[theme,locale]);
  return <div ref={host} className="meridian-spaces-presentation" aria-label="Exemplos de espaços"/>;
 }
 export function SpacesExperience({children,onOpen}:{children:ReactNode;onOpen:(title:string)=>void}){

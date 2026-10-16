@@ -153,3 +153,31 @@ Integrations closes the menu, focuses its H1 and produces no horizontal overflow
 The 1440px review also confirms the second overview column is a semantic aside,
 and profile decoration is the source-pinned local image. Browser proof selectors
 now reflect those actual elements while retaining alignment and decorative-alt checks.
+
+
+## Shared Meridian localization closure
+
+The previously reported direct PT-BR literals are now registered as 1,139 stable
+message IDs in `system/services/i18n/catalog/meridian.mjs`, composed by the existing
+Surface language owner. Localized factories keep one renderer/scenario definition
+for Web and Native. Defaults remain pt-BR for the design reference. Web consumes
+`regional.locale`; Native supplies its existing localization port's `getLocale`.
+No global language cache, backend/provider, credential flow or new product was added.
+Technical identities (Space/step/field/option IDs, volume names and time-zone values)
+remain language independent. All planned scenarios and examples remain present.
+
+Validation after the change:
+
+- 101 Web/Meridian regressions pass, including five new localization regressions.
+- 28 Surface/English/interpolation regressions pass, including the prior failing audit.
+- New proof checks every scenario's steps, transitions, option IDs and confirmation
+  gates in both languages, English rendering of more than 100 screens, escaped
+  hostile Space names and locale/listener disposal without resurrection.
+- TypeScript, production Web build and 34-reference provenance verification pass.
+- Production initial JS is 902.37 kB (254.46 kB gzip); chunk-size warning retained.
+
+The source audit was not exempted or weakened. The candidate workflows now run the
+new regression. This closes the shared text-owner defect; it does not assert a public
+Web runtime, live authenticated E2E or physical USB readiness. The earlier Web browser
+proof also still expects pre-Meridian chrome and must be reconciled while retaining
+its window, geometry, keyboard, service-gating and notification checks.

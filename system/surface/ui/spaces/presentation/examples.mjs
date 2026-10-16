@@ -1,42 +1,53 @@
-// Fictional, opt-in presentation examples. Never authorized account data.
-export const spaceExamples=[
-  {id:'studio',featuredApps:["studio", "notes", "files", "internet", "editor"],name:'Estúdio',icon:'aura',tone:'clay',description:'Ideias que ganham forma.',members:'Você + 2 pessoas',profile:'Criação & design',modules:['Studio','Arquivos','Quadro de referências'],permission:'Somente este Space',storage:'12,8 GB'},
-  {id:'personal',featuredApps:["notes", "files", "calendar", "music", "intelligence"],name:'Pessoal',icon:'sun',tone:'sage',description:'Seu ritmo. Seu espaço.',members:'Só você',profile:'Pessoal',modules:['Notas','Agenda','Música'],permission:'Privado',storage:'4,2 GB'},
-  {id:'workshop',featuredApps:["editor", "files", "notes", "intelligence"],name:'Oficina 3D',icon:'cube',tone:'blue',description:'Do primeiro esboço ao objeto.',members:'Você + 1 pessoa',profile:'Impressão 3D',modules:['Editor 3D','Fila de produção','Materiais'],permission:'Dispositivos selecionados',storage:'28,6 GB'},
-  {id:'achegue',name:'Achegue-se',icon:'globe',tone:'sage',description:'Empresas, serviços e oportunidades locais.',members:'Você + 8 pessoas',profile:'Empresas',modules:['Empresas','Solicitações','Diretório'],permission:'Membros deste Space',storage:'8,6 GB'},
-  {id:'pizza',name:'Pizzaria Bella Napoli',icon:'store',tone:'amber',description:'Sabor italiano no seu bairro.',members:'Você + 5 pessoas',profile:'Pizzaria',modules:['Pedidos','Mesas','Delivery'],permission:'Equipe da operação',storage:'3,1 GB'},
-  {id:'development',name:'Desenvolvimento',icon:'terminal',tone:'slate',description:'Projetos, código e ferramentas em um lugar.',members:'Você + 2 pessoas',profile:'Desenvolvimento',modules:['Studio','Projetos','Repositórios'],permission:'Equipe de desenvolvimento',storage:'14,2 GB'},
-  {id:'ordax-site',name:'OrdaX Site',icon:'globe',tone:'blue',description:'Site institucional e experiências públicas.',members:'Você + 1 pessoa',profile:'Site / Plataforma',modules:['Páginas','Conteúdo','Publicação'],permission:'Equipe do site',storage:'1,4 GB'},
-  {id:'stlforge',name:'STLForge',icon:'cube',tone:'amber',description:'Um catálogo para dar forma às ideias.',members:'Você + 1 pessoa',profile:'Impressão 3D',modules:['Modelos','Catálogo','Coleções'],permission:'Equipe do catálogo',storage:'6,8 GB'},
-  {id:'personal-projects',name:'Projetos pessoais',icon:'folder',tone:'rose',description:'Ideias e experimentos no seu tempo.',members:'Só você',profile:'Pessoal',modules:['Notas','Projetos','Referências'],permission:'Privado',storage:'2,4 GB'},
- ];
-const spaceDashboards={
- studio:{primary:true,group:'Criação',recent:4,metrics:[['Projetos','2','Em andamento'],['Pessoas','3','No Space'],['Próximo encontro','14h','Revisão de referências']]},
- personal:{group:'Pessoal',recent:8,metrics:[['Notas','12','Suas ideias'],['Agenda','3','Hoje']]},
- workshop:{primary:true,group:'Operação',recent:3,favorite:true,location:'Salvador · BA',metrics:[['Pedidos','12','↑ 33% no período'],{label:'Impressoras',value:'4 / 6',detail:'67% em uso',progress:67},['Modelos','156','↑ 12% no período']],attention:{title:'Confira o material da oficina',detail:'PLA preto abaixo do estoque mínimo.',time:'Há 1 h'}},
- achegue:{group:'Operação',recent:1,location:'Salvador · BA',metrics:[['Usuários','12.480','↑ 18% no período'],['Empresas','1.263','↑ 24% no período'],['Solicitações','47','Para acompanhar']],attention:{title:'Empresas aguardando revisão',detail:'23 empresas precisam da sua atenção.',time:'Há 2 h'}},
- pizza:{primary:true,group:'Operação',recent:2,location:'Salvador · BA · Pituba',metrics:[['Pedidos hoje','28','↑ 12% no período'],{label:'Mesas ocupadas',value:'8 / 12',detail:'67% em uso',progress:67},['Faturamento hoje','R$ 1.842','↑ 18% no período'],['Delivery','6','Em andamento']],attention:{title:'Pedidos em atraso',detail:'3 pedidos aguardando conclusão.',time:'Há 18 min'}},
- development:{primary:true,group:'Desenvolvimento',recent:5,favorite:true,metrics:[['Projetos','4','Em andamento'],['PRs abertos','3','Para revisar'],{label:'Builds',value:'Em dia',detail:'Última execução concluída',tone:'positive'}]},
- 'ordax-site':{group:'Operação',recent:6,metrics:[['Visitas / mês','2.846','Seu alcance']]},
- stlforge:{group:'Operação',recent:7,metrics:[['Modelos','1.320','No catálogo']]},
- 'personal-projects':{group:'Pessoal',recent:9,metrics:[['Projetos','7','Ideias em construção']]},
-};
-for(const space of spaceExamples)space.dashboard=spaceDashboards[space.id];
-export const spaceActivityExamples=[
- {space:'pizza',title:'Novo pedido #1083',time:'Há 12 min',icon:'store'},
- {space:'achegue',title:'Empresa aguardando revisão',time:'Há 28 min',icon:'briefcase'},
- {space:'workshop',title:'Impressão concluída',time:'Há 1 h',icon:'cube'},
- {space:'ordax-site',title:'Publicação concluída',time:'Há 2 h',icon:'globe'},
- {space:'stlforge',title:'Novo modelo publicado',time:'Há 3 h',icon:'cube'},
-];
-export const spaceTemplateExamples=[
- {id:'local-business',name:'Negócio local',icon:'store',tone:'amber'},
- {id:'commerce',name:'E-commerce',icon:'briefcase',tone:'rose'},
- {id:'printing',name:'Impressão 3D',icon:'cube',tone:'blue'},
- {id:'website',name:'Site / Plataforma',icon:'globe',tone:'sage'},
- {id:'software',name:'Desenvolvimento',icon:'terminal',tone:'slate'},
- {id:'personal',name:'Uso pessoal',icon:'folder',tone:'clay'},
-];
+// Localized shared presentation. No account, device or backend authority.
+import {translateSurfaceMessage} from '../../../../services/i18n/surface.mjs';
 
-const cityCover=new URL("../../../workspace/assets/demo-salvador-1.jpg",import.meta.url).href;
-spaceExamples.find(space=>space.id==="achegue").cover=cityCover;
+
+export function createSpaceExamples(locale='pt-BR') {
+ const m=id=>translateSurfaceMessage(locale,id);
+
+// Fictional, opt-in presentation examples. Never authorized account data.
+const spaceExamples = [
+    { id: 'studio', featuredApps: ["studio", "notes", "files", "internet", "editor"], name: m("meridian.text.0024"), icon: 'aura', tone: 'clay', description: m("meridian.text.1106"), members: m("meridian.text.0733"), profile: m("meridian.text.0734"), modules: [m("meridian.text.1107"), m("meridian.text.0282"), m("meridian.text.0735")], permission: m("meridian.text.0736"), storage: m("meridian.text.1108") },
+    { id: 'personal', featuredApps: ["notes", "files", "calendar", "music", "intelligence"], name: m("meridian.text.0737"), icon: 'sun', tone: 'sage', description: m("meridian.text.0738"), members: m("meridian.text.0739"), profile: m("meridian.text.0737"), modules: [m("meridian.text.0740"), m("meridian.text.1109"), m("meridian.text.0741")], permission: m("meridian.text.0742"), storage: m("meridian.text.1110") },
+    { id: 'workshop', featuredApps: ["editor", "files", "notes", "intelligence"], name: m("meridian.text.1111"), icon: 'cube', tone: 'blue', description: m("meridian.text.0743"), members: m("meridian.text.0744"), profile: m("meridian.text.0458"), modules: [m("meridian.text.1112"), m("meridian.text.0745"), m("meridian.text.1113")], permission: m("meridian.text.0746"), storage: m("meridian.text.1114") },
+    { id: 'achegue', name: m("meridian.text.1115"), icon: 'globe', tone: 'sage', description: m("meridian.text.0747"), members: m("meridian.text.0748"), profile: m("meridian.text.1116"), modules: [m("meridian.text.1116"), m("meridian.text.0749"), m("meridian.text.0750")], permission: m("meridian.text.1117"), storage: m("meridian.text.1118") },
+    { id: 'pizza', name: m("meridian.text.1119"), icon: 'store', tone: 'amber', description: m("meridian.text.1120"), members: m("meridian.text.0751"), profile: m("meridian.text.1121"), modules: [m("meridian.text.0752"), m("meridian.text.0753"), m("meridian.text.1122")], permission: m("meridian.text.0754"), storage: m("meridian.text.1123") },
+    { id: 'development', name: m("meridian.text.0459"), icon: 'terminal', tone: 'slate', description: m("meridian.text.0755"), members: m("meridian.text.0733"), profile: m("meridian.text.0459"), modules: [m("meridian.text.1107"), m("meridian.text.0756"), m("meridian.text.0757")], permission: m("meridian.text.0758"), storage: m("meridian.text.1124") },
+    { id: 'ordax-site', name: m("meridian.text.1125"), icon: 'globe', tone: 'blue', description: m("meridian.text.0759"), members: m("meridian.text.0744"), profile: m("meridian.text.1034"), modules: [m("meridian.text.0760"), m("meridian.text.0761"), m("meridian.text.0762")], permission: m("meridian.text.1126"), storage: m("meridian.text.1127") },
+    { id: 'stlforge', name: m("meridian.text.1128"), icon: 'cube', tone: 'amber', description: m("meridian.text.0763"), members: m("meridian.text.0744"), profile: m("meridian.text.0458"), modules: [m("meridian.text.0764"), m("meridian.text.0765"), m("meridian.text.0766")], permission: m("meridian.text.0767"), storage: m("meridian.text.1129") },
+    { id: 'personal-projects', name: m("meridian.text.0768"), icon: 'folder', tone: 'rose', description: m("meridian.text.1130"), members: m("meridian.text.0739"), profile: m("meridian.text.0737"), modules: [m("meridian.text.0740"), m("meridian.text.0756"), m("meridian.text.0769")], permission: m("meridian.text.0742"), storage: m("meridian.text.1131") },
+];
+const spaceDashboards = {
+    studio: { primary: true, group: m("meridian.text.0770"), recent: 4, metrics: [[m("meridian.text.0756"), '2', m("meridian.text.0771")], [m("meridian.text.0772"), '3', m("meridian.text.1132")], [m("meridian.text.0773"), '14h', m("meridian.text.0774")]] },
+    personal: { group: m("meridian.text.0737"), recent: 8, metrics: [[m("meridian.text.0740"), '12', m("meridian.text.1133")], [m("meridian.text.1109"), '3', m("meridian.text.0775")]] },
+    workshop: { primary: true, group: m("meridian.text.0304"), recent: 3, favorite: true, location: m("meridian.text.1134"), metrics: [[m("meridian.text.0752"), '12', m("meridian.text.0776")], { label: m("meridian.text.0777"), value: m("meridian.text.1135"), detail: m("meridian.text.1136"), progress: 67 }, [m("meridian.text.0764"), '156', m("meridian.text.0778")]], attention: { title: m("meridian.text.1137"), detail: m("meridian.text.0779"), time: m("meridian.text.0780") } },
+    achegue: { group: m("meridian.text.0304"), recent: 1, location: m("meridian.text.1134"), metrics: [[m("meridian.text.0781"), '12.480', m("meridian.text.0782")], [m("meridian.text.1116"), '1.263', m("meridian.text.0783")], [m("meridian.text.0749"), '47', m("meridian.text.1138")]], attention: { title: m("meridian.text.0784"), detail: m("meridian.text.0785"), time: m("meridian.text.0786") } },
+    pizza: { primary: true, group: m("meridian.text.0304"), recent: 2, location: m("meridian.text.1139"), metrics: [[m("meridian.text.0787"), '28', m("meridian.text.0778")], { label: m("meridian.text.0788"), value: m("meridian.text.1140"), detail: m("meridian.text.1136"), progress: 67 }, [m("meridian.text.0789"), m("meridian.text.1141"), m("meridian.text.0782")], [m("meridian.text.1122"), '6', m("meridian.text.0771")]], attention: { title: m("meridian.text.0790"), detail: m("meridian.text.0791"), time: m("meridian.text.0792") } },
+    development: { primary: true, group: m("meridian.text.0459"), recent: 5, favorite: true, metrics: [[m("meridian.text.0756"), '4', m("meridian.text.0771")], [m("meridian.text.0793"), '3', m("meridian.text.0893")], { label: m("meridian.text.1142"), value: m("meridian.text.1143"), detail: m("meridian.text.0794"), tone: 'positive' }] },
+    'ordax-site': { group: m("meridian.text.0304"), recent: 6, metrics: [[m("meridian.text.0795"), '2.846', m("meridian.text.1144")]] },
+    stlforge: { group: m("meridian.text.0304"), recent: 7, metrics: [[m("meridian.text.0764"), '1.320', m("meridian.text.0796")]] },
+    'personal-projects': { group: m("meridian.text.0737"), recent: 9, metrics: [[m("meridian.text.0756"), '7', m("meridian.text.0797")]] },
+};
+for (const space of spaceExamples)
+    space.dashboard = spaceDashboards[space.id];
+const spaceActivityExamples = [
+    { space: 'pizza', title: m("meridian.text.1145"), time: m("meridian.text.0798"), icon: 'store' },
+    { space: 'achegue', title: m("meridian.text.0799"), time: m("meridian.text.0800"), icon: 'briefcase' },
+    { space: 'workshop', title: m("meridian.text.0801"), time: m("meridian.text.0780"), icon: 'cube' },
+    { space: 'ordax-site', title: m("meridian.text.0802"), time: m("meridian.text.0786"), icon: 'globe' },
+    { space: 'stlforge', title: m("meridian.text.1146"), time: m("meridian.text.0803"), icon: 'cube' },
+];
+const spaceTemplateExamples = [
+    { id: 'local-business', name: m("meridian.text.0457"), icon: 'store', tone: 'amber' },
+    { id: 'commerce', name: m("meridian.text.1033"), icon: 'briefcase', tone: 'rose' },
+    { id: 'printing', name: m("meridian.text.0458"), icon: 'cube', tone: 'blue' },
+    { id: 'website', name: m("meridian.text.1034"), icon: 'globe', tone: 'sage' },
+    { id: 'software', name: m("meridian.text.0459"), icon: 'terminal', tone: 'slate' },
+    { id: 'personal', name: m("meridian.text.0460"), icon: 'folder', tone: 'clay' },
+];
+const cityCover = new URL("../../../workspace/assets/demo-salvador-1.jpg", import.meta.url).href;
+spaceExamples.find(space => space.id === "achegue").cover = cityCover;
+ return {spaceExamples,spaceActivityExamples,spaceTemplateExamples};
+}
+
+export const {spaceExamples,spaceActivityExamples,spaceTemplateExamples}=createSpaceExamples();

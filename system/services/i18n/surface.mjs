@@ -1,3 +1,4 @@
+import {MERIDIAN_SOURCE_MESSAGES, MERIDIAN_ENGLISH_MESSAGES} from "./catalog/meridian.mjs";
 import { SIDEBAR_SOURCE_MESSAGES, SIDEBAR_ENGLISH_MESSAGES } from "./catalog/sidebar.mjs";
 import { SURFACE_BOOT_SOURCE_MESSAGES, SURFACE_BOOT_ENGLISH_MESSAGES } from "./catalog/boot.mjs";
 import { LOCALIZATION_SCHEMA, assertLocalizationPort } from "../../contracts/localization.mjs";
@@ -21,6 +22,7 @@ export const SURFACE_COMPLETE_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 export const SURFACE_ENGLISH_TARGET_LOCALE = "en-US";
 
 const SOURCE = Object.freeze({
+  ...MERIDIAN_SOURCE_MESSAGES,
   ...SIDEBAR_SOURCE_MESSAGES,
   "shell.rail.aria": "Aplicativos principais",
   "shell.home.title": "Início",
@@ -159,6 +161,7 @@ const SOURCE = Object.freeze({
 });
 
 const ENGLISH = Object.freeze({
+  ...MERIDIAN_ENGLISH_MESSAGES,
   ...SIDEBAR_ENGLISH_MESSAGES,
   "shell.rail.aria": "Main applications",
   "shell.home.title": "Home",

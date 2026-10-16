@@ -1772,3 +1772,15 @@ cases cover server-enabled/invalid/revoked policies, anonymous vs signed-in scop
 offline/account-change/disposal cancellation and rendered signup gating. Manual
 review on 4201 confirms the unavailable-service state. Authenticated live-gateway
 E2E remains pending; no main promotion or deployment is claimed.
+
+
+### Shared Meridian language ownership — 2026-10-16
+
+Shared Settings journeys and opt-in Space examples read their pt-BR/en-US copy from
+`system/services/i18n/catalog/meridian.mjs`, registered with the canonical Surface
+catalog. Localized factories preserve one implementation and all scenario/navigation
+identities; language never grants a capability. Web receives the real regional
+preference, and Native receives its current localization port. Example state remains
+session-only; account/session/data operations retain their existing owners and gates.
+The existing English audit and the new cross-language transition/rendering regressions
+cover this boundary. Public runtime packaging and browser/release proofs are separate.

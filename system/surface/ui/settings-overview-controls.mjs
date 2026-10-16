@@ -1227,7 +1227,7 @@ export function mountSettingsOverviewControls(
     renderSectionNavigation(view);
     if (activeSection === "appearance") {
       const examples = node(documentObject, "div", "wm-shared-native-settings");
-      settingsExamples ??= mountSettingsJourneys(root, {mode:"usb"});
+      settingsExamples ??= mountSettingsJourneys(root, {mode:"usb",getLocale:localization.getLocale});
       examples.innerHTML = settingsExamples.overview();
       view.append(examples);
     }

@@ -1,6 +1,7 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,useMemo} from 'react';
 import {Wifi,Volume2,Monitor,Keyboard,Clock3,Battery,HardDrive,Users,ShieldCheck,RefreshCw,Accessibility,Check,ArrowUpRight,type LucideIcon} from 'lucide-react';
-import {settingsTopics} from '../../../ui/journeys/settings-catalog.mjs';
+import {createSettingsJourneyCatalog} from '../../../ui/journeys/settings-catalog.mjs';
+import {REGIONAL_LOCALE_PREFERENCE_ID} from '../../../../services/preferences/regional.mjs';
 import {mountSettingsJourneys} from '../../../ui/journeys/settings-mount.mjs';
 import '../../../ui/journeys/styles.css';
 import {COLOR_THEME_OPTIONS} from '../../../../services/preferences/color-palette.mjs';
@@ -9,16 +10,18 @@ import {useWebPreferences} from './preferences-context';
 import './settings-meridian.css';
 
 const topicIcons:Record<string,LucideIcon>={network:Wifi,audio:Volume2,display:Monitor,keyboard:Keyboard,region:Clock3,battery:Battery,storage:HardDrive,users:Users,privacy:ShieldCheck,security:ShieldCheck,updates:RefreshCw,accessibility:Accessibility};
-const topics=settingsTopics.map(item=>({...item,icon:topicIcons[item.id]}));
+
 const accessibility=[accessibilityContrastPreference,accessibilityMotionPreference,accessibilityTextScalePreference];
 
 export function WebSettings({onOpen}:{onOpen?:(title:string)=>void}){
  const {colorTheme,setColorTheme,snapshot,setPreference,persistence}=useWebPreferences();
+ const locale=String(snapshot[REGIONAL_LOCALE_PREFERENCE_ID]??'pt-BR');
+ const topics=useMemo(()=>createSettingsJourneyCatalog(locale).settingsTopics.map(item=>({...item,icon:topicIcons[item.id]})),[locale]);
  const examplesHost=useRef<HTMLDivElement>(null);
  const examples=useRef<ReturnType<typeof mountSettingsJourneys>|null>(null);
  const navigate=useRef(onOpen);
  useEffect(()=>{navigate.current=onOpen;},[onOpen]);
- useEffect(()=>{if(!examplesHost.current)return;const instance=mountSettingsJourneys(examplesHost.current,{mode:'web',onAccount:()=>navigate.current?.('Minha conta')});examples.current=instance;return()=>{instance.destroy();examples.current=null;};},[]);
+ useEffect(()=>{if(!examplesHost.current)return;const instance=mountSettingsJourneys(examplesHost.current,{mode:'web',locale,onAccount:()=>navigate.current?.('Minha conta')});examples.current=instance;return()=>{instance.destroy();examples.current=null;};},[locale]);
  const [mock,setMock]=useState<Record<string,boolean>>({privacy:true,sync:false,focus:false});
  const accessibilityPanel=useRef<HTMLElement>(null);
  function choose(item:{id:string}){if(item.id==='accessibility'){accessibilityPanel.current?.scrollIntoView({block:'start'});accessibilityPanel.current?.focus({preventScroll:true});return;}examples.current?.open(item.id);}
