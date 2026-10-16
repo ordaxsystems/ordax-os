@@ -31,9 +31,9 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
         self.assertTrue(self.first_run["persistence"]["persistent_usb_state"])
         self.assertTrue(self.first_run["account"]["optional"])
         self.assertTrue(self.first_run["account"]["local_only_always_available"])
-        self.assertFalse(self.first_run["account"]["cloud_sync_required_for_mvp"])
+        self.assertFalse(self.first_run["account"]["cloud_sync_required_for_launch"])
         self.assertTrue(self.first_run["network"]["skippable"])
-        self.assertFalse(self.first_run["mvp"]["web_mode_uses_this_device_oobe"])
+        self.assertFalse(self.first_run["launch_baseline"]["web_mode_uses_this_device_oobe"])
 
         self.assertIn("FIRST_RUN_OOBE=PASS_SOURCE_NATIVE_USB", self.current)
         self.assertIn("FIRST_RUN_PERSISTENT=YES", self.current)
@@ -67,7 +67,7 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
         self.assertEqual(self.keyboard["default_layout_id"], "br-abnt2")
         self.assertEqual(set(self.keyboard["supported_layouts"]), {"br-abnt2", "us"})
         self.assertFalse(self.keyboard["application"]["live_reconfigure_supported"])
-        self.assertFalse(self.keyboard["first_run"]["selector_exposed"])
+        self.assertTrue(self.keyboard["first_run"]["selector_exposed"])
 
         self.assertIn("KEYBOARD_LAYOUT_NATIVE=PASS_SOURCE", self.current)
         self.assertIn(
@@ -78,7 +78,7 @@ class CurrentStateFirstRunInputTests(unittest.TestCase):
         self.assertIn("KEYBOARD_LAYOUT_WEB_CAPABILITY=NO", self.current)
         self.assertIn("KEYBOARD_LAYOUT_LIVE_RECONFIGURE=NO", self.current)
         self.assertIn(
-            "KEYBOARD_LAYOUT_FIRST_RUN_SELECTOR=NO_GATED_ON_SAFE_APPLY",
+            "KEYBOARD_LAYOUT_FIRST_RUN_SELECTOR=YES_PERSISTED_NEXT_SURFACE_APPLY",
             self.current,
         )
         self.assertIn(

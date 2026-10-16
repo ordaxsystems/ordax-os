@@ -1,4 +1,9 @@
 import { mountFirstRunExperience } from "/system/surface/ui/first-run.mjs";
+import { createPreferenceRuntime } from "/system/services/preferences/runtime.mjs";
+import {
+  PREFERENCE_STORE_SCHEMA,
+  validatePreferenceRecord,
+} from "/system/contracts/preference-store.mjs";
 import {
   FIRST_RUN_STATE_SCHEMA,
   FIRST_RUN_STATE_STORE_SCHEMA,
@@ -50,24 +55,32 @@ function createEmulatedFirstRunStateStore() {
   });
 }
 
-function createEmulatedPreferences() {
-  let snapshot = loadJson(PREFS_KEY, {});
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) snapshot = {};
-  const listeners = new Set();
+function createEmulatedPreferenceStore() {
+  let snapshot;
+  try {
+    snapshot = validatePreferenceRecord(loadJson(PREFS_KEY, {}));
+  } catch {
+    snapshot = validatePreferenceRecord({});
+  }
+
+  const persist = (next) => {
+    const validated = validatePreferenceRecord(next);
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify(validated));
+    snapshot = validated;
+    return true;
+  };
 
   return Object.freeze({
-    schema: "ordax.preference-runtime/1",
-    getSnapshot() {
+    schema: PREFERENCE_STORE_SCHEMA,
+    load() {
       return snapshot;
     },
-    set(key, value) {
-      snapshot = Object.freeze({ ...snapshot, [key]: value });
-      window.localStorage.setItem(PREFS_KEY, JSON.stringify(snapshot));
-      for (const listener of listeners) listener(snapshot);
+    save(next) {
+      return persist(next);
     },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+    async saveConfirmed(next) {
+      persist(next);
+      return true;
     },
   });
 }
@@ -106,7 +119,7 @@ const root = document.querySelector("#ordax-emulator-root");
 if (!(root instanceof Element)) throw new Error("Windows emulator root is missing");
 
 const stateStore = createEmulatedFirstRunStateStore();
-const preferences = createEmulatedPreferences();
+const preferences = createPreferenceRuntime(createEmulatedPreferenceStore());
 const identitySession = createUnavailableIdentitySession();
 const identityActions = createUnavailableIdentityActions();
 

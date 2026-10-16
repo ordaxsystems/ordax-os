@@ -469,6 +469,86 @@ const TABLES = Object.freeze({
   })
 });
 
+const LAUNCH_BASELINE_EN_US = Object.freeze({
+  "Português (Brasil) · ABNT2": "Portuguese (Brazil) · ABNT2",
+  "Progresso da configuração": "Setup progress",
+  "Proteção": "Protection",
+  "Revisão": "Review",
+  "Concluído": "Complete",
+  "O sistema e o estado persistente permanecem no pendrive.": "The system and persistent state remain on the USB drive.",
+  "Voltar ao login": "Back to sign in",
+  "Indisponível": "Unavailable",
+  "Não foi possível confirmar o receipt de conclusão. As configurações já aplicadas foram preservadas para uma nova tentativa idempotente.": "The completion receipt could not be confirmed. Settings already applied were preserved for a new idempotent attempt.",
+  "Configuração inicial": "Initial setup",
+  "Vamos configurar idioma, entrada, rede, Conta, proteção local e privacidade usando os serviços reais do sistema.": "We'll configure language, input, network, Account, local protection, and privacy using the system's real services.",
+  "Você pode usar o OrdaX offline sem criar uma segunda identidade.": "You can use OrdaX offline without creating a second identity.",
+  "Configuração real": "Real setup",
+  "Nada nesta jornada simula login, Wi‑Fi, PIN ou persistência.": "Nothing in this journey simulates sign-in, Wi-Fi, PIN, or persistence.",
+  "Escolha o idioma do sistema.": "Choose the system language.",
+  "Somente idiomas com Surface pronta para lançamento aparecem aqui; traduções ainda em migração continuam ocultas.": "Only languages with a launch-ready Surface appear here; translations still being migrated remain hidden.",
+  "Escolha o layout físico.": "Choose the physical keyboard layout.",
+  "A escolha é gravada pelo owner Native de teclado. Se o layout atual da Surface for diferente, a aplicação completa ocorrerá na próxima inicialização.": "The choice is saved by the Native keyboard owner. If the current Surface uses a different layout, it will be fully applied at the next start.",
+  "O owner de teclado não está disponível nesta execução. Nenhum layout será fingido ou alterado.": "The keyboard owner is unavailable in this run. No layout will be faked or changed.",
+  "Configurado para a próxima inicialização": "Configured for the next start",
+  "Região e horário": "Region and time",
+  "Ajuste o fuso do dispositivo.": "Set the device time zone.",
+  "O fuso é persistido no owner de preferências e continua editável em Ajustes.": "The time zone is persisted by the preferences owner and remains editable in Settings.",
+  "Conecte-se ou continue offline.": "Connect or continue offline.",
+  "Este passo usa o mesmo broker Native de Wi‑Fi da Surface. Falha de conexão nunca vira sucesso visual.": "This step uses the same Native Wi-Fi broker as the Surface. A connection failure is never displayed as success.",
+  "O gerenciamento de Wi‑Fi está indisponível neste host. O uso offline continua disponível.": "Wi-Fi management is unavailable on this host. Offline use remains available.",
+  "Entre, crie uma conta ou continue sem conta.": "Sign in, create an account, or continue without one.",
+  "A Conta OrdaX é a identidade online. Ela não substitui o PIN ou senha local deste dispositivo.": "The OrdaX Account is your online identity. It does not replace this device's local PIN or password.",
+  "Nenhuma sessão online está ativa.": "No online session is active.",
+  "O provedor de Conta está indisponível nesta execução.": "The Account provider is unavailable in this run.",
+  "Senha da Conta": "Account password",
+  "Informe o e-mail da Conta. A resposta é genérica para não revelar se uma conta existe.": "Enter the Account email. The response is generic so it does not reveal whether an account exists.",
+  "Enviar recuperação": "Send recovery",
+  "Esqueci minha senha": "Forgot my password",
+  "Proteção local": "Local protection",
+  "Proteja esta Surface independentemente da Conta.": "Protect this Surface independently of the Account.",
+  "O PIN ou senha local desbloqueia esta sessão e continua funcionando offline. Não reutilizamos nem armazenamos a senha da Conta.": "The local PIN or password unlocks this session and keeps working offline. We do not reuse or store the Account password.",
+  "O owner de sessão local está indisponível. Você pode continuar sem alegar uma proteção que não foi criada.": "The local-session owner is unavailable. You can continue without claiming protection that was not created.",
+  "Proteção local configurada": "Local protection configured",
+  "A próxima inicialização da Surface exigirá esta credencial local.": "The next Surface start will require this local credential.",
+  "Escolha como a memória automática funciona.": "Choose how automatic memory works.",
+  "Esta opção é persistida pelo owner real de preferências. Sync, backup e cobrança não são ativados por esta tela.": "This option is persisted by the real preferences owner. Sync, backup, and billing are not enabled by this screen.",
+  "Memória automática da OrdaX Intelligence": "OrdaX Intelligence automatic memory",
+  "Permite registrar memórias úteis dentro das regras de privacidade e autorização do dispositivo.": "Allows useful memories to be recorded within the device's privacy and authorization rules.",
+  "Você pode alterar esta preferência depois. Desativar não apaga memórias já existentes.": "You can change this preference later. Turning it off does not delete existing memories.",
+  "Nome do dispositivo": "Device name",
+  "Dê um nome reconhecível a este OrdaX.": "Give this OrdaX a recognizable name.",
+  "O nome é salvo no perfil canônico do dispositivo e pode ser usado por experiências que precisem identificar este computador.": "The name is saved in the canonical device profile and can be used by experiences that need to identify this computer.",
+  "O perfil de dispositivo está indisponível. O first-run não inventará um nome salvo.": "The device profile is unavailable. First Run will not pretend a name was saved.",
+  "Confira antes de concluir.": "Review before finishing.",
+  "Esta revisão lê o mesmo draft e os mesmos owners que serão persistidos. Não existe uma segunda cópia autoritativa só para esta tela.": "This review reads the same draft and owners that will be persisted. There is no second authoritative copy just for this screen.",
+  "PIN/senha configurado": "PIN/password configured",
+  "Não configurada": "Not configured",
+  "Memória automática": "Automatic memory",
+  "Perfil indisponível": "Profile unavailable",
+  "Seu OrdaX está configurado.": "Your OrdaX is configured.",
+  "A conclusão só foi exibida depois que o receipt do first-run e as configurações obrigatórias foram persistidos com sucesso.": "Completion is shown only after the First Run receipt and required settings have been persisted successfully.",
+  "O layout de teclado foi salvo, mas a Surface atual ainda usa o layout anterior. Reinicie agora para aplicá-lo, ou ele será aplicado na próxima inicialização.": "The keyboard layout was saved, but the current Surface still uses the previous layout. Restart now to apply it, or it will apply at the next start.",
+  "As configurações estão ativas. Você pode entrar na Surface.": "The settings are active. You can enter the Surface.",
+  "Concluir configuração": "Finish setup",
+  "Reiniciar e aplicar teclado": "Restart and apply keyboard",
+  "Se a Conta puder ser recuperada, as instruções serão enviadas para esse e-mail.": "If the Account can be recovered, instructions will be sent to that email.",
+  "Conta autenticada. Você pode usá-la neste dispositivo.": "Account authenticated. You can use it on this device.",
+  "A recuperação de acesso está indisponível agora. O uso local continua disponível.": "Account recovery is unavailable right now. Local use remains available.",
+  "A conclusão falhou e parte do rollback também falhou. O assistente permanece aberto; revise a persistência antes de tentar novamente.": "Completion failed and part of the rollback also failed. The assistant remains open; review persistence before trying again.",
+  "Não foi possível persistir toda a configuração. As alterações desta conclusão foram revertidas e o assistente continua aberto.": "The full configuration could not be persisted. Changes from this completion attempt were rolled back and the assistant remains open.",
+  "O reinício não pôde ser solicitado. A configuração continua salva e será aplicada na próxima inicialização.": "Restart could not be requested. The configuration remains saved and will apply at the next start.",
+  "Este layout já está ativo.": "This layout is already active.",
+  "Este layout será salvo ao concluir e aplicado na próxima inicialização da Surface.": "This layout will be saved when setup finishes and applied at the next Surface start.",
+  "Mostrar": "Show",
+  "Ocultar": "Hide",
+  "Entrar na Surface": "Enter the Surface",
+  "Ativada": "On",
+  "Desativada": "Off",
+  "Lendo estado do Wi-Fi…": "Reading Wi-Fi status…",
+  "O Wi-Fi não pôde ser lido. Você pode continuar offline.": "Wi-Fi status could not be read. You can continue offline.",
+  "Digite a senha da rede Wi-Fi.": "Enter the Wi-Fi password."
+});
+
 export const FIRST_RUN_TRANSLATION_LOCALES = Object.freeze(Object.keys(TABLES));
 
 function dynamic(locale, text) {
@@ -494,5 +574,10 @@ function dynamic(locale, text) {
 export function translateFirstRunText(locale, text) {
   if (typeof text !== "string") return text;
   if (locale === "pt-BR") return text;
-  return TABLES[locale]?.[text] ?? dynamic(locale, text);
+  const normalizedText = text.replaceAll("‑", "-");
+  if (locale === "en-US") {
+    if (Object.prototype.hasOwnProperty.call(LAUNCH_BASELINE_EN_US, text)) return LAUNCH_BASELINE_EN_US[text];
+    if (Object.prototype.hasOwnProperty.call(LAUNCH_BASELINE_EN_US, normalizedText)) return LAUNCH_BASELINE_EN_US[normalizedText];
+  }
+  return TABLES[locale]?.[text] ?? TABLES[locale]?.[normalizedText] ?? dynamic(locale, text);
 }

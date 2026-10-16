@@ -69,7 +69,7 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
             self.copy_audited_sources(root)
             first_run_path = root / "docs/contracts/first-run.json"
             first_run = json.loads(first_run_path.read_text(encoding="utf-8"))
-            first_run["regional"]["public_mvp_locales"].append("es-ES")
+            first_run["regional"]["public_launch_locales"].append("es-ES")
             first_run_path.write_text(
                 json.dumps(first_run, indent=2) + "\n",
                 encoding="utf-8",

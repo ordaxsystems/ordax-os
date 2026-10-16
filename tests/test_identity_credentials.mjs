@@ -5,6 +5,7 @@ import {
   IDENTITY_CREDENTIALS_SCHEMA,
   assertIdentityCredentialsPort,
   validateIdentityCredentialInput,
+  validateIdentityRecoveryInput,
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
   sameRegistrationLegalPolicy,
@@ -23,6 +24,11 @@ test("identity credentials validate transient email/password input", () => {
     () => validateIdentityCredentialInput({ email: "invalid", password: "x" }),
     TypeError,
   );
+});
+
+test("recovery input validates email without accepting a password", () => {
+  assert.deepEqual(validateIdentityRecoveryInput({ email: " pessoa@example.com " }), { email: "pessoa@example.com" });
+  assert.throws(() => validateIdentityRecoveryInput({ email: "invalid" }), TypeError);
 });
 
 test("registration input requires explicit acceptance", () => {
@@ -93,7 +99,7 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
   const windowRef = {
     fetch: async (path, options) => {
       calls.push({ path, options });
-      return { ok: true, status: 303 };
+      return { ok: true, status: path === "/auth/recover" ? 202 : 303 };
     },
   };
   const port = createSameOriginIdentityCredentials(windowRef);
@@ -106,13 +112,16 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
     password: "secret-2",
     legalAccepted: true,
   });
+  assert.deepEqual(await port.recover({ email: "recover@example.com" }), { accepted: true });
 
-  assert.deepEqual(calls.map((call) => call.path), ["/auth/login", "/auth/register"]);
+  assert.deepEqual(calls.map((call) => call.path), ["/auth/login", "/auth/register", "/auth/recover"]);
   assert.equal(calls.every((call) => call.options.credentials === "same-origin"), true);
   assert.equal(calls.every((call) => call.options.redirect === "manual"), true);
   assert.equal(calls[0].options.body.includes("pessoa%40example.com"), true);
   assert.equal(calls[0].options.body.includes("secret-1"), true);
   assert.equal(calls[1].options.body.includes("legal_acceptance=accepted"), true);
+  assert.equal(calls[2].options.body, "email=recover%40example.com");
+  assert.equal(calls[2].options.body.includes("secret"), false);
 });
 
 test("registration confirmation is explicit and does not claim a session", async () => {

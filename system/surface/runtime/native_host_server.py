@@ -108,6 +108,7 @@ ACCOUNT_SESSION_PATH = "/auth/session"
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
+ACCOUNT_RECOVER_PATH = "/auth/recover"
 ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_CLOSE_PATH = "/account/close"
@@ -4419,13 +4420,24 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             )
             return
 
-        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
+        if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_RECOVER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
             try:
                 if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
                     self._empty(503)
+                    return
+                if parsed_path == ACCOUNT_RECOVER_PATH:
+                    payload = self._read_account_credentials()
+                    if payload is None or set(payload) != {"email"} or not isinstance(payload.get("email"), str):
+                        self._empty(400)
+                        return
+                    reply = self.server.account_gateway.recover(payload["email"])
+                    if reply.status not in {200, 202, 204}:
+                        self._empty(reply.status)
+                        return
+                    self._empty(202)
                     return
                 if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH}:
                     payload = self._read_account_credentials()

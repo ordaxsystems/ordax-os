@@ -50,6 +50,13 @@ export function createWebPreferenceStore(windowRef = globalThis.window) {
         return false;
       }
     },
+    async saveConfirmed(snapshot) {
+      const validated = validatePreferenceRecord(snapshot);
+      if (!storage) throw new Error("Persistent preference storage is unavailable");
+      storage.setItem(STORAGE_KEY, JSON.stringify(validated));
+      memory = validated;
+      return true;
+    },
   };
 
   assertPreferenceStore(store);

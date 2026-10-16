@@ -18,7 +18,7 @@ import {
   regionalTimeZonePreference,
 } from "../system/services/preferences/regional.mjs";
 import {
-  FIRST_RUN_PUBLIC_MVP_LOCALES,
+  FIRST_RUN_PUBLIC_LAUNCH_LOCALES,
   FIRST_RUN_SUPPORTED_LOCALES,
 } from "../system/contracts/first-run-state-store.mjs";
 
@@ -71,8 +71,8 @@ test("first-run accepts launch locales and rejects unsupported locale, timezone 
   );
 });
 
-test("public MVP locale selector is narrower than retained compatibility", () => {
-  assert.deepEqual([...FIRST_RUN_PUBLIC_MVP_LOCALES], ["pt-BR", "en-US"]);
+test("public Launch Baseline locale selector is narrower than retained compatibility", () => {
+  assert.deepEqual([...FIRST_RUN_PUBLIC_LAUNCH_LOCALES], ["pt-BR", "en-US"]);
   assert.deepEqual(
     REGIONAL_LOCALE_OPTIONS.map((entry) => entry.value),
     ["pt-BR", "en-US"],

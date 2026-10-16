@@ -13,6 +13,9 @@ export function assertPreferenceRuntimePort(port) {
   ) {
     throw new TypeError("Preference-runtime port must implement getSnapshot(), set() and subscribe()");
   }
+  if (port.setManyConfirmed !== undefined && typeof port.setManyConfirmed !== "function") {
+    throw new TypeError("Preference-runtime setManyConfirmed must be a function when present");
+  }
   validatePreferenceRecord(port.getSnapshot());
   return port;
 }

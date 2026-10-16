@@ -5,6 +5,7 @@ import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../../contracts/preference-runtime.mjs";
 import { assertPreferenceStore, validatePreferenceRecord } from "../../contracts/preference-store.mjs";
+import { setPreferenceValue } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceHost } from "../../contracts/surface-host.mjs";
 import {
   MAX_WORKSPACE_AREAS,
@@ -422,6 +423,19 @@ export function mountSurface(
     },
     set(preferenceId, value) {
       dispatch({ type: "preference.set", preferenceId, value });
+      return state.preferences;
+    },
+    async setManyConfirmed(changes) {
+      if (!changes || typeof changes !== "object" || Array.isArray(changes)) throw new TypeError("Confirmed preference changes must be an object");
+      let nextPreferences = state.preferences;
+      for (const [preferenceId, value] of Object.entries(changes)) nextPreferences = setPreferenceValue(nextPreferences, preferenceId, value);
+      if (nextPreferences === state.preferences) return state.preferences;
+      if (!store || typeof store.saveConfirmed !== "function") throw new Error("Confirmed preference persistence is unavailable");
+      await store.saveConfirmed(nextPreferences);
+      const previousPreferences = state.preferences;
+      state = Object.freeze({ ...state, preferences: nextPreferences });
+      render();
+      if (state.preferences !== previousPreferences) for (const listener of [...preferenceListeners]) listener(state.preferences);
       return state.preferences;
     },
     subscribe(listener) {

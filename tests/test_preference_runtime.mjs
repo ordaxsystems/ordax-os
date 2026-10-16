@@ -73,3 +73,39 @@ test('unknown or unchanged values issue no writes and disposal releases subscrip
   assert.equal(calls, 2);
   assert.equal(writes, 2);
 });
+
+
+test('confirmed preference writes publish only after durable save', async () => {
+  let release;
+  const writes=[];
+  const runtime=createPreferenceRuntime({
+    schema:PREFERENCE_STORE_SCHEMA,
+    load:()=>({}),
+    save:()=>true,
+    saveConfirmed:async snapshot=>{writes.push(snapshot);await new Promise(resolve=>{release=resolve;});return true;},
+  });
+  let notifications=0;runtime.subscribe(()=>{notifications++;});
+  const operation=runtime.setManyConfirmed({'regional.locale':'en-US','memory.auto-capture':'off'});
+  assert.equal(runtime.getSnapshot()['regional.locale'],'pt-BR');
+  assert.equal(notifications,1);
+  release();await operation;
+  assert.equal(runtime.getSnapshot()['regional.locale'],'en-US');
+  assert.equal(runtime.getSnapshot()['memory.auto-capture'],'off');
+  assert.equal(runtime.getPersistenceSnapshot(),'saved');
+  assert.equal(writes.length,1);
+  assert.equal(notifications,2);
+  runtime.dispose();
+});
+
+test('failed confirmed preference write leaves the authoritative snapshot unchanged', async () => {
+  const runtime=createPreferenceRuntime({
+    schema:PREFERENCE_STORE_SCHEMA,load:()=>({}),save:()=>true,
+    saveConfirmed:async()=>{throw new Error('disk full');},
+  });
+  const before=runtime.getSnapshot();let notifications=0;runtime.subscribe(()=>{notifications++;});
+  await assert.rejects(runtime.setManyConfirmed({'regional.locale':'en-US'}),/disk full/);
+  assert.equal(runtime.getSnapshot(),before);
+  assert.equal(runtime.getPersistenceSnapshot(),'session-only');
+  assert.equal(notifications,1);
+  runtime.dispose();
+});

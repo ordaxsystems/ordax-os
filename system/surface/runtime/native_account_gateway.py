@@ -222,6 +222,11 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/auth/registration-policy")
 
+    def recover(self, email: str) -> GatewayReply:
+        with self._lock:
+            payload = urlencode({"email": email}).encode("utf-8")
+            return self._request("POST", "/auth/recover", body=payload, content_type="application/x-www-form-urlencoded")
+
     def register(self, email: str, password: str, *, legal_accepted: bool) -> GatewayReply:
         if legal_accepted is not True:
             raise NativeAccountGatewayError("legal-acceptance-required")

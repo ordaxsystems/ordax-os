@@ -213,14 +213,14 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     persistence = _dict(first_run.get("persistence"))
     account = _dict(first_run.get("account"))
     network = _dict(first_run.get("network"))
-    first_run_mvp = _dict(first_run.get("mvp"))
+    first_run_launch = _dict(first_run.get("launch_baseline"))
     record(
         "OOBE_PERSISTENCE",
         all((
             first_run.get("$schema") == "prototype-ordax.first-run/1",
-            first_run.get("status") == "native-foundation-implemented",
-            first_run.get("scope") == "mvp-usb-first-use",
-            first_run.get("flow") == ["welcome", "regional", "network", "security", "account", "privacy", "ready"],
+            first_run.get("status") == "launch-baseline-native-functional",
+            first_run.get("scope") == "launch-baseline-usb-first-use",
+            first_run.get("flow") == ["welcome", "language", "keyboard", "region", "network", "account", "security", "privacy", "name", "review", "complete"],
             persistence.get("persistent_usb_state") is True,
             persistence.get("completion_must_be_durable_before_dismiss") is True,
             persistence.get("state_is_separate_from_identity_session") is True,
@@ -230,8 +230,8 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             account.get("provider_unavailable_must_not_block_completion") is True,
             network.get("skippable") is True,
             network.get("password_must_not_enter_first_run_state") is True,
-            first_run_mvp.get("runs_from_usb") is True,
-            first_run_mvp.get("permanent_internal_disk_install_exposed") is False,
+            first_run_launch.get("runs_from_usb") is True,
+            first_run_launch.get("permanent_internal_disk_install_exposed") is False,
             _contains_all(native, ("createNativeFirstRunStateStore", "mountFirstRunExperience")),
         )),
         ["docs/contracts/first-run.json", "system/composition/native/main.mjs"],
@@ -243,7 +243,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
         "OOBE_LOCALE_COVERAGE",
         all((
             regional.get("default_locale") == "pt-BR",
-            set(regional.get("public_mvp_locales", [])) == {"pt-BR", "en-US"},
+            set(regional.get("public_launch_locales", [])) == {"pt-BR", "en-US"},
             set(regional.get("surface_complete_locales", [])) == {"pt-BR", "en-US"},
             set(regional.get("retained_compatible_locales", [])) == {"es-ES", "de-DE", "fr-FR"},
             regional.get("public_selector_must_only_offer_surface_ready_locales") is True,

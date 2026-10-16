@@ -96,6 +96,13 @@ export function validateIdentityCredentialInput(value) {
   return Object.freeze({ email, password });
 }
 
+export function validateIdentityRecoveryInput(value) {
+  if (!value || typeof value !== "object") throw new TypeError("Identity recovery input is required");
+  const email = typeof value.email === "string" ? value.email.trim() : "";
+  if (!validEmail(email)) throw new TypeError("Identity recovery email is invalid");
+  return Object.freeze({ email });
+}
+
 export function validateIdentityRegistrationInput(value) {
   const credentials = validateIdentityCredentialInput(value);
   if (value.legalAccepted !== true) {
@@ -110,6 +117,9 @@ export function assertIdentityCredentialsPort(port) {
   }
   if (typeof port.signIn !== "function" || typeof port.register !== "function") {
     throw new TypeError("Identity credentials port must implement signIn() and register()");
+  }
+  if (port.recover !== undefined && typeof port.recover !== "function") {
+    throw new TypeError("Identity credentials recover must be a function when present");
   }
   if (port.registrationPolicy !== undefined && typeof port.registrationPolicy !== "function") {
     throw new TypeError("Identity credentials registrationPolicy must be a function when present");

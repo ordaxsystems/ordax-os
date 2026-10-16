@@ -48,3 +48,19 @@ Starting PR-01 does not authorize PR-04/05, public opt-in, remote Intelligence E
 Every implementation PR must start from the then-current `main`, revalidate materially relevant deltas, and use canonical owners/projections/lifecycles. The experimental branch remains reference/evidence, not an implementation base.
 
 If the Meridian codename is later removed because the visual language becomes ordinary OrdaX, these immutable historical references remain unchanged for provenance.
+
+## Scoped Launch-Baseline revalidation — First Run (2026-10-16)
+
+The Launch Baseline in `MVP.md` supersedes the former interpretation that an already-started user flow should be reduced merely to keep an old minimal-MVP boundary. First Run is an existing canonical Surface flow with real state, identity, network, preference and local-session owners, so completing that flow is not authorization to migrate the Meridian experimental shell.
+
+For the First Run scope only, the historical `PR-01 only` sequencing above is revalidated as a gate on the proposed **general Meridian shell/Workspace-reader migration**, not as a prohibition on evolving the already-canonical OOBE. The implementation must continue to satisfy these invariants:
+
+- no import, merge or cherry-pick from the experimental Meridian runtime;
+- no Meridian reducer/store, lifecycle, backend, identity owner, preference owner, network manager or local-session owner;
+- Meridian contributes product intent and perceptual direction only; canonical OrdaX contracts remain authoritative;
+- preference writes required for OOBE completion use a confirmed persistence path and rollback on pre-receipt failure, addressing B-08 for this scoped flow without creating a visual preference;
+- B-09 remains a blocker for any future composite Workspace reader; this First Run work creates no such reader and therefore does not bypass it;
+- keyboard configuration persists through the existing Native keyboard owner and reports `restartRequired` honestly instead of simulating live XKB reconfiguration;
+- the completed First Run receipt remains the only completion authority.
+
+This scoped revalidation preserves every immutable reference above and does not authorize public promotion, physical-media writes, or any later Meridian shell migration stage.

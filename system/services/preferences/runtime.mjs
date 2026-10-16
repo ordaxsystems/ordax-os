@@ -27,6 +27,18 @@ export function createPreferenceRuntime(preferenceStore) {
       for (const listener of [...listeners]) listener(snapshot);
       return snapshot;
     },
+    async setManyConfirmed(changes) {
+      if (disposed) throw new Error("Preference runtime is disposed");
+      if (!changes || typeof changes !== "object" || Array.isArray(changes)) throw new TypeError("Confirmed preference changes must be an object");
+      let next = snapshot;
+      for (const [preferenceId, value] of Object.entries(changes)) next = setPreferenceValue(next, preferenceId, value);
+      if (next === snapshot) return snapshot;
+      const saveConfirmed = typeof store.saveConfirmed === "function" ? store.saveConfirmed.bind(store) : async (value) => { if (store.save(value) !== true) throw new Error("Preference persistence was not confirmed"); return true; };
+      try { await saveConfirmed(next); persistence = "saved"; } catch (error) { persistence = "session-only"; throw error; }
+      snapshot = next;
+      for (const listener of [...listeners]) listener(snapshot);
+      return snapshot;
+    },
     subscribe(listener) {
       if (typeof listener !== "function") throw new TypeError("Preference listener must be a function");
       if (disposed) return () => {};

@@ -1,6 +1,7 @@
 import {
   IDENTITY_CREDENTIALS_SCHEMA,
   validateIdentityCredentialInput,
+  validateIdentityRecoveryInput,
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
@@ -58,6 +59,18 @@ export function createSameOriginIdentityCredentials(windowRef = globalThis.windo
     registrationPolicy: policy.read,
     signIn(credentials) {
       return submit(windowRef, "/auth/login", credentials);
+    },
+    async recover(input) {
+      const value = validateIdentityRecoveryInput(input);
+      const body = new URLSearchParams();
+      body.set("email", value.email);
+      const response = await windowRef.fetch("/auth/recover", {
+        method: "POST", credentials: "same-origin", cache: "no-store", redirect: "manual",
+        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString(),
+      });
+      if (!(response.ok || response.status === 202 || response.status === 204)) throw new Error(`Identity recovery request failed: ${response.status}`);
+      return Object.freeze({ accepted: true });
     },
     register(credentials) {
       return submit(windowRef, "/auth/register", credentials, { registration: true });

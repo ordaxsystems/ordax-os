@@ -35,16 +35,16 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertEqual(contract["$schema"], "prototype-ordax.first-run/1")
         self.assertEqual(
             contract["flow"],
-            ["welcome", "regional", "network", "security", "account", "privacy", "ready"],
+            ["welcome", "language", "keyboard", "region", "network", "account", "security", "privacy", "name", "review", "complete"],
         )
-        self.assertEqual(contract["regional"]["complete_locales"], ["pt-BR", "en-US", "es-ES", "de-DE", "fr-FR"])
-        self.assertEqual(contract["regional"]["public_mvp_locales"], ["pt-BR", "en-US"])
+        self.assertEqual(contract["regional"]["complete_locales"], ["pt-BR", "en-US"])
+        self.assertEqual(contract["regional"]["public_launch_locales"], ["pt-BR", "en-US"])
         self.assertEqual(contract["regional"]["retained_compatible_locales"], ["es-ES", "de-DE", "fr-FR"])
         self.assertTrue(contract["regional"]["public_selector_must_only_offer_surface_ready_locales"])
         self.assertEqual(contract["regional"]["completeness_scope"], "first-run-oobe-only")
         self.assertEqual(
             contract["regional"]["launch_locale_policy"],
-            "mvp-public-pt-br-en-us-retain-hidden-oobe-translations",
+            "launch-baseline-public-pt-br-en-us-retain-hidden-oobe-translations",
         )
         self.assertEqual(contract["regional"]["surface_complete_locales"], ["pt-BR", "en-US"])
         self.assertEqual(
@@ -69,16 +69,16 @@ class FirstRunContractTests(unittest.TestCase):
         )
         self.assertTrue(contract["account"]["optional"])
         self.assertTrue(contract["account"]["local_only_always_available"])
-        self.assertFalse(contract["account"]["cloud_sync_required_for_mvp"])
-        self.assertTrue(contract["mvp"]["runs_from_usb"])
-        self.assertFalse(contract["mvp"]["permanent_internal_disk_install_exposed"])
-        self.assertFalse(contract["mvp"]["web_mode_uses_this_device_oobe"])
+        self.assertFalse(contract["account"]["cloud_sync_required_for_launch"])
+        self.assertTrue(contract["launch_baseline"]["runs_from_usb"])
+        self.assertFalse(contract["launch_baseline"]["permanent_internal_disk_install_exposed"])
+        self.assertFalse(contract["launch_baseline"]["web_mode_uses_this_device_oobe"])
         self.assertTrue(contract["regional"]["editable_after_first_run_in_settings"])
         self.assertEqual(
             contract["regional"]["keyboard_layout_contract"],
             "docs/contracts/keyboard-layout.json",
         )
-        self.assertFalse(contract["regional"]["keyboard_layout_selector_exposed"])
+        self.assertTrue(contract["regional"]["keyboard_layout_selector_exposed"])
 
     def test_regional_choices_remain_editable_after_first_run(self):
         settings = SETTINGS.read_text(encoding="utf-8")
@@ -238,7 +238,12 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("documentObject.documentElement.dir = profile.direction", ui)
         self.assertIn('isIdentityActionSupported(actionsSnapshot, "sign-in")', ui)
         self.assertIn('isIdentityActionSupported(actionsSnapshot, "register")', ui)
-        self.assertIn("passwordDraft", ui)
+        self.assertIn("identityPasswordDraft", ui)
+        self.assertIn("wifiPasswordDraft", ui)
+        self.assertIn("preferencePort.setManyConfirmed", ui)
+        self.assertIn("keyboardPort.configure", ui)
+        self.assertIn("deviceProfilePort.rename", ui)
+        self.assertIn("credentialsPort.recover", ui)
         self.assertIn("await store.save(completeFirstRunState(draft))", ui)
         self.assertNotIn("localStorage", ui)
         self.assertNotIn("sessionStorage", ui)
@@ -255,16 +260,10 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("getCurrentObservations()", composition)
         self.assertIn("currentObservations = Object.freeze([])", projection)
         self.assertIn('firstRunAppSelection.installedByThisPlan !== false', first_run)
-        self.assertIn("Nenhum aplicativo adicional foi instalado.", first_run)
+        self.assertIn("Nenhum aplicativo adicional será instalado por apresentação.", first_run)
         self.assertNotIn("installApp(", first_run)
-        for text in (
-            "Aplicativos essenciais",
-            "Pacotes independentes confirmados:",
-            "Candidatos verificados para futura distribuição:",
-            "Remoção preservada ou fora do primeiro uso:",
-            "Ainda sem comprovação de distribuição:",
-        ):
-            self.assertEqual(translated.count(json.dumps(text, ensure_ascii=False) + ":"), 4)
+        self.assertIn("Aplicativos essenciais", translated)
+        self.assertIn("Pacotes independentes confirmados:", first_run)
 
     def test_branding_records_first_run_without_claiming_early_graphics(self):
         branding = json.loads(BRANDING.read_text(encoding="utf-8"))

@@ -161,6 +161,28 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertNotIn("privacy_version", body)
             self.assertNotIn("terms_version", body)
 
+    def test_recovery_posts_email_only_without_session_secret(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(status=202, headers={}, body=b"")
+
+            client._request = fake_request
+            reply = client.recover("person@example.com")
+            self.assertEqual(reply.status, 202)
+            self.assertEqual(len(calls), 1)
+            method, route, kwargs = calls[0]
+            self.assertEqual((method, route), ("POST", "/auth/recover"))
+            self.assertEqual(kwargs["content_type"], "application/x-www-form-urlencoded")
+            body = kwargs["body"].decode("utf-8")
+            self.assertEqual(body, "email=person%40example.com")
+            self.assertNotIn("password", body)
+            self.assertNotIn("secret", body)
+
     def test_account_close_requires_exact_confirmation_before_network(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")

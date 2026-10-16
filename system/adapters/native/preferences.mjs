@@ -53,6 +53,16 @@ export async function createNativePreferenceStore(windowRef = globalThis.window)
         .catch(() => false);
       return true;
     },
+    async saveConfirmed(snapshot) {
+      const validated = validatePreferenceRecord(snapshot);
+      const operation = persistQueue.then(async () => {
+        await persist(validated);
+        memory = validated;
+        return true;
+      });
+      persistQueue = operation.catch(() => false);
+      return operation;
+    },
   };
 
   assertPreferenceStore(store);
