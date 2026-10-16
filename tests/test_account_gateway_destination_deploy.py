@@ -61,7 +61,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertNotIn("supabase db push", text)
         self.assertNotIn("apply_migration", text)
         self.assertNotIn("functional_provider_cutover_complete = true", text.lower())
-        self.assertIn('"version": 17', text)
+        self.assertIn('"version": 18', text)
         self.assertIn('value.get("error") == "authentication-required"', text)
 
     def test_workflow_pins_approved_cli_action_and_version(self):
@@ -82,6 +82,7 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
             ".github/workflows/ordax-account-gateway-destination.yml",
             "infra/supabase/functions/ordax-account-gateway/**",
             "infra/supabase/functions/_shared/account_transport_admission.mjs",
+            "infra/supabase/functions/_shared/space_create_contract.mjs",
             "tools/account/resolve_account_gateway_destination.py",
         ):
             self.assertIn(required, text)

@@ -27,6 +27,27 @@ def test_update_presentation_and_its_focused_contract_do_not_require_portable_qe
     assert result.required is False
 
 
+def test_native_account_transport_and_focused_contracts_do_not_require_portable_qemu():
+    result = impact.classify_paths([
+        "system/surface/runtime/native_account_gateway.py",
+        "infra/supabase/functions/ordax-account-gateway/index.ts",
+        "infra/supabase/functions/_shared/space_create_contract.mjs",
+        ".github/workflows/ordax-account-gateway-destination.yml",
+        "tests/test_native_account_gateway.py",
+        "tests/test_space_create_bridge.mjs",
+        "tests/test_account_gateway_destination_deploy.py",
+    ])
+    assert result.required is False
+
+
+def test_other_native_runtime_sources_remain_portable_qemu_heavy():
+    result = impact.classify_paths([
+        "system/surface/runtime/ordax_browser_host.py",
+    ])
+    assert result.required is True
+    assert "heavy-prefix:system/surface/runtime/ordax_browser_host.py" in result.reasons
+
+
 def test_unclassified_non_system_test_remains_fail_closed():
     result = impact.classify_paths(["tests/test_unknown_boot_sensitive_owner.py"])
     assert result.required is True

@@ -287,6 +287,40 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/spaces")
 
+    def create_space(
+        self,
+        *,
+        name: str,
+        domain: str,
+        subtype: str,
+        idempotency_key: str,
+    ) -> GatewayReply:
+        for label, value, maximum in (
+            ("name", name, 120),
+            ("domain", domain, 80),
+            ("subtype", subtype, 80),
+            ("idempotency_key", idempotency_key, 64),
+        ):
+            if not isinstance(value, str) or not value or len(value) > maximum or "\x00" in value:
+                raise NativeAccountGatewayError(f"invalid-space-{label.replace('_', '-')}")
+        payload = json.dumps(
+            {
+                "name": name,
+                "domain": domain,
+                "subtype": subtype,
+                "idempotencyKey": idempotency_key,
+            },
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        with self._lock:
+            return self._request(
+                "POST",
+                "/account/spaces/create",
+                body=payload,
+                content_type="application/json",
+            )
+
     def memory_cloud_entitlement(self) -> GatewayReply:
         with self._lock:
             return self._request("GET", "/account/entitlements/memory-cloud")
