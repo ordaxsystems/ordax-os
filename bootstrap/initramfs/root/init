@@ -144,7 +144,7 @@ esac
 enter_recovery() {
     reason=$1
     echo "ordax-initramfs: $reason; opening read-only recovery" >&2
-    mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX read-only"
+    mount -t ext4 -o ro,noload "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX read-only"
     cat "$RECOVERY_BOOTSTRAP_PATH" >/dev/null 2>&1 || rescue "recovery entrypoint is missing or unreadable: $RECOVERY_BOOTSTRAP_PATH"
     exec "$RECOVERY_BOOTSTRAP_PATH"
 }
