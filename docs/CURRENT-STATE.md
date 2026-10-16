@@ -61,6 +61,17 @@ pass. The official Web regression now passes all seven viewports under the origi
 proof. This supersedes the local CSS blocker above; independent public runtime
 packaging/deployment and authenticated E2E remain pending.
 
+Public deployment composition (source-ready): `tools/public-site/deployment.py`
+now builds/verifies the existing public portal at `/` and the existing Web builder
+at `/ordax/`, requiring the same source commit and preserving both manifests/files.
+The deployment receipt rejects corruption, extra files and component path escape.
+Vercel configuration targets `out/public-deployment`; its same-origin account
+rewrites and security headers remain intact. Public Site Candidate also validates
+composition repeatability and the mounted Web under the real policy. Local mounted
+browser proof passes all seven viewports, and 44 targeted packaging/portal/builder
+tests pass. This is source/local-candidate proof, not a production deployment:
+`runtime_deployment_verified` remains false, and `/web/` activation is unchanged.
+
 Shared Settings journeys (2026-10-15): Web and Native/USB Settings now consume
 shared complete presentation scenarios/navigation/styles under `surface/ui/journeys`.
 The Meridian reference re-exports those owners. Real controls remain intact; example

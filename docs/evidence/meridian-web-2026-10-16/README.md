@@ -273,3 +273,42 @@ threshold (924.42 kB / 257.93 kB gzip); the warning was not suppressed.
 This closes the source CSS/CSP defect, not public runtime hosting, authenticated
 E2E or physical USB readiness. The portal remains a separate artifact, and no
 runtime/config/provider gate has been activated by this change.
+
+## Public deployment composition
+
+The public deployment recipe now composes the two existing independently verified
+artifacts at one origin: portal at `/`, Web at `/ordax/`. Web's builder accepts an
+explicit same-origin mount path and records it in its manifest. The aggregate
+requires both component commits to match, preserves their bytes/manifests, hashes
+the complete output and records its recipe/config input hashes. Verification uses
+the existing component verifiers; the portal verifier's accepted file set is not
+widened. Corruption, unowned files, mismatched commits/mounts and reconstruction
+path traversal have targeted regressions.
+
+Local candidate `out/public-deployment-candidate-1` builds/verifies successfully.
+Its local source stamp references parent `371df54b`; it contains working-tree
+changes and is not an exact-commit release artifact. The mounted browser smoke
+uses that real output at `/ordax/`, with the original global publication headers,
+and passes all seven viewports without CSP violations. 44 targeted portal,
+deployment, composition and Web-builder tests pass; the 34-reference verifier
+passes. CI builds fresh exact-commit candidates, repeats the composition and
+requires the mounted public-policy browser proof.
+
+Vercel source configuration now selects `out/public-deployment`, installs the
+locked dependencies with scripts disabled, and calls the composition recipe.
+Existing account/API rewrites and security headers are retained; hashed Web assets
+receive immutable caching and its entry document requires revalidation. The build
+change filter now includes shared Web source. This is one app source, not a new
+Web fork or another hosting project. `/web/`'s authenticated launch gate remains
+unchanged. No production deployment has been observed or asserted; the contract's
+`runtime_deployment_verified` remains false until remote verification.
+
+Final packaging follow-up: candidates 4 and 5 reproduce all 57 output files byte
+for byte, including the aggregate receipt. Their Web file records match the exact
+runtime bytes exercised by the mounted candidate-1 browser run. Five composition
+regressions pass after adding Windows drive/backslash, absolute, traversal and
+reserved-component path rejection; the targeted builder/change-filter run also
+passes (14 tests). GitHub Actions supply-chain verification passes. All workflows
+for prior head `371df54b`, including strict-policy Surface Web Candidate and QEMU,
+are green. These results do not assert the new composition's remote CI/deployment
+has completed; fresh exact-commit evidence is required before promotion.

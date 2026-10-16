@@ -186,6 +186,26 @@ python tools/public-site/build.py verify --out-dir out/public-site
 
 O `Public Site Candidate` é o gate de PR da superfície pública. Ele deve validar build determinístico, contratos, localização e testes de browser/viewport aplicáveis.
 
+O hosting compõe esse artefato com o Web, sem importar a Surface no portal:
+
+```bash
+npm ci --ignore-scripts --no-audit --no-fund
+python tools/public-site/deployment.py build --source-commit <40-hex-sha>
+python tools/public-site/deployment.py verify
+```
+
+O resultado em `out/public-deployment` conserva os arquivos e manifests dos dois
+builders: portal na raiz e Web em `/ordax/`, compilado com esse `--mount-path` pelo
+builder Web. Os componentes devem corresponder ao mesmo commit. A composição
+verifica hashes, rejeita arquivos extras/links e não amplia a lista de arquivos
+aceitos pelo builder do portal. O CI também verifica repetibilidade e a experiência
+montada com os cabeçalhos públicos reais. A configuração Vercel usa esse resultado;
+isso declara o deployment alvo, não uma observação de produção já atualizada.
+
+A entrada autenticada `/web/` continua sujeita aos seus gates de sessão e ativação.
+Hospedar o runtime em `/ordax/` não habilita login/cadastro, backend ou provedor e
+não transforma exemplos preservados em operações reais.
+
 Para provar o domínio real sem credenciais:
 
 ```bash

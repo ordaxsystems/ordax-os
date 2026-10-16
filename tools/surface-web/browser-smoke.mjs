@@ -7,10 +7,12 @@ import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
 
 const args=process.argv.slice(2);
 if(args.length%2)throw Error('Arguments require values');
-if (args.some((value,index)=>index%2===0&&!['--bundle-dir','--evidence-dir','--public-policy'].includes(value))) throw Error('Unsupported argument');
+if (args.some((value,index)=>index%2===0&&!['--bundle-dir','--evidence-dir','--public-policy','--mount-path'].includes(value))) throw Error('Unsupported argument');
 const value=(key,fallback)=>args.includes(key)?args[args.indexOf(key)+1]:fallback;
 const bundle=resolve(value('--bundle-dir','out/web-client'));
 const evidence=resolve(value('--evidence-dir','out/web-viewport-proof'));
+const mountPath=value('--mount-path','/');
+if(!/^\/(?:[a-z0-9-]+\/)*$/.test(mountPath))throw Error('Invalid same-origin mount path');
 const policyPath=value('--public-policy',null);
 const publicHeaders=policyPath?JSON.parse(await readFile(resolve(policyPath),'utf8')).headers.find(rule=>rule.source==='/(.*)')?.headers:null;
 if(policyPath&&!publicHeaders?.some(header=>header.key.toLowerCase()==='content-security-policy'))throw Error('Public policy must define the global CSP');
@@ -18,7 +20,7 @@ const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png'
 const server=createServer(async(request,response)=>{
   try {
     const pathname=decodeURIComponent(new URL(request.url,'http://127.0.0.1').pathname);
-    const path=resolve(bundle,'.'+(pathname==='/'?'/index.html':pathname));
+    const path=resolve(bundle,'.'+(pathname.endsWith('/')?pathname+'index.html':pathname));
     const rel=relative(bundle,path);
     if(rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel))throw Error('Outside bundle');
     // Resolve the file before emitting HTTP 200. A missing asset must never
@@ -37,6 +39,7 @@ const server=createServer(async(request,response)=>{
 });
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 const origin='http://127.0.0.1:'+server.address().port;
+const runtimeUrl=origin+mountPath;
 await mkdir(evidence,{recursive:true});
 try {
   for (const path of ['/web2','/web2/','/preview/']) assert.equal((await fetch(origin+path)).status,404,'Only the canonical root is mounted');
@@ -88,7 +91,7 @@ try {
       await click(marker);
       await evaluate("document.querySelector('[data-proof-click=current]')?.removeAttribute('data-proof-click')");
     }
-    await client.send('Page.navigate',{url:origin+'/'});await ready();
+    await client.send('Page.navigate',{url:runtimeUrl});await ready();
     async function compactAction(title,label,menuTitle){
       const selector='[aria-label='+JSON.stringify(label)+']';
       const visible=await evaluate('[...document.querySelectorAll('+JSON.stringify(selector)+')].some(node=>node.getClientRects().length>0)');
@@ -127,7 +130,7 @@ try {
     for(const [width,height] of [[1440,900],[1024,768],[820,650],[760,650],[390,844],[320,568],[844,390]]){
       await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
       await evaluate("localStorage.removeItem('ordax.preferences.v1')");
-      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await client.send('Page.navigate',{url:runtimeUrl});await ready();
       await until("!!document.querySelector('.os-shell')");
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
       assert.equal(await evaluate("/\\bWEB\\b/.test(document.querySelector('.brand-sub').textContent)"),true);
@@ -151,14 +154,14 @@ try {
       await openSidebarDestination('Ajustes');
       await chooseColorTheme('dark');
       assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),before);
-      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await client.send('Page.navigate',{url:runtimeUrl});await ready();
       await until("document.documentElement.dataset.theme==='dark'");
       await openSidebarDestination('Ajustes');
       await until("document.querySelector('[aria-label=\"Janela Configurações\"] [data-color-theme=\"dark\"]')?.getAttribute('aria-pressed')==='true'");
       await chooseColorTheme('native');
       assert.equal(await evaluate("document.documentElement.dataset.ordaxTheme"),'dark','USB palette remains a dark accessible color scheme');
       assert.equal(await evaluate("document.documentElement.dataset.ordaxPalette"),'native','USB palette is the canonical native palette, not a fourth app theme');
-      await client.send('Page.navigate',{url:origin+'/'});await ready();
+      await client.send('Page.navigate',{url:runtimeUrl});await ready();
       await until("document.documentElement.dataset.theme==='native'");
       await openSidebarDestination('Ajustes');
       await chooseColorTheme('light');
