@@ -21,15 +21,17 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("profile=owner-development", text)
         self.assertIn("ORDAX_INDEPENDENT_PROFILE", text)
 
-    def test_verified_kernel_precedes_rootfs_and_is_not_rebuilt_in_post_build(self) -> None:
+    def test_verified_kernel_precedes_rootfs_consumer_proof_and_qemu(self) -> None:
         text = self.text()
         verify = text.index("- name: Verify kernel component and exact integration binding")
         bind = text.index("- name: Bind verified kernel modules to Independent Base")
         rootfs = text.index("- name: Build rootfs from official Buildroot source")
+        consumer = text.index("- name: Prove Owner rootfs against the real Dev Channel consumer")
         qemu = text.index("- name: QEMU real kernel, EROFS and ext4 persistence/recovery")
         self.assertLess(verify, bind)
         self.assertLess(bind, rootfs)
-        self.assertLess(rootfs, qemu)
+        self.assertLess(rootfs, consumer)
+        self.assertLess(consumer, qemu)
         self.assertEqual(text.count("python3 bootstrap/kernel/build.py build"), 1)
 
     def test_module_binding_uses_exact_canonical_kernel_artifact(self) -> None:
@@ -61,12 +63,26 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
             2,
         )
 
-    def test_evidence_upload_includes_owner_hardware_receipts(self) -> None:
+    def test_owner_rootfs_is_proved_by_real_dev_channel_consumer_without_publication(self) -> None:
+        text = self.text()
+        self.assertIn("tools/dev-base-channel/prove_independent_rootfs.py", text)
+        self.assertIn('if: env.ORDAX_INDEPENDENT_PROFILE == \'owner-development\'', text)
+        self.assertIn('--rootfs "$RUNNER_TEMP/ordax-independent/rootfs.tar"', text)
+        self.assertIn('--provenance "$RUNNER_TEMP/ordax-independent/provenance.json"', text)
+        self.assertIn('--expected-commit "$ORDAX_SOURCE_COMMIT"', text)
+        self.assertIn("dev-channel-rootfs-compatibility.json", text)
+        self.assertNotIn("dev-base-channel/build.py publish", text)
+        self.assertNotIn("publish-channel", text)
+
+    def test_evidence_upload_includes_owner_hardware_and_consumer_receipts(self) -> None:
         text = self.text()
         self.assertIn("kernel-module-payload.json", text)
         self.assertIn("firmware-coverage.json", text)
+        self.assertIn("dev-channel-rootfs-compatibility.json", text)
         self.assertIn("kernel-component-reuse.json", text)
         self.assertIn("provenance.json", text)
+        upload = text[text.index("- name: Upload candidate/provenance and observed QEMU result") :]
+        self.assertNotIn("/rootfs.tar", upload)
 
 
 if __name__ == "__main__":
