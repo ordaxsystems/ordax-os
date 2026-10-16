@@ -5,6 +5,32 @@
   "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
   "routes": [
     {
+      "src": "^/ordax/$",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "status": 308,
+      "dest": "/"
+    },
+    {
+      "src": "^/ordax/index\\.html$",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "pre": "web."
+          }
+        }
+      ],
+      "status": 308,
+      "dest": "/"
+    },
+    {
       "src": "^/$",
       "has": [
         {
