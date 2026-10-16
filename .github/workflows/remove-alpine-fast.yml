@@ -5,6 +5,7 @@ on:
     branches:
       - 'platform/remove-alpine'
     paths:
+      - 'bootstrap/base/firmware_policy.py'
       - 'bootstrap/base/kernel_module_payload.py'
       - 'bootstrap/independent-base/**'
       - 'bootstrap/network/**'
@@ -70,6 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile \
+            bootstrap/base/firmware_policy.py \
             bootstrap/base/kernel_module_payload.py \
             bootstrap/independent-base/build.py \
             bootstrap/independent-base/qemu_proof.py \
