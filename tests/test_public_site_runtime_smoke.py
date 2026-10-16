@@ -75,7 +75,7 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
             shutil.copytree(ROOT / "sites/public", source)
             config_path = source / "config/public-site.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
-            config["product"]["web"] = {"enabled": True, "entry_url": "/unapproved-runtime/"}
+            config["product"]["web"] = {"enabled": True, "entry_url": "/ordax/"}
             config_path.write_text(json.dumps(config), encoding="utf-8")
             with self.assertRaisesRegex(build.PublicSiteError, "authorized by its owner"):
                 build.validate_source(source)

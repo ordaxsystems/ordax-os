@@ -148,8 +148,8 @@
     "ordax_web_entry_is_reached_from_authenticated_product_experience": true,
     "web_entry": {
       "route": "/web/",
-      "runtime_available": true,
-      "runtime_path": "/ordax/",
+      "runtime_available": false,
+      "runtime_path": null,
       "same_origin_navigation_only": true,
       "session_verification_required": true,
       "destination_must_enforce_own_authorization": true,
