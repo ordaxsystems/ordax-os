@@ -12,6 +12,10 @@ on:
       - 'bootstrap/kernel/verify_upstream_signature.py'
       - 'bootstrap/kernel/source.json'
       - 'bootstrap/kernel/config/ordax.fragment'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
+      - 'tests/test_dev_base_symlink_policy.py'
+      - 'tests/test_independent_dev_channel_compatibility.py'
       - 'docs/contracts/hardware-support-matrix.json'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
@@ -83,6 +87,8 @@ jobs:
           python3 bootstrap/base/kernel_module_payload.py check
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
+            tests.test_dev_base_symlink_policy \
+            tests.test_independent_dev_channel_compatibility \
             tests.test_independent_base_experiment \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
@@ -94,6 +100,10 @@ jobs:
             bootstrap/base/kernel_module_payload.py \
             bootstrap/independent-base/build.py \
             bootstrap/independent-base/qemu_proof.py \
+            system/services/base-update/dev_channel.py \
+            tools/dev-base-channel/prove_independent_rootfs.py \
+            tests/test_dev_base_symlink_policy.py \
+            tests/test_independent_dev_channel_compatibility.py \
             tests/test_independent_heavy_workflow.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
@@ -172,6 +182,17 @@ jobs:
           python3 bootstrap/independent-base/build.py verify \
             --profile "$ORDAX_INDEPENDENT_PROFILE" \
             --out "$RUNNER_TEMP/ordax-independent"
+      - name: Prove Owner rootfs against the real Dev Channel consumer
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/dev-base-channel/prove_independent_rootfs.py \
+            --rootfs "$RUNNER_TEMP/ordax-independent/rootfs.tar" \
+            --provenance "$RUNNER_TEMP/ordax-independent/provenance.json" \
+            --expected-commit "$ORDAX_SOURCE_COMMIT" \
+            --receipt "$RUNNER_TEMP/ordax-independent/dev-channel-rootfs-compatibility.json"
       - name: QEMU real kernel, EROFS and ext4 persistence/recovery
         run: |
           python3 bootstrap/independent-base/qemu_proof.py \
@@ -187,6 +208,7 @@ jobs:
             ${{ runner.temp }}/ordax-independent/provenance.json
             ${{ runner.temp }}/ordax-independent/kernel-module-payload.json
             ${{ runner.temp }}/ordax-independent/firmware-coverage.json
+            ${{ runner.temp }}/ordax-independent/dev-channel-rootfs-compatibility.json
             ${{ runner.temp }}/ordax-independent/independent-base.erofs
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
