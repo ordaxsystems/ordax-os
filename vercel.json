@@ -1,343 +1,65 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "outputDirectory": "out/public-deployment",
-  "ignoreCommand": "sh tools/public-site/should_skip_vercel_build.sh",
-  "routes": [
-    {
-      "src": "^/ordax/$",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "pre": "web."
-          }
-        }
-      ],
-      "status": 308,
-      "dest": "/"
-    },
-    {
-      "src": "^/ordax/index\\.html$",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "pre": "web."
-          }
-        }
-      ],
-      "status": 308,
-      "dest": "/"
-    },
-    {
-      "src": "^/$",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "pre": "web."
-          }
-        }
-      ],
-      "dest": "/ordax/"
-    }
-  ],
+  "outputDirectory": "out/vercel",
+  "ignoreCommand": "sh tools/vercel/should_skip_build.sh",
   "rewrites": [
     {
       "source": "/auth/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "pre": "web."
-          }
-        }
-      ],
+      "has": [{"type": "host", "value": {"pre": "web."}}],
       "destination": "/api/web-account-proxy?ordax_path=/auth/:path*"
     },
     {
       "source": "/sync/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "pre": "web."
-          }
-        }
-      ],
+      "has": [{"type": "host", "value": {"pre": "web."}}],
       "destination": "/api/web-account-proxy?ordax_path=/sync/:path*"
     },
     {
       "source": "/account/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": {
-            "pre": "web."
-          }
-        }
-      ],
+      "has": [{"type": "host", "value": {"pre": "web."}}],
       "destination": "/api/web-account-proxy?ordax_path=/account/:path*"
     },
-    {
-      "source": "/oauth/consent",
-      "destination": "/api/oauth-consent"
-    },
-    {
-      "source": "/auth/:path*",
-      "destination": "/api/account-proxy?ordax_path=/auth/:path*"
-    },
-    {
-      "source": "/sync/:path*",
-      "destination": "/api/account-proxy?ordax_path=/sync/:path*"
-    },
-    {
-      "source": "/account/:path*",
-      "destination": "/api/account-proxy?ordax_path=/account/:path*"
-    }
+    {"source": "/oauth/consent", "destination": "/api/oauth-consent"},
+    {"source": "/auth/:path*", "destination": "/api/account-proxy?ordax_path=/auth/:path*"},
+    {"source": "/sync/:path*", "destination": "/api/account-proxy?ordax_path=/sync/:path*"},
+    {"source": "/account/:path*", "destination": "/api/account-proxy?ordax_path=/account/:path*"}
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains"
-        },
-        {
-          "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin"
-        },
-        {
-          "key": "Cross-Origin-Embedder-Policy",
-          "value": "require-corp"
-        },
-        {
-          "key": "Cross-Origin-Resource-Policy",
-          "value": "same-origin"
-        },
-        {
-          "key": "Origin-Agent-Cluster",
-          "value": "?1"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Permitted-Cross-Domain-Policies",
-          "value": "none"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(), payment=()"
-        }
+        {"key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests"},
+        {"key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains"},
+        {"key": "Cross-Origin-Opener-Policy", "value": "same-origin"},
+        {"key": "Cross-Origin-Embedder-Policy", "value": "require-corp"},
+        {"key": "Cross-Origin-Resource-Policy", "value": "same-origin"},
+        {"key": "Origin-Agent-Cluster", "value": "?1"},
+        {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},
+        {"key": "X-Content-Type-Options", "value": "nosniff"},
+        {"key": "X-Frame-Options", "value": "DENY"},
+        {"key": "X-Permitted-Cross-Domain-Policies", "value": "none"},
+        {"key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()"}
       ]
     },
-    {
-      "source": "/auth/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/sync/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/account/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/download/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/login/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/cadastro/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/recuperar/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/conta/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/licencas/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/privacidade/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/termos/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/config/public-site.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/releases/catalog.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/assets/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300"
-        }
-      ]
-    },
-    {
-      "source": "/oauth/consent",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "no-referrer"
-        }
-      ]
-    },
-    {
-      "source": "/ordax/",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/ordax/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/ordax/assets/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    }
+    {"source": "/auth/:path*", "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]},
+    {"source": "/sync/:path*", "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]},
+    {"source": "/account/:path*", "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]},
+    {"source": "/", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/index.html", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/download/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/login/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/cadastro/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/recuperar/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/conta/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/licencas/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/privacidade/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/termos/:path*", "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]},
+    {"source": "/config/public-site.json", "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]},
+    {"source": "/releases/catalog.json", "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]},
+    {"source": "/assets/:path*", "headers": [{"key": "Cache-Control", "value": "public, max-age=300"}]},
+    {"source": "/oauth/consent", "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}, {"key": "Referrer-Policy", "value": "no-referrer"}]}
   ],
-  "git": {
-    "deploymentEnabled": {
-      "**": false,
-      "main": true
-    }
-  },
-  "buildCommand": "python3 tools/public-site/build.py check && python3 tools/public-site/deployment.py build --source-commit \"$VERCEL_GIT_COMMIT_SHA\" && python3 tools/public-site/deployment.py verify",
+  "git": {"deploymentEnabled": {"**": false, "main": true}},
+  "buildCommand": "python3 tools/vercel/build.py",
   "installCommand": "npm ci --ignore-scripts --no-audit --no-fund"
 }
