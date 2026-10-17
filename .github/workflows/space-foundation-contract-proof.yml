@@ -30,7 +30,6 @@ on:
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
-      - 'tests/test_space-members.mjs'
       - 'tests/test_space_members.mjs'
       - 'tests/test_space_membership_actions.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
