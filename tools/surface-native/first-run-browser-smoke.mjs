@@ -108,6 +108,46 @@ async function scenario(modules,css) {
   await click('finish');
  }
  const checks={};
+
+ // A native Surface relaunch must reread the keyboard owner; First Run must
+ // not invent an intermediate receipt or pretend the physical layout changed.
+ const keyboardOwner=await fixture();
+ let keyboardReads=0,keyboardMutations=0;
+ let keyboardState={
+  configuredLayoutId:'br-abnt2',appliedLayoutId:'br-abnt2',
+  supportedLayoutIds:['br-abnt2','us'],restartRequired:false,
+ };
+ keyboardOwner.ports.keyboardLayout={
+  schema:'ordax.keyboard-layout/1',
+  async read(){keyboardReads+=1;return {...keyboardState};},
+  async configure(){keyboardMutations+=1;throw Error('OOBE must stay read-only');},
+ };
+ const keyboardFirst=mountFirstRunExperience(root,keyboardOwner.ports);
+ await click('next');await delay();
+ const firstStatus=document.querySelector('[data-first-run-keyboard-status]')?.textContent??'';
+ checks.nativeKeyboardReadOnly=firstStatus.includes('ABNT2')
+  && firstStatus.includes('Layout configurado:')
+  && !document.querySelector('[data-first-run-keyboard-layout]')
+  && keyboardMutations===0;
+ keyboardFirst.destroy();
+ checks.restartWithoutReceipt=!keyboardOwner.state.completed && keyboardOwner.writes.length===0;
+
+ keyboardState={
+  configuredLayoutId:'us',appliedLayoutId:'us',
+  supportedLayoutIds:['br-abnt2','us'],restartRequired:false,
+ };
+ const keyboardSecond=mountFirstRunExperience(root,{
+  ...keyboardOwner.ports,stateStore:await keyboardOwner.freshStateStore(),
+ });
+ await click('next');await delay();
+ const resumedStatus=document.querySelector('[data-first-run-keyboard-status]')?.textContent??'';
+ checks.relaunchRefreshesNativeKeyboard=resumedStatus.includes('English (US)')
+  && !resumedStatus.includes('ABNT2') && keyboardReads===2
+  && keyboardMutations===0;
+ checks.noKeyboardOwnerInReceipt=!Object.prototype.hasOwnProperty.call(keyboardOwner.state,'keyboardLayoutId')
+  && keyboardOwner.writes.length===0;
+ keyboardSecond.destroy();
+
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
