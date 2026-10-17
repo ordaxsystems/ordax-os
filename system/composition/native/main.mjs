@@ -1049,6 +1049,7 @@ async function start() {
       identityCredentials,
       localSession,
       deviceProfile,
+      keyboardLayout,
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);
