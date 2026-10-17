@@ -229,6 +229,35 @@ begin
 end;
 $$;
 
+-- Current authority is revalidated even for an old successful idempotency key.
+reset role;
+update public.ordax_space_members
+set state = 'suspended'
+where space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and user_id = '22222222-2222-4222-8222-222222222222';
+set role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
+
+do $$
+declare
+  blocked boolean := false;
+begin
+  begin
+    perform * from public.ordax_mutate_space_lifecycle_v1(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'archive',
+      null,
+      '20000000-0000-4000-8000-000000000001'
+    );
+  exception when sqlstate '42501' then
+    blocked := sqlerrm = 'space-not-found-or-forbidden';
+  end;
+  if not blocked then
+    raise exception 'revoked admin replayed a stale authorized lifecycle request';
+  end if;
+end;
+$$;
+
 -- Member and suspended admin fail closed with the same non-enumerating error.
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
 
