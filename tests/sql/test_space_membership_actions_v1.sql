@@ -14,6 +14,11 @@ values (
 );
 
 \ir ../../infra/supabase/product/migrations/20261017090000_space_membership_actions_v1.sql
+\ir ../../infra/supabase/product/migrations/20261017102000_space_members_read_authority_v1.sql
+\ir ../../infra/supabase/product/migrations/20261017143000_space_members_action_capabilities_v1.sql
+
+-- The latest deployed membership mutation/read functions are proved together on real PostgreSQL.
+-- This prevents a later migration from changing executable behavior while only source tests stay green.
 
 -- Public authority surface is bounded to authenticated user sessions.
 do $$
@@ -45,6 +50,149 @@ begin
     'SELECT'
   ) then
     raise exception 'private membership action receipts leaked to authenticated';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.ordax_list_space_members_v1(uuid,uuid,integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated cannot execute latest members read RPC';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.ordax_list_space_members_v1(uuid,uuid,integer)',
+    'EXECUTE'
+  ) or has_function_privilege(
+    'service_role',
+    'public.ordax_list_space_members_v1(uuid,uuid,integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'members read RPC leaked beyond authenticated';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'private.ordax_space_member_action_capabilities_v1(uuid,boolean,boolean,uuid,boolean,text,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'private target-action helper leaked to authenticated';
+  end if;
+end;
+$$;
+
+-- Target-specific actions are projected by PostgreSQL, not inferred by clients.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+
+do $$
+declare
+  owner_row record;
+  admin_row record;
+  member_row record;
+begin
+  select * into owner_row
+  from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '11111111-1111-4111-8111-111111111111';
+
+  if owner_row.can_change_role or owner_row.can_suspend or owner_row.can_reactivate or owner_row.can_remove
+    or cardinality(owner_row.assignable_roles) <> 0 then
+    raise exception 'owner target exposed administrative member actions';
+  end if;
+
+  select * into admin_row
+  from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '22222222-2222-4222-8222-222222222222';
+
+  if not admin_row.can_change_role or not admin_row.can_suspend or not admin_row.can_reactivate or not admin_row.can_remove
+    or admin_row.assignable_roles is distinct from array['admin','member','viewer']::text[] then
+    raise exception 'owner did not receive exact admin-target capabilities';
+  end if;
+
+  select * into member_row
+  from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '33333333-3333-4333-8333-333333333333';
+
+  if member_row.assignable_roles is distinct from array['admin','member','viewer']::text[] then
+    raise exception 'owner assignable roles drifted for member target';
+  end if;
+end;
+$$;
+
+-- Delegated admin receives least-privilege target capabilities from the same helper.
+select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
+
+do $$
+declare
+  self_row record;
+  owner_row record;
+  peer_admin_row record;
+  member_row record;
+  viewer_row record;
+begin
+  select * into self_row from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '22222222-2222-4222-8222-222222222222';
+  select * into owner_row from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '11111111-1111-4111-8111-111111111111';
+  select * into peer_admin_row from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '44444444-4444-4444-8444-444444444444';
+  select * into member_row from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '33333333-3333-4333-8333-333333333333';
+  select * into viewer_row from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '55555555-5555-4555-8555-555555555555';
+
+  if self_row.can_change_role or self_row.can_suspend or self_row.can_reactivate or self_row.can_remove
+    or owner_row.can_change_role or owner_row.can_suspend or owner_row.can_reactivate or owner_row.can_remove
+    or peer_admin_row.can_change_role or peer_admin_row.can_suspend or peer_admin_row.can_reactivate or peer_admin_row.can_remove then
+    raise exception 'delegated admin received authority over self/owner/peer-admin target';
+  end if;
+
+  if not member_row.can_change_role or not member_row.can_suspend or not member_row.can_reactivate or not member_row.can_remove
+    or member_row.assignable_roles is distinct from array['member','viewer']::text[]
+    or viewer_row.assignable_roles is distinct from array['member','viewer']::text[] then
+    raise exception 'delegated admin target capabilities are not least privilege';
+  end if;
+end;
+$$;
+
+-- A normal member may read the membership projection but receives no management actions.
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+
+do $$
+declare
+  leaked integer;
+begin
+  select count(*) into leaked
+  from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  )
+  where can_change_role or can_suspend or can_reactivate or can_remove or cardinality(assignable_roles) > 0;
+  if leaked <> 0 then
+    raise exception 'non-admin received projected management capability';
+  end if;
+end;
+$$;
+
+-- Cross-Space reads remain fail-closed after the action-capability migration.
+do $$
+declare
+  blocked boolean := false;
+begin
+  begin
+    perform * from public.ordax_list_space_members_v1(
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', null, 64
+    );
+  exception when sqlstate '42501' then
+    blocked := sqlerrm = 'space-not-found-or-forbidden';
+  end;
+  if not blocked then
+    raise exception 'cross-Space members projection did not fail closed';
   end if;
 end;
 $$;
