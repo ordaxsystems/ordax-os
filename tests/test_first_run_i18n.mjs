@@ -20,6 +20,7 @@ test("each translated locale changes representative setup, Wi-Fi, account and co
     "Disponível",
     "Sinal forte",
     "Continuar sem conta",
+    "Memória automática",
     "Tudo pronto",
   ];
   for (const locale of LOCALES) {
