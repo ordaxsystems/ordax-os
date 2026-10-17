@@ -1,5 +1,14 @@
 # Current State
 
+Web account navigation usability (2026-10-16): manual rail collapse now stacks
+utilities vertically and retains 44px hit areas instead of compressing them to
+roughly 18px. The profile avatar has readable initials, clearer decorative status
+and an active-account border. Dock buttons now expose the restore identity already
+consumed by WindowLayer, so minimizing the last visible account window returns
+keyboard focus to its actual dock control. Navigation/reference checks and the
+TypeScript/production build pass. Browser regression covers minimize/restore focus
+and collapsed utility geometry without changing identity or backend authority.
+
 OrdaX Web account redesign (2026-10-16): the internal account page now groups
 confirmed identity, browser session, local Settings/Spaces shortcuts and preserved
 pending resources. Profile/security/privacy/usage/subscription links point to the

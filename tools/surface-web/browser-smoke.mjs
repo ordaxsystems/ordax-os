@@ -152,6 +152,10 @@ try {
       }
       const accountShot=await client.send('Page.captureScreenshot',{format:'png'});
       await writeFile(join(evidence,'account-'+width+'x'+height+'.png'),Buffer.from(accountShot.data,'base64'));
+      await click('[aria-label="Minimizar Minha conta"]');
+      await until("document.activeElement===document.querySelector('[data-window-restore=\"Minha conta\"]')");
+      await click('[data-window-restore="Minha conta"]');
+      await until("document.querySelector('.meridian-account-panel').getClientRects().length>0");
       await click('[aria-label="Fechar Minha conta"]');
       await openSidebarDestination('Espaços');
       await until("!!document.querySelector('.meridian-account-spaces')");
@@ -195,6 +199,7 @@ try {
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
         await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
+        assert.equal(await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].every(button=>{const box=button.getBoundingClientRect();return box.width>=44&&box.height>=44;})"),true,'Collapsed sidebar utilities keep usable hit areas');
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       }
