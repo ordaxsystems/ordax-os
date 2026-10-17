@@ -142,6 +142,14 @@ try {
       await until("!!document.querySelector('.meridian-account-panel')");
       assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-panel');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Account retains readable padding without horizontal overflow');
       assert.equal(await evaluate("document.querySelector('.meridian-account-panel a').href"),'https://ordax.com.br/conta/','Account management belongs to the public portal');
+      assert.equal(await evaluate("[...document.querySelectorAll('.meridian-account-panel a')].every(a=>a.target==='_blank'&&a.rel.includes('noopener')&&a.rel.includes('noreferrer'))"),true,'Portal links preserve the workspace and isolate the new tab');
+      assert.equal(await evaluate("document.querySelector('.meridian-rail-account').getAttribute('title').includes(document.querySelector('.meridian-rail-account strong').textContent)"),true,'Full account name remains available when rail text is truncated');
+      if(width===1440){
+        await click('.account-local-shortcuts button');
+        await until("!!document.querySelector('.meridian-account-spaces')");
+        await click('[aria-label="Fechar Espaços"]');
+        await until("document.querySelector('.meridian-account-panel').getClientRects().length>0");
+      }
       const accountShot=await client.send('Page.captureScreenshot',{format:'png'});
       await writeFile(join(evidence,'account-'+width+'x'+height+'.png'),Buffer.from(accountShot.data,'base64'));
       await click('[aria-label="Fechar Minha conta"]');

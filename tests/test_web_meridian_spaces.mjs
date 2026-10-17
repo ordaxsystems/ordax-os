@@ -157,9 +157,15 @@ test('account management keeps its canonical portal owner on the dedicated Web h
   const f = fixture();
   try {
     await f.session.refresh();
-    const html = renderToStaticMarkup(createElement(WebAccountProvider, {session: f.session}, createElement(AccountPanel)));
+    const html = renderToStaticMarkup(createElement(WebAccountProvider, {session: f.session}, createElement(AccountPanel, {onOpen() {}})));
     assert.match(html, /href="https:\/\/ordax\.com\.br\/conta\/"/);
     assert.doesNotMatch(html, /href="\/conta\/"/);
+    assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+    for (const id of ['dados-pessoais', 'seguranca', 'privacidade', 'consumo', 'assinatura']) {
+      assert.ok(html.includes('https://ordax.com.br/conta/#'+id));
+    }
+    assert.match(html, /Meus espaços/);
+    assert.match(html, /Preferências do Web/);
     assert.match(html, /Conta conectada/);
     assert.match(html, /Sair da conta/);
     assert.match(html, /Recursos de conta pendentes/);

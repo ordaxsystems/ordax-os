@@ -1,5 +1,17 @@
 # Current State
 
+OrdaX Web account redesign (2026-10-16): the internal account page now groups
+confirmed identity, browser session, local Settings/Spaces shortcuts and preserved
+pending resources. Profile/security/privacy/usage/subscription links point to the
+existing public Account owner in explicitly labelled new tabs with noopener and
+noreferrer; no iframe or second account implementation is introduced. The global
+rail profile has a readable name, connection indicator, full-name tooltip and
+unchanged accessible account entry, including collapsed mode. Identity actions,
+readiness and service ownership remain unchanged. Session/portal-link regressions,
+canonical reference verification and TypeScript/production compilation pass. The
+strict-CSP browser proof passes all seven viewports, including preserved Account
+state through the Spaces shortcut, new-tab isolation and full-name rail feedback.
+
 Authenticated Meridian Web review (2026-10-16): confirmed account identity is now
 presented separately from Spaces catalog errors. Account and Spaces panels retain
 their intended insets instead of losing them to generic window panel styles.

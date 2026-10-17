@@ -32,7 +32,7 @@ export function Desktop({ onCentral, dispatch }: Props) {
 export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
   if (title === 'Perfis profissionais') return <ProfileCatalogPanel/>;
-  if (title === 'Minha conta') return <AccountPanel/>;
+  if (title === 'Minha conta') return <AccountPanel onOpen={open}/>;
   if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p><IntegrationNote area={title === 'Projetos' ? 'projects' : 'files'}/></Panel>;
   if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;
   if (title === 'Notificações') return <WebNotificationCenter/>;
