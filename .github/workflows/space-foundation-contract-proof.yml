@@ -8,10 +8,12 @@ on:
       - 'system/contracts/space-experience.mjs'
       - 'system/contracts/space-lifecycle.mjs'
       - 'system/contracts/space-membership-actions.mjs'
+      - 'system/contracts/space-invites.mjs'
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_invites.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   push:
@@ -22,10 +24,12 @@ on:
       - 'system/contracts/space-experience.mjs'
       - 'system/contracts/space-lifecycle.mjs'
       - 'system/contracts/space-membership-actions.mjs'
+      - 'system/contracts/space-invites.mjs'
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_invites.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   workflow_dispatch:
@@ -51,6 +55,7 @@ jobs:
           node --check system/contracts/space-experience.mjs
           node --check system/contracts/space-lifecycle.mjs
           node --check system/contracts/space-membership-actions.mjs
+          node --check system/contracts/space-invites.mjs
           node --check system/services/spaces/composition.mjs
           node --check system/services/spaces/type-catalog.mjs
 
@@ -60,6 +65,7 @@ jobs:
           node --test tests/test_space_foundation_nonblocking.mjs
           node --test tests/test_space_lifecycle.mjs
           node --test tests/test_space_membership_actions.mjs
+          node --test tests/test_space_invites.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs
