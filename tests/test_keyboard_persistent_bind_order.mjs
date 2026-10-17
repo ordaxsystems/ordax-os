@@ -3,8 +3,8 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const launcher = await source("system/surface/bin/ordax-surface");
-const nativeHost = await source("system/surface/runtime/native_host_server.py");
+const launcher = (await source("system/surface/bin/ordax-surface")).replace(/\r\n/g, "\n");
+const nativeHost = (await source("system/surface/runtime/native_host_server.py")).replace(/\r\n/g, "\n");
 const contract = JSON.parse(await source("docs/contracts/keyboard-layout.json"));
 
 test("persistent keyboard writes share exactly the native-state bind mounted by Surface", () => {

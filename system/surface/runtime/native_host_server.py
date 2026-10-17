@@ -92,6 +92,8 @@ SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
 PREFERENCES_PATH = "/__ordax/native/preferences"
 KEYBOARD_LAYOUT_PATH = "/__ordax/native/keyboard-layout"
+KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"
+KEYBOARD_SESSION_RESTART_REQUEST = "/run/ordax-surface/keyboard-session-restart-request"
 FIRST_RUN_PATH = "/__ordax/native/first-run"
 DEVICE_PROFILE_PATH = "/__ordax/native/device-profile"
 LOCAL_SESSION_PATH = "/__ordax/native/local-session"
@@ -661,6 +663,36 @@ def write_keyboard_layout_id(layout_id: str) -> None:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
+
+
+def queue_keyboard_session_restart(
+    layout_id: str,
+    request_path: str = KEYBOARD_SESSION_RESTART_REQUEST,
+) -> None:
+    if layout_id not in KEYBOARD_LAYOUT_ID_SET:
+        raise ValueError("invalid keyboard layout for session restart")
+    info = os.lstat(request_path)
+    if not stat.S_ISFIFO(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise ValueError("keyboard session restart request must be a FIFO")
+    if stat.S_IMODE(info.st_mode) != 0o600:
+        raise ValueError("keyboard session restart FIFO must be private")
+    descriptor = os.open(
+        request_path,
+        os.O_WRONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISFIFO(opened.st_mode)
+            or opened.st_ino != info.st_ino
+            or opened.st_dev != info.st_dev
+        ):
+            raise ValueError("keyboard session restart FIFO changed during request")
+        payload = (layout_id + "\n").encode("ascii")
+        if os.write(descriptor, payload) != len(payload):
+            raise OSError("incomplete keyboard session restart request")
+    finally:
+        os.close(descriptor)
 
 
 def keyboard_layout_snapshot() -> dict:
@@ -3333,6 +3365,7 @@ class NativeHostServer(ThreadingHTTPServer):
         self.supported_actions = supported_power_actions(power_request_path)
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
+        self.keyboard_layout_lock = threading.Lock()
         self.native_install_paths = native_install_broker_paths(network_session_dir)
         self.native_install_lock = threading.Lock()
         self.file_trash_lock = threading.Lock()
@@ -4812,6 +4845,32 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._write_json(200, snapshot)
             return
 
+        if parsed_path == KEYBOARD_LAYOUT_APPLY_PATH:
+            payload = self._read_json_body(MAX_KEYBOARD_LAYOUT_BODY)
+            if (
+                payload is None
+                or set(payload) != {"layoutId"}
+                or payload.get("layoutId") not in KEYBOARD_LAYOUT_ID_SET
+            ):
+                self._empty(400)
+                return
+            try:
+                with self.server.keyboard_layout_lock:
+                    write_keyboard_layout_id(payload["layoutId"])
+                    pending = keyboard_layout_snapshot()
+                    if pending["restartRequired"]:
+                        queue_keyboard_session_restart(payload["layoutId"])
+            except (OSError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: keyboard session restart unavailable: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            self._write_json(202 if pending["restartRequired"] else 200, pending)
+            return
+
         if parsed_path == KEYBOARD_LAYOUT_PATH:
             payload = self._read_json_body(MAX_KEYBOARD_LAYOUT_BODY)
             if (
@@ -4822,7 +4881,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(400)
                 return
             try:
-                write_keyboard_layout_id(payload["layoutId"])
+                with self.server.keyboard_layout_lock:
+                    write_keyboard_layout_id(payload["layoutId"])
             except (OSError, ValueError) as exc:
                 print(
                     f"ordax-native-host: could not persist keyboard layout: {exc}",
