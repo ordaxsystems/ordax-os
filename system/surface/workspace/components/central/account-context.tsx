@@ -4,6 +4,8 @@ import type { validateIdentitySessionSnapshot } from '../../../../contracts/iden
 import type { validateIdentityActionsSnapshot } from '../../../../contracts/identity-actions.mjs';
 import type { validateSpace, validateSpacesSnapshot } from '../../../../contracts/spaces.mjs';
 import type { validateSpaceMembersPage } from '../../../../contracts/space-members.mjs';
+import type { validateSpaceActorCapability } from '../../../../contracts/space-actor-capability.mjs';
+import type { validateSpaceMembershipActionResult } from '../../../../contracts/space-membership-actions.mjs';
 import type { validateSpaceSelectionSnapshot } from '../../../../contracts/space-selection.mjs';
 import type { validateSurfaceSnapshot } from '../../../../contracts/surface-host.mjs';
 import { deriveAuthorizedSpaces } from '../../../../services/spaces/authorized-view.mjs';
@@ -21,6 +23,15 @@ type AccountSession = Readonly<{
   spaces: SnapshotPort<ReturnType<typeof validateSpacesSnapshot>>;
   members: Readonly<{
     list(request: { spaceId: string; cursor?: string | null }): Promise<ReturnType<typeof validateSpaceMembersPage>>;
+  }>;
+  actorCapability: Readonly<{
+    read(request: { spaceId: string }): Promise<ReturnType<typeof validateSpaceActorCapability>>;
+  }>;
+  membershipActions: Readonly<{
+    changeMemberRole(spaceId: string, targetUserId: string, role: 'admin' | 'member' | 'viewer', idempotencyKey: string): Promise<ReturnType<typeof validateSpaceMembershipActionResult>>;
+    suspendMember(spaceId: string, targetUserId: string, idempotencyKey: string): Promise<ReturnType<typeof validateSpaceMembershipActionResult>>;
+    reactivateMember(spaceId: string, targetUserId: string, idempotencyKey: string): Promise<ReturnType<typeof validateSpaceMembershipActionResult>>;
+    removeMember(spaceId: string, targetUserId: string, idempotencyKey: string): Promise<ReturnType<typeof validateSpaceMembershipActionResult>>;
   }>;
   selection: SnapshotPort<ReturnType<typeof validateSpaceSelectionSnapshot>> & {
     select(spaceId: string): unknown;
@@ -46,5 +57,5 @@ export function useWebAccount() {
   const offline = surface.connectivity === 'offline';
   const authorized: { ready: boolean; visibleSpaces: readonly ReturnType<typeof validateSpace>[]; activeSpace: ReturnType<typeof validateSpace> | null } = deriveAuthorizedSpaces(identity, catalog, selection);
   const { displayName, initials } = projectSidebarAccount(identity, offline);
-  return { session, identity, actions, catalog, members: session.members, selection, surface, offline, authorized, displayName, initials };
+  return { session, identity, actions, catalog, members: session.members, actorCapability: session.actorCapability, membershipActions: session.membershipActions, selection, surface, offline, authorized, displayName, initials };
 }

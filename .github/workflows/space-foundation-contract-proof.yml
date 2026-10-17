@@ -11,6 +11,7 @@ on:
       - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
+      - 'system/services/idempotency/uuid.mjs'
       - 'system/adapters/web/space-members.mjs'
       - 'system/adapters/web/space-actor-capability.mjs'
       - 'system/adapters/web/space-membership-actions.mjs'
@@ -41,6 +42,7 @@ on:
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
       - 'tests/test_space_members_surface_source.mjs'
+      - 'tests/test_uuid_idempotency_key.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   push:
@@ -54,6 +56,7 @@ on:
       - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
+      - 'system/services/idempotency/uuid.mjs'
       - 'system/adapters/web/space-members.mjs'
       - 'system/adapters/web/space-actor-capability.mjs'
       - 'system/adapters/web/space-membership-actions.mjs'
@@ -84,6 +87,7 @@ on:
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
       - 'tests/test_space_members_surface_source.mjs'
+      - 'tests/test_uuid_idempotency_key.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   workflow_dispatch:
@@ -117,6 +121,7 @@ jobs:
           node --check system/services/spaces/actor-capability.mjs
           node --check system/services/spaces/membership-actions.mjs
           node --check system/services/spaces/type-catalog.mjs
+          node --check system/services/idempotency/uuid.mjs
           node --check system/adapters/web/space-members.mjs
           node --check system/adapters/web/space-actor-capability.mjs
           node --check system/adapters/web/space-membership-actions.mjs
@@ -143,6 +148,7 @@ jobs:
           node --test tests/test_web_space_membership_actions.mjs
           node --test tests/test_space_membership_gateway_source.mjs
           node --test tests/test_space_members_surface_source.mjs
+          node --test tests/test_uuid_idempotency_key.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs
