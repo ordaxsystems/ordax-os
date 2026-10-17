@@ -14,6 +14,7 @@ const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
 const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/1";
+const SPACE_ACTOR_CAPABILITY_SCHEMA = "ordax.space-actor-capability/1";
 const SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA = "ordax.space-membership-action-request/1";
 const SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA = "ordax.space-membership-action-result/1";
 const SPACE_MEMBERSHIP_ACTIONS = new Set(["change-role", "suspend", "reactivate", "remove"]);
@@ -1407,6 +1408,41 @@ Deno.serve(async (req: Request) => {
       }, session.cookies);
     } catch {
       return error(503, "space-members-unavailable", "A leitura de membros está temporariamente indisponível.");
+    }
+  }
+
+  if (path === "/account/space-actor-capability" && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, { $schema: ERROR_SCHEMA, error: "authentication-required", message: "Entre na Conta OrdaX para verificar sua participacao neste Space." }, session.cookies);
+    }
+    const allowedQueryKeys = new Set(["spaceId"]);
+    for (const key of url.searchParams.keys()) {
+      if (!allowedQueryKeys.has(key)) return error(400, "invalid-space-actor-capability-query", "Consulta de participacao invalida.");
+    }
+    const spaceIds = url.searchParams.getAll("spaceId");
+    const spaceId = spaceIds.length === 1 ? spaceIds[0] : "";
+    if (!ACCOUNT_SPACE_UUID.test(spaceId)) return error(400, "invalid-space-actor-capability-query", "Consulta de participacao invalida.");
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc("ordax_get_space_actor_capability_v1", { p_space_id: spaceId });
+      if (rpcError) {
+        const message = String(rpcError.message ?? "");
+        if (message.includes("space-not-found-or-forbidden") || message.includes("authentication-required")) return error(403, "space-actor-capability-forbidden", "A participacao neste Space nao esta disponivel.");
+        if (message.includes("space-id-required") || message.includes("invalid input syntax for type uuid")) return error(400, "invalid-space-actor-capability-query", "Consulta de participacao invalida.");
+        return error(502, "space-actor-capability-read-failed", "Nao foi possivel verificar sua participacao neste Space.");
+      }
+      if (!Array.isArray(data) || data.length !== 1 || !data[0]) return error(502, "space-actor-capability-read-failed", "A resposta de participacao e invalida.");
+      const item = data[0] as Record<string, unknown>;
+      if (item.space_id !== spaceId || item.user_id !== session.user.id
+          || !["owner", "admin", "member", "viewer"].includes(String(item.role))
+          || !["active", "suspended"].includes(String(item.state))
+          || typeof item.can_manage_members !== "boolean") {
+        return error(502, "space-actor-capability-read-failed", "A resposta de participacao e invalida.");
+      }
+      return json(200, { schema: SPACE_ACTOR_CAPABILITY_SCHEMA, spaceId: item.space_id, userId: item.user_id, role: item.role, state: item.state, canManageMembers: item.can_manage_members }, session.cookies);
+    } catch {
+      return error(503, "space-actor-capability-unavailable", "A verificacao de participacao esta temporariamente indisponivel.");
     }
   }
 
