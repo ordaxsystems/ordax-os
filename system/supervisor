@@ -25,7 +25,6 @@ LAST_APPLIED_SHA_FILE=$STATE_DIR/last-applied-sha
 LAST_APPLIED_AT_FILE=$STATE_DIR/last-applied-at
 RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
 REJECTED_FILE=$STATE_DIR/rejected-commit
-DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout
 SUPERVISOR_GUARD_FILE=$STATE_DIR/pending-supervisor-update
 RELEASES_DIR=${ORDAX_RELEASES_DIR:-$STATE_DIR/releases}
 STAGED_RELEASE_FILE=$STATE_DIR/staged-release-sha
@@ -50,6 +49,8 @@ UPDATE_LOG=$UPDATE_RUN_DIR/update.log
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json
 GIT_BIN=${ORDAX_GIT_BIN:-/usr/bin/git}
+PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
+REPO_URL=${ORDAX_REPO_URL:-https://github.com/ordaxsystems/ordax-os.git}
 DISTRIBUTION_PROFILE=${ORDAX_DISTRIBUTION_PROFILE:-owner-development}
 PRODUCT_MODE=${ORDAX_PRODUCT_MODE:-}
 SOURCE_SHA_HINT=${ORDAX_SOURCE_SHA:-}
@@ -202,49 +203,6 @@ write_state_value() {
     temporary=$destination.tmp.$
     printf '%s\n' "$value" >"$temporary"
     /bin/busybox mv -f "$temporary" "$destination"
-}
-
-record_dirty_checkout() {
-    /bin/busybox mkdir -p "$DIRTY_CHECKOUT_DIR"
-    chmod 700 "$DIRTY_CHECKOUT_DIR" 2>/dev/null || true
-
-    dirty_head=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    status_file=$DIRTY_CHECKOUT_DIR/last-status.txt
-    status_tmp=$status_file.tmp.$
-    {
-        printf 'head=%s\n' "${dirty_head:-unknown}"
-        "$GIT_BIN" -C "$WORKTREE" status --porcelain=v1 2>/dev/null || true
-    } >"$status_tmp"
-    /bin/busybox mv -f "$status_tmp" "$status_file"
-
-    patch_file=$DIRTY_CHECKOUT_DIR/last-tracked-changes.patch
-    patch_tmp=$patch_file.tmp.$
-    if run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" diff --binary --no-ext-diff HEAD >"$patch_tmp" 2>/dev/null; then
-        /bin/busybox mv -f "$patch_tmp" "$patch_file"
-    else
-        rm -f "$patch_tmp"
-    fi
-}
-
-repair_dirty_checkout() {
-    record_dirty_checkout
-    log "checkout has local changes; restoring disposable Git-controlled runtime cache"
-
-    if ! run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" reset --hard HEAD >>"$UPDATE_LOG" 2>&1; then
-        log "dirty checkout repair could not restore tracked files"
-        return 1
-    fi
-    if ! run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" clean -ffd >>"$UPDATE_LOG" 2>&1; then
-        log "dirty checkout repair could not remove untracked residue"
-        return 1
-    fi
-    if [ -n "$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null || true)" ]; then
-        log "dirty checkout remains inconsistent after automatic repair"
-        return 1
-    fi
-
-    log "dirty checkout restored; forensic status preserved under $DIRTY_CHECKOUT_DIR"
-    return 0
 }
 
 candidate_file_to_temp() {
@@ -463,26 +421,6 @@ stage_candidate_release() {
     return 0
 }
 
-configure_runtime_sparse_checkout() {
-    "$GIT_BIN" -C "$WORKTREE" sparse-checkout set --no-cone \
-        /system/ \
-        /bootstrap/base-update/ \
-        /bootstrap/dev-base/ordax-dev-init \
-        /bootstrap/dev-base/ordax-diagnose \
-        /bootstrap/dev-base/ordax-network \
-        /bootstrap/dev-base/ordax-pull \
-        /bootstrap/dev-base/ordax-rollback \
-        /bootstrap/dev-base/ordax-run \
-        /bootstrap/recovery/entrypoint \
-        /bootstrap/trust/ \
-        /bootstrap/config/release-envelope-url \
-        /docs/contracts/release-trust-policy.json \
-        /docs/contracts/minimal-bootstrap.json \
-        /docs/evidence/release-trust-ceremony.json \
-        /docs/evidence/release-trust-proof-manifest.json \
-        /docs/evidence/release-trust-recovery-envelope.json >>"$UPDATE_LOG" 2>&1
-}
-
 refresh_dev_helpers() {
     source_sha=$1
     case "$source_sha" in
@@ -496,8 +434,13 @@ refresh_dev_helpers() {
     helper=$WORKTREE/system/services/base-update/dev-helpers.sh
     source_probe=$WORKTREE/bootstrap/dev-base/ordax-pull
     if [ ! -f "$source_probe" ]; then
-        if ! configure_runtime_sparse_checkout; then
-            log "could not materialize Git-owned development Base helper sources; will retry"
+        if [ ! -x "$PULL_BIN" ] || ! ORDAX_EXPECTED_SHA="$source_sha" \
+                ORDAX_REPO_URL="$REPO_URL" \
+                ORDAX_REPO_BRANCH="$BRANCH" \
+                ORDAX_WORKTREE="$WORKTREE" \
+                ORDAX_STATE_DIR="$STATE_DIR" \
+                "$PULL_BIN" >>"$UPDATE_LOG" 2>&1; then
+            log "atomic checkout owner could not restore Git-owned development Base helper sources; will retry"
             return 0
         fi
     fi
@@ -522,14 +465,14 @@ apply_remote_checkout() {
     expected_sha=$2
     CHECKOUT_ERROR=""
 
-    if [ -n "$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null || true)" ]; then
-        if ! repair_dirty_checkout; then
-            CHECKOUT_ERROR=local-checkout-repair-failed
-            return 1
-        fi
+    if [ ! -x "$PULL_BIN" ]; then
+        CHECKOUT_ERROR=atomic-checkout-owner-unavailable
+        log "atomic checkout owner is unavailable: $PULL_BIN"
+        return 1
     fi
 
-    if ! run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin         "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>&1; then
+    if ! run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
+        "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>&1; then
         CHECKOUT_ERROR=fetch-failed
         log "Git fetch failed or timed out after ${FETCH_TIMEOUT}s"
         return 1
@@ -553,7 +496,7 @@ apply_remote_checkout() {
     write_update_state "$previous_sha" updating "$APPLY_MODE"
     if ! validate_candidate_tree "$expected_sha" "$APPLY_MODE"; then
         CHECKOUT_ERROR=candidate-preflight-failed
-        log "candidate preflight failed before live checkout switch"
+        log "candidate preflight failed before atomic checkout switch"
         return 1
     fi
     if ! stage_candidate_release "$expected_sha" "$APPLY_MODE"; then
@@ -562,17 +505,23 @@ apply_remote_checkout() {
         return 1
     fi
 
-    if ! "$GIT_BIN" -C "$WORKTREE" reset --hard "$expected_sha" >>"$UPDATE_LOG" 2>&1; then
-        CHECKOUT_ERROR=reset-failed
+    if ! ORDAX_EXPECTED_SHA="$expected_sha" \
+            ORDAX_REPO_URL="$REPO_URL" \
+            ORDAX_REPO_BRANCH="$BRANCH" \
+            ORDAX_WORKTREE="$WORKTREE" \
+            ORDAX_STATE_DIR="$STATE_DIR" \
+            "$PULL_BIN" >>"$UPDATE_LOG" 2>&1; then
+        CHECKOUT_ERROR=atomic-checkout-failed
+        log "atomic checkout owner could not activate exact candidate $expected_sha"
         return 1
     fi
-    if ! configure_runtime_sparse_checkout; then
-        CHECKOUT_ERROR=sparse-checkout-failed
+
+    activated_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>>"$UPDATE_LOG" || true)
+    [ "$activated_sha" = "$expected_sha" ] || {
+        CHECKOUT_ERROR=atomic-checkout-sha-mismatch
+        log "atomic checkout activated unexpected SHA: expected $expected_sha, got ${activated_sha:-unknown}"
         return 1
-    fi
-    refresh_dev_helpers "$expected_sha"
-    write_state_value "$PREVIOUS_FILE" "$previous_sha"
-    write_state_value "$CURRENT_FILE" "$expected_sha"
+    }
     return 0
 }
 

@@ -10,6 +10,7 @@ CURRENT_FILE=$STATE_DIR/current-commit
 PINNED_FILE=$STATE_DIR/pinned-commit
 BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 AUTOMATIC_ROLLBACK_RECOVERY=${ORDAX_AUTOMATIC_ROLLBACK_RECOVERY:-0}
+EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}
 DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout
 GIT_TIMEOUT_SECONDS=${ORDAX_BOOT_GIT_TIMEOUT_SECONDS:-45}
 GIT_LOW_SPEED_TIME=${ORDAX_BOOT_GIT_LOW_SPEED_SECONDS:-15}
@@ -50,6 +51,10 @@ is_sha() {
         ''|*[!0-9a-f]*) return 1 ;;
     esac
 }
+if [ -n "$EXPECTED_SHA" ] && ! is_sha "$EXPECTED_SHA"; then
+    echo "ordax-git: expected SHA is invalid" >&2
+    exit 2
+fi
 
 read_state() {
     source=$1
@@ -252,6 +257,10 @@ if [ -z "$remote_sha" ]; then
     echo "ordax-git: main remota indisponivel; checkout local sera preservado" >&2
     exit 1
 fi
+if [ -n "$EXPECTED_SHA" ] && [ "$remote_sha" != "$EXPECTED_SHA" ]; then
+    echo "ordax-git: main mudou durante a transacao; checkout atual preservado" >&2
+    exit 1
+fi
 
 recovery_pinned=""
 recovery_rejected=""
@@ -304,6 +313,10 @@ else
 fi
 
 current=$(git -C "$WORKTREE" rev-parse HEAD)
+if [ -n "$EXPECTED_SHA" ] && [ "$current" != "$EXPECTED_SHA" ]; then
+    echo "ordax-git: checkout ativado divergiu do SHA esperado" >&2
+    exit 1
+fi
 write_state "$CURRENT_FILE" "$current"
 if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
     if [ "$current" = "$recovery_pinned" ] || [ "$current" = "$recovery_rejected" ]; then
