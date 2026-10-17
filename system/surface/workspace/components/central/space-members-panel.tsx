@@ -8,13 +8,13 @@ import './space-members-panel.css';
 type SpaceMember = ReturnType<typeof validateSpaceMembersPage>['members'][number];
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
-const roleLabels = Object.freeze({
+const roleLabels: Readonly<Record<string, string>> = Object.freeze({
   owner: 'Proprietário',
   admin: 'Administrador',
   member: 'Membro',
   viewer: 'Visualizador',
 });
-const stateLabels = Object.freeze({ active: 'Ativo', suspended: 'Suspenso' });
+const stateLabels: Readonly<Record<string, string>> = Object.freeze({ active: 'Ativo', suspended: 'Suspenso' });
 
 export function SpaceMembersPanel() {
   const { authorized, members, offline } = useWebAccount();
@@ -63,11 +63,11 @@ export function SpaceMembersPanel() {
       : initialLoading ? <div className="meridian-space-members-state" role="status"><strong>Consultando membros…</strong><span>A lista vem do serviço autorizado da sua conta.</span></div>
       : loadState === 'error' && items.length === 0 ? <div className="meridian-space-members-state" role="alert"><strong>Não foi possível consultar os membros.</strong><span>O Space continua selecionado, mas a lista não será simulada.</span><Button variant="outline" onClick={() => void readPage(spaceId, null, false)}>Tentar novamente</Button></div>
       : <>
-        {items.length > 0 ? <div className="meridian-space-members-list" role="list" aria-label="Membros carregados">{items.map(member => <article key={member.userId} role="listitem" className="meridian-space-member-row" data-state={member.state}>
+        {items.length > 0 ? <div className="meridian-space-members-list" role="list" aria-label="Membros carregados">{items.map(member => <article key={member.userId} role="listitem" className="meridian-space-member-row" data-state={String(member.state)}>
           <span className="meridian-space-member-avatar" aria-hidden="true"><UsersRound/></span>
           <div className="meridian-space-member-identity"><strong>{member.userId}</strong><small>Identificador da Conta OrdaX</small></div>
-          <span className="meridian-space-member-role">{roleLabels[member.role]}</span>
-          <span className="meridian-space-member-state">{stateLabels[member.state]}</span>
+          <span className="meridian-space-member-role">{roleLabels[String(member.role)] ?? 'Função não reconhecida'}</span>
+          <span className="meridian-space-member-state">{stateLabels[String(member.state)] ?? 'Estado não reconhecido'}</span>
         </article>)}</div>
           : <div className="meridian-space-members-state" role="status"><strong>Nenhum membro retornado.</strong><span>Esta é a resposta real do serviço para o Space selecionado.</span></div>}
         <footer><span>{items.length} {items.length === 1 ? 'membro carregado' : 'membros carregados'}{nextCursor ? ' · há mais resultados' : ''}</span>{nextCursor && <Button variant="outline" disabled={loadingMore} onClick={() => void readPage(spaceId, nextCursor, true)}>{loadingMore ? 'Carregando…' : 'Carregar mais'}</Button>}{loadState === 'error' && items.length > 0 && <Button variant="outline" onClick={() => void readPage(spaceId, nextCursor, true)}>Tentar página novamente</Button>}</footer>
