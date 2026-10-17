@@ -372,6 +372,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', transition)
         self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', transition)
         termination = text[text.index("terminate()") : text.index("console_fallback()") ]
+        self.assertIn("trap - EXIT", termination)
+        self.assertIn("trap '' HUP INT TERM", termination)
+        self.assertNotIn("trap - EXIT HUP INT TERM", termination)
+        self.assertLess(termination.index("trap '' HUP INT TERM"), termination.index("cleanup"))
         self.assertLess(termination.index("cleanup"), termination.index('perform_host_power_transition "$requested_power_action"'))
 
     def test_power_actions_persist_cross_boot_proof_before_destructive_action(self):

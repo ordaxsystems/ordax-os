@@ -623,7 +623,11 @@ cleanup() {
 }
 
 terminate() {
-    trap - EXIT HUP INT TERM
+    trap - EXIT
+    # A power request reaches this handler through TERM. During host quiescence,
+    # guardian/supervisor ancestors also receive TERM and can relay it back to
+    # this PID. Keep the power owner signal-immune until reboot/poweroff wins.
+    trap '' HUP INT TERM
     requested_power_action=""
     if [ -s "$POWER_TRANSITION_REQUEST" ]; then
         IFS= read -r requested_power_action <"$POWER_TRANSITION_REQUEST" || requested_power_action=""
