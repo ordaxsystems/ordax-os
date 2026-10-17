@@ -55,12 +55,12 @@ test("Space lifecycle requests never accept client-supplied authority", () => {
         action: "archive",
         [field]: value,
       }),
-      new RegExp(`cannot supply ${field}`),
+      new RegExp(`unsupported field ${field}`),
     );
   }
 });
 
-test("rename, archive and restore requests have distinct bounded payloads", () => {
+test("rename, archive and restore requests have distinct fail-closed payloads", () => {
   assert.deepEqual(
     validateSpaceLifecycleRequest({ ...requestBase, action: "archive" }),
     { ...requestBase, action: "archive" },
@@ -71,10 +71,18 @@ test("rename, archive and restore requests have distinct bounded payloads", () =
   );
   assert.throws(
     () => validateSpaceLifecycleRequest({ ...requestBase, action: "archive", name: "not-allowed" }),
-    /cannot include name/,
+    /unsupported field name/,
   );
   assert.throws(
-    () => validateSpaceLifecycleRequest({ ...requestBase, action: "rename", name: "" }),
+    () => validateSpaceLifecycleRequest({ ...requestBase, action: "archive", extra: true }),
+    /unsupported field extra/,
+  );
+  assert.throws(
+    () => validateSpaceLifecycleRequest({ ...requestBase, action: "rename", name: "   " }),
+    /must be bounded text/,
+  );
+  assert.throws(
+    () => validateSpaceLifecycleRequest({ ...requestBase, action: "rename", name: "Ok", spaceId: "   " }),
     /must be bounded text/,
   );
   assert.throws(
