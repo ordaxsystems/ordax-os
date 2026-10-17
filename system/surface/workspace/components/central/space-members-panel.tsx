@@ -29,6 +29,8 @@ export function SpaceMembersPanel() {
   const spaceId = authorized.activeSpace?.id ?? null;
   const activeSpaceName = authorized.activeSpace?.name ?? null;
   const currentSpace = useRef<string | null>(spaceId);
+  const membersReadGeneration = useRef(0);
+  const capabilityReadGeneration = useRef(0);
   const idempotency = useRef(new Map<string, string>());
   const [items, setItems] = useState<readonly SpaceMember[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -39,37 +41,42 @@ export function SpaceMembersPanel() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function readPage(targetSpaceId: string, cursor: string | null, append: boolean) {
+    const generation = ++membersReadGeneration.current;
     setLoadState('loading');
     try {
       const page = await members.list({ spaceId: targetSpaceId, cursor });
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || membersReadGeneration.current !== generation) return;
       setItems(previous => append ? [...previous, ...page.members] : page.members);
       setNextCursor(page.nextCursor);
       setLoadState('ready');
     } catch {
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || membersReadGeneration.current !== generation) return;
       setLoadState('error');
     }
   }
 
   async function readCapability(targetSpaceId: string) {
+    const generation = ++capabilityReadGeneration.current;
     setCapabilityState('loading');
     setCapability(null);
     try {
       const value = await actorCapability.read({ spaceId: targetSpaceId });
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || capabilityReadGeneration.current !== generation) return;
       setCapability(value);
       setCapabilityState('ready');
     } catch {
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || capabilityReadGeneration.current !== generation) return;
       setCapabilityState('error');
     }
   }
 
-  async function reloadMembers(targetSpaceId: string) {
+  async function reloadRemoteState(targetSpaceId: string) {
     setItems([]);
     setNextCursor(null);
-    await readPage(targetSpaceId, null, false);
+    await Promise.all([
+      readPage(targetSpaceId, null, false),
+      readCapability(targetSpaceId),
+    ]);
   }
 
   function getAttemptId(key: string) {
@@ -92,9 +99,12 @@ export function SpaceMembersPanel() {
       else if (action === 'reactivate') await membershipActions.reactivateMember(spaceId, member.userId, idempotencyKey);
       else if (action === 'remove') await membershipActions.removeMember(spaceId, member.userId, idempotencyKey);
       idempotency.current.delete(key);
-      if (currentSpace.current === spaceId) await reloadMembers(spaceId);
+      if (currentSpace.current === spaceId) await reloadRemoteState(spaceId);
     } catch {
-      if (currentSpace.current === spaceId) setActionError('A ação não foi confirmada pelo servidor. Você pode tentar novamente; a mesma tentativa reutilizará a chave de idempotência.');
+      if (currentSpace.current === spaceId) {
+        setActionError('A ação não foi confirmada pelo servidor. Você pode tentar novamente; a mesma tentativa reutilizará a chave de idempotência.');
+        await readCapability(spaceId);
+      }
     } finally {
       if (currentSpace.current === spaceId) setActionPending(null);
     }
@@ -102,6 +112,8 @@ export function SpaceMembersPanel() {
 
   useEffect(() => {
     currentSpace.current = spaceId;
+    membersReadGeneration.current += 1;
+    capabilityReadGeneration.current += 1;
     idempotency.current.clear();
     setItems([]);
     setNextCursor(null);
@@ -113,8 +125,10 @@ export function SpaceMembersPanel() {
       setCapabilityState('idle');
       return;
     }
-    void readPage(spaceId, null, false);
-    void readCapability(spaceId);
+    void Promise.all([
+      readPage(spaceId, null, false),
+      readCapability(spaceId),
+    ]);
   }, [spaceId, offline, members, actorCapability]);
 
   if (spaceId === null) return null;
