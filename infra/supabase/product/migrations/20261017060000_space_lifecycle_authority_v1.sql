@@ -70,30 +70,9 @@ begin
     raise exception using errcode = '22023', message = 'space-lifecycle-name-not-allowed';
   end if;
 
-  -- Idempotency is bound to the authenticated subject and exact request payload.
-  select r.*
-    into v_existing
-  from private.ordax_space_lifecycle_requests r
-  where r.user_id = v_actor
-    and r.idempotency_key = p_idempotency_key;
-
-  if found then
-    if v_existing.space_id <> p_space_id
-      or v_existing.action <> v_action
-      or v_existing.requested_name is distinct from v_name then
-      raise exception using errcode = '22023', message = 'space-lifecycle-idempotency-conflict';
-    end if;
-
-    return query
-    select v_existing.space_id,
-           v_existing.result_name,
-           v_existing.result_state,
-           false;
-    return;
-  end if;
-
-  -- Lock before authorization/mutation so role/state and Space state cannot race the
-  -- lifecycle transition. No client-supplied actor/role/owner value is accepted.
+  -- Lock and revalidate current authority before either a fresh mutation or an
+  -- idempotent replay. Revoked/suspended admins must fail closed even when they hold
+  -- a previously successful idempotency key.
   select s.*
     into v_space
   from public.ordax_spaces s
@@ -116,6 +95,28 @@ begin
 
   if not v_authorized then
     raise exception using errcode = '42501', message = 'space-not-found-or-forbidden';
+  end if;
+
+  -- Idempotency is bound to the currently authorized subject and exact payload.
+  select r.*
+    into v_existing
+  from private.ordax_space_lifecycle_requests r
+  where r.user_id = v_actor
+    and r.idempotency_key = p_idempotency_key;
+
+  if found then
+    if v_existing.space_id <> p_space_id
+      or v_existing.action <> v_action
+      or v_existing.requested_name is distinct from v_name then
+      raise exception using errcode = '22023', message = 'space-lifecycle-idempotency-conflict';
+    end if;
+
+    return query
+    select v_existing.space_id,
+           v_existing.result_name,
+           v_existing.result_state,
+           false;
+    return;
   end if;
 
   if v_action = 'rename' then
