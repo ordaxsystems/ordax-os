@@ -1,5 +1,10 @@
 # OrdaX Public Site
 
+Entrada pública atual do OrdaX Web: `https://web.ordax.com.br/`. Os links da
+landing usam o subdomínio diretamente; `/web/` no portal é compatibilidade
+legada com redirecionamento permanente. Referências à apresentação em `/web/`
+abaixo descrevem o artefato preservado, não uma etapa exigida de acesso.
+
 Este documento descreve **arquitetura, ownership e invariantes atuais** do site público OrdaX.
 Ele não é um diário de deploy nem substitui contratos machine-readable ou evidências datadas.
 

@@ -186,6 +186,15 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             text = path.read_text(encoding="utf-8")
             relative_path = path.relative_to(root).as_posix()
             sanitized = text
+            if suffix == ".html":
+                # Navigation to our product is not a remote runtime dependency.
+                # Only anchor hrefs qualify; scripts, styles and embeds still fail.
+                sanitized = re.sub(
+                    r'<a\b[^>]*\bhref="https://web\.ordax\.com\.br/"[^>]*>',
+                    lambda match: match.group(0).replace(
+                        'href="https://web.ordax.com.br/"', 'href="/"'),
+                    sanitized,
+                )
             for allowed_url in REMOTE_RUNTIME_ALLOWLIST.get(relative_path, ()):
                 sanitized = sanitized.replace(allowed_url, "")
             if "http://" in sanitized or "https://" in sanitized:

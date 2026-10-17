@@ -1,5 +1,12 @@
 # Current State
 
+Public Web entry correction (2026-10-16): landing hero, mode and footer links
+now open https://web.ordax.com.br/ directly. The legacy /web/ path on the public
+portal permanently redirects to that root through host-scoped Vercel routing.
+The product owns session checks and login; no portal session is used to bypass
+Web authentication. The historical presentation source remains preserved for
+reference/local previews, rather than acting as a second production entrance.
+
 Public landing header (2026-10-16): compact brand and 44px controls keep the
 primary navigation on one row until 960px. Smaller widths retain all section
 links in an independently scrollable row. At phone widths the header flows with

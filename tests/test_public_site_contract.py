@@ -1,4 +1,5 @@
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -185,6 +186,13 @@ class PublicSiteContractTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             relative = path.relative_to(SITE).as_posix()
             sanitized = text
+            if path.suffix.lower() == ".html":
+                sanitized = re.sub(
+                    r'<a\b[^>]*\bhref="https://web\.ordax\.com\.br/"[^>]*>',
+                    lambda match: match.group(0).replace(
+                        'href="https://web.ordax.com.br/"', 'href="/"'),
+                    sanitized,
+                )
             if relative == "assets/site.js":
                 count = sanitized.count(allowed)
                 self.assertEqual(count, 1)
