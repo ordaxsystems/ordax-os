@@ -4,6 +4,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "infra/supabase/product/migrations/20261017143000_space_members_action_capabilities_v1.sql"
+LATEST_READ_MIGRATION = ROOT / "infra/supabase/product/migrations/20261017190000_space_members_state_actions_v1.sql"
 
 
 def source() -> str:
@@ -33,6 +34,16 @@ class SpaceMembersReadAuthorityTests(unittest.TestCase):
         self.assertIn("order by m.user_id asc", block)
         self.assertIn("p_after_user_id is null or m.user_id > p_after_user_id", block)
         self.assertIn("cross join lateral private.ordax_space_member_action_capabilities_v1", block.lower())
+
+    def test_latest_members_read_projects_meaningful_transitions(self):
+        sql = LATEST_READ_MIGRATION.read_text(encoding="utf-8").lower()
+        block = function_block(sql, "public.ordax_list_space_members_v1")
+        self.assertIn("a.can_suspend and m.state = 'active' as can_suspend", block)
+        self.assertIn("a.can_reactivate and m.state = 'suspended' as can_reactivate", block)
+        self.assertIn("cross join lateral private.ordax_space_member_action_capabilities_v1", block)
+        self.assertIn("ordax_policy.can_access_space(p_space_id)", block)
+        self.assertNotIn("update public.ordax_space_members", block)
+        self.assertNotIn("delete from public.ordax_space_members", block)
 
     def test_members_read_exposes_no_mutation_and_is_authenticated_only(self):
         sql = source()

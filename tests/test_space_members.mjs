@@ -27,7 +27,7 @@ const NO_ACTIONS = Object.freeze({
 const OWNER_ACTIONS = Object.freeze({
   canChangeRole: true,
   canSuspend: true,
-  canReactivate: true,
+  canReactivate: false,
   canRemove: true,
   assignableRoles: Object.freeze(["admin", "member", "viewer"]),
 });
@@ -89,13 +89,13 @@ test("Space member projection reuses canonical membership roles and adds lifecyc
     spaceId: SPACE_ID,
     userId: USER_ID,
     role: "admin",
-    state: "suspended",
+    state: "active",
     actions: OWNER_ACTIONS,
   }), {
     spaceId: SPACE_ID,
     userId: USER_ID,
     role: "admin",
-    state: "suspended",
+    state: "active",
     actions: OWNER_ACTIONS,
   });
   assert.throws(() => validateSpaceMember({
@@ -115,6 +115,18 @@ test("Space member projection reuses canonical membership roles and adds lifecyc
 });
 
 test("Space member action projection is exact and fail-closed", () => {
+  const suspended = { ...OWNER_ACTIONS, canSuspend: false, canReactivate: true };
+  assert.equal(validateSpaceMember({
+    spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "suspended", actions: suspended,
+  }).actions.canReactivate, true);
+  assert.throws(() => validateSpaceMember({
+    spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active",
+    actions: { ...OWNER_ACTIONS, canReactivate: true },
+  }), /transition capability conflicts with state/);
+  assert.throws(() => validateSpaceMember({
+    spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "suspended",
+    actions: { ...OWNER_ACTIONS, canSuspend: true },
+  }), /transition capability conflicts with state/);
   assert.throws(() => validateSpaceMember({ spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active" }), /actions must be an object/);
   assert.throws(() => validateSpaceMember({
     spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active",
