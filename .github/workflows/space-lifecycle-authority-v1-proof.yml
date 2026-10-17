@@ -6,11 +6,13 @@ on:
     paths:
       - 'infra/supabase/product/migrations/20261017060000_space_lifecycle_authority_v1.sql'
       - 'tests/sql/test_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/test_space_lifecycle_authority_edges_v1.sql'
       - '.github/workflows/space-lifecycle-authority-v1-proof.yml'
   pull_request:
     paths:
       - 'infra/supabase/product/migrations/20261017060000_space_lifecycle_authority_v1.sql'
       - 'tests/sql/test_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/test_space_lifecycle_authority_edges_v1.sql'
       - '.github/workflows/space-lifecycle-authority-v1-proof.yml'
   workflow_dispatch:
 
@@ -48,4 +50,4 @@ jobs:
       - name: Prove lifecycle authority on PostgreSQL
         run: |
           set -euo pipefail
-          psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_lifecycle_authority_v1.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/test_space_lifecycle_authority_edges_v1.sql
