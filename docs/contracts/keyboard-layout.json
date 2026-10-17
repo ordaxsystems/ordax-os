@@ -55,6 +55,7 @@
     "first_run_exposure_blocked_until_proof": true
   },
   "first_run": {
+    "status_read_only_exposed": true,
     "selector_exposed": false,
     "reason": "The current Cage session reads XKB settings at compositor startup. The OOBE must not imply immediate keyboard reconfiguration until a safe live/session-restart handoff exists."
   },

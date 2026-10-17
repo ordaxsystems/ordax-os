@@ -69,6 +69,8 @@
     "editable_after_first_run_in_settings": true,
     "keyboard_layout_contract": "docs/contracts/keyboard-layout.json",
     "keyboard_layout_selector_exposed": false,
+    "keyboard_status_read_only": true,
+    "keyboard_status_owner": "keyboard-layout",
     "keyboard_layout_selector_gate": "safe-current-session-apply-or-pre-surface-handoff",
     "public_mvp_locales": [
       "pt-BR",
