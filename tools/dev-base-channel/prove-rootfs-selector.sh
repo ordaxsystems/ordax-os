@@ -35,7 +35,22 @@ write_file() {
 
 install_busybox_root() {
   local root=$1
-  mkdir -p     "$root/bin"     "$root/sbin"     "$root/usr/bin"     "$root/usr/local/bin"     "$root/state/ordax"     "$root/state/network"     "$root/workspace/ordax/system"     "$root/home"     "$root/proc"     "$root/sys"     "$root/dev"     "$root/run"     "$root/tmp"     "$root/root"     "$root/versions"
+  mkdir -p \
+    "$root/bin" \
+    "$root/sbin" \
+    "$root/usr/bin" \
+    "$root/usr/local/bin" \
+    "$root/state/ordax" \
+    "$root/state/network" \
+    "$root/workspace/ordax/system" \
+    "$root/home" \
+    "$root/proc" \
+    "$root/sys" \
+    "$root/dev" \
+    "$root/run" \
+    "$root/tmp" \
+    "$root/root" \
+    "$root/versions"
   cp "$BUSYBOX" "$root/bin/busybox"
   cp "$BUSYBOX" "$root/bin/sh"
   for applet in cat chmod dirname mkdir mv sleep; do
@@ -52,7 +67,9 @@ install_seed_root() {
   chmod 0755 "$seed/sbin/ordax-dev-init"
   printf '%s\n' "$cmdline" >"$seed/run/cmdline"
   mkdir -p "$seed/workspace/ordax/.git"
-  write_file "$seed/workspace/ordax/system/entrypoint" 0755     '#!/bin/sh'     "printf '%s\\n' seed-entrypoint"
+  write_file "$seed/workspace/ordax/system/entrypoint" 0755 \
+    '#!/bin/sh' \
+    "printf '%s\\n' seed-entrypoint"
   printf '%s\n' shared-state >"$seed/state/ordax/shared-state-proof"
 }
 
@@ -64,13 +81,31 @@ install_candidate_root() {
   cp "$DEV_INIT" "$root/sbin/ordax-dev-init"
   chmod 0755 "$root/sbin/ordax-dev-init"
 
-  write_file "$root/usr/bin/git" 0755     '#!/bin/sh'     'case "$*" in'     "  *\"rev-parse HEAD\"*) printf '%s\\n' '$SOURCE_SHA' ;;"     '  *"status --porcelain"*) exit 0 ;;'     '  *) exit 0 ;;'     'esac'
+  write_file "$root/usr/bin/git" 0755 \
+    '#!/bin/sh' \
+    'case "$*" in' \
+    "  *\"rev-parse HEAD\"*) printf '%s\\n' '$SOURCE_SHA' ;;" \
+    '  *"status --porcelain"*) exit 0 ;;' \
+    '  *) exit 0 ;;' \
+    'esac'
 
-  write_file "$root/usr/local/bin/ordax-network" 0755     '#!/bin/sh'     'exit 0'
-  write_file "$root/usr/local/bin/ordax-pull" 0755     '#!/bin/sh'     'exit 1'
-  write_file "$root/usr/local/bin/ordax-rollback" 0755     '#!/bin/sh'     'exit 1'
+  write_file "$root/usr/local/bin/ordax-network" 0755 \
+    '#!/bin/sh' \
+    'exit 0'
+  write_file "$root/usr/local/bin/ordax-pull" 0755 \
+    '#!/bin/sh' \
+    'exit 1'
+  write_file "$root/usr/local/bin/ordax-rollback" 0755 \
+    '#!/bin/sh' \
+    'exit 1'
 
-  write_file "$root/usr/local/bin/ordax-run" 0755     '#!/bin/sh'     'set -eu'     "test \"\${ORDAX_DEV_ROOT_COMMIT:-}\" = '$SOURCE_SHA'"     'test "${ORDAX_DEV_ROOT_MODE:-}" = candidate'     'test "${ORDAX_DEV_ROOT_SLOT:-}" = b'     "test \"\$(cat /.ordax-base/versions/$SOURCE_SHA/.ordax-rootfs-commit)\" = '$SOURCE_SHA'"     'test "$(cat /state/ordax/shared-state-proof)" = shared-state'     "printf '%s\\n' ROOTFS_SELECTOR_PIVOT=PASS"     "printf 'ROOTFS_SELECTOR_COMMIT=%s\\n' \"\${ORDAX_DEV_ROOT_COMMIT}\""     "printf 'ROOTFS_SELECTOR_SLOT=%s\\n' \"\${ORDAX_DEV_ROOT_SLOT}\""
+  # The console-first Dev boot must not auto-start the runtime. Keep a failing
+  # stub here so the proof catches any future regression that puts ordax-run
+  # back on the boot path.
+  write_file "$root/usr/local/bin/ordax-run" 0755 \
+    '#!/bin/sh' \
+    "printf '%s\\n' ORDAX_RUN_MUST_NOT_START_DURING_DEV_BOOT >&2" \
+    'exit 99'
 }
 
 run_isolated_init() {
@@ -89,24 +124,34 @@ run_isolated_init() {
       ORDAX_BIN_DIR=/usr/local/bin \
       ORDAX_DEV_VERSION_ROOT=/versions \
       ORDAX_CMDLINE_FILE=/run/cmdline \
-      /sbin/ordax-dev-init
+      /sbin/ordax-dev-init </dev/null
   ' proof "$seed"
 }
 
 SUCCESS_SEED="$TMP/success-seed"
-install_seed_root   "$SUCCESS_SEED"   "quiet ordax.mode=normal ordax.base_slot=b ordax.base_candidate=$SOURCE_SHA"
+install_seed_root \
+  "$SUCCESS_SEED" \
+  "quiet ordax.mode=normal ordax.base_slot=b ordax.base_candidate=$SOURCE_SHA"
 install_candidate_root "$SUCCESS_SEED/versions/$SOURCE_SHA" "$SOURCE_SHA"
 
 success_output="$(run_isolated_init "$SUCCESS_SEED" 2>&1)"
 printf '%s\n' "$success_output"
-grep -Fxq 'ROOTFS_SELECTOR_PIVOT=PASS' <<<"$success_output"
-grep -Fxq "ROOTFS_SELECTOR_COMMIT=$SOURCE_SHA" <<<"$success_output"
-grep -Fxq 'ROOTFS_SELECTOR_SLOT=b' <<<"$success_output"
+grep -Fq "Base candidata $SOURCE_SHA preparada no slot b; iniciando ensaio unico." <<<"$success_output"
+grep -Fxq "Checkout local saudavel: $SOURCE_SHA" <<<"$success_output"
+grep -Fxq 'Boot rapido: console Dev local; rede inicia em paralelo.' <<<"$success_output"
+grep -Fxq 'OrdaX Dev pronto.' <<<"$success_output"
+if grep -Fq 'ORDAX_RUN_MUST_NOT_START_DURING_DEV_BOOT' <<<"$success_output"; then
+  echo "rootfs-selector-proof: Dev boot auto-started ordax-run" >&2
+  exit 1
+fi
 test "$(cat "$SUCCESS_SEED/state/ordax/base-update/rootfs/slot-b")" = "$SOURCE_SHA"
 test -f "$SUCCESS_SEED/state/ordax/boot-last.tsv"
+grep -Fq $'fast-console\t' "$SUCCESS_SEED/state/ordax/boot-last.tsv"
 
 FAIL_SEED="$TMP/failure-seed"
-install_seed_root   "$FAIL_SEED"   "quiet ordax.mode=normal ordax.base_slot=b ordax.base_candidate=$SOURCE_SHA"
+install_seed_root \
+  "$FAIL_SEED" \
+  "quiet ordax.mode=normal ordax.base_slot=b ordax.base_candidate=$SOURCE_SHA"
 install_candidate_root "$FAIL_SEED/versions/$SOURCE_SHA" "2222222222222222222222222222222222222222"
 
 set +e
@@ -124,8 +169,8 @@ if [[ "$failure_rc" -eq 124 ]]; then
   exit 1
 fi
 grep -Fq 'Falha ao ativar Base candidata: rootfs exato nao esta materializado' <<<"$failure_output"
-if grep -Fq 'ROOTFS_SELECTOR_PIVOT=PASS' <<<"$failure_output"; then
-  echo "rootfs-selector-proof: invalid candidate reached runtime" >&2
+if grep -Fq 'OrdaX Dev pronto.' <<<"$failure_output"; then
+  echo "rootfs-selector-proof: invalid candidate reached Dev console" >&2
   exit 1
 fi
 test ! -e "$FAIL_SEED/state/ordax/base-update/rootfs/slot-b"

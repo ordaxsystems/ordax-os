@@ -85,12 +85,8 @@ run_pinned_checkout() {
     pinned=$1
     printf 'Rollback fixado em %s.\n' "$pinned"
     start_network_background
-    record_boot_handoff rollback-local
-    printf '\nIniciando ultimo OrdaX conhecido como valido...\n'
-    if "$BIN_DIR/ordax-run"; then
-        exit 0
-    fi
-    printf '\nUltimo checkout conhecido tambem falhou; entrando em recuperacao local.\n' >&2
+    record_boot_handoff rollback-console
+    printf 'Checkout conhecido como bom carregado. Entrando no console Dev.\n'
     maintenance_shell
 }
 
@@ -118,14 +114,15 @@ recover_previous_checkout() {
 }
 
 maintenance_shell() {
-    printf '\nBase de desenvolvimento pronta para manutencao.\n'
+    printf '\nOrdaX Dev pronto.\n'
     printf 'Repositorio: %s\n' "$WORKTREE"
     printf 'Atualizar:    ordax-pull\n'
-    printf 'Executar:     ordax-run\n'
+    printf 'Runtime UI:   ordax-run (manual; nao faz parte do boot)\n'
     printf 'Voltar:       ordax-rollback\n'
     printf 'Rede:         ordax-network\n'
     printf 'Diagnostico:  ordax-diagnose (somente leitura)\n'
-    printf '\nMudancas normais do OrdaX nao exigem regravar o pendrive.\n\n'
+    printf '\nBoot Dev = console local. Rede sobe em paralelo; Git atualiza somente quando voce executar ordax-pull.\n'
+    printf 'Mudancas normais do OrdaX nao exigem regravar o pendrive.\n\n'
 
     # switch_root leaves the development init attached to the console file
     # descriptors but without a controlling TTY. Re-establish one before
@@ -316,20 +313,17 @@ if [ -s "$PINNED_FILE" ]; then
     maintenance_shell
 fi
 
-# Normal boot is local-first. Network and Git are deliberately outside the
-# critical path once a clean executable checkout exists.
+# Normal Owner/Development boot is intentionally console-first. A clean local
+# checkout is enough to make the machine usable; graphics/runtime provisioning
+# must never sit on the boot path. Network starts in the background and Git is
+# updated only by an explicit ordax-pull. ordax-run remains available manually.
 if local_checkout_bootable; then
     current=$(git -C "$WORKTREE" rev-parse HEAD)
     printf 'Checkout local saudavel: %s\n' "$current"
-    printf 'Boot rapido: rede e atualizacoes iniciam em paralelo.\n'
+    printf 'Boot rapido: console Dev local; rede inicia em paralelo.\n'
     start_network_background
-    record_boot_handoff fast-local
-    printf '\nIniciando OrdaX...\n'
-    if "$BIN_DIR/ordax-run"; then
-        exit 0
-    fi
-    printf '\nOrdaX local encerrou ou falhou ao iniciar.\n'
-    recover_previous_checkout || maintenance_shell
+    record_boot_handoff fast-console
+    maintenance_shell
 fi
 
 printf 'Primeiro boot ou checkout local inconsistente; preparando runtime pela rede.\n'
@@ -366,13 +360,9 @@ if [ "$pull_ok" -eq 0 ] && [ -x "$WORKTREE/system/entrypoint" ]; then
 fi
 
 if [ -x "$WORKTREE/system/entrypoint" ]; then
-    record_boot_handoff cold-network
-    printf '\nIniciando OrdaX...\n'
-    if "$BIN_DIR/ordax-run"; then
-        exit 0
-    fi
-    printf '\nOrdaX encerrou ou falhou ao iniciar.\n'
-    recover_previous_checkout || true
+    record_boot_handoff cold-console
+    printf '\nCheckout pronto. Entrando no console Dev.\n'
+    maintenance_shell
 else
     printf '\nAinda nao existe um checkout executavel em %s.\n' "$WORKTREE"
 fi

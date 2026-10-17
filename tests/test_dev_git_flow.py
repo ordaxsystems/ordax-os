@@ -195,7 +195,14 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env: dict[str, str] | None = None,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        return self._run(["/bin/sh", str(script)], env=env or self._env(), check=check)
+        return subprocess.run(
+            ["/bin/sh", str(script)],
+            check=check,
+            capture_output=True,
+            text=True,
+            env=env or self._env(),
+            stdin=subprocess.DEVNULL,
+        )
 
     def test_clone_pull_rollback_pin_and_explicit_unpin(self) -> None:
         first = self._script(PULL)
@@ -286,7 +293,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertIn("runtime-v1", self._script(RUN).stdout)
 
-        # A boot while pinned must not touch network/pull and must run the pinned checkout.
+        # A pinned boot must remain local and enter the Dev console without launching the runtime.
         # The real dev-base builder installs these scripts as executable files. Mirror that
         # installation boundary here instead of relying on the source-tree executable bit.
         bin_dir = self.root / "bin"
@@ -315,8 +322,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         boot = self._script(DEV_INIT, env=boot_env)
         self.assertIn("Rollback fixado", boot.stdout)
-        self.assertIn("runtime-v1", boot.stdout)
-        self.assertNotIn("OrdaX fixado encerrou ou falhou", boot.stdout)
+        self.assertIn("Checkout conhecido como bom carregado. Entrando no console Dev.", boot.stdout)
+        self.assertIn("OrdaX Dev pronto.", boot.stdout)
+        self.assertNotIn("runtime-v1", boot.stdout)
         self.assertFalse(pull_marker.exists())
 
         # The explicit pull is the only normal action that releases the sticky rollback.
@@ -328,21 +336,21 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
-    def test_failed_boot_rolls_back_without_putting_remote_update_on_boot_path(self) -> None:
+    def test_console_boot_does_not_launch_runtime_or_trigger_runtime_rollback(self) -> None:
         self._script(PULL)
         self.commit_v2 = self._commit_runtime("runtime-v2")
         self._script(PULL)
 
-        bin_dir = self.root / "auto-recovery-bin"
+        bin_dir = self.root / "console-boot-bin"
         bin_dir.mkdir()
-        network_marker = self.root / "auto-network-called"
-        pull_marker = self.root / "auto-pull-called"
+        pull_marker = self.root / "console-pull-called"
+        runtime_marker = self.root / "console-runtime-called"
         (bin_dir / "ordax-network").write_text(
-            f"#!/bin/sh\ntouch '{network_marker}'\nexit 0\n",
+            "#!/bin/sh\nexit 0\n",
             encoding="utf-8",
         )
         (bin_dir / "ordax-pull").write_text(
-            f"#!/bin/sh\ntouch '{pull_marker}'\nexec /bin/sh '{PULL}'\n",
+            f"#!/bin/sh\ntouch '{pull_marker}'\nexit 99\n",
             encoding="utf-8",
         )
         (bin_dir / "ordax-rollback").write_text(
@@ -350,11 +358,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             encoding="utf-8",
         )
         (bin_dir / "ordax-run").write_text(
-            "#!/bin/sh\n"
-            "if grep -q runtime-v2 \"$ORDAX_WORKTREE/system/entrypoint\"; then\n"
-            "  exit 42\n"
-            "fi\n"
-            "exec /bin/sh \"$ORDAX_WORKTREE/system/entrypoint\"\n",
+            f"#!/bin/sh\ntouch '{runtime_marker}'\nexit 42\n",
             encoding="utf-8",
         )
         for helper in bin_dir.iterdir():
@@ -369,28 +373,18 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             }
         )
 
-        recovered = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Boot rapido", recovered.stdout)
-        self.assertIn("Rollback automatico ativado", recovered.stdout)
-        self.assertIn("runtime-v1", recovered.stdout)
-        self.assertEqual((self.state / "boot-rejected-commit").read_text().strip(), self.commit_v2)
-        self.assertEqual((self.state / "pinned-commit").read_text().strip(), self.commit_v1)
+        result = self._script(DEV_INIT, env=boot_env)
+        self.assertIn("Checkout local saudavel", result.stdout)
+        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertFalse(runtime_marker.exists())
         self.assertFalse(pull_marker.exists())
+        self.assertFalse((self.state / "boot-rejected-commit").exists())
+        self.assertFalse((self.state / "pinned-commit").exists())
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
-            self.commit_v1,
+            self.commit_v2,
         )
-
-        # Even when main advances, the next boot must stay fast/local. The
-        # running supervisor owns the automatic unpin/retry after connectivity.
-        self._commit_runtime("runtime-v3")
-        pinned_boot = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Rollback fixado", pinned_boot.stdout)
-        self.assertIn("runtime-v1", pinned_boot.stdout)
-        self.assertFalse(pull_marker.exists())
-        self.assertTrue((self.state / "boot-rejected-commit").exists())
-        self.assertTrue((self.state / "pinned-commit").exists())
-
     def test_healthy_local_checkout_starts_before_network_or_git_update(self) -> None:
         self._script(PULL)
 
@@ -427,11 +421,12 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido", result.stdout)
-        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertNotIn("runtime-v1", result.stdout)
         self.assertFalse(pull_marker.exists())
         boot_metrics = (self.state / "boot-last.tsv").read_text(encoding="utf-8")
-        self.assertTrue(boot_metrics.startswith("fast-local\t"))
+        self.assertTrue(boot_metrics.startswith("fast-console\t"))
 
     def test_seed_boot_does_not_require_or_create_version_store(self) -> None:
         self._script(PULL)
@@ -469,7 +464,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertNotIn("runtime-v1", result.stdout)
         self.assertFalse(versions.exists())
 
     def test_unmapped_ab_slot_falls_back_to_seed_rootfs(self) -> None:
@@ -508,7 +504,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertNotIn("runtime-v1", result.stdout)
         self.assertTrue(versions.is_dir())
         self.assertFalse((self.state / "base-update/rootfs/slot-a").exists())
 
@@ -548,7 +545,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("start_network_background()", dev_init)
         self.assertIn("record_boot_handoff()", dev_init)
         self.assertIn("recover_previous_checkout()", dev_init)
-        self.assertIn("Boot rapido: rede e atualizacoes iniciam em paralelo.", dev_init)
+        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", dev_init)
         self.assertLess(
             dev_init.index("if local_checkout_bootable; then"),
             dev_init.index("network_ok=0"),
@@ -558,6 +555,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             1,
         )[0]
         self.assertNotIn("ordax-pull", fast_block)
+        self.assertNotIn('"$BIN_DIR/ordax-run"', fast_block)
+        self.assertIn("maintenance_shell", fast_block)
         self.assertIn('while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]', dev_init)
         self.assertIn("repetindo uma vez apos pausa curta", dev_init)
         self.assertIn("sleep 2", dev_init)
