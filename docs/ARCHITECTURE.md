@@ -62,8 +62,9 @@ UEFI
 Rules:
 
 - Git is physically present in the development base;
-- the source checkout is not preseeded into the USB image;
-- first acquisition uses a partial+sparse clone of runtime source plus the bounded Base-update/helper control plane;
+- a complete source checkout is never preseeded into the USB image;
+- the Owner/Development Creator may preload the exact clean bounded sparse runtime/control checkout for its own `source_commit`, using the same Git metadata and paths owned by `ordax-pull`;
+- when no valid preload exists, first acquisition uses a partial+sparse clone of runtime source plus the bounded Base-update/helper control plane;
 - later updates validate the remote fast-forward, prepare a clean checkout and switch the disposable Git-controlled tree atomically;
 - local checkout modifications are diagnosed and replaced by a clean validated cache instead of becoming source authority;
 - unexpected origin/branch state fails closed;

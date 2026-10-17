@@ -43,8 +43,10 @@ Writing a target USB is destructive: use only a disposable, positively
 identified removable USB and the Creator's exact-device confirmation/UAC
 workflow. Neither a GitHub merge nor an artifact build grants permission to
 select or overwrite a connected device. The notebook's internal disk must
-remain untouched. First boot requires network for a new checkout; ordinary
-system/Surface changes thereafter track `main` through the Git owner.
+remain untouched. A newly generated Owner/Development USB already contains the exact
+clean sparse runtime checkout recorded by the bundle `source_commit`; first boot does not
+need a Git pull when that commit is still current. Ordinary later system/Surface changes
+track `main` through the same Git owner.
 
 The development Base's kernel/rootfs A/B and bootloader upgrades have
 additional promotion/fallback gates. This bundle does **not** imply that every
@@ -64,7 +66,10 @@ UEFI
  -> /workspace/ordax (partial clone of main; runtime checkout = system/)
 ```
 
-The OrdaX source itself is **not** preseeded on the USB. `main` remains the source authority.
+A **complete source checkout is not** preseeded on the USB. The Owner/Development Creator
+preloads only the same bounded sparse runtime/control checkout that `ordax-pull` owns, at
+the bundle's exact `source_commit`. `main` remains the sole source authority; the preload
+is a disposable local cache, not a second authority.
 
 ## Recuperação do primeiro runtime gráfico (11/10/2026)
 
@@ -124,7 +129,8 @@ antes e depois da escrita.
 partição montada nem mover dados com comandos ad hoc. Recriar a mídia com
 o Creator atualizado apaga o pendrive de destino e exige confirmação explícita
 do dispositivo correto e cópia externa de qualquer dado importante.
-Após regravar, o Development poderá baixar a `main` novamente.
+Após regravar com o Creator atual, o checkout sparse correspondente ao `source_commit` do
+bundle já estará presente; só haverá download posterior se `main` realmente avançar.
 Não mexe no SSD interno. CI de imagem descartável não prova boot físico.
 
 Para diagnóstico sem mudança de estado:
