@@ -11,6 +11,7 @@ on:
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
+      - 'system/adapters/web/space-membership-actions.mjs'
       - 'system/composition/web/account-session.mjs'
       - 'system/surface/workspace/components/central/account-context.tsx'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
@@ -26,6 +27,8 @@ on:
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
       - 'tests/test_space_membership_actions_runtime.mjs'
+      - 'tests/test_web_space_membership_actions.mjs'
+      - 'tests/test_space_membership_gateway_source.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   push:
@@ -39,6 +42,7 @@ on:
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
+      - 'system/adapters/web/space-membership-actions.mjs'
       - 'system/composition/web/account-session.mjs'
       - 'system/surface/workspace/components/central/account-context.tsx'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
@@ -54,6 +58,8 @@ on:
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
       - 'tests/test_space_membership_actions_runtime.mjs'
+      - 'tests/test_web_space_membership_actions.mjs'
+      - 'tests/test_space_membership_gateway_source.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   workflow_dispatch:
@@ -86,6 +92,7 @@ jobs:
           node --check system/services/spaces/membership-actions.mjs
           node --check system/services/spaces/type-catalog.mjs
           node --check system/adapters/web/space-members.mjs
+          node --check system/adapters/web/space-membership-actions.mjs
           node --check system/composition/web/account-session.mjs
 
       - name: Prove non-blocking compatibility
@@ -101,6 +108,8 @@ jobs:
           node --test tests/test_space_members_gateway_source.mjs
           node --test tests/test_space_membership_actions.mjs
           node --test tests/test_space_membership_actions_runtime.mjs
+          node --test tests/test_web_space_membership_actions.mjs
+          node --test tests/test_space_membership_gateway_source.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs
