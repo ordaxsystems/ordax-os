@@ -302,6 +302,29 @@ Global membership roles remain intentionally small: `owner`, `admin`, `member`, 
 
 Invite is not membership. Pending invites are separate temporary entities; only authenticated acceptance may create server-authoritative membership.
 
+### Current mutation authority — 2026-10-17
+
+The product backend now has explicit, bounded server-authoritative mutation boundaries instead of relying on direct client table writes:
+
+- Space creation uses `ordax_create_space_v1`; creation authority, type resolution, quota and idempotency are checked below the client, and the owner membership is created by the same server-side flow.
+- Space rename/archive/restore use `ordax_mutate_space_lifecycle_v1`; direct authenticated `UPDATE`/`DELETE` on `ordax_spaces` is revoked.
+- direct authenticated `INSERT`/`UPDATE`/`DELETE` on `ordax_space_members` is revoked and the historical membership write policies are removed;
+- actions over an **existing** membership use `ordax_mutate_space_membership_v1` and the versioned `ordax.space-membership-actions/1` contract for `change-role`, `suspend`, `reactivate` and `remove`.
+
+All of these action paths derive the actor from the authenticated server session, revalidate current authority, use idempotency where retry is expected and keep private receipts/state out of the public Surface read model. Membership administration preserves the global roles `owner/admin/member/viewer`: only the actual Space owner can grant or administer `admin`; a delegated admin can administer `member/viewer`; owner membership is never changed through the ordinary membership-action boundary.
+
+These backend capabilities do **not** imply that every Web/Native/Mobile UI is already wired or publicly available. Product surfaces must advertise an action only when their adapter/backend reports it supported; no UI may infer mutation capability merely because a contract exists in source.
+
+Still intentionally absent from the current authority foundation:
+
+- invite creation/delivery/accept/decline/revoke/expiry;
+- creating a new membership outside the canonical Space-create owner bootstrap and future authenticated invite acceptance;
+- voluntary member `leave`;
+- ownership transfer;
+- destructive Space deletion ceremony.
+
+Those flows remain separate because their authorization, consent, token/reauthentication and audit requirements differ. They must not be folded into `ordax.spaces/1`, lifecycle actions or a generic membership mutation endpoint.
+
 ### USB launch rule
 
 A USB release does not wait for every Space vertical or provider to be complete when those capabilities are independent from that USB channel's promised flow. The Space foundation is compatible with release when:
