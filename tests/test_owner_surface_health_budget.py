@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ENTRYPOINT = ROOT / "system" / "entrypoint"
 RUN = ROOT / "bootstrap" / "dev-base" / "ordax-run"
+SUPERVISOR = ROOT / "system" / "supervisor"
+SURFACE = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 
 
 class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
@@ -32,6 +34,22 @@ class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
         run = RUN.read_text(encoding="utf-8")
         self.assertNotIn("ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS", run)
         self.assertNotIn("ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS", run)
+
+    def test_owner_provisioning_marker_is_exact_sha_bounded_and_observable(self):
+        supervisor = SUPERVISOR.read_text(encoding="utf-8")
+        surface = SURFACE.read_text(encoding="utf-8")
+        self.assertIn("OWNER_PROVISION_TIMEOUT=${ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}", supervisor)
+        self.assertIn('[ "$marker_source" = "$expected_sha" ]', supervisor)
+        self.assertIn('provisioning_elapsed=$((provisioning_elapsed + 1))', supervisor)
+        self.assertIn('[ "$provisioning_elapsed" -gt "$OWNER_PROVISION_TIMEOUT" ]', supervisor)
+        self.assertIn('normal_elapsed=0', supervisor)
+        for state in ("starting", "provisioning", "waiting-health", "healthy", "failed"):
+            self.assertIn(f"write_surface_health_state {state}", supervisor)
+        marker_write = surface.index("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"")
+        ensure_runtime = surface.index('ensure_runtime || fallback_with_reason')
+        marker_clear = surface.index('rm -f "$RUNTIME_PROVISIONING_FILE"', marker_write)
+        self.assertLess(marker_write, ensure_runtime)
+        self.assertLess(ensure_runtime, marker_clear)
 
     def test_stable_budget_remains_separate(self):
         entrypoint = ENTRYPOINT.read_text(encoding="utf-8")

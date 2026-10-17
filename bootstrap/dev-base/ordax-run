@@ -10,6 +10,7 @@ SURFACE_RUNTIME_PROVISION_MARKER=${ORDAX_SURFACE_RUNTIME_PROVISION_MARKER:-/run/
 PRODUCT_CONTROL_PLANE_URL=${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}
 PRODUCT_CONTROL_PLANE_CONFIG=$WORKTREE/bootstrap/base-update/owner-development/product-control-plane-origin
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
+CURRENT_FILE=$STATE_DIR/current-commit
 PINNED_FILE=$STATE_DIR/pinned-commit
 BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
@@ -198,6 +199,12 @@ recover_automatic_rollback_pin
 
 source_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
 is_sha "$source_sha" || fail "checkout Owner/Development sem SHA Git valida"
+recorded_sha=$(read_state_value "$CURRENT_FILE")
+is_sha "$recorded_sha" || fail "estado current-commit ausente ou invalido; execute ordax-pull antes de iniciar"
+[ "$recorded_sha" = "$source_sha" ] || fail "checkout diverge do commit registrado; execute ordax-pull para reconciliar"
+checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null) || \
+    fail "nao foi possivel validar limpeza do checkout"
+[ -z "$checkout_status" ] || fail "checkout local possui alteracoes; execute ordax-pull para preservar diagnostico e restaurar uma versao limpa"
 
 prepare_status_log
 resolve_product_control_plane_url

@@ -142,6 +142,20 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('finish_network "$wifi"', text)
         self.assertIn('finish_network "$iface"', text)
 
+    def test_network_readiness_is_ip_clock_dns_https_then_git(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('NETWORK_STATUS_FILE=${ORDAX_NETWORK_STATUS_FILE:-/run/ordax-network-status}', text)
+        self.assertIn('/bin/busybox nslookup github.com', text)
+        self.assertIn('/bin/busybox wget -q -T "$HTTPS_PROBE_TIMEOUT" -O /dev/null https://github.com/', text)
+        self.assertIn('git -c http.lowSpeedLimit=1', text)
+        finish = text[text.index('finish_network()'):text.index('try_dhcp()')]
+        self.assertLess(finish.index('sync_clock'), finish.index('probe_dns'))
+        self.assertLess(finish.index('probe_dns'), finish.index('probe_https'))
+        self.assertLess(finish.index('probe_https'), finish.index('probe_git_remote'))
+        for state in ("no-ip", "ip-ready", "dns-failed", "https-failed", "github-git-failed", "ready"):
+            self.assertIn(state, text)
+        self.assertIn('HTTPS disponivel, mas GitHub/Git nao respondeu', text)
+
     def test_maintenance_shell_reestablishes_controlling_tty(self) -> None:
         text = DEV_INIT.read_text(encoding="utf-8")
         self.assertIn('if /bin/busybox setsid --help >/dev/null 2>&1; then', text)

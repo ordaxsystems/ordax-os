@@ -36,6 +36,7 @@ class CacheError(RuntimeError):
 # verification changes fail-closed without forcing an unrelated recompilation.
 PROVENANCE_FILES = {
     "kernel": "kernel-provenance.json",
+    "independent-base": "provenance.json",
     "local-ai": "local-ai-runtime-provenance.json",
     "surface": "surface-runtime-provenance.json",
 }
@@ -48,6 +49,25 @@ COMPONENTS = {
             "bootstrap/kernel/verify_upstream_signature.py",
             "bootstrap/kernel/source.json",
             "docs/contracts/kernel-build-environment.json",
+        ),
+    },
+    "independent-base": {
+        "inputs": (
+            "bootstrap/independent-base/build.py",
+            "bootstrap/independent-base/source.json",
+            "bootstrap/independent-base/Config.in",
+            "bootstrap/independent-base/external.desc",
+            "bootstrap/independent-base/external.mk",
+            "bootstrap/independent-base/configs",
+            "bootstrap/independent-base/overlay",
+            "bootstrap/independent-base/patches",
+            "bootstrap/independent-base/post-build.sh",
+            "bootstrap/kernel/source.json",
+            "bootstrap/stable-base/source.json",
+            "bootstrap/network/source.json",
+            "bootstrap/network/bring-up",
+            "bootstrap/network/udhcpc.script",
+            "docs/contracts/portable-boot-handoff.json",
         ),
     },
     "local-ai": {
@@ -337,6 +357,7 @@ def write_fingerprints(github_output: Path, root: Path = ROOT) -> dict[str, str]
     values = {name: component_fingerprint(name, root) for name in COMPONENTS}
     aliases = {
         "kernel": "kernel",
+        "independent_base": "independent-base",
         "local_ai": "local-ai",
         "surface": "surface",
         "release_agent": "release-agent",
