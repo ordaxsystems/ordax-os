@@ -16,6 +16,7 @@ values (
 \ir ../../infra/supabase/product/migrations/20261017090000_space_membership_actions_v1.sql
 \ir ../../infra/supabase/product/migrations/20261017102000_space_members_read_authority_v1.sql
 \ir ../../infra/supabase/product/migrations/20261017143000_space_members_action_capabilities_v1.sql
+\ir ../../infra/supabase/product/migrations/20261017190000_space_members_state_actions_v1.sql
 
 -- The latest deployed membership mutation/read functions are proved together on real PostgreSQL.
 -- This prevents a later migration from changing executable behavior while only source tests stay green.
@@ -83,6 +84,40 @@ $$;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 
+-- Multiple bounded pages must cover the same members, once each and in cursor order.
+-- This guards the SQL side of the gateway's strict cursor progression check.
+do $$
+declare
+  all_members uuid[];
+  paged_members uuid[] := '{}'::uuid[];
+  batch uuid[];
+  checkpoint uuid := null;
+begin
+  select coalesce(array_agg(user_id order by user_id), '{}'::uuid[])
+    into all_members
+  from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 128
+  );
+  loop
+    select coalesce(array_agg(user_id order by user_id), '{}'::uuid[])
+      into batch
+    from public.ordax_list_space_members_v1(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', checkpoint, 2
+    );
+    exit when cardinality(batch) = 0;
+    if checkpoint is not null and batch[1] <= checkpoint then
+      raise exception 'members page did not advance beyond requested cursor';
+    end if;
+    paged_members := paged_members || batch;
+    checkpoint := batch[cardinality(batch)];
+    exit when cardinality(batch) < 2;
+  end loop;
+  if paged_members is distinct from all_members then
+    raise exception 'members cursor pagination skipped or duplicated users';
+  end if;
+end;
+$$;
+
 do $$
 declare
   owner_row record;
@@ -104,7 +139,7 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
   ) where user_id = '22222222-2222-4222-8222-222222222222';
 
-  if not admin_row.can_change_role or not admin_row.can_suspend or not admin_row.can_reactivate or not admin_row.can_remove
+  if not admin_row.can_change_role or not admin_row.can_suspend or admin_row.can_reactivate or not admin_row.can_remove
     or admin_row.assignable_roles is distinct from array['admin','member','viewer']::text[] then
     raise exception 'owner did not receive exact admin-target capabilities';
   end if;
@@ -153,7 +188,7 @@ begin
     raise exception 'delegated admin received authority over self/owner/peer-admin target';
   end if;
 
-  if not member_row.can_change_role or not member_row.can_suspend or not member_row.can_reactivate or not member_row.can_remove
+  if not member_row.can_change_role or not member_row.can_suspend or member_row.can_reactivate or not member_row.can_remove
     or member_row.assignable_roles is distinct from array['member','viewer']::text[]
     or viewer_row.assignable_roles is distinct from array['member','viewer']::text[] then
     raise exception 'delegated admin target capabilities are not least privilege';
@@ -197,6 +232,29 @@ begin
 end;
 $$;
 
+-- A suspended target exposes reactivation but no redundant suspend transition.
+reset role;
+update public.ordax_space_members set state = 'suspended'
+where space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and user_id = '55555555-5555-4555-8555-555555555555';
+set role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+do $$
+declare projected record;
+begin
+  select * into projected from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 64
+  ) where user_id = '55555555-5555-4555-8555-555555555555';
+  if projected.can_suspend or not projected.can_reactivate or not projected.can_remove
+     or not projected.can_change_role then
+    raise exception 'suspended target has invalid projected state actions';
+  end if;
+end;
+$$;
+reset role;
+update public.ordax_space_members set state = 'active'
+where space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  and user_id = '55555555-5555-4555-8555-555555555555';
 -- Owner can grant/revoke delegated admin without touching ownership.
 set role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
@@ -256,6 +314,7 @@ declare
   changed_role record;
   suspended record;
   reactivated record;
+  repeated record;
   promote_blocked boolean := false;
   peer_admin_blocked boolean := false;
   self_blocked boolean := false;
@@ -284,6 +343,15 @@ begin
     raise exception 'admin could not suspend viewer';
   end if;
 
+  select * into repeated from public.ordax_mutate_space_membership_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '33333333-3333-4333-8333-333333333333',
+    'suspend', null, '72000000-0000-4000-8000-000000000007'
+  );
+  if repeated.state <> 'suspended' or repeated.changed is distinct from false then
+    raise exception 'already-suspended noop lost compatibility';
+  end if;
+
   select * into reactivated
   from public.ordax_mutate_space_membership_v1(
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -294,6 +362,15 @@ begin
   );
   if reactivated.state <> 'active' or reactivated.changed is distinct from true then
     raise exception 'admin could not reactivate viewer';
+  end if;
+
+  select * into repeated from public.ordax_mutate_space_membership_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '33333333-3333-4333-8333-333333333333',
+    'reactivate', null, '72000000-0000-4000-8000-000000000008'
+  );
+  if repeated.state <> 'active' or repeated.changed is distinct from false then
+    raise exception 'already-active noop lost compatibility';
   end if;
 
   begin

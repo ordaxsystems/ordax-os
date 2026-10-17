@@ -167,6 +167,8 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
           ORDAX_WORKTREE="$rootfs/workspace/ordax" \
           ORDAX_STATE_DIR="$rootfs/state/ordax" \
+          ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
+          ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")" \
           ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
           ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \

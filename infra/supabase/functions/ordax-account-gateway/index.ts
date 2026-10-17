@@ -13,7 +13,7 @@ import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIF
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
-const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/2";
+const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/3";
 const SPACE_ACTOR_CAPABILITY_SCHEMA = "ordax.space-actor-capability/1";
 const SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA = "ordax.space-membership-action-request/1";
 const SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA = "ordax.space-membership-action-result/1";
@@ -1369,11 +1369,14 @@ Deno.serve(async (req: Request) => {
     }
     const spaceIds = url.searchParams.getAll("spaceId");
     const cursors = url.searchParams.getAll("cursor");
-    const spaceId = spaceIds.length === 1 ? spaceIds[0] : "";
-    const cursor = cursors.length === 0 ? null : cursors.length === 1 ? cursors[0] : "";
-    if (!ACCOUNT_SPACE_UUID.test(spaceId) || (cursor !== null && !ACCOUNT_SPACE_UUID.test(cursor))) {
+    const requestedSpaceId = spaceIds.length === 1 ? spaceIds[0] : "";
+    const requestedCursor = cursors.length === 0 ? null : cursors.length === 1 ? cursors[0] : "";
+    if (!ACCOUNT_SPACE_UUID.test(requestedSpaceId) || (requestedCursor !== null && !ACCOUNT_SPACE_UUID.test(requestedCursor))) {
       return error(400, "invalid-space-members-query", "Consulta de membros inválida.");
     }
+    // Canonical UUID text order agrees with PostgreSQL uuid order, including mixed-case input.
+    const spaceId = requestedSpaceId.toLowerCase();
+    const cursor = requestedCursor === null ? null : requestedCursor.toLowerCase();
 
     try {
       const supabase = client(session.access);
@@ -1387,11 +1390,14 @@ Deno.serve(async (req: Request) => {
       }
 
       const members = [];
-      let previousUserId = null;
+      // The first row must advance beyond the requested cursor; later rows beyond
+      // each predecessor. Never accept repeated or regressive provider pages.
+      let previousUserId = cursor;
       for (const raw of data as Array<Record<string, unknown>>) {
         if (
           typeof raw.space_id !== "string" || raw.space_id !== spaceId ||
           typeof raw.user_id !== "string" || !ACCOUNT_SPACE_UUID.test(raw.user_id) ||
+          raw.user_id !== raw.user_id.toLowerCase() ||
           !["owner", "admin", "member", "viewer"].includes(String(raw.role)) ||
           !["active", "suspended"].includes(String(raw.state)) ||
           typeof raw.can_change_role !== "boolean" ||
@@ -1402,6 +1408,8 @@ Deno.serve(async (req: Request) => {
           raw.assignable_roles.some((role) => typeof role !== "string" || !SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.has(role)) ||
           new Set(raw.assignable_roles).size !== raw.assignable_roles.length ||
           raw.can_change_role !== (raw.assignable_roles.length > 0) ||
+          (raw.state === "active" && raw.can_reactivate) ||
+          (raw.state === "suspended" && raw.can_suspend) ||
           (previousUserId !== null && raw.user_id <= previousUserId)
         ) return error(502, "space-members-read-failed", "Não foi possível validar os membros deste Space.");
         previousUserId = raw.user_id;

@@ -1,7 +1,7 @@
 import { validateSpaceMembership } from "./spaces.mjs";
 
-export const SPACE_MEMBERS_READ_SCHEMA = "ordax.space-members-read/2";
-export const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/2";
+export const SPACE_MEMBERS_READ_SCHEMA = "ordax.space-members-read/3";
+export const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/3";
 export const MAX_SPACE_MEMBERS_PAGE_SIZE = 128;
 
 const MEMBER_STATES = new Set(["active", "suspended"]);
@@ -39,7 +39,7 @@ function optionalCursor(value) {
   return boundedText(value, "Space members cursor", 240);
 }
 
-function validateSpaceMemberActions(value) {
+function validateSpaceMemberActions(value, state) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Space member actions must be an object");
   }
@@ -66,6 +66,10 @@ function validateSpaceMemberActions(value) {
   if (value.canChangeRole !== (roles.length > 0)) {
     throw new TypeError("Space member role capability is inconsistent");
   }
+  if ((state === "active" && value.canReactivate)
+    || (state === "suspended" && value.canSuspend)) {
+    throw new TypeError("Space member transition capability conflicts with state");
+  }
   return Object.freeze({
     canChangeRole: value.canChangeRole,
     canSuspend: value.canSuspend,
@@ -85,7 +89,7 @@ export function validateSpaceMember(value) {
     userId: membership.userId,
     role: membership.role,
     state: value.state,
-    actions: validateSpaceMemberActions(value.actions),
+    actions: validateSpaceMemberActions(value.actions, value.state),
   });
 }
 

@@ -15,7 +15,7 @@ function routeBlock() {
 
 test("gateway uses exact GET-only members RPC", () => {
   const block = routeBlock();
-  assert.match(gateway, /SPACE_MEMBERS_PAGE_SCHEMA = "ordax\.space-members-page\/2"/);
+  assert.match(gateway, /SPACE_MEMBERS_PAGE_SCHEMA = "ordax\.space-members-page\/3"/);
   assert.match(block, /supabase\.rpc\("ordax_list_space_members_v1"/);
   assert.match(block, /p_limit: MAX_SPACE_MEMBERS_PAGE_SIZE/);
   assert.match(gateway, /MAX_SPACE_MEMBERS_PAGE_SIZE = 128/);
@@ -31,6 +31,8 @@ test("members gateway validates and maps target action projection from the canon
   assert.match(block, /new Set\(raw\.assignable_roles\)\.size !== raw\.assignable_roles\.length/);
   assert.match(block, /canChangeRole: raw\.can_change_role/);
   assert.match(block, /assignableRoles: raw\.assignable_roles/);
+  assert.match(block, /raw\.state === "active" && raw\.can_reactivate/);
+  assert.match(block, /raw\.state === "suspended" && raw\.can_suspend/);
   assert.doesNotMatch(block, /\.from\("ordax_space_members"\)/);
 });
 
@@ -55,6 +57,18 @@ test("mutation preserves authorization-before-idempotency replay and consumes th
   assert.ok(receipt >= 0 && replay > receipt && projection > replay);
   assert.match(mutation.slice(0, receipt), /v_actor_can_admin := ordax_policy\.can_admin_space\(p_space_id\)/);
   assert.match(mutation, /v_role = any\(coalesce\(v_capability\.assignable_roles/);
+});
+
+test("members gateway rejects repeated or regressive provider pages after the requested cursor", () => {
+  const block = routeBlock();
+  assert.match(block, /const spaceId = requestedSpaceId\.toLowerCase\(\)/);
+  assert.match(block, /const cursor = requestedCursor === null \? null : requestedCursor\.toLowerCase\(\)/);
+  assert.match(block, /p_after_user_id: cursor/);
+  assert.match(block, /let previousUserId = cursor/);
+  assert.match(block, /previousUserId !== null && raw\.user_id <= previousUserId/);
+  assert.match(block, /previousUserId = raw\.user_id/);
+  assert.match(block, /raw\.user_id !== raw\.user_id\.toLowerCase\(\)/);
+  assert.match(block, /nextCursor: data\.length === MAX_SPACE_MEMBERS_PAGE_SIZE \? previousUserId : null/);
 });
 
 test("transport admits exact GET-only member read", () => {

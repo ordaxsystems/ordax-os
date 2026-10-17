@@ -38,6 +38,8 @@ test('Surface consumes target-specific server projection instead of inferring au
   assert.match(membersSurface, /actions\.canSuspend/);
   assert.match(membersSurface, /actions\.canReactivate/);
   assert.match(membersSurface, /actions\.canRemove/);
+  assert.doesNotMatch(membersSurface, /memberState === 'active' && actions\.canSuspend/);
+  assert.doesNotMatch(membersSurface, /memberState === 'suspended' && actions\.canReactivate/);
 });
 
 test('Space members Surface invalidates stale same-Space reads and refreshes server authority after mutations', () => {
