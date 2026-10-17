@@ -52,6 +52,8 @@ NATIVE_INSTALL_REQUEST=$SESSION_DIR/native-install-request
 NATIVE_INSTALL_RESPONSE=$SESSION_DIR/native-install-response
 NATIVE_INSTALL_SNAPSHOT=$SESSION_DIR/native-install-targets.json
 POWER_REQUEST=$SESSION_DIR/power-request
+POWER_TRANSITION_REQUEST=$SESSION_DIR/power-transition-request
+SURFACE_PID=$$
 POWER_STATE_DIR=$STATE_ROOT/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
 POWER_PENDING_STALE_SECONDS=120
@@ -95,7 +97,7 @@ chmod 700 "$SESSION_DIR" "$PERSISTENT_NATIVE_STATE" "$PERSISTENT_USER_HOME" "$RE
 : > "$TIME_SYNC_LOG"
 : > "$NETWORK_LOG"
 : > "$NATIVE_INSTALL_LOG"
-rm -f "$RUNTIME_PROOF_CONTEXT" >/dev/null 2>&1 || true
+rm -f "$RUNTIME_PROOF_CONTEXT" "$POWER_TRANSITION_REQUEST" >/dev/null 2>&1 || true
 
 valid_account_gateway_base_url() {
     value=${1:-}
@@ -622,7 +624,20 @@ cleanup() {
 
 terminate() {
     trap - EXIT HUP INT TERM
+    requested_power_action=""
+    if [ -s "$POWER_TRANSITION_REQUEST" ]; then
+        IFS= read -r requested_power_action <"$POWER_TRANSITION_REQUEST" || requested_power_action=""
+    fi
     cleanup
+    case "$requested_power_action" in
+        restart|shutdown)
+            rm -f "$POWER_TRANSITION_REQUEST" >/dev/null 2>&1 || true
+            if ! perform_host_power_transition "$requested_power_action"; then
+                printf '\nOrdaX: nao foi possivel concluir %s; o sistema foi preservado sem forcar escrita insegura.\n' "$requested_power_action" >&2
+                while :; do /bin/busybox sleep 3600; done
+            fi
+            ;;
+    esac
     exit 0
 }
 
@@ -1231,26 +1246,89 @@ reconcile_stale_power_request() {
     fi
 }
 
-restart_host() {
-    echo "ordax-surface: host restart requested; flushing filesystems" >>"$HOST_LOG"
-    /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-
-    echo "ordax-surface: attempting primary reboot syscall" >>"$HOST_LOG"
-    /bin/busybox reboot -f >>"$HOST_LOG" 2>&1 || true
-
-    echo "ordax-surface: primary reboot returned; attempting kernel sysrq restart fallback" >>"$HOST_LOG"
-    if [ -w /proc/sysrq-trigger ]; then
-        /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-        if printf 'b' >/proc/sysrq-trigger 2>>"$HOST_LOG"; then
-            # A successful emergency restart never returns.
-            /bin/busybox sleep 1
-        fi
-    else
-        echo "ordax-surface: /proc/sysrq-trigger is unavailable; no kernel restart fallback exists" >>"$HOST_LOG"
-    fi
-
-    echo "ordax-surface: all host restart methods returned without rebooting" >>"$HOST_LOG"
+root_filesystem_is_read_only() {
+    root_options=$(/bin/busybox awk '$2 == "/" { print $4; exit }' /proc/mounts 2>/dev/null || true)
+    case ",$root_options," in
+        *,ro,*) return 0 ;;
+    esac
     return 1
+}
+
+terminate_remaining_host_processes_for_power_transition() {
+    signal=$1
+    for proc_path in /proc/[0-9]*; do
+        pid=${proc_path##*/}
+        case "$pid" in
+            1|"$SURFACE_PID") continue ;;
+            ''|*[!0-9]*) continue ;;
+        esac
+        /bin/busybox kill "-$signal" "$pid" >/dev/null 2>&1 || true
+    done
+}
+
+quiesce_root_filesystem_for_power_transition() {
+    action=$1
+    echo "ordax-surface: quiescing writable host state for $action" >>"$HOST_LOG"
+    terminate_remaining_host_processes_for_power_transition TERM
+    /bin/busybox sleep 2
+    terminate_remaining_host_processes_for_power_transition KILL
+    /bin/busybox sleep 1
+    /bin/busybox sync >>"$HOST_LOG" 2>&1 || {
+        echo "ordax-surface: refusing $action because filesystem sync failed" >>"$HOST_LOG"
+        return 1
+    }
+    if ! /bin/busybox mount -o remount,ro / >>"$HOST_LOG" 2>&1; then
+        echo "ordax-surface: refusing $action because root could not be remounted read-only" >>"$HOST_LOG"
+        return 1
+    fi
+    if ! root_filesystem_is_read_only; then
+        echo "ordax-surface: refusing $action because root remained writable after remount" >>"$HOST_LOG"
+        return 1
+    fi
+    /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
+    echo "ordax-surface: writable root secured read-only for $action" >>"$HOST_LOG"
+    return 0
+}
+
+perform_host_power_transition() {
+    action=$1
+    case "$action" in
+        restart|shutdown) ;;
+        *) return 1 ;;
+    esac
+    quiesce_root_filesystem_for_power_transition "$action" || return 1
+    case "$action" in
+        restart)
+            echo "ordax-surface: attempting primary reboot syscall after read-only remount" >>"$HOST_LOG"
+            /bin/busybox reboot -f >>"$HOST_LOG" 2>&1 || true
+            echo "ordax-surface: primary reboot returned; attempting read-only kernel sysrq restart fallback" >>"$HOST_LOG"
+            if [ -w /proc/sysrq-trigger ]; then
+                if printf 'b' >/proc/sysrq-trigger 2>>"$HOST_LOG"; then /bin/busybox sleep 1; fi
+            fi
+            echo "ordax-surface: all host restart methods returned after root was secured read-only" >>"$HOST_LOG"
+            ;;
+        shutdown)
+            echo "ordax-surface: attempting primary poweroff syscall after read-only remount" >>"$HOST_LOG"
+            /bin/busybox poweroff -f >>"$HOST_LOG" 2>&1 || true
+            echo "ordax-surface: primary poweroff returned; attempting read-only kernel sysrq poweroff fallback" >>"$HOST_LOG"
+            if [ -w /proc/sysrq-trigger ]; then
+                if printf 'o' >/proc/sysrq-trigger 2>>"$HOST_LOG"; then /bin/busybox sleep 1; fi
+            fi
+            echo "ordax-surface: all host shutdown methods returned after root was secured read-only" >>"$HOST_LOG"
+            ;;
+    esac
+    return 1
+}
+
+queue_host_power_transition() {
+    action=$1
+    case "$action" in restart|shutdown) ;; *) return 1 ;; esac
+    temporary=$POWER_TRANSITION_REQUEST.tmp.$$
+    printf '%s\n' "$action" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_TRANSITION_REQUEST" || return 1
+    /bin/busybox kill -TERM "$SURFACE_PID" >/dev/null 2>&1 || return 1
+    return 0
 }
 
 prepare_power_broker() {
@@ -1268,7 +1346,7 @@ prepare_power_broker() {
                         echo "ordax-surface: host power broker accepted restart" >>"$HOST_LOG"
                         record_power_request restart pending || echo "ordax-surface: failed to persist restart request proof" >>"$HOST_LOG"
                         /bin/busybox sleep 1
-                        if ! restart_host; then
+                        if ! queue_host_power_transition restart; then
                             record_power_request restart failed || true
                         fi
                         ;;
@@ -1276,10 +1354,9 @@ prepare_power_broker() {
                         echo "ordax-surface: host power broker accepted shutdown" >>"$HOST_LOG"
                         record_power_request shutdown pending || echo "ordax-surface: failed to persist shutdown request proof" >>"$HOST_LOG"
                         /bin/busybox sleep 1
-                        /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-                        /bin/busybox poweroff -f >>"$HOST_LOG" 2>&1 || true
-                        echo "ordax-surface: host poweroff command returned without shutting down" >>"$HOST_LOG"
-                        record_power_request shutdown failed || true
+                        if ! queue_host_power_transition shutdown; then
+                            record_power_request shutdown failed || true
+                        fi
                         ;;
                     *)
                         [ -n "$action" ] && echo "ordax-surface: rejected unknown host power request: $action" >>"$HOST_LOG"
