@@ -62,7 +62,7 @@ test("regional First Run reads canonical Native keyboard status without persisti
   assert.match(firstRunUi, /assertKeyboardLayoutPort\(keyboardLayout\)/);
   assert.match(firstRunUi, /validateKeyboardLayoutSnapshot\(await keyboardLayoutPort\.read\(\)\)/);
   assert.match(firstRunUi, /keyboardLayoutOption\(keyboardLayoutSnapshot\.configuredLayoutId\)/);
-  assert.match(firstRunUi, /status\.dataset\.firstRunKeyboardStatus/);
+  assert.match(firstRunUi, /\.dataset\.firstRunKeyboardStatus\s*=/);
   assert.doesNotMatch(firstRunUi, /keyboardLayoutPort\.(?:configure|apply)\(/);
   assert.doesNotMatch(firstRunUi, /draft\.(?:keyboardLayout|keyboardLayoutId)\s*=/);
   assert.match(chromiumSmoke, /relaunchRefreshesNativeKeyboard/);
