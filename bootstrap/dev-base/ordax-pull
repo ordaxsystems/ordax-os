@@ -5,6 +5,10 @@ REPO_URL=${ORDAX_REPO_URL:-https://github.com/ordaxsystems/ordax-os.git}
 BRANCH=${ORDAX_REPO_BRANCH:-main}
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
+RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+PULL_LOCK_DIR=$RUN_DIR/pull.lock
+PULL_LOCK_PID_FILE=$PULL_LOCK_DIR/pid
+LOCK_HELD=0
 PREVIOUS_FILE=$STATE_DIR/previous-commit
 CURRENT_FILE=$STATE_DIR/current-commit
 PINNED_FILE=$STATE_DIR/pinned-commit
@@ -64,6 +68,13 @@ is_sha() {
         ''|*[!0-9a-f]*) return 1 ;;
     esac
 }
+
+is_pid() {
+    case "${1:-}" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -gt 1 ] 2>/dev/null
+}
 if [ -n "$EXPECTED_SHA" ] && ! is_sha "$EXPECTED_SHA"; then
     echo "ordax-git: expected SHA is invalid" >&2
     exit 2
@@ -88,18 +99,60 @@ write_state() {
     mv -f "$temporary" "$destination"
 }
 
+acquire_pull_lock() {
+    mkdir -p "$RUN_DIR"
+    if mkdir "$PULL_LOCK_DIR" 2>/dev/null; then
+        printf '%s\n' "$$" >"$PULL_LOCK_PID_FILE"
+        LOCK_HELD=1
+        return 0
+    fi
+
+    [ -d "$PULL_LOCK_DIR" ] && [ ! -L "$PULL_LOCK_DIR" ] || {
+        echo "ordax-git: update lock path is unsafe; refusing transaction" >&2
+        return 1
+    }
+
+    owner=$(read_state "$PULL_LOCK_PID_FILE")
+    if ! is_pid "$owner"; then
+        echo "ordax-git: update lock has no trustworthy owner; refusing concurrent transaction" >&2
+        return 1
+    fi
+    if kill -0 "$owner" >/dev/null 2>&1; then
+        echo "ordax-git: another update transaction is active (pid=$owner)" >&2
+        return 1
+    fi
+
+    rm -f "$PULL_LOCK_PID_FILE"
+    if ! rmdir "$PULL_LOCK_DIR" 2>/dev/null; then
+        echo "ordax-git: stale update lock could not be reclaimed safely" >&2
+        return 1
+    fi
+    if ! mkdir "$PULL_LOCK_DIR" 2>/dev/null; then
+        echo "ordax-git: update lock was acquired by another transaction" >&2
+        return 1
+    fi
+    printf '%s\n' "$$" >"$PULL_LOCK_PID_FILE"
+    LOCK_HELD=1
+    echo "ordax-git: stale update lock reclaimed" >&2
+    return 0
+}
+
+release_pull_lock() {
+    [ "$LOCK_HELD" -eq 1 ] || return 0
+    owner=$(read_state "$PULL_LOCK_PID_FILE")
+    if [ "$owner" = "$$" ]; then
+        rm -f "$PULL_LOCK_PID_FILE"
+        rmdir "$PULL_LOCK_DIR" 2>/dev/null || true
+    fi
+    LOCK_HELD=0
+}
+
 configure_runtime_checkout_at() {
     checkout=$1
     git -C "$checkout" sparse-checkout set --no-cone \
         /system/ \
         /bootstrap/base-update/ \
-        /bootstrap/dev-base/ordax-dev-init \
-        /bootstrap/dev-base/ordax-diagnose \
-        /bootstrap/dev-base/ordax-network \
-        /bootstrap/dev-base/ordax-main-watch \
-        /bootstrap/dev-base/ordax-pull \
-        /bootstrap/dev-base/ordax-rollback \
-        /bootstrap/dev-base/ordax-run \
+        /bootstrap/dev-base/ \
         /bootstrap/recovery/entrypoint \
         /bootstrap/trust/ \
         /bootstrap/config/release-envelope-url \
@@ -286,7 +339,11 @@ replace_runtime_checkout() {
         return 1
     }
 
-    rm -rf "$retired"
+    if [ -e "$retired" ] || [ -L "$retired" ]; then
+        echo "ordax-git: transaction retirement path already exists; refusing unsafe overwrite" >&2
+        rm -rf "$stage"
+        return 1
+    fi
     if [ -e "$WORKTREE" ]; then
         if ! mv "$WORKTREE" "$retired"; then
             rm -rf "$stage"
@@ -332,8 +389,57 @@ refresh_dev_helpers() {
     return 0
 }
 
-mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR"
-rm -rf "$STAGING_PREFIX".* "$RETIRED_PREFIX".* 2>/dev/null || true
+recover_interrupted_checkout() {
+    [ ! -e "$WORKTREE" ] && [ ! -L "$WORKTREE" ] || return 0
+
+    recovered=""
+    for candidate in "$RETIRED_PREFIX".*; do
+        [ -e "$candidate" ] || [ -L "$candidate" ] || continue
+        if checkout_metadata_valid "$candidate" && checkout_is_clean "$candidate"; then
+            if [ -n "$recovered" ]; then
+                echo "ordax-git: multiple valid retired checkouts found; refusing ambiguous recovery" >&2
+                return 1
+            fi
+            recovered=$candidate
+        fi
+    done
+
+    [ -n "$recovered" ] || return 0
+    if ! mv "$recovered" "$WORKTREE"; then
+        echo "ordax-git: interrupted checkout recovery could not restore known-good tree" >&2
+        return 1
+    fi
+    recovered_sha=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    is_sha "$recovered_sha" || return 1
+    write_state "$CURRENT_FILE" "$recovered_sha"
+    echo "ordax-git: recovered interrupted checkout transaction at $recovered_sha" >&2
+    return 0
+}
+
+cleanup_transaction_artifacts() {
+    for candidate in "$STAGING_PREFIX".*; do
+        [ -e "$candidate" ] || [ -L "$candidate" ] || continue
+        rm -rf "$candidate"
+    done
+
+    if checkout_metadata_valid "$WORKTREE" && checkout_is_clean "$WORKTREE"; then
+        for candidate in "$RETIRED_PREFIX".*; do
+            [ -e "$candidate" ] || [ -L "$candidate" ] || continue
+            rm -rf "$candidate"
+        done
+    fi
+}
+
+mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR" "$RUN_DIR"
+if ! acquire_pull_lock; then
+    exit 75
+fi
+trap 'release_pull_lock' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+recover_interrupted_checkout || exit 1
+cleanup_transaction_artifacts
 
 if [ "$SEED_MODE" -eq 1 ]; then
     is_sha "$SEED_SOURCE_SHA" || {

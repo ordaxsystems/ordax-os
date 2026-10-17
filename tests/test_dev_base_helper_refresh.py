@@ -65,7 +65,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
         )
 
     def test_refreshes_only_fixed_helpers_with_executable_mode(self):
-        self.assertIn("/bootstrap/dev-base/ordax-diagnose", PULL)
+        self.assertIn("/bootstrap/dev-base/", PULL)
         self.assertNotIn("/bootstrap/dev-base/ordax-remote", PULL)
         self.assertIn("/bootstrap/base-update/", PULL)
         with tempfile.TemporaryDirectory() as directory:
