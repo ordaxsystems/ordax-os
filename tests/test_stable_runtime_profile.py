@@ -209,9 +209,13 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn("canonical-stable-mvp", publish)
         self.assertIn('chmod 600 "$temporary"', publish)
         self.assertIn('rm -f "$RUNTIME_PROOF_CONTEXT"', text)
-        self.assertIn(
-            'configure_keyboard_layout\npublish_runtime_proof_context || fallback_with_reason',
-            text,
+        self.assertLess(
+            text.index("\nconfigure_keyboard_layout\n"),
+            text.index("\nprepare_keyboard_session_restart_broker ||"),
+        )
+        self.assertLess(
+            text.index("\nprepare_keyboard_session_restart_broker ||"),
+            text.index("\npublish_runtime_proof_context || fallback_with_reason"),
         )
 
         resolver = PROOF_RUNTIME.read_text(encoding="utf-8")

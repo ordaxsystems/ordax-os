@@ -59,6 +59,37 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
             self.assertTrue(snapshot["restartRequired"])
             self.assertEqual(snapshot["supportedLayoutIds"], ["br-abnt2", "us"])
 
+    def test_keyboard_session_restart_queue_rejects_unsafe_pipe_and_layout(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "keyboard-restart"
+            os.mkfifo(target, 0o600)
+            os.chmod(target, 0o600)
+            descriptor = os.open(target, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                host.queue_keyboard_session_restart("us", str(target))
+                self.assertEqual(os.read(descriptor, 16), b"us\n")
+                with self.assertRaises(ValueError):
+                    host.queue_keyboard_session_restart("invalid", str(target))
+            finally:
+                os.close(descriptor)
+
+            # The queue must fail immediately if no broker is reading.
+            with self.assertRaises(OSError):
+                host.queue_keyboard_session_restart("us", str(target))
+
+            os.chmod(target, 0o666)
+            with self.assertRaises(ValueError):
+                host.queue_keyboard_session_restart("us", str(target))
+            target.unlink()
+            target.write_text("not-a-fifo", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                host.queue_keyboard_session_restart("us", str(target))
+            alias = Path(directory) / "linked-restart"
+            alias.symlink_to(target)
+            with self.assertRaises(ValueError):
+                host.queue_keyboard_session_restart("us", str(alias))
+
     def test_native_host_route_is_loopback_bounded_and_not_shell_driven(self):
         server = SERVER.read_text(encoding="utf-8")
         get_section = server.split("def do_GET", 1)[1].split("def do_POST", 1)[0]
@@ -77,6 +108,9 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
         self.assertIn("KEYBOARD_LAYOUT_ID_SET", post_section)
         self.assertIn("write_keyboard_layout_id", post_section)
         self.assertIn("KEYBOARD_LAYOUT_PATH", get_section)
+        self.assertIn('KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"', server)
+        self.assertIn('queue_keyboard_session_restart(payload["layoutId"])', post_section)
+        self.assertIn('with self.server.keyboard_layout_lock:', post_section)
         self.assertNotIn("subprocess", server)
         self.assertNotIn("os.system", server)
         self.assertNotIn("Access-Control-Allow-Origin", server)
@@ -88,6 +122,15 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
             launcher,
         )
         self.assertIn("configure_keyboard_layout()", launcher)
+        self.assertIn("prepare_keyboard_session_restart_broker()", launcher)
+        self.assertIn('exec 8<>"$KEYBOARD_SESSION_RESTART_REQUEST"', launcher)
+        self.assertIn('[ "$configured_layout" = "$requested_layout" ] || continue', launcher)
+        self.assertIn('[ "$configured_layout" != "$ORDAX_KEYBOARD_LAYOUT_ID" ] || continue', launcher)
+        self.assertIn('/bin/busybox kill -TERM "$SURFACE_PID"', launcher)
+        self.assertLess(
+            launcher.index("configure_keyboard_layout\n"),
+            launcher.index("prepare_keyboard_session_restart_broker ||"),
+        )
         self.assertIn("br-abnt2|us)", launcher)
         self.assertIn("XKB_DEFAULT_MODEL=abnt2", launcher)
         self.assertIn("XKB_DEFAULT_LAYOUT=br", launcher)
@@ -112,6 +155,9 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
             ]
         )
         self.assertFalse(contract["first_run"]["selector_exposed"])
+        self.assertTrue(contract["session_restart"]["request_ack_is_not_applied_ack"])
+        self.assertTrue(contract["session_restart"]["first_run_exposure_blocked_until_proof"])
+        self.assertFalse(contract["session_restart"]["host_reboot_required"])
 
         capabilities = json.loads(CAPABILITIES.read_text(encoding="utf-8"))
         entries = {entry["id"]: entry for entry in capabilities["capabilities"]}
