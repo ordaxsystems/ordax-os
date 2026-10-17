@@ -49,3 +49,22 @@ test("Native owner distinguishes persisted selection from the layout applied at 
     restartRequired: false,
   }).restartRequired, false);
 });
+
+test("regional First Run reads canonical Native keyboard status without persisting a second layout", async () => {
+  const nativeMain = await read("system/composition/native/main.mjs");
+  const chromiumSmoke = await read("tools/surface-native/first-run-browser-smoke.mjs");
+
+  assert.equal(contract.first_run.status_read_only_exposed, true);
+  assert.equal(firstRun.regional.keyboard_status_read_only, true);
+  assert.equal(firstRun.regional.keyboard_status_owner, "keyboard-layout");
+  assert.equal(firstRun.regional.keyboard_layout_selector_exposed, false);
+  assert.match(nativeMain, /mountFirstRunExperience\(root, \{[\s\S]*?keyboardLayout,/);
+  assert.match(firstRunUi, /assertKeyboardLayoutPort\(keyboardLayout\)/);
+  assert.match(firstRunUi, /validateKeyboardLayoutSnapshot\(await keyboardLayoutPort\.read\(\)\)/);
+  assert.match(firstRunUi, /keyboardLayoutOption\(keyboardLayoutSnapshot\.configuredLayoutId\)/);
+  assert.match(firstRunUi, /data\.firstRunKeyboardStatus/);
+  assert.doesNotMatch(firstRunUi, /keyboardLayoutPort\.(?:configure|apply)\(/);
+  assert.doesNotMatch(firstRunUi, /draft\.(?:keyboardLayout|keyboardLayoutId)\s*=/);
+  assert.match(chromiumSmoke, /relaunchRefreshesNativeKeyboard/);
+  assert.match(chromiumSmoke, /noKeyboardOwnerInReceipt/);
+});
