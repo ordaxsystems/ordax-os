@@ -36,6 +36,8 @@ class DevMainWatchSingleOwnerTest(unittest.TestCase):
         self.assertIn("LOCK_PID_FILE=$LOCK_DIR/pid", text)
         self.assertIn("watch_lock_owner_alive()", text)
         self.assertIn("stale watch lock reclaimed", text)
+        self.assertIn("sleep_interval()", text)
+        self.assertIn("terminate_watch()", text)
         loop = text.split("while :; do", 1)[1]
         self.assertLess(
             loop.index("active_supervisor_pid"),

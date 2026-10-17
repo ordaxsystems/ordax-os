@@ -14,6 +14,7 @@ BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat
 RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
 OWNER_STATE=""
+SLEEP_PID=""
 
 case "$INTERVAL" in
     ''|*[!0-9]*) INTERVAL=5 ;;
@@ -100,10 +101,35 @@ case "$lock_status" in
     1) exit 0 ;;
     *) exit 1 ;;
 esac
-trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
-trap 'exit 129' HUP
-trap 'exit 130' INT
-trap 'exit 143' TERM
+cleanup_watch() {
+    if is_pid "${SLEEP_PID:-}"; then
+        kill "$SLEEP_PID" >/dev/null 2>&1 || true
+        wait "$SLEEP_PID" 2>/dev/null || true
+    fi
+    SLEEP_PID=""
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+}
+
+terminate_watch() {
+    code=$1
+    if is_pid "${SLEEP_PID:-}"; then
+        kill "$SLEEP_PID" >/dev/null 2>&1 || true
+    fi
+    exit "$code"
+}
+
+sleep_interval() {
+    sleep "$INTERVAL" &
+    SLEEP_PID=$!
+    wait "$SLEEP_PID" 2>/dev/null || true
+    SLEEP_PID=""
+}
+
+trap 'cleanup_watch' EXIT
+trap 'terminate_watch 129' HUP
+trap 'terminate_watch 130' INT
+trap 'terminate_watch 143' TERM
 
 active_supervisor_pid() {
     pid=$(read_state_value "$SUPERVISOR_HEARTBEAT_FILE")
@@ -139,7 +165,7 @@ while :; do
             OWNER_STATE=supervisor
         fi
         handoff_runtime_drift_if_needed "$supervisor_pid"
-        sleep "$INTERVAL"
+        sleep_interval
         continue
     fi
 
@@ -153,7 +179,7 @@ while :; do
                 log "rollback pin is inconsistent with checkout; automatic update blocked"
                 OWNER_STATE=pinned-invalid
             fi
-            sleep "$INTERVAL"
+            sleep_interval
             continue
         fi
         if ! is_sha "$rejected" || [ "$rejected" = "$pinned" ]; then
@@ -161,7 +187,7 @@ while :; do
                 log "manual rollback pin active; automatic main update blocked until explicit ordax-pull"
                 OWNER_STATE=pinned
             fi
-            sleep "$INTERVAL"
+            sleep_interval
             continue
         fi
 
@@ -181,7 +207,7 @@ while :; do
                 *) log "automatic rollback recovery unavailable (status=$status); keeping known-good checkout" ;;
             esac
         fi
-        sleep "$INTERVAL"
+        sleep_interval
         continue
     fi
 
@@ -199,5 +225,5 @@ while :; do
         status=$?
         log "checagem da main indisponivel (status=$status); mantendo checkout local"
     fi
-    sleep "$INTERVAL"
+    sleep_interval
 done

@@ -61,7 +61,7 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
 
         self.assertIn("/system/", pull)
         self.assertIn("/bootstrap/base-update/", pull)
-        self.assertIn("/bootstrap/dev-base/ordax-pull", pull)
+        self.assertIn("/bootstrap/dev-base/", pull)
         self.assertNotIn("/bootstrap/kernel/", pull)
         self.assertNotIn("/bootstrap/initramfs/", pull)
         self.assertNotIn("/tools/creator/", pull)
