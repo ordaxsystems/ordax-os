@@ -71,6 +71,10 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             '--kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
+        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$GITHUB_SHA"', dev_base)
+        self.assertIn('test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"', dev_base)
+        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$GITHUB_SHA"', dev_base)
+        self.assertNotIn('git clone https://github.com/ordaxsystems/ordax-os.git', dev_base)
         for step in (
             "Derive development Git bootstrap manifest",
             "Assemble boot payload and overlay Git development base",
