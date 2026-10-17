@@ -963,8 +963,8 @@
       "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
       "owner": "OrdaX OS Surface",
       "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle",
-      "adaptedSha256": "c9ed5f5bdbc582fdc5cec3e62ab1f651c0c856575970b63a769a9af120c2b26e",
-      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged."
+      "adaptedSha256": "f5c1cc9d3780448d59aa29d18788f03dfa60baf1542bfc2408d36636e1e8b495",
+      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged. 2026-10-17: Web composes the canonical bounded Space members read adapter behind the authorized Spaces catalog; reads remain on-demand and read-only, with no membership mutation authority added to Central."
     },
     {
       "target": "system/surface/workspace/components/central/account-context.tsx",
