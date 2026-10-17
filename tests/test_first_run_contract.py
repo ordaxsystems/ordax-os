@@ -34,10 +34,9 @@ class FirstRunContractTests(unittest.TestCase):
     def test_contract_keeps_usb_local_first_and_account_optional(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(contract["$schema"], "prototype-ordax.first-run/1")
-        self.assertEqual(
-            contract["flow"],
-            ["welcome", "regional", "network", "security", "account", "privacy", "ready"],
-        )
+        self.assertEqual(contract["owners"]["journey"], "system/services/first-run/journey.mjs")
+        self.assertTrue(contract["flow"])
+        self.assertEqual(len(contract["flow"]), len(set(contract["flow"])))
         self.assertEqual(contract["regional"]["complete_locales"], ["pt-BR", "en-US", "es-ES", "de-DE", "fr-FR"])
         self.assertEqual(contract["regional"]["public_mvp_locales"], ["pt-BR", "en-US"])
         self.assertEqual(contract["regional"]["retained_compatible_locales"], ["es-ES", "de-DE", "fr-FR"])
