@@ -79,7 +79,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("prove_independent_rootfs.py", dev_base)
         self.assertIn("independent_rootfs.py materialize", dev_base)
         self.assertIn(
-            'ORDAX_KERNEL_MODULES_ARCHIVE="out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
+            'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
 
