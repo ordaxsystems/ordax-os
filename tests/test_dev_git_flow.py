@@ -375,7 +375,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         result = self._script(DEV_INIT, env=boot_env)
         self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", result.stdout)
+        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", result.stdout)
         self.assertIn("OrdaX Dev pronto.", result.stdout)
         self.assertFalse(runtime_marker.exists())
         self.assertFalse(pull_marker.exists())
@@ -421,7 +421,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", result.stdout)
+        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", result.stdout)
         self.assertIn("OrdaX Dev pronto.", result.stdout)
         self.assertNotIn("runtime-v1", result.stdout)
         self.assertFalse(pull_marker.exists())
