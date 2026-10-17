@@ -2,11 +2,13 @@ import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSpaceMembersReader } from "../../adapters/web/space-members.mjs";
+import { createWebSpaceActorCapabilityReader } from "../../adapters/web/space-actor-capability.mjs";
 import { createWebSpaceMembershipActions } from "../../adapters/web/space-membership-actions.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
 import { createWebSpaceSelectionStore } from "../../adapters/web/space-selection.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
 import { createSpaceMembersReader } from "../../services/spaces/members.mjs";
+import { createSpaceActorCapabilityReader } from "../../services/spaces/actor-capability.mjs";
 import { createSpaceMembershipActionsRuntime } from "../../services/spaces/membership-actions.mjs";
 import { createWebRegistrationPolicyReader } from "../../adapters/web/identity-credentials.mjs";
 
@@ -31,6 +33,8 @@ export function createWebAccountSession(windowRef = globalThis.window) {
   const spaces = createWebSpacesCatalog(windowRef);
   const membersPort = createWebSpaceMembersReader(windowRef);
   const members = createSpaceMembersReader({ spaces, members: membersPort });
+  const actorCapabilityPort = createWebSpaceActorCapabilityReader(windowRef);
+  const actorCapability = createSpaceActorCapabilityReader({ spaces, actorCapability: actorCapabilityPort });
   const membershipActionsPort = createWebSpaceMembershipActions(windowRef);
   const membershipActions = createSpaceMembershipActionsRuntime({
     spaces,
@@ -87,7 +91,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
   windowRef.addEventListener("online", refreshQuietly);
   windowRef.document?.addEventListener("visibilitychange", onVisibility);
   return Object.freeze({
-    identity, actions, spaces, members, membershipActions, selection, surface, refresh,
+    identity, actions, spaces, members, actorCapability, membershipActions, selection, surface, refresh,
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -100,6 +104,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
       actions.dispose();
       registrationPolicy.dispose();
       membershipActionsPort.dispose();
+      actorCapabilityPort.dispose();
       membersPort.dispose();
       spaces.dispose();
       identity.dispose();
