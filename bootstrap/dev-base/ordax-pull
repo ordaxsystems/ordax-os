@@ -617,8 +617,11 @@ if [ -z "$remote_sha" ]; then
     network_failure_hint
     echo "ordax-git: main remota indisponivel; checkout local sera preservado" >&2
     local_sha=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    if checkout_metadata_valid "$WORKTREE" && is_sha "$local_sha"; then
+    if is_sha "$local_sha" && [ -x "$WORKTREE/system/entrypoint" ]; then
         echo "ordax-git: atualizacao falhou; usando versao local $local_sha" >&2
+        if ! checkout_is_clean "$WORKTREE"; then
+            echo "ordax-git: checkout local possui alteracoes; ordax-run validara o estado antes de iniciar" >&2
+        fi
     fi
     exit 1
 fi

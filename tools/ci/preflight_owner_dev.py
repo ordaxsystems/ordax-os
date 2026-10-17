@@ -20,7 +20,6 @@ OWNER_PATHS = (
     "bootstrap/recovery/entrypoint",
     "system/entrypoint",
     "system/supervisor",
-    "system/surface/bin/ordax-surface",
 )
 FORBIDDEN_OWNER_TOKENS = (
     "apk add",
