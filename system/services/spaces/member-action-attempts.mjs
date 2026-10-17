@@ -1,10 +1,12 @@
 // Ephemeral UI retry receipts, never an authorization decision or persistent member record.
 // Server-side idempotency remains authoritative. The scope prevents cross-account/Space reuse.
+/** @param {() => string} makeId */
 export function createScopedMemberActionAttempts(makeId) {
   if (typeof makeId !== "function") throw new TypeError("An idempotency key factory is required");
   const attempts = new Map();
 
   return Object.freeze({
+    /** @param {{subjectId: string, spaceId: string, action: string, targetUserId: string, role?: string | null}} request */
     begin({ subjectId, spaceId, action, targetUserId, role = null }) {
       for (const value of [subjectId, spaceId, action, targetUserId]) {
         if (typeof value !== "string" || value.length === 0) {
