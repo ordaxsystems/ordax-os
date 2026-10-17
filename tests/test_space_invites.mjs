@@ -1,0 +1,164 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  SPACE_INVITABLE_ROLES,
+  SPACE_INVITE_ACTIONS,
+  SPACE_INVITE_CREATE_REQUEST_SCHEMA,
+  SPACE_INVITE_REVOKE_REQUEST_SCHEMA,
+  SPACE_INVITE_SCHEMA,
+  SPACE_INVITE_STATES,
+  SPACE_INVITE_TOKEN_REQUEST_SCHEMA,
+  SPACE_INVITES_SCHEMA,
+  assertSpaceInvitesPort,
+  validateSpaceInvite,
+  validateSpaceInviteCreateRequest,
+  validateSpaceInviteRevokeRequest,
+  validateSpaceInviteTokenRequest,
+  validateSpaceInvitesSnapshot,
+} from "../system/contracts/space-invites.mjs";
+
+const token = "ab".repeat(32);
+const idempotencyKey = "123e4567-e89b-42d3-a456-426614174000";
+
+test("invite lifecycle is separate from membership and ownership", () => {
+  assert.deepEqual(SPACE_INVITE_ACTIONS, ["create", "revoke", "accept", "decline"]);
+  assert.deepEqual(SPACE_INVITE_STATES, ["pending", "accepted", "declined", "expired", "revoked"]);
+  assert.deepEqual(SPACE_INVITABLE_ROLES, ["admin", "member", "viewer"]);
+  assert.equal(SPACE_INVITABLE_ROLES.includes("owner"), false);
+});
+
+test("invite read model never contains bearer token or token hash", () => {
+  const invite = validateSpaceInvite({
+    schema: SPACE_INVITE_SCHEMA,
+    id: "invite-1",
+    spaceId: "space-1",
+    role: "member",
+    state: "pending",
+    targetUserId: null,
+    createdAt: "2026-10-17T06:00:00Z",
+    expiresAt: "2026-10-18T06:00:00Z",
+  });
+  assert.equal("token" in invite, false);
+  assert.equal("tokenHash" in invite, false);
+
+  assert.throws(
+    () => validateSpaceInvite({
+      ...invite,
+      token,
+    }),
+    /unsupported field token/,
+  );
+});
+
+test("create request can bind an invite to an account but never to owner authority", () => {
+  assert.deepEqual(
+    validateSpaceInviteCreateRequest({
+      schema: SPACE_INVITE_CREATE_REQUEST_SCHEMA,
+      spaceId: "space-1",
+      role: "viewer",
+      targetUserId: "user-2",
+      idempotencyKey,
+    }),
+    {
+      schema: SPACE_INVITE_CREATE_REQUEST_SCHEMA,
+      spaceId: "space-1",
+      role: "viewer",
+      targetUserId: "user-2",
+      idempotencyKey,
+    },
+  );
+  assert.throws(
+    () => validateSpaceInviteCreateRequest({
+      schema: SPACE_INVITE_CREATE_REQUEST_SCHEMA,
+      spaceId: "space-1",
+      role: "owner",
+      targetUserId: null,
+      idempotencyKey,
+    }),
+    /not assignable/,
+  );
+});
+
+test("invite token actions require an exact 256-bit bearer token", () => {
+  assert.deepEqual(
+    validateSpaceInviteTokenRequest({
+      schema: SPACE_INVITE_TOKEN_REQUEST_SCHEMA,
+      token: token.toUpperCase(),
+      idempotencyKey,
+    }),
+    {
+      schema: SPACE_INVITE_TOKEN_REQUEST_SCHEMA,
+      token,
+      idempotencyKey,
+    },
+  );
+  assert.throws(
+    () => validateSpaceInviteTokenRequest({
+      schema: SPACE_INVITE_TOKEN_REQUEST_SCHEMA,
+      token: "abc",
+      idempotencyKey,
+    }),
+    /256-bit hexadecimal token/,
+  );
+});
+
+test("revoke targets invite identity and action snapshots are capability gated", () => {
+  assert.deepEqual(
+    validateSpaceInviteRevokeRequest({
+      schema: SPACE_INVITE_REVOKE_REQUEST_SCHEMA,
+      inviteId: "invite-1",
+      idempotencyKey,
+    }),
+    {
+      schema: SPACE_INVITE_REVOKE_REQUEST_SCHEMA,
+      inviteId: "invite-1",
+      idempotencyKey,
+    },
+  );
+
+  const snapshot = Object.freeze({ supportedActions: Object.freeze(["create", "revoke"]) });
+  const port = Object.freeze({
+    schema: SPACE_INVITES_SCHEMA,
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+    refresh: async () => snapshot,
+    createInvite: async () => {},
+    revokeInvite: async () => {},
+    acceptInvite: async () => {},
+    declineInvite: async () => {},
+  });
+  assert.equal(assertSpaceInvitesPort(port), port);
+  assert.deepEqual(validateSpaceInvitesSnapshot(snapshot), snapshot);
+  assert.throws(
+    () => validateSpaceInvitesSnapshot({ supportedActions: ["transfer-owner"] }),
+    /Unsupported or duplicate/,
+  );
+});
+
+test("invite descriptors require coherent expiration and reject unknown sensitive fields", () => {
+  assert.throws(
+    () => validateSpaceInvite({
+      schema: SPACE_INVITE_SCHEMA,
+      id: "invite-1",
+      spaceId: "space-1",
+      role: "member",
+      state: "pending",
+      targetUserId: null,
+      createdAt: "2026-10-18T06:00:00Z",
+      expiresAt: "2026-10-17T06:00:00Z",
+    }),
+    /must be after/,
+  );
+  assert.throws(
+    () => validateSpaceInviteCreateRequest({
+      schema: SPACE_INVITE_CREATE_REQUEST_SCHEMA,
+      spaceId: "space-1",
+      role: "member",
+      targetUserId: null,
+      idempotencyKey,
+      email: "person@example.com",
+    }),
+    /unsupported field email/,
+  );
+});
