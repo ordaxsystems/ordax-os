@@ -11,6 +11,7 @@ on:
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
+      - 'tests/test_space_lifecycle_runtime.mjs'
       - 'tests/test_space_membership_actions.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
@@ -25,6 +26,7 @@ on:
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
+      - 'tests/test_space_lifecycle_runtime.mjs'
       - 'tests/test_space_membership_actions.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
@@ -52,6 +54,7 @@ jobs:
           node --check system/contracts/space-lifecycle.mjs
           node --check system/contracts/space-membership-actions.mjs
           node --check system/services/spaces/composition.mjs
+          node --check system/services/spaces/lifecycle.mjs
           node --check system/services/spaces/type-catalog.mjs
 
       - name: Prove non-blocking compatibility
@@ -59,6 +62,7 @@ jobs:
           set -euo pipefail
           node --test tests/test_space_foundation_nonblocking.mjs
           node --test tests/test_space_lifecycle.mjs
+          node --test tests/test_space_lifecycle_runtime.mjs
           node --test tests/test_space_membership_actions.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
