@@ -13,6 +13,9 @@ import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIF
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
+const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/1";
+const ACCOUNT_SPACE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_SPACE_MEMBERS_PAGE_SIZE = 128;
 const ENTITLEMENTS_SCHEMA = "ordax.entitlements/1";
 const MEMORY_CLOUD_ENTITLEMENT = "memory.cloud.enabled";
 const MAX_MEMORY_ENTITLEMENT_ROWS = 16;
@@ -1309,6 +1312,64 @@ Deno.serve(async (req: Request) => {
     }
 
     return json(200, { $schema: ACCOUNT_SPACES_SCHEMA, spaces }, session.cookies);
+  }
+
+  if (path === "/account/space-members" && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para ver os membros deste Space.",
+      }, session.cookies);
+    }
+
+    const allowedQueryKeys = new Set(["spaceId", "cursor"]);
+    for (const key of url.searchParams.keys()) {
+      if (!allowedQueryKeys.has(key)) return error(400, "invalid-space-members-query", "Consulta de membros inválida.");
+    }
+    const spaceIds = url.searchParams.getAll("spaceId");
+    const cursors = url.searchParams.getAll("cursor");
+    const spaceId = spaceIds.length === 1 ? spaceIds[0] : "";
+    const cursor = cursors.length === 0 ? null : cursors.length === 1 ? cursors[0] : "";
+    if (!ACCOUNT_SPACE_UUID.test(spaceId) || (cursor !== null && !ACCOUNT_SPACE_UUID.test(cursor))) {
+      return error(400, "invalid-space-members-query", "Consulta de membros inválida.");
+    }
+
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc("ordax_list_space_members_v1", {
+        p_space_id: spaceId,
+        p_after_user_id: cursor,
+        p_limit: MAX_SPACE_MEMBERS_PAGE_SIZE,
+      });
+      if (rpcError || !Array.isArray(data) || data.length > MAX_SPACE_MEMBERS_PAGE_SIZE) {
+        return error(502, "space-members-read-failed", "Não foi possível ler os membros deste Space.");
+      }
+
+      const members = [];
+      let previousUserId = null;
+      for (const raw of data as Array<Record<string, unknown>>) {
+        if (
+          typeof raw.space_id !== "string" || raw.space_id !== spaceId ||
+          typeof raw.user_id !== "string" || !ACCOUNT_SPACE_UUID.test(raw.user_id) ||
+          !["owner", "admin", "member", "viewer"].includes(String(raw.role)) ||
+          !["active", "suspended"].includes(String(raw.state)) ||
+          (previousUserId !== null && raw.user_id <= previousUserId)
+        ) return error(502, "space-members-read-failed", "Não foi possível validar os membros deste Space.");
+        previousUserId = raw.user_id;
+        members.push({ spaceId, userId: raw.user_id, role: raw.role, state: raw.state });
+      }
+
+      return json(200, {
+        schema: SPACE_MEMBERS_PAGE_SCHEMA,
+        spaceId,
+        members,
+        nextCursor: data.length === MAX_SPACE_MEMBERS_PAGE_SIZE ? previousUserId : null,
+      }, session.cookies);
+    } catch {
+      return error(503, "space-members-unavailable", "A leitura de membros está temporariamente indisponível.");
+    }
   }
 
   if (path === "/account/entitlements/memory-cloud") {
