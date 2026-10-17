@@ -61,6 +61,15 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         self.assertEqual([row['name'] for row in self.snapshot['navigation']],actual)
         for destination_id in [destination_id for _,destination_id in tokens if destination_id]:
             self.assertNotIn("name: '"+labels[destination_id]+"'",block)
+    def test_public_catalog_has_one_generated_surface_copy_block(self):
+        catalog=(ROOT/'sites/public/i18n/catalog.js').read_text(encoding='utf-8')
+        self.assertEqual(catalog.count('// BEGIN GENERATED SURFACE COPY'),1)
+        self.assertEqual(catalog.count('// END GENERATED SURFACE COPY'),1)
+
+    def test_snapshot_home_clock_is_canonical(self):
+        self.assertIn('dateTime="2000-01-01T09:00:00.000Z"',self.snapshot['views']['home'])
+        self.assertIn('<h1>Bom dia.</h1>',self.snapshot['views']['home'])
+
     def test_snapshots_are_static_local_presentation(self):
         markup=Markup();markup.feed(self.snapshot['chrome']+' '.join(self.snapshot['views'].values()))
         for tag,attrs in markup.tags:
