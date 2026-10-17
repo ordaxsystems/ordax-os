@@ -182,14 +182,17 @@ def _surface_home() -> dict[str, object]:
 def _current_surface_snapshot():
     snapshot = json.loads((PUBLIC_ROOT / "assets/surface-snapshot.json").read_text(encoding="utf-8"))
     css = PUBLIC_ROOT / "assets/surface-snapshot.css"
-    if hashlib.sha256(css.read_bytes()).hexdigest() != snapshot.get("cssSha256"):
+    if hashlib.sha256(css.read_text(encoding="utf-8").encode("utf-8")).hexdigest() != snapshot.get("cssSha256"):
         raise PlaygroundFixtureError("public Surface stylesheet diverged from its generated artifact")
     for source in snapshot["sources"]:
         relative = Path(source["path"])
         if relative.is_absolute() or ".." in relative.parts:
             raise PlaygroundFixtureError("invalid public Surface provenance path")
         path = ROOT / relative
-        if hashlib.sha256(path.read_bytes()).hexdigest() != source["sha256"]:
+        payload = path.read_bytes()
+        if path.suffix in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".css", ".json", ".svg"}:
+            payload = payload.replace(b"\r\n", b"\n")
+        if hashlib.sha256(payload).hexdigest() != source["sha256"]:
             raise PlaygroundFixtureError("public Surface snapshot is stale: " + source["path"] + "; run node tools/public-site/surface_snapshot.mjs and playground_fixture.py --write")
     return snapshot
 

@@ -55,7 +55,7 @@ tree.walkAtRules('media',rule=>{if(/\bwidth\b/.test(rule.params)){rule.name='con
 await mkdir(assets,{recursive:true});
 await writeFile(resolve(assets,'surface-snapshot.css'),paths(tree.toString()+inline).replaceAll('http://www.w3.org/2000/svg','http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'),'utf8');
 // The emitted browser artifact contains markup and CSS only.
-data.sources=await Promise.all([...generated].filter(p=>true).sort().map(async path=>({path:relative(root,path).replaceAll('\\','/'),sha256:createHash('sha256').update(await readFile(path)).digest('hex')})));
-data.cssSha256=createHash('sha256').update(await readFile(resolve(assets,'surface-snapshot.css'))).digest('hex');
+data.sources=await Promise.all([...generated].filter(p=>true).sort().map(async path=>({path:relative(root,path).replaceAll('\\','/'),sha256:createHash('sha256').update(/\.(?:tsx?|jsx?|mjs|css|json|svg)$/.test(path)?(await readFile(path,'utf8')).replaceAll('\r\n','\n'):await readFile(path)).digest('hex')})));
+data.cssSha256=createHash('sha256').update((await readFile(resolve(assets,'surface-snapshot.css'),'utf8')).replaceAll('\r\n','\n')).digest('hex');
 await writeFile(resolve(assets,'surface-snapshot.json'),JSON.stringify(data),'utf8');
 console.log('PUBLIC_SURFACE_SNAPSHOT=PASS views='+Object.keys(data.views).length);

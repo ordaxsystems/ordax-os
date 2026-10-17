@@ -3,6 +3,9 @@ import hashlib
 import json
 import re
 import unittest
+import tempfile
+import importlib.util
+from unittest.mock import patch
 from pathlib import Path
 from html.parser import HTMLParser
 ROOT=Path(__file__).resolve().parents[1]
@@ -22,7 +25,26 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         for owner in ['meridian-home.tsx','meridian-navigation.tsx','config.ts','meridian.css','service-overview.tsx','settings.tsx','primitives.tsx']:
             self.assertTrue(any(path.endswith('/'+owner) for path in tracked),owner)
         for path,digest in tracked.items():
-            self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(),digest,path)
+            payload=(ROOT/path).read_bytes()
+            if Path(path).suffix in {'.ts','.tsx','.js','.jsx','.mjs','.css','.json','.svg'}: payload=payload.replace(b'\r\n',b'\n')
+            self.assertEqual(hashlib.sha256(payload).hexdigest(),digest,path)
+    def test_source_provenance_accepts_windows_and_linux_text_checkouts(self):
+        spec=importlib.util.spec_from_file_location('public_demo_fixture',ROOT/'tools/public-site/playground_fixture.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory(prefix='ordax-demo-portability-') as directory:
+            checkout=Path(directory)
+            for newline in (b'\n',b'\r\n'):
+                for source in self.snapshot['sources']:
+                    target=checkout/source['path']
+                    self.assertTrue(target.resolve().is_relative_to(checkout.resolve()))
+                    target.parent.mkdir(parents=True,exist_ok=True)
+                    payload=(ROOT/source['path']).read_bytes()
+                    if target.suffix in {'.ts','.tsx','.js','.jsx','.mjs','.css','.json','.svg'}:
+                        payload=payload.replace(b'\r\n',b'\n').replace(b'\n',newline)
+                    target.write_bytes(payload)
+                with patch.object(module,'ROOT',checkout):
+                    self.assertEqual(module._current_surface_snapshot()['cssSha256'],self.snapshot['cssSha256'])
+
     def test_real_navigation_order_is_not_a_second_menu_catalog(self):
         source=(ROOT/'system/surface/workspace/components/central/config.ts').read_text(encoding='utf-8')
         block=source.split('export const navigation:')[1].split('];')[0]
