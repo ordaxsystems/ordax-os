@@ -41,6 +41,7 @@ DELIVERY_EPOCH_SHA=2361b9e74c02d97c4d907417d7e1b2836062e5e7
 DELIVERY_EPOCH_NUMBER=220
 UPDATE_RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat
+SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced
 SURFACE_RUNTIME_PROVISION_MARKER=/run/ordax-surface/runtime-provisioning-source-sha
 OWNER_PROVISION_TIMEOUT=${ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}
 ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
@@ -528,6 +529,7 @@ apply_remote_checkout() {
 
 /bin/busybox mkdir -p "$UPDATE_RUN_DIR" "$STATE_DIR" "$RELEASES_DIR" "$STATE_DIR/native-state"
 chmod 700 "$UPDATE_RUN_DIR" "$RELEASES_DIR" "$STATE_DIR/native-state"
+rm -f "$SUPERVISOR_POWER_QUIESCED_FILE" >/dev/null 2>&1 || true
 : >"$UPDATE_LOG"
 
 utc_now() {
@@ -1094,6 +1096,10 @@ recover_reload_with_surface_restart() {
 terminate() {
     trap - EXIT HUP INT TERM
     stop_surface
+    temporary=$SUPERVISOR_POWER_QUIESCED_FILE.tmp.$$
+    printf '%s\n' "$$" >"$temporary" || exit 1
+    chmod 600 "$temporary" || exit 1
+    /bin/busybox mv -f "$temporary" "$SUPERVISOR_POWER_QUIESCED_FILE" || exit 1
     exit 0
 }
 
