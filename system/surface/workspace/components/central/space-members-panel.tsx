@@ -1,6 +1,7 @@
 import { UsersRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { createScopedMemberActionAttempts } from '../../../../services/spaces/member-action-attempts.mjs';
 import type { validateSpaceMembersPage } from '../../../../contracts/space-members.mjs';
 import type { validateSpaceActorCapability } from '../../../../contracts/space-actor-capability.mjs';
 import { useWebAccount } from './account-context';
@@ -20,10 +21,6 @@ const roleLabels: Readonly<Record<string, string>> = Object.freeze({
 });
 const stateLabels: Readonly<Record<string, string>> = Object.freeze({ active: 'Ativo', suspended: 'Suspenso' });
 
-function attemptKey(action: ActionKind, userId: string, role?: ActionRole) {
-  return `${action}:${userId}:${role ?? ''}`;
-}
-
 function isProjectedActionAllowed(member: SpaceMember, action: ActionKind, role?: ActionRole) {
   if (action === 'change-role') {
     return role !== undefined && member.actions.canChangeRole && member.actions.assignableRoles.includes(role);
@@ -34,13 +31,17 @@ function isProjectedActionAllowed(member: SpaceMember, action: ActionKind, role?
 }
 
 export function SpaceMembersPanel() {
-  const { authorized, members, actorCapability, membershipActions, offline } = useWebAccount();
+  const { authorized, identity, members, actorCapability, membershipActions, offline } = useWebAccount();
+  const subjectId = identity.state === 'signed-in' ? identity.subjectId : null;
   const spaceId = authorized.activeSpace?.id ?? null;
   const activeSpaceName = authorized.activeSpace?.name ?? null;
   const currentSpace = useRef<string | null>(spaceId);
   const membersReadGeneration = useRef(0);
   const capabilityReadGeneration = useRef(0);
-  const idempotency = useRef(new Map<string, string>());
+  const attempts = useRef(createScopedMemberActionAttempts(() => crypto.randomUUID()));
+  const lastKnownSubject = useRef<string | null>(subjectId);
+  const actionGeneration = useRef(0);
+  const pendingAction = useRef(false);
   const [items, setItems] = useState<readonly SpaceMember[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('idle');
@@ -88,42 +89,51 @@ export function SpaceMembersPanel() {
     ]);
   }
 
-  function getAttemptId(key: string) {
-    const existing = idempotency.current.get(key);
-    if (existing) return existing;
-    const generated = crypto.randomUUID();
-    idempotency.current.set(key, generated);
-    return generated;
-  }
-
   async function runAction(action: ActionKind, member: SpaceMember, role?: ActionRole) {
-    if (spaceId === null || !capability?.canManageMembers || actionPending !== null || !isProjectedActionAllowed(member, action, role)) return;
-    const key = attemptKey(action, member.userId, role);
-    const idempotencyKey = getAttemptId(key);
+    if (spaceId === null || subjectId === null || offline || !capability?.canManageMembers || pendingAction.current || actionPending !== null || !isProjectedActionAllowed(member, action, role)) return;
+    const generation = actionGeneration.current;
+    const isCurrent = () => currentSpace.current === spaceId && actionGeneration.current === generation;
+    const attempt = attempts.current.begin({ subjectId, spaceId, action, targetUserId: member.userId, role: role ?? null });
+    const key = [action, member.userId, role ?? null].join(':');
+    pendingAction.current = true;
     setActionPending(key);
     setActionError(null);
     try {
-      if (action === 'change-role' && role) await membershipActions.changeMemberRole(spaceId, member.userId, role, idempotencyKey);
-      else if (action === 'suspend') await membershipActions.suspendMember(spaceId, member.userId, idempotencyKey);
-      else if (action === 'reactivate') await membershipActions.reactivateMember(spaceId, member.userId, idempotencyKey);
-      else if (action === 'remove') await membershipActions.removeMember(spaceId, member.userId, idempotencyKey);
-      idempotency.current.delete(key);
-      if (currentSpace.current === spaceId) await reloadRemoteState(spaceId);
+      if (action === 'change-role' && role) await membershipActions.changeMemberRole(spaceId, member.userId, role, attempt.idempotencyKey);
+      else if (action === 'suspend') await membershipActions.suspendMember(spaceId, member.userId, attempt.idempotencyKey);
+      else if (action === 'reactivate') await membershipActions.reactivateMember(spaceId, member.userId, attempt.idempotencyKey);
+      else if (action === 'remove') await membershipActions.removeMember(spaceId, member.userId, attempt.idempotencyKey);
+      attempt.confirm();
+      if (isCurrent()) await reloadRemoteState(spaceId);
     } catch {
-      if (currentSpace.current === spaceId) {
+      if (isCurrent()) {
         setActionError('A ação não foi confirmada pelo servidor. Você pode tentar novamente; a mesma tentativa reutilizará a chave de idempotência.');
         await readCapability(spaceId);
       }
     } finally {
-      if (currentSpace.current === spaceId) setActionPending(null);
+      if (isCurrent()) {
+        pendingAction.current = false;
+        setActionPending(null);
+      }
     }
   }
 
+  // A lost connection is not a sign-out: retain uncertain retry keys in memory.
+  // Forget keys on an explicit sign-out or a confirmed account change only.
+  useEffect(() => {
+    if (identity.state === 'signed-out'
+      || (subjectId !== null && lastKnownSubject.current !== null && lastKnownSubject.current !== subjectId)) {
+      attempts.current.clear();
+    }
+    if (identity.state === 'signed-out') lastKnownSubject.current = null;
+    else if (subjectId !== null) lastKnownSubject.current = subjectId;
+  }, [identity.state, subjectId]);
   useEffect(() => {
     currentSpace.current = spaceId;
     membersReadGeneration.current += 1;
     capabilityReadGeneration.current += 1;
-    idempotency.current.clear();
+    actionGeneration.current += 1;
+    pendingAction.current = false;
     setItems([]);
     setNextCursor(null);
     setCapability(null);
@@ -138,7 +148,7 @@ export function SpaceMembersPanel() {
       readPage(spaceId, null, false),
       readCapability(spaceId),
     ]);
-  }, [spaceId, offline, members, actorCapability]);
+  }, [spaceId, subjectId, offline, members, actorCapability]);
 
   if (spaceId === null) return null;
 
