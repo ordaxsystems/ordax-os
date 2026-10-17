@@ -205,7 +205,7 @@ where space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   and user_id = '55555555-5555-4555-8555-555555555555';
 set role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
-do $
+do $$
 declare projected record;
 begin
   select * into projected from public.ordax_list_space_members_v1(
@@ -216,7 +216,7 @@ begin
     raise exception 'suspended target has invalid projected state actions';
   end if;
 end;
-$;
+$$;
 reset role;
 update public.ordax_space_members set state = 'active'
 where space_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
