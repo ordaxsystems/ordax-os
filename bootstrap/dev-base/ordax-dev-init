@@ -305,6 +305,13 @@ mkdir -p "$WORKSPACE_DIR" "$STATE_DIR" "$NETWORK_STATE_DIR" /home /run /tmp /roo
 chmod 1777 /tmp 2>/dev/null || true
 select_development_rootfs
 
+# Finish an interrupted checkout directory swap without requiring network. New
+# helpers understand --recover-local; older helpers fail harmlessly and retain
+# their existing boot behavior during the migration window.
+if [ -x "$BIN_DIR/ordax-pull" ]; then
+    "$BIN_DIR/ordax-pull" --recover-local >/dev/null 2>&1 || true
+fi
+
 printf '\033[2J\033[H'
 printf 'OrdaX Development Base\n'
 printf 'Kernel + drivers + network + Git\n\n'
