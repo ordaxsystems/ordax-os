@@ -24,11 +24,33 @@ STABLE = ROOT / "bootstrap/stable-base/source.json"
 BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
+BASE_DEFCONFIG = HERE / "configs/ordax_minimal_defconfig"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
+OWNER_BUSYBOX_FRAGMENT = HERE / "configs/owner-development.busybox.fragment"
 IPROUTE2_PATCH_ROOT = HERE / "patches/iproute2"
 IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
 IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
+MINIMAL_BUSYBOX_FRAGMENT_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment"'
+)
+OWNER_BUSYBOX_FRAGMENT_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'owner-development.busybox.fragment"'
+)
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
+OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y",)
+SUPPORTED_PROFILES = ("minimal", "owner-development")
+OWNER_USERSPACE_CONFIG = (
+    "BR2_PACKAGE_CA_CERTIFICATES=y",
+    "BR2_PACKAGE_GIT=y",
+    "BR2_PACKAGE_IW=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
+)
+OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -68,6 +90,67 @@ def run(*args: str, cwd: Path | None = None, bounded_output: bool = False) -> st
     return output
 
 
+def config_lines(path: Path) -> set[str]:
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
+def validate_owner_busybox_fragment() -> set[str]:
+    if not OWNER_BUSYBOX_FRAGMENT.is_file() or OWNER_BUSYBOX_FRAGMENT.is_symlink():
+        raise BaseError("Owner/Development BusyBox config fragment is missing or unsafe")
+    lines = config_lines(OWNER_BUSYBOX_FRAGMENT)
+    expected = set(OWNER_BUSYBOX_SYMBOLS)
+    if lines != expected:
+        raise BaseError(
+            "Owner/Development BusyBox fragment must contain only required helper applets: "
+            + ", ".join(sorted(expected))
+        )
+    text = OWNER_BUSYBOX_FRAGMENT.read_text(encoding="utf-8").lower()
+    if "alpine" in text or "apk" in text:
+        raise BaseError("Owner/Development BusyBox fragment reintroduced Alpine/APK")
+    return lines
+
+
+def validate_owner_fragment(path: Path) -> set[str]:
+    lines = config_lines(path)
+    missing_userspace = sorted(set(OWNER_USERSPACE_CONFIG) - lines)
+    if missing_userspace:
+        raise BaseError(
+            "Owner/Development fragment lost required userspace capabilities: "
+            + ", ".join(missing_userspace)
+        )
+    if OWNER_BUSYBOX_FRAGMENT_CONFIG not in lines:
+        raise BaseError("Owner/Development fragment lost its exact BusyBox capability composition")
+    firmware = {
+        line
+        for line in lines
+        if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
+    }
+    if f"{OWNER_FIRMWARE_CONFIG_PREFIX}=y" not in firmware:
+        raise BaseError("Owner/Development fragment must select Buildroot linux-firmware")
+    unexpected = sorted(
+        lines
+        - set(OWNER_USERSPACE_CONFIG)
+        - {OWNER_BUSYBOX_FRAGMENT_CONFIG}
+        - firmware
+    )
+    if unexpected:
+        raise BaseError(
+            "Owner/Development fragment contains unsupported configuration: "
+            + ", ".join(unexpected)
+        )
+    if len(firmware) <= 1:
+        raise BaseError("Owner/Development linux-firmware provider has no selected family")
+    validate_owner_busybox_fragment()
+    text = path.read_text(encoding="utf-8").lower()
+    if "alpine" in text or "apk" in text:
+        raise BaseError("Owner/Development fragment reintroduced Alpine/APK")
+    return lines
+
+
 def contracts() -> tuple[dict, dict, dict, dict]:
     source = json.loads(SOURCE.read_text(encoding="utf-8"))
     kernel = json.loads(KERNEL.read_text(encoding="utf-8"))
@@ -80,6 +163,26 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         raise BaseError("experiment cannot be promoted")
     if source.get("physical_artifact_authorized") is not False or source.get("stable_channel_authorized") is not False:
         raise BaseError("physical or Stable promotion forbidden")
+    if source.get("build_profile") != "ordax_minimal_defconfig":
+        raise BaseError("canonical Independent Base defconfig identity drift")
+    profiles = source.get("profiles")
+    if not isinstance(profiles, dict) or set(profiles) != set(SUPPORTED_PROFILES):
+        raise BaseError("Independent Base profile registry drift")
+    expected_defconfig = str(BASE_DEFCONFIG.relative_to(ROOT))
+    minimal = profiles.get("minimal")
+    owner = profiles.get("owner-development")
+    if minimal != {
+        "defconfig": expected_defconfig,
+        "fragment": None,
+        "purpose": "portable-minimal-base-proof",
+    }:
+        raise BaseError("minimal profile contract drift")
+    if owner != {
+        "defconfig": expected_defconfig,
+        "fragment": "bootstrap/independent-base/configs/owner-development.fragment",
+        "purpose": "owner-development-parity-without-alpine",
+    }:
+        raise BaseError("Owner/Development profile contract drift")
     if kernel.get("$schema") != "prototype-ordax.kernel-source/1":
         raise BaseError("kernel contract mismatch")
     if not re.fullmatch(r"\d+\.\d+\.\d+", kernel.get("version", "")):
@@ -116,6 +219,136 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         if digest(ROOT / "bootstrap/network" / name) != network["runtime"][key]:
             raise BaseError(f"canonical network script changed: {name}")
     return source, kernel, stable, network
+
+
+def profile_inputs(source: dict, profile: str) -> dict:
+    if profile not in SUPPORTED_PROFILES:
+        raise BaseError(f"unsupported Independent Base profile: {profile}")
+    spec = source["profiles"][profile]
+    defconfig = ROOT / spec["defconfig"]
+    if defconfig.is_symlink() or not defconfig.is_file():
+        raise BaseError(f"profile defconfig is missing or unsafe: {spec['defconfig']}")
+    fragment_value = spec["fragment"]
+    fragment = None if fragment_value is None else ROOT / fragment_value
+    if fragment is not None and (fragment.is_symlink() or not fragment.is_file()):
+        raise BaseError(f"profile fragment is missing or unsafe: {fragment_value}")
+
+    base_lines = config_lines(defconfig)
+    owner_busybox_fragment = None
+    owner_busybox_lines: set[str] = set()
+    if profile == "minimal":
+        leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & base_lines)
+        leaked_firmware = sorted(
+            line for line in base_lines if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX)
+        )
+        leaked = leaked_userspace + leaked_firmware
+        if leaked:
+            raise BaseError(f"Owner capability leaked into minimal defconfig: {leaked}")
+        fragment_lines: set[str] = set()
+    else:
+        assert fragment is not None
+        fragment_lines = validate_owner_fragment(fragment)
+        owner_busybox_fragment = OWNER_BUSYBOX_FRAGMENT
+        owner_busybox_lines = validate_owner_busybox_fragment()
+
+    return {
+        "profile": profile,
+        "purpose": spec["purpose"],
+        "defconfig": defconfig,
+        "fragment": fragment,
+        "fragment_config": sorted(fragment_lines),
+        "owner_busybox_fragment": owner_busybox_fragment,
+        "owner_busybox_fragment_config": sorted(owner_busybox_lines),
+    }
+
+
+def profile_provenance(inputs: dict) -> dict:
+    fragment = inputs["fragment"]
+    owner_busybox_fragment = inputs["owner_busybox_fragment"]
+    return {
+        "name": inputs["profile"],
+        "purpose": inputs["purpose"],
+        "defconfig": str(inputs["defconfig"].relative_to(ROOT)),
+        "defconfig_sha256": digest(inputs["defconfig"]),
+        "fragment": None if fragment is None else str(fragment.relative_to(ROOT)),
+        "fragment_sha256": None if fragment is None else digest(fragment),
+        "fragment_config": inputs["fragment_config"],
+        "owner_busybox_fragment": (
+            None
+            if owner_busybox_fragment is None
+            else str(owner_busybox_fragment.relative_to(ROOT))
+        ),
+        "owner_busybox_fragment_sha256": (
+            None if owner_busybox_fragment is None else digest(owner_busybox_fragment)
+        ),
+        "owner_busybox_fragment_config": inputs["owner_busybox_fragment_config"],
+    }
+
+
+def generate_defconfig(source: dict, kernel: dict, profile: str, destination: Path) -> dict:
+    inputs = profile_inputs(source, profile)
+    base_text = inputs["defconfig"].read_text(encoding="utf-8").rstrip()
+    if profile == "owner-development":
+        if base_text.count(MINIMAL_BUSYBOX_FRAGMENT_CONFIG) != 1:
+            raise BaseError("minimal defconfig lost canonical BusyBox fragment authority")
+        base_text = base_text.replace(MINIMAL_BUSYBOX_FRAGMENT_CONFIG, "")
+    pieces = [base_text]
+    if inputs["fragment"] is not None:
+        pieces.append(inputs["fragment"].read_text(encoding="utf-8").rstrip())
+    pieces.extend([
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y",
+        f'BR2_ROOTFS_POST_SCRIPT_ARGS="{profile}"',
+    ])
+    destination.write_text("\n".join(pieces) + "\n", encoding="utf-8")
+    return inputs
+
+
+def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
+    busybox_fragment_config = (
+        OWNER_BUSYBOX_FRAGMENT_CONFIG
+        if profile == "owner-development"
+        else MINIMAL_BUSYBOX_FRAGMENT_CONFIG
+    )
+    required = (
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+        "BR2_STATIC_LIBS=y",
+        "BR2_INIT_NONE=y",
+        "BR2_PACKAGE_IPROUTE2=y",
+        IPROUTE2_PATCH_CONFIG,
+        busybox_fragment_config,
+        f'BR2_ROOTFS_POST_SCRIPT_ARGS="{profile}"',
+    )
+    for key in required:
+        if key not in config:
+            raise BaseError(f"Buildroot rejected required configuration {key}")
+
+    if profile == "owner-development":
+        source = json.loads(SOURCE.read_text(encoding="utf-8"))
+        owner = profile_inputs(source, profile)
+        for key in owner["fragment_config"]:
+            if key not in config:
+                raise BaseError(f"Buildroot rejected Owner/Development configuration {key}")
+        if MINIMAL_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("Owner/Development lost its dedicated BusyBox capability composition")
+        if "BR2_PACKAGE_KMOD=y" in config:
+            raise BaseError("Owner/Development duplicated BusyBox modprobe with kmod")
+    else:
+        config_set = set(config.splitlines())
+        leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & config_set)
+        leaked_firmware = sorted(
+            line
+            for line in config_set
+            if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
+        )
+        leaked = leaked_userspace + leaked_firmware
+        if leaked:
+            raise BaseError(f"minimal profile resolved Owner capabilities: {leaked}")
+        if OWNER_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("minimal profile resolved Owner/Development BusyBox capabilities")
 
 
 def source_archive(source: dict, cache: Path) -> Path:
@@ -173,6 +406,43 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     if not (dest / "Makefile").is_file():
         raise BaseError("Buildroot source tree incomplete")
     return dest
+
+
+def resolve_profile(cache: Path, profile: str) -> dict:
+    source, kernel, stable, network = contracts()
+    for prog in ("make", "gcc"):
+        if not shutil.which(prog):
+            raise BaseError(f"required Buildroot profile-resolution tool is missing: {prog}")
+    temp = Path(tempfile.mkdtemp(prefix="ordax-independent-resolve-"))
+    try:
+        archive = source_archive(source, cache.resolve())
+        br = safe_unpack(archive, temp, source["buildroot"]["version"])
+        generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
+        inputs = generate_defconfig(source, kernel, profile, generated)
+        build_dir = temp / "br-output"
+        cmd = [
+            "make", "-C", str(br), f"O={build_dir}",
+            f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}",
+        ]
+        run(*cmd, "defconfig")
+        config_path = build_dir / ".config"
+        if config_path.is_symlink() or not config_path.is_file():
+            raise BaseError("Buildroot did not materialize resolved .config")
+        config = config_path.read_text(encoding="utf-8")
+        verify_resolved_config(config, kernel, profile)
+        return {
+            "status": "profile-resolution-pass",
+            "profile": profile,
+            "profile_inputs": profile_provenance(inputs),
+            "buildroot_sha256": digest(archive),
+            "kernel": kernel["version"],
+            "erofs": stable["rootfs"]["format"],
+            "network": network["prototype_scope"],
+            "rootfs_compiled": False,
+            "kernel_compiled": False,
+        }
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
 
 
 def verify_iproute2_minimal_build(build_dir: Path) -> dict:
@@ -263,13 +533,44 @@ def verify_surface_ip_identity(target: Path) -> dict:
     }
 
 
-def verify_target(target: Path) -> dict:
+def verify_owner_target(target: Path) -> None:
+    required_exec = {
+        "usr/bin/git": None,
+        "usr/sbin/iw": None,
+        "usr/sbin/wpa_supplicant": None,
+        "usr/sbin/wpa_passphrase": None,
+        "usr/sbin/wpa_cli": None,
+        "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
+        "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
+        "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
+        "usr/local/bin/ordax-rollback": ROOT / "bootstrap/dev-base/ordax-rollback",
+        "usr/local/bin/ordax-run": ROOT / "bootstrap/dev-base/ordax-run",
+        "usr/local/bin/ordax-diagnose": ROOT / "bootstrap/dev-base/ordax-diagnose",
+        "ordax/bootstrap/recovery/entrypoint": ROOT / "bootstrap/recovery/entrypoint",
+    }
+    for relative, canonical in required_exec.items():
+        path = target / relative
+        if not path.is_file() or not os.access(path, os.X_OK):
+            raise BaseError(f"Owner/Development executable missing: /{relative}")
+        if canonical is not None and digest(path) != digest(canonical):
+            raise BaseError(f"Owner/Development helper differs from canonical source: /{relative}")
+    ca_store = target / "etc/ssl/certs/ca-certificates.crt"
+    if not ca_store.is_file() or ca_store.stat().st_size == 0:
+        raise BaseError("Owner/Development CA trust store is missing")
+    marker = target / "etc/ordax/owner-development"
+    if marker.read_text(encoding="utf-8") != "ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n":
+        raise BaseError("Owner/Development profile marker is invalid")
+
+
+def verify_target(target: Path, profile: str) -> dict:
     if not BUSYBOX_FRAGMENT.is_file() or BUSYBOX_FRAGMENT.is_symlink():
         raise BaseError("canonical BusyBox handoff config fragment is missing or unsafe")
     fragment_lines = BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
     for symbol in BUSYBOX_HANDOFF_SYMBOLS:
         if fragment_lines.count(symbol) != 1:
             raise BaseError(f"canonical BusyBox fragment lacks exact symbol: {symbol}")
+    if profile == "owner-development":
+        validate_owner_busybox_fragment()
     for name in ("bin/busybox", "sbin/ordax-stable-init", "sbin/modprobe",
                  "sbin/ordax-independent-probe-init",
                  "etc/ordax/independent-base", "ordax/bootstrap/network/bring-up",
@@ -278,16 +579,30 @@ def verify_target(target: Path) -> dict:
             raise BaseError(f"candidate userspace is missing {name}")
     if digest(target / "sbin/ordax-stable-init") != digest(CANONICAL_HANDOFF):
         raise BaseError("portable handoff entrypoint differs from canonical source")
-    for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
+    for name in (
+        "etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk",
+        "usr/bin/opkg", "bin/opkg", "usr/bin/dpkg", "usr/bin/apt",
+        "usr/bin/apt-get", "usr/bin/rpm",
+    ):
         if (target / name).exists():
-            raise BaseError(f"Alpine/APK dependency found: {name}")
+            raise BaseError(f"runtime package manager or Alpine dependency found: {name}")
     surface_iproute2 = verify_surface_ip_identity(target)
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
-    missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
-               "poweroff", "grep", "sync", "modprobe", "timeout",
-               "od", "tr", "stat", "uname", "sleep", "true",
-               "cat", "mkdir", "chmod"} - applets
+    required_applets = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
+                        "poweroff", "grep", "sync", "modprobe", "timeout",
+                        "od", "tr", "stat", "uname", "sleep", "true",
+                        "cat", "mkdir", "chmod", "flock"}
+    if profile == "owner-development":
+        # Runtime closure for the canonical Owner helpers. Keep this list tied
+        # to commands those scripts execute directly; built target verification
+        # proves the applets exist before a candidate can be emitted.
+        required_applets.update({
+            "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
+            "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
+            "test", "touch", "wc",
+        })
+    missing = required_applets - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     if "ip" in applets:
@@ -323,10 +638,14 @@ def verify_target(target: Path) -> dict:
                     raise BaseError("BusyBox flock granted a lock already owned by another process")
             finally:
                 fcntl.flock(locked, fcntl.LOCK_UN)
+    if profile == "owner-development":
+        verify_owner_target(target)
+    elif (target / "etc/ordax/owner-development").exists():
+        raise BaseError("minimal target unexpectedly contains Owner/Development marker")
     return surface_iproute2
 
 
-def build(out: Path, cache: Path, jobs: int) -> dict:
+def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     source, kernel, stable, network = contracts()
     out = out.resolve()
     if out == ROOT or ROOT in out.parents:
@@ -341,29 +660,18 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
     try:
         archive = source_archive(source, cache)
         br = safe_unpack(archive, temp, source["buildroot"]["version"])
-        generated = temp / "ordax_minimal_defconfig"
-        generated.write_text(
-            (HERE / "configs/ordax_minimal_defconfig").read_text(encoding="utf-8")
-            + "\nBR2_KERNEL_HEADERS_VERSION=y\n"
-            + f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"\n'
-            + "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y\n",
-            encoding="utf-8",
-        )
+        generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
+        inputs = generate_defconfig(source, kernel, profile, generated)
         build_dir = temp / "br-output"
         cmd = ["make", "-C", str(br), f"O={build_dir}",
                f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}"]
         run(*cmd, "defconfig")
         config = (build_dir / ".config").read_text(encoding="utf-8")
-        for key in ('BR2_KERNEL_HEADERS_VERSION=y', f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
-                    'BR2_TOOLCHAIN_BUILDROOT_MUSL=y', 'BR2_STATIC_LIBS=y', 'BR2_INIT_NONE=y',
-                    'BR2_PACKAGE_IPROUTE2=y', IPROUTE2_PATCH_CONFIG,
-                    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"'):
-            if key not in config:
-                raise BaseError(f"Buildroot rejected required configuration {key}")
+        verify_resolved_config(config, kernel, profile)
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         iproute2_minimal_build = verify_iproute2_minimal_build(build_dir)
         target = build_dir / "target"
-        surface_iproute2 = verify_target(target)
+        surface_iproute2 = verify_target(target, profile)
         expected_version_prefix = f'ip utility, iproute2-{iproute2_minimal_build["upstream_version"]}'
         if not surface_iproute2["version"].startswith(expected_version_prefix):
             raise BaseError("built /sbin/ip version differs from patched iproute2 source identity")
@@ -387,11 +695,14 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "$schema": "prototype-ordax.independent-base-provenance/1",
             "status": "candidate-build-only",
             "source_commit": source_commit,
+            "profile": profile,
+            "profile_inputs": profile_provenance(inputs),
             "kernel_source_version": kernel["version"],
             "buildroot_sha256": digest(archive),
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
+            "owner_development_capabilities_verified": profile == "owner-development",
             "surface_iproute2_identity_verified": True,
             "surface_iproute2": surface_iproute2,
             "surface_iproute2_minimal_build": iproute2_minimal_build,
@@ -413,11 +724,18 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         shutil.rmtree(temp, ignore_errors=True)
 
 
-def verify(out: Path) -> dict:
-    contracts()
+def verify(out: Path, profile: str) -> dict:
+    source, _, _, _ = contracts()
+    expected_profile_inputs = profile_provenance(profile_inputs(source, profile))
     report = json.loads((out / "provenance.json").read_text(encoding="utf-8"))
     if report.get("$schema") != "prototype-ordax.independent-base-provenance/1":
         raise BaseError("invalid provenance schema")
+    if report.get("profile") != profile:
+        raise BaseError("artifact profile differs from requested verification profile")
+    if report.get("profile_inputs") != expected_profile_inputs:
+        raise BaseError("artifact profile inputs differ from current source authority")
+    if report.get("owner_development_capabilities_verified") is not (profile == "owner-development"):
+        raise BaseError("Owner/Development capability provenance drift")
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("unsafe artifact promotion flag")
     if report.get("busybox_handoff_config_fragment") != str(BUSYBOX_FRAGMENT.relative_to(ROOT)):
@@ -475,21 +793,35 @@ def verify(out: Path) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "build", "verify"))
+    parser.add_argument("action", choices=("check", "resolve", "build", "verify"))
+    parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default="minimal")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
     parser.add_argument("--jobs", type=int, default=2)
     args = parser.parse_args()
     try:
         if args.action == "check":
-            _, kernel, stable, network = contracts()
-            print(json.dumps({"status": "contract-check-pass", "kernel": kernel["version"],
-                              "erofs": stable["rootfs"]["format"], "network": network["prototype_scope"]}))
+            source, kernel, stable, network = contracts()
+            inputs = profile_inputs(source, args.profile)
+            print(json.dumps({
+                "status": "contract-check-pass",
+                "profile": args.profile,
+                "profile_inputs": profile_provenance(inputs),
+                "kernel": kernel["version"],
+                "erofs": stable["rootfs"]["format"],
+                "network": network["prototype_scope"],
+            }))
+        elif args.action == "resolve":
+            print(json.dumps(resolve_profile(args.cache, args.profile), sort_keys=True))
         else:
             if args.out is None:
                 raise BaseError("--out required")
-            print(json.dumps(build(args.out, args.cache, args.jobs) if args.action == "build"
-                             else verify(args.out), sort_keys=True))
+            print(json.dumps(
+                build(args.out, args.cache, args.jobs, args.profile)
+                if args.action == "build"
+                else verify(args.out, args.profile),
+                sort_keys=True,
+            ))
         return 0
     except (BaseError, OSError, ValueError, KeyError, tarfile.TarError) as exc:
         print(f"ordax-independent-base: ERROR: {exc}", file=sys.stderr)

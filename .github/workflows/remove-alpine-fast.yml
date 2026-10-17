@@ -1,0 +1,133 @@
+name: Remove Alpine Fast Gate
+
+on:
+  push:
+    branches:
+      - 'platform/remove-alpine'
+    paths:
+      - 'bootstrap/base/firmware_policy.py'
+      - 'bootstrap/base/kernel_module_payload.py'
+      - 'bootstrap/independent-base/**'
+      - 'bootstrap/network/**'
+      - 'bootstrap/dev-base/**'
+      - 'bootstrap/stable-base/**'
+      - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/windows-compat-runtime/**'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
+      - 'tools/creator/proof/disposable_media.py'
+      - 'tools/verify/github_actions_supply_chain.py'
+      - 'docs/BUILD-AUTONOMY.md'
+      - 'docs/DEVELOPMENT-WORKFLOW.md'
+      - 'docs/contracts/ci-supply-chain.json'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'docs/contracts/portable-boot-handoff.json'
+      - 'docs/contracts/kernel-build-environment.json'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_alpine_removal_boundary.py'
+      - 'tests/test_creator_kernel_reuse_workflows.py'
+      - 'tests/test_dev_base_channel.py'
+      - 'tests/test_dev_base_channel_workflow.py'
+      - 'tests/test_dev_base_symlink_policy.py'
+      - 'tests/test_github_actions_supply_chain.py'
+      - 'tests/test_independent_dev_channel_compatibility.py'
+      - 'tests/test_independent_base_experiment.py'
+      - 'tests/test_independent_rootfs_export.py'
+      - 'tests/test_independent_network_parity.py'
+      - 'tests/test_independent_owner_profile.py'
+      - 'tests/test_independent_portable_boot_integration.py'
+      - 'tests/test_kernel_module_payload.py'
+      - 'tests/test_firmware_policy_neutral.py'
+      - 'tests/test_independent_heavy_workflow.py'
+      - 'tests/test_physical_media_contract.py'
+      - '.github/workflows/creator-owner-build-diagnose.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
+      - '.github/workflows/dev-base-channel.yml'
+      - '.github/workflows/independent-base-experiment.yml'
+      - '.github/workflows/remove-alpine-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remove-alpine-fast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Contracts and Buildroot profile resolution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Validate Independent Base contracts and migration boundary
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py check --profile minimal
+          python3 bootstrap/independent-base/build.py check --profile owner-development
+          python3 bootstrap/base/kernel_module_payload.py check
+          python3 tools/verify/github_actions_supply_chain.py
+          python3 -m unittest \
+            tests.test_alpine_removal_boundary \
+            tests.test_creator_kernel_reuse_workflows \
+            tests.test_dev_base_channel \
+            tests.test_dev_base_channel_workflow \
+            tests.test_dev_base_symlink_policy \
+            tests.test_github_actions_supply_chain \
+            tests.test_independent_dev_channel_compatibility \
+            tests.test_independent_base_experiment \
+            tests.test_independent_rootfs_export \
+            tests.test_independent_network_parity \
+            tests.test_independent_owner_profile \
+            tests.test_independent_portable_boot_integration \
+            tests.test_kernel_module_payload \
+            tests.test_firmware_policy_neutral \
+            tests.test_independent_heavy_workflow \
+            tests.test_physical_media_contract -v
+      - name: Resolve Buildroot profiles without compiling rootfs or kernel
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/ordax-independent-resolution-cache"
+          python3 bootstrap/independent-base/build.py resolve --profile minimal --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve --profile owner-development --cache "$cache"
+      - name: Validate scripts without compiling Buildroot
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            bootstrap/base/firmware_policy.py \
+            bootstrap/base/kernel_module_payload.py \
+            bootstrap/independent-base/build.py \
+            bootstrap/independent-base/qemu_proof.py \
+            bootstrap/independent-base/portable_boot_proof.py \
+            system/services/base-update/dev_channel.py \
+            tools/dev-base-channel/build.py \
+            tools/dev-base-channel/independent_rootfs.py \
+            tools/dev-base-channel/prove_independent_rootfs.py \
+            tools/creator/proof/disposable_media.py \
+            tools/verify/github_actions_supply_chain.py \
+            tests/test_alpine_removal_boundary.py \
+            tests/test_creator_kernel_reuse_workflows.py \
+            tests/test_dev_base_channel.py \
+            tests/test_dev_base_channel_workflow.py \
+            tests/test_dev_base_symlink_policy.py \
+            tests/test_github_actions_supply_chain.py \
+            tests/test_independent_dev_channel_compatibility.py \
+            tests/test_independent_rootfs_export.py \
+            tests/test_independent_owner_profile.py \
+            tests/test_independent_portable_boot_integration.py \
+            tests/test_kernel_module_payload.py \
+            tests/test_firmware_policy_neutral.py \
+            tests/test_independent_heavy_workflow.py \
+            tests/test_physical_media_contract.py
+          sh -n bootstrap/independent-base/post-build.sh
+          sh -n bootstrap/independent-base/post-image.sh
+          sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init

@@ -4,12 +4,27 @@ on:
   push:
     branches: [main]
     paths:
-      - 'bootstrap/base/alpine_core.py'
       - 'bootstrap/base/firmware_policy.py'
-      - 'bootstrap/base/runtime_policy.py'
-      - 'bootstrap/dev-base/build.py'
+      - 'bootstrap/base/kernel_module_payload.py'
+      - 'bootstrap/independent-base/**'
+      - '!bootstrap/independent-base/**/*.md'
+      - 'bootstrap/kernel/**'
+      - '!bootstrap/kernel/candidates/**'
+      - '!bootstrap/kernel/candidate_pipeline.py'
+      - '!bootstrap/kernel/update_engine.py'
+      - '!bootstrap/kernel/module_archive.py'
+      - 'bootstrap/dev-base/ordax-dev-init'
+      - 'bootstrap/dev-base/ordax-diagnose'
+      - 'bootstrap/dev-base/ordax-network'
+      - 'bootstrap/dev-base/ordax-pull'
+      - 'bootstrap/dev-base/ordax-rollback'
+      - 'bootstrap/dev-base/ordax-run'
+      - 'bootstrap/recovery/entrypoint'
+      - 'docs/contracts/hardware-support-matrix.json'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
       - 'tools/ci/portable_component_cache.py'
-      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_independent_dev_channel_compatibility.py'
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - '.github/workflows/creator-owner-build-diagnose.yml'
   workflow_dispatch:
@@ -43,6 +58,15 @@ jobs:
           set -euo pipefail
           python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"
 
+      - name: Install Independent Base build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
+            libelf-dev dwarves kmod xz-utils pkg-config gawk cpio unzip rsync \
+            file binutils wget curl patch git erofs-utils e2fsprogs util-linux
+
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
         run: |
@@ -60,20 +84,6 @@ jobs:
         with:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
-
-      - name: Install development Base build dependency
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends proot
-
-      - name: Install kernel build dependencies on cache miss
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          sudo apt-get install -y --no-install-recommends \
-            gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
-            dwarves kmod xz-utils pkg-config musl-tools binutils bzip2
 
       - name: Build kernel candidate on verified cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -116,74 +126,77 @@ jobs:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
-      - name: Verify kernel modules input for development base
+      - name: Verify kernel modules input for Independent Base
         run: |
           set -euo pipefail
           modules="out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          test -f "$modules"
+          test ! -L "$modules"
           test -s "$modules"
-          stat "$modules"
           tar -tf "$modules" >/dev/null
-          echo 'DEV_BASE_KERNEL_MODULES_INPUT=PASS'
+          echo 'INDEPENDENT_BASE_KERNEL_MODULES_INPUT=PASS'
 
-      - name: Verify PRoot device virtualization
+      - name: Build and verify Owner Independent Base
         run: |
           set -euo pipefail
-          proot --version
-          sudo proot -r / -b /dev:/mnt -w / /bin/sh -ec 'test -c /mnt/null'
-          echo 'DEV_BASE_PROOT_DEV=PASS'
+          independent="$RUNNER_TEMP/owner-dev-diagnose/independent"
+          modules="out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          mkdir -p out/diagnostic out/dev-base
 
-      - name: Verify Alpine development seed access
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import re
-          import urllib.request
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$modules"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$independent/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$independent/firmware-coverage.json"
 
-          version = '3.22.5'
-          base = 'https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64'
-          archive = f'alpine-minirootfs-{version}-x86_64.tar.gz'
-          checksum_url = f'{base}/{archive}.sha256'
-          with urllib.request.urlopen(checksum_url, timeout=120) as response:
-              text = response.read().decode('utf-8')
-          assert re.search(r'\b[0-9a-fA-F]{64}\b', text), text
-          print('DEV_BASE_ALPINE_SEED=PASS')
-          PY
+          python3 bootstrap/independent-base/build.py build \
+            --profile owner-development \
+            --out "$independent" \
+            --cache "$RUNNER_TEMP/owner-dev-diagnose/buildroot-cache" \
+            --jobs 4 \
+            2>&1 | tee out/diagnostic/independent-base-build.log
+          python3 bootstrap/independent-base/build.py verify \
+            --profile owner-development \
+            --out "$independent"
+          python3 tools/dev-base-channel/prove_independent_rootfs.py \
+            --rootfs "$independent/rootfs.tar" \
+            --provenance "$independent/provenance.json" \
+            --expected-commit "$GITHUB_SHA" \
+            --receipt "$independent/dev-channel-rootfs-compatibility.json"
+          python3 tools/dev-base-channel/independent_rootfs.py materialize \
+            --rootfs "$independent/rootfs.tar" \
+            --provenance "$independent/provenance.json" \
+            --expected-commit "$GITHUB_SHA" \
+            --destination out/dev-base/rootfs
 
-      - name: Build and verify Git development base
-        run: |
-          set -euo pipefail
-          mkdir -p out/diagnostic
-          sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-            --out-dir out/dev-base \
-            2>&1 | tee out/diagnostic/dev-base-build.log
           rootfs=out/dev-base/rootfs
-          sudo touch "$rootfs/dev/null"
-          cleanup_dev_null() {
-            sudo rm -f "$rootfs/dev/null"
-          }
-          trap cleanup_dev_null EXIT
           sudo chroot "$rootfs" /usr/bin/git --version
-          cleanup_dev_null
-          trap - EXIT
-          test -x out/dev-base/rootfs/sbin/ordax-dev-init
-          test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
-          test -z "$(sudo find out/dev-base/rootfs/dev -mindepth 1 -print -quit)"
-          python - <<'PY'
+          test -x "$rootfs/sbin/ordax-dev-init"
+          test -x "$rootfs/usr/local/bin/ordax-pull"
+          python3 - <<'PY'
           import json
-          import pathlib
+          import os
+          from pathlib import Path
 
-          provenance = json.loads(pathlib.Path('out/dev-base/provenance.json').read_text(encoding='utf-8'))
-          assert provenance['build_device_strategy'] == 'proot-bind-host-dev'
-          assert provenance['source_checkout_preseeded'] is False
-          assert provenance['git_client_preseeded'] is True
-          print('DEV_BASE_NO_STATIC_DEVICES=PASS')
+          provenance = json.loads(
+              (
+                  Path(os.environ["RUNNER_TEMP"])
+                  / "owner-dev-diagnose"
+                  / "independent"
+                  / "provenance.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert provenance["profile"] == "owner-development"
+          assert provenance["owner_development_capabilities_verified"] is True
+          assert provenance["physical_artifact_authorized"] is False
+          assert provenance["signed_release_equivalence_proven"] is False
+          print("OWNER_INDEPENDENT_BASE=PASS")
+          print("OWNER_INDEPENDENT_BASE_PHYSICAL_AUTHORIZATION=NO")
           PY
 
-      - name: Upload development base diagnostic log
+      - name: Upload Independent Base diagnostic log
         if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: dev-base-diagnostic-${{ github.sha }}
-          path: out/diagnostic/dev-base-build.log
+          name: independent-base-diagnostic-${{ github.sha }}
+          path: out/diagnostic/independent-base-build.log
           if-no-files-found: warn

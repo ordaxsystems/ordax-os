@@ -87,6 +87,12 @@ jobs:
 
       - name: Restore canonical release-agent seed for bootstrap assembly
         run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
+      - name: Preflight immutable bootstrap bindings
+        run: |
+          set -euo pipefail
+          for group in bootstrap-orchestrator bootstrap-release-acquisition bootstrap-release-trust bootstrap-release-channel bootstrap-product-mode bootstrap-recovery; do
+            python tools/creator/assemble.py check-group --group "$group"
+          done
 
       - name: Install bounded build and media-proof dependencies
         run: |
@@ -108,15 +114,21 @@ jobs:
           python boot/esp/build.py check
           python boot/esp/build.py build
           python boot/esp/build.py verify
-          python bootstrap/kernel/build.py check
-          python bootstrap/kernel/build.py build --jobs 4
-          python bootstrap/kernel/verify.py out/kernel
+          python tools/creator/assemble.py check-group --group uefi-boot
           python bootstrap/initramfs/build.py check
           python bootstrap/initramfs/build.py build --jobs 4
           python bootstrap/initramfs/build.py verify
+          python tools/creator/assemble.py check-group --group initramfs
           python bootstrap/network/build.py check
           python bootstrap/network/build.py build --jobs 4
           python bootstrap/network/build.py verify
+          python tools/creator/assemble.py check-group --group bootstrap-network
+          # Kernel is intentionally last: stale cheap-component bindings must
+          # fail before the most expensive compilation begins.
+          python bootstrap/kernel/build.py check
+          python bootstrap/kernel/build.py build --jobs 4
+          python bootstrap/kernel/verify.py out/kernel
+          python tools/creator/assemble.py check-group --group kernel
           (
             cd bootstrap/release-acquisition
             go test -count=1 ./...

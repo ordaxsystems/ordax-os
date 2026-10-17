@@ -70,6 +70,23 @@ class GithubActionsSupplyChainTests(unittest.TestCase):
         self.assertIn(("actions/cache/restore", sha), approved)
         self.assertIn(("actions/cache/save", sha), approved)
 
+    def test_artifact_actions_are_explicitly_approved_at_reviewed_commits(self):
+        approved = {(item["uses"], item["sha"]) for item in CONTRACT["approved_external_actions"]}
+        self.assertIn(
+            (
+                "actions/upload-artifact",
+                "b7c566a772e6b6bfb58ed0dc250532a479d7789f",
+            ),
+            approved,
+        )
+        self.assertIn(
+            (
+                "actions/download-artifact",
+                "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+            ),
+            approved,
+        )
+
     def test_checkout_missing_persist_credentials_false_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

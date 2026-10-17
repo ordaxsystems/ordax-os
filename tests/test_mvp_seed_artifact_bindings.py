@@ -12,6 +12,7 @@ MINIMAL = ROOT / "docs/contracts/minimal-bootstrap.json"
 CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
 FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 ASSEMBLER = ROOT / "tools/creator/assemble.py"
+BASE_UPDATE_CANDIDATE = ROOT / "system/base-update/candidate.json"
 
 CURRENT_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
 PREVIOUS_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
@@ -40,16 +41,18 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
         self.assertNotIn("-Dsbat-distro-url=https://github.com/ordaxsystems/prototipo-ordax-os", builder)
         self.assertFalse(self.contract["physical_write_allowed"])
 
-    def test_current_kernel_binding_matches_portable_v2_capable_kernel(self):
-        artifact = self.artifact("kernel")
+    def test_kernel_and_initramfs_consumers_share_canonical_seed_bindings(self):
+        candidate = json.loads(BASE_UPDATE_CANDIDATE.read_text(encoding="utf-8"))
+        kernel_artifact = self.artifact("kernel")
         kernel = json.loads((ROOT / "bootstrap/kernel/source.json").read_text(encoding="utf-8"))
-        self.assertEqual(artifact["source_path"], f"bootstrap/kernel/vmlinuz-{kernel['version']}")
-        self.assertRegex(artifact["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(kernel_artifact["source_path"], f"bootstrap/kernel/vmlinuz-{kernel['version']}")
+        self.assertRegex(kernel_artifact["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(candidate["kernel_sha256"], kernel_artifact["sha256"])
 
-    def test_current_initramfs_binding_matches_transactional_portable_capsule(self):
-        artifact = self.artifact("initramfs")
-        self.assertEqual(artifact["source_path"], "bootstrap/initramfs/initramfs.cpio.gz")
-        self.assertEqual(artifact["sha256"], "280b6ca73d19aa82421356383ebd16dbd500df7762467f28280b20b9627082dc")
+        initramfs_artifact = self.artifact("initramfs")
+        self.assertEqual(initramfs_artifact["source_path"], "bootstrap/initramfs/initramfs.cpio.gz")
+        self.assertRegex(initramfs_artifact["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(candidate["initramfs_sha256"], initramfs_artifact["sha256"])
 
     def test_current_release_agent_seed_is_recognized_source_for_v4_capable_refresh(self):
         artifact = self.artifact("bootstrap-release-acquisition")

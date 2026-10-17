@@ -90,6 +90,26 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             'INITIAL_SURFACE_HEALTH_TIMEOUT=${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS:-180}',
             text,
         )
+    def test_remote_main_behind_current_checkout_is_not_treated_as_an_update(self):
+        text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        check = text.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
+        guard_start = 'if "$GIT_BIN" -C "$WORKTREE" cat-file -e "$remote_sha^{commit}"'
+        ancestor_check = (
+            '"$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor '
+            '"$remote_sha" "$current"'
+        )
+        self.assertIn(guard_start, check)
+        self.assertIn(ancestor_check, check)
+        guard_pos = check.index(guard_start)
+        old_sha_pos = check.index("    old_sha=$current")
+        self.assertLess(guard_pos, old_sha_pos)
+        behind = check[guard_pos:old_sha_pos]
+        self.assertIn('refresh_dev_helpers "$current"', behind)
+        self.assertIn("clear_update_context", behind)
+        self.assertIn('write_update_state "$current" running none', behind)
+        self.assertIn("return 0", behind)
+        self.assertNotIn("apply_remote_checkout", behind)
+        self.assertNotIn("fetch --no-tags", behind)
     def test_git_update_operations_are_bounded(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('/bin/busybox timeout -k 5 "$timeout_seconds"', text)

@@ -109,6 +109,37 @@ class CreatorPayloadAssemblerTest(unittest.TestCase):
         self.assertEqual(verified["unresolved_groups"], ["pending-owner"])
         self.assertFalse(verified["physical_write_authorized"])
 
+    def test_check_group_reuses_canonical_source_hash_validation_without_output(self):
+        manifest = manifest_for(self.data, unresolved=False)
+        result = ASSEMBLER.check_group(
+            self.root,
+            manifest,
+            "resolved-owner",
+            generated_sources=self.generated_map,
+        )
+        self.assertEqual(result["status"], "source-binding-pass")
+        self.assertEqual(result["group"], "resolved-owner")
+        self.assertEqual(result["artifacts"]["payload/example.bin"], digest(self.data))
+        self.assertFalse((self.root / "payload").exists())
+
+    def test_check_group_rejects_stale_binding_before_payload_assembly(self):
+        manifest = manifest_for(b"different", unresolved=False)
+        with self.assertRaisesRegex(ASSEMBLER.AssembleError, "SHA-256 mismatch"):
+            ASSEMBLER.check_group(
+                self.root,
+                manifest,
+                "resolved-owner",
+                generated_sources=self.generated_map,
+            )
+
+    def test_check_group_rejects_unknown_group(self):
+        with self.assertRaisesRegex(ASSEMBLER.AssembleError, "exactly one artifact group"):
+            ASSEMBLER.check_group(
+                self.root,
+                manifest_for(self.data, unresolved=False),
+                "missing-owner",
+                generated_sources=self.generated_map,
+            )
     def test_existing_empty_output_is_atomically_replaced_on_success(self):
         out = self.root / "payload"
         out.mkdir()
