@@ -322,8 +322,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         boot = self._script(DEV_INIT, env=boot_env)
         self.assertIn("Rollback fixado", boot.stdout)
-        self.assertIn("runtime-v1", boot.stdout)
-        self.assertNotIn("OrdaX fixado encerrou ou falhou", boot.stdout)
+        self.assertIn("Checkout conhecido como bom carregado. Entrando no console Dev.", boot.stdout)
+        self.assertIn("OrdaX Dev pronto.", boot.stdout)
+        self.assertNotIn("runtime-v1", boot.stdout)
         self.assertFalse(pull_marker.exists())
 
         # The explicit pull is the only normal action that releases the sticky rollback.
@@ -462,7 +463,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertNotIn("runtime-v1", result.stdout)
         self.assertFalse(versions.exists())
 
     def test_unmapped_ab_slot_falls_back_to_seed_rootfs(self) -> None:
@@ -501,7 +503,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertNotIn("runtime-v1", result.stdout)
         self.assertTrue(versions.is_dir())
         self.assertFalse((self.state / "base-update/rootfs/slot-a").exists())
 
@@ -541,7 +544,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("start_network_background()", dev_init)
         self.assertIn("record_boot_handoff()", dev_init)
         self.assertIn("recover_previous_checkout()", dev_init)
-        self.assertIn("Boot rapido: rede e atualizacoes iniciam em paralelo.", dev_init)
+        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", dev_init)
         self.assertLess(
             dev_init.index("if local_checkout_bootable; then"),
             dev_init.index("network_ok=0"),
