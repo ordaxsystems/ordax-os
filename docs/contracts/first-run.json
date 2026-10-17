@@ -10,7 +10,11 @@
     "surface_ui": "system/surface/ui/first-run.mjs",
     "local_session_contract": "system/contracts/local-session.mjs",
     "local_session_adapter": "system/adapters/native/local-session.mjs",
-    "local_session_ui": "system/surface/ui/local-session-lock.mjs"
+    "local_session_ui": "system/surface/ui/local-session-lock.mjs",
+    "device_profile_contract": "system/contracts/device-profile.mjs",
+    "device_profile_adapter": "system/adapters/native/device-profile.mjs",
+    "journey": "system/services/first-run/journey.mjs",
+    "capabilities": "system/services/first-run/capabilities.mjs"
   },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
@@ -33,6 +37,7 @@
     "security",
     "account",
     "privacy",
+    "name",
     "ready"
   ],
   "regional": {
@@ -106,6 +111,13 @@
     "identity_selection_requires_fresh_session_read": true,
     "identity_subject_in_first_run_receipt": false,
     "expired_or_changed_identity_returns_to_account_step": true
+  },
+  "device_name": {
+    "owner": "device-profile",
+    "capability_driven": true,
+    "rename_must_be_confirmed_before_advancing": true,
+    "must_not_enter_first_run_state": true,
+    "owner_unavailable_must_not_block_boot": true
   },
   "mvp": {
     "runs_from_usb": true,

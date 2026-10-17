@@ -20,9 +20,12 @@ import '../../system/surface/ui/meridian.tokens.css';
 import '../../system/surface/ui/meridian.css';
 import '../../system/surface/workspace/components/central/meridian.css';
 const noop=()=>{};
+const canonicalizeSnapshotHome=(value:string)=>value
+ .replace(/<time dateTime="[^"]*">[^<]*<\/time>/,'<time dateTime="2000-01-01T09:00:00.000Z">sábado, 1 de janeiro</time>')
+ .replace(/<h1>(?:Bom dia|Boa tarde|Boa noite)([^<]*)<\/h1>/,'<h1>Bom dia$1</h1>');
 const clean=(value:string)=>value.replace(/ xmlns="[^"]*"/g,'').replace(/<link rel="preload"[^>]*>/g,'').replace(/ href="https?:[^"]*"/g,' aria-disabled="true"');
 export function snapshot(){
- const home=renderToStaticMarkup(<MeridianHome theme="light" onOpen={noop} onExample={noop} onPrompt={noop}/>);
+ const home=canonicalizeSnapshotHome(renderToStaticMarkup(<MeridianHome theme="light" onOpen={noop} onExample={noop} onPrompt={noop}/>));
  const chrome=renderToStaticMarkup(<div className="window-workspace meridian-workspace demo-native-root" data-meridian="" data-material="paper" data-view="central" data-sidebar="expanded" data-compact="none" data-running="false"><div className="workspace-stage"><div className="central-presentation"><div className="os-shell"><WorkspaceHeader title="Início" theme="light" onMaterial={noop} onMenu={noop} onOpen={noop}/><main className="os-main"><div className="central-content" data-public-demo-content>{/* Public renderer inserts the selected snapshot here. */}</div></main></div></div></div><div className="compact-reservation" aria-hidden="true"/><WorkspaceNavigation onSidebarChange={noop} state={{windows:[],active:null,compactActive:null,compactCollapsed:false}} dispatch={noop} view="central" onToggleView={noop} onCentral={noop}/></div>);
  const examples=createSpaceExamples();
  const spaces=createSpacesView().spacesView({spaces:examples.spaceExamples,spaceActivity:examples.spaceActivityExamples,spaceTemplates:examples.spaceTemplateExamples,activeSpace:'achegue',presentationSubject:'examples',networkOnline:true},{spacesQuery:'',spacesCategory:'Todos',spacesSort:'recent',spaceFavorites:{}});

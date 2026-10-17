@@ -5,11 +5,17 @@ on:
     branches: [main]
     paths:
       - 'infra/supabase/product/migrations/20261017090000_space_membership_actions_v1.sql'
+      - 'infra/supabase/product/migrations/20261017102000_space_members_read_authority_v1.sql'
+      - 'infra/supabase/product/migrations/20261017143000_space_members_action_capabilities_v1.sql'
+      - 'tests/sql/fixtures/space_lifecycle_authority_v1_fixture.sql'
       - 'tests/sql/test_space_membership_actions_v1.sql'
       - '.github/workflows/space-membership-actions-v1-proof.yml'
   pull_request:
     paths:
       - 'infra/supabase/product/migrations/20261017090000_space_membership_actions_v1.sql'
+      - 'infra/supabase/product/migrations/20261017102000_space_members_read_authority_v1.sql'
+      - 'infra/supabase/product/migrations/20261017143000_space_members_action_capabilities_v1.sql'
+      - 'tests/sql/fixtures/space_lifecycle_authority_v1_fixture.sql'
       - 'tests/sql/test_space_membership_actions_v1.sql'
       - '.github/workflows/space-membership-actions-v1-proof.yml'
   workflow_dispatch:

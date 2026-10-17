@@ -1,3 +1,4 @@
+import { assertDeviceProfilePort } from "../../contracts/device-profile.mjs";
 import { assertFirstRunStateStore } from "../../contracts/first-run-state-store.mjs";
 import { FIRST_RUN_APP_SELECTION_SCHEMA } from "../../services/apps/first-run-selection.mjs";
 import {
@@ -21,6 +22,8 @@ import {
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
+import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS } from "../../services/first-run/journey.mjs";
+import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
 import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
@@ -28,8 +31,8 @@ import {
   runNetworkManagementAction,
 } from "../../services/network/management-runtime.mjs";
 
-const STEPS = Object.freeze(["welcome", "regional", "network", "security", "account", "privacy", "ready"]);
-const STEP_LABELS = Object.freeze(["Início", "Região", "Rede", "Segurança", "Conta", "Privacidade", "Pronto"]);
+const STEPS = FIRST_RUN_STEP_IDS;
+const STEP_LABELS = FIRST_RUN_STEP_LABELS;
 
 function syncFirstRunDocumentLocale(documentObject, locale) {
   const profile = createLocaleProfile(locale);
@@ -78,6 +81,7 @@ export function mountFirstRunExperience(
     identityActions,
     identityCredentials = null,
     localSession = null,
+    deviceProfile = null,
   },
 ) {
   if (!(root instanceof Element)) {
@@ -90,6 +94,7 @@ export function mountFirstRunExperience(
   const actionsPort = assertIdentityActionsPort(identityActions);
   const credentialsPort = identityCredentials === null ? null : assertIdentityCredentialsPort(identityCredentials);
   const localSessionPort = localSession === null ? null : assertLocalSessionPort(localSession);
+  const deviceProfilePort = deviceProfile === null ? null : assertDeviceProfilePort(deviceProfile);
   const initial = validateFirstRunState(store.load());
   if (firstRunAppSelection !== null && (
     firstRunAppSelection.schema !== FIRST_RUN_APP_SELECTION_SCHEMA
@@ -162,10 +167,21 @@ export function mountFirstRunExperience(
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
+  let deviceProfileSnapshot = deviceProfilePort === null ? null : deviceProfilePort.getSnapshot();
+  let capabilitySnapshot = deriveFirstRunCapabilities({
+    networkManagement: networkPort,
+    localSession: localSessionPort,
+    deviceProfile: deviceProfilePort,
+    identityCredentials: credentialsPort,
+    identityActionsSnapshot: actionsSnapshot,
+  });
   let localSessionPending = false;
   let localSessionMessage = "";
   let localSessionSecretDraft = "";
   let localSessionConfirmDraft = "";
+  let deviceNameDraft = deviceProfileSnapshot?.displayName ?? "";
+  let deviceNamePending = false;
+  let deviceNameMessage = "";
   let completionError = "";
   let unsubscribeSession = null;
   let unsubscribeActions = null;
@@ -284,7 +300,7 @@ export function mountFirstRunExperience(
       "Conecte-se agora ou continue offline.",
       "A rede é opcional. Este passo usa o mesmo broker Native de Wi-Fi da Surface; não existe um segundo gerenciador exclusivo do assistente.",
     ));
-    if (!networkPort) {
+    if (!capabilitySnapshot.networkManagement) {
       body.append(el(
         documentObject,
         "p",
@@ -362,7 +378,7 @@ export function mountFirstRunExperience(
         + "Este bloqueio protege a Surface em execução e não criptografa os arquivos do pendrive.",
     ));
 
-    if (!localSessionPort || !localSessionSnapshot) {
+    if (!capabilitySnapshot.localSession || !localSessionSnapshot) {
       body.append(el(
         documentObject,
         "p",
@@ -455,7 +471,7 @@ export function mountFirstRunExperience(
       body.append(status);
     }
 
-    if (sessionSnapshot.state === "signed-out" && credentialsPort) {
+    if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.identityCredentials) {
       const form = el(documentObject, "div", "ordax-first-run-form");
       const emailField = el(documentObject, "label", "ordax-first-run-field");
       emailField.append(el(documentObject, "span", "", "E-mail"));
@@ -482,7 +498,7 @@ export function mountFirstRunExperience(
 
       if (
         registrationPolicy
-        && isIdentityActionSupported(actionsSnapshot, "register")
+        && capabilitySnapshot.identityRegister
       ) {
         const legal = el(documentObject, "div", "ordax-first-run-legal");
         legal.append(
@@ -523,14 +539,14 @@ export function mountFirstRunExperience(
       buttons.append(action(documentObject, "Usar esta conta", "account-identity", true));
     } else {
       const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
-      signIn.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
+      signIn.disabled = identityPending !== null || !capabilitySnapshot.identitySignIn;
       const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
       register.disabled = (
         identityPending !== null
         || registrationPolicyPending
         || !registrationPolicy
         || !registrationLegalAccepted
-        || !isIdentityActionSupported(actionsSnapshot, "register")
+        || !capabilitySnapshot.identityRegister
       );
       buttons.append(signIn, register);
     }
@@ -541,8 +557,8 @@ export function mountFirstRunExperience(
 
     if (
       sessionSnapshot.state !== "signed-in"
-      && !isIdentityActionSupported(actionsSnapshot, "sign-in")
-      && !isIdentityActionSupported(actionsSnapshot, "register")
+      && !capabilitySnapshot.identitySignIn
+      && !capabilitySnapshot.identityRegister
     ) {
       body.append(el(
         documentObject,
@@ -572,6 +588,39 @@ export function mountFirstRunExperience(
     body.append(grid);
   };
 
+  const renderName = (body) => {
+    body.append(heading(
+      "Nome do dispositivo",
+      "Identifique este OrdaX.",
+      "O nome é salvo pelo perfil nativo do dispositivo e não entra no recibo do First Run.",
+    ));
+    if (!capabilitySnapshot.deviceProfile || !deviceProfilePort || !deviceProfileSnapshot) {
+      body.append(el(
+        documentObject,
+        "p",
+        "ordax-first-run-note",
+        "O nome do dispositivo está indisponível agora. O OrdaX manterá o nome já gerenciado pelo sistema.",
+      ));
+      return;
+    }
+    const field = el(documentObject, "label", "ordax-first-run-field");
+    field.append(el(documentObject, "span", "", "Nome do dispositivo"));
+    const input = documentObject.createElement("input");
+    input.type = "text";
+    input.maxLength = 120;
+    input.autocomplete = "off";
+    input.value = deviceNameDraft;
+    input.disabled = deviceNamePending;
+    input.dataset.firstRunDeviceName = "";
+    field.append(input);
+    body.append(field);
+    if (deviceNameMessage) {
+      const message = el(documentObject, "p", "ordax-first-run-note", deviceNameMessage);
+      message.setAttribute("role", "status");
+      body.append(message);
+    }
+  };
+
   const renderReady = (body) => {
     body.append(heading(
       "Tudo pronto",
@@ -585,6 +634,7 @@ export function mountFirstRunExperience(
       ["Fuso", draft.timeZone],
       ["Bloqueio", localSessionSnapshot?.credentialConfigured ? "PIN/senha local" : "Não configurado"],
       ["Conta", draft.accountMode === "identity" ? "Conta OrdaX" : "Somente local"],
+      ["Dispositivo", deviceProfileSnapshot?.displayName ?? "Nome gerenciado pelo sistema"],
       ["Execução", "Pendrive USB"],
     ].forEach(([key, value]) => {
       summary.append(el(documentObject, "dt", "", key), el(documentObject, "dd", "", value));
@@ -628,6 +678,7 @@ export function mountFirstRunExperience(
     else if (step === "security") renderSecurity(body);
     else if (step === "account") renderAccount(body);
     else if (step === "privacy") renderPrivacy(body);
+    else if (step === "name") renderName(body);
     else renderReady(body);
 
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
@@ -637,7 +688,11 @@ export function mountFirstRunExperience(
         ? finishing ? "Salvando…" : "Entrar no OrdaX"
         : step === "network" ? "Continuar offline ou conectado" : "Continuar";
       const next = action(documentObject, label, step === "ready" ? "finish" : "next", true);
-      next.disabled = finishing || (step === "security" && localSessionPending);
+      next.disabled = (
+        finishing
+        || (step === "security" && localSessionPending)
+        || (step === "name" && deviceNamePending)
+      );
       footer.append(next);
     }
     card.append(body, footer);
@@ -753,15 +808,52 @@ export function mountFirstRunExperience(
     }
   };
 
+  const continueDeviceName = async () => {
+    if (destroyed || deviceNamePending) return;
+    if (!deviceProfilePort || !deviceProfileSnapshot) {
+      go(stepIndex + 1);
+      return;
+    }
+    const nextName = deviceNameDraft.trim().replace(/\s+/g, " ");
+    if (!nextName) {
+      deviceNameMessage = "Digite um nome para identificar este dispositivo.";
+      render();
+      return;
+    }
+    if (nextName === deviceProfileSnapshot.displayName) {
+      deviceNameDraft = nextName;
+      deviceNameMessage = "";
+      go(stepIndex + 1);
+      return;
+    }
+    deviceNamePending = true;
+    deviceNameMessage = "Salvando nome do dispositivo…";
+    render();
+    try {
+      deviceProfileSnapshot = await deviceProfilePort.rename(nextName);
+      if (destroyed) return;
+      deviceNameDraft = deviceProfileSnapshot.displayName;
+      deviceNameMessage = "";
+      go(stepIndex + 1);
+    } catch {
+      if (destroyed) return;
+      deviceNameMessage = "Não foi possível salvar o nome do dispositivo. O assistente continua aberto sem simular a alteração.";
+      render();
+    } finally {
+      if (!destroyed) {
+        deviceNamePending = false;
+        if (STEPS[stepIndex] === "name") render();
+      }
+    }
+  };
+
   const refreshRegistrationPolicy = async () => {
     if (
       destroyed
       || registrationPolicyPending
-      || credentialsPort === null
-      || typeof credentialsPort.registrationPolicy !== "function"
-      || !isIdentityActionSupported(actionsSnapshot, "register")
+      || !capabilitySnapshot.registrationPolicy
     ) {
-      if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+      if (!capabilitySnapshot.identityRegister) {
         registrationPolicy = null;
         registrationLegalAccepted = false;
       }
@@ -773,7 +865,7 @@ export function mountFirstRunExperience(
       if (destroyed) return;
       const nextPolicy = (
         policy.registrationEnabled === true
-        && isIdentityActionSupported(actionsSnapshot, "register")
+        && capabilitySnapshot.identityRegister
       ) ? policy : null;
       if (!sameRegistrationLegalPolicy(registrationPolicy, nextPolicy)) {
         registrationLegalAccepted = false;
@@ -872,6 +964,7 @@ export function mountFirstRunExperience(
     const kind = button.dataset.firstRunAction;
     if (kind === "back") go(stepIndex - 1);
     else if (kind === "next" && STEPS[stepIndex] === "security") void continueSecurity();
+    else if (kind === "next" && STEPS[stepIndex] === "name") void continueDeviceName();
     else if (kind === "next") go(stepIndex + 1);
     else if (kind === "finish") void finish();
     else if (kind === "network-scan") void refreshNetwork(true);
@@ -927,6 +1020,9 @@ export function mountFirstRunExperience(
       localSessionSecretDraft = input.value;
     } else if (input.matches("[data-first-run-local-session-confirm]")) {
       localSessionConfirmDraft = input.value;
+    } else if (input.matches("[data-first-run-device-name]")) {
+      deviceNameDraft = input.value;
+      deviceNameMessage = "";
     }
   };
 
@@ -986,12 +1082,19 @@ export function mountFirstRunExperience(
   });
   unsubscribeActions = actionsPort.subscribe((snapshot) => {
     actionsSnapshot = snapshot;
-    if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+    capabilitySnapshot = deriveFirstRunCapabilities({
+      networkManagement: networkPort,
+      localSession: localSessionPort,
+      deviceProfile: deviceProfilePort,
+      identityCredentials: credentialsPort,
+      identityActionsSnapshot: actionsSnapshot,
+    });
+    if (!capabilitySnapshot.identityRegister) {
       registrationPolicy = null;
       registrationLegalAccepted = false;
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
-    if (isIdentityActionSupported(actionsSnapshot, "register") && registrationPolicy === null) {
+    if (capabilitySnapshot.registrationPolicy && registrationPolicy === null) {
       void refreshRegistrationPolicy();
     }
   });
@@ -1001,7 +1104,7 @@ export function mountFirstRunExperience(
   });
 
   render();
-  if (isIdentityActionSupported(actionsSnapshot, "register")) {
+  if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();
   }
   queueMicrotask(() => overlay.querySelector("button, select, input")?.focus?.());

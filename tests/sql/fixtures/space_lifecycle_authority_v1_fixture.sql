@@ -51,6 +51,33 @@ create table public.ordax_space_members (
 );
 
 -- Exact authorization semantics owned by the production policy boundary.
+create function ordax_policy.can_access_space(target_space_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select (select auth.uid()) is not null and (
+    exists (
+      select 1
+      from public.ordax_spaces s
+      where s.space_id = target_space_id
+        and s.owner_user_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from public.ordax_space_members m
+      where m.space_id = target_space_id
+        and m.user_id = (select auth.uid())
+        and m.state = 'active'
+    )
+  );
+$function$;
+revoke all on function ordax_policy.can_access_space(uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function ordax_policy.can_access_space(uuid) to authenticated;
+
 create function ordax_policy.can_admin_space(target_space_id uuid)
 returns boolean
 language sql
