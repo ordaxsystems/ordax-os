@@ -70,7 +70,7 @@ jobs:
       - name: Prove non-blocking compatibility
         run: |
           set -euo pipefail
-          python -m pytest -q tests/test_space_members_read_authority.py
+          python tests/test_space_members_read_authority.py -q
           node --test tests/test_space_foundation_nonblocking.mjs
           node --test tests/test_space_lifecycle.mjs
           node --test tests/test_space_lifecycle_runtime.mjs
