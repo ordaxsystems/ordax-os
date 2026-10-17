@@ -24,11 +24,22 @@ function attemptKey(action: ActionKind, userId: string, role?: ActionRole) {
   return `${action}:${userId}:${role ?? ''}`;
 }
 
+function isProjectedActionAllowed(member: SpaceMember, action: ActionKind, role?: ActionRole) {
+  if (action === 'change-role') {
+    return role !== undefined && member.actions.canChangeRole && member.actions.assignableRoles.includes(role);
+  }
+  if (action === 'suspend') return member.actions.canSuspend;
+  if (action === 'reactivate') return member.actions.canReactivate;
+  return member.actions.canRemove;
+}
+
 export function SpaceMembersPanel() {
   const { authorized, members, actorCapability, membershipActions, offline } = useWebAccount();
   const spaceId = authorized.activeSpace?.id ?? null;
   const activeSpaceName = authorized.activeSpace?.name ?? null;
   const currentSpace = useRef<string | null>(spaceId);
+  const membersReadGeneration = useRef(0);
+  const capabilityReadGeneration = useRef(0);
   const idempotency = useRef(new Map<string, string>());
   const [items, setItems] = useState<readonly SpaceMember[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -39,37 +50,42 @@ export function SpaceMembersPanel() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function readPage(targetSpaceId: string, cursor: string | null, append: boolean) {
+    const generation = ++membersReadGeneration.current;
     setLoadState('loading');
     try {
       const page = await members.list({ spaceId: targetSpaceId, cursor });
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || membersReadGeneration.current !== generation) return;
       setItems(previous => append ? [...previous, ...page.members] : page.members);
       setNextCursor(page.nextCursor);
       setLoadState('ready');
     } catch {
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || membersReadGeneration.current !== generation) return;
       setLoadState('error');
     }
   }
 
   async function readCapability(targetSpaceId: string) {
+    const generation = ++capabilityReadGeneration.current;
     setCapabilityState('loading');
     setCapability(null);
     try {
       const value = await actorCapability.read({ spaceId: targetSpaceId });
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || capabilityReadGeneration.current !== generation) return;
       setCapability(value);
       setCapabilityState('ready');
     } catch {
-      if (currentSpace.current !== targetSpaceId) return;
+      if (currentSpace.current !== targetSpaceId || capabilityReadGeneration.current !== generation) return;
       setCapabilityState('error');
     }
   }
 
-  async function reloadMembers(targetSpaceId: string) {
+  async function reloadRemoteState(targetSpaceId: string) {
     setItems([]);
     setNextCursor(null);
-    await readPage(targetSpaceId, null, false);
+    await Promise.all([
+      readPage(targetSpaceId, null, false),
+      readCapability(targetSpaceId),
+    ]);
   }
 
   function getAttemptId(key: string) {
@@ -81,7 +97,7 @@ export function SpaceMembersPanel() {
   }
 
   async function runAction(action: ActionKind, member: SpaceMember, role?: ActionRole) {
-    if (spaceId === null || !capability?.canManageMembers || actionPending !== null) return;
+    if (spaceId === null || !capability?.canManageMembers || actionPending !== null || !isProjectedActionAllowed(member, action, role)) return;
     const key = attemptKey(action, member.userId, role);
     const idempotencyKey = getAttemptId(key);
     setActionPending(key);
@@ -92,9 +108,12 @@ export function SpaceMembersPanel() {
       else if (action === 'reactivate') await membershipActions.reactivateMember(spaceId, member.userId, idempotencyKey);
       else if (action === 'remove') await membershipActions.removeMember(spaceId, member.userId, idempotencyKey);
       idempotency.current.delete(key);
-      if (currentSpace.current === spaceId) await reloadMembers(spaceId);
+      if (currentSpace.current === spaceId) await reloadRemoteState(spaceId);
     } catch {
-      if (currentSpace.current === spaceId) setActionError('A ação não foi confirmada pelo servidor. Você pode tentar novamente; a mesma tentativa reutilizará a chave de idempotência.');
+      if (currentSpace.current === spaceId) {
+        setActionError('A ação não foi confirmada pelo servidor. Você pode tentar novamente; a mesma tentativa reutilizará a chave de idempotência.');
+        await readCapability(spaceId);
+      }
     } finally {
       if (currentSpace.current === spaceId) setActionPending(null);
     }
@@ -102,6 +121,8 @@ export function SpaceMembersPanel() {
 
   useEffect(() => {
     currentSpace.current = spaceId;
+    membersReadGeneration.current += 1;
+    capabilityReadGeneration.current += 1;
     idempotency.current.clear();
     setItems([]);
     setNextCursor(null);
@@ -113,8 +134,10 @@ export function SpaceMembersPanel() {
       setCapabilityState('idle');
       return;
     }
-    void readPage(spaceId, null, false);
-    void readCapability(spaceId);
+    void Promise.all([
+      readPage(spaceId, null, false),
+      readCapability(spaceId),
+    ]);
   }, [spaceId, offline, members, actorCapability]);
 
   if (spaceId === null) return null;
@@ -141,17 +164,18 @@ export function SpaceMembersPanel() {
         {items.length > 0 ? <div className="meridian-space-members-list" role="list" aria-label="Membros carregados">{items.map(member => {
           const memberRole = String(member.role);
           const memberState = String(member.state);
-          const editable = canManageMembers && memberRole !== 'owner';
+          const actions = member.actions;
+          const editable = canManageMembers && (actions.canChangeRole || actions.canSuspend || actions.canReactivate || actions.canRemove);
           return <article key={member.userId} role="listitem" className="meridian-space-member-row" data-state={memberState}>
             <span className="meridian-space-member-avatar" aria-hidden="true"><UsersRound/></span>
             <div className="meridian-space-member-identity"><strong>{member.userId}</strong><small>Identificador da Conta OrdaX</small></div>
             <span className="meridian-space-member-role">{roleLabels[memberRole] ?? 'Função não reconhecida'}</span>
             <span className="meridian-space-member-state">{stateLabels[memberState] ?? 'Estado não reconhecido'}</span>
             {editable && <div className="meridian-space-member-actions" aria-label={`Ações para ${member.userId}`}>
-              <label><span>Função</span><select value={memberRole} disabled={actionPending !== null} onChange={event => void runAction('change-role', member, event.currentTarget.value as ActionRole)}><option value="admin">Administrador</option><option value="member">Membro</option><option value="viewer">Visualizador</option></select></label>
-              {memberState === 'active' ? <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('suspend', member)}>Suspender</Button>
-                : <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('reactivate', member)}>Reativar</Button>}
-              <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (window.confirm('Remover este membro do Space?')) void runAction('remove', member); }}>Remover</Button>
+              {actions.canChangeRole && <label><span>Função</span><select value={memberRole} disabled={actionPending !== null} onChange={event => void runAction('change-role', member, event.currentTarget.value as ActionRole)}>{actions.assignableRoles.map((role: ActionRole) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label>}
+              {memberState === 'active' && actions.canSuspend && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('suspend', member)}>Suspender</Button>}
+              {memberState === 'suspended' && actions.canReactivate && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('reactivate', member)}>Reativar</Button>}
+              {actions.canRemove && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (window.confirm('Remover este membro do Space?')) void runAction('remove', member); }}>Remover</Button>}
             </div>}
           </article>;
         })}</div>

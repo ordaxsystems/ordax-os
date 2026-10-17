@@ -17,7 +17,7 @@ test('Space members Surface consumes canonical read, actor capability and member
   assert.match(membersSurface, /membershipActions\.removeMember/);
   assert.match(membersSurface, /crypto\.randomUUID\(\)/);
   assert.match(membersSurface, /idempotency\.current\.get\(key\)/);
-  assert.match(membersSurface, /reloadMembers\(spaceId\)/);
+  assert.match(membersSurface, /reloadRemoteState\(spaceId\)/);
   assert.match(membersSurface, /page\.nextCursor/);
   assert.match(membersSurface, /Carregar mais/);
   assert.doesNotMatch(membersSurface, /\bfetch\s*\(/);
@@ -25,19 +25,35 @@ test('Space members Surface consumes canonical read, actor capability and member
   assert.doesNotMatch(membersSurface, /localStorage|sessionStorage|indexedDB/);
 });
 
-test('Surface does not infer management authority from member role', () => {
+test('Surface consumes target-specific server projection instead of inferring authority from role', () => {
   assert.doesNotMatch(membersSurface, /role\s*===\s*['"]admin['"]/);
   assert.doesNotMatch(membersSurface, /role\s*===\s*['"]owner['"]/);
+  assert.doesNotMatch(membersSurface, /memberRole !== 'owner'/);
   assert.match(membersSurface, /const canManageMembers = capabilityState === 'ready' && capability\?\.canManageMembers === true/);
-  assert.match(membersSurface, /memberRole !== 'owner'/);
+  assert.match(membersSurface, /member\.actions\.canChangeRole/);
+  assert.match(membersSurface, /member\.actions\.assignableRoles\.includes\(role\)/);
+  assert.match(membersSurface, /actions\.assignableRoles\.map/);
+  assert.match(membersSurface, /actions\.canSuspend/);
+  assert.match(membersSurface, /actions\.canReactivate/);
+  assert.match(membersSurface, /actions\.canRemove/);
+});
+
+test('Space members Surface invalidates stale same-Space reads and refreshes server authority after mutations', () => {
+  assert.match(membersSurface, /const membersReadGeneration = useRef\(0\)/);
+  assert.match(membersSurface, /const capabilityReadGeneration = useRef\(0\)/);
+  assert.match(membersSurface, /membersReadGeneration\.current !== generation/);
+  assert.match(membersSurface, /capabilityReadGeneration\.current !== generation/);
+  assert.match(membersSurface, /await Promise\.all\(\[\s*readPage\(targetSpaceId, null, false\),\s*readCapability\(targetSpaceId\),\s*\]\)/);
+  assert.match(membersSurface, /setActionError\([\s\S]*?await readCapability\(spaceId\)/);
 });
 
 test('Space members Surface resets remote presentation and idempotency state when selected Space changes', () => {
   assert.match(membersSurface, /currentSpace\.current = spaceId/);
+  assert.match(membersSurface, /membersReadGeneration\.current \+= 1/);
+  assert.match(membersSurface, /capabilityReadGeneration\.current \+= 1/);
   assert.match(membersSurface, /idempotency\.current\.clear\(\)/);
   assert.match(membersSurface, /setItems\(\[\]\)/);
   assert.match(membersSurface, /setNextCursor\(null\)/);
-  assert.match(membersSurface, /currentSpace\.current !== targetSpaceId/);
   assert.match(membersSurface, /Nenhum membro é persistido no navegador/);
 });
 
