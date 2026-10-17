@@ -35,6 +35,7 @@ function spacesPort(state = "ready", spaces = [{
     getSnapshot: () => snapshot,
     subscribe: () => () => {},
     refresh: async () => snapshot,
+    reset: () => {},
   });
 }
 
