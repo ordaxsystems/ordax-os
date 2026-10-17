@@ -1,5 +1,6 @@
 export const SPACE_INVITES_SCHEMA = "ordax.space-invites/1";
 export const SPACE_INVITE_CREATE_REQUEST_SCHEMA = "ordax.space-invite-create-request/1";
+export const SPACE_INVITE_CREATE_RESULT_SCHEMA = "ordax.space-invite-create-result/1";
 export const SPACE_INVITE_TOKEN_REQUEST_SCHEMA = "ordax.space-invite-token-request/1";
 export const SPACE_INVITE_REVOKE_REQUEST_SCHEMA = "ordax.space-invite-revoke-request/1";
 export const SPACE_INVITE_SCHEMA = "ordax.space-invite/1";
@@ -9,6 +10,7 @@ const INVITE_STATES = new Set(["pending", "accepted", "declined", "expired", "re
 const INVITABLE_ROLES = new Set(["admin", "member", "viewer"]);
 const TOKEN = /^[0-9a-f]{64}$/i;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 function objectValue(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -45,7 +47,7 @@ function inviteToken(value) {
 }
 
 function isoInstant(value, label) {
-  if (typeof value !== "string" || value.length > 64) {
+  if (typeof value !== "string" || value.length > 64 || !ISO_INSTANT.test(value)) {
     throw new TypeError(`${label} must be an ISO timestamp`);
   }
   const time = Date.parse(value);
@@ -114,6 +116,34 @@ export function validateSpaceInviteCreateRequest(value) {
     role: raw.role,
     targetUserId: optionalBoundedText(raw.targetUserId, "Space invite targetUserId"),
     idempotencyKey: idempotencyKey(raw.idempotencyKey),
+  });
+}
+
+export function validateSpaceInviteCreateResult(value) {
+  const raw = objectValue(value, "Space invite create result");
+  exactFields(raw, new Set(["schema", "invite", "token", "created"]), "Space invite create result");
+  if (raw.schema !== SPACE_INVITE_CREATE_RESULT_SCHEMA || typeof raw.created !== "boolean") {
+    throw new TypeError("Space invite create result schema/state is invalid");
+  }
+  const invite = validateSpaceInvite(raw.invite);
+  if (invite.state !== "pending") throw new TypeError("New Space invite must be pending");
+  if (raw.created) {
+    if (raw.token == null) throw new TypeError("New Space invite must return its one-time token");
+    return Object.freeze({
+      schema: SPACE_INVITE_CREATE_RESULT_SCHEMA,
+      invite,
+      token: inviteToken(raw.token),
+      created: true,
+    });
+  }
+  if (raw.token !== null) {
+    throw new TypeError("Replayed Space invite creation cannot return a bearer token");
+  }
+  return Object.freeze({
+    schema: SPACE_INVITE_CREATE_RESULT_SCHEMA,
+    invite,
+    token: null,
+    created: false,
   });
 }
 
