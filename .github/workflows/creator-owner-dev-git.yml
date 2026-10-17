@@ -198,7 +198,7 @@ jobs:
 
           independent="$RUNNER_TEMP/creator-owner-independent"
           export ORDAX_HOST_PYTHON="$(command -v python3)"
-          export ORDAX_KERNEL_MODULES_ARCHIVE="out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
           export ORDAX_KERNEL_MODULES_RECEIPT="$independent/kernel-module-payload.json"
           export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$independent/firmware-coverage.json"
           python3 bootstrap/independent-base/build.py build \
