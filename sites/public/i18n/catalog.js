@@ -5,6 +5,27 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Fechar aviso", "Dismiss notice"],
+    ["Esta ação não é executada na demonstração. Nenhuma alteração foi aplicada.", "This action is not performed in the demo. No changes were applied."],
+    ["Ampliar telefone", "Expand phone"],
+    ["Explore o OrdaX no telefone", "Explore OrdaX on your phone"],
+    ["Abra o menu para navegar entre os aplicativos. Os dados são de exemplo.", "Open the menu to browse the apps. The data is illustrative."],
+    ["Explore a Central, os espaços e os aplicativos com dados de exemplo.", "Explore Central, spaces and apps with example data."],
+    ["Arquivos de exemplo", "Example files"],
+    ["Explore o OrdaX por dentro.", "Explore inside OrdaX."],
+    ["Navegue pela Central, abra Espaços e confira os aplicativos. A interface é a mesma do produto, com dados de exemplo.", "Explore Central, open Spaces and browse the apps. The interface matches the product, with example data."],
+    ["02 / WEB COMPACTO", "02 / COMPACT WEB"],
+    ["Interface responsiva", "Responsive interface"],
+    ["Interface do produto com dados fictícios. Esta demonstração não conecta sua conta, não acessa arquivos e não executa IA. O cenário Aurora contém respostas predefinidas.", "Product interface with fictional data. This demo does not connect your account, access files or run AI. The Aurora scenario contains predefined responses."],
+    ["01 · Cenário Aurora", "01 · Aurora scenario"],
+
+    ["Bom dia.", "Good morning."],
+    ["Boa tarde.", "Good afternoon."],
+    ["Boa noite.", "Good evening."],
+    ["Conta e identidade", "Account and identity"],
+    ["Prévia de um recurso planejado", "Preview of a planned feature"],
+    ["Configurações", "Settings"],
+    ["Aplicativos e navegação", "Apps and navigation"],
     ["Acessar OrdaX Web", "Open OrdaX Web"],
     ["OrdaX Web", "OrdaX Web"],
     ["OrdaX OS", "OrdaX OS"],
@@ -1539,6 +1560,153 @@
   register("landing.ecosystem.160", "Um universo para sua vida e seu trabalho.", "A universe for your life and work.");
   register("landing.ecosystem.161", "Conta", "Account");
 
+  // BEGIN GENERATED SURFACE COPY
+  register("surface.c8c3ec3b054e", "OrdaX", "OrdaX");
+  register("surface.224ea01e4a29", "Aura", "Aura");
+  register("surface.67a12f4a2644", "Perfis profissionais", "Professional profiles");
+  register("surface.70feed55e97f", "Loja", "Store");
+  register("surface.fe4982c42f5f", "Inteligência", "Intelligence");
+  register("surface.019b096ef090", "Editor 3D", "3D Editor");
+  register("surface.180efe2ab526", "SEUS AMBIENTES, CONECTADOS", "YOUR ENVIRONMENTS, CONNECTED");
+  register("surface.a308840fa486", "Seu trabalho, seus produtos e seus projetos em um lugar.", "Your work, products and projects in one place.");
+  register("surface.daaa681c3048", "Criar novo espaço", "Create new space");
+  register("surface.7743aeb4e682", "ESPAÇO EM USO", "SPACE IN USE");
+  register("surface.84c0539f149a", "Abrir espaço", "Open space");
+  register("surface.0a1e5cf1617e", "Achegue-se", "Achegue-se");
+  register("surface.40e49271ddad", "Operação", "Operation");
+  register("surface.ddfe7700c37c", "Empresas, serviços e oportunidades locais.", "Local companies, services and opportunities.");
+  register("surface.d2eb5402c79f", "Salvador · BA", "Salvador · BA");
+  register("surface.3ca286d80e86", "Você + 8 pessoas", "You + 8 people");
+  register("surface.06fd415dc5e1", "Usuários", "Users");
+  register("surface.f3a24756e6cb", "↑ 18% no período", "↑ 18% this period");
+  register("surface.009ab28fee18", "Empresas", "Companies");
+  register("surface.0136fe3a75db", "↑ 24% no período", "↑ 24% this period");
+  register("surface.07d0b754cc7c", "Solicitações", "Requests");
+  register("surface.683685af5d25", "Para acompanhar", "To follow up");
+  register("surface.eedb9699d23d", "Empresas aguardando revisão", "Companies awaiting review");
+  register("surface.d633bc5eb238", "23 empresas precisam da sua atenção.", "23 companies need your attention.");
+  register("surface.23c0ed4ee4a7", "Seus espaços", "Your spaces");
+  register("surface.bd02b9a7d71d", "Todos", "All");
+  register("surface.ad2c8ba9ac94", "Favoritos", "Favorites");
+  register("surface.3068eba03d59", "Recentes", "Recents");
+  register("surface.cb1b248516da", "Pizzaria", "Pizzeria");
+  register("surface.fe02f48e2819", "Pizzaria Bella Napoli", "Pizzaria Bella Napoli");
+  register("surface.5ffa64841719", "Sabor italiano no seu bairro.", "Italian flavor in your neighborhood.");
+  register("surface.b2e9b96da04b", "Salvador · BA · Pituba", "Salvador · BA · Pituba");
+  register("surface.5def8de73634", "Pedidos hoje", "Orders today");
+  register("surface.27a5b3f6ee03", "↑ 12% no período", "↑ 12% this period");
+  register("surface.524fb32d963b", "Mesas ocupadas", "Occupied tables");
+  register("surface.d93205bc7d68", "8 / 12", "8 / 12");
+  register("surface.d9f8409c1d63", "67% em uso", "67% in use");
+  register("surface.3974e9d81102", "Faturamento hoje", "Revenue today");
+  register("surface.54b834663c4a", "R$ 1.842", "R$ 1,842");
+  register("surface.52bfe584a5fc", "Delivery", "Delivery");
+  register("surface.ffe9dc8daa68", "Oficina 3D", "3D Workshop");
+  register("surface.9857eaee0af6", "Do primeiro esboço ao objeto.", "From the first sketch to the object.");
+  register("surface.d86393bc38de", "Pedidos", "Orders");
+  register("surface.63d901571613", "↑ 33% no período", "↑ 33% this period");
+  register("surface.332d6d25f725", "Impressoras", "Printers");
+  register("surface.37896e32735f", "4 / 6", "4 / 6");
+  register("surface.8fccd1a93d6a", "Modelos", "Models");
+  register("surface.4ffd397d40f7", "Estúdio", "Studio");
+  register("surface.1907fa10f537", "Criação", "Creation");
+  register("surface.d022b9e58213", "Ideias que ganham forma.", "Ideas taking shape.");
+  register("surface.066b5780b403", "Pessoas", "People");
+  register("surface.a27ec31655b7", "No Space", "In the Space");
+  register("surface.9186818c6a85", "Próximo encontro", "Next meeting");
+  register("surface.fa2886e55e46", "Revisão de referências", "Reference review");
+  register("surface.57651ede105c", "Projetos, código e ferramentas em um lugar.", "Projects, code and tools in one place.");
+  register("surface.c59ed64c3fa6", "PRs abertos", "Open PRs");
+  register("surface.3efde7a2f9d2", "Para revisar", "To review");
+  register("surface.6a3fe8876b56", "Builds", "Builds");
+  register("surface.5c5bd98e9e2c", "Em dia", "Up to date");
+  register("surface.0634b39a62e1", "Última execução concluída", "Last run completed");
+  register("surface.921c00753a99", "Outros espaços", "Other spaces");
+  register("surface.7931ae1b8c6c", "OrdaX Site", "OrdaX Site");
+  register("surface.fba62d9ba460", "Site institucional e experiências públicas.", "Corporate site and public experiences.");
+  register("surface.4750d7502d99", "STLForge", "STLForge");
+  register("surface.24b4b8ecc894", "Um catálogo para dar forma às ideias.", "A catalog to shape ideas.");
+  register("surface.be3ad54f2f4a", "Seu ritmo. Seu espaço.", "Your pace. Your space.");
+  register("surface.849fe8dc8c7c", "Projetos pessoais", "Personal projects");
+  register("surface.4aed9debd0ca", "Ideias e experimentos no seu tempo.", "Ideas and experiments at your pace.");
+  register("surface.b74b8eda2bee", "Seu contexto tem limites claros.", "Your context has clear boundaries.");
+  register("surface.8bb3f54d3882", "Pessoas, ferramentas e permissões próprias em cada espaço.", "People, tools and permissions for each space.");
+  register("surface.4169b9bc323d", "Ver privacidade", "View privacy");
+  register("surface.9b99805faf33", "Disponível", "Available");
+  register("surface.1df7d3084b40", "PLA preto abaixo do estoque mínimo.", "Black PLA below minimum stock.");
+  register("surface.a50162d0cb13", "3 pedidos aguardando conclusão.", "3 orders awaiting completion.");
+  register("surface.ddfbeb04d75a", "Ver análise completa", "View full analysis");
+  register("surface.b1902f6f772d", "Atividade recente", "Recent activity");
+  register("surface.6240cde90c92", "Ver todas", "View all");
+  register("surface.cdaf3f27efa3", "Novo pedido #1083", "New order #1083");
+  register("surface.dcc0af1d64f1", "Empresa aguardando revisão", "Company awaiting review");
+  register("surface.c6bbe4df6cf3", "Impressão concluída", "Print completed");
+  register("surface.c8916a9152f8", "Publicação concluída", "Publication completed");
+  register("surface.9358a47fc9c8", "Novo modelo publicado", "New model published");
+  register("surface.1f4c2326865b", "Modelos de espaços", "Space templates");
+  register("surface.e30fbc949891", "Ver todos", "View all");
+  register("surface.80013d92ad58", "Negócio local", "Local business");
+  register("surface.02d9be75b85e", "E-commerce", "E-commerce");
+  register("surface.639e98b23848", "Impressão 3D", "3D Printing");
+  register("surface.f3fb2db6a10a", "Site / Plataforma", "Site / Platform");
+  register("surface.a19efb971ab4", "Uso pessoal", "Personal use");
+  register("surface.967bcf34a913", "Adicionar", "Add");
+  register("surface.d03e41baf842", "Uso e limite de armazenamento indisponíveis.", "Storage usage and limit unavailable.");
+  register("surface.49a586ddbb8a", "Rede e Wi-Fi", "Network and Wi-Fi");
+  register("surface.ddcd378ecaa7", "Conexão, rede protegida e uso offline.", "Connection, secure networks and offline use.");
+  register("surface.195c60bb2325", "Áudio", "Audio");
+  register("surface.fb499a13e34a", "Escolha a saída de áudio e ajuste o volume.", "Choose audio output and adjust volume.");
+  register("surface.2d31efc9c2ed", "Tela", "Display");
+  register("surface.1c84b52a82f2", "Ajuste o tamanho dos elementos e o brilho da tela.", "Adjust element size and display brightness.");
+  register("surface.bd1f7a9a4d4b", "Teclado e idioma", "Keyboard and language");
+  register("surface.4b891392f43c", "Escolha seu idioma e o layout do teclado.", "Choose your language and keyboard layout.");
+  register("surface.409a3921ba1c", "Região, data e hora", "Region, date and time");
+  register("surface.e99ebe90c820", "Defina seu fuso horário e formato de data.", "Set your time zone and date format.");
+  register("surface.aab235a5acca", "Bateria e energia", "Battery and power");
+  register("surface.ffe336c7d528", "Acompanhe a carga e escolha como usar a energia.", "Monitor battery charge and choose how to use power.");
+  register("surface.5942b834a145", "USB, volumes, capacidade compartilhada e persistência.", "USB, volumes, shared capacity and persistence.");
+  register("surface.f665bbe086cd", "Usuários e conta", "Users and account");
+  register("surface.5e0107ac1f0d", "Gerencie o acesso ao dispositivo e à sua conta.", "Manage access to the device and your account.");
+  register("surface.5497c43149ac", "Permissões por capacidade e fontes da Intelligence.", "Capability permissions and Intelligence sources.");
+  register("surface.ba117bb5689f", "Segurança e recuperação", "Security and recovery");
+  register("surface.228880350abc", "Sessão, imagem conhecida e caminho seguro de recuperação.", "Session, known image and a safe recovery path.");
+  register("surface.a1f09a31ad36", "Atualizações", "Updates");
+  register("surface.3674862c7599", "Consultar, verificar, preparar, ativar e recuperar.", "Check, verify, prepare, activate and recover.");
+  register("surface.337d8f8e868f", "Acessibilidade", "Accessibility");
+  register("surface.e194a887edf5", "Melhore a leitura e reduza as animações.", "Improve readability and reduce animation.");
+  register("surface.a40f57d20fc5", "OrdaX USB", "OrdaX USB");
+  register("surface.83d0d814f360", "Continuidade entre dispositivos", "Continuity across devices");
+  register("surface.a0e6c1e59152", "Escolha como seu trabalho acompanha você.", "Choose how your work follows you.");
+  register("surface.7cfb945aa92e", "Contraste", "Contrast");
+  register("surface.0b90a7cb184d", "Reforce separadores, texto secundário e foco dentro da Surface sem alterar o tema escolhido.", "Strengthen separators, secondary text, and focus inside the Surface without changing the selected theme.");
+  register("surface.0758c00e6ea0", "Padrão", "Standard");
+  register("surface.2d4b63464c38", "Reforçado", "Enhanced");
+  register("surface.d6a1e793bc4c", "Movimento", "Motion");
+  register("surface.bbcbcfd7d52d", "Reduza animações e transições não essenciais da Surface.", "Reduce non-essential Surface animations and transitions.");
+  register("surface.381a60f991ae", "Reduzido", "Reduced");
+  register("surface.243cf75e8126", "Tamanho do texto", "Text size");
+  register("surface.c10ed19b4334", "Aumente a escala tipográfica da Surface sem alterar o zoom do navegador ou do sistema.", "Increase Surface text scale without changing browser or system zoom.");
+  register("surface.45fbe99b103c", "Grande", "Large");
+  register("surface.539522d79385", "Muito grande", "Extra large");
+  register("surface.ee70956e2d21", "Estado do sistema", "System status");
+  register("surface.02f98a4621b2", "Continuidade", "Continuity");
+  register("surface.ddfe38802540", "Arquivos recentes", "Recent files");
+  register("surface.dff6624256ba", "Atividades", "Activity");
+  register("surface.a802e71ee477", "Sincronização", "Sync");
+  register("surface.921504f8b41f", "Expandir sidebar", "Expand sidebar");
+  register("surface.c38f981d84e4", "Abrir área de trabalho", "Open desktop");
+  register("surface.5d4a502a9f61", "Buscar espaços por nome, perfil ou local", "Search spaces by name, Profile or location");
+  register("surface.eb9b2ff46c87", "Buscar espaços", "Search spaces");
+  register("surface.e2489033d1b2", "Filtrar espaços", "Filter spaces");
+  register("surface.669fdef01782", "Contexto dos espaços", "Space context");
+  register("surface.5f4754991bbc", "Intelligence contextual", "Contextual Intelligence");
+  // END GENERATED SURFACE COPY
+  // BEGIN GENERATED SURFACE COPY
+
+  // END GENERATED SURFACE COPY
+  // BEGIN GENERATED SURFACE COPY
+
+  // END GENERATED SURFACE COPY
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);
   });

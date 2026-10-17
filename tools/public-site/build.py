@@ -90,6 +90,11 @@ REQUIRED_FILES = (
     "i18n/catalog.js",
     "i18n/runtime.js",
     "assets/playground-fixture.json",
+    "assets/surface-snapshot.json",
+    "assets/surface-snapshot.css",
+    "assets/public-surface-day.jpg",
+    "assets/public-surface-night.jpg",
+    "assets/public-space-city.jpg",
     "config/public-site.json",
 )
 
@@ -177,6 +182,16 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             if (len(payload) != illustration["size"]
                     or sha256_bytes(payload) != illustration["sha256"]):
                 raise PublicSiteError("account layout illustration differs from recorded provenance")
+            continue
+        if relative_path == "assets/public-space-city.jpg":
+            if path.read_bytes() != (ROOT / "system/surface/workspace/assets/demo-salvador-1.jpg").read_bytes():
+                raise PublicSiteError("public Space illustration diverged from Surface source")
+            continue
+        if relative_path in {"assets/public-surface-day.jpg", "assets/public-surface-night.jpg"}:
+            kind = "day" if relative_path.endswith("-day.jpg") else "night"
+            owner = ROOT / f"system/surface/workspace/assets/alpine-{kind}.jpg"
+            if path.read_bytes() != owner.read_bytes():
+                raise PublicSiteError("public demo wallpaper diverged from Surface source")
             continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
