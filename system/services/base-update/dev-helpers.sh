@@ -7,6 +7,15 @@ TARGET_ROOT=${ORDAX_DEV_HELPER_TARGET_ROOT:-/}
 SOURCE_SHA=${ORDAX_SOURCE_SHA:-}
 RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 MAX_HELPER_BYTES=1048576
+HELPER_GIT_TIMEOUT=${ORDAX_DEV_HELPER_GIT_TIMEOUT_SECONDS:-30}
+
+case "$HELPER_GIT_TIMEOUT" in
+    ''|*[!0-9]*) HELPER_GIT_TIMEOUT=30 ;;
+esac
+[ "$HELPER_GIT_TIMEOUT" -ge 5 ] 2>/dev/null || HELPER_GIT_TIMEOUT=30
+
+GIT_TERMINAL_PROMPT=0
+export GIT_TERMINAL_PROMPT
 
 bb() {
     if [ -x /bin/busybox ]; then
@@ -14,6 +23,16 @@ bb() {
     else
         command "$@"
     fi
+}
+
+run_bounded_git() {
+    if [ -x /bin/busybox ]; then
+        /bin/busybox timeout -k 2 "$HELPER_GIT_TIMEOUT" \
+            git -c http.lowSpeedLimit=1 -c http.lowSpeedTime=15 "$@"
+        return $?
+    fi
+    timeout -k 2 "$HELPER_GIT_TIMEOUT" \
+        git -c http.lowSpeedLimit=1 -c http.lowSpeedTime=15 "$@"
 }
 
 case "$TARGET_ROOT" in
@@ -33,7 +52,7 @@ is_sha() {
 }
 
 if ! is_sha "$SOURCE_SHA"; then
-    SOURCE_SHA=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    SOURCE_SHA=$(run_bounded_git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
 fi
 is_sha "$SOURCE_SHA" || {
     echo "ordax-dev-helpers: source commit is invalid" >&2
@@ -41,7 +60,7 @@ is_sha "$SOURCE_SHA" || {
 }
 
 for required in bootstrap/dev-base/ordax-dev-init bootstrap/dev-base/ordax-pull bootstrap/dev-base/ordax-main-watch; do
-    git -C "$WORKTREE" cat-file -e "$SOURCE_SHA:$required" 2>/dev/null || {
+    run_bounded_git -C "$WORKTREE" cat-file -e "$SOURCE_SHA:$required" 2>/dev/null || {
         echo "ordax-dev-helpers: required helper is absent from source commit: $required" >&2
         exit 1
     }
@@ -80,7 +99,7 @@ materialize_source() {
         return 0
     fi
 
-    tree_entry=$(git -C "$WORKTREE" ls-tree "$SOURCE_SHA" -- "$source_relative" 2>/dev/null || true)
+    tree_entry=$(run_bounded_git -C "$WORKTREE" ls-tree "$SOURCE_SHA" -- "$source_relative" 2>/dev/null || true)
     set -- $tree_entry
     mode=${1:-}
     object_type=${2:-}
@@ -94,7 +113,7 @@ materialize_source() {
 
     staged_source=$source_stage_root/$source_relative
     bb mkdir -p "${staged_source%/*}"
-    git -C "$WORKTREE" show "$SOURCE_SHA:$source_relative" >"$staged_source" 2>/dev/null || {
+    run_bounded_git -C "$WORKTREE" show "$SOURCE_SHA:$source_relative" >"$staged_source" 2>/dev/null || {
         bb rm -f "$staged_source"
         echo "ordax-dev-helpers: could not materialize exact helper source: $source_relative" >&2
         return 1
@@ -233,7 +252,7 @@ EOF
     fi
 }
 
-helper_paths=$(git -C "$WORKTREE" ls-tree -r --name-only "$SOURCE_SHA" -- \
+helper_paths=$(run_bounded_git -C "$WORKTREE" ls-tree -r --name-only "$SOURCE_SHA" -- \
     bootstrap/dev-base bootstrap/base-update/owner-development 2>/dev/null \
     | while IFS= read -r source_relative; do
         case "$source_relative" in
@@ -266,7 +285,7 @@ done <<EOF
 $helper_paths
 EOF
 
-if git -C "$WORKTREE" cat-file -e "$SOURCE_SHA:bootstrap/recovery/entrypoint" 2>/dev/null; then
+if run_bounded_git -C "$WORKTREE" cat-file -e "$SOURCE_SHA:bootstrap/recovery/entrypoint" 2>/dev/null; then
     stage_helper bootstrap/recovery/entrypoint ordax/bootstrap/recovery/entrypoint
 fi
 
