@@ -67,6 +67,21 @@ test('Space members Surface isolates stale mutation completions and retains unce
   assert.match(membersSurface, /Nenhum membro é persistido no navegador/);
 });
 
+test('Space members list serializes duplicate page requests and recovers a failed append without duplicating actions', () => {
+  assert.match(membersSurface, /const membersReadInFlight = useRef</);
+  assert.match(membersSurface, /pending\?\.spaceId === targetSpaceId && pending\.cursor === cursor && pending\.append === append\) return/);
+  assert.match(membersSurface, /membersReadInFlight\.current = \{ spaceId: targetSpaceId, cursor, append \}/);
+  assert.match(membersSurface, /finally \{\s*if \(membersReadGeneration\.current === generation\) membersReadInFlight\.current = null/);
+  assert.match(membersSurface, /membersReadGeneration\.current \+= 1;\s*membersReadInFlight\.current = null;\s*setItems\(\[\]\)/);
+  assert.match(membersSurface, /loadState === 'error' && items\.length > 0 && <span role="alert">/);
+  assert.match(membersSurface, /Os membros já carregados foram preservados/);
+  assert.match(membersSurface, /loadState === 'error' \? 'Tentar página novamente' : 'Carregar mais'/);
+  assert.match(membersSurface, /Atualizar lista/);
+  assert.match(membersSurface, /if \(!membersReadInFlight\.current && !pendingAction\.current\) void reloadRemoteState\(spaceId\)/);
+  assert.equal((membersSurface.match(/readPage\(spaceId, nextCursor, true\)/g) ?? []).length, 1);
+  assert.doesNotMatch(membersSurface, /loadState === 'error' && items\.length > 0 && <Button/);
+});
+
 test('account context exposes only composed domain interfaces to the Surface', () => {
   assert.match(accountContext, /actorCapability: session\.actorCapability/);
   assert.match(accountContext, /membershipActions: session\.membershipActions/);

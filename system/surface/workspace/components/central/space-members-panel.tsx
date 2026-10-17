@@ -37,6 +37,7 @@ export function SpaceMembersPanel() {
   const activeSpaceName = authorized.activeSpace?.name ?? null;
   const currentSpace = useRef<string | null>(spaceId);
   const membersReadGeneration = useRef(0);
+  const membersReadInFlight = useRef<{ spaceId: string; cursor: string | null; append: boolean } | null>(null);
   const capabilityReadGeneration = useRef(0);
   const attempts = useRef(createScopedMemberActionAttempts(() => crypto.randomUUID()));
   const lastKnownSubject = useRef<string | null>(subjectId);
@@ -51,7 +52,10 @@ export function SpaceMembersPanel() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function readPage(targetSpaceId: string, cursor: string | null, append: boolean) {
+    const pending = membersReadInFlight.current;
+    if (pending?.spaceId === targetSpaceId && pending.cursor === cursor && pending.append === append) return;
     const generation = ++membersReadGeneration.current;
+    membersReadInFlight.current = { spaceId: targetSpaceId, cursor, append };
     setLoadState('loading');
     try {
       const page = await members.list({ spaceId: targetSpaceId, cursor });
@@ -62,6 +66,8 @@ export function SpaceMembersPanel() {
     } catch {
       if (currentSpace.current !== targetSpaceId || membersReadGeneration.current !== generation) return;
       setLoadState('error');
+    } finally {
+      if (membersReadGeneration.current === generation) membersReadInFlight.current = null;
     }
   }
 
@@ -81,6 +87,9 @@ export function SpaceMembersPanel() {
   }
 
   async function reloadRemoteState(targetSpaceId: string) {
+    // Full refresh supersedes an in-flight append, even for the same Space.
+    membersReadGeneration.current += 1;
+    membersReadInFlight.current = null;
     setItems([]);
     setNextCursor(null);
     await Promise.all([
@@ -131,6 +140,7 @@ export function SpaceMembersPanel() {
   useEffect(() => {
     currentSpace.current = spaceId;
     membersReadGeneration.current += 1;
+    membersReadInFlight.current = null;
     capabilityReadGeneration.current += 1;
     actionGeneration.current += 1;
     pendingAction.current = false;
@@ -190,7 +200,12 @@ export function SpaceMembersPanel() {
           </article>;
         })}</div>
           : <div className="meridian-space-members-state" role="status"><strong>Nenhum membro retornado.</strong><span>Esta é a resposta real do serviço para o Space selecionado.</span></div>}
-        <footer><span>{items.length} {items.length === 1 ? 'membro carregado' : 'membros carregados'}{nextCursor ? ' · há mais resultados' : ''}</span>{nextCursor && <Button variant="outline" disabled={loadingMore || actionPending !== null} onClick={() => void readPage(spaceId, nextCursor, true)}>{loadingMore ? 'Carregando…' : 'Carregar mais'}</Button>}{loadState === 'error' && items.length > 0 && <Button variant="outline" onClick={() => void readPage(spaceId, nextCursor, true)}>Tentar página novamente</Button>}</footer>
+        <footer>
+          <span>{items.length} {items.length === 1 ? 'membro carregado' : 'membros carregados'}{nextCursor ? ' · há mais resultados' : ''}</span>
+          {loadState === 'error' && items.length > 0 && <span role="alert">Não foi possível carregar a próxima página. Os membros já carregados foram preservados.</span>}
+          {nextCursor && <Button variant="outline" disabled={loadingMore || actionPending !== null} onClick={() => void readPage(spaceId, nextCursor, true)}>{loadingMore ? 'Carregando…' : loadState === 'error' ? 'Tentar página novamente' : 'Carregar mais'}</Button>}
+          {loadState !== 'loading' && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (!membersReadInFlight.current && !pendingAction.current) void reloadRemoteState(spaceId); }}>Atualizar lista</Button>}
+        </footer>
       </>}
   </section>;
 }
