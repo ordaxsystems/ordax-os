@@ -798,8 +798,8 @@
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "081e34022872c712785b554f38711a8f11b93bfeccef02b6fec3bfe0d357c6c8",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window.",
+      "adaptedSha256": "fe209c7522317ef35d144b8e150d526fdbc00b55ba132377be523da67679ced9",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -810,6 +810,11 @@
           "date": "2026-10-14",
           "sha256": "e3064088ed291765fd4e0e5d44909cac38cf9545ed49d0f6fa7a7dee67bd35fe",
           "reason": "Before full Meridian rail/topbar/dock correction explicitly requested by user"
+        },
+        {
+          "date": "2026-10-17",
+          "sha256": "081e34022872c712785b554f38711a8f11b93bfeccef02b6fec3bfe0d357c6c8",
+          "reason": "Before canonical Surface destination identity consolidation"
         }
       ]
     },
@@ -962,17 +967,17 @@
       "target": "system/composition/web/account-session.mjs",
       "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
       "owner": "OrdaX OS Surface",
-      "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle",
-      "adaptedSha256": "f5c1cc9d3780448d59aa29d18788f03dfa60baf1542bfc2408d36636e1e8b495",
-      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged. 2026-10-17: Web composes the canonical bounded Space members read adapter behind the authorized Spaces catalog; reads remain on-demand and read-only, with no membership mutation authority added to Central."
+      "purpose": "Composition of canonical same-origin identity/actions, authorized Spaces reads and bounded server-authoritative membership actions",
+      "adaptedSha256": "3ef0183642c6806c5eefcfbb53ba70624ea763c276f80ebe1974ee97dcd98625",
+      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged. 2026-10-17: Web composes the canonical bounded Space members read adapter behind the authorized Spaces catalog; reads remain on-demand and read-only, with no membership mutation authority added to Central. 2026-10-17: Web account-session now composes the canonical bounded Space membership-actions runtime supplied by the authenticated account gateway; actor identity and authorization remain server-side, the Surface receives no direct transport/database authority, and unsupported actions continue to fail closed. 2026-10-17: Web account-session composes the server-authoritative Space actor-capability read boundary. The client consumes canManageMembers only as a presentation signal and does not derive authorization from membership role; mutation authorization remains in the canonical server predicate and membership RPC."
     },
     {
       "target": "system/surface/workspace/components/central/account-context.tsx",
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "6d815cc4c858322c22217e374d106f9eef9eab28e0c87d48e3067d26a1adecbe",
-      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context additionally exposes the composed bounded Space members reader as an on-demand read capability; no membership action or write authority is added to Surface."
+      "adaptedSha256": "57a5dfe2530414b9a8d80cb42ddec9e5f8f144d232062dcbf271eece94834ed8",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context exposes the composed bounded Space members reader, server-authored actor capability reader and bounded membership action runtime to the Surface without importing transport, gateway, Supabase or RPC authority."
     },
     {
       "target": "system/adapters/web/space-selection.mjs",

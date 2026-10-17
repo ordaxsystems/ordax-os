@@ -310,6 +310,7 @@ The product backend now has explicit, bounded server-authoritative mutation boun
 - Space rename/archive/restore use `ordax_mutate_space_lifecycle_v1`; direct authenticated `UPDATE`/`DELETE` on `ordax_spaces` is revoked.
 - direct authenticated `INSERT`/`UPDATE`/`DELETE` on `ordax_space_members` is revoked and the historical membership write policies are removed;
 - actions over an **existing** membership use `ordax_mutate_space_membership_v1` and the versioned `ordax.space-membership-actions/1` contract for `change-role`, `suspend`, `reactivate` and `remove`.
+- presentation capability for the authenticated actor uses `ordax_get_space_actor_capability_v1` and `ordax.space-actor-capability/1`; `canManageMembers` is projected by the server from the canonical authorization predicate and must not be recomputed from `role` in Surface code.
 
 All of these action paths derive the actor from the authenticated server session, revalidate current authority, use idempotency where retry is expected and keep private receipts/state out of the public Surface read model. Membership administration preserves the global roles `owner/admin/member/viewer`: only the actual Space owner can grant or administer `admin`; a delegated admin can administer `member/viewer`; owner membership is never changed through the ordinary membership-action boundary.
 

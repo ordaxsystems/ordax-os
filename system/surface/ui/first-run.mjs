@@ -21,6 +21,8 @@ import {
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
+import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS } from "../../services/first-run/journey.mjs";
+import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
 import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
@@ -28,8 +30,8 @@ import {
   runNetworkManagementAction,
 } from "../../services/network/management-runtime.mjs";
 
-const STEPS = Object.freeze(["welcome", "regional", "network", "security", "account", "privacy", "ready"]);
-const STEP_LABELS = Object.freeze(["Início", "Região", "Rede", "Segurança", "Conta", "Privacidade", "Pronto"]);
+const STEPS = FIRST_RUN_STEP_IDS;
+const STEP_LABELS = FIRST_RUN_STEP_LABELS;
 
 function syncFirstRunDocumentLocale(documentObject, locale) {
   const profile = createLocaleProfile(locale);
@@ -162,6 +164,12 @@ export function mountFirstRunExperience(
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
+  let capabilitySnapshot = deriveFirstRunCapabilities({
+    networkManagement: networkPort,
+    localSession: localSessionPort,
+    identityCredentials: credentialsPort,
+    identityActionsSnapshot: actionsSnapshot,
+  });
   let localSessionPending = false;
   let localSessionMessage = "";
   let localSessionSecretDraft = "";
@@ -284,7 +292,7 @@ export function mountFirstRunExperience(
       "Conecte-se agora ou continue offline.",
       "A rede é opcional. Este passo usa o mesmo broker Native de Wi-Fi da Surface; não existe um segundo gerenciador exclusivo do assistente.",
     ));
-    if (!networkPort) {
+    if (!capabilitySnapshot.networkManagement) {
       body.append(el(
         documentObject,
         "p",
@@ -362,7 +370,7 @@ export function mountFirstRunExperience(
         + "Este bloqueio protege a Surface em execução e não criptografa os arquivos do pendrive.",
     ));
 
-    if (!localSessionPort || !localSessionSnapshot) {
+    if (!capabilitySnapshot.localSession || !localSessionSnapshot) {
       body.append(el(
         documentObject,
         "p",
@@ -455,7 +463,7 @@ export function mountFirstRunExperience(
       body.append(status);
     }
 
-    if (sessionSnapshot.state === "signed-out" && credentialsPort) {
+    if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.identityCredentials) {
       const form = el(documentObject, "div", "ordax-first-run-form");
       const emailField = el(documentObject, "label", "ordax-first-run-field");
       emailField.append(el(documentObject, "span", "", "E-mail"));
@@ -482,7 +490,7 @@ export function mountFirstRunExperience(
 
       if (
         registrationPolicy
-        && isIdentityActionSupported(actionsSnapshot, "register")
+        && capabilitySnapshot.identityRegister
       ) {
         const legal = el(documentObject, "div", "ordax-first-run-legal");
         legal.append(
@@ -523,14 +531,14 @@ export function mountFirstRunExperience(
       buttons.append(action(documentObject, "Usar esta conta", "account-identity", true));
     } else {
       const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
-      signIn.disabled = identityPending !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
+      signIn.disabled = identityPending !== null || !capabilitySnapshot.identitySignIn;
       const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
       register.disabled = (
         identityPending !== null
         || registrationPolicyPending
         || !registrationPolicy
         || !registrationLegalAccepted
-        || !isIdentityActionSupported(actionsSnapshot, "register")
+        || !capabilitySnapshot.identityRegister
       );
       buttons.append(signIn, register);
     }
@@ -541,8 +549,8 @@ export function mountFirstRunExperience(
 
     if (
       sessionSnapshot.state !== "signed-in"
-      && !isIdentityActionSupported(actionsSnapshot, "sign-in")
-      && !isIdentityActionSupported(actionsSnapshot, "register")
+      && !capabilitySnapshot.identitySignIn
+      && !capabilitySnapshot.identityRegister
     ) {
       body.append(el(
         documentObject,
@@ -757,11 +765,9 @@ export function mountFirstRunExperience(
     if (
       destroyed
       || registrationPolicyPending
-      || credentialsPort === null
-      || typeof credentialsPort.registrationPolicy !== "function"
-      || !isIdentityActionSupported(actionsSnapshot, "register")
+      || !capabilitySnapshot.registrationPolicy
     ) {
-      if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+      if (!capabilitySnapshot.identityRegister) {
         registrationPolicy = null;
         registrationLegalAccepted = false;
       }
@@ -773,7 +779,7 @@ export function mountFirstRunExperience(
       if (destroyed) return;
       const nextPolicy = (
         policy.registrationEnabled === true
-        && isIdentityActionSupported(actionsSnapshot, "register")
+        && capabilitySnapshot.identityRegister
       ) ? policy : null;
       if (!sameRegistrationLegalPolicy(registrationPolicy, nextPolicy)) {
         registrationLegalAccepted = false;
@@ -986,12 +992,18 @@ export function mountFirstRunExperience(
   });
   unsubscribeActions = actionsPort.subscribe((snapshot) => {
     actionsSnapshot = snapshot;
-    if (!isIdentityActionSupported(actionsSnapshot, "register")) {
+    capabilitySnapshot = deriveFirstRunCapabilities({
+      networkManagement: networkPort,
+      localSession: localSessionPort,
+      identityCredentials: credentialsPort,
+      identityActionsSnapshot: actionsSnapshot,
+    });
+    if (!capabilitySnapshot.identityRegister) {
       registrationPolicy = null;
       registrationLegalAccepted = false;
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
-    if (isIdentityActionSupported(actionsSnapshot, "register") && registrationPolicy === null) {
+    if (capabilitySnapshot.registrationPolicy && registrationPolicy === null) {
       void refreshRegistrationPolicy();
     }
   });
@@ -1001,7 +1013,7 @@ export function mountFirstRunExperience(
   });
 
   render();
-  if (isIdentityActionSupported(actionsSnapshot, "register")) {
+  if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();
   }
   queueMicrotask(() => overlay.querySelector("button, select, input")?.focus?.());
