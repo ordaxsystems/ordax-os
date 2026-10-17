@@ -543,9 +543,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("BOOT_METRICS_FILE=$STATE_DIR/boot-last.tsv", dev_init)
         self.assertIn("local_checkout_bootable()", dev_init)
         self.assertIn("start_network_background()", dev_init)
+        self.assertIn("start_main_watch_background()", dev_init)
         self.assertIn("record_boot_handoff()", dev_init)
         self.assertIn("recover_previous_checkout()", dev_init)
-        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", dev_init)
+        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", dev_init)
         self.assertLess(
             dev_init.index("if local_checkout_bootable; then"),
             dev_init.index("network_ok=0"),
