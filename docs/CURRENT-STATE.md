@@ -1,5 +1,11 @@
 # Current State
 
+Public landing header (2026-10-16): compact brand and 44px controls keep the
+primary navigation on one row until 960px. Smaller widths retain all section
+links in an independently scrollable row. At phone widths the header flows with
+the document so its stacked account/language controls do not cover the content.
+Authentication actions and the shared profile runtime remain unchanged.
+
 Public Meridian layout refinement (2026-10-16): landing sections use tighter
 vertical rhythm, a shorter introduction and an explicit link to the existing
 Web access page. Login, registration and recovery now share identity-family
