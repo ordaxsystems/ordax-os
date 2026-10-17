@@ -41,6 +41,9 @@ REQUIRED_SOURCE_PATHS = (
     "system/contracts/file-space.mjs",
     "system/adapters/native/file-space.mjs",
     "system/contracts/local-session.mjs",
+    "system/contracts/preference-runtime.mjs",
+    "system/services/preferences/memory.mjs",
+    "system/services/memory/assistant-auto-capture.mjs",
     "system/adapters/native/local-session.mjs",
     "system/contracts/recovery-status.mjs",
     "system/adapters/native/recovery-status.mjs",
@@ -138,6 +141,10 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     recovery = _load_json(root, "docs/contracts/recovery-status.json", source_errors)
     hardware = _load_json(root, "docs/contracts/hardware-support-matrix.json", source_errors)
     file_space = _load_text(root, "system/contracts/file-space.mjs", source_errors)
+    first_run_ui = _load_text(root, "system/surface/ui/first-run.mjs", source_errors)
+    preference_runtime = _load_text(root, "system/contracts/preference-runtime.mjs", source_errors)
+    memory_preference = _load_text(root, "system/services/preferences/memory.mjs", source_errors)
+    memory_auto_capture = _load_text(root, "system/services/memory/assistant-auto-capture.mjs", source_errors)
     native = _load_text(root, "system/composition/native/main.mjs", source_errors)
 
     gates: dict[str, dict[str, Any]] = {}
@@ -213,6 +220,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     persistence = _dict(first_run.get("persistence"))
     account = _dict(first_run.get("account"))
     network = _dict(first_run.get("network"))
+    privacy = _dict(first_run.get("privacy"))
     device_name = _dict(first_run.get("device_name"))
     first_run_mvp = _dict(first_run.get("mvp"))
     record(
@@ -231,6 +239,15 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             account.get("provider_unavailable_must_not_block_completion") is True,
             network.get("skippable") is True,
             network.get("password_must_not_enter_first_run_state") is True,
+            privacy.get("owner") == "preference-runtime",
+            privacy.get("memory_auto_capture_preference") == "memory.auto-capture",
+            privacy.get("must_not_enter_first_run_state") is True,
+            privacy.get("memory_service_consumes_runtime_preference") is True,
+            privacy.get("cloud_sync_enabled_by_this_step") is False,
+            _contains_all(preference_runtime, ("ordax.preference-runtime/1", "getSnapshot", "set", "subscribe")),
+            _contains_all(memory_preference, ("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", "memory.auto-capture", "memoryAutoCaptureEnabled")),
+            _contains_all(first_run_ui, ("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", "memoryAutoCaptureEnabled(preferencePort.getSnapshot())", "preferencePort.set(")),
+            _contains_all(memory_auto_capture, ("memoryAutoCaptureEnabled", "preferences.getSnapshot()")),
             device_name.get("owner") == "device-profile",
             device_name.get("rename_must_be_confirmed_before_advancing") is True,
             device_name.get("must_not_enter_first_run_state") is True,
@@ -239,7 +256,14 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             first_run_mvp.get("permanent_internal_disk_install_exposed") is False,
             _contains_all(native, ("createNativeFirstRunStateStore", "createNativeDeviceProfile", "mountFirstRunExperience", "deviceProfile,")),
         )),
-        ["docs/contracts/first-run.json", "system/composition/native/main.mjs"],
+        [
+            "docs/contracts/first-run.json",
+            "system/contracts/preference-runtime.mjs",
+            "system/services/preferences/memory.mjs",
+            "system/services/memory/assistant-auto-capture.mjs",
+            "system/surface/ui/first-run.mjs",
+            "system/composition/native/main.mjs",
+        ],
     )
 
     regional = _dict(first_run.get("regional"))

@@ -147,7 +147,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         context_sha, file_count = module.authorization_context_sha256(ROOT)
 
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
-        self.assertEqual(file_count, 76)
+        self.assertEqual(file_count, 79)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
