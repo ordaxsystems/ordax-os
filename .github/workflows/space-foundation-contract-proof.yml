@@ -7,11 +7,13 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/space-experience.mjs'
       - 'system/contracts/space-lifecycle.mjs'
+      - 'system/contracts/space-members.mjs'
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
+      - 'tests/test_space_members.mjs'
       - 'tests/test_space_membership_actions.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
@@ -22,11 +24,13 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/space-experience.mjs'
       - 'system/contracts/space-lifecycle.mjs'
+      - 'system/contracts/space-members.mjs'
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
+      - 'tests/test_space_members.mjs'
       - 'tests/test_space_membership_actions.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
@@ -52,9 +56,11 @@ jobs:
           node --check system/contracts/space-selection.mjs
           node --check system/contracts/space-experience.mjs
           node --check system/contracts/space-lifecycle.mjs
+          node --check system/contracts/space-members.mjs
           node --check system/contracts/space-membership-actions.mjs
           node --check system/services/spaces/composition.mjs
           node --check system/services/spaces/lifecycle.mjs
+          node --check system/services/spaces/members.mjs
           node --check system/services/spaces/type-catalog.mjs
 
       - name: Prove non-blocking compatibility
@@ -63,6 +69,7 @@ jobs:
           node --test tests/test_space_foundation_nonblocking.mjs
           node --test tests/test_space_lifecycle.mjs
           node --test tests/test_space_lifecycle_runtime.mjs
+          node --test tests/test_space_members.mjs
           node --test tests/test_space_membership_actions.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
