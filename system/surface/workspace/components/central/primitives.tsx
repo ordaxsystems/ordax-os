@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { getWindowIcon, unavailableServices, type IconTone } from './config';
 import { useWebAccount } from './account-context';
 import symbol from '../../../ui/brand/ordax-symbol.png';
+import { PRODUCT_FAMILY_PUBLIC_ENDPOINTS } from '../../../../contracts/product-family.mjs';
+
+const accountManagementUrl = new URL('/conta/', PRODUCT_FAMILY_PUBLIC_ENDPOINTS.site.origin).href;
 export function Brand() {
   return <div className="brand" aria-label="OrdaX OS Web"><span className="meridian-brand-symbol" style={{maskImage:`url(${symbol})`,WebkitMaskImage:`url(${symbol})`}} aria-hidden="true"/><div><div className="brand-name">OrdaX</div><span className="brand-sub">OS · WEB</span></div></div>;
 }
@@ -49,17 +52,16 @@ export function AccountPanel() {
     finally { inFlight.current = false; if (mounted.current) setPending(false); }
   }
   return <Panel title="Minha conta" className="meridian-account-panel"><div className="account-service-content">
-    <div className="account-service-profile"><Avatar/><div><strong>{displayName}</strong><p className="project-meta">{offline ? 'Sem conexão. Os dados da sessão podem estar desatualizados.' : identity.state === 'signed-in' ? 'Identidade confirmada pelo serviço OrdaX.' : identity.state === 'signed-out' ? 'Entre para consultar seus Spaces e dados autorizados.' : 'Não foi possível conectar sua conta.'}</p></div></div>
+    <div className="account-service-profile"><Avatar/><div><strong>{displayName}</strong><span className="account-service-state" data-state={offline ? "offline" : identity.state}>{offline ? "Sem conexão" : identity.state === "signed-in" ? "Conta conectada" : "Conta não conectada"}</span><p className="project-meta">{offline ? 'Sem conexão. Os dados da sessão podem estar desatualizados.' : identity.state === 'signed-in' ? 'Identidade confirmada pelo serviço OrdaX.' : identity.state === 'signed-out' ? 'Entre para consultar seus Spaces e dados autorizados.' : 'Não foi possível conectar sua conta.'}</p></div></div>
     <div className="account-service-actions">
+      <Button asChild><a href={accountManagementUrl}>Gerenciar minha conta<ChevronRight/></a></Button>
       <Button variant="outline" disabled={pending || offline} onClick={() => void perform()}>{pending ? 'Atualizando…' : 'Atualizar conexão'}</Button>
       {identity.state !== 'signed-in' && <Button disabled={pending || offline || !actions.supportedActions.includes('sign-in')} onClick={() => void perform('sign-in')}>Entrar</Button>}
       {identity.state !== 'signed-in' && <Button variant="outline" disabled={pending || offline || !actions.supportedActions.includes('register')} aria-describedby={!actions.supportedActions.includes('register') ? registrationHint : undefined} onClick={() => void perform('register')}>Criar conta</Button>}
-      {actions.supportedActions.includes('sign-out') && <Button variant="outline" disabled={pending || offline} onClick={() => void perform('sign-out')}>Sair da conta</Button>}
-      <Button variant="outline" asChild><a href="/conta/">Gerenciar minha conta<ChevronRight/></a></Button>
+      {actions.supportedActions.includes('sign-out') && <Button variant="outline" className="account-service-signout" disabled={pending || offline} onClick={() => void perform('sign-out')}>Sair da conta</Button>}
     </div>
     {identity.state !== 'signed-in' && !actions.supportedActions.includes('register') && <p className="meridian-integration-status" id={registrationHint}>Cadastro indisponível até confirmação do serviço.</p>}
     {error && <p role="alert" className="project-meta">{error}</p>}
-    <p className="project-meta">{unavailableServices.storage}</p>
-    <p className="project-meta">Plano e cobrança aguardam o serviço de assinatura.</p>
+    <div className="account-service-pending" aria-label="Recursos de conta pendentes"><section><h3>Armazenamento</h3><p>{unavailableServices.storage}</p></section><section><h3>Plano e cobrança</h3><p>Plano e cobrança aguardam o serviço de assinatura.</p></section></div>
   </div></Panel>;
 }

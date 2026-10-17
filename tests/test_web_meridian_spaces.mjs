@@ -88,7 +88,9 @@ test('failed catalog remains unavailable rather than becoming a successful empty
   const f = fixture({failed: true});
   try {
     await f.session.refresh();
-    const html = render(f.session);
+    const html = render(f.session, true);
+    assert.match(html, /Conta conectada · consulta de espaços indisponível/);
+    assert.match(html, /Não foi possível carregar seus espaços/);
     assert.match(html, /Não foi possível consultar seus Spaces/);
     assert.match(html, /data-integration="pending"/);
     assert.doesNotMatch(html, /Seus espaços aparecerão aqui|Nenhum Space está disponível para esta conta/);
@@ -147,5 +149,19 @@ test('Account enables signup only after receiving the canonical server policy', 
     const button = html.match(/<button\b[^>]*>Criar conta<\/button>/)?.[0];
     assert.ok(button && !button.includes('disabled='));
     assert.doesNotMatch(html, /Cadastro indisponível até confirmação do serviço/);
+  } finally { f.session.dispose(); }
+});
+
+
+test('account management keeps its canonical portal owner on the dedicated Web host', async () => {
+  const f = fixture();
+  try {
+    await f.session.refresh();
+    const html = renderToStaticMarkup(createElement(WebAccountProvider, {session: f.session}, createElement(AccountPanel)));
+    assert.match(html, /href="https:\/\/ordax\.com\.br\/conta\/"/);
+    assert.doesNotMatch(html, /href="\/conta\/"/);
+    assert.match(html, /Conta conectada/);
+    assert.match(html, /Sair da conta/);
+    assert.match(html, /Recursos de conta pendentes/);
   } finally { f.session.dispose(); }
 });

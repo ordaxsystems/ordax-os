@@ -1,5 +1,16 @@
 # Current State
 
+Authenticated Meridian Web review (2026-10-16): confirmed account identity is now
+presented separately from Spaces catalog errors. Account and Spaces panels retain
+their intended insets instead of losing them to generic window panel styles.
+Account uses readable profile/actions and preserved pending storage/billing cards;
+its management link derives the public portal origin from product-family rather
+than pointing at the dedicated Web host's nonexistent account route. Full Spaces
+examples and existing identity/selection gates remain unchanged. Session/catalog
+regressions, canonical reference verification and TypeScript/production compilation
+pass. Browser proof now checks Account/Spaces geometry and the account destination
+at every breakpoint. This does not claim a successful live Spaces consultation.
+
 Web login asset closure correction (2026-10-16): production inspection of the
 shared login revealed its generated token/symbol CSS referenced a missing
 `assets/ordax-symbol.png` in the dedicated Web artifact. The Web composition now
