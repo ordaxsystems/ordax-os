@@ -39,7 +39,7 @@ function fixture() {
       }
       if (typeof path === 'string' && path.startsWith('/account/space-members?')) {
         return response({
-          schema: 'ordax.space-members-page/2',
+          schema: 'ordax.space-members-page/3',
           spaceId: SPACE_ID,
           members: [{ spaceId: SPACE_ID, userId: USER_ID, role: 'owner', state: 'active', actions: { canChangeRole: false, canSuspend: false, canReactivate: false, canRemove: false, assignableRoles: [] } }],
           nextCursor: null,

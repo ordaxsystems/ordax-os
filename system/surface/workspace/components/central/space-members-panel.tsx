@@ -183,8 +183,8 @@ export function SpaceMembersPanel() {
             <span className="meridian-space-member-state">{stateLabels[memberState] ?? 'Estado não reconhecido'}</span>
             {editable && <div className="meridian-space-member-actions" aria-label={`Ações para ${member.userId}`}>
               {actions.canChangeRole && <label><span>Função</span><select value={memberRole} disabled={actionPending !== null} onChange={event => void runAction('change-role', member, event.currentTarget.value as ActionRole)}>{actions.assignableRoles.map((role: ActionRole) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label>}
-              {memberState === 'active' && actions.canSuspend && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('suspend', member)}>Suspender</Button>}
-              {memberState === 'suspended' && actions.canReactivate && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('reactivate', member)}>Reativar</Button>}
+              {actions.canSuspend && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('suspend', member)}>Suspender</Button>}
+              {actions.canReactivate && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('reactivate', member)}>Reativar</Button>}
               {actions.canRemove && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (window.confirm('Remover este membro do Space?')) void runAction('remove', member); }}>Remover</Button>}
             </div>}
           </article>;

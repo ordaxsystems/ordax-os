@@ -15,7 +15,7 @@ function routeBlock() {
 
 test("gateway uses exact GET-only members RPC", () => {
   const block = routeBlock();
-  assert.match(gateway, /SPACE_MEMBERS_PAGE_SCHEMA = "ordax\.space-members-page\/2"/);
+  assert.match(gateway, /SPACE_MEMBERS_PAGE_SCHEMA = "ordax\.space-members-page\/3"/);
   assert.match(block, /supabase\.rpc\("ordax_list_space_members_v1"/);
   assert.match(block, /p_limit: MAX_SPACE_MEMBERS_PAGE_SIZE/);
   assert.match(gateway, /MAX_SPACE_MEMBERS_PAGE_SIZE = 128/);
@@ -31,6 +31,8 @@ test("members gateway validates and maps target action projection from the canon
   assert.match(block, /new Set\(raw\.assignable_roles\)\.size !== raw\.assignable_roles\.length/);
   assert.match(block, /canChangeRole: raw\.can_change_role/);
   assert.match(block, /assignableRoles: raw\.assignable_roles/);
+  assert.match(block, /raw\.state === "active" && raw\.can_reactivate/);
+  assert.match(block, /raw\.state === "suspended" && raw\.can_suspend/);
   assert.doesNotMatch(block, /\.from\("ordax_space_members"\)/);
 });
 
