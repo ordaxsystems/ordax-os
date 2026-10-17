@@ -2103,6 +2103,18 @@ check_for_update() {
         rm -f "$REJECTED_FILE"
     fi
 
+    # A candidate/proof checkout may legitimately be ahead of main before its
+    # promotion commit lands. Never reinterpret an older remote head as an
+    # update or spend a fetch/checkout attempt trying to downgrade it. This is
+    # also a fail-closed guard against an accidental remote branch rollback.
+    if "$GIT_BIN" -C "$WORKTREE" cat-file -e "$remote_sha^{commit}" >/dev/null 2>&1 && \
+            "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$remote_sha" "$current" >/dev/null 2>&1; then
+        refresh_dev_helpers "$current"
+        clear_update_context
+        write_update_state "$current" running none
+        return 0
+    fi
+
     old_sha=$current
     attempt_id=$(utc_now)
     write_state_value "$ATTEMPT_STARTED_EPOCH_FILE" "$(epoch_now)"
