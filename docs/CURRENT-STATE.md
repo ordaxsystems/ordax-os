@@ -1,5 +1,15 @@
 # Current State
 
+Public device demonstration (2026-10-17): the notebook and compact phone
+viewport consume static markup rendered from current Meridian Home, header,
+sidebar, dock and app presentation components. The existing local controller
+keeps the fictional Aurora scenario. Source hashes detect stale derived markup;
+styles are compiled from the same source and scoped to the virtual viewports.
+Only read-only/unavailable account, preference and Intelligence adapters exist
+during generation; no React/Surface runtime or service transport ships in the
+portal. Source wallpapers are copied and byte-verified. Compact preview means
+responsive Web, not a published Mobile package.
+
 Public Account Web shortcuts (2026-10-17): sidebar, footer and mobile More
 menu now link directly to the canonical Web origin, matching the landing.
 The mode CTA uses the same access label. The mobile reachability proof checks

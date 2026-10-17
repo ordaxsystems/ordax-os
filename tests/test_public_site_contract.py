@@ -340,8 +340,9 @@ class PublicSiteContractTests(unittest.TestCase):
 
         self.assertIn('id="experimente"', landing)
         self.assertIn("Demonstração interativa, sem instalar.", landing)
-        self.assertIn("dados fictícios e respostas de IA predefinidas; não executa inferência", landing)
-        self.assertIn("Sincronização simulada nesta prévia.", landing)
+        self.assertIn("Interface do produto com dados fictícios.", landing)
+        self.assertIn("não acessa arquivos e não executa IA", landing)
+        self.assertIn("O cenário Aurora contém respostas predefinidas.", landing)
         self.assertIn("data-reset", landing)
 
         self.assertIn("Public marketing simulation only", script)

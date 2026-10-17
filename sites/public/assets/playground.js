@@ -28,7 +28,7 @@
   let noteDefaults = defaultNote();
   const initial = () => ({theme: "light", title: noteDefaults.title, body: noteDefaults.body, done: false, analysis: "idle", accepted: false});
   let state = initial();
-  const views = new Map(screens.map(screen => [screen, {app: "projects", folder: "", file: ""}]));
+  const views = new Map(screens.map(screen => [screen, {app: "home", folder: "", file: ""}]));
   let noticeTimer;
   const announce = message => {
     clearTimeout(noticeTimer);
@@ -83,6 +83,51 @@
     node.className = className;
     return node;
   }
+  const surface = fixture.surface;
+  const routeLabels = { 'Início':'home', 'Aura':'intelligence', 'Espaços':'spaces', 'Aplicativos':'apps', 'Perfis profissionais':'profiles', 'Dispositivos':'devices', 'Loja':'store', 'Projetos':'projects', 'Arquivos':'files', 'Internet':'internet', 'Ajustes':'settings', 'Configurações':'settings', 'Minha conta':'account', 'Conta e identidade':'account', 'Atividades':'activity', 'Continuidade':'continuity', 'Notificações':'notifications' };
+  for (const [label,id] of Object.entries(routeLabels)) names[id]=label;
+  names.concept='Aurora';
+  names['example-files']='Arquivos de exemplo';
+  function recipeApp(control) { return control.dataset.recipe === 'projects' ? 'concept' : control.dataset.recipe === 'theme' ? 'settings' : control.dataset.recipe; }
+  function mountCurrentSurface(screen, previousContent) {
+    if (!surface?.chrome || !surface.views?.home) return;
+    const view=views.get(screen);
+    screen.classList.add('demo-native');
+    // Trusted, source-hashed build artifact. No user text enters this markup.
+    screen.innerHTML=surface.chrome;
+    const host=screen.querySelector('[data-public-demo-content]');
+    if (surface.views[view.app]) host.innerHTML=surface.views[view.app];
+    else host.replaceChildren(previousContent);
+    const activeLocale=i18n.getLocale();
+    const welcome=host.querySelector('.meridian-welcome h1');if(welcome){const hour=new Date().getHours();welcome.textContent=local(hour<12?'Bom dia.':hour<18?'Boa tarde.':'Boa noite.');}
+    const date=host.querySelector('.meridian-welcome time');
+    if(date) {const now=new Date();date.dateTime=now.toISOString();date.textContent=new Intl.DateTimeFormat(activeLocale,{weekday:'long',day:'numeric',month:'long'}).format(now);}
+    const prefix='public-'+screen.dataset.device+'-';
+    for(const element of screen.querySelectorAll('[id]')) element.id=prefix+element.id;
+    for(const element of screen.querySelectorAll('[for],[aria-labelledby],[aria-describedby],[aria-controls]')) for(const attr of ['for','aria-labelledby','aria-describedby','aria-controls']) if(element.hasAttribute(attr)) element.setAttribute(attr,element.getAttribute(attr).split(' ').map(id=>prefix+id).join(' '));
+    for(const input of host.querySelectorAll('input,textarea,select')) input.disabled=true;
+    for(const link of screen.querySelectorAll('a[href]')) { link.removeAttribute('href'); link.setAttribute('aria-disabled','true'); }
+    const title=screen.querySelector('.meridian-system-location>span');
+    if(title) title.textContent=surface.navigation.find(item=>routeLabels[item.name]===view.app)?.target??(view.app==='account'?'Minha conta':names[view.app]??'Início');
+    for(const control of screen.querySelectorAll('button')) {
+      if(control.dataset.action) continue;
+      const label=control.getAttribute('aria-label')??control.textContent.trim();
+      const route=routeLabels[label];
+      if(route) {control.dataset.action='app';control.dataset.value=route;control.setAttribute('aria-pressed',String(view.app===route));control.dataset.active=String(view.app===route);if(view.app===route)control.setAttribute('aria-current','page');else control.removeAttribute('aria-current');}
+      else if(control.matches('[data-navigation-trigger],.meridian-mobile-menu,.meridian-nav-more') || /Mais/.test(label)) control.dataset.action='public-menu';
+      else if(control.matches('.meridian-brand-home,[data-window-home]')) {control.dataset.action='app';control.dataset.value='home';}
+      else if(control.matches('.meridian-rail-space,.meridian-system-location>button:not(.meridian-mobile-menu)')) {control.dataset.action='app';control.dataset.value='spaces';}
+      else if(label==='Ajustes rápidos do sistema') {control.dataset.action='app';control.dataset.value='settings';}
+      else if(control.matches('.desktop-task')) { const name=control.querySelector('.meridian-dock-label')?.textContent; if(routeLabels[name]) {control.dataset.action='app';control.dataset.value=routeLabels[name];} }
+      else if(control.closest('.meridian-project')) {control.dataset.action='app';control.dataset.value='concept';}
+      else control.dataset.action='public-planned';
+    }
+    const menu=document.createElement('nav');menu.className='public-demo-menu';menu.hidden=true;menu.setAttribute('aria-label',local('Aplicativos e navegação'));
+    for(const item of surface.navigation) menu.append(button(item.name,routeLabels[item.name]?'app':'public-planned',routeLabels[item.name]));
+    menu.append(button(local('Minha conta'),'app','account'));
+    menu.append(button(local('Arquivos de exemplo'),'app','example-files'));
+    screen.querySelector('.window-workspace').append(menu);
+  }
   function render(screen) {
     const view = views.get(screen);
     const device = screen.dataset.device;
@@ -105,33 +150,12 @@
     screen.querySelector(".demo-windowbar strong").textContent = names[view.app] ?? "Início";
     const content = screen.querySelector(".demo-content");
     if (view.app === "home") {
-      const now = new Date();
-      const activeLocale = i18n.getLocale();
-      const clock = new Intl.DateTimeFormat(activeLocale, {timeZone: "America/Bahia", hour: "2-digit", minute: "2-digit", hour12: false}).format(now);
-      const rawDate = new Intl.DateTimeFormat(activeLocale, {timeZone: "America/Bahia", weekday: "long", day: "2-digit", month: "long"}).format(now);
-      const date = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
-      content.innerHTML = `<div class="demo-home"><div class="demo-home-copy"><p class="demo-home-area">${displayHome.area_label}</p><time class="demo-home-clock" datetime="${now.toISOString()}">${clock}</time><p class="demo-home-date">${date}</p><button type="button" class="demo-home-command" data-action="launcher" aria-expanded="false"><span aria-hidden="true">⌕</span><span>${displayHome.command_label}</span><kbd>Ctrl + K</kbd></button><section class="demo-home-space" aria-labelledby="${device}-space-title"><p id="${device}-space-title">${displayHome.space_label}</p><div class="demo-home-space-list"></div></section><div class="demo-home-launcher" data-home-launcher hidden><p>Aplicativos principais</p></div></div><div class="demo-home-art" aria-hidden="true"><span></span><i></i><b></b></div></div>`;
-      const spaceList = content.querySelector(".demo-home-space-list");
-      for (const space of displayHome.spaces) {
-        const link = button("", "folder", space.label, "demo-home-space-link");
-        const icon = document.createElement("span");
-        icon.textContent = "▱";
-        icon.setAttribute("aria-hidden", "true");
-        const label = document.createElement("span");
-        label.textContent = space.label;
-        const arrow = document.createElement("span");
-        arrow.textContent = "→";
-        arrow.setAttribute("aria-hidden", "true");
-        link.append(icon, label, arrow);
-        spaceList.append(link);
-      }
-      const launcher = content.querySelector("[data-home-launcher]");
-      for (const app of fixture.home.rail_apps) launcher.append(button(`${icons[app]} ${names[app]}`, "app", app, "demo-home-launcher-option"));
-    } else if (["projects", "intelligence", "context"].includes(view.app)) {
+      // The current Central is rendered from its actual components at build time.
+    } else if (["concept", "intelligence", "context"].includes(view.app)) {
       const complete = state.analysis === "ready";
       content.innerHTML = `<div class="project-demo"><header class="project-heading"><div><p class="demo-eyebrow">ESPAÇO CRIATIVO / PROJETO DE EXEMPLO</p><h3>Aurora<span class="project-desktop-subtitle"> / Direção criativa</span></h3><p>Projetos que conectam pessoas e futuros.</p></div><span class="project-badge">CONCEITO INTERATIVO</span></header><div class="project-tabs"></div><div class="project-body"></div><p class="concept-disclosure">Exemplo fictício · IA predefinida · Nenhum modelo está sendo executado.</p></div>`;
       const tabs = content.querySelector(".project-tabs");
-      for (const [app,label] of [["projects","Visão geral"],["intelligence","✧ Intelligence"],["context","Contexto"]]) {
+      for (const [app,label] of [["concept","Visão geral"],["intelligence","✧ Intelligence"],["context","Contexto"]]) {
         const item = button(label,"app",app); item.setAttribute("aria-pressed",String(view.app === app)); tabs.append(item);
       }
       const body = content.querySelector(".project-body");
@@ -185,12 +209,13 @@
         content.append(grid);
       }
     }
+    mountCurrentSurface(screen, content);
     sync();
     updateRecipes();
   }
   function updateRecipes() {
     root.querySelectorAll("[data-recipe]").forEach(control => {
-      const app = control.dataset.recipe === "theme" ? "settings" : control.dataset.recipe;
+      const app = recipeApp(control);
       control.setAttribute("aria-pressed", String(screens.every(screen => views.get(screen).app === app)));
     });
   }
@@ -207,6 +232,8 @@
   }
   for (const screen of screens) {
     render(screen);
+    screen.addEventListener('submit',event=>event.preventDefault());
+    screen.addEventListener('keydown',event=>{if(event.key==='Escape'){const menu=screen.querySelector('.public-demo-menu');if(menu)menu.hidden=true;}});
     screen.addEventListener("input", event => {
       const field = event.target.dataset.field;
       if (!["title","body","done"].includes(field)) return;
@@ -219,6 +246,9 @@
       if (!control) return;
       const {action,value} = control.dataset;
       const view = views.get(screen);
+      if (action === 'public-menu') {const menu=screen.querySelector('.public-demo-menu');menu.hidden=!menu.hidden;control.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)menu.querySelector('button')?.focus();return;}
+      if(action?.startsWith('spaces-')) {announce(local('Prévia de um recurso planejado'));return;}
+      if (action === 'public-planned') { announce(local('Prévia de um recurso planejado')); return; }
       if (action === "analyze" || action === "accept-analysis") {
         if(action === "analyze") state.analysis = "ready";
         else state.accepted = true;
@@ -238,8 +268,11 @@
         }
         return;
       }
-      if (action === "app" && names[value]) view.app = value;
-      if (action === "folder") { view.app = "files"; view.folder = value; view.file = ""; }
+      if (action === "app" && names[value]) {
+        if(!surface.views[value]&&!['concept','intelligence','context','notes','system','example-files'].includes(value)) {announce(local('Prévia de um recurso planejado'));return;}
+        view.app = value;
+      }
+      if (action === "folder") { view.app = "example-files"; view.folder = value; view.file = ""; }
       if (action === "file" && Object.hasOwn(fixtures,value)) view.file = value;
       if (action === "back") view.file = "";
       render(screen);
@@ -274,11 +307,11 @@
   });
   root.querySelector("[data-reset]").addEventListener("click",() => {
     state = initial();
-    screens.forEach(screen => { views.set(screen,{app:"projects",folder:"",file:""}); render(screen); });
+    screens.forEach(screen => { views.set(screen,{app:"home",folder:"",file:""}); render(screen); });
     announce("Demonstração reiniciada. Os dados de exemplo foram restaurados.");
   });
   root.querySelectorAll("[data-recipe]").forEach(control => control.addEventListener("click",() => {
-    const app = control.dataset.recipe === "theme" ? "settings" : control.dataset.recipe;
+    const app = recipeApp(control);
     screens.forEach(screen => { views.get(screen).app = app; render(screen); });
     screens[0].querySelector(".demo-content input, .demo-content button")?.focus({preventScroll:true});
     screens[0].scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"center"});
