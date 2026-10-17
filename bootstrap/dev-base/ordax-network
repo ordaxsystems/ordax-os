@@ -9,6 +9,8 @@ WPA_CONF=$STATE_DIR/wpa.conf
 CANDIDATE_CONF=/run/ordax-wpa-candidate.conf
 SCAN_FILE=/run/ordax-wifi-scan.tsv
 SSID_FILE=/run/ordax-wifi-ssids
+WPA_CTRL_DIR=/run/ordax-wpa-supplicant
+WPA_PID_FILE=/run/ordax-wpa-supplicant.pid
 CLOCK_SYNC_TIMEOUT=${ORDAX_CLOCK_SYNC_TIMEOUT_SECONDS:-5}
 DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}
 WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}
@@ -142,12 +144,59 @@ done
     exit 1
 }
 
+require_wifi_tools() {
+    for tool in iw wpa_supplicant wpa_cli wpa_passphrase; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "ordax-network: Base incompleta; ferramenta Wi-Fi ausente: $tool" >&2
+            return 1
+        fi
+    done
+}
+
+require_wifi_tools || exit 1
 ip link set "$wifi" up >/dev/null 2>&1 || true
 
-wait_for_wifi_link() {
+stop_wifi_client() {
+    pid=""
+    if [ -s "$WPA_PID_FILE" ]; then
+        pid=$(cat "$WPA_PID_FILE" 2>/dev/null || true)
+    fi
+
+    case "$pid" in
+        ''|*[!0-9]*)
+            # The development base owns the only supplicant lifecycle. This
+            # fallback also clears an orphan left by an older seed helper.
+            killall wpa_supplicant >/dev/null 2>&1 || true
+            ;;
+        *)
+            if [ -r "/proc/$pid/comm" ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null || true)" = "wpa_supplicant" ]; then
+                kill "$pid" >/dev/null 2>&1 || true
+                sleep 1
+                if kill -0 "$pid" >/dev/null 2>&1; then
+                    kill -9 "$pid" >/dev/null 2>&1 || true
+                fi
+            else
+                killall wpa_supplicant >/dev/null 2>&1 || true
+            fi
+            ;;
+    esac
+
+    rm -f "$WPA_PID_FILE"
+    rm -rf "$WPA_CTRL_DIR"
+    mkdir -p "$WPA_CTRL_DIR"
+    iw dev "$wifi" disconnect >/dev/null 2>&1 || true
+    ip addr flush dev "$wifi" >/dev/null 2>&1 || true
+}
+
+wpa_state_completed() {
+    status=$(wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null || true)
+    printf '%s\n' "$status" | grep -q '^wpa_state=COMPLETED$'
+}
+
+wait_for_wifi_authentication() {
     attempts=0
     while [ "$attempts" -lt "$WIFI_LINK_TIMEOUT" ]; do
-        if iw dev "$wifi" link 2>/dev/null | grep -q '^Connected to '; then
+        if wpa_state_completed; then
             return 0
         fi
         attempts=$((attempts + 1))
@@ -156,26 +205,67 @@ wait_for_wifi_link() {
     return 1
 }
 
+wifi_connect_result=not-started
 connect_wifi_conf() {
     conf=$1
-    [ -s "$conf" ] || return 1
-    killall wpa_supplicant >/dev/null 2>&1 || true
-    ip addr flush dev "$wifi" >/dev/null 2>&1 || true
-    wpa_supplicant -B -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
-    if ! wait_for_wifi_link; then
-        killall wpa_supplicant >/dev/null 2>&1 || true
+    [ -s "$conf" ] || {
+        wifi_connect_result=no-config
+        return 1
+    }
+
+    stop_wifi_client
+    if ! wpa_supplicant -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1; then
+        wifi_connect_result=supplicant-start
+        stop_wifi_client
         return 1
     fi
-    try_dhcp "$wifi"
+
+    # Association alone is not connectivity. Wait until wpa_supplicant has
+    # completed the WPA handshake before starting DHCP.
+    if ! wait_for_wifi_authentication; then
+        wifi_connect_result=authentication
+        stop_wifi_client
+        return 1
+    fi
+
+    if try_dhcp "$wifi"; then
+        wifi_connect_result=ok
+        return 0
+    fi
+
+    # If the link disappeared during DHCP, classify it as an authentication/
+    # association loss rather than incorrectly blaming the DHCP server.
+    if wpa_state_completed; then
+        wifi_connect_result=dhcp
+    else
+        wifi_connect_result=authentication
+    fi
+    stop_wifi_client
+    return 1
 }
 
 connect_saved_wifi() {
     connect_wifi_conf "$WPA_CONF"
 }
 
-if [ "$force_choose" -eq 0 ] && connect_saved_wifi; then
-    finish_network "$wifi"
-    exit 0
+if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then
+    if connect_saved_wifi; then
+        finish_network "$wifi"
+        exit 0
+    fi
+    case "$wifi_connect_result" in
+        dhcp)
+            echo "ordax-network: Wi-Fi salvo autenticou, mas DHCP nao respondeu; credencial preservada" >&2
+            exit 1
+            ;;
+        supplicant-start)
+            echo "ordax-network: nao foi possivel iniciar o cliente WPA da Base" >&2
+            exit 1
+            ;;
+        authentication)
+            echo "ordax-network: rede salva nao concluiu a autenticacao WPA; escolha a rede novamente" >&2
+            ;;
+    esac
 fi
 
 scan_secure_networks() {
@@ -378,7 +468,22 @@ while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do
     fi
 
     rm -f "$CANDIDATE_CONF"
-    echo "ordax-network: autenticacao falhou; confira a senha ou escolha outra rede" >&2
+    case "$wifi_connect_result" in
+        dhcp)
+            echo "ordax-network: Wi-Fi autenticado, mas DHCP nao respondeu; a senha nao sera solicitada novamente" >&2
+            exit 1
+            ;;
+        supplicant-start)
+            echo "ordax-network: nao foi possivel iniciar o cliente WPA da Base" >&2
+            exit 1
+            ;;
+        authentication)
+            echo "ordax-network: autenticacao WPA nao foi concluida; confira a senha ou escolha outra rede" >&2
+            ;;
+        *)
+            echo "ordax-network: conexao Wi-Fi nao foi concluida" >&2
+            ;;
+    esac
     if [ -s "$WPA_CONF" ]; then
         echo "ordax-network: a rede salva anteriormente foi preservada" >&2
     fi
