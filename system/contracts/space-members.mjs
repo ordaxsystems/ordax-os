@@ -1,10 +1,18 @@
 import { validateSpaceMembership } from "./spaces.mjs";
 
-export const SPACE_MEMBERS_READ_SCHEMA = "ordax.space-members-read/1";
-export const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/1";
+export const SPACE_MEMBERS_READ_SCHEMA = "ordax.space-members-read/2";
+export const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/2";
 export const MAX_SPACE_MEMBERS_PAGE_SIZE = 128;
 
 const MEMBER_STATES = new Set(["active", "suspended"]);
+const ASSIGNABLE_ROLES = new Set(["admin", "member", "viewer"]);
+const MEMBER_ACTION_FIELDS = new Set([
+  "canChangeRole",
+  "canSuspend",
+  "canReactivate",
+  "canRemove",
+  "assignableRoles",
+]);
 const FORBIDDEN_MUTATION_METHODS = Object.freeze([
   "addMember",
   "changeMemberRole",
@@ -31,6 +39,42 @@ function optionalCursor(value) {
   return boundedText(value, "Space members cursor", 240);
 }
 
+function validateSpaceMemberActions(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Space member actions must be an object");
+  }
+  for (const key of Object.keys(value)) {
+    if (!MEMBER_ACTION_FIELDS.has(key)) {
+      throw new TypeError(`Space member actions contain unsupported field ${key}`);
+    }
+  }
+  for (const field of ["canChangeRole", "canSuspend", "canReactivate", "canRemove"]) {
+    if (typeof value[field] !== "boolean") {
+      throw new TypeError(`Space member actions ${field} must be boolean`);
+    }
+  }
+  if (!Array.isArray(value.assignableRoles) || value.assignableRoles.length > ASSIGNABLE_ROLES.size) {
+    throw new TypeError("Space member assignable roles are invalid");
+  }
+  const roles = value.assignableRoles.map((role) => {
+    if (!ASSIGNABLE_ROLES.has(role)) throw new TypeError("Space member assignable role is invalid");
+    return role;
+  });
+  if (new Set(roles).size !== roles.length) {
+    throw new TypeError("Space member assignable roles contain duplicates");
+  }
+  if (value.canChangeRole !== (roles.length > 0)) {
+    throw new TypeError("Space member role capability is inconsistent");
+  }
+  return Object.freeze({
+    canChangeRole: value.canChangeRole,
+    canSuspend: value.canSuspend,
+    canReactivate: value.canReactivate,
+    canRemove: value.canRemove,
+    assignableRoles: Object.freeze(roles),
+  });
+}
+
 export function validateSpaceMember(value) {
   const membership = validateSpaceMembership(value);
   if (!MEMBER_STATES.has(value?.state)) {
@@ -41,6 +85,7 @@ export function validateSpaceMember(value) {
     userId: membership.userId,
     role: membership.role,
     state: value.state,
+    actions: validateSpaceMemberActions(value.actions),
   });
 }
 

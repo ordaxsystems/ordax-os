@@ -17,6 +17,20 @@ import { createSpaceMembersReader } from "../system/services/spaces/members.mjs"
 
 const SPACE_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
+const NO_ACTIONS = Object.freeze({
+  canChangeRole: false,
+  canSuspend: false,
+  canReactivate: false,
+  canRemove: false,
+  assignableRoles: Object.freeze([]),
+});
+const OWNER_ACTIONS = Object.freeze({
+  canChangeRole: true,
+  canSuspend: true,
+  canReactivate: true,
+  canRemove: true,
+  assignableRoles: Object.freeze(["admin", "member", "viewer"]),
+});
 
 function spacesPort(state = "ready", spaces = null) {
   const snapshot = Object.freeze({
@@ -63,6 +77,7 @@ function page(spaceId = SPACE_ID, extra = {}) {
       userId: USER_ID,
       role: "owner",
       state: "active",
+      actions: NO_ACTIONS,
     }],
     nextCursor: null,
     ...extra,
@@ -75,24 +90,40 @@ test("Space member projection reuses canonical membership roles and adds lifecyc
     userId: USER_ID,
     role: "admin",
     state: "suspended",
+    actions: OWNER_ACTIONS,
   }), {
     spaceId: SPACE_ID,
     userId: USER_ID,
     role: "admin",
     state: "suspended",
+    actions: OWNER_ACTIONS,
   });
   assert.throws(() => validateSpaceMember({
     spaceId: SPACE_ID,
     userId: USER_ID,
     role: "manager",
     state: "active",
+    actions: NO_ACTIONS,
   }), /role is invalid/);
   assert.throws(() => validateSpaceMember({
     spaceId: SPACE_ID,
     userId: USER_ID,
     role: "member",
     state: "removed",
+    actions: NO_ACTIONS,
   }), /state is invalid/);
+});
+
+test("Space member action projection is exact and fail-closed", () => {
+  assert.throws(() => validateSpaceMember({ spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active" }), /actions must be an object/);
+  assert.throws(() => validateSpaceMember({
+    spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active",
+    actions: { ...NO_ACTIONS, canChangeRole: true },
+  }), /role capability is inconsistent/);
+  assert.throws(() => validateSpaceMember({
+    spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active",
+    actions: { ...OWNER_ACTIONS, assignableRoles: ["admin", "admin"] },
+  }), /duplicates/);
 });
 
 test("Space members pages are bounded, single-Space and duplicate-free", () => {
@@ -106,13 +137,14 @@ test("Space members pages are bounded, single-Space and duplicate-free", () => {
       userId: USER_ID,
       role: "member",
       state: "active",
+      actions: NO_ACTIONS,
     }],
   })), /another Space/);
 
   assert.throws(() => validateSpaceMembersPage(page(SPACE_ID, {
     members: [
-      { spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active" },
-      { spaceId: SPACE_ID, userId: USER_ID, role: "viewer", state: "active" },
+      { spaceId: SPACE_ID, userId: USER_ID, role: "member", state: "active", actions: NO_ACTIONS },
+      { spaceId: SPACE_ID, userId: USER_ID, role: "viewer", state: "active", actions: NO_ACTIONS },
     ],
   })), /duplicate users/);
 });

@@ -24,6 +24,15 @@ function attemptKey(action: ActionKind, userId: string, role?: ActionRole) {
   return `${action}:${userId}:${role ?? ''}`;
 }
 
+function isProjectedActionAllowed(member: SpaceMember, action: ActionKind, role?: ActionRole) {
+  if (action === 'change-role') {
+    return role !== undefined && member.actions.canChangeRole && member.actions.assignableRoles.includes(role);
+  }
+  if (action === 'suspend') return member.actions.canSuspend;
+  if (action === 'reactivate') return member.actions.canReactivate;
+  return member.actions.canRemove;
+}
+
 export function SpaceMembersPanel() {
   const { authorized, members, actorCapability, membershipActions, offline } = useWebAccount();
   const spaceId = authorized.activeSpace?.id ?? null;
@@ -88,7 +97,7 @@ export function SpaceMembersPanel() {
   }
 
   async function runAction(action: ActionKind, member: SpaceMember, role?: ActionRole) {
-    if (spaceId === null || !capability?.canManageMembers || actionPending !== null) return;
+    if (spaceId === null || !capability?.canManageMembers || actionPending !== null || !isProjectedActionAllowed(member, action, role)) return;
     const key = attemptKey(action, member.userId, role);
     const idempotencyKey = getAttemptId(key);
     setActionPending(key);
@@ -155,17 +164,18 @@ export function SpaceMembersPanel() {
         {items.length > 0 ? <div className="meridian-space-members-list" role="list" aria-label="Membros carregados">{items.map(member => {
           const memberRole = String(member.role);
           const memberState = String(member.state);
-          const editable = canManageMembers && memberRole !== 'owner';
+          const actions = member.actions;
+          const editable = canManageMembers && (actions.canChangeRole || actions.canSuspend || actions.canReactivate || actions.canRemove);
           return <article key={member.userId} role="listitem" className="meridian-space-member-row" data-state={memberState}>
             <span className="meridian-space-member-avatar" aria-hidden="true"><UsersRound/></span>
             <div className="meridian-space-member-identity"><strong>{member.userId}</strong><small>Identificador da Conta OrdaX</small></div>
             <span className="meridian-space-member-role">{roleLabels[memberRole] ?? 'Função não reconhecida'}</span>
             <span className="meridian-space-member-state">{stateLabels[memberState] ?? 'Estado não reconhecido'}</span>
             {editable && <div className="meridian-space-member-actions" aria-label={`Ações para ${member.userId}`}>
-              <label><span>Função</span><select value={memberRole} disabled={actionPending !== null} onChange={event => void runAction('change-role', member, event.currentTarget.value as ActionRole)}><option value="admin">Administrador</option><option value="member">Membro</option><option value="viewer">Visualizador</option></select></label>
-              {memberState === 'active' ? <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('suspend', member)}>Suspender</Button>
-                : <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('reactivate', member)}>Reativar</Button>}
-              <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (window.confirm('Remover este membro do Space?')) void runAction('remove', member); }}>Remover</Button>
+              {actions.canChangeRole && <label><span>Função</span><select value={memberRole} disabled={actionPending !== null} onChange={event => void runAction('change-role', member, event.currentTarget.value as ActionRole)}>{actions.assignableRoles.map((role: ActionRole) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label>}
+              {memberState === 'active' && actions.canSuspend && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('suspend', member)}>Suspender</Button>}
+              {memberState === 'suspended' && actions.canReactivate && <Button variant="outline" disabled={actionPending !== null} onClick={() => void runAction('reactivate', member)}>Reativar</Button>}
+              {actions.canRemove && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (window.confirm('Remover este membro do Space?')) void runAction('remove', member); }}>Remover</Button>}
             </div>}
           </article>;
         })}</div>
