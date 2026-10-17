@@ -10,6 +10,7 @@ BASE = ROOT / "bootstrap" / "independent-base"
 SOURCE = BASE / "source.json"
 FRAGMENT = BASE / "configs" / "owner-development.fragment"
 OWNER_BUSYBOX_FRAGMENT = BASE / "configs" / "owner-development.busybox.fragment"
+NETWORK_HELPER = ROOT / "bootstrap" / "dev-base" / "ordax-network"
 POST_BUILD = BASE / "post-build.sh"
 BUILD = BASE / "build.py"
 OWNER_BUSYBOX_CONFIG = (
@@ -74,6 +75,12 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertEqual(lines, ["CONFIG_NTPD=y"])
         self.assertNotIn("CONFIG_TIMEOUT=y", lines)
         self.assertNotIn("CONFIG_IP=y", lines)
+
+    def test_owner_busybox_clock_capability_has_a_real_runtime_consumer(self) -> None:
+        helper = NETWORK_HELPER.read_text(encoding="utf-8")
+        self.assertIn("/bin/busybox ntpd -q -n", helper)
+        self.assertIn("CLOCK_SYNC_TIMEOUT", helper)
+        self.assertIn("Git validara HTTPS independentemente", helper)
 
     def test_builder_validates_fragment_without_second_firmware_family_list(self) -> None:
         text = BUILD.read_text(encoding="utf-8")
