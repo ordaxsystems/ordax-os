@@ -2,6 +2,7 @@ export const SPACE_LIFECYCLE_SCHEMA = "ordax.space-lifecycle/1";
 export const SPACE_LIFECYCLE_REQUEST_SCHEMA = "ordax.space-lifecycle-request/1";
 
 const ACTIONS = new Set(["rename", "archive", "restore"]);
+const BASE_REQUEST_FIELDS = new Set(["schema", "action", "spaceId", "idempotencyKey"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function objectValue(value, label) {
@@ -11,15 +12,17 @@ function objectValue(value, label) {
   return value;
 }
 
-function boundedText(value, label, max) {
-  if (typeof value !== "string" || value.length < 1 || value.length > max || value.includes("\0")) {
+function boundedTrimmedText(value, label, max) {
+  if (typeof value !== "string" || value.length > max || value.includes("\0")) {
     throw new TypeError(`${label} must be bounded text`);
   }
-  return value;
+  const normalized = value.trim();
+  if (!normalized) throw new TypeError(`${label} must be bounded text`);
+  return normalized;
 }
 
 function normalizeSpaceId(value) {
-  return boundedText(value, "Space lifecycle spaceId", 160).trim();
+  return boundedTrimmedText(value, "Space lifecycle spaceId", 160);
 }
 
 function normalizeIdempotencyKey(value) {
@@ -27,6 +30,16 @@ function normalizeIdempotencyKey(value) {
     throw new TypeError("Space lifecycle idempotencyKey must be a UUID");
   }
   return value.toLowerCase();
+}
+
+function assertExactRequestFields(raw) {
+  const allowed = new Set(BASE_REQUEST_FIELDS);
+  if (raw.action === "rename") allowed.add("name");
+  for (const key of Object.keys(raw)) {
+    if (!allowed.has(key)) {
+      throw new TypeError(`Space lifecycle request contains unsupported field ${key}`);
+    }
+  }
 }
 
 export function validateSpaceLifecycleSnapshot(value) {
@@ -51,6 +64,7 @@ export function validateSpaceLifecycleRequest(value) {
   if (raw.schema !== SPACE_LIFECYCLE_REQUEST_SCHEMA || !ACTIONS.has(raw.action)) {
     throw new TypeError("Space lifecycle request schema/action is invalid");
   }
+  assertExactRequestFields(raw);
 
   const request = {
     schema: SPACE_LIFECYCLE_REQUEST_SCHEMA,
@@ -60,15 +74,7 @@ export function validateSpaceLifecycleRequest(value) {
   };
 
   if (raw.action === "rename") {
-    request.name = boundedText(raw.name, "Space lifecycle name", 120).trim();
-  } else if (Object.hasOwn(raw, "name")) {
-    throw new TypeError(`Space lifecycle ${raw.action} request cannot include name`);
-  }
-
-  for (const forbidden of ["actorId", "userId", "ownerId", "role", "membership", "authorized", "authority"]) {
-    if (Object.hasOwn(raw, forbidden)) {
-      throw new TypeError(`Space lifecycle request cannot supply ${forbidden}`);
-    }
+    request.name = boundedTrimmedText(raw.name, "Space lifecycle name", 120);
   }
 
   return Object.freeze(request);
