@@ -1,5 +1,17 @@
 # Current State
 
+Web navigation and internal page consistency (2026-10-16): Projects, Files,
+Devices, Activity and Continuity share one planned-service presentation with
+existing unavailable-service messages, preserved integration notes, capability
+cards and links to actual Spaces/Account windows. No device, file or activity
+record is fabricated. Apps and Profile catalog use the same content width and
+readable spacing. The topbar/dock search identifies its destination scope,
+includes Account/Continuity, and matches labels/targets without accents. The
+Continuity rail control now opens its own existing window instead of Activity.
+Scoped rendering/search regressions, reference verification and Web compilation
+pass. The strict-CSP browser proof passes seven viewports and exercises these
+service destinations at desktop and 320px; service connections remain pending.
+
 Web account navigation usability (2026-10-16): manual rail collapse now stacks
 utilities vertically and retains 44px hit areas instead of compressing them to
 roughly 18px. The profile avatar has readable initials, clearer decorative status

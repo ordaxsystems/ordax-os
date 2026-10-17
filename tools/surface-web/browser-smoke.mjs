@@ -163,6 +163,19 @@ try {
       const spacesShot=await client.send('Page.captureScreenshot',{format:'png'});
       await writeFile(join(evidence,'spaces-'+width+'x'+height+'.png'),Buffer.from(spacesShot.data,'base64'));
       await click('[aria-label="Fechar Espaços"]');
+      if(width===1440||width===320){
+        for(const title of ['Projetos','Arquivos','Dispositivos','Atividades','Continuidade']){
+          if(title==='Continuidade'&&width===1440)await click('.meridian-rail-utilities [aria-label="Continuidade"]');
+          else await openSidebarDestination(title);
+          await until("!!document.querySelector('.meridian-capability-grid')");
+          assert.equal(await evaluate("(()=>{const p=document.querySelector('.meridian-capability-grid').closest('.os-panel');return p.scrollWidth<=p.clientWidth+1&&p.querySelectorAll('article').length===3;})()"),true,'Planned service pages retain their resources without overflowing');
+          if(title==='Dispositivos'){
+            const shot=await client.send('Page.captureScreenshot',{format:'png'});
+            await writeFile(join(evidence,'devices-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+          }
+          await click('[aria-label="Fechar '+title+'"]');
+        }
+      }
       if(width===1440){
         await openSidebarDestination('Loja');
         await until("!!document.querySelector('.meridian-store-presentation')?.shadowRoot?.querySelector('[data-meridian]')");

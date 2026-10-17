@@ -6,7 +6,7 @@ import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createWebAccountSession} from '../system/composition/web/account-session.mjs';
 
-let server, WebAccountProvider, SpacesPanel, SpacesExperience, AccountPanel;
+let server, WebAccountProvider, SpacesPanel, DesktopContent, SpacesExperience, AccountPanel;
 before(async () => {
   server = await createServer({
     configFile: fileURLToPath(new URL('../tools/surface-web/vite.config.ts', import.meta.url)),
@@ -14,7 +14,7 @@ before(async () => {
     appType: 'custom', optimizeDeps: {noDiscovery: true, include: []},
   });
   const load = file => server.ssrLoadModule('/@fs/' + fileURLToPath(new URL('../system/surface/workspace/components/central/' + file, import.meta.url)));
-  [{WebAccountProvider}, {SpacesPanel}, {SpacesExperience}, {AccountPanel}] = await Promise.all([
+  [{WebAccountProvider}, {SpacesPanel, DesktopContent}, {SpacesExperience}, {AccountPanel}] = await Promise.all([
     load('account-context.tsx'), load('desktop.tsx'), load('spaces-experience.tsx'), load('primitives.tsx'),
   ]);
 });
@@ -170,4 +170,16 @@ test('account management keeps its canonical portal owner on the dedicated Web h
     assert.match(html, /Sair da conta/);
     assert.match(html, /Recursos de conta pendentes/);
   } finally { f.session.dispose(); }
+});
+
+test('unconnected service pages keep their planned resources and explicit integration notes', () => {
+  for (const title of ['Projetos','Arquivos','Dispositivos','Atividades','Continuidade']) {
+    const html=renderToStaticMarkup(createElement(DesktopContent,{title,open(){},onCentral(){}}));
+    assert.match(html,/meridian-service-page/);
+    assert.match(html,/meridian-capability-grid/);
+    assert.equal((html.match(/<article/g)??[]).length,3);
+    assert.match(html,/Este recurso ainda não está conectado ao Web/);
+    assert.match(html,/O que falta conectar/);
+    assert.doesNotMatch(html,/Nenhum dispositivo conectado|Nenhuma atividade encontrada/);
+  }
 });

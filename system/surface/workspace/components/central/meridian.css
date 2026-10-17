@@ -293,6 +293,30 @@
 .meridian-workspace .meridian-account-spaces > .panel-heading { grid-template-columns: minmax(0,1fr); }
 @container (min-width: 480px) { .meridian-workspace .meridian-account-spaces > .panel-heading { grid-template-columns: minmax(0,1fr) auto; } }
 
+.os-panel.meridian-service-page { width:100%;max-width:1120px;margin:0 auto;padding:24px;container-type:inline-size; }
+.meridian-service-page>.service-state,.meridian-service-intro { font-size:.875rem;line-height:1.7;color:var(--md-muted);margin:0 0 24px; }
+.meridian-service-state { display:flex;align-items:flex-start;gap:20px;padding:24px;border:1px solid var(--md-border);border-radius:14px;background:var(--md-surface);margin-bottom:28px; }
+.meridian-service-icon { display:grid;place-items:center;flex:0 0 56px;height:56px;border-radius:14px;background:var(--md-sage-soft);color:var(--md-sage); }
+.meridian-service-state>div { min-width:0; }
+.meridian-service-state h3 { font-size:1.125rem;line-height:1.4;font-weight:550;margin:12px 0 8px; }
+.meridian-service-state p { font-size:.875rem;color:var(--md-muted);line-height:1.7;margin:0; }
+.meridian-service-heading { display:flex;align-items:center;gap:12px;margin-bottom:16px; }
+.meridian-service-heading h3 { font-size:1rem;font-weight:550;margin:0; }
+.meridian-capability-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:16px; }
+.meridian-capability-grid article { min-width:0;padding:22px;border:1px solid var(--md-border);border-radius:12px;background:var(--md-subtle); }
+.meridian-capability-grid article>svg { color:var(--md-sage); }
+.meridian-capability-grid h4 { font-size:.9375rem;font-weight:550;margin:18px 0 8px; }
+.meridian-capability-grid p { font-size:.8125rem;line-height:1.7;color:var(--md-muted);margin:0 0 16px; }
+.meridian-capability-grid small { font-size:.6875rem;color:var(--md-danger); }
+.meridian-service-links { display:flex;flex-wrap:wrap;gap:12px;margin:24px 0; }
+.meridian-service-links button { min-height:44px;gap:10px; }
+.meridian-service-page .meridian-integration-note { font-size:.8125rem;line-height:1.7; }
+.meridian-service-page .favorite-grid { gap:16px; }
+.meridian-service-page .favorite-tile { min-height:112px;border:1px solid var(--md-border);border-radius:12px;background:var(--md-surface);font-size:.8125rem; }
+.meridian-service-page .favorite-tile:hover { background:var(--md-subtle); }
+@container (max-width:400px) { .meridian-service-state { padding:18px;gap:14px;flex-direction:column; } .meridian-service-icon { flex-basis:48px;width:48px;height:48px; } }
+@media(max-width:640px) { .os-panel.meridian-service-page { padding:18px; } }
+
 /* Central retains manual rail sizing through the shared presentation owner. */
 .meridian-rail .sidebar-collapse {position:static;transform:none;display:flex;align-items:center;justify-content:center;width:100%;height:44px;min-height:44px;border-radius:var(--md-radius-small);cursor:pointer;}
 @media(min-width:951px) {
