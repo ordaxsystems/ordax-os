@@ -567,7 +567,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         dev_init = DEV_INIT.read_text(encoding="utf-8")
 
         self.assertIn("if ! sync_clock; then", network)
-        self.assertIn("continuando com IP disponivel", network)
+        self.assertIn("IP disponivel, mas relogio nao sincronizou dentro do limite", network)
         self.assertIn('CLOCK_SYNC_TIMEOUT=${ORDAX_CLOCK_SYNC_TIMEOUT_SECONDS:-5}', network)
         self.assertIn('DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}', network)
         self.assertIn('WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}', network)
