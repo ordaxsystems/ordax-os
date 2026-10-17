@@ -3,6 +3,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CREATOR_PAYLOAD = ROOT / ".github/workflows/creator-payload-candidate.yml"
+FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 OWNER_DEV = ROOT / ".github/workflows/creator-owner-dev-git.yml"
 DEV_BASE_CHANNEL = ROOT / ".github/workflows/dev-base-channel.yml"
 OWNER_DEV_DIAGNOSE = ROOT / ".github/workflows/creator-owner-build-diagnose.yml"
@@ -53,6 +54,23 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("steps.component-fingerprints.outputs.kernel", restore)
         return workflow
 
+    def test_heavy_creator_paths_fail_cheap_component_bindings_before_kernel_build(self):
+        for path in (CREATOR_PAYLOAD, FULL_MEDIA_WORKFLOW):
+            workflow = self.workflow(path)
+            self.assertIn("check-group --group initramfs", workflow)
+            self.assertIn("check-group --group bootstrap-network", workflow)
+            self.assertLess(
+                workflow.index("check-group --group initramfs"),
+                workflow.index("bootstrap/kernel/build.py build --jobs 4"),
+            )
+            self.assertLess(
+                workflow.index("check-group --group bootstrap-network"),
+                workflow.index("bootstrap/kernel/build.py build --jobs 4"),
+            )
+            self.assertLess(
+                workflow.index("Preflight immutable bootstrap bindings"),
+                workflow.index("Install bounded build"),
+            )
     def test_creator_payload_reuses_only_verified_kernel_bytes(self):
         workflow = self.assert_verified_kernel_reuse(CREATOR_PAYLOAD)
         for step in (

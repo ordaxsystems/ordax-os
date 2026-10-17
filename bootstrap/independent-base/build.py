@@ -48,6 +48,7 @@ OWNER_USERSPACE_CONFIG = (
     "BR2_PACKAGE_IW=y",
     "BR2_PACKAGE_WPA_SUPPLICANT=y",
     "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
 )
 OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
@@ -538,6 +539,7 @@ def verify_owner_target(target: Path) -> None:
         "usr/sbin/iw": None,
         "usr/sbin/wpa_supplicant": None,
         "usr/sbin/wpa_passphrase": None,
+        "usr/sbin/wpa_cli": None,
         "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
         "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
         "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
@@ -590,9 +592,16 @@ def verify_target(target: Path, profile: str) -> dict:
     required_applets = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
                         "poweroff", "grep", "sync", "modprobe", "timeout",
                         "od", "tr", "stat", "uname", "sleep", "true",
-                        "cat", "mkdir", "chmod"}
+                        "cat", "mkdir", "chmod", "flock"}
     if profile == "owner-development":
-        required_applets.add("ntpd")
+        # Runtime closure for the canonical Owner helpers. Keep this list tied
+        # to commands those scripts execute directly; built target verification
+        # proves the applets exist before a candidate can be emitted.
+        required_applets.update({
+            "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
+            "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
+            "test", "touch", "wc",
+        })
     missing = required_applets - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")

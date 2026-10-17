@@ -50,6 +50,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "BR2_PACKAGE_IW=y",
             "BR2_PACKAGE_WPA_SUPPLICANT=y",
             "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
+            "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
         }
         self.assertTrue(required_userspace.issubset(lines))
         self.assertIn(OWNER_BUSYBOX_CONFIG, lines)
@@ -81,6 +82,22 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn("/bin/busybox ntpd -q -n", helper)
         self.assertIn("CLOCK_SYNC_TIMEOUT", helper)
         self.assertIn("Git validara HTTPS independentemente", helper)
+    def test_owner_wifi_cli_capability_has_a_real_runtime_consumer(self) -> None:
+        helper = NETWORK_HELPER.read_text(encoding="utf-8")
+        self.assertIn("for tool in iw wpa_supplicant wpa_cli wpa_passphrase", helper)
+        fragment = FRAGMENT.read_text(encoding="utf-8")
+        self.assertIn("BR2_PACKAGE_WPA_SUPPLICANT_CLI=y", fragment)
+        builder = BUILD.read_text(encoding="utf-8")
+        self.assertIn('"usr/sbin/wpa_cli": None', builder)
+
+    def test_owner_target_verifies_runtime_busybox_command_closure(self) -> None:
+        builder = BUILD.read_text(encoding="utf-8")
+        for applet in (
+            "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
+            "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
+            "test", "touch", "wc", "flock",
+        ):
+            self.assertIn(f'"{applet}"', builder)
 
     def test_builder_validates_fragment_without_second_firmware_family_list(self) -> None:
         text = BUILD.read_text(encoding="utf-8")
@@ -132,6 +149,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "$TARGET_DIR/usr/sbin/iw",
             "$TARGET_DIR/usr/sbin/wpa_supplicant",
             "$TARGET_DIR/usr/sbin/wpa_passphrase",
+            "$TARGET_DIR/usr/sbin/wpa_cli",
         ):
             self.assertIn(target, script)
         self.assertIn("Owner/Development CA trust store is missing", script)

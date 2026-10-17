@@ -8,6 +8,7 @@ BR2_PACKAGE_GIT=y
 BR2_PACKAGE_IW=y
 BR2_PACKAGE_WPA_SUPPLICANT=y
 BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y
+BR2_PACKAGE_WPA_SUPPLICANT_CLI=y
 
 # Owner/Development reuses every portable handoff applet and adds only the
 # clock-recovery applet consumed by ordax-network before Git/HTTPS bootstrap.

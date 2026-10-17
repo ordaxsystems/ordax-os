@@ -107,7 +107,8 @@ if test "$PROFILE" = owner-development; then
         "$TARGET_DIR/usr/bin/git" \
         "$TARGET_DIR/usr/sbin/iw" \
         "$TARGET_DIR/usr/sbin/wpa_supplicant" \
-        "$TARGET_DIR/usr/sbin/wpa_passphrase"
+        "$TARGET_DIR/usr/sbin/wpa_passphrase" \
+        "$TARGET_DIR/usr/sbin/wpa_cli"
     do
         if ! test -x "$required"; then
             echo "Incomplete Owner/Development target capability set: $required" >&2
