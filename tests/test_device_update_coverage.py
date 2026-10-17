@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "contracts" / "device-update-coverage.json"
 PULL = ROOT / "bootstrap" / "dev-base" / "ordax-pull"
 DEV_HELPERS = ROOT / "system" / "services" / "base-update" / "dev-helpers.sh"
+HELPER_MANIFEST = ROOT / "system" / "services" / "base-update" / "dev-helper-manifest.tsv"
 DEV_CHANNEL = ROOT / "system" / "services" / "base-update" / "dev_channel.py"
 MINIMAL = ROOT / "docs" / "contracts" / "minimal-bootstrap.json"
 DEV_INIT = ROOT / "bootstrap" / "dev-base" / "ordax-dev-init"
@@ -66,6 +67,13 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         self.assertNotIn("/bootstrap/initramfs/", pull)
         self.assertNotIn("/tools/creator/", pull)
 
+        self.assertIn('done <"$HELPER_MANIFEST"', helpers)
+        sources = {
+            line.split("\t", 1)[0]
+            for line in HELPER_MANIFEST.read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#")
+        }
+
         for source in (
             "bootstrap/dev-base/ordax-dev-init",
             "bootstrap/dev-base/ordax-network",
@@ -75,7 +83,7 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
             "bootstrap/dev-base/ordax-run",
             "bootstrap/recovery/entrypoint",
         ):
-            self.assertIn(source, helpers)
+            self.assertIn(source, sources)
 
     def test_kernel_initramfs_and_rootfs_use_exact_commit_base_delivery_without_usb_rewrite(self):
         channel = DEV_CHANNEL.read_text(encoding="utf-8")
