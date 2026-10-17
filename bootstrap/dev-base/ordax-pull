@@ -17,7 +17,10 @@ GIT_LOW_SPEED_TIME=${ORDAX_BOOT_GIT_LOW_SPEED_SECONDS:-15}
 WORKSPACE_ROOT=${WORKTREE%/*}
 STAGING_PREFIX=$WORKSPACE_ROOT/.ordax-staging
 RETIRED_PREFIX=$WORKSPACE_ROOT/.ordax-retired
+PULL_LOCK_DIR=${ORDAX_PULL_LOCK_DIR:-$STATE_DIR/locks}
+PULL_LOCK_FILE=$PULL_LOCK_DIR/checkout.lock
 SEED_MODE=0
+RECOVERY_ONLY=0
 SEED_SOURCE_REPO=
 SEED_SOURCE_SHA=
 case "${1:-}" in
@@ -26,6 +29,10 @@ case "${1:-}" in
         SEED_MODE=1
         SEED_SOURCE_REPO=$2
         SEED_SOURCE_SHA=$3
+        ;;
+    --recover-local)
+        [ "$#" -eq 1 ] || { echo "usage: ordax-pull --recover-local" >&2; exit 2; }
+        RECOVERY_ONLY=1
         ;;
     "") ;;
     *) echo "ordax-git: unsupported argument: $1" >&2; exit 2 ;;
@@ -93,19 +100,11 @@ configure_runtime_checkout_at() {
     git -C "$checkout" sparse-checkout set --no-cone \
         /system/ \
         /bootstrap/base-update/ \
-        /bootstrap/dev-base/ordax-dev-init \
-        /bootstrap/dev-base/ordax-diagnose \
-        /bootstrap/dev-base/ordax-network \
-        /bootstrap/dev-base/ordax-main-watch \
-        /bootstrap/dev-base/ordax-pull \
-        /bootstrap/dev-base/ordax-rollback \
-        /bootstrap/dev-base/ordax-run \
-        /bootstrap/recovery/entrypoint \
+        /bootstrap/dev-base/ \
+        /bootstrap/recovery/ \
         /bootstrap/trust/ \
-        /bootstrap/config/release-envelope-url \
-        /docs/contracts/base-update.json \
-        /docs/contracts/release-trust-policy.json \
-        /docs/contracts/minimal-bootstrap.json \
+        /bootstrap/config/ \
+        /docs/contracts/ \
         /docs/evidence/release-trust-ceremony.json \
         /docs/evidence/release-trust-proof-manifest.json \
         /docs/evidence/release-trust-recovery-envelope.json
@@ -150,6 +149,61 @@ checkout_is_clean() {
     checkout=$1
     status=$(git -C "$checkout" status --porcelain 2>/dev/null) || return 1
     [ -z "$status" ]
+}
+
+acquire_pull_lock() {
+    [ ! -L "$PULL_LOCK_FILE" ] || {
+        echo "ordax-git: refusing unsafe transaction lock" >&2
+        return 1
+    }
+    : >"$PULL_LOCK_FILE"
+    chmod 600 "$PULL_LOCK_FILE" 2>/dev/null || true
+    exec 9>"$PULL_LOCK_FILE"
+    if [ -x /bin/busybox ] && /bin/busybox --list 2>/dev/null | grep -x flock >/dev/null 2>&1; then
+        /bin/busybox flock -n 9
+        return $?
+    fi
+    command -v flock >/dev/null 2>&1 || {
+        echo "ordax-git: flock unavailable; refusing concurrent-unsafe update" >&2
+        return 1
+    }
+    flock -n 9
+}
+
+recover_interrupted_checkout() {
+    # A clean live checkout means any old transaction directories are stale.
+    if [ -e "$WORKTREE" ]; then
+        if checkout_metadata_valid "$WORKTREE" && checkout_is_clean "$WORKTREE"; then
+            rm -rf "$STAGING_PREFIX".* "$RETIRED_PREFIX".* 2>/dev/null || true
+            return 0
+        fi
+        return 1
+    fi
+
+    # Power loss can occur after the known-good checkout is renamed away but
+    # before the candidate is renamed into place. CURRENT_FILE still identifies
+    # the checkout that was authoritative before that swap.
+    wanted_sha=$(read_state "$CURRENT_FILE")
+    is_sha "$wanted_sha" || wanted_sha=""
+    for retired in "$RETIRED_PREFIX".*; do
+        [ -d "$retired" ] && [ ! -L "$retired" ] || continue
+        checkout_metadata_valid "$retired" || continue
+        checkout_is_clean "$retired" || continue
+        retired_sha=$(git -C "$retired" rev-parse HEAD 2>/dev/null || true)
+        is_sha "$retired_sha" || continue
+        if [ -n "$wanted_sha" ] && [ "$retired_sha" != "$wanted_sha" ]; then
+            continue
+        fi
+        if mv "$retired" "$WORKTREE"; then
+            write_state "$CURRENT_FILE" "$retired_sha"
+            sync >/dev/null 2>&1 || true
+            rm -rf "$STAGING_PREFIX".* "$RETIRED_PREFIX".* 2>/dev/null || true
+            echo "ordax-git: checkout known-good recuperado apos interrupcao em $retired_sha" >&2
+            return 0
+        fi
+        return 1
+    done
+    return 1
 }
 
 remote_main_sha() {
@@ -306,6 +360,10 @@ replace_runtime_checkout() {
         return 1
     fi
 
+    # Persist the new directory entry before discarding the previous known-good
+    # checkout. A sudden power loss therefore leaves either the new checkout or
+    # the recoverable retired checkout, never a deliberate empty window.
+    sync >/dev/null 2>&1 || true
     rm -rf "$retired"
     if is_sha "$old_sha" && [ "$old_sha" != "$expected_sha" ]; then
         write_state "$PREVIOUS_FILE" "$old_sha"
@@ -332,8 +390,25 @@ refresh_dev_helpers() {
     return 0
 }
 
-mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR"
-rm -rf "$STAGING_PREFIX".* "$RETIRED_PREFIX".* 2>/dev/null || true
+mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR" "$PULL_LOCK_DIR"
+chmod 700 "$PULL_LOCK_DIR" 2>/dev/null || true
+if ! acquire_pull_lock; then
+    echo "ordax-git: another checkout transaction is active" >&2
+    exit 75
+fi
+
+recover_interrupted_checkout || true
+if [ "$RECOVERY_ONLY" -eq 1 ]; then
+    if checkout_metadata_valid "$WORKTREE" && checkout_is_clean "$WORKTREE"; then
+        current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+        is_sha "$current" || exit 1
+        write_state "$CURRENT_FILE" "$current"
+        printf 'ORDAX_SOURCE_SHA=%s\n' "$current"
+        exit 0
+    fi
+    echo "ordax-git: no locally recoverable checkout is available" >&2
+    exit 1
+fi
 
 if [ "$SEED_MODE" -eq 1 ]; then
     is_sha "$SEED_SOURCE_SHA" || {
