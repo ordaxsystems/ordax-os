@@ -5,14 +5,15 @@ import {
 } from "../../contracts/keyboard-layout.mjs";
 
 const KEYBOARD_LAYOUT_ENDPOINT = "/__ordax/native/keyboard-layout";
+const KEYBOARD_LAYOUT_APPLY_ENDPOINT = "/__ordax/native/keyboard-layout/apply";
 
 export async function createNativeKeyboardLayout(windowRef = globalThis.window) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native keyboard-layout adapter requires window.fetch");
   }
 
-  const request = async (method, body = null) => {
-    const response = await windowRef.fetch(KEYBOARD_LAYOUT_ENDPOINT, {
+  const request = async (method, body = null, endpoint = KEYBOARD_LAYOUT_ENDPOINT) => {
+    const response = await windowRef.fetch(endpoint, {
       method,
       cache: "no-store",
       credentials: "same-origin",
@@ -32,6 +33,9 @@ export async function createNativeKeyboardLayout(windowRef = globalThis.window) 
     },
     configure(layoutId) {
       return request("POST", { layoutId });
+    },
+    apply(layoutId) {
+      return request("POST", { layoutId }, KEYBOARD_LAYOUT_APPLY_ENDPOINT);
     },
   };
 
