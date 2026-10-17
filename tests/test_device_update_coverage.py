@@ -160,7 +160,8 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
     def test_boot_branding_status_is_explicit(self):
         dev_init = DEV_INIT.read_text(encoding="utf-8")
         self.assertIn("OrdaX Development Base", dev_init)
-        self.assertIn("Iniciando OrdaX...", dev_init)
+        self.assertIn("OrdaX Dev pronto.", dev_init)
+        self.assertNotIn("Iniciando OrdaX...", dev_init)
 
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         branding = contract["branding"]
