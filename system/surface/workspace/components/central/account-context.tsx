@@ -3,6 +3,7 @@ import { createContext, useContext, useSyncExternalStore, type ReactNode } from 
 import type { validateIdentitySessionSnapshot } from '../../../../contracts/identity-session.mjs';
 import type { validateIdentityActionsSnapshot } from '../../../../contracts/identity-actions.mjs';
 import type { validateSpace, validateSpacesSnapshot } from '../../../../contracts/spaces.mjs';
+import type { validateSpaceMembersPage } from '../../../../contracts/space-members.mjs';
 import type { validateSpaceSelectionSnapshot } from '../../../../contracts/space-selection.mjs';
 import type { validateSurfaceSnapshot } from '../../../../contracts/surface-host.mjs';
 import { deriveAuthorizedSpaces } from '../../../../services/spaces/authorized-view.mjs';
@@ -18,6 +19,9 @@ type AccountSession = Readonly<{
     execute(action: 'sign-in' | 'register' | 'sign-out'): Promise<void>;
   };
   spaces: SnapshotPort<ReturnType<typeof validateSpacesSnapshot>>;
+  members: Readonly<{
+    list(request: { spaceId: string; cursor?: string | null }): Promise<ReturnType<typeof validateSpaceMembersPage>>;
+  }>;
   selection: SnapshotPort<ReturnType<typeof validateSpaceSelectionSnapshot>> & {
     select(spaceId: string): unknown;
     clear(): unknown;
@@ -42,5 +46,5 @@ export function useWebAccount() {
   const offline = surface.connectivity === 'offline';
   const authorized: { ready: boolean; visibleSpaces: readonly ReturnType<typeof validateSpace>[]; activeSpace: ReturnType<typeof validateSpace> | null } = deriveAuthorizedSpaces(identity, catalog, selection);
   const { displayName, initials } = projectSidebarAccount(identity, offline);
-  return { session, identity, actions, catalog, selection, surface, offline, authorized, displayName, initials };
+  return { session, identity, actions, catalog, members: session.members, selection, surface, offline, authorized, displayName, initials };
 }

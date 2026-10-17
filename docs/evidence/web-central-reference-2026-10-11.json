@@ -963,16 +963,16 @@
       "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
       "owner": "OrdaX OS Surface",
       "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle",
-      "adaptedSha256": "c9ed5f5bdbc582fdc5cec3e62ab1f651c0c856575970b63a769a9af120c2b26e",
-      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged."
+      "adaptedSha256": "f5c1cc9d3780448d59aa29d18788f03dfa60baf1542bfc2408d36636e1e8b495",
+      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged. 2026-10-17: Web composes the canonical bounded Space members read adapter behind the authorized Spaces catalog; reads remain on-demand and read-only, with no membership mutation authority added to Central."
     },
     {
       "target": "system/surface/workspace/components/central/account-context.tsx",
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "250216ac5958882b2cf6209057c73f97ad98fc6bb3d53e25043c7de6fec98e1c",
-      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
+      "adaptedSha256": "6d815cc4c858322c22217e374d106f9eef9eab28e0c87d48e3067d26a1adecbe",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context additionally exposes the composed bounded Space members reader as an on-demand read capability; no membership action or write authority is added to Surface."
     },
     {
       "target": "system/adapters/web/space-selection.mjs",

@@ -11,6 +11,8 @@ on:
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
+      - 'system/composition/web/account-session.mjs'
+      - 'system/surface/workspace/components/central/account-context.tsx'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
@@ -19,6 +21,7 @@ on:
       - 'tests/test_space_lifecycle_runtime.mjs'
       - 'tests/test_space_members.mjs'
       - 'tests/test_web_space_members.mjs'
+      - 'tests/test_web_space_members_composition.mjs'
       - 'tests/test_space_members_gateway_source.mjs'
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
@@ -35,6 +38,8 @@ on:
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
+      - 'system/composition/web/account-session.mjs'
+      - 'system/surface/workspace/components/central/account-context.tsx'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
@@ -43,6 +48,7 @@ on:
       - 'tests/test_space_lifecycle_runtime.mjs'
       - 'tests/test_space_members.mjs'
       - 'tests/test_web_space_members.mjs'
+      - 'tests/test_web_space_members_composition.mjs'
       - 'tests/test_space_members_gateway_source.mjs'
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
@@ -77,6 +83,7 @@ jobs:
           node --check system/services/spaces/members.mjs
           node --check system/services/spaces/type-catalog.mjs
           node --check system/adapters/web/space-members.mjs
+          node --check system/composition/web/account-session.mjs
 
       - name: Prove non-blocking compatibility
         run: |
@@ -87,6 +94,7 @@ jobs:
           node --test tests/test_space_lifecycle_runtime.mjs
           node --test tests/test_space_members.mjs
           node --test tests/test_web_space_members.mjs
+          node --test tests/test_web_space_members_composition.mjs
           node --test tests/test_space_members_gateway_source.mjs
           node --test tests/test_space_membership_actions.mjs
           node --test tests/test_spaces_catalog.mjs
