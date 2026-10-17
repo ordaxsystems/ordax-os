@@ -327,6 +327,21 @@ ORDAX_DISTRIBUTION_PROFILE=$DISTRIBUTION_PROFILE
 export ORDAX_DISTRIBUTION_PROFILE
 ORDAX_STABLE_LAYOUT=$STABLE_LAYOUT
 export ORDAX_STABLE_LAYOUT
+if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+    # Owner/Development runs from a USB worktree and can legitimately need most
+    # of the existing 90-second Surface liveness window to render on cold or
+    # guardian-refresh starts. Keep both health gates aligned unless explicitly
+    # overridden by a bounded diagnostic/test environment.
+    if [ -z "${ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS+x}" ]; then
+        ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS=90
+        export ORDAX_SURFACE_HEALTH_TIMEOUT_SECONDS
+    fi
+    if [ -z "${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS+x}" ]; then
+        ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS=90
+        export ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS
+    fi
+fi
+
 if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
     if [ -z "${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS+x}" ]; then
         ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS=60
