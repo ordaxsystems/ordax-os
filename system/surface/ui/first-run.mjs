@@ -21,6 +21,7 @@ import {
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
+import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS } from "../../services/first-run/journey.mjs";
 import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
@@ -28,8 +29,8 @@ import {
   runNetworkManagementAction,
 } from "../../services/network/management-runtime.mjs";
 
-const STEPS = Object.freeze(["welcome", "regional", "network", "security", "account", "privacy", "ready"]);
-const STEP_LABELS = Object.freeze(["Início", "Região", "Rede", "Segurança", "Conta", "Privacidade", "Pronto"]);
+const STEPS = FIRST_RUN_STEP_IDS;
+const STEP_LABELS = FIRST_RUN_STEP_LABELS;
 
 function syncFirstRunDocumentLocale(documentObject, locale) {
   const profile = createLocaleProfile(locale);
