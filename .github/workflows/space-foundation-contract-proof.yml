@@ -1,0 +1,53 @@
+name: Space Foundation Contract Proof
+
+on:
+  pull_request:
+    paths:
+      - 'system/contracts/spaces.mjs'
+      - 'system/contracts/space-selection.mjs'
+      - 'system/contracts/space-experience.mjs'
+      - 'system/services/spaces/**'
+      - 'tests/test_space_foundation_nonblocking.mjs'
+      - 'docs/SPACES-AND-PROFILES.md'
+      - '.github/workflows/space-foundation-contract-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/contracts/spaces.mjs'
+      - 'system/contracts/space-selection.mjs'
+      - 'system/contracts/space-experience.mjs'
+      - 'system/services/spaces/**'
+      - 'tests/test_space_foundation_nonblocking.mjs'
+      - 'docs/SPACES-AND-PROFILES.md'
+      - '.github/workflows/space-foundation-contract-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove-space-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Check Space contracts
+        run: |
+          set -euo pipefail
+          node --check system/contracts/spaces.mjs
+          node --check system/contracts/space-selection.mjs
+          node --check system/contracts/space-experience.mjs
+          node --check system/services/spaces/composition.mjs
+          node --check system/services/spaces/type-catalog.mjs
+
+      - name: Prove non-blocking compatibility
+        run: |
+          set -euo pipefail
+          node --test tests/test_space_foundation_nonblocking.mjs
+          node --test tests/test_spaces_catalog.mjs
+          node --test tests/test_space_selection.mjs
+          node --test tests/test_space_experience.mjs

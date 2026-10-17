@@ -161,7 +161,6 @@ The product may present one simple flow, but implementation must preserve explic
 Failure in Profile provisioning must not silently corrupt or recreate the Space. If activation cannot complete, the product must expose a safe recoverable state.
 The source now has an authority-free **creation preflight** before step 1 mutates anything. For an MVP-foundation type, that preflight resolves only an explicit exact default Profile identity (currently `pizzaria-br@1` or `impressao-3d-br@1`) against the real published Profile catalog. It never chooses an alias, "latest" version or first matching binding. Deferred/unknown types and missing exact Profiles fail closed. The preflight exposes no Space-create, Profile-provision or activation authority; successful resolution only hands off to the existing Profile provisioning validation path.
 
-
 ## Existing MVP boundary
 
 The current MVP already has bounded Profile Pack candidates such as `pizzaria-br@1` and `impressao-3d-br@1`. Their current small compositions remain governed by MVP/Profile owners.
@@ -187,7 +186,6 @@ Escolher Space Impressão 3D -> Profile Impressão 3D aplicado pelo OrdaX
 ```
 
 Advanced composition changes remain a separate expert capability and must be permissioned/versioned.
-
 
 ## Capability-driven Space projection foundation — 2026-10-15
 
@@ -242,3 +240,77 @@ The 3D-printing type declares Jobs as domain resources but does not implement a 
 The structured School definition does not promote the vertical and does not create `orders`. REL-001 remains binding: external student/guardian identities are not internal Space members. No unrestricted camera/tracking capability is introduced; transport remains a separate declared capability and still requires its own consent, purpose and owner before promotion. Data about minors is not an advertising/targeting source.
 
 The structured Achegue-se definition remains an operational product-operations Space, not a development Space. `offers`, `jobs_publications` and `orders_public` are only declared possibilities and remain invisible until the corresponding real owner/provider is promoted. The product boundary remains: Achegue-se discovers/connects; OrdaX organizes/operates; product SSOTs remain independent.
+
+## Release-safe Space foundation — 2026-10-17
+
+`MVP.md` now defines `MVP` as historical compatibility terminology rather than the active product strategy. Therefore old labels such as `mvp-foundation`, `deferred`, `post-MVP` or `MVP boundary` do not by themselves authorize cutting an already-started Space capability from the product, nor do they make that capability a USB launch blocker. They remain compatibility/source-state labels until a deliberate contract migration replaces them.
+
+The release-safe dependency direction is:
+
+```text
+Boot / Base / local runtime
+        |
+        v
+Identity/session when available
+        |
+        v
+Spaces catalog + selection
+        |
+        v
+Space experience projection
+        |
+        v
+Domain capability providers / vertical services
+```
+
+Space is a core product domain but is not a boot dependency. An unavailable account endpoint, Space catalog, Profile Pack, Aura integration or vertical provider must degrade only the affected product capability. It must not block boot, local runtime, recovery or an unrelated local workflow.
+
+### Stable public boundary
+
+`ordax.spaces/1` remains a read-only Surface port. Create, rename, archive, restore, destructive deletion, membership changes, invites and ownership transfer must not be added as write methods to that read port. New mutations belong to explicit versioned action/service contracts with server-authoritative subject, membership/role revalidation, idempotency where retry is expected and audit receipts for sensitive transitions.
+
+This separation is what allows an already-shipped USB/Base to continue consuming the compatible Space read projection while account management and collaboration evolve independently through product updates.
+
+### Additive update rule
+
+Prefer additive evolution below stable ports:
+
+- add a capability provider instead of expanding the Spaces read port;
+- add a versioned action service instead of giving database authority to Surface;
+- publish a new Profile Pack version instead of mutating an already-published version;
+- add domain resources behind explicit Space ownership instead of embedding vertical state into the Space record;
+- keep capability declaration separate from runtime availability;
+- keep deployment/database projections subordinate to the canonical semantic catalog rather than creating another Space-type SSOT.
+
+Base/USB, Surface, Space contracts, Profile Pack versions, capability providers and Web/Mobile/Desktop/native clients may advance independently as long as their versioned boundaries remain compatible.
+
+### Degradation contract
+
+A declared capability is never enough to expose working UI. A provider must prove a valid `ready` snapshot for the authorized Space. Missing, malformed, unavailable or failing providers remove only their capability-specific navigation/widgets/context. Capability-independent Space shell/navigation may remain available.
+
+A failing vertical provider must not invalidate the Space record, cross authentication subjects, corrupt selection or make the OS unusable.
+
+### Resource ownership direction
+
+Every domain resource that belongs to a Space should carry an explicit `spaceId` or equivalent server-authoritative foreign key in its owner domain. Examples include Projects, Files, Jobs, Orders, Models, conversations, Memory scopes, automations and app state.
+
+The domain service remains the SSOT of its resource schema. The Space record must not become a monolithic container for every vertical's state, and client-provided ownership must never be treated as authority for cross-Space access.
+
+### Collaboration boundary
+
+Global membership roles remain intentionally small: `owner`, `admin`, `member`, `viewer`. Business/work functions such as `pizzaiolo`, `professor`, `financeiro` or `operador-3d` belong to People/domain capability policy rather than expanding the global identity enum.
+
+Invite is not membership. Pending invites are separate temporary entities; only authenticated acceptance may create server-authoritative membership.
+
+### USB launch rule
+
+A USB release does not wait for every Space vertical or provider to be complete when those capabilities are independent from that USB channel's promised flow. The Space foundation is compatible with release when:
+
+1. boot/Base/local runtime remain independent from Space/network availability;
+2. public Space contracts remain backward compatible or deliberately versioned;
+3. missing providers fail closed and degrade locally;
+4. Space selection cannot cross authenticated subjects;
+5. creation/quota/authorization remain server-authoritative;
+6. future Space work can ship as verified product updates without requiring a new USB image unless it genuinely introduces a new Base/kernel/local-runtime requirement.
+
+This does not permit shipping fake UI, broken promised flows, unsafe authorization or permanent mocks. It only prevents unrelated Space evolution from becoming an artificial blocker for a USB whose own gates have passed.
