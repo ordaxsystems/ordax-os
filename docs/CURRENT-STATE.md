@@ -1,5 +1,21 @@
 # Current State
 
+Meridian Web and login layout refinement (2026-10-16): Central now uses a bounded
+content width, a denser hero and larger navigation/file/agenda text and command
+controls. All planned features and mocks remain visible. The canonical login
+presentation places recovery beside its explicitly associated password label,
+reduces repeated copy/spacing and uses 16px inputs. Both the public portal and
+Web bootstrap still consume the same Account HTML/CSS; no authentication,
+Turnstile, session or origin gate changed. The product host remains
+`https://web.ordax.com.br`, with same-origin `/login/` and `/auth/login`.
+TypeScript/production Web compilation, public source/build, localization,
+auth/navigation and public deployment/contract checks pass locally. The canonical
+strict-CSP Web browser proof passes all seven viewports (320–1440px), including
+theme persistence, navigation, app lifecycle and absence of horizontal overflow.
+Local Windows sandbox GPU startup failed; the unchanged proof passed outside
+that restriction. This change alone does not claim authenticated E2E or a new
+production deployment.
+
 Public Web entry Meridian correction (2026-10-16): `/web/` now opts into the
 canonical Meridian material and reuses `account.css`'s identity layout/components
 for header, access card, buttons, state panel and responsive composition. Its own

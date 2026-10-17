@@ -311,7 +311,7 @@
     ["Entrar com segurança", "Sign in securely"],
     ["Verificação anti-automação", "Anti-automation verification"],
     ["Esta página não coleta credenciais enquanto o serviço real de identidade não estiver conectado.", "This page does not collect credentials until the real identity service is connected."],
-    ["NOVO NA ORDA X?", "NEW TO ORDA X?"],
+    ["NOVO NA ORDAX?", "NEW TO ORDAX?"],
     ["Prepare sua futura conta.", "Prepare your future account."],
     ["Conhecer o cadastro", "Learn about registration"],
     ["Seu sistema. Sua identidade.", "Your system. Your identity."],

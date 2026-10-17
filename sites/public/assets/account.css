@@ -108,7 +108,7 @@
 .account-ui .identity-form[hidden]{display:none!important}
 .account-ui [hidden]{display:none!important}
 .account-ui .identity-field { display: grid; gap: 7px; color: var(--account-ink); font-size: 12px; font-weight: 550; }
-.account-ui .identity-field input { width: 100%; min-height: 46px; padding: 10px 13px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); color: var(--account-ink); background: var(--account-bg); font: 400 14px var(--account-font); }
+.account-ui .identity-field input { width: 100%; min-height: 46px; padding: 10px 13px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); color: var(--account-ink); background: var(--account-bg); font: 400 16px var(--account-font); }
 .account-ui .identity-field:focus-within > span { color: var(--account-accent); }
 .account-ui .identity-field input::placeholder { color: var(--account-muted); }
 .account-ui .identity-field input:focus-visible { outline: 2px solid var(--account-focus); outline-offset: 2px; border-color: var(--account-focus); }
@@ -150,6 +150,26 @@
 .account-ui .site-footer p { margin: 0; color: var(--account-muted); font-size: 11px; }
 .account-ui .site-footer nav { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--account-muted); font-size: 11px; }
 .account-ui .site-footer nav a { display: inline-flex; align-items: center; min-height: 32px; }
+/* The same login composition is used by the public portal and Web bootstrap.
+   Route-specific density stays here; session/readiness remain in the shared runtime. */
+.account-ui .identity-label-row { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.account-ui .identity-label-row a { display: inline-flex; align-items: center; min-height: 32px; color: var(--account-accent); font-size: 12px; font-weight: 400; }
+.account-ui .identity-label-row a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.account-ui:where([data-page="login"]) .account-stage { max-width: 1040px; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 48px; padding-block: 20px 28px; }
+.account-ui:where([data-page="login"]) .account-card { padding: 24px; }
+.account-ui:where([data-page="login"]) .account-card-header { margin-bottom: 16px; }
+.account-ui:where([data-page="login"]) .account-identity-symbol { width: 32px; height: 32px; }
+.account-ui:where([data-page="login"]) .account-card h1 { font-size: clamp(26px, 2.6vw, 30px); }
+.account-ui:where([data-page="login"]) .identity-state { margin-top: 16px; padding: 10px 12px; }
+.account-ui:where([data-page="login"]) .identity-state[data-status="ready"] { background: transparent; border-color: var(--account-line); }
+.account-ui:where([data-page="login"]) .identity-form { gap: 12px; margin-top: 18px; }
+.account-ui:where([data-page="login"]) .identity-field { gap: 4px; font-size: 13px; }
+.account-ui:where([data-page="login"]) .account-entry { margin-top: 18px; padding-top: 12px; }
+.account-ui:where([data-page="login"]) .account-entry div > span { margin: 0; font-size: 10px; }
+.account-ui:where([data-page="login"]) .account-legal { margin-top: 8px; }
+.account-ui:where([data-page="login"]) .account-story { gap: 24px; }
+.account-ui:where([data-page="login"]) .account-benefits > li { padding-block: 12px; }
+.account-ui:where([data-page="login"]) .account-benefits span { font-size: 13px; }
 /* Local layout preview uses the actual form, inert and without an action.
    It cannot collect credentials or submit; public readiness is never bypassed. */
 .account-ui[data-identity-preview="layout"] .identity-state { background: var(--account-sage-soft); border-color: var(--account-line); }
