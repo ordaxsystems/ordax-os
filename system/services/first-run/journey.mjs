@@ -7,6 +7,7 @@ export const FIRST_RUN_JOURNEY = Object.freeze([
   Object.freeze({ id: "security", label: "Segurança", domain: "local-session", optional: true }),
   Object.freeze({ id: "account", label: "Conta", domain: "identity", optional: true }),
   Object.freeze({ id: "privacy", label: "Privacidade", domain: "privacy" }),
+  Object.freeze({ id: "name", label: "Nome", domain: "device-profile" }),
   Object.freeze({ id: "ready", label: "Pronto", domain: "completion" }),
 ]);
 
