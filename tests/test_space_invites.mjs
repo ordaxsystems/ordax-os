@@ -5,6 +5,7 @@ import {
   SPACE_INVITABLE_ROLES,
   SPACE_INVITE_ACTIONS,
   SPACE_INVITE_CREATE_REQUEST_SCHEMA,
+  SPACE_INVITE_CREATE_RESULT_SCHEMA,
   SPACE_INVITE_REVOKE_REQUEST_SCHEMA,
   SPACE_INVITE_SCHEMA,
   SPACE_INVITE_STATES,
@@ -13,6 +14,7 @@ import {
   assertSpaceInvitesPort,
   validateSpaceInvite,
   validateSpaceInviteCreateRequest,
+  validateSpaceInviteCreateResult,
   validateSpaceInviteRevokeRequest,
   validateSpaceInviteTokenRequest,
   validateSpaceInvitesSnapshot,
@@ -20,6 +22,16 @@ import {
 
 const token = "ab".repeat(32);
 const idempotencyKey = "123e4567-e89b-42d3-a456-426614174000";
+const pendingInvite = Object.freeze({
+  schema: SPACE_INVITE_SCHEMA,
+  id: "invite-1",
+  spaceId: "space-1",
+  role: "member",
+  state: "pending",
+  targetUserId: null,
+  createdAt: "2026-10-17T06:00:00Z",
+  expiresAt: "2026-10-18T06:00:00Z",
+});
 
 test("invite lifecycle is separate from membership and ownership", () => {
   assert.deepEqual(SPACE_INVITE_ACTIONS, ["create", "revoke", "accept", "decline"]);
@@ -29,24 +41,12 @@ test("invite lifecycle is separate from membership and ownership", () => {
 });
 
 test("invite read model never contains bearer token or token hash", () => {
-  const invite = validateSpaceInvite({
-    schema: SPACE_INVITE_SCHEMA,
-    id: "invite-1",
-    spaceId: "space-1",
-    role: "member",
-    state: "pending",
-    targetUserId: null,
-    createdAt: "2026-10-17T06:00:00Z",
-    expiresAt: "2026-10-18T06:00:00Z",
-  });
+  const invite = validateSpaceInvite(pendingInvite);
   assert.equal("token" in invite, false);
   assert.equal("tokenHash" in invite, false);
 
   assert.throws(
-    () => validateSpaceInvite({
-      ...invite,
-      token,
-    }),
+    () => validateSpaceInvite({ ...invite, token }),
     /unsupported field token/,
   );
 });
@@ -77,6 +77,35 @@ test("create request can bind an invite to an account but never to owner authori
       idempotencyKey,
     }),
     /not assignable/,
+  );
+});
+
+test("create result exposes bearer token only on first successful creation", () => {
+  const created = validateSpaceInviteCreateResult({
+    schema: SPACE_INVITE_CREATE_RESULT_SCHEMA,
+    invite: pendingInvite,
+    token: token.toUpperCase(),
+    created: true,
+  });
+  assert.equal(created.token, token);
+  assert.equal(created.created, true);
+
+  const replay = validateSpaceInviteCreateResult({
+    schema: SPACE_INVITE_CREATE_RESULT_SCHEMA,
+    invite: pendingInvite,
+    token: null,
+    created: false,
+  });
+  assert.equal(replay.token, null);
+
+  assert.throws(
+    () => validateSpaceInviteCreateResult({
+      schema: SPACE_INVITE_CREATE_RESULT_SCHEMA,
+      invite: pendingInvite,
+      token,
+      created: false,
+    }),
+    /cannot return a bearer token/,
   );
 });
 
@@ -136,19 +165,21 @@ test("revoke targets invite identity and action snapshots are capability gated",
   );
 });
 
-test("invite descriptors require coherent expiration and reject unknown sensitive fields", () => {
+test("invite descriptors require strict coherent ISO expiration and reject unknown sensitive fields", () => {
   assert.throws(
     () => validateSpaceInvite({
-      schema: SPACE_INVITE_SCHEMA,
-      id: "invite-1",
-      spaceId: "space-1",
-      role: "member",
-      state: "pending",
-      targetUserId: null,
+      ...pendingInvite,
       createdAt: "2026-10-18T06:00:00Z",
       expiresAt: "2026-10-17T06:00:00Z",
     }),
     /must be after/,
+  );
+  assert.throws(
+    () => validateSpaceInvite({
+      ...pendingInvite,
+      createdAt: "October 17, 2026 06:00 UTC",
+    }),
+    /must be an ISO timestamp/,
   );
   assert.throws(
     () => validateSpaceInviteCreateRequest({
