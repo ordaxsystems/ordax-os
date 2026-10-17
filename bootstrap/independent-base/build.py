@@ -26,10 +26,21 @@ NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
 BASE_DEFCONFIG = HERE / "configs/ordax_minimal_defconfig"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
+OWNER_BUSYBOX_FRAGMENT = HERE / "configs/owner-development.busybox.fragment"
 IPROUTE2_PATCH_ROOT = HERE / "patches/iproute2"
 IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
 IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
+MINIMAL_BUSYBOX_FRAGMENT_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment"'
+)
+OWNER_BUSYBOX_FRAGMENT_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'owner-development.busybox.fragment"'
+)
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
+OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y",)
 SUPPORTED_PROFILES = ("minimal", "owner-development")
 OWNER_USERSPACE_CONFIG = (
     "BR2_PACKAGE_CA_CERTIFICATES=y",
@@ -86,6 +97,22 @@ def config_lines(path: Path) -> set[str]:
     }
 
 
+def validate_owner_busybox_fragment() -> set[str]:
+    if not OWNER_BUSYBOX_FRAGMENT.is_file() or OWNER_BUSYBOX_FRAGMENT.is_symlink():
+        raise BaseError("Owner/Development BusyBox config fragment is missing or unsafe")
+    lines = config_lines(OWNER_BUSYBOX_FRAGMENT)
+    expected = set(OWNER_BUSYBOX_SYMBOLS)
+    if lines != expected:
+        raise BaseError(
+            "Owner/Development BusyBox fragment must contain only required helper applets: "
+            + ", ".join(sorted(expected))
+        )
+    text = OWNER_BUSYBOX_FRAGMENT.read_text(encoding="utf-8").lower()
+    if "alpine" in text or "apk" in text:
+        raise BaseError("Owner/Development BusyBox fragment reintroduced Alpine/APK")
+    return lines
+
+
 def validate_owner_fragment(path: Path) -> set[str]:
     lines = config_lines(path)
     missing_userspace = sorted(set(OWNER_USERSPACE_CONFIG) - lines)
@@ -94,6 +121,8 @@ def validate_owner_fragment(path: Path) -> set[str]:
             "Owner/Development fragment lost required userspace capabilities: "
             + ", ".join(missing_userspace)
         )
+    if OWNER_BUSYBOX_FRAGMENT_CONFIG not in lines:
+        raise BaseError("Owner/Development fragment lost its exact BusyBox capability composition")
     firmware = {
         line
         for line in lines
@@ -101,7 +130,12 @@ def validate_owner_fragment(path: Path) -> set[str]:
     }
     if f"{OWNER_FIRMWARE_CONFIG_PREFIX}=y" not in firmware:
         raise BaseError("Owner/Development fragment must select Buildroot linux-firmware")
-    unexpected = sorted(lines - set(OWNER_USERSPACE_CONFIG) - firmware)
+    unexpected = sorted(
+        lines
+        - set(OWNER_USERSPACE_CONFIG)
+        - {OWNER_BUSYBOX_FRAGMENT_CONFIG}
+        - firmware
+    )
     if unexpected:
         raise BaseError(
             "Owner/Development fragment contains unsupported configuration: "
@@ -109,6 +143,7 @@ def validate_owner_fragment(path: Path) -> set[str]:
         )
     if len(firmware) <= 1:
         raise BaseError("Owner/Development linux-firmware provider has no selected family")
+    validate_owner_busybox_fragment()
     text = path.read_text(encoding="utf-8").lower()
     if "alpine" in text or "apk" in text:
         raise BaseError("Owner/Development fragment reintroduced Alpine/APK")
@@ -198,6 +233,8 @@ def profile_inputs(source: dict, profile: str) -> dict:
         raise BaseError(f"profile fragment is missing or unsafe: {fragment_value}")
 
     base_lines = config_lines(defconfig)
+    owner_busybox_fragment = None
+    owner_busybox_lines: set[str] = set()
     if profile == "minimal":
         leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & base_lines)
         leaked_firmware = sorted(
@@ -210,6 +247,8 @@ def profile_inputs(source: dict, profile: str) -> dict:
     else:
         assert fragment is not None
         fragment_lines = validate_owner_fragment(fragment)
+        owner_busybox_fragment = OWNER_BUSYBOX_FRAGMENT
+        owner_busybox_lines = validate_owner_busybox_fragment()
 
     return {
         "profile": profile,
@@ -217,11 +256,14 @@ def profile_inputs(source: dict, profile: str) -> dict:
         "defconfig": defconfig,
         "fragment": fragment,
         "fragment_config": sorted(fragment_lines),
+        "owner_busybox_fragment": owner_busybox_fragment,
+        "owner_busybox_fragment_config": sorted(owner_busybox_lines),
     }
 
 
 def profile_provenance(inputs: dict) -> dict:
     fragment = inputs["fragment"]
+    owner_busybox_fragment = inputs["owner_busybox_fragment"]
     return {
         "name": inputs["profile"],
         "purpose": inputs["purpose"],
@@ -230,12 +272,26 @@ def profile_provenance(inputs: dict) -> dict:
         "fragment": None if fragment is None else str(fragment.relative_to(ROOT)),
         "fragment_sha256": None if fragment is None else digest(fragment),
         "fragment_config": inputs["fragment_config"],
+        "owner_busybox_fragment": (
+            None
+            if owner_busybox_fragment is None
+            else str(owner_busybox_fragment.relative_to(ROOT))
+        ),
+        "owner_busybox_fragment_sha256": (
+            None if owner_busybox_fragment is None else digest(owner_busybox_fragment)
+        ),
+        "owner_busybox_fragment_config": inputs["owner_busybox_fragment_config"],
     }
 
 
 def generate_defconfig(source: dict, kernel: dict, profile: str, destination: Path) -> dict:
     inputs = profile_inputs(source, profile)
-    pieces = [inputs["defconfig"].read_text(encoding="utf-8").rstrip()]
+    base_text = inputs["defconfig"].read_text(encoding="utf-8").rstrip()
+    if profile == "owner-development":
+        if base_text.count(MINIMAL_BUSYBOX_FRAGMENT_CONFIG) != 1:
+            raise BaseError("minimal defconfig lost canonical BusyBox fragment authority")
+        base_text = base_text.replace(MINIMAL_BUSYBOX_FRAGMENT_CONFIG, "")
+    pieces = [base_text]
     if inputs["fragment"] is not None:
         pieces.append(inputs["fragment"].read_text(encoding="utf-8").rstrip())
     pieces.extend([
@@ -249,6 +305,11 @@ def generate_defconfig(source: dict, kernel: dict, profile: str, destination: Pa
 
 
 def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
+    busybox_fragment_config = (
+        OWNER_BUSYBOX_FRAGMENT_CONFIG
+        if profile == "owner-development"
+        else MINIMAL_BUSYBOX_FRAGMENT_CONFIG
+    )
     required = (
         "BR2_KERNEL_HEADERS_VERSION=y",
         f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
@@ -257,7 +318,7 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
         "BR2_INIT_NONE=y",
         "BR2_PACKAGE_IPROUTE2=y",
         IPROUTE2_PATCH_CONFIG,
-        'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"',
+        busybox_fragment_config,
         f'BR2_ROOTFS_POST_SCRIPT_ARGS="{profile}"',
     )
     for key in required:
@@ -270,6 +331,8 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
         for key in owner["fragment_config"]:
             if key not in config:
                 raise BaseError(f"Buildroot rejected Owner/Development configuration {key}")
+        if MINIMAL_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("Owner/Development lost its dedicated BusyBox capability composition")
         if "BR2_PACKAGE_KMOD=y" in config:
             raise BaseError("Owner/Development duplicated BusyBox modprobe with kmod")
     else:
@@ -283,6 +346,8 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
         leaked = leaked_userspace + leaked_firmware
         if leaked:
             raise BaseError(f"minimal profile resolved Owner capabilities: {leaked}")
+        if OWNER_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("minimal profile resolved Owner/Development BusyBox capabilities")
 
 
 def source_archive(source: dict, cache: Path) -> Path:
@@ -502,6 +567,8 @@ def verify_target(target: Path, profile: str) -> dict:
     for symbol in BUSYBOX_HANDOFF_SYMBOLS:
         if fragment_lines.count(symbol) != 1:
             raise BaseError(f"canonical BusyBox fragment lacks exact symbol: {symbol}")
+    if profile == "owner-development":
+        validate_owner_busybox_fragment()
     for name in ("bin/busybox", "sbin/ordax-stable-init", "sbin/modprobe",
                  "sbin/ordax-independent-probe-init",
                  "etc/ordax/independent-base", "ordax/bootstrap/network/bring-up",
@@ -520,10 +587,13 @@ def verify_target(target: Path, profile: str) -> dict:
     surface_iproute2 = verify_surface_ip_identity(target)
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
-    missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
-               "poweroff", "grep", "sync", "modprobe", "timeout",
-               "od", "tr", "stat", "uname", "sleep", "true",
-               "cat", "mkdir", "chmod"} - applets
+    required_applets = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
+                        "poweroff", "grep", "sync", "modprobe", "timeout",
+                        "od", "tr", "stat", "uname", "sleep", "true",
+                        "cat", "mkdir", "chmod"}
+    if profile == "owner-development":
+        required_applets.add("ntpd")
+    missing = required_applets - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     if "ip" in applets:

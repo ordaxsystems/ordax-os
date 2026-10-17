@@ -9,6 +9,12 @@ BR2_PACKAGE_IW=y
 BR2_PACKAGE_WPA_SUPPLICANT=y
 BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y
 
+# Owner/Development reuses every portable handoff applet and adds only the
+# clock-recovery applet consumed by ordax-network before Git/HTTPS bootstrap.
+# Keep this as BusyBox capability composition instead of adding another NTP
+# package/provider to the runtime.
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/owner-development.busybox.fragment"
+
 # Firmware provider for the canonical Wi-Fi module baseline. The hardware SSOT
 # remains docs/contracts/hardware-support-matrix.json; this fragment maps that
 # baseline to Buildroot 2026.08's pinned linux-firmware provider. The actual

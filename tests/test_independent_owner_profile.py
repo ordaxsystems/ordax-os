@@ -9,8 +9,14 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "bootstrap" / "independent-base"
 SOURCE = BASE / "source.json"
 FRAGMENT = BASE / "configs" / "owner-development.fragment"
+OWNER_BUSYBOX_FRAGMENT = BASE / "configs" / "owner-development.busybox.fragment"
 POST_BUILD = BASE / "post-build.sh"
 BUILD = BASE / "build.py"
+OWNER_BUSYBOX_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'owner-development.busybox.fragment"'
+)
 
 
 class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
@@ -31,7 +37,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         )
         self.assertEqual(owner["purpose"], "owner-development-parity-without-alpine")
 
-    def test_owner_profile_declares_userspace_and_buildroot_firmware_provider(self) -> None:
+    def test_owner_profile_declares_userspace_busybox_and_firmware_provider(self) -> None:
         lines = {
             line.strip()
             for line in FRAGMENT.read_text(encoding="utf-8").splitlines()
@@ -45,7 +51,8 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
         }
         self.assertTrue(required_userspace.issubset(lines))
-        firmware = lines - required_userspace
+        self.assertIn(OWNER_BUSYBOX_CONFIG, lines)
+        firmware = lines - required_userspace - {OWNER_BUSYBOX_CONFIG}
         self.assertIn("BR2_PACKAGE_LINUX_FIRMWARE=y", firmware)
         self.assertGreater(len(firmware), 1)
         self.assertTrue(
@@ -58,11 +65,23 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertNotIn("alpine", text)
         self.assertNotIn("apk", text)
 
+    def test_owner_busybox_fragment_adds_only_clock_recovery(self) -> None:
+        lines = [
+            line.strip()
+            for line in OWNER_BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        self.assertEqual(lines, ["CONFIG_NTPD=y"])
+        self.assertNotIn("CONFIG_TIMEOUT=y", lines)
+        self.assertNotIn("CONFIG_IP=y", lines)
+
     def test_builder_validates_fragment_without_second_firmware_family_list(self) -> None:
         text = BUILD.read_text(encoding="utf-8")
         self.assertIn('OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"', text)
         self.assertIn("validate_owner_fragment", text)
         self.assertIn('owner["fragment_config"]', text)
+        self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y",)', text)
+        self.assertIn("OWNER_BUSYBOX_FRAGMENT_CONFIG", text)
         self.assertNotIn("OWNER_FIRMWARE_CONFIG = (", text)
         self.assertNotIn("IWLWIFI_22000", text)
         self.assertNotIn("ATHEROS_9271", text)
