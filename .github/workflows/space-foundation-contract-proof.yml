@@ -8,8 +8,7 @@ on:
       - 'system/contracts/space-experience.mjs'
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
-      - 'docs/architecture/SPACE-FOUNDATION.md'
-      - 'docs/architecture/SPACE-UPDATE-CONTRACT.md'
+      - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   push:
     branches: [main]
@@ -19,6 +18,7 @@ on:
       - 'system/contracts/space-experience.mjs'
       - 'system/services/spaces/**'
       - 'tests/test_space_foundation_nonblocking.mjs'
+      - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   workflow_dispatch:
 
