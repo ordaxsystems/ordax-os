@@ -4,9 +4,13 @@ set -eu
 BIN_DIR=${ORDAX_BIN_DIR:-/usr/local/bin}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 INTERVAL=${ORDAX_UPDATE_INTERVAL_SECONDS:-5}
 LOG_FILE=$STATE_DIR/main-watch.log
 LOCK_DIR=$RUN_DIR/main-watch.lock
+SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat
+RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
+OWNER_STATE=""
 
 case "$INTERVAL" in
     ''|*[!0-9]*) INTERVAL=5 ;;
@@ -24,12 +28,78 @@ log() {
     printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown-time)" "$*" >>"$LOG_FILE"
 }
 
+is_pid() {
+    case "${1:-}" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -gt 1 ] 2>/dev/null
+}
+
+is_sha() {
+    value=${1:-}
+    [ "${#value}" -eq 40 ] || return 1
+    case "$value" in
+        ''|*[!0-9a-f]*) return 1 ;;
+    esac
+}
+
+read_state_value() {
+    source=$1
+    value=""
+    [ -f "$source" ] && [ ! -L "$source" ] || {
+        printf '%s' ""
+        return 0
+    }
+    IFS= read -r value <"$source" || true
+    printf '%s' "$value"
+}
+
+active_supervisor_pid() {
+    pid=$(read_state_value "$SUPERVISOR_HEARTBEAT_FILE")
+    is_pid "$pid" || return 1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    command_line=$(tr '\000' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)
+    case "$command_line" in
+        *"/system/supervisor"*) printf '%s' "$pid"; return 0 ;;
+    esac
+    return 1
+}
+
+handoff_runtime_drift_if_needed() {
+    pid=$1
+    checkout_sha=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    runtime_sha=$(read_state_value "$RUNTIME_SURFACE_SHA_FILE")
+    is_sha "$checkout_sha" || return 0
+    is_sha "$runtime_sha" || return 0
+    [ "$checkout_sha" != "$runtime_sha" ] || return 0
+
+    log "checkout $checkout_sha difere da Surface $runtime_sha; solicitando refresh do supervisor $pid"
+    kill -TERM "$pid" >/dev/null 2>&1 || true
+}
+
 log "watch da main iniciado; intervalo=${INTERVAL}s"
 
 while :; do
-    before=$(git -C "${ORDAX_WORKTREE:-/workspace/ordax}" rev-parse HEAD 2>/dev/null || true)
+    supervisor_pid=$(active_supervisor_pid || true)
+    if [ -n "$supervisor_pid" ]; then
+        if [ "$OWNER_STATE" != supervisor ]; then
+            log "supervisor ativo; sincronizacao da main delegada ao owner canonico"
+            OWNER_STATE=supervisor
+        fi
+        handoff_runtime_drift_if_needed "$supervisor_pid"
+        sleep "$INTERVAL"
+        continue
+    fi
+
+    if [ "$OWNER_STATE" != watcher ]; then
+        log "supervisor inativo; watch da main assumiu sincronizacao do checkout"
+        OWNER_STATE=watcher
+    fi
+
+    before=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
     if output=$("$BIN_DIR/ordax-pull" 2>&1); then
-        after=$(git -C "${ORDAX_WORKTREE:-/workspace/ordax}" rev-parse HEAD 2>/dev/null || true)
+        after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
         if [ -n "$after" ] && [ "$after" != "$before" ]; then
             log "main aplicada: ${before:-unknown} -> $after"
         fi
