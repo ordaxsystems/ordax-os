@@ -17,7 +17,7 @@ test('Space members Surface consumes canonical read, actor capability and member
   assert.match(membersSurface, /membershipActions\.removeMember/);
   assert.match(membersSurface, /crypto\.randomUUID\(\)/);
   assert.match(membersSurface, /idempotency\.current\.get\(key\)/);
-  assert.match(membersSurface, /reloadMembers\(spaceId\)/);
+  assert.match(membersSurface, /reloadRemoteState\(spaceId\)/);
   assert.match(membersSurface, /page\.nextCursor/);
   assert.match(membersSurface, /Carregar mais/);
   assert.doesNotMatch(membersSurface, /\bfetch\s*\(/);
@@ -32,12 +32,22 @@ test('Surface does not infer management authority from member role', () => {
   assert.match(membersSurface, /memberRole !== 'owner'/);
 });
 
+test('Space members Surface invalidates stale same-Space reads and refreshes server authority after mutations', () => {
+  assert.match(membersSurface, /const membersReadGeneration = useRef\(0\)/);
+  assert.match(membersSurface, /const capabilityReadGeneration = useRef\(0\)/);
+  assert.match(membersSurface, /membersReadGeneration\.current !== generation/);
+  assert.match(membersSurface, /capabilityReadGeneration\.current !== generation/);
+  assert.match(membersSurface, /await Promise\.all\(\[\s*readPage\(targetSpaceId, null, false\),\s*readCapability\(targetSpaceId\),\s*\]\)/);
+  assert.match(membersSurface, /setActionError\([\s\S]*?await readCapability\(spaceId\)/);
+});
+
 test('Space members Surface resets remote presentation and idempotency state when selected Space changes', () => {
   assert.match(membersSurface, /currentSpace\.current = spaceId/);
+  assert.match(membersSurface, /membersReadGeneration\.current \+= 1/);
+  assert.match(membersSurface, /capabilityReadGeneration\.current \+= 1/);
   assert.match(membersSurface, /idempotency\.current\.clear\(\)/);
   assert.match(membersSurface, /setItems\(\[\]\)/);
   assert.match(membersSurface, /setNextCursor\(null\)/);
-  assert.match(membersSurface, /currentSpace\.current !== targetSpaceId/);
   assert.match(membersSurface, /Nenhum membro é persistido no navegador/);
 });
 
