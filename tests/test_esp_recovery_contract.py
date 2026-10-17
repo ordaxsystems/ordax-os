@@ -53,7 +53,7 @@ class ESPContractTest(unittest.TestCase):
 
     def test_recovery_is_explicit_and_read_only(self):
         self.assertIn("ordax.mode=recovery", INIT)
-        self.assertIn('mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax', INIT)
+        self.assertIn('mount -t ext4 -o ro,noload "$ORDAX_DEVICE" /ordax', INIT)
         self.assertIn("/ordax/bootstrap/recovery/entrypoint", INIT)
         self.assertIn("mounted read-only", RECOVERY)
         # Recovery may mention maintenance/network in comments or diagnostics,
