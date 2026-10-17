@@ -554,7 +554,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "Primeiro boot ou checkout local inconsistente",
             1,
         )[0]
-        self.assertNotIn("ordax-pull", fast_block)`n        self.assertNotIn('"$BIN_DIR/ordax-run"', fast_block)`n        self.assertIn("maintenance_shell", fast_block)
+        self.assertNotIn("ordax-pull", fast_block)
+        self.assertNotIn('"$BIN_DIR/ordax-run"', fast_block)
+        self.assertIn("maintenance_shell", fast_block)
         self.assertIn('while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]', dev_init)
         self.assertIn("repetindo uma vez apos pausa curta", dev_init)
         self.assertIn("sleep 2", dev_init)
