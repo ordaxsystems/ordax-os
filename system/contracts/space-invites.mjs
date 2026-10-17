@@ -7,7 +7,7 @@ export const SPACE_INVITE_SCHEMA = "ordax.space-invite/1";
 const ACTIONS = new Set(["create", "revoke", "accept", "decline"]);
 const INVITE_STATES = new Set(["pending", "accepted", "declined", "expired", "revoked"]);
 const INVITABLE_ROLES = new Set(["admin", "member", "viewer"]);
-const TOKEN = /^[0-9a-f]{64}$/;
+const TOKEN = /^[0-9a-f]{64}$/i;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function objectValue(value, label) {
