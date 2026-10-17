@@ -44,6 +44,21 @@ try{await runBrowser(async client=>{
  assert.equal(await evaluate(`(()=>{const camera=document.querySelector('.demo-expanded .phone-camera').getBoundingClientRect(),screen=document.querySelector('.demo-expanded .phone-viewport').getBoundingClientRect();return camera.bottom<=screen.top;})()`),true);
  await evaluate(`document.querySelector('.demo-expanded .meridian-mobile-menu').click();document.querySelector('.demo-expanded .public-demo-menu [data-value="settings"]').click()`);
  assert.equal(await evaluate(`!!document.querySelector('.demo-expanded [data-ordax-settings-overview-view]')`),true);
+ // An unavailable demo action must explain itself inside the active modal.
+ await evaluate(`globalThis.proofAction=document.querySelector('.demo-expanded [data-public-demo-content] [data-action="public-planned"]');globalThis.proofAction.click()`);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice').hidden`),false);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice [role="status"]').textContent.includes('Nenhuma alteração')`),true);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded [data-device="phone"]').dataset.app`),'settings');
+ const noticeShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(evidence,name+'-demo-notice.png'),Buffer.from(noticeShot.data,'base64'));
+ await evaluate(`document.querySelector('.demo-expanded [data-action="public-dismiss"]').click()`);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice').hidden`),true);
+ assert.equal(await evaluate(`document.activeElement===globalThis.proofAction`),true);
+ await evaluate(`document.querySelector('.demo-expanded .meridian-mobile-menu').click();document.querySelector('.demo-expanded .public-demo-menu [data-value="store"]').click()`);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice').hidden`),false);
+ await evaluate(`document.querySelector('.demo-expanded [data-action="public-dismiss"]').click()`);
+ assert.equal(await evaluate(`document.activeElement.matches('.meridian-mobile-menu')`),true);
+
+
  await sleep(150);const expandedShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(evidence,name+'-expanded-phone.png'),Buffer.from(expandedShot.data,'base64'));
  await evaluate(`document.querySelector('[data-close-expanded]').click()`);await sleep(100);
  assert.equal(await evaluate(`document.querySelector('.device-stage [data-device="phone"]')===globalThis.proofPhone`),true);

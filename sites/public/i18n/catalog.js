@@ -5,6 +5,8 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Fechar aviso", "Dismiss notice"],
+    ["Esta ação não é executada na demonstração. Nenhuma alteração foi aplicada.", "This action is not performed in the demo. No changes were applied."],
     ["Ampliar telefone", "Expand phone"],
     ["Explore o OrdaX no telefone", "Explore OrdaX on your phone"],
     ["Abra o menu para navegar entre os aplicativos. Os dados são de exemplo.", "Open the menu to browse the apps. The data is illustrative."],

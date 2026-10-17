@@ -14,7 +14,10 @@ supports arrow/Home/End keys, restores trigger focus on Escape, and closes
 on outside pointer interaction or focus leaving the menu. Both notebook and phone
 can be expanded independently in the existing dialog, preserving their view
 and restoring focus and original placement when closed. Phone expansion fits
-the host viewport; the notebook retains desktop geometry.
+the host viewport; the notebook retains desktop geometry. Unexecuted demo actions
+show dismissible local feedback within each device, including the active modal,
+and return focus to the initiating control. They never claim that a service
+action succeeded or that the real product necessarily lacks that feature.
 
 Public Account Web shortcuts (2026-10-17): sidebar, footer and mobile More
 menu now link directly to the canonical Web origin, matching the landing.

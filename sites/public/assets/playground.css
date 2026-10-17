@@ -264,3 +264,10 @@ body.titanium-concept{--canvas:#080f19;--surface:#101a29;--ink:#edf2fa;--muted:#
 .demo-tools {flex-wrap:wrap;}
 
 .demo-expanded[data-expanded-device="phone"] .phone-camera {top:8px;left:37%;width:26%;height:8px;border-radius:10px;}
+
+/* Demo-only feedback stays inside the device, including modal expansion. */
+.demo-native .public-demo-notice {position:absolute;z-index:95;right:16px;bottom:80px;width:min(330px,calc(100% - 32px));padding:16px;border:1px solid var(--md-border);border-radius:var(--md-radius);background:var(--md-surface);color:var(--md-ink);box-shadow:var(--md-shadow);font:13px/1.5 var(--ordax-font);}
+.demo-native .public-demo-notice[hidden] {display:none;}
+.demo-native .public-demo-notice p {margin:0 0 10px;}
+.demo-native .public-demo-notice button {min-height:44px;padding:8px 14px;border:1px solid var(--md-border);border-radius:8px;background:var(--md-subtle);color:var(--md-ink);font:inherit;cursor:pointer;}
+.demo-native .public-demo-notice button:focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}

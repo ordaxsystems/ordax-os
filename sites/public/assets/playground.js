@@ -29,6 +29,7 @@
   const initial = () => ({theme: "light", title: noteDefaults.title, body: noteDefaults.body, done: false, analysis: "idle", accepted: false});
   let state = initial();
   const views = new Map(screens.map(screen => [screen, {app: "home", folder: "", file: ""}]));
+  const previewTriggers=new WeakMap();
   let noticeTimer;
   const announce = message => {
     clearTimeout(noticeTimer);
@@ -98,6 +99,7 @@
     const host=screen.querySelector('[data-public-demo-content]');
     if (surface.views[view.app]) host.innerHTML=surface.views[view.app];
     else host.replaceChildren(previousContent);
+    host.querySelector('h1,h2,h3')?.setAttribute('tabindex','-1');
     const activeLocale=i18n.getLocale();
     const welcome=host.querySelector('.meridian-welcome h1');if(welcome){const hour=new Date().getHours();welcome.textContent=local(hour<12?'Bom dia.':hour<18?'Boa tarde.':'Boa noite.');}
     const date=host.querySelector('.meridian-welcome time');
@@ -132,6 +134,20 @@
       trigger.setAttribute('aria-expanded','false');
     }
     screen.querySelector('.window-workspace').append(menu);
+    const notice=document.createElement('aside');notice.className='public-demo-notice';notice.hidden=true;
+    const copy=document.createElement('p');copy.setAttribute('role','status');copy.setAttribute('aria-live','polite');
+    const dismiss=button(local('Fechar aviso'),'public-dismiss');
+    notice.append(copy,dismiss);screen.querySelector('.window-workspace').append(notice);
+  }
+  function explainPreview(screen,trigger) {
+    previewTriggers.set(screen,trigger.closest('.public-demo-menu')?menuTriggers.get(screen):trigger);
+    const message=local('Esta ação não é executada na demonstração. Nenhuma alteração foi aplicada.');
+    const notice=screen.querySelector('.public-demo-notice');
+    if(notice) {
+      notice.hidden=false;
+      notice.querySelector('p').textContent=message;
+    }
+    announce(message);
   }
   function render(screen) {
     const view = views.get(screen);
@@ -281,8 +297,13 @@
         control.setAttribute('aria-expanded','true');menu.querySelector('button')?.focus({preventScroll:true});return;
       }
       closeNavigation(screen);
-      if(action?.startsWith('spaces-')) {announce(local('Prévia de um recurso planejado'));return;}
-      if (action === 'public-planned') { announce(local('Prévia de um recurso planejado')); return; }
+      if(action==='public-dismiss') {
+        const notice=control.closest('.public-demo-notice');notice.hidden=true;
+        const trigger=previewTriggers.get(screen);
+        const destination=trigger?.isConnected?trigger:screen.querySelector('[data-public-demo-content] h1,[data-public-demo-content] h2,[data-public-demo-content] h3');
+        destination?.focus({preventScroll:true});return;
+      }
+      if(action?.startsWith('spaces-') || action==='public-planned') {explainPreview(screen,control);return;}
       if (action === "analyze" || action === "accept-analysis") {
         if(action === "analyze") state.analysis = "ready";
         else state.accepted = true;
@@ -303,7 +324,7 @@
         return;
       }
       if (action === "app" && names[value]) {
-        if(!surface.views[value]&&!['concept','intelligence','context','notes','system','example-files'].includes(value)) {announce(local('Prévia de um recurso planejado'));return;}
+        if(!surface.views[value]&&!['concept','intelligence','context','notes','system','example-files'].includes(value)) {explainPreview(screen,control);return;}
         view.app = value;
       }
       if (action === "folder") { view.app = "example-files"; view.folder = value; view.file = ""; }
