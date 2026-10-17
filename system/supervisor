@@ -522,6 +522,7 @@ apply_remote_checkout() {
         log "atomic checkout activated unexpected SHA: expected $expected_sha, got ${activated_sha:-unknown}"
         return 1
     }
+    refresh_dev_helpers "$expected_sha"
     return 0
 }
 

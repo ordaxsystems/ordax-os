@@ -351,7 +351,10 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             classification.index(helper_case),
             classification.index("boot/*|bootstrap/*)"),
         )
-        self.assertIn("configure_runtime_sparse_checkout()", text)
+        self.assertNotIn("configure_runtime_sparse_checkout()", text)
+        refresh = text.split("refresh_dev_helpers() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('ORDAX_EXPECTED_SHA="$source_sha"', refresh)
+        self.assertIn('"$PULL_BIN" >>"$UPDATE_LOG" 2>&1', refresh)
         self.assertIn("refresh_dev_helpers()", text)
         self.assertIn('refresh_dev_helpers "$expected_sha"', text)
         self.assertIn('refresh_dev_helpers "$current"', text)
