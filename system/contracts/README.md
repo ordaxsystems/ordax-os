@@ -30,7 +30,8 @@ The product foundation also defines narrow provider-neutral ports for the next a
 
 - `account-lifecycle.mjs` — provider-neutral, capability-gated account lifecycle actions; destructive close authority remains server-owned and requires current-password reauthentication plus explicit confirmation;
 - `entitlements.mjs` — server/local-default entitlement decisions; client-claimed paid state is never authoritative;
-- `spaces.mjs` — Spaces, membership and Profile Pack descriptors;
+- `spaces.mjs` — read-only Spaces, membership and Profile Pack descriptors;
+- `space-lifecycle.mjs` — explicit versioned rename/archive/restore action boundary; requests carry Space identity, bounded payload and idempotency only, never client-supplied actor/role/ownership authority;
 - `memory.mjs` — scoped, provenance-bearing OrdaX Memory independent of model provider;
 - `model-router.mjs` — local/external inference route selection with explicit egress for cloud providers;
 - `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs;
