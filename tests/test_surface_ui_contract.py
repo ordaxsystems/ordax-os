@@ -452,6 +452,8 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('"power.controls.shutdown.confirm"', controls)
         self.assertIn("dataset.powerAction", controls)
         self.assertIn("[data-power-slot]", controls)
+        self.assertIn("POWER_ACTION_SETTLE_MS = 30000", controls)
+        self.assertNotIn("}, 5000);", controls)
         self.assertIn("data-power-slot", shell)
         self.assertIn("createNativePowerActions", native_main)
         self.assertIn("../../surface/ui/surface.mjs", native_main)
