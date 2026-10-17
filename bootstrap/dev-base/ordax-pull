@@ -562,8 +562,8 @@ refresh_dev_helpers() {
             ORDAX_WORKTREE="$WORKTREE" \
             ORDAX_STATE_DIR="$STATE_DIR" \
             /bin/sh "$helper"; then
-        echo "ordax-git: development Base helper refresh failed; runtime checkout remains active" >&2
-        return 0
+        echo "ordax-git: development Base helper refresh failed; checkout remains active but helper activation is incomplete" >&2
+        return 1
     fi
     return 0
 }
@@ -695,5 +695,5 @@ if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
 else
     rm -f "$PINNED_FILE"
 fi
-refresh_dev_helpers "$current"
+refresh_dev_helpers "$current" || exit 1
 printf 'ORDAX_SOURCE_SHA=%s\n' "$current"
