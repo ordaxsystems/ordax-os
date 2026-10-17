@@ -85,6 +85,25 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
             self.assertFalse(status["physical_target_selected"])
             self.assertFalse(status["physical_write_performed"])
 
+    def test_device_name_receipt_regression_blocks_oobe_persistence_gate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.copy_audited_sources(root)
+            first_run_path = root / "docs/contracts/first-run.json"
+            first_run = json.loads(first_run_path.read_text(encoding="utf-8"))
+            first_run["device_name"]["must_not_enter_first_run_state"] = False
+            first_run_path.write_text(
+                json.dumps(first_run, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            status = audit.evaluate(root)
+
+            self.assertFalse(status["source_ready"])
+            self.assertIn("gate-failed:OOBE_PERSISTENCE", status["blockers"])
+            self.assertFalse(status["physical_target_selected"])
+            self.assertFalse(status["physical_write_performed"])
+
     def test_physical_promotion_consumes_audit_as_pre_authorization_gate(self):
         status = promotion.evaluate(ROOT)
 
