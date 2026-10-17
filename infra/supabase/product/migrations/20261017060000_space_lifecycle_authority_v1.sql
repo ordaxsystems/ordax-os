@@ -45,7 +45,6 @@ declare
   v_name text;
   v_space public.ordax_spaces%rowtype;
   v_existing private.ordax_space_lifecycle_requests%rowtype;
-  v_authorized boolean := false;
   v_changed boolean := false;
 begin
   if v_actor is null then
@@ -70,9 +69,8 @@ begin
     raise exception using errcode = '22023', message = 'space-lifecycle-name-not-allowed';
   end if;
 
-  -- Lock and revalidate current authority before either a fresh mutation or an
-  -- idempotent replay. Revoked/suspended admins must fail closed even when they hold
-  -- a previously successful idempotency key.
+  -- Lock before authority/idempotency evaluation so the lifecycle transition and its
+  -- receipt serialize on one Space row.
   select s.*
     into v_space
   from public.ordax_spaces s
@@ -83,21 +81,15 @@ begin
     raise exception using errcode = '42501', message = 'space-not-found-or-forbidden';
   end if;
 
-  v_authorized := v_space.owner_user_id = v_actor
-    or exists (
-      select 1
-      from public.ordax_space_members m
-      where m.space_id = p_space_id
-        and m.user_id = v_actor
-        and m.state = 'active'
-        and m.role in ('owner','admin')
-    );
-
-  if not v_authorized then
+  -- Authorization semantics have one owner: ordax_policy.can_admin_space(). Do not
+  -- duplicate owner/admin membership logic inside mutation RPCs.
+  if not ordax_policy.can_admin_space(p_space_id) then
     raise exception using errcode = '42501', message = 'space-not-found-or-forbidden';
   end if;
 
   -- Idempotency is bound to the currently authorized subject and exact payload.
+  -- Current authority is checked first, so a revoked/suspended admin cannot replay
+  -- a previously authorized request.
   select r.*
     into v_existing
   from private.ordax_space_lifecycle_requests r
