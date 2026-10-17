@@ -1,4 +1,4 @@
-﻿name: OrdaX Account Gateway Destination
+name: OrdaX Account Gateway Destination
 
 on:
   push:
@@ -12,6 +12,7 @@ on:
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
       - 'infra/supabase/functions/_shared/account_email_confirmation.mjs'
+      - 'infra/supabase/functions/_shared/space_members_read.mjs'
       - 'tools/account/resolve_account_gateway_destination.py'
   workflow_dispatch:
 
@@ -84,10 +85,12 @@ jobs:
         run: |
           set -euo pipefail
           test "$(supabase --version)" = "2.121.0"
-          grep -Fq 'version: 17' infra/supabase/functions/ordax-account-gateway/index.ts
+          grep -Fq 'version: 18' infra/supabase/functions/ordax-account-gateway/index.ts
           grep -Fq '.select("space_id,owner_user_id,name,kind,state,domain,subtype")' \
             infra/supabase/functions/ordax-account-gateway/index.ts
           test -f infra/supabase/functions/_shared/account_transport_admission.mjs
+          test -f infra/supabase/functions/_shared/space_members_read.mjs
+          grep -Fq 'path === "/account/space-members"' infra/supabase/functions/ordax-account-gateway/index.ts
           test "${ORDAX_ACCOUNT_GATEWAY_DESTINATION}" = "ordax-platform"
 
       - name: Deploy exact account gateway bundle to destination
@@ -116,7 +119,7 @@ jobs:
           import pathlib
           import sys
           value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-          assert value == {"status": "ok", "service": "ordax-account-gateway", "version": 17}
+          assert value == {"status": "ok", "service": "ordax-account-gateway", "version": 18}
           print("ACCOUNT_GATEWAY_DESTINATION_HEALTH=PASS")
           PY
 
@@ -131,3 +134,8 @@ jobs:
           assert value.get("error") == "authentication-required"
           print("ACCOUNT_GATEWAY_DESTINATION_UNAUTH=PASS")
           PY
+
+          members_status="$(curl --silent --show-error --output "${RUNNER_TEMP}/space-members.json" \
+            --write-out '%{http_code}' "${BASE}/account/space-members?spaceId=11111111-1111-4111-8111-111111111111")"
+          test "${members_status}" = "401"
+          echo 'ACCOUNT_GATEWAY_SPACE_MEMBERS_UNAUTH=PASS'
