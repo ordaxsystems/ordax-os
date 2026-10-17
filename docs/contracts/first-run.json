@@ -10,7 +10,9 @@
     "surface_ui": "system/surface/ui/first-run.mjs",
     "local_session_contract": "system/contracts/local-session.mjs",
     "local_session_adapter": "system/adapters/native/local-session.mjs",
-    "local_session_ui": "system/surface/ui/local-session-lock.mjs"
+    "local_session_ui": "system/surface/ui/local-session-lock.mjs",
+    "journey": "system/services/first-run/journey.mjs",
+    "capabilities": "system/services/first-run/capabilities.mjs"
   },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
