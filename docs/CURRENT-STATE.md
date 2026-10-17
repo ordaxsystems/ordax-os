@@ -1,5 +1,12 @@
 # Current State
 
+Web login asset closure correction (2026-10-16): production inspection of the
+shared login revealed its generated token/symbol CSS referenced a missing
+`assets/ordax-symbol.png` in the dedicated Web artifact. The Web composition now
+copies the canonical Surface symbol and includes it in the deployment receipt.
+A regression composes the real login, resolves its CSS dependency and verifies
+byte identity and manifest coverage. No alternate logo or stylesheet was added.
+
 Meridian Web and login layout refinement (2026-10-16): Central now uses a bounded
 content width, a denser hero and larger navigation/file/agenda text and command
 controls. All planned features and mocks remain visible. The canonical login
