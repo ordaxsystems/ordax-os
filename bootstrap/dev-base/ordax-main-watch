@@ -7,10 +7,14 @@ RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 INTERVAL=${ORDAX_UPDATE_INTERVAL_SECONDS:-5}
 LOG_FILE=$STATE_DIR/main-watch.log
-LOCK_DIR=$RUN_DIR/main-watch.lock
+LOCK_FILE=$RUN_DIR/main-watch.lock
 SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat
 RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
+PINNED_FILE=$STATE_DIR/pinned-commit
+BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 OWNER_STATE=""
+PIN_STATE=""
+LAST_PULL_FAILURE=""
 
 case "$INTERVAL" in
     ''|*[!0-9]*) INTERVAL=5 ;;
@@ -18,15 +22,34 @@ esac
 [ "$INTERVAL" -ge 5 ] 2>/dev/null || INTERVAL=5
 
 mkdir -p "$STATE_DIR" "$RUN_DIR"
-
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    exit 0
-fi
-trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
+chmod 700 "$RUN_DIR" 2>/dev/null || true
 
 log() {
     printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown-time)" "$*" >>"$LOG_FILE"
 }
+
+acquire_single_instance_lock() {
+    [ ! -L "$LOCK_FILE" ] || {
+        log "watch recusado: lock inseguro em $LOCK_FILE"
+        return 1
+    }
+    : >"$LOCK_FILE"
+    chmod 600 "$LOCK_FILE" 2>/dev/null || true
+    exec 9>"$LOCK_FILE"
+    if [ -x /bin/busybox ] && /bin/busybox --list 2>/dev/null | grep -x flock >/dev/null 2>&1; then
+        /bin/busybox flock -n 9
+        return $?
+    fi
+    command -v flock >/dev/null 2>&1 || {
+        log "watch recusado: flock indisponivel"
+        return 1
+    }
+    flock -n 9
+}
+
+if ! acquire_single_instance_lock; then
+    exit 0
+fi
 
 is_pid() {
     case "${1:-}" in
@@ -78,6 +101,27 @@ handoff_runtime_drift_if_needed() {
     kill -TERM "$pid" >/dev/null 2>&1 || true
 }
 
+background_pull() {
+    if [ -s "$PINNED_FILE" ]; then
+        if [ ! -s "$BOOT_REJECTED_FILE" ]; then
+            if [ "$PIN_STATE" != manual ]; then
+                log "rollback manual fixado; sincronizacao automatica da main pausada ate ordax-pull explicito"
+                PIN_STATE=manual
+            fi
+            return 75
+        fi
+        if [ "$PIN_STATE" != automatic ]; then
+            log "rollback automatico fixado; main sera observada sem reabrir a entrega rejeitada"
+            PIN_STATE=automatic
+        fi
+        ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 "$BIN_DIR/ordax-pull"
+        return $?
+    fi
+
+    PIN_STATE=""
+    "$BIN_DIR/ordax-pull"
+}
+
 log "watch da main iniciado; intervalo=${INTERVAL}s"
 
 while :; do
@@ -98,14 +142,32 @@ while :; do
     fi
 
     before=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    if output=$("$BIN_DIR/ordax-pull" 2>&1); then
+    if output=$(background_pull 2>&1); then
         after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
         if [ -n "$after" ] && [ "$after" != "$before" ]; then
             log "main aplicada: ${before:-unknown} -> $after"
         fi
+        LAST_PULL_FAILURE=""
+        PIN_STATE=""
     else
         status=$?
-        log "checagem da main indisponivel (status=$status); mantendo checkout local"
+        case "$status:$PIN_STATE" in
+            75:manual)
+                ;;
+            *:automatic)
+                if [ "$LAST_PULL_FAILURE" != automatic-rollback-wait ]; then
+                    log "rollback automatico preservado; aguardando main avancar alem da entrega rejeitada"
+                    LAST_PULL_FAILURE=automatic-rollback-wait
+                fi
+                ;;
+            *)
+                failure="status=$status"
+                if [ "$LAST_PULL_FAILURE" != "$failure" ]; then
+                    log "checagem da main indisponivel ($failure); mantendo checkout local"
+                    LAST_PULL_FAILURE=$failure
+                fi
+                ;;
+        esac
     fi
     sleep "$INTERVAL"
 done
