@@ -213,6 +213,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     persistence = _dict(first_run.get("persistence"))
     account = _dict(first_run.get("account"))
     network = _dict(first_run.get("network"))
+    device_name = _dict(first_run.get("device_name"))
     first_run_mvp = _dict(first_run.get("mvp"))
     record(
         "OOBE_PERSISTENCE",
@@ -220,7 +221,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             first_run.get("$schema") == "prototype-ordax.first-run/1",
             first_run.get("status") == "native-foundation-implemented",
             first_run.get("scope") == "mvp-usb-first-use",
-            first_run.get("flow") == ["welcome", "regional", "network", "security", "account", "privacy", "ready"],
+            first_run.get("flow") == ["welcome", "regional", "network", "security", "account", "privacy", "name", "ready"],
             persistence.get("persistent_usb_state") is True,
             persistence.get("completion_must_be_durable_before_dismiss") is True,
             persistence.get("state_is_separate_from_identity_session") is True,
@@ -230,9 +231,13 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             account.get("provider_unavailable_must_not_block_completion") is True,
             network.get("skippable") is True,
             network.get("password_must_not_enter_first_run_state") is True,
+            device_name.get("owner") == "device-profile",
+            device_name.get("rename_must_be_confirmed_before_advancing") is True,
+            device_name.get("must_not_enter_first_run_state") is True,
+            device_name.get("owner_unavailable_must_not_block_boot") is True,
             first_run_mvp.get("runs_from_usb") is True,
             first_run_mvp.get("permanent_internal_disk_install_exposed") is False,
-            _contains_all(native, ("createNativeFirstRunStateStore", "mountFirstRunExperience")),
+            _contains_all(native, ("createNativeFirstRunStateStore", "createNativeDeviceProfile", "mountFirstRunExperience", "deviceProfile,")),
         )),
         ["docs/contracts/first-run.json", "system/composition/native/main.mjs"],
     )

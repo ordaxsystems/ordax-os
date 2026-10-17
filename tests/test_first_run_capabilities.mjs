@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { DEVICE_PROFILE_PORT_SCHEMA, DEVICE_PROFILE_SCHEMA } from "../system/contracts/device-profile.mjs";
 import { IDENTITY_CREDENTIALS_SCHEMA } from "../system/contracts/identity-credentials.mjs";
 import { LOCAL_SESSION_SCHEMA } from "../system/contracts/local-session.mjs";
 import { NETWORK_MANAGEMENT_SCHEMA } from "../system/contracts/network-management.mjs";
@@ -29,6 +30,15 @@ const localSession = () => ({
   }),
   subscribe() {}, configureCredential() {}, removeCredential() {}, lock() {}, unlock() {},
 });
+const deviceProfile = () => ({
+  schema: DEVICE_PROFILE_PORT_SCHEMA,
+  getSnapshot: () => ({
+    schema: DEVICE_PROFILE_SCHEMA,
+    devicePublicId: "ordax-12345678",
+    displayName: "Meu OrdaX",
+  }),
+  rename() {},
+});
 
 test("First Run capabilities fail closed when optional owners are absent", () => {
   const snapshot = deriveFirstRunCapabilities({ identityActionsSnapshot: actions("sign-in", "register") });
@@ -39,6 +49,7 @@ test("First Run capabilities fail closed when optional owners are absent", () =>
       schema: undefined,
       networkManagement: false,
       localSession: false,
+      deviceProfile: false,
       identityCredentials: false,
       identitySignIn: false,
       identityRegister: false,
@@ -71,18 +82,24 @@ test("registration policy requires credentials, register action and a real polic
   }).registrationPolicy, false);
 });
 
-test("network and local-session capabilities require compatible owner ports", () => {
+test("network, local-session and device-profile capabilities require compatible owner ports", () => {
   const snapshot = deriveFirstRunCapabilities({
     networkManagement: network(),
     localSession: localSession(),
+    deviceProfile: deviceProfile(),
     identityActionsSnapshot: actions(),
   });
   assert.equal(snapshot.networkManagement, true);
   assert.equal(snapshot.localSession, true);
+  assert.equal(snapshot.deviceProfile, true);
   assert.throws(() => deriveFirstRunCapabilities({
     networkManagement: {},
     identityActionsSnapshot: actions(),
   }), /network-management port/i);
+  assert.throws(() => deriveFirstRunCapabilities({
+    deviceProfile: {},
+    identityActionsSnapshot: actions(),
+  }), /device profile port/i);
 });
 
 

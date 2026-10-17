@@ -20,6 +20,7 @@ import { createNativeProjectCloudLinkStore } from "../../adapters/native/project
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
+import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
 import { createNativePowerActions } from "../../adapters/native/power-actions.mjs";
@@ -284,6 +285,10 @@ async function start() {
       () => createNativeKeyboardLayout(window),
     ),
     optionalNativeProbe(
+      "OrdaX native device profile unavailable",
+      () => createNativeDeviceProfile(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native system metrics unavailable",
       () => createNativeSystemMetrics(window),
     ),
@@ -327,6 +332,7 @@ async function start() {
     networkStatus,
     networkManagement,
     keyboardLayout,
+    deviceProfile,
     systemMetrics,
     recoveryStatus,
     powerStatus,
@@ -1042,6 +1048,7 @@ async function start() {
       identityActions,
       identityCredentials,
       localSession,
+      deviceProfile,
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);

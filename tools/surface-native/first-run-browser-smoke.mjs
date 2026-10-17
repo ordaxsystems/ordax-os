@@ -96,7 +96,13 @@ async function scenario(modules,css) {
   await click('next');await click('next');await click('next');
   if(!get('account-local'))throw Error('Missing account step');
  }
- async function finishLocal(){await click('account-local');await click('next');await click('finish');}
+ async function finishLocal(){
+  await click('account-local');
+  await click('next');
+  if(!document.querySelector('.ordax-first-run-note'))throw Error('Missing device-name fallback');
+  await click('next');
+  await click('finish');
+ }
  const checks={};
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
@@ -121,7 +127,7 @@ async function scenario(modules,css) {
 
  const current=await fixture({identity:true});
  mountFirstRunExperience(root,current.ports);await reachAccount();
- await click('account-identity');await click('next');await click('finish');
+ await click('account-identity');await click('next');await click('next');await click('finish');
  checks.activeIdentityReceipt=current.state.completed && current.state.accountMode==='identity'
   && !Object.prototype.hasOwnProperty.call(current.state,'subjectId')
   && current.writes.length===1 && !document.querySelector('.ordax-first-run');
@@ -130,7 +136,7 @@ async function scenario(modules,css) {
  mountFirstRunExperience(root,expired.ports);await reachAccount();
  await click('account-identity');await click('next');
  expired.onRefresh({state:'signed-in',subjectId:'owner-B',displayName:'Other Proof User'});
- await click('finish');
+ await click('next');await click('finish');
  checks.refreshChangedOwnerReturnsToAccount=!!get('account-local')
   && !expired.state.completed && expired.writes.length===0;
  await finishLocal();
