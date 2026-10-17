@@ -49,6 +49,11 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Fast Owner Development preflight
+        run: |
+          set -euo pipefail
+          python tools/ci/preflight_owner_dev.py
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
