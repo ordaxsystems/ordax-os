@@ -43,6 +43,7 @@
   const names = Object.fromEntries(fixture.apps.map(app => [app.id, app.display_title ?? app.title]));
   const icons = Object.fromEntries(fixture.apps.map(app => [app.id, app.monogram]));
   names.home = "Início";
+  names.projects = "Projetos";
   icons.home = "⌂";
   names.intelligence = "Intelligence";
   names.context = "Contexto";

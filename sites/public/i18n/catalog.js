@@ -5,6 +5,7 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Acessar OrdaX Web", "Open OrdaX Web"],
     ["OrdaX Web", "OrdaX Web"],
     ["OrdaX OS", "OrdaX OS"],
     ["Espaço pessoal OrdaX", "OrdaX personal space"],
@@ -1341,7 +1342,7 @@
   register("recovery.meridian.011", "A mesma conta.", "The same account.");
   register("recovery.meridian.012", "Escolha uma nova senha para continuar usando sua Conta OrdaX. A alteração depende de um link de recuperação válido.", "Choose a new password to continue using your OrdaX Account. A valid recovery link is required to make the change.");
   register("recovery.meridian.013", "Defina sua nova senha.", "Set your new password.");
-  register("recovery.meridian.014", "Digite e confirme a senha que você quer usar no próximo acesso.", "Enter and confirm the password you want to use for your next sign-in.");
+  register("recovery.meridian.014", "Crie uma senha com pelo menos 12 caracteres e repita no campo de confirmação.", "Create a password with at least 12 characters and repeat it in the confirmation field.");
   register("recovery.meridian.015", "Alteração de senha indisponível", "Password change unavailable");
   register("recovery.meridian.016", "Não foi possível liberar a alteração de senha agora. Tente novamente mais tarde.", "Password changes could not be enabled right now. Please try again later.");
   register("recovery.meridian.017", "Cuide do seu acesso.", "Take care of your access.");
@@ -1358,13 +1359,13 @@
   register("register.meridian.006", "Proteção para o seu acesso", "Protection for your access");
   register("register.meridian.007", "Leia os Termos e a Política de Privacidade para entender como sua conta e seus dados são tratados.", "Read the Terms and Privacy Policy to understand how your account and data are handled.");
   register("register.meridian.008", "Crie sua Conta OrdaX.", "Create your OrdaX Account.");
-  register("register.meridian.009", "Informe seu e-mail, escolha uma senha e leia os termos para começar.", "Enter your email, choose a password and read the terms to get started.");
+  register("register.meridian.009", "Use seu e-mail e crie uma senha com pelo menos 12 caracteres. Leia os termos antes de confirmar.", "Use your email and create a password with at least 12 characters. Read the terms before confirming.");
   register("register.meridian.010", "O cadastro será liberado quando a conexão segura estiver disponível.", "Registration will be enabled when a secure connection is available.");
 
   // Login presentation; Identity behavior and readiness remain in site.js.
   register("login.meridian.001", "Seus mundos.", "Your worlds.");
   register("login.meridian.002", "Uma identidade.", "One identity.");
-  register("login.meridian.003", "Um lugar para acessar sua Conta OrdaX e cuidar da sua identidade. No seu ritmo, com suas escolhas.", "A place to access your OrdaX Account and manage your identity. At your pace, with your choices.");
+  register("login.meridian.003", "Acesse seus Spaces e gerencie sua identidade com a mesma Conta OrdaX.", "Access your Spaces and manage your identity with the same OrdaX account.");
   register("login.meridian.004", "Sua Conta OrdaX", "Your OrdaX Account");
   register("login.meridian.005", "Seu acesso ao universo OrdaX", "Your access to the OrdaX universe");
   register("login.meridian.006", "Proteção para o seu acesso", "Protection for your access");
@@ -1388,7 +1389,7 @@
   register("landing.ecosystem.010", "PESSOAS, IDEIAS E POSSIBILIDADES", "PEOPLE, IDEAS AND POSSIBILITIES");
   register("landing.ecosystem.011", "Tudo o que você faz.", "Everything you do.");
   register("landing.ecosystem.012", "Um universo que conecta.", "A universe that connects.");
-  register("landing.ecosystem.013", "OrdaX reúne sistema, aplicativos e inteligência para organizar sua vida, criar projetos e cuidar do seu trabalho. Cada contexto encontra seu espaço. Você continua no controle.", "OrdaX brings your system, apps and intelligence together to organize your life, create projects and manage your work. Every context has its space. You stay in control.");
+  register("landing.ecosystem.013", "Organize sua vida, seus projetos e seu trabalho em um só ambiente. Spaces conectam o que faz sentido para você, com aplicativos e inteligência sob seu controle.", "Organize your life, projects and work in one environment. Spaces connect what matters to you, with apps and intelligence under your control.");
   register("landing.ecosystem.014", "Explorar a demonstração", "Explore the demo");
   register("landing.ecosystem.015", "Conhecer o OrdaX OS", "Discover OrdaX OS");
   register("landing.ecosystem.016", "Produto em desenvolvimento. Demonstração interativa, sem instalar.", "Product in development. Interactive demo, no installation required.");

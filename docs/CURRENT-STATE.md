@@ -1,5 +1,15 @@
 # Current State
 
+Public Meridian layout refinement (2026-10-16): landing sections use tighter
+vertical rhythm, a shorter introduction and an explicit link to the existing
+Web access page. Login, registration and recovery now share identity-family
+density in account.css instead of login-only overrides. Registration and password
+reset explain the existing 12-character requirement before submission. Legal
+consent, readiness, native POST and Turnstile remain unchanged; pending product
+capabilities and conceptual examples remain labelled. The public demonstration
+also restores the missing Projects navigation name for visible and accessible
+labels. Web login continues to derive from the same public identity source.
+
 Web navigation and internal page consistency (2026-10-16): Projects, Files,
 Devices, Activity and Continuity share one planned-service presentation with
 existing unavailable-service messages, preserved integration notes, capability
