@@ -421,11 +421,12 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido", result.stdout)
-        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertNotIn("runtime-v1", result.stdout)
         self.assertFalse(pull_marker.exists())
         boot_metrics = (self.state / "boot-last.tsv").read_text(encoding="utf-8")
-        self.assertTrue(boot_metrics.startswith("fast-local\t"))
+        self.assertTrue(boot_metrics.startswith("fast-console\t"))
 
     def test_seed_boot_does_not_require_or_create_version_store(self) -> None:
         self._script(PULL)
