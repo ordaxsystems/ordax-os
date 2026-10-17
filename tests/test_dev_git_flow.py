@@ -286,7 +286,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertIn("runtime-v1", self._script(RUN).stdout)
 
-        # A boot while pinned must not touch network/pull and must run the pinned checkout.
+        # A pinned boot must remain local and enter the Dev console without launching the runtime.
         # The real dev-base builder installs these scripts as executable files. Mirror that
         # installation boundary here instead of relying on the source-tree executable bit.
         bin_dir = self.root / "bin"
@@ -328,21 +328,21 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
-    def test_failed_boot_rolls_back_without_putting_remote_update_on_boot_path(self) -> None:
+    def test_console_boot_does_not_launch_runtime_or_trigger_runtime_rollback(self) -> None:
         self._script(PULL)
         self.commit_v2 = self._commit_runtime("runtime-v2")
         self._script(PULL)
 
-        bin_dir = self.root / "auto-recovery-bin"
+        bin_dir = self.root / "console-boot-bin"
         bin_dir.mkdir()
-        network_marker = self.root / "auto-network-called"
-        pull_marker = self.root / "auto-pull-called"
+        pull_marker = self.root / "console-pull-called"
+        runtime_marker = self.root / "console-runtime-called"
         (bin_dir / "ordax-network").write_text(
-            f"#!/bin/sh\ntouch '{network_marker}'\nexit 0\n",
+            "#!/bin/sh\nexit 0\n",
             encoding="utf-8",
         )
         (bin_dir / "ordax-pull").write_text(
-            f"#!/bin/sh\ntouch '{pull_marker}'\nexec /bin/sh '{PULL}'\n",
+            f"#!/bin/sh\ntouch '{pull_marker}'\nexit 99\n",
             encoding="utf-8",
         )
         (bin_dir / "ordax-rollback").write_text(
@@ -350,11 +350,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             encoding="utf-8",
         )
         (bin_dir / "ordax-run").write_text(
-            "#!/bin/sh\n"
-            "if grep -q runtime-v2 \"$ORDAX_WORKTREE/system/entrypoint\"; then\n"
-            "  exit 42\n"
-            "fi\n"
-            "exec /bin/sh \"$ORDAX_WORKTREE/system/entrypoint\"\n",
+            f"#!/bin/sh\ntouch '{runtime_marker}'\nexit 42\n",
             encoding="utf-8",
         )
         for helper in bin_dir.iterdir():
@@ -369,28 +365,18 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             }
         )
 
-        recovered = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Boot rapido", recovered.stdout)
-        self.assertIn("Rollback automatico ativado", recovered.stdout)
-        self.assertIn("runtime-v1", recovered.stdout)
-        self.assertEqual((self.state / "boot-rejected-commit").read_text().strip(), self.commit_v2)
-        self.assertEqual((self.state / "pinned-commit").read_text().strip(), self.commit_v1)
+        result = self._script(DEV_INIT, env=boot_env)
+        self.assertIn("Checkout local saudavel", result.stdout)
+        self.assertIn("Boot rapido: console Dev local; rede inicia em paralelo.", result.stdout)
+        self.assertIn("OrdaX Dev pronto.", result.stdout)
+        self.assertFalse(runtime_marker.exists())
         self.assertFalse(pull_marker.exists())
+        self.assertFalse((self.state / "boot-rejected-commit").exists())
+        self.assertFalse((self.state / "pinned-commit").exists())
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
-            self.commit_v1,
+            self.commit_v2,
         )
-
-        # Even when main advances, the next boot must stay fast/local. The
-        # running supervisor owns the automatic unpin/retry after connectivity.
-        self._commit_runtime("runtime-v3")
-        pinned_boot = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Rollback fixado", pinned_boot.stdout)
-        self.assertIn("runtime-v1", pinned_boot.stdout)
-        self.assertFalse(pull_marker.exists())
-        self.assertTrue((self.state / "boot-rejected-commit").exists())
-        self.assertTrue((self.state / "pinned-commit").exists())
-
     def test_healthy_local_checkout_starts_before_network_or_git_update(self) -> None:
         self._script(PULL)
 
@@ -557,7 +543,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "Primeiro boot ou checkout local inconsistente",
             1,
         )[0]
-        self.assertNotIn("ordax-pull", fast_block)
+        self.assertNotIn("ordax-pull", fast_block)`n        self.assertNotIn('"$BIN_DIR/ordax-run"', fast_block)`n        self.assertIn("maintenance_shell", fast_block)
         self.assertIn('while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]', dev_init)
         self.assertIn("repetindo uma vez apos pausa curta", dev_init)
         self.assertIn("sleep 2", dev_init)
