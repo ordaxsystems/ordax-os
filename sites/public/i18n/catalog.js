@@ -5,6 +5,10 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Ampliar telefone", "Expand phone"],
+    ["Explore o OrdaX no telefone", "Explore OrdaX on your phone"],
+    ["Abra o menu para navegar entre os aplicativos. Os dados são de exemplo.", "Open the menu to browse the apps. The data is illustrative."],
+    ["Explore a Central, os espaços e os aplicativos com dados de exemplo.", "Explore Central, spaces and apps with example data."],
     ["Arquivos de exemplo", "Example files"],
     ["Explore o OrdaX por dentro.", "Explore inside OrdaX."],
     ["Navegue pela Central, abra Espaços e confira os aplicativos. A interface é a mesma do produto, com dados de exemplo.", "Explore Central, open Spaces and browse the apps. The interface matches the product, with example data."],

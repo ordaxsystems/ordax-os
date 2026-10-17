@@ -11,7 +11,10 @@ portal. Source wallpapers are copied and byte-verified. Compact preview means
 responsive Web, not a published Mobile package. The local navigation menu
 fits within each device, exposes its expanded state and controlled region,
 supports arrow/Home/End keys, restores trigger focus on Escape, and closes
-on outside pointer interaction or focus leaving the menu.
+on outside pointer interaction or focus leaving the menu. Both notebook and phone
+can be expanded independently in the existing dialog, preserving their view
+and restoring focus and original placement when closed. Phone expansion fits
+the host viewport; the notebook retains desktop geometry.
 
 Public Account Web shortcuts (2026-10-17): sidebar, footer and mobile More
 menu now link directly to the canonical Web origin, matching the landing.

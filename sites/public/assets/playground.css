@@ -253,3 +253,14 @@ body.titanium-concept{--canvas:#080f19;--surface:#101a29;--ink:#edf2fa;--muted:#
 .demo-native .public-demo-menu[hidden] {display:none;}
 .demo-native .public-demo-menu button {min-height:44px;padding:10px;text-align:left;border:0;border-radius:8px;background:var(--md-subtle);color:var(--md-ink);font:13px var(--ordax-font);cursor:pointer;}
 .demo-native .public-demo-menu button:focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
+
+/* The expanded device keeps its existing controller and source-rendered view. */
+.demo-expanded[data-expanded-device="phone"] {width:min(440px,96vw);}
+.demo-expanded[data-expanded-device="phone"] [data-expanded-mount] {min-width:0;}
+.demo-expanded[data-expanded-device="phone"] .expanded-scroll {padding:12px 4px 20px;}
+.demo-expanded[data-expanded-device="phone"] .phone-device {position:relative;inset:auto;width:min(340px,100%);margin-inline:auto;animation:none;filter:none;}
+.demo-expanded[data-expanded-device="phone"] .phone-shell {padding:26px 8px 8px;border-radius:36px;}
+.demo-expanded[data-expanded-device="phone"] .phone-viewport {border-radius:28px;}
+.demo-tools {flex-wrap:wrap;}
+
+.demo-expanded[data-expanded-device="phone"] .phone-camera {top:8px;left:37%;width:26%;height:8px;border-radius:10px;}

@@ -325,19 +325,32 @@
   screens.forEach(screen => sizeObserver.observe(screen.parentElement));
 
   const dialog = root.querySelector(".demo-expanded");
-  const laptop = root.querySelector(".laptop-device");
-  const expandButton = root.querySelector("[data-expand]");
-  const anchor = document.createComment("notebook position");
-  expandButton.addEventListener("click", () => {
-    laptop.replaceWith(anchor);
-    dialog.querySelector("[data-expanded-mount]").append(laptop);
-    dialog.showModal();
-    dialog.querySelector("[data-close-expanded]").focus();
-  });
-  dialog.querySelector("[data-close-expanded]").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => {
-    anchor.replaceWith(laptop);
-    expandButton.focus({preventScroll:true});
+  let expandedDevice=null;
+  const expandedCopy=()=>{
+    const phone=expandedDevice?.device==='phone';
+    dialog.querySelector('h2').textContent=local(phone?'Explore o OrdaX no telefone':'Explore a área de trabalho');
+    dialog.querySelector('.expanded-header p').textContent=local(phone?'Abra o menu para navegar entre os aplicativos. Os dados são de exemplo.':'Em telas pequenas, deslize na horizontal para explorar o notebook.');
+  };
+  root.querySelectorAll('[data-expand]').forEach(trigger=>trigger.addEventListener('click',()=>{
+    if(expandedDevice) return;
+    const device=trigger.dataset.expand==='phone'?'phone':'laptop';
+    const node=root.querySelector(device==='phone'?'.phone-device':'.laptop-device');
+    const anchor=document.createComment('device position');
+    expandedDevice={node,anchor,trigger,device};
+    screens.forEach(screen=>closeNavigation(screen));
+    node.replaceWith(anchor);
+    dialog.dataset.expandedDevice=device;
+    dialog.querySelector('[data-expanded-mount]').append(node);
+    expandedCopy();dialog.showModal();
+    dialog.querySelector('[data-close-expanded]').focus();
+  }));
+  dialog.querySelector('[data-close-expanded]').addEventListener('click',()=>dialog.close());
+  dialog.addEventListener('close',()=>{
+    if(!expandedDevice) return;
+    const {node,anchor,trigger}=expandedDevice;
+    screens.forEach(screen=>closeNavigation(screen));
+    anchor.replaceWith(node);expandedDevice=null;
+    trigger.focus({preventScroll:true});
   });
   root.querySelector("[data-reset]").addEventListener("click",() => {
     state = initial();
@@ -349,7 +362,7 @@
     screens.forEach(screen => { views.get(screen).app = app; render(screen); });
     screens[0].querySelector(".demo-content input, .demo-content button")?.focus({preventScroll:true});
     screens[0].scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"center"});
-    announce(local(app === "home" ? "A Home do OrdaX reúne seus apps e espaços de trabalho." : app === "projects" ? "Projeto Aurora: objetivos, referências e próximos passos de exemplo." : app === "intelligence" ? "Explore uma análise predefinida. Esta página não executa inferência." : "Consulte as referências fictícias que sustentam a análise."));
+    announce(local(app === "home" ? "A Home do OrdaX reúne seus apps e espaços de trabalho." : app === "concept" ? "Projeto Aurora: objetivos, referências e próximos passos de exemplo." : app === "intelligence" ? "Explore uma análise predefinida. Esta página não executa inferência." : "Consulte as referências fictícias que sustentam a análise."));
   }));
 
   document.addEventListener("ordax:localechange", () => {
@@ -358,5 +371,6 @@
     if (state.title === previousDefaults.title) state.title = noteDefaults.title;
     if (state.body === previousDefaults.body) state.body = noteDefaults.body;
     screens.forEach(render);
+    if(expandedDevice) expandedCopy();
   });
 })();

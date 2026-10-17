@@ -36,6 +36,23 @@ try{await runBrowser(async client=>{
  assert.equal(await evaluate(`(()=>{const menu=document.querySelector('[data-device="phone"] .public-demo-menu').getBoundingClientRect(),device=document.querySelector('[data-device="phone"]').getBoundingClientRect();return menu.left>=device.left-1&&menu.right<=device.right+1&&menu.bottom<=device.bottom+1;})()`),true);
  await evaluate(`document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`);
  assert.equal(await evaluate(`document.querySelector('[data-device="phone"] .public-demo-menu').hidden`),true);
+ // Expansion moves the same live preview instead of creating another UI or resetting it.
+ await evaluate(`globalThis.proofPhone=document.querySelector('[data-device="phone"]');document.querySelector('[data-expand="phone"]').click()`);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded').open`),true);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded [data-device="phone"]')===globalThis.proofPhone`),true);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded').getBoundingClientRect().width<=innerWidth`),true);
+ assert.equal(await evaluate(`(()=>{const camera=document.querySelector('.demo-expanded .phone-camera').getBoundingClientRect(),screen=document.querySelector('.demo-expanded .phone-viewport').getBoundingClientRect();return camera.bottom<=screen.top;})()`),true);
+ await evaluate(`document.querySelector('.demo-expanded .meridian-mobile-menu').click();document.querySelector('.demo-expanded .public-demo-menu [data-value="settings"]').click()`);
+ assert.equal(await evaluate(`!!document.querySelector('.demo-expanded [data-ordax-settings-overview-view]')`),true);
+ await sleep(150);const expandedShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(evidence,name+'-expanded-phone.png'),Buffer.from(expandedShot.data,'base64'));
+ await evaluate(`document.querySelector('[data-close-expanded]').click()`);await sleep(100);
+ assert.equal(await evaluate(`document.querySelector('.device-stage [data-device="phone"]')===globalThis.proofPhone`),true);
+ assert.equal(await evaluate(`globalThis.proofPhone.dataset.app`),'settings');
+ assert.equal(await evaluate(`document.activeElement.matches('[data-expand="phone"]')`),true);
+ await evaluate(`document.querySelector('[data-expand=""]').click()`);
+ assert.equal(await evaluate(`!!document.querySelector('.demo-expanded [data-device="laptop"]')`),true);
+ await evaluate(`document.querySelector('[data-close-expanded]').click()`);await sleep(100);
+ assert.equal(await evaluate(`document.activeElement.matches('[data-expand=""]')`),true);
  // Public controls must switch to the actual generated app page, not call services.
  await evaluate(`document.querySelector('[data-device="laptop"] [data-action="app"][data-value="settings"]').click()`);assert.equal(await evaluate(`!!document.querySelector('[data-device="laptop"] [data-ordax-settings-overview-view]')`),true);
  assert.equal(await evaluate(`document.querySelector('[data-device="laptop"]').dataset.app`),'settings');
