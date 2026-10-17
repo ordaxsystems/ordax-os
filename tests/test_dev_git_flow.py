@@ -224,6 +224,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "/bootstrap/dev-base/ordax-dev-init",
                 "/bootstrap/dev-base/ordax-diagnose",
                 "/bootstrap/dev-base/ordax-network",
+                "/bootstrap/dev-base/ordax-main-watch",
                 "/bootstrap/dev-base/ordax-pull",
                 "/bootstrap/dev-base/ordax-rollback",
                 "/bootstrap/dev-base/ordax-run",
