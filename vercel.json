@@ -5,6 +5,12 @@
   "ignoreCommand": "sh tools/vercel/should_skip_build.sh",
   "redirects": [
     {
+      "source": "/web/",
+      "has": [{"type": "host", "value": "ordax.com.br"}],
+      "destination": "https://web.ordax.com.br/",
+      "permanent": true
+    },
+    {
       "source": "/web/:path*",
       "has": [{"type": "host", "value": "ordax.com.br"}],
       "destination": "https://web.ordax.com.br/",

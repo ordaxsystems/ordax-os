@@ -43,11 +43,11 @@ class CanonicalPublicHostTests(unittest.TestCase):
         # Only the retired product entry may redirect in repository policy;
         # canonical host aliases remain owned by Vercel project routing.
         self.assertEqual(self.config.get("redirects"), [{
-            "source": "/web/:path*",
+            "source": source,
             "has": [{"type": "host", "value": CANONICAL}],
             "destination": f"https://{WEB_CANONICAL}/",
             "permanent": True,
-        }])
+        } for source in ("/web/", "/web/:path*")])
 
     def test_landing_web_links_use_the_product_origin_directly(self):
         from html.parser import HTMLParser
