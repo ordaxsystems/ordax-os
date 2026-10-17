@@ -93,7 +93,7 @@ async function provePublicAccount(client, url, evidenceDir) {
         emptyChart: !!document.querySelector('.chart-empty') && !document.querySelector('.usage-chart polyline'),
         decorativeProfileArt: !!document.querySelector('.identity-card .identity-art[aria-hidden="true"] img[src="/assets/account-landscape.jpg"][alt=""]'),
         managementSections: ['dados-pessoais','assinatura','faturamento','consumo','seguranca','dispositivos','preferencias','privacidade','integracoes','atividade','suporte'].every(id => overviewTargets.has('#' + id)),
-        mobileWebReachable: !!document.querySelector('#more-dialog a[href="/web/"]'),
+        mobileWebReachable: !!document.querySelector('#more-dialog a[href="https://web.ordax.com.br/"]'),
         noInventedIdentity: !document.querySelector('.verified-email').textContent.includes('@'),
         accountNavigation: nav.length === 5 && nav.slice(0,4).map(item => item.hash).join(',') === '#visao-geral,#assinatura,#consumo,#seguranca' && nav[4].id === 'more-toggle',
         touchTargets: !phone || nav.every(element => box(element).height >= 44),

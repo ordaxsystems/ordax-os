@@ -1,5 +1,11 @@
 # Current State
 
+Public Account Web shortcuts (2026-10-17): sidebar, footer and mobile More
+menu now link directly to the canonical Web origin, matching the landing.
+The mode CTA uses the same access label. The mobile reachability proof checks
+the direct destination, and public-source guidance distinguishes the live Web
+from the preserved legacy presentation. Account session gates remain unchanged.
+
 Public Web entry correction (2026-10-16): landing hero, mode and footer links
 now open https://web.ordax.com.br/ directly. The legacy /web/ path on the public
 portal permanently redirects to that root through host-scoped Vercel routing.

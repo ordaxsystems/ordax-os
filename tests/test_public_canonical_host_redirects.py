@@ -65,6 +65,10 @@ class CanonicalPublicHostTests(unittest.TestCase):
         parser.feed((ROOT / "sites/public/index.html").read_text(encoding="utf-8"))
         self.assertNotIn("/web/", parser.hrefs)
         self.assertEqual(parser.hrefs.count(f"https://{WEB_CANONICAL}/"), 3)
+        account = Links()
+        account.feed((ROOT / "sites/public/conta/index.html").read_text(encoding="utf-8"))
+        self.assertNotIn("/web/", account.hrefs)
+        self.assertEqual(account.hrefs.count(f"https://{WEB_CANONICAL}/"), 3)
 
     def test_host_scoped_web_proxy_precedes_public_account_proxy_without_overlap(self):
         rewrites = self.config["rewrites"]

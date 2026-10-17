@@ -159,7 +159,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('id="profile-menu-trigger"', account)
         portal = (SITE / "assets/account-portal.js").read_text(encoding="utf-8")
         self.assertIn('account.bindProfileMenu', portal)
-        self.assertIn('href="/web/"', account)
+        self.assertIn('href="https://web.ordax.com.br/"', account)
         config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
         self.assertFalse(config["product"]["web"]["enabled"])
         self.assertIsNone(config["product"]["web"]["entry_url"])
