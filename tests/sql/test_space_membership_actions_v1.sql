@@ -84,6 +84,40 @@ $$;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 
+-- Multiple bounded pages must cover the same members, once each and in cursor order.
+-- This guards the SQL side of the gateway's strict cursor progression check.
+do $$
+declare
+  all_members uuid[];
+  paged_members uuid[] := '{}'::uuid[];
+  batch uuid[];
+  checkpoint uuid := null;
+begin
+  select coalesce(array_agg(user_id order by user_id), '{}'::uuid[])
+    into all_members
+  from public.ordax_list_space_members_v1(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 128
+  );
+  loop
+    select coalesce(array_agg(user_id order by user_id), '{}'::uuid[])
+      into batch
+    from public.ordax_list_space_members_v1(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', checkpoint, 2
+    );
+    exit when cardinality(batch) = 0;
+    if checkpoint is not null and batch[1] <= checkpoint then
+      raise exception 'members page did not advance beyond requested cursor';
+    end if;
+    paged_members := paged_members || batch;
+    checkpoint := batch[cardinality(batch)];
+    exit when cardinality(batch) < 2;
+  end loop;
+  if paged_members is distinct from all_members then
+    raise exception 'members cursor pagination skipped or duplicated users';
+  end if;
+end;
+$$;
+
 do $$
 declare
   owner_row record;
