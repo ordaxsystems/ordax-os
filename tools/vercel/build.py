@@ -36,6 +36,7 @@ WEB_IDENTITY_SOURCE_FILES = (
 WEB_IDENTITY_SUPPORT_FILES = (
     *WEB_IDENTITY_SOURCE_FILES,
     "assets/ordax-design-tokens.css",
+    "assets/ordax-symbol.png",
 )
 
 
@@ -136,6 +137,10 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
         raise DeploymentBuildError("Web identity token bridge collides with Surface output")
     token_destination.parent.mkdir(parents=True, exist_ok=True)
     token_destination.write_text(render_site_identity_css(), encoding="utf-8")
+    # The shared symbol CSS resolves this local PNG relative to the token sheet.
+    # Keep its bytes and path owned by Surface, just as the public portal does.
+    copy_unique(ROOT / "system/surface/ui/brand/ordax-symbol.png",
+                OUTPUT / "assets/ordax-symbol.png")
 
     source_login = public_source / "login/index.html"
     if source_login.is_symlink() or not source_login.is_file():

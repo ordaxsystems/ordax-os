@@ -8,12 +8,15 @@ not freeze superseded gateway revisions as architectural requirements.
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import re
 import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +36,25 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel = json.loads(VERCEL.read_text(encoding="utf-8"))
         self.vercel_proxy_entry = VERCEL_PROXY_ENTRY.read_text(encoding="utf-8")
         self.vercel_proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
+
+    def test_web_login_bundle_contains_shared_css_brand_dependency(self):
+        spec = importlib.util.spec_from_file_location("web_login_deployment", ROOT / "tools/vercel/build.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory, patch.object(module, "OUTPUT", Path(directory)):
+            module.compose_web_identity_bootstrap("a" * 40)
+            output = Path(directory)
+            css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
+            dependencies = re.findall(r'url\(\s*[\"\']?([^\"\')]+)', css)
+            self.assertIn("./ordax-symbol.png", dependencies)
+            for dependency in dependencies:
+                self.assertTrue((output / "assets" / dependency).is_file(), dependency)
+            self.assertEqual((output / "assets/ordax-symbol.png").read_bytes(),
+                             (ROOT / "system/surface/ui/brand/ordax-symbol.png").read_bytes())
+            module.write_web_deployment_manifest("a" * 40)
+            receipt = json.loads((output / module.WEB_DEPLOYMENT_MANIFEST).read_text(encoding="utf-8"))
+            self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
+            self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
