@@ -34,8 +34,10 @@ class DevPullExpectedShaTests(unittest.TestCase):
         self.remote = self.root / "remote.git"
         self.worktree = self.root / "workspace" / "ordax"
         self.state = self.root / "state"
+        self.run_dir = self.root / "run" / "ordax-update"
         self.seed.mkdir(parents=True)
         self.state.mkdir(parents=True)
+        self.run_dir.mkdir(parents=True)
 
         run_git("init", "-b", "main", cwd=self.seed)
         run_git("config", "user.name", "OrdaX Test", cwd=self.seed)
@@ -89,6 +91,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
                 "ORDAX_REPO_BRANCH": "main",
                 "ORDAX_WORKTREE": str(self.worktree),
                 "ORDAX_STATE_DIR": str(self.state),
+                "ORDAX_UPDATE_RUN_DIR": str(self.run_dir),
                 "ORDAX_EXPECTED_SHA": expected_sha,
                 "ORDAX_BOOT_GIT_TIMEOUT_SECONDS": "30",
             }

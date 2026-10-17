@@ -1,5 +1,6 @@
 export const SPACE_MEMBERSHIP_ACTIONS_SCHEMA = "ordax.space-membership-actions/1";
 export const SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA = "ordax.space-membership-action-request/1";
+export const SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA = "ordax.space-membership-action-result/1";
 
 const ACTIONS = new Set(["change-role", "suspend", "reactivate", "remove"]);
 const ASSIGNABLE_ROLES = new Set(["admin", "member", "viewer"]);
@@ -87,6 +88,29 @@ export function validateSpaceMembershipActionRequest(value) {
   return Object.freeze(request);
 }
 
+export function validateSpaceMembershipActionResult(value) {
+  const raw = objectValue(value, "Space membership action result");
+  const expected = new Set(["schema", "spaceId", "targetUserId", "role", "state", "removed", "changed"]);
+  if (Object.keys(raw).length !== expected.size || Object.keys(raw).some((key) => !expected.has(key))) {
+    throw new TypeError("Space membership action result fields are invalid");
+  }
+  if (raw.schema !== SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA
+      || !ASSIGNABLE_ROLES.has(raw.role)
+      || !["active", "suspended"].includes(raw.state)
+      || typeof raw.removed !== "boolean"
+      || typeof raw.changed !== "boolean") {
+    throw new TypeError("Space membership action result is invalid");
+  }
+  return Object.freeze({
+    schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA,
+    spaceId: boundedText(raw.spaceId, "Space membership result spaceId"),
+    targetUserId: boundedText(raw.targetUserId, "Space membership result targetUserId"),
+    role: raw.role,
+    state: raw.state,
+    removed: raw.removed,
+    changed: raw.changed,
+  });
+}
 export function isSpaceMembershipActionSupported(snapshotValue, action) {
   const snapshot = validateSpaceMembershipActionsSnapshot(snapshotValue);
   return ACTIONS.has(action) && snapshot.supportedActions.includes(action);
