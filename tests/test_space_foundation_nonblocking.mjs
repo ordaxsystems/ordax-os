@@ -7,6 +7,9 @@ import {
   assertSpacesPort,
 } from "../system/contracts/spaces.mjs";
 import {
+  SPACE_CAPABILITY_PROVIDER_SCHEMA,
+} from "../system/contracts/space-experience.mjs";
+import {
   composeSpaceExperience,
 } from "../system/services/spaces/composition.mjs";
 
@@ -80,7 +83,7 @@ test("declared Space capabilities degrade locally when providers are unavailable
 
 test("a failing capability provider does not invalidate the Space experience shell", () => {
   const badProvider = Object.freeze({
-    schema: "ordax.space-capability-provider/1",
+    schema: SPACE_CAPABILITY_PROVIDER_SCHEMA,
     capability: "orders",
     spaceTypes: Object.freeze(["food.pizzeria"]),
     getSnapshot() {
