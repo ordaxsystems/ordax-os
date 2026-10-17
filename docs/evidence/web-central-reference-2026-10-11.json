@@ -971,8 +971,8 @@
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "250216ac5958882b2cf6209057c73f97ad98fc6bb3d53e25043c7de6fec98e1c",
-      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
+      "adaptedSha256": "6d815cc4c858322c22217e374d106f9eef9eab28e0c87d48e3067d26a1adecbe",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context additionally exposes the composed bounded Space members reader as an on-demand read capability; no membership action or write authority is added to Surface."
     },
     {
       "target": "system/adapters/web/space-selection.mjs",
