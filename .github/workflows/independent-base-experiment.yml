@@ -51,6 +51,14 @@ jobs:
           python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
+      - name: Restore Buildroot source/package download cache
+        id: buildroot-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
+          restore-keys: |
+            ordax-buildroot-download-v1-${{ runner.os }}-
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
         run: |
@@ -73,6 +81,12 @@ jobs:
             --out "$RUNNER_TEMP/ordax-independent" \
             --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
           python3 bootstrap/independent-base/build.py verify --out "$RUNNER_TEMP/ordax-independent"
+      - name: Save Buildroot source/package download cache
+        if: steps.buildroot-download-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
       - name: Build canonical OrdaX kernel on verified cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
         env:
