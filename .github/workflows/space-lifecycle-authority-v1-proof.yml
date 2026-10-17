@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'infra/supabase/product/migrations/20261017060000_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/fixtures/space_lifecycle_authority_v1_fixture.sql'
       - 'tests/sql/test_space_lifecycle_authority_v1.sql'
       - 'tests/sql/test_space_lifecycle_authority_edges_v1.sql'
       - '.github/workflows/space-lifecycle-authority-v1-proof.yml'
   pull_request:
     paths:
       - 'infra/supabase/product/migrations/20261017060000_space_lifecycle_authority_v1.sql'
+      - 'tests/sql/fixtures/space_lifecycle_authority_v1_fixture.sql'
       - 'tests/sql/test_space_lifecycle_authority_v1.sql'
       - 'tests/sql/test_space_lifecycle_authority_edges_v1.sql'
       - '.github/workflows/space-lifecycle-authority-v1-proof.yml'
