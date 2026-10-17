@@ -126,6 +126,11 @@
     for(const item of surface.navigation) menu.append(button(item.name,routeLabels[item.name]?'app':'public-planned',routeLabels[item.name]));
     menu.append(button(local('Minha conta'),'app','account'));
     menu.append(button(local('Arquivos de exemplo'),'app','example-files'));
+    menu.id=prefix+'navigation';
+    for(const trigger of screen.querySelectorAll('[data-action="public-menu"]')) {
+      trigger.setAttribute('aria-controls',menu.id);
+      trigger.setAttribute('aria-expanded','false');
+    }
     screen.querySelector('.window-workspace').append(menu);
   }
   function render(screen) {
@@ -230,10 +235,32 @@
       for (const option of screen.querySelectorAll('[data-action="theme"]')) option.setAttribute("aria-pressed",String(option.dataset.value === state.theme));
     }
   }
+  const menuTriggers=new WeakMap();
+  function closeNavigation(screen, restoreFocus=false) {
+    const menu=screen.querySelector('.public-demo-menu');
+    if(!menu || menu.hidden) return;
+    menu.hidden=true;
+    screen.querySelectorAll('[data-action="public-menu"]').forEach(trigger=>trigger.setAttribute('aria-expanded','false'));
+    if(restoreFocus) menuTriggers.get(screen)?.focus({preventScroll:true});
+  }
+  document.addEventListener('pointerdown',event=>{
+    for(const screen of screens) if(!screen.querySelector('.public-demo-menu')?.contains(event.target) && !event.target.closest('[data-action="public-menu"]')) closeNavigation(screen);
+  });
   for (const screen of screens) {
     render(screen);
     screen.addEventListener('submit',event=>event.preventDefault());
-    screen.addEventListener('keydown',event=>{if(event.key==='Escape'){const menu=screen.querySelector('.public-demo-menu');if(menu)menu.hidden=true;}});
+    screen.addEventListener('keydown',event=>{
+      if(event.key==='Escape') {closeNavigation(screen,true);return;}
+      const menu=event.target.closest('.public-demo-menu');
+      if(!menu || !['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+      const items=Array.from(menu.querySelectorAll('button'));
+      const index=items.indexOf(document.activeElement);
+      const next=event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
+      event.preventDefault();items[next]?.focus({preventScroll:true});items[next]?.scrollIntoView({block:'nearest'});
+    });
+    screen.addEventListener('focusout',event=>{
+      if(event.target.closest('.public-demo-menu') && event.relatedTarget && !screen.querySelector('.public-demo-menu')?.contains(event.relatedTarget)) closeNavigation(screen);
+    });
     screen.addEventListener("input", event => {
       const field = event.target.dataset.field;
       if (!["title","body","done"].includes(field)) return;
@@ -246,7 +273,14 @@
       if (!control) return;
       const {action,value} = control.dataset;
       const view = views.get(screen);
-      if (action === 'public-menu') {const menu=screen.querySelector('.public-demo-menu');menu.hidden=!menu.hidden;control.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)menu.querySelector('button')?.focus();return;}
+      if (action === 'public-menu') {
+        const menu=screen.querySelector('.public-demo-menu');
+        if(!menu.hidden) {closeNavigation(screen,true);return;}
+        screens.forEach(other=>closeNavigation(other));
+        menuTriggers.set(screen,control);menu.hidden=false;
+        control.setAttribute('aria-expanded','true');menu.querySelector('button')?.focus({preventScroll:true});return;
+      }
+      closeNavigation(screen);
       if(action?.startsWith('spaces-')) {announce(local('Prévia de um recurso planejado'));return;}
       if (action === 'public-planned') { announce(local('Prévia de um recurso planejado')); return; }
       if (action === "analyze" || action === "accept-analysis") {

@@ -249,7 +249,7 @@ body.titanium-concept{--canvas:#080f19;--surface:#101a29;--ink:#edf2fa;--muted:#
 .demo-native>.window-workspace {height:100%!important;min-height:0;}
 .demo-native .window-workspace {--sidebar-width:208px;--taskbar-height:66px;--os-font:var(--ordax-font);font-family:var(--ordax-font);}
 .demo-native .central-content>.demo-content {padding:28px;height:100%;overflow:auto;}
-.demo-native .public-demo-menu {position:absolute;z-index:90;inset:68px 16px auto auto;max-height:480px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px;width:300px;padding:12px;border:1px solid var(--md-border);border-radius:var(--md-radius);background:var(--md-surface);box-shadow:var(--md-shadow);}
+.demo-native .public-demo-menu {position:absolute;z-index:90;inset:68px 16px auto auto;max-height:min(480px,calc(100% - 84px));overflow:auto;overscroll-behavior:contain;display:grid;grid-template-columns:1fr 1fr;gap:6px;width:min(300px,calc(100% - 32px));padding:12px;border:1px solid var(--md-border);border-radius:var(--md-radius);background:var(--md-surface);box-shadow:var(--md-shadow);}
 .demo-native .public-demo-menu[hidden] {display:none;}
 .demo-native .public-demo-menu button {min-height:44px;padding:10px;text-align:left;border:0;border-radius:8px;background:var(--md-subtle);color:var(--md-ink);font:13px var(--ordax-font);cursor:pointer;}
 .demo-native .public-demo-menu button:focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}

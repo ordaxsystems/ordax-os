@@ -8,7 +8,10 @@ styles are compiled from the same source and scoped to the virtual viewports.
 Only read-only/unavailable account, preference and Intelligence adapters exist
 during generation; no React/Surface runtime or service transport ships in the
 portal. Source wallpapers are copied and byte-verified. Compact preview means
-responsive Web, not a published Mobile package.
+responsive Web, not a published Mobile package. The local navigation menu
+fits within each device, exposes its expanded state and controlled region,
+supports arrow/Home/End keys, restores trigger focus on Escape, and closes
+on outside pointer interaction or focus leaving the menu.
 
 Public Account Web shortcuts (2026-10-17): sidebar, footer and mobile More
 menu now link directly to the canonical Web origin, matching the landing.

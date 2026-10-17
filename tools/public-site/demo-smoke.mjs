@@ -23,6 +23,19 @@ try{await runBrowser(async client=>{
  const state=await evaluate(`(()=>{const laptop=document.querySelector('[data-device="laptop"]'),phone=document.querySelector('[data-device="phone"]');return {width,sidebars:document.querySelectorAll('.demo-native .meridian-rail').length,homes:document.querySelectorAll('.demo-native .meridian-home').length,inlineStyles:document.querySelectorAll('.demo-native [style]').length,laptopSidebar:getComputedStyle(laptop.querySelector('.meridian-rail')).display,phoneSidebar:getComputedStyle(phone.querySelector('.meridian-rail')).display,phoneMenu:getComputedStyle(phone.querySelector('.meridian-mobile-menu')).display,hero:phone.querySelector('.meridian-hero img').complete,viewportOverflow:document.documentElement.scrollWidth>innerWidth};})()` .replace('return {width,','return {width:innerWidth,'));
  await writeFile(join(evidence,name+'-state.json'),JSON.stringify(state,null,2));const earlyShot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(join(evidence,name+'-initial.png'),Buffer.from(earlyShot.data,'base64'));
  assert.equal(state.sidebars,2);assert.equal(state.homes,2);assert.equal(state.inlineStyles,0);assert.equal(state.phoneSidebar,'none');assert.notEqual(state.phoneMenu,'none');assert.equal(state.viewportOverflow,false);assert.equal(state.hero,true);
+ // The compact navigation remains operable by keyboard and fits inside its device.
+ await evaluate(`document.querySelector('[data-device="phone"] .meridian-mobile-menu').click()`);
+ assert.equal(await evaluate(`document.querySelector('[data-device="phone"] .meridian-mobile-menu').getAttribute('aria-expanded')`),'true');
+ assert.equal(await evaluate(`document.activeElement.closest('.public-demo-menu')!==null`),true);
+ await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'End',code:'End'});
+ assert.equal(await evaluate(`document.activeElement.dataset.value`),'example-files');
+ await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+ assert.equal(await evaluate(`document.activeElement.matches('.meridian-mobile-menu')`),true);
+ assert.equal(await evaluate(`document.activeElement.getAttribute('aria-expanded')`),'false');
+ await evaluate(`document.querySelector('[data-device="phone"] .meridian-mobile-menu').click()`);
+ assert.equal(await evaluate(`(()=>{const menu=document.querySelector('[data-device="phone"] .public-demo-menu').getBoundingClientRect(),device=document.querySelector('[data-device="phone"]').getBoundingClientRect();return menu.left>=device.left-1&&menu.right<=device.right+1&&menu.bottom<=device.bottom+1;})()`),true);
+ await evaluate(`document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`);
+ assert.equal(await evaluate(`document.querySelector('[data-device="phone"] .public-demo-menu').hidden`),true);
  // Public controls must switch to the actual generated app page, not call services.
  await evaluate(`document.querySelector('[data-device="laptop"] [data-action="app"][data-value="settings"]').click()`);assert.equal(await evaluate(`!!document.querySelector('[data-device="laptop"] [data-ordax-settings-overview-view]')`),true);
  assert.equal(await evaluate(`document.querySelector('[data-device="laptop"]').dataset.app`),'settings');
