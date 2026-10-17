@@ -195,7 +195,14 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env: dict[str, str] | None = None,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        return self._run(["/bin/sh", str(script)], env=env or self._env(), check=check)
+        return subprocess.run(
+            ["/bin/sh", str(script)],
+            check=check,
+            capture_output=True,
+            text=True,
+            env=env or self._env(),
+            stdin=subprocess.DEVNULL,
+        )
 
     def test_clone_pull_rollback_pin_and_explicit_unpin(self) -> None:
         first = self._script(PULL)
