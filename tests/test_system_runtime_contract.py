@@ -361,9 +361,16 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn('/bin/busybox poweroff -f', text)
         self.assertIn("printf 'b' >/proc/sysrq-trigger", text)
         self.assertIn("printf 'o' >/proc/sysrq-trigger", text)
+        quiesce = text[text.index("quiesce_root_filesystem_for_power_transition()") : text.index("perform_host_power_transition()")]
+        self.assertLess(quiesce.index("exec >/dev/null 2>&1"), quiesce.index('/bin/busybox mount -o remount,ro /'))
+        self.assertNotIn('mount -o remount,ro / >>"$HOST_LOG"', quiesce)
+
         transition = text[text.index("perform_host_power_transition()") : text.index("queue_host_power_transition()") ]
         self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox reboot -f'))
         self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox poweroff -f'))
+        self.assertNotIn("$HOST_LOG", transition[transition.index('quiesce_root_filesystem_for_power_transition "$action"') :])
+        self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', transition)
+        self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', transition)
         termination = text[text.index("terminate()") : text.index("console_fallback()") ]
         self.assertLess(termination.index("cleanup"), termination.index('perform_host_power_transition "$requested_power_action"'))
 

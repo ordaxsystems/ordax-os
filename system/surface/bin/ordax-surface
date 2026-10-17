@@ -1277,16 +1277,20 @@ quiesce_root_filesystem_for_power_transition() {
         echo "ordax-surface: refusing $action because filesystem sync failed" >>"$HOST_LOG"
         return 1
     }
-    if ! /bin/busybox mount -o remount,ro / >>"$HOST_LOG" 2>&1; then
-        echo "ordax-surface: refusing $action because root could not be remounted read-only" >>"$HOST_LOG"
+
+    # The Surface inherits stdout/stderr from the supervisor, whose guardian
+    # log lives on the writable ORDAX filesystem in Owner/Development. Drop
+    # those writable descriptors before asking the kernel to remount it RO.
+    exec >/dev/null 2>&1
+    if ! /bin/busybox mount -o remount,ro /; then
+        printf 'ordax-surface: refusing %s because root could not be remounted read-only\n' "$action" >>"$HOST_LOG" 2>/dev/null || true
         return 1
     fi
     if ! root_filesystem_is_read_only; then
-        echo "ordax-surface: refusing $action because root remained writable after remount" >>"$HOST_LOG"
+        printf 'ordax-surface: refusing %s because root remained writable after remount\n' "$action" >>"$HOST_LOG" 2>/dev/null || true
         return 1
     fi
-    /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-    echo "ordax-surface: writable root secured read-only for $action" >>"$HOST_LOG"
+    /bin/busybox sync >/dev/null 2>&1 || true
     return 0
 }
 
@@ -1297,29 +1301,24 @@ perform_host_power_transition() {
         *) return 1 ;;
     esac
     quiesce_root_filesystem_for_power_transition "$action" || return 1
+    # Root is now read-only. Do not open logs or any other regular file for
+    # writing before the destructive kernel transition.
     case "$action" in
         restart)
-            echo "ordax-surface: attempting primary reboot syscall after read-only remount" >>"$HOST_LOG"
-            /bin/busybox reboot -f >>"$HOST_LOG" 2>&1 || true
-            echo "ordax-surface: primary reboot returned; attempting read-only kernel sysrq restart fallback" >>"$HOST_LOG"
+            /bin/busybox reboot -f >/dev/null 2>&1 || true
             if [ -w /proc/sysrq-trigger ]; then
-                if printf 'b' >/proc/sysrq-trigger 2>>"$HOST_LOG"; then /bin/busybox sleep 1; fi
+                if printf 'b' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
             fi
-            echo "ordax-surface: all host restart methods returned after root was secured read-only" >>"$HOST_LOG"
             ;;
         shutdown)
-            echo "ordax-surface: attempting primary poweroff syscall after read-only remount" >>"$HOST_LOG"
-            /bin/busybox poweroff -f >>"$HOST_LOG" 2>&1 || true
-            echo "ordax-surface: primary poweroff returned; attempting read-only kernel sysrq poweroff fallback" >>"$HOST_LOG"
+            /bin/busybox poweroff -f >/dev/null 2>&1 || true
             if [ -w /proc/sysrq-trigger ]; then
-                if printf 'o' >/proc/sysrq-trigger 2>>"$HOST_LOG"; then /bin/busybox sleep 1; fi
+                if printf 'o' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
             fi
-            echo "ordax-surface: all host shutdown methods returned after root was secured read-only" >>"$HOST_LOG"
             ;;
     esac
     return 1
 }
-
 queue_host_power_transition() {
     action=$1
     case "$action" in restart|shutdown) ;; *) return 1 ;; esac
