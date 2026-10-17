@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  SPACE_MEMBERSHIP_ACTION_OUTCOME_SCHEMA,
   SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA,
   SPACE_MEMBERSHIP_ACTIONS,
   SPACE_MEMBERSHIP_ACTIONS_SCHEMA,
   SPACE_MEMBERSHIP_ASSIGNABLE_ROLES,
   assertSpaceMembershipActionsPort,
   isSpaceMembershipActionSupported,
+  validateSpaceMembershipActionOutcome,
   validateSpaceMembershipActionRequest,
   validateSpaceMembershipActionsSnapshot,
 } from "../system/contracts/space-membership-actions.mjs";
@@ -17,6 +19,16 @@ const baseRequest = Object.freeze({
   spaceId: "space-123",
   targetUserId: "user-456",
   idempotencyKey: "123e4567-e89b-42d3-a456-426614174000",
+});
+
+const baseOutcome = Object.freeze({
+  schema: SPACE_MEMBERSHIP_ACTION_OUTCOME_SCHEMA,
+  spaceId: "space-123",
+  targetUserId: "user-456",
+  role: "member",
+  state: "active",
+  removed: false,
+  changed: true,
 });
 
 test("membership actions exclude invite, add-member, owner transfer and leave", () => {
@@ -104,6 +116,48 @@ test("non-role actions reject role and requests are bounded", () => {
       idempotencyKey: "not-a-uuid",
     }),
     /must be a UUID/,
+  );
+});
+
+test("membership action outcomes are exact, bounded and server-result shaped", () => {
+  assert.deepEqual(validateSpaceMembershipActionOutcome(baseOutcome), baseOutcome);
+  assert.deepEqual(
+    validateSpaceMembershipActionOutcome({
+      ...baseOutcome,
+      role: "admin",
+      state: "suspended",
+      removed: true,
+      changed: false,
+    }),
+    {
+      ...baseOutcome,
+      role: "admin",
+      state: "suspended",
+      removed: true,
+      changed: false,
+    },
+  );
+
+  for (const [field, value, pattern] of [
+    ["role", "owner", /outcome role is invalid/],
+    ["state", "deleted", /outcome state is invalid/],
+    ["removed", "yes", /flags must be boolean/],
+    ["changed", 1, /flags must be boolean/],
+  ]) {
+    assert.throws(
+      () => validateSpaceMembershipActionOutcome({ ...baseOutcome, [field]: value }),
+      pattern,
+    );
+  }
+  assert.throws(
+    () => validateSpaceMembershipActionOutcome({ ...baseOutcome, actorRole: "owner" }),
+    /unsupported field actorRole/,
+  );
+  const { changed, ...missingChanged } = baseOutcome;
+  assert.equal(changed, true);
+  assert.throws(
+    () => validateSpaceMembershipActionOutcome(missingChanged),
+    /missing field changed/,
   );
 });
 
