@@ -11,10 +11,13 @@ export const FIRST_RUN_SUPPORTED_TIME_ZONES = Object.freeze([
   "America/Noronha",
 ]);
 export const FIRST_RUN_ACCOUNT_MODES = Object.freeze(["local-only", "identity"]);
+// Only steps that need no identity or credential draft can be restored directly.
+export const FIRST_RUN_RESUME_STEP_IDS = Object.freeze(["welcome", "regional", "network", "security", "account"]);
 
 const SUPPORTED_LOCALES = new Set(FIRST_RUN_SUPPORTED_LOCALES);
 const SUPPORTED_TIME_ZONES = new Set(FIRST_RUN_SUPPORTED_TIME_ZONES);
 const ACCOUNT_MODES = new Set(FIRST_RUN_ACCOUNT_MODES);
+const RESUME_STEPS = new Set(FIRST_RUN_RESUME_STEP_IDS);
 
 export function createInitialFirstRunState() {
   return Object.freeze({
@@ -54,12 +57,18 @@ export function validateFirstRunState(value) {
     throw new TypeError("Incomplete first-run state may not persist an account mode");
   }
 
+  const hasResumeStep = Object.prototype.hasOwnProperty.call(value, "resumeStep");
+  if (hasResumeStep && (value.completed || !RESUME_STEPS.has(value.resumeStep))) {
+    throw new TypeError("First-run resume checkpoint requires an incomplete state and a safe step");
+  }
+
   return Object.freeze({
     schema: FIRST_RUN_STATE_SCHEMA,
     completed: value.completed,
     locale: value.locale,
     timeZone: value.timeZone,
     accountMode,
+    ...(hasResumeStep ? { resumeStep: value.resumeStep } : {}),
   });
 }
 

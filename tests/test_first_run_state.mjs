@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   FIRST_RUN_STATE_SCHEMA,
   completeFirstRunState,
+  checkpointFirstRunState,
+  resolveFirstRunResumeStep,
   createInitialFirstRunState,
   matchesFirstRunIdentitySelection,
   verifyFirstRunIdentitySession,
@@ -69,6 +71,37 @@ test("first-run accepts launch locales and rejects unsupported locale, timezone 
     }),
     TypeError,
   );
+});
+
+test("incomplete First Run checkpoint resumes from the single Native owner without secrets", () => {
+  const legacy = createInitialFirstRunState();
+  assert.equal(resolveFirstRunResumeStep(legacy), "welcome");
+  const regional = checkpointFirstRunState({ locale: "en-US", timeZone: "America/Manaus" }, "regional");
+  assert.deepEqual(regional, {
+    ...legacy,
+    locale: "en-US",
+    timeZone: "America/Manaus",
+    resumeStep: "regional",
+  });
+  assert.equal(resolveFirstRunResumeStep(regional), "regional");
+  assert.equal(checkpointFirstRunState(regional, "security").resumeStep, "security");
+  assert.throws(() => checkpointFirstRunState(regional, "unknown"), /Unknown first-run checkpoint step/);
+  for (const step of ["privacy", "name", "ready"]) {
+    const pending = checkpointFirstRunState(regional, step);
+    assert.equal(pending.resumeStep, "account");
+    assert.equal(pending.accountMode, null);
+    assert.deepEqual(Object.keys(pending).sort(), [
+      "accountMode", "completed", "locale", "resumeStep", "schema", "timeZone",
+    ]);
+  }
+  const completed = completeFirstRunState({
+    locale: "en-US", timeZone: "America/Manaus", accountMode: "local-only",
+  });
+  assert.equal(resolveFirstRunResumeStep(completed), "welcome");
+  assert.equal(Object.prototype.hasOwnProperty.call(completed, "resumeStep"), false);
+  assert.throws(() => validateFirstRunState({ ...completed, resumeStep: "account" }), /resume checkpoint/);
+  assert.throws(() => validateFirstRunState({ ...legacy, resumeStep: "name" }), /resume checkpoint/);
+  assert.throws(() => validateFirstRunState({ ...legacy, resumeStep: ["account"] }), /resume checkpoint/);
 });
 
 test("public MVP locale selector is narrower than retained compatibility", () => {

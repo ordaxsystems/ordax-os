@@ -95,6 +95,25 @@ class NativeFirstRunHttpTests(unittest.TestCase):
         self.assertEqual(self.request("POST", value=completed)[0], 204)
         self.assertEqual(json.loads(self.receipt.read_text(encoding="utf-8")), completed)
 
+    def test_real_http_durably_resumes_without_identity_or_sensitive_fields(self):
+        progress = {
+            **native.initial_first_run_state(),
+            "locale": "en-US",
+            "resumeStep": "security",
+        }
+        self.assertEqual(self.request("POST", value=progress)[0], 204)
+        self.assertEqual(json.loads(self.request()[1]), progress)
+        self.assertEqual(json.loads(self.receipt.read_text(encoding="utf-8")), progress)
+        self.assertEqual(self.request("POST", value={**progress, "resumeStep": "ready"})[0], 400)
+        self.assertEqual(self.request("POST", value={**progress, "resumeStep": ["account"]})[0], 400)
+        self.assertEqual(self.request("POST", value={**progress, "password": "unsafe"})[0], 400)
+        completed = {k: v for k, v in progress.items() if k != "resumeStep"}
+        completed.update(completed=True, accountMode="local-only")
+        self.assertEqual(self.request("POST", value=completed)[0], 204)
+        self.assertEqual(json.loads(self.request()[1]), completed)
+        self.assertEqual(self.request("POST", value=progress)[0], 500)
+        self.assertEqual(json.loads(self.request()[1]), completed)
+
     def test_real_http_rejects_conflicting_identity_and_malformed_state(self):
         self.assertEqual(self.request("POST", value=self.complete())[0], 204)
         self.assertEqual(self.request("POST", value=self.complete("identity"))[0], 500)
