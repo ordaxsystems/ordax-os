@@ -1,5 +1,5 @@
+import { ServiceOverview } from './service-overview';
 import { SpacesExperience } from './spaces-experience';
-import { IntegrationNote } from './integration-note';
 import { ProfileCatalogPanel } from './profile-catalog';
 import { FavoriteShortcutsPanel } from './favorite-shortcuts';
 import { WebNotificationCenter } from './notifications';
@@ -8,7 +8,7 @@ import { LayoutGrid, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import meridianWallpaper from '../../../ui/brand/meridian-field.svg';
 import { AccountPanel, AppIcon, Panel } from './primitives';
-import { favorites, shortcuts, unavailableServices } from './config';
+import { favorites, shortcuts } from './config';
 import { useWebAccount } from './account-context';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
@@ -32,13 +32,13 @@ export function Desktop({ onCentral, dispatch }: Props) {
 export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {
   if (title === 'Loja') return <Suspense fallback={<p className="service-state" role="status">Carregando Loja…</p>}><Store/></Suspense>;
   if (title === 'Perfis profissionais') return <ProfileCatalogPanel/>;
-  if (title === 'Minha conta') return <AccountPanel/>;
-  if (title === 'Projetos' || title === 'Arquivos') return <Panel title={title}><p className="service-state">{title === 'Projetos' ? unavailableServices.projects : unavailableServices.files}</p><IntegrationNote area={title === 'Projetos' ? 'projects' : 'files'}/></Panel>;
-  if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp/>;
+  if (title === 'Minha conta') return <AccountPanel onOpen={open}/>;
+  if (title === 'Projetos' || title === 'Arquivos') return <ServiceOverview area={title === 'Projetos' ? 'projects' : 'files'} onOpen={open}/>;
+  if (title === 'Aplicativos') return <FavoriteShortcutsPanel onOpen={open} showHelp className="meridian-service-page meridian-apps-page"/>;
   if (title === 'Notificações') return <WebNotificationCenter/>;
-  if (title === 'Atividades') return <Panel title={title}><p className="service-state">{unavailableServices.activity}</p><IntegrationNote area="activity"/></Panel>;
-  if (title === 'Dispositivos') return <Panel title="Dispositivos conectados"><p className="service-state">{unavailableServices.devices}</p><IntegrationNote area="devices"/></Panel>;
-  if (title === 'Continuidade') return <Panel title={title}><p className="service-state">Este aplicativo ainda não está conectado.</p><IntegrationNote area="continuity"/></Panel>;
+  if (title === 'Atividades') return <ServiceOverview area="activity" onOpen={open}/>;
+  if (title === 'Dispositivos') return <ServiceOverview area="devices" onOpen={open}/>;
+  if (title === 'Continuidade') return <ServiceOverview area="continuity" onOpen={open}/>;
   if (title === 'Espaços') return <SpacesExperience onOpen={open}><SpacesPanel/></SpacesExperience>;
   if (title === 'Configurações') return <Suspense fallback={<p className="service-state" role="status">Carregando Ajustes…</p>}><SettingsExperience onOpen={open}/></Suspense>;
   return <div className="desktop-empty"><AppIcon icon={favorites.find(a => a.name === title)?.icon ?? LayoutGrid} tone={favorites.find(a => a.name === title)?.tone ?? 'green'}/><h2>{title}</h2><p>Este aplicativo ainda não está conectado.</p></div>;
@@ -78,7 +78,7 @@ export function SpacesPanel() {
         <dl><div><dt>Perfil vinculado</dt><dd>{space.profilePack ?? 'Nenhum perfil vinculado'}</dd></div></dl>
         <Button variant={authorized.activeSpace?.id === space.id ? 'outline' : 'default'} disabled={offline || space.state !== 'active'} aria-pressed={authorized.activeSpace?.id === space.id} onClick={() => selectSpace(space.id)}>{space.state === 'archived' ? 'Arquivado' : authorized.activeSpace?.id === space.id ? 'Selecionado' : 'Usar este espaço'}</Button>
       </article>)}</div> : <div className="meridian-account-spaces-empty" role="status"><h3>Nenhum espaço corresponde à busca.</h3><Button variant="outline" onClick={() => setQuery('')}>Limpar busca</Button></div>}
-    </> : <div className="meridian-account-spaces-empty" role="status" data-integration={!authorized.ready && !loading && (offline || identity.state !== 'signed-out') ? 'pending' : undefined}><WalletCards aria-hidden="true"/><h3>{offline ? 'Sem conexão com a conta' : loading ? 'Consultando sua conta' : authorized.ready ? 'Seus espaços aparecerão aqui' : identity.state === 'signed-out' ? 'Entre para ver seus espaços' : 'Conexão com a conta pendente'}</h3><p>{message}</p></div>}
+    </> : <div className="meridian-account-spaces-empty" role="status" data-integration={!authorized.ready && !loading && (offline || identity.state !== 'signed-out') ? 'pending' : undefined}><WalletCards aria-hidden="true"/><h3>{offline ? 'Sem conexão com a conta' : loading ? 'Consultando sua conta' : authorized.ready ? 'Seus espaços aparecerão aqui' : identity.state === 'signed-out' ? 'Entre para ver seus espaços' : identity.state === 'signed-in' ? 'Não foi possível carregar seus espaços' : 'Conexão com a conta pendente'}</h3><p>{message}</p></div>}
     {error && <p className="service-state" role="alert">{error}</p>}
     <p className="service-state" role="status">{authorized.activeSpace ? 'Space atual: ' + authorized.activeSpace.name : authorized.ready ? 'Escolha um Space para definir o contexto desta sessão.' : 'Nenhum contexto de Space está disponível.'}</p>
     <p className="service-state">A escolha vale nesta sessão e não concede acesso a arquivos, dispositivos ou IA.</p>

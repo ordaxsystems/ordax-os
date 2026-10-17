@@ -23,7 +23,7 @@ export function ProfileCatalogPanel() {
   const flatten = (nodes: readonly Category[]): Category[] => nodes.flatMap(node => [node, ...flatten(node.children)]);
   const options = categories ? flatten(categories.roots).filter(node => node.profileCount > 0) : [];
   const visibleEntries = entries?.filter(entry => !category || entry.category === category || categories?.getCategory(entry.category)?.ancestorIds.includes(category));
-  return <Panel title="Perfis profissionais">
+  return <Panel title="Perfis profissionais" className="meridian-service-page">
     <span className="meridian-mock-badge">Planejado · mock visual preservado</span>
     <h3>Ferramentas que acompanham seu trabalho.</h3>
     <p className="service-state">Este destino permanece à vista para implementação gradual. Nenhum perfil, pacote ou permissão é ativado nesta demonstração.</p>

@@ -27,18 +27,41 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
             text.index('echo "ordax-network: tentando DHCP em $iface"'),
         )
 
-    def test_wifi_waits_for_real_association_before_dhcp(self) -> None:
+    def test_wifi_waits_for_completed_wpa_handshake_before_dhcp(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
-        self.assertIn('wait_for_wifi_link()', text)
-        self.assertIn('connect_wifi_conf()', text)
-        self.assertIn('iw dev "$wifi" link', text)
-        self.assertIn("grep -q '^Connected to '", text)
-        self.assertIn('if ! wait_for_wifi_link; then', text)
-        self.assertLess(
-            text.index('if ! wait_for_wifi_link; then'),
-            text.index('try_dhcp "$wifi"', text.index('connect_wifi_conf()')),
-        )
+        self.assertIn('wpa_state_completed()', text)
+        self.assertIn('wait_for_wifi_authentication()', text)
+        self.assertIn('wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" status', text)
+        self.assertIn("grep -q '^wpa_state=COMPLETED$'", text)
+        self.assertIn('if ! wait_for_wifi_authentication; then', text)
+        wait = text.index('if ! wait_for_wifi_authentication; then')
+        dhcp = text.index('if try_dhcp "$wifi"; then', text.index('connect_wifi_conf()'))
+        self.assertLess(wait, dhcp)
+        self.assertNotIn("grep -q '^Connected to '", text)
         self.assertNotIn('sleep 2\n    try_dhcp "$wifi"', text)
+
+    def test_wifi_supplicant_lifecycle_is_single_owner_and_fail_closed(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('WPA_CTRL_DIR=/run/ordax-wpa-supplicant', text)
+        self.assertIn('WPA_PID_FILE=/run/ordax-wpa-supplicant.pid', text)
+        self.assertIn('stop_wifi_client()', text)
+        self.assertIn('-P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR"', text)
+        self.assertIn('kill -0 "$pid"', text)
+        self.assertIn('iw dev "$wifi" disconnect', text)
+        connect = text.index('connect_wifi_conf()')
+        stop_before_start = text.index('stop_wifi_client', connect)
+        start = text.index('wpa_supplicant -B', connect)
+        self.assertLess(stop_before_start, start)
+        auth_failure = text.index('wifi_connect_result=authentication', start)
+        stop_after_auth_failure = text.index('stop_wifi_client', auth_failure)
+        self.assertLess(auth_failure, stop_after_auth_failure)
+
+    def test_wifi_base_requires_control_client_and_psk_tools(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('require_wifi_tools()', text)
+        self.assertIn('for tool in iw wpa_supplicant wpa_cli wpa_passphrase; do', text)
+        self.assertIn('Base incompleta; ferramenta Wi-Fi ausente', text)
+        self.assertIn('require_wifi_tools || exit 1', text)
 
     def test_wifi_defaults_to_strongest_secure_network_but_allows_override(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
@@ -56,7 +79,8 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('--choose) force_choose=1', text)
         self.assertIn('uso: ordax-network [--choose]', text)
-        self.assertIn('if [ "$force_choose" -eq 0 ] && connect_saved_wifi; then', text)
+        self.assertIn('if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then', text)
+        self.assertIn('if connect_saved_wifi; then', text)
         self.assertIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
         candidate_write = text.index('> "$CANDIDATE_CONF"')
         candidate_connect = text.index('connect_wifi_conf "$CANDIDATE_CONF"')
@@ -65,19 +89,32 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertLess(candidate_connect, promote)
         self.assertIn('a rede salva anteriormente foi preservada', text)
         self.assertIn('WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}', text)
-        self.assertIn('autenticacao falhou; confira a senha ou escolha outra rede', text)
+        self.assertIn('autenticacao WPA nao foi concluida; confira a senha ou escolha outra rede', text)
         self.assertIn('setup_attempt=$((setup_attempt + 1))', text)
 
-    def test_first_boot_wifi_retries_invalid_credentials_without_falling_to_shell(self) -> None:
+    def test_first_boot_wifi_retries_only_authentication_failures(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}', text)
         self.assertIn('while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do', text)
         self.assertIn('a senha WPA/WPA2 deve ter entre 8 e 63 caracteres; tente novamente', text)
-        self.assertIn('autenticacao falhou; confira a senha ou escolha outra rede', text)
+        self.assertIn('authentication)', text)
+        self.assertIn('autenticacao WPA nao foi concluida; confira a senha ou escolha outra rede', text)
         self.assertIn('force_choose=1', text)
+        self.assertIn('dhcp)', text)
+        self.assertIn('Wi-Fi autenticado, mas DHCP nao respondeu; a senha nao sera solicitada novamente', text)
         self.assertLess(
             text.index('if connect_wifi_conf "$CANDIDATE_CONF"; then'),
             text.index('setup_attempt=$((setup_attempt + 1))', text.index('if connect_wifi_conf "$CANDIDATE_CONF"; then')),
+        )
+
+    def test_dhcp_failure_is_not_mislabeled_as_bad_password(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('wifi_connect_result=dhcp', text)
+        self.assertIn('Wi-Fi salvo autenticou, mas DHCP nao respondeu; credencial preservada', text)
+        self.assertIn('Wi-Fi autenticado, mas DHCP nao respondeu; a senha nao sera solicitada novamente', text)
+        self.assertLess(
+            text.index('if try_dhcp "$wifi"; then'),
+            text.index('wifi_connect_result=dhcp'),
         )
 
     def test_password_has_brief_character_feedback_then_mask(self) -> None:
@@ -96,9 +133,6 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('sync_clock()', text)
         self.assertIn('/bin/busybox timeout -k 1 "$CLOCK_SYNC_TIMEOUT"', text)
         self.assertIn('/bin/busybox ntpd -q -n', text)
-        self.assertIn('-p time.cloudflare.com', text)
-        self.assertIn('-p time.google.com', text)
-        self.assertIn('-p pool.ntp.org', text)
         self.assertIn('-p time.cloudflare.com', text)
         self.assertIn('-p time.google.com', text)
         self.assertIn('-p pool.ntp.org', text)

@@ -1,5 +1,88 @@
 # Current State
 
+Public landing header (2026-10-16): compact brand and 44px controls keep the
+primary navigation on one row until 960px. Smaller widths retain all section
+links in an independently scrollable row. At phone widths the header flows with
+the document so its stacked account/language controls do not cover the content.
+Authentication actions and the shared profile runtime remain unchanged.
+
+Public Meridian layout refinement (2026-10-16): landing sections use tighter
+vertical rhythm, a shorter introduction and an explicit link to the existing
+Web access page. Login, registration and recovery now share identity-family
+density in account.css instead of login-only overrides. Registration and password
+reset explain the existing 12-character requirement before submission. Legal
+consent, readiness, native POST and Turnstile remain unchanged; pending product
+capabilities and conceptual examples remain labelled. The public demonstration
+also restores the missing Projects navigation name for visible and accessible
+labels. Web login continues to derive from the same public identity source.
+
+Web navigation and internal page consistency (2026-10-16): Projects, Files,
+Devices, Activity and Continuity share one planned-service presentation with
+existing unavailable-service messages, preserved integration notes, capability
+cards and links to actual Spaces/Account windows. No device, file or activity
+record is fabricated. Apps and Profile catalog use the same content width and
+readable spacing. The topbar/dock search identifies its destination scope,
+includes Account/Continuity, and matches labels/targets without accents. The
+Continuity rail control now opens its own existing window instead of Activity.
+Scoped rendering/search regressions, reference verification and Web compilation
+pass. The strict-CSP browser proof passes seven viewports and exercises these
+service destinations at desktop and 320px; service connections remain pending.
+
+Web account navigation usability (2026-10-16): manual rail collapse now stacks
+utilities vertically and retains 44px hit areas instead of compressing them to
+roughly 18px. The profile avatar has readable initials, clearer decorative status
+and an active-account border. Dock buttons now expose the restore identity already
+consumed by WindowLayer, so minimizing the last visible account window returns
+keyboard focus to its actual dock control. Navigation/reference checks and the
+TypeScript/production build pass. Browser regression covers minimize/restore focus
+and collapsed utility geometry without changing identity or backend authority.
+
+OrdaX Web account redesign (2026-10-16): the internal account page now groups
+confirmed identity, browser session, local Settings/Spaces shortcuts and preserved
+pending resources. Profile/security/privacy/usage/subscription links point to the
+existing public Account owner in explicitly labelled new tabs with noopener and
+noreferrer; no iframe or second account implementation is introduced. The global
+rail profile has a readable name, connection indicator, full-name tooltip and
+unchanged accessible account entry, including collapsed mode. Identity actions,
+readiness and service ownership remain unchanged. Session/portal-link regressions,
+canonical reference verification and TypeScript/production compilation pass. The
+strict-CSP browser proof passes all seven viewports, including preserved Account
+state through the Spaces shortcut, new-tab isolation and full-name rail feedback.
+
+Authenticated Meridian Web review (2026-10-16): confirmed account identity is now
+presented separately from Spaces catalog errors. Account and Spaces panels retain
+their intended insets instead of losing them to generic window panel styles.
+Account uses readable profile/actions and preserved pending storage/billing cards;
+its management link derives the public portal origin from product-family rather
+than pointing at the dedicated Web host's nonexistent account route. Full Spaces
+examples and existing identity/selection gates remain unchanged. Session/catalog
+regressions, canonical reference verification and TypeScript/production compilation
+pass. Browser proof now checks Account/Spaces geometry and the account destination
+at every breakpoint. This does not claim a successful live Spaces consultation.
+
+Web login asset closure correction (2026-10-16): production inspection of the
+shared login revealed its generated token/symbol CSS referenced a missing
+`assets/ordax-symbol.png` in the dedicated Web artifact. The Web composition now
+copies the canonical Surface symbol and includes it in the deployment receipt.
+A regression composes the real login, resolves its CSS dependency and verifies
+byte identity and manifest coverage. No alternate logo or stylesheet was added.
+
+Meridian Web and login layout refinement (2026-10-16): Central now uses a bounded
+content width, a denser hero and larger navigation/file/agenda text and command
+controls. All planned features and mocks remain visible. The canonical login
+presentation places recovery beside its explicitly associated password label,
+reduces repeated copy/spacing and uses 16px inputs. Both the public portal and
+Web bootstrap still consume the same Account HTML/CSS; no authentication,
+Turnstile, session or origin gate changed. The product host remains
+`https://web.ordax.com.br`, with same-origin `/login/` and `/auth/login`.
+TypeScript/production Web compilation, public source/build, localization,
+auth/navigation and public deployment/contract checks pass locally. The canonical
+strict-CSP Web browser proof passes all seven viewports (320–1440px), including
+theme persistence, navigation, app lifecycle and absence of horizontal overflow.
+Local Windows sandbox GPU startup failed; the unchanged proof passed outside
+that restriction. This change alone does not claim authenticated E2E or a new
+production deployment.
+
 Public Web entry Meridian correction (2026-10-16): `/web/` now opts into the
 canonical Meridian material and reuses `account.css`'s identity layout/components
 for header, access card, buttons, state panel and responsive composition. Its own

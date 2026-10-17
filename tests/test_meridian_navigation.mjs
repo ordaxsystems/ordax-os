@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getWindowTitle } from '../system/surface/workspace/components/central/config.ts';
+import { getWindowTitle, matchesNavigationQuery } from '../system/surface/workspace/components/central/config.ts';
 import { desktopReducer, initialDesktopState } from '../system/surface/workspace/components/central/desktop-state.ts';
 
 // The rail calls this Aura; the existing pinned shortcut calls it Intelligence.
@@ -26,4 +26,12 @@ test('dock restores a minimized Intelligence window without duplicating other ap
   assert.equal(state.windows.find(window => window.title === 'Aura').minimized, false);
   assert.ok(state.windows.some(window => window.title === 'Loja'));
   assert.equal(state.active, 'Aura');
+});
+
+test('navigation search finds canonical destinations without requiring accents', () => {
+  assert.equal(matchesNavigationQuery({name:'Ajustes',target:'Configurações'},'configuracoes'),true);
+  assert.equal(matchesNavigationQuery({name:'Minha conta'},'CONTA'),true);
+  assert.equal(matchesNavigationQuery({name:'Continuidade'},'continuidade'),true);
+  assert.equal(matchesNavigationQuery({name:'Perfis profissionais'},'profissionais perfis'),true);
+  assert.equal(matchesNavigationQuery({name:'Arquivos'},'conta'),false);
 });

@@ -333,3 +333,44 @@ Antes de alterar versionamento, histórico ou a UI de atualizações, leia `docs
 - `component-slot` e o caminho reservado para atualizacao independente de producao depois de verificacao assinada, pending health, promocao e rollback provados.
 
 Não reintroduzir derivação de versão/entrega a partir de `Merge pull request #N`. Não alterar versão ou `releaseMode` sem atualizar no mesmo change set os snapshots/contratos canônicos que registram esses valores.
+
+## 16. Regra de execução: baseline funcional primeiro
+
+Esta regra vale para qualquer IA, agente, Codex ou pessoa trabalhando no repositorio, inclusive quando o pedido do operador for curto como `continue`, `prossiga`, `deixe pronto` ou equivalente.
+
+Antes de abrir trabalho adjacente, classifique cada achado em uma destas categorias:
+
+1. **BLOCKER** — impede o fluxo funcional explicitamente em fechamento, pode corromper/perder dados, viola uma fronteira fundamental de seguranca, impede recovery seguro ou impede gerar/usar o artefato necessario para esse fluxo;
+2. **IN_SCOPE_DEFECT** — defeito real dentro do fluxo atual, mas que pode ser corrigido sem ampliar o produto;
+3. **DEFERRED_IMPROVEMENT** — melhoria, refino, hardening adicional, cobertura extra, otimizacao, compatibilidade adicional ou capacidade nova que nao impede o baseline atual.
+
+Regras obrigatorias:
+
+- fechar primeiro o menor caminho vertical utilizavel definido pelo objetivo atual;
+- nao transformar descoberta de melhoria em nova frente de implementacao antes de o baseline atual funcionar;
+- nao tratar automaticamente todo workflow vermelho como bloqueador do objetivo atual; provar a dependencia real antes de ampliar o escopo;
+- nao adicionar feature, refactor amplo, redesign, compatibilidade extra ou hardening adicional apenas porque foi descoberto durante o fechamento;
+- corrigir causa raiz dos BLOCKERs e IN_SCOPE_DEFECTs, sem `skip`, `xfail`, bypass, duplicacao de SSOT ou gambiarra;
+- registrar/deferir DEFERRED_IMPROVEMENTs no owner ja existente quando necessario, sem criar fila paralela;
+- uma vez que o baseline esteja funcional, protegê-lo com regressao proporcional ao risco antes de iniciar evolucao;
+- evolucao posterior nao pode regredir o baseline funcional ja fechado;
+- quando houver conflito entre deixar o fluxo minimo funcionando e expandir qualidade/cobertura nao essencial, terminar o fluxo minimo primeiro, mantendo integridade de dados e seguranca fundamental fail-closed.
+
+Para o **Owner/Development Dev USB**, enquanto o objetivo corrente for apenas deixa-lo pronto para uso no notebook, o baseline funcional e:
+
+```text
+boot
+ -> rede/Wi-Fi suficiente para desenvolvimento
+ -> obter/atualizar main
+ -> workspace disponivel
+ -> ordax-run
+ -> Surface utilizavel
+ -> reboot/persistencia
+ -> recovery seguro e nao destrutivo
+```
+
+Nesse fechamento, branding, Public Site/Web, IA, refinamento visual, modulos opcionais, compatibilidade adicional, proofs redundantes e hardening que nao afete esse caminho nao devem bloquear o Dev USB. Se um gate misturar responsabilidade nao relacionada com esse caminho, corrigir a fronteira do gate em vez de expandir o escopo do USB.
+
+Para o perfil canonical Stable/MVP, aplicar a mesma disciplina ao menor caminho canonical definido neste arquivo e nos owners de promocao: primeiro provar boot, aquisicao/verificacao/ativacao, uso basico necessario, reboot/offline e recovery seguro; evolucoes adicionais permanecem separadas salvo quando um owner canonico provar que sao requisito de seguranca ou integridade para essa promocao.
+
+Esta regra nao reduz gates destrutivos, trust, integridade, seguranca ou autorizacao fisica. Ela existe para impedir que qualidade nao essencial, descoberta lateral ou evolucao de produto mantenham indefinidamente um baseline funcional sem uso real.

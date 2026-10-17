@@ -47,3 +47,10 @@ export function getWindowIcon(title: string): LucideIcon {
 
 // UI labels for Intelligence resolve to the existing managed Aura window.
 export function getWindowTitle(title: string): string { return title === 'Inteligência' ? 'Aura' : title; }
+
+// Search uses destination labels and canonical targets, with accent-insensitive tokens.
+export function matchesNavigationQuery(item: {name:string;target?:string}, query:string): boolean {
+  const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+  const haystack=normalize(item.name+' '+(item.target??''));
+  return normalize(query).trim().split(/\s+/).every(token=>haystack.includes(token));
+}

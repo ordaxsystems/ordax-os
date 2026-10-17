@@ -6,7 +6,7 @@ import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {createWebAccountSession} from '../system/composition/web/account-session.mjs';
 
-let server, WebAccountProvider, SpacesPanel, SpacesExperience, AccountPanel;
+let server, WebAccountProvider, SpacesPanel, DesktopContent, SpacesExperience, AccountPanel;
 before(async () => {
   server = await createServer({
     configFile: fileURLToPath(new URL('../tools/surface-web/vite.config.ts', import.meta.url)),
@@ -14,7 +14,7 @@ before(async () => {
     appType: 'custom', optimizeDeps: {noDiscovery: true, include: []},
   });
   const load = file => server.ssrLoadModule('/@fs/' + fileURLToPath(new URL('../system/surface/workspace/components/central/' + file, import.meta.url)));
-  [{WebAccountProvider}, {SpacesPanel}, {SpacesExperience}, {AccountPanel}] = await Promise.all([
+  [{WebAccountProvider}, {SpacesPanel, DesktopContent}, {SpacesExperience}, {AccountPanel}] = await Promise.all([
     load('account-context.tsx'), load('desktop.tsx'), load('spaces-experience.tsx'), load('primitives.tsx'),
   ]);
 });
@@ -88,7 +88,9 @@ test('failed catalog remains unavailable rather than becoming a successful empty
   const f = fixture({failed: true});
   try {
     await f.session.refresh();
-    const html = render(f.session);
+    const html = render(f.session, true);
+    assert.match(html, /Conta conectada · consulta de espaços indisponível/);
+    assert.match(html, /Não foi possível carregar seus espaços/);
     assert.match(html, /Não foi possível consultar seus Spaces/);
     assert.match(html, /data-integration="pending"/);
     assert.doesNotMatch(html, /Seus espaços aparecerão aqui|Nenhum Space está disponível para esta conta/);
@@ -148,4 +150,36 @@ test('Account enables signup only after receiving the canonical server policy', 
     assert.ok(button && !button.includes('disabled='));
     assert.doesNotMatch(html, /Cadastro indisponível até confirmação do serviço/);
   } finally { f.session.dispose(); }
+});
+
+
+test('account management keeps its canonical portal owner on the dedicated Web host', async () => {
+  const f = fixture();
+  try {
+    await f.session.refresh();
+    const html = renderToStaticMarkup(createElement(WebAccountProvider, {session: f.session}, createElement(AccountPanel, {onOpen() {}})));
+    assert.match(html, /href="https:\/\/ordax\.com\.br\/conta\/"/);
+    assert.doesNotMatch(html, /href="\/conta\/"/);
+    assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+    for (const id of ['dados-pessoais', 'seguranca', 'privacidade', 'consumo', 'assinatura']) {
+      assert.ok(html.includes('https://ordax.com.br/conta/#'+id));
+    }
+    assert.match(html, /Meus espaços/);
+    assert.match(html, /Preferências do Web/);
+    assert.match(html, /Conta conectada/);
+    assert.match(html, /Sair da conta/);
+    assert.match(html, /Recursos de conta pendentes/);
+  } finally { f.session.dispose(); }
+});
+
+test('unconnected service pages keep their planned resources and explicit integration notes', () => {
+  for (const title of ['Projetos','Arquivos','Dispositivos','Atividades','Continuidade']) {
+    const html=renderToStaticMarkup(createElement(DesktopContent,{title,open(){},onCentral(){}}));
+    assert.match(html,/meridian-service-page/);
+    assert.match(html,/meridian-capability-grid/);
+    assert.equal((html.match(/<article/g)??[]).length,3);
+    assert.match(html,/Este recurso ainda não está conectado ao Web/);
+    assert.match(html,/O que falta conectar/);
+    assert.doesNotMatch(html,/Nenhum dispositivo conectado|Nenhuma atividade encontrada/);
+  }
 });

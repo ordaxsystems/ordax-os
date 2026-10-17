@@ -56,27 +56,27 @@
 .account-ui .account-stage {
   flex: 1;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1040px;
   min-height: 0;
   margin: 0 auto;
-  padding: 28px 32px 32px;
+  padding: 20px 32px 28px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas: "story access";
   align-items: center;
-  gap: clamp(32px, 6vw, 80px);
+  gap: 48px;
   background: transparent;
-  border: 0;
+ border: 0;
 }
-.account-ui .account-story { grid-area: story; min-width: 0; padding: 0; display: flex; flex-direction: column; gap: 32px; }
+.account-ui .account-story { grid-area: story; min-width: 0; padding: 0; display: flex; flex-direction: column; gap: 24px; }
 .account-ui .eyebrow { margin: 0 0 14px; font: 600 10px/1.5 var(--account-font); letter-spacing: .13em; color: var(--account-muted); }
 .account-ui .account-story :is(h1, h2) { margin: 0 0 18px; font: 520 clamp(32px, 3.7vw, 46px)/1.14 var(--account-font); letter-spacing: -.04em; text-wrap: balance; }
 .account-ui .account-story :is(h1, h2) span { color: var(--account-sage); }
-.account-ui .story-lead { max-width: 37ch; margin: 0; color: var(--account-muted); font-size: 14px; line-height: 1.75; }
+.account-ui .story-lead { max-width: 44ch; margin: 0; color: var(--account-muted); font-size: 14px; line-height: 1.75; }
 .account-ui .account-benefits { display: grid; gap: 0; padding: 0; margin: 24px 0 0; list-style: none; }
-.account-ui .account-benefits > li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: baseline; padding: 15px 0; border-bottom: 1px solid var(--account-line); }
+.account-ui .account-benefits > li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--account-line); }
 .account-ui .account-benefits strong { color: var(--account-accent); font-size: 10px; font-weight: 550; letter-spacing: .06em; }
-.account-ui .account-benefits span { font-size: 12px; line-height: 1.6; }
+.account-ui .account-benefits span { line-height: 1.6; font-size: 13px; }
 .account-ui .account-side-footer { display: grid; gap: 16px; }
 .account-ui .account-promise { display: flex; align-items: start; gap: 12px; padding: 18px; border-radius: var(--account-radius); background: var(--account-sage-soft); }
 .account-ui .account-promise-icon { display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 28px; color: var(--account-sage); }
@@ -86,29 +86,29 @@
 .account-ui .account-quicklinks a { display: inline-flex; align-items: center; min-height: 32px; font-size: 11px; color: var(--account-muted); }
 .account-ui .account-orbit { display: none; }
 .account-ui .account-access { grid-area: access; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0; }
-.account-ui .account-card { width: 100%; max-width: 460px; padding: 30px; border: 1px solid var(--account-line); border-radius: var(--account-radius); background: var(--account-surface); box-shadow: var(--md-shadow-small, var(--ordax-shadow-soft)); }
-.account-ui .account-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.account-ui .account-card { min-width: 0; overflow-wrap: anywhere; width: 100%; max-width: 460px; border: 1px solid var(--account-line); border-radius: var(--account-radius); background: var(--account-surface); box-shadow: var(--md-shadow-small, var(--ordax-shadow-soft)); padding: 24px; }
+.account-ui .account-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .account-ui .account-card-brand { display: flex; align-items: center; gap: 12px; }
 .account-ui .account-card-header .eyebrow { margin: 0; }
 .account-ui .account-card-index { color: var(--account-muted); font-size: 10px; letter-spacing: .08em; }
-.account-ui .account-identity-symbol { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--account-control-radius); color: var(--account-sage); background: var(--account-sage-soft); }
-.account-ui .account-card :is(h1, h2) { margin: 0 0 10px; font: 550 clamp(27px, 2.8vw, 34px)/1.18 var(--account-font); letter-spacing: -.035em; text-wrap: balance; }
+.account-ui .account-identity-symbol { display: grid; place-items: center; border-radius: var(--account-control-radius); color: var(--account-sage); background: var(--account-sage-soft); width: 32px; height: 32px; }
+.account-ui .account-card :is(h1, h2) { margin: 0 0 10px; font: 550 clamp(26px, 2.6vw, 30px)/1.18 var(--account-font); letter-spacing: -.035em; text-wrap: balance; }
 .account-ui .account-intro { margin: 0; color: var(--account-muted); font-size: 13px; line-height: 1.7; }
-.account-ui .identity-state { display: flex; align-items: start; gap: 10px; margin: 20px 0 0; padding: 12px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); background: var(--account-subtle); }
+.account-ui .identity-state { display: flex; align-items: start; gap: 10px; margin: 16px 0 0; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); background: var(--account-subtle); padding: 10px 12px; }
 .account-ui .state-icon { position: relative; display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 28px; color: var(--account-sage); }
 .account-ui .state-icon svg { width: 19px; height: 19px; }
 .account-ui .identity-state strong { display: block; font-size: 12px; font-weight: 550; line-height: 1.5; }
 .account-ui .identity-state p { margin: 3px 0 0; color: var(--account-muted); font-size: 11px; line-height: 1.6; }
 .account-ui .identity-state[data-status="checking"] .state-icon svg { visibility: hidden; }
 .account-ui .identity-state[data-status="checking"] .state-icon::after { content: ""; position: absolute; width: 16px; height: 16px; border: 2px solid var(--account-line); border-top-color: var(--account-sage); border-radius: 50%; animation: account-status-spin 1s linear infinite; }
-.account-ui .identity-state[data-status="ready"] { border-color: var(--account-sage); background: var(--account-sage-soft); }
+.account-ui .identity-state[data-status="ready"] { background: transparent; border-color: var(--account-line); }
 .account-ui .identity-state[data-status="unavailable"] { border-color: color-mix(in srgb, var(--account-warning) 35%, var(--account-line)); background: var(--account-warning-soft); }
 .account-ui .identity-state[data-status="unavailable"] .state-icon { color: var(--account-warning); }
-.account-ui .identity-form { display: grid; gap: 16px; margin: 22px 0 0; }
+.account-ui .identity-form { display: grid; gap: 12px; margin: 18px 0 0; }
 .account-ui .identity-form[hidden]{display:none!important}
 .account-ui [hidden]{display:none!important}
-.account-ui .identity-field { display: grid; gap: 7px; color: var(--account-ink); font-size: 12px; font-weight: 550; }
-.account-ui .identity-field input { width: 100%; min-height: 46px; padding: 10px 13px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); color: var(--account-ink); background: var(--account-bg); font: 400 14px var(--account-font); }
+.account-ui .identity-field { display: grid; color: var(--account-ink); font-weight: 550; gap: 4px; font-size: 13px; }
+.account-ui .identity-field input { width: 100%; min-height: 46px; padding: 10px 13px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); color: var(--account-ink); background: var(--account-bg); font: 400 16px var(--account-font); }
 .account-ui .identity-field:focus-within > span { color: var(--account-accent); }
 .account-ui .identity-field input::placeholder { color: var(--account-muted); }
 .account-ui .identity-field input:focus-visible { outline: 2px solid var(--account-focus); outline-offset: 2px; border-color: var(--account-focus); }
@@ -117,7 +117,7 @@
 .account-ui .form-support { margin-top: -6px; text-align: right; font-size: 11px; }
 .account-ui .form-support a { display: inline-flex; align-items: center; min-height: 32px; color: var(--account-accent); }
 .account-ui .form-support a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.account-ui .identity-turnstile { min-height: 65px; }
+.account-ui .identity-turnstile { min-height: 65px; max-width: 100%; overflow-x: auto; }
 .account-ui .verification-hint { margin: -8px 0 0; color: var(--account-muted); font-size: 11px; line-height: 1.6; }
 .account-ui .identity-submit { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 46px; padding: 12px 16px; border: 1px solid transparent; border-radius: var(--account-control-radius); color: var(--account-on-accent); background: var(--account-accent); font: 550 13px var(--account-font); cursor: pointer; }
 .account-ui .identity-submit:not(:disabled):hover { color: var(--account-on-accent); background: var(--account-accent-hover); }
@@ -129,7 +129,7 @@
 .account-ui .registration-legal { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); background: var(--account-bg); }
 .account-ui .registration-legal p { margin: 0; color: var(--account-muted); font-size: 12px; line-height: 1.6; }
 .account-ui .registration-legal-documents { display: flex; flex-wrap: wrap; gap: 10px; }
-.account-ui .registration-legal-documents a { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 36px; padding: 8px 10px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); font-size: 11px; }
+.account-ui .registration-legal-documents a { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--account-line); border-radius: var(--account-control-radius); font-size: 11px; }
 .account-ui .registration-legal-documents span { color: var(--account-muted); font-size: 10px; overflow-wrap: anywhere; }
 .account-ui .registration-legal-acceptance { display: flex; align-items: start; gap: 10px; font-size: 12px; line-height: 1.6; }
 .account-ui .registration-legal-acceptance input { flex: 0 0 auto; width: 18px; height: 18px; min-height: 0; margin: 2px 0 0; accent-color: var(--account-accent); }
@@ -138,11 +138,11 @@
 .account-ui .gated-guidance p { margin: 0; font-size: 11px; line-height: 1.6; }
 .account-ui[data-identity-ready="true"] .gated-guidance,
 .account-ui .identity-state[data-status="checking"] ~ .gated-guidance { display: none; }
-.account-ui .account-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--account-line); }
-.account-ui .account-entry div > span { display: block; margin-bottom: 4px; color: var(--account-muted); font-size: 9px; line-height: 1.5; letter-spacing: .08em; }
+.account-ui .account-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--account-line); margin-top: 18px; padding-top: 12px; }
+.account-ui .account-entry div > span { display: block; margin-bottom: 4px; color: var(--account-muted); line-height: 1.5; letter-spacing: .08em; margin: 0; }
 .account-ui .account-entry strong { font-size: 12px; font-weight: 500; }
-.account-ui .account-entry > a { display: inline-flex; align-items: center; min-height: 36px; gap: 10px; color: var(--account-accent); font-size: 12px; white-space: nowrap; }
-.account-ui .account-legal { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 16px; color: var(--account-muted); font-size: 11px; }
+.account-ui .account-entry > a { display: inline-flex; align-items: center; min-height: 44px; gap: 10px; color: var(--account-accent); font-size: 12px; white-space: nowrap; }
+.account-ui .account-legal { display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--account-muted); font-size: 11px; margin-top: 8px; }
 .account-ui :is(.account-legal, .account-quicklinks) a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .account-ui .account-legal a { display: inline-flex; align-items: center; min-height: 32px; }
 .account-ui .site-footer { width: 100%; max-width: 1184px; min-height: 0; margin: 0 auto; padding: 20px 32px; border: 0; gap: 20px; align-items: center; justify-content: space-between; }
@@ -150,6 +150,10 @@
 .account-ui .site-footer p { margin: 0; color: var(--account-muted); font-size: 11px; }
 .account-ui .site-footer nav { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--account-muted); font-size: 11px; }
 .account-ui .site-footer nav a { display: inline-flex; align-items: center; min-height: 32px; }
+/* Shared identity controls also serve the Web login bootstrap. */
+.account-ui .identity-label-row { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.account-ui .identity-label-row a { display: inline-flex; align-items: center; min-height: 32px; color: var(--account-accent); font-size: 12px; font-weight: 400; }
+.account-ui .identity-label-row a:hover { text-decoration: underline; text-underline-offset: 4px; }
 /* Local layout preview uses the actual form, inert and without an action.
    It cannot collect credentials or submit; public readiness is never bypassed. */
 .account-ui[data-identity-preview="layout"] .identity-state { background: var(--account-sage-soft); border-color: var(--account-line); }
@@ -158,31 +162,31 @@
 .account-ui[data-identity-preview="layout"] :is(.identity-turnstile, .verification-hint, .gated-guidance) { display: none; }
 @keyframes account-status-spin { to { transform: rotate(360deg); } }
 @media (max-width: 950px) {
-  .account-ui .account-stage { gap: 32px; padding-inline: 24px; }
-  .account-ui .account-benefits > li { grid-template-columns: 1fr; gap: 5px; }
-  .account-ui .account-card { padding: 26px; }
+ .account-ui .account-stage { gap: 32px; padding-inline: 24px; }
+ .account-ui .account-benefits > li { grid-template-columns: 1fr; gap: 5px; }
+ .account-ui .account-card { padding: 26px; }
 }
 @media (max-width: 780px) {
-  .account-ui .site-header { min-height: 72px; padding: 14px 20px; flex-wrap: wrap; gap: 12px; }
-  .account-ui .account-nav-actions { flex-wrap: wrap; justify-content: end; gap: 12px; }
-  .account-ui .account-stage { display: flex; flex-direction: column; align-items: stretch; gap: 28px; padding: 12px 20px 24px; }
-  .account-ui .account-access { order: 1; }
-  .account-ui .account-story { order: 2; max-width: 460px; width: 100%; margin: 0 auto; padding-top: 24px; border-top: 1px solid var(--account-line); gap: 24px; }
-  .account-ui .account-story :is(h1, h2) { font-size: 32px; }
-  .account-ui .account-benefits > li { grid-template-columns: 110px minmax(0, 1fr); gap: 12px; }
-  .account-ui .site-footer { padding: 18px 20px; flex-wrap: wrap; align-items: start; gap: 12px; }
+ .account-ui .site-header { min-height: 72px; padding: 14px 20px; flex-wrap: wrap; gap: 12px; }
+ .account-ui .account-nav-actions { flex-wrap: wrap; justify-content: end; gap: 12px; }
+ .account-ui .account-stage { display: flex; flex-direction: column; align-items: stretch; gap: 28px; padding: 12px 20px 24px; }
+ .account-ui .account-access { order: 1; }
+ .account-ui .account-story { order: 2; max-width: 460px; width: 100%; margin: 0 auto; padding-top: 24px; border-top: 1px solid var(--account-line); gap: 24px; }
+ .account-ui .account-story :is(h1, h2) { font-size: 32px; }
+ .account-ui .account-benefits > li { grid-template-columns: 110px minmax(0, 1fr); gap: 12px; }
+ .account-ui .site-footer { padding: 18px 20px; flex-wrap: wrap; align-items: start; gap: 12px; }
 }
 @media (max-width: 440px) {
-  .account-ui .site-header { padding: 12px 16px; }
-  .account-ui .brand-name { font-size: 23px; }
-  .account-ui .account-nav-actions { flex-wrap: wrap; gap: 8px; font-size: 11px; }
-  .account-ui .account-locale-slot { order: 3; }
-  .account-ui .public-locale-select { max-width: 98px; min-height: 36px; font-size: 10px; }
-  .account-ui .nav-cta { padding-inline: 10px; gap: 8px; }
-  .account-ui .account-stage { padding-inline: 16px; }
-  .account-ui .account-card { padding: 22px; }
-  .account-ui .account-benefits > li { grid-template-columns: 1fr; gap: 4px; }
+ .account-ui .site-header { padding: 12px 16px; }
+ .account-ui .brand-name { font-size: 23px; }
+ .account-ui .account-nav-actions { flex-wrap: wrap; gap: 8px; font-size: 11px; }
+ .account-ui .account-locale-slot { order: 3; }
+ .account-ui .public-locale-select { max-width: 98px; min-height: 36px; font-size: 10px; }
+ .account-ui .nav-cta { padding-inline: 10px; gap: 8px; }
+ .account-ui .account-stage { padding-inline: 16px; }
+ .account-ui .account-card { padding: 22px; }
+ .account-ui .account-benefits > li { grid-template-columns: 1fr; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .account-ui *, .account-ui *::before, .account-ui *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+ .account-ui *, .account-ui *::before, .account-ui *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }

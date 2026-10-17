@@ -82,6 +82,10 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
+        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_SOURCE_COMMIT"', dev_base)
+        self.assertIn('test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"', dev_base)
+        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_SOURCE_COMMIT"', dev_base)
+        self.assertNotIn('git clone https://github.com/ordaxsystems/ordax-os.git', dev_base)
 
         assemble = self.step_block(
             workflow, "Assemble boot payload and overlay Git development base"

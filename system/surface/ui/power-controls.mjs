@@ -26,6 +26,8 @@ const ACTIONS = Object.freeze([
   }),
 ]);
 
+const POWER_ACTION_SETTLE_MS = 30000;
+
 function node(documentObject, tag, className, text) {
   const element = documentObject.createElement(tag);
   if (className) element.className = className;
@@ -184,7 +186,7 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
           pending = null;
           messageId = "power.controls.hostStillActive";
           render();
-        }, 5000);
+        }, POWER_ACTION_SETTLE_MS);
       })
       .catch(() => {
         if (destroyed || ordinal !== actionOrdinal) return;

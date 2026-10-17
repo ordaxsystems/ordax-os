@@ -346,20 +346,37 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("component.probation.result", server)
         self.assertNotIn("record_system_component_probation", server)
 
-    def test_native_restart_has_sync_and_kernel_fallback_without_weakening_shutdown(self):
+    def test_native_power_transition_cleans_surface_and_secures_root_before_forced_action(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        self.assertIn("restart_host()", text)
-        self.assertIn('echo "ordax-surface: attempting primary reboot syscall"', text)
+        self.assertIn("POWER_TRANSITION_REQUEST=$SESSION_DIR/power-transition-request", text)
+        self.assertIn("SURFACE_PID=$$", text)
+        self.assertIn("queue_host_power_transition()", text)
+        self.assertIn('/bin/busybox kill -TERM "$SURFACE_PID"', text)
+        self.assertIn("perform_host_power_transition()", text)
+        self.assertIn("quiesce_root_filesystem_for_power_transition()", text)
+        self.assertIn("terminate_remaining_host_processes_for_power_transition()", text)
+        self.assertIn('/bin/busybox mount -o remount,ro /', text)
+        self.assertIn("root_filesystem_is_read_only", text)
         self.assertIn('/bin/busybox reboot -f', text)
-        self.assertIn('/bin/busybox sync', text)
-        self.assertIn('/proc/sysrq-trigger', text)
-        self.assertIn("printf 'b' >/proc/sysrq-trigger", text)
-        self.assertIn(
-            "all host restart methods returned without rebooting",
-            text,
-        )
         self.assertIn('/bin/busybox poweroff -f', text)
-        self.assertNotIn("restart_host || true\n                        shutdown", text)
+        self.assertIn("printf 'b' >/proc/sysrq-trigger", text)
+        self.assertIn("printf 'o' >/proc/sysrq-trigger", text)
+        quiesce = text[text.index("quiesce_root_filesystem_for_power_transition()") : text.index("perform_host_power_transition()")]
+        self.assertLess(quiesce.index("exec >/dev/null 2>&1"), quiesce.index('/bin/busybox mount -o remount,ro /'))
+        self.assertNotIn('mount -o remount,ro / >>"$HOST_LOG"', quiesce)
+
+        transition = text[text.index("perform_host_power_transition()") : text.index("queue_host_power_transition()") ]
+        self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox reboot -f'))
+        self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox poweroff -f'))
+        self.assertNotIn("$HOST_LOG", transition[transition.index('quiesce_root_filesystem_for_power_transition "$action"') :])
+        self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', transition)
+        self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', transition)
+        termination = text[text.index("terminate()") : text.index("console_fallback()") ]
+        self.assertIn("trap - EXIT", termination)
+        self.assertIn("trap '' HUP INT TERM", termination)
+        self.assertNotIn("trap - EXIT HUP INT TERM", termination)
+        self.assertLess(termination.index("trap '' HUP INT TERM"), termination.index("cleanup"))
+        self.assertLess(termination.index("cleanup"), termination.index('perform_host_power_transition "$requested_power_action"'))
 
     def test_power_actions_persist_cross_boot_proof_before_destructive_action(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
@@ -371,14 +388,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("record_power_request shutdown failed", text)
         self.assertIn("printf '%s|%s|%s|%s\\n'", text)
         self.assertIn('/bin/busybox sync', text)
-        self.assertIn('host poweroff command returned without shutting down', text)
+        self.assertIn('queue_host_power_transition shutdown', text)
         self.assertLess(
             text.index("record_power_request restart pending"),
-            text.index("if ! restart_host; then"),
+            text.index("if ! queue_host_power_transition restart; then"),
         )
         self.assertLess(
             text.index("record_power_request shutdown pending"),
-            text.index('/bin/busybox poweroff -f'),
+            text.index("if ! queue_host_power_transition shutdown; then"),
         )
 
     def test_stale_same_boot_power_request_is_reconciled_as_failed(self):

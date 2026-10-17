@@ -222,6 +222,23 @@ jobs:
             --expected-commit "$ORDAX_SOURCE_COMMIT" \
             --destination out/dev-base/rootfs
 
+          rootfs=out/dev-base/rootfs
+          sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
+          sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
+          ORDAX_WORKTREE="$rootfs/workspace/ordax" \
+          ORDAX_STATE_DIR="$rootfs/state/ordax" \
+          ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
+          ORDAX_REPO_BRANCH=main \
+            /bin/sh bootstrap/dev-base/ordax-pull \
+              --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_SOURCE_COMMIT"
+          test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_SOURCE_COMMIT"
+          test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
+          test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
+          test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
+          test -x "$rootfs/workspace/ordax/system/entrypoint"
+          test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_SOURCE_COMMIT"
+          sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
+
           test -x out/dev-base/rootfs/sbin/ordax-dev-init
           test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
           test -z "$(find out/dev-base/rootfs/dev -mindepth 1 -print -quit)"
@@ -506,11 +523,12 @@ jobs:
           Esta distribuicao separa a interface normal do componente privilegiado de escrita RAW.
           O canal owner/development ainda nao possui assinatura Authenticode configurada.
 
-          Grave esta base uma vez. Ela contem boot, kernel, drivers, rede e Git.
-          No notebook, o OrdaX fica em /workspace/ordax e vem da main por git clone/pull.
+          Grave esta base uma vez. Ela contem boot, kernel, drivers, rede, Git e um checkout sparse limpo
+          de /workspace/ordax exatamente no source_commit deste bundle. O primeiro boot usa esse checkout
+          local imediatamente; rede e verificacao de atualizacao ficam fora do caminho critico do boot.
 
           Fluxo normal no OrdaX:
-          ordax-pull     atualiza da main
+          ordax-pull     atualiza da main somente quando houver commit novo
           ordax-run      executa o checkout atual
           ordax-rollback volta ao commit anterior registrado
 

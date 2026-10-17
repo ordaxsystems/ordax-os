@@ -138,6 +138,44 @@ try {
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("!!document.querySelector('#meridian-prompt') && !!document.querySelector('[aria-label=\"Sua central OrdaX OS\"] img')"),true,'Meridian hero and contextual prompt remain available');
+      await click('.meridian-session-strip button');
+      await until("!!document.querySelector('.meridian-account-panel')");
+      assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-panel');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Account retains readable padding without horizontal overflow');
+      assert.equal(await evaluate("document.querySelector('.meridian-account-panel a').href"),'https://ordax.com.br/conta/','Account management belongs to the public portal');
+      assert.equal(await evaluate("[...document.querySelectorAll('.meridian-account-panel a')].every(a=>a.target==='_blank'&&a.rel.includes('noopener')&&a.rel.includes('noreferrer'))"),true,'Portal links preserve the workspace and isolate the new tab');
+      assert.equal(await evaluate("document.querySelector('.meridian-rail-account').getAttribute('title').includes(document.querySelector('.meridian-rail-account strong').textContent)"),true,'Full account name remains available when rail text is truncated');
+      if(width===1440){
+        await click('.account-local-shortcuts button');
+        await until("!!document.querySelector('.meridian-account-spaces')");
+        await click('[aria-label="Fechar Espaços"]');
+        await until("document.querySelector('.meridian-account-panel').getClientRects().length>0");
+      }
+      const accountShot=await client.send('Page.captureScreenshot',{format:'png'});
+      await writeFile(join(evidence,'account-'+width+'x'+height+'.png'),Buffer.from(accountShot.data,'base64'));
+      await click('[aria-label="Minimizar Minha conta"]');
+      await until("document.activeElement===document.querySelector('[data-window-restore=\"Minha conta\"]')");
+      await click('[data-window-restore="Minha conta"]');
+      await until("document.querySelector('.meridian-account-panel').getClientRects().length>0");
+      await click('[aria-label="Fechar Minha conta"]');
+      await openSidebarDestination('Espaços');
+      await until("!!document.querySelector('.meridian-account-spaces')");
+      assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-spaces');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Spaces retains its account layout inset at every breakpoint');
+      const spacesShot=await client.send('Page.captureScreenshot',{format:'png'});
+      await writeFile(join(evidence,'spaces-'+width+'x'+height+'.png'),Buffer.from(spacesShot.data,'base64'));
+      await click('[aria-label="Fechar Espaços"]');
+      if(width===1440||width===320){
+        for(const title of ['Projetos','Arquivos','Dispositivos','Atividades','Continuidade']){
+          if(title==='Continuidade'&&width===1440)await click('.meridian-rail-utilities [aria-label="Continuidade"]');
+          else await openSidebarDestination(title);
+          await until("!!document.querySelector('.meridian-capability-grid')");
+          assert.equal(await evaluate("(()=>{const p=document.querySelector('.meridian-capability-grid').closest('.os-panel');return p.scrollWidth<=p.clientWidth+1&&p.querySelectorAll('article').length===3;})()"),true,'Planned service pages retain their resources without overflowing');
+          if(title==='Dispositivos'){
+            const shot=await client.send('Page.captureScreenshot',{format:'png'});
+            await writeFile(join(evidence,'devices-'+width+'x'+height+'.png'),Buffer.from(shot.data,'base64'));
+          }
+          await click('[aria-label="Fechar '+title+'"]');
+        }
+      }
       if(width===1440){
         await openSidebarDestination('Loja');
         await until("!!document.querySelector('.meridian-store-presentation')?.shadowRoot?.querySelector('[data-meridian]')");
@@ -174,6 +212,7 @@ try {
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
         await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
+        assert.equal(await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].every(button=>{const box=button.getBoundingClientRect();return box.width>=44&&box.height>=44;})"),true,'Collapsed sidebar utilities keep usable hit areas');
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       }

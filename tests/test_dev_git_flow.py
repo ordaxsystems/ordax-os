@@ -153,6 +153,41 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         return env
 
+    def test_local_seed_creates_exact_clean_sparse_main_without_network(self) -> None:
+        env = self._env()
+        expected_origin = "https://example.invalid/ordax-os.git"
+        env["ORDAX_REPO_URL"] = expected_origin
+        result = self._run(
+            [
+                "/bin/sh",
+                str(PULL),
+                "--seed-from-local",
+                str(self.source),
+                self.commit_v1,
+            ],
+            env=env,
+        )
+        self.assertIn(f"ORDAX_SOURCE_SHA={self.commit_v1}", result.stdout)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "symbolic-ref", "--short", "HEAD"]).stdout.strip(),
+            "main",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "remote", "get-url", "origin"]).stdout.strip(),
+            expected_origin,
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+            "",
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
+        self.assertTrue((self.worktree / "system/entrypoint").is_file())
+        self.assertFalse((self.worktree / "docs/not-runtime.txt").exists())
+
     def _script(
         self,
         script: Path,

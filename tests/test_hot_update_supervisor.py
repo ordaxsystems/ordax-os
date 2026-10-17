@@ -16,6 +16,7 @@ UPDATE_CONTROLS = ROOT / "system" / "surface" / "ui" / "update-controls.mjs"
 SYSTEM_OVERVIEW = ROOT / "system" / "surface" / "ui" / "system-overview-controls.mjs"
 UPDATE_PRESENTATION = ROOT / "system" / "services" / "update" / "presentation.mjs"
 BASE_UPDATE_AGENT = ROOT / "system" / "services" / "base-update" / "agent.sh"
+DEV_PULL = ROOT / "bootstrap" / "dev-base" / "ordax-pull"
 
 
 class HotUpdateSupervisorContractTests(unittest.TestCase):
@@ -39,7 +40,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('GIT_TERMINAL_PROMPT=0', text)
         self.assertIn('run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote', text)
         self.assertIn('apply_remote_checkout "$old_sha" "$remote_sha"', text)
-        self.assertNotIn('ORDAX_PULL_BIN', text)
+        self.assertIn('PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}', text)
         self.assertIn("classify_changes", text)
         self.assertIn("APPLY_MODE=reload", text)
         self.assertIn("APPLY_MODE=surface-restart", text)
@@ -99,48 +100,36 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('write_update_state "$current" network-error none', text)
         self.assertIn('write_update_state "$old_sha" pull-error none', text)
 
-    def test_hot_update_checkout_is_owned_by_supervisor(self):
+    def test_hot_update_checkout_transaction_has_one_atomic_owner(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        pull = DEV_PULL.read_text(encoding="utf-8")
         self.assertIn("apply_remote_checkout()", text)
         self.assertIn('fetch --no-tags origin', text)
         self.assertIn('merge-base --is-ancestor "$previous_sha" "$expected_sha"', text)
-        self.assertIn('reset --hard "$expected_sha"', text)
-        self.assertIn('sparse-checkout set --no-cone', text)
-        for authority_path in (
-            "/system/",
-            "/bootstrap/base-update/",
-            "/bootstrap/dev-base/ordax-dev-init",
-            "/bootstrap/dev-base/ordax-diagnose",
-            "/bootstrap/dev-base/ordax-network",
-            "/bootstrap/dev-base/ordax-pull",
-            "/bootstrap/dev-base/ordax-rollback",
-            "/bootstrap/dev-base/ordax-run",
-            "/bootstrap/recovery/entrypoint",
-            "/bootstrap/trust/",
-            "/bootstrap/config/release-envelope-url",
-            "/docs/contracts/release-trust-policy.json",
-            "/docs/contracts/minimal-bootstrap.json",
-            "/docs/evidence/release-trust-ceremony.json",
-            "/docs/evidence/release-trust-proof-manifest.json",
-            "/docs/evidence/release-trust-recovery-envelope.json",
-        ):
-            self.assertIn(authority_path, text)
-        self.assertIn('PREVIOUS_FILE=$STATE_DIR/previous-commit', text)
-        self.assertIn('CURRENT_FILE=$STATE_DIR/current-commit', text)
-        self.assertNotIn('/usr/local/bin/ordax-pull', text)
+        self.assertIn('PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}', text)
+        self.assertIn('ORDAX_EXPECTED_SHA="$expected_sha"', text)
+        self.assertIn('"$PULL_BIN" >>"$UPDATE_LOG" 2>&1', text)
+        apply = text.split("apply_remote_checkout() {", 1)[1].split("\n}\n\n/bin/busybox mkdir -p", 1)[0]
+        self.assertNotIn('reset --hard "$expected_sha"', apply)
+        self.assertNotIn('sparse-checkout set --no-cone', apply)
+        self.assertNotIn("repair_dirty_checkout", apply)
+        self.assertIn("replace_runtime_checkout()", pull)
+        self.assertIn('mv "$WORKTREE" "$retired"', pull)
+        self.assertIn('mv "$stage" "$WORKTREE"', pull)
+        self.assertIn('EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}', pull)
+        self.assertIn('[ "$remote_sha" != "$EXPECTED_SHA" ]', pull)
+        self.assertIn('checkout atual preservado', pull)
 
-    def test_dirty_runtime_checkout_is_diagnosed_and_self_healed(self):
+    def test_dirty_runtime_checkout_is_diagnosed_and_atomically_replaced_by_pull_owner(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn("DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout", text)
-        self.assertIn("record_dirty_checkout()", text)
-        self.assertIn("repair_dirty_checkout()", text)
-        self.assertIn('status --porcelain=v1', text)
-        self.assertIn('diff --binary --no-ext-diff HEAD', text)
-        self.assertIn('reset --hard HEAD', text)
-        self.assertIn('clean -ffd', text)
-        self.assertIn("restoring disposable Git-controlled runtime cache", text)
-        self.assertIn("local-checkout-repair-failed", text)
-        self.assertNotIn("refusing automatic update", text)
+        pull = DEV_PULL.read_text(encoding="utf-8")
+        self.assertNotIn("record_dirty_checkout()", text)
+        self.assertNotIn("repair_dirty_checkout()", text)
+        self.assertIn("DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout", pull)
+        self.assertIn("record_dirty_checkout()", pull)
+        self.assertIn('diff --binary --no-ext-diff HEAD', pull)
+        self.assertIn('replace_runtime_checkout "$remote_sha" dirty', pull)
+        self.assertIn("checkout local alterado; substituindo cache por clone limpo validado", pull)
 
     def test_candidate_is_preflighted_before_live_checkout_switch(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
@@ -154,7 +143,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('temporary=$UPDATE_RUN_DIR/candidate-shell.tmp', text)
         self.assertLess(
             text.index('validate_candidate_tree "$expected_sha"'),
-            text.index('reset --hard "$expected_sha"'),
+            text.index('ORDAX_EXPECTED_SHA="$expected_sha"'),
         )
 
     def test_common_reload_path_uses_fast_staged_preflight(self):
@@ -163,7 +152,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('validate_candidate_tree "$expected_sha" "$APPLY_MODE"', text)
         self.assertLess(
             text.index('classify_changes "$previous_sha" "$expected_sha"'),
-            text.index('reset --hard "$expected_sha"'),
+            text.index('ORDAX_EXPECTED_SHA="$expected_sha"'),
         )
         candidate = text.split("validate_candidate_tree() {", 1)[1].split(
             "surface-restart|supervisor-restart)", 1
@@ -199,7 +188,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('CHECKOUT_ERROR=candidate-stage-failed', text)
         self.assertLess(
             text.index('stage_candidate_release "$expected_sha" "$APPLY_MODE"'),
-            text.index('reset --hard "$expected_sha"'),
+            text.index('ORDAX_EXPECTED_SHA="$expected_sha"'),
         )
 
     def test_runtime_neutral_update_does_not_materialize_a_release_slot(self):
@@ -362,7 +351,10 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             classification.index(helper_case),
             classification.index("boot/*|bootstrap/*)"),
         )
-        self.assertIn("configure_runtime_sparse_checkout()", text)
+        self.assertNotIn("configure_runtime_sparse_checkout()", text)
+        refresh = text.split("refresh_dev_helpers() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('ORDAX_EXPECTED_SHA="$source_sha"', refresh)
+        self.assertIn('"$PULL_BIN" >>"$UPDATE_LOG" 2>&1', refresh)
         self.assertIn("refresh_dev_helpers()", text)
         self.assertIn('refresh_dev_helpers "$expected_sha"', text)
         self.assertIn('refresh_dev_helpers "$current"', text)
