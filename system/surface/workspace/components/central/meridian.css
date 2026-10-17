@@ -213,7 +213,7 @@
 .meridian-workspace .meridian-integration-status::before{content:'';width:5px;height:5px;flex-shrink:0;border-radius:50%;background:currentColor}
 .meridian-workspace .meridian-integration-note summary>.meridian-integration-status{margin:8px 8px 8px 0}
 .meridian-workspace .wm-topic-status,.meridian-workspace .wm-mock-label{color:var(--md-danger)}
-.meridian-account-spaces{min-width:0;width:100%;max-width:1240px;padding:24px;margin:0 auto}.meridian-spaces-context-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.meridian-account-spaces-scope{font-size:.8125rem;line-height:1.7;color:var(--md-muted);margin:0 0 18px}
+.os-panel.meridian-account-spaces{min-width:0;width:100%;max-width:1240px;padding:24px;margin:0 auto}.meridian-spaces-context-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.meridian-account-spaces-scope{font-size:.8125rem;line-height:1.7;color:var(--md-muted);margin:0 0 18px}
 .meridian-account-space-active{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:22px;border:1px solid var(--md-border);border-radius:14px;background:var(--md-subtle);margin-bottom:22px}
 .meridian-account-space-active>div{flex:1;min-width:160px}.meridian-account-space-active small{font-size:.625rem;letter-spacing:.08em;color:var(--md-sage)}
 .meridian-account-space-active h3{font-size:1.5rem;line-height:1.25;overflow-wrap:anywhere;margin:6px 0}.meridian-account-space-active p{font-size:.8125rem;color:var(--md-muted)}
@@ -231,10 +231,31 @@
 .meridian-account-spaces-empty[data-integration=pending]{border-color:color-mix(in srgb,var(--md-danger) 28%,var(--md-border))}.meridian-account-spaces-empty[data-integration=pending]>svg{color:var(--md-danger)}
 .meridian-account-spaces-empty h3{font-size:1rem}.meridian-account-spaces-empty p{font-size:.8125rem;line-height:1.7;color:var(--md-muted)}
 
-@media(max-width:640px){.meridian-account-spaces{padding:18px}.meridian-account-space-active{padding:18px}.meridian-account-space-active>button{width:100%}.meridian-account-spaces-tools label{max-width:none;flex-basis:100%}}
+@media(max-width:640px){.os-panel.meridian-account-spaces{padding:18px}.meridian-account-space-active{padding:18px}.meridian-account-space-active>button{width:100%}.meridian-account-spaces-tools label{max-width:none;flex-basis:100%}}
 
-.meridian-account-panel{width:100%;max-width:1000px;margin:0 auto;padding:24px}
-@media(max-width:640px){.meridian-account-panel{padding:18px}}
+.os-panel.meridian-account-panel{width:100%;max-width:1000px;margin:0 auto;padding:24px}
+@media(max-width:640px){.os-panel.meridian-account-panel{padding:18px}}
+
+.meridian-workspace .panel-heading { gap: 12px; margin-bottom: 22px; }
+.meridian-workspace .panel-heading h2 { font-size: 1.25rem; line-height: 1.3; font-weight: 550; letter-spacing: -.03em; }
+.meridian-account-panel .account-service-content { gap: 24px; }
+.meridian-account-panel .account-service-profile { align-items: flex-start; padding: 20px; border: 1px solid var(--md-border); border-radius: 14px; background: var(--md-surface); }
+.meridian-account-panel .account-service-profile .avatar { width: 48px; height: 48px; flex-shrink: 0; font-size: 1.125rem; background: var(--md-sage-soft); color: var(--md-sage); }
+.meridian-account-panel .account-service-profile strong { display: block; font-size: 1.125rem; line-height: 1.4; overflow-wrap: anywhere; }
+.meridian-account-panel .project-meta { font-size: .8125rem; line-height: 1.7; margin-top: 8px; }
+.account-service-state { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; margin-top: 6px; color: var(--md-muted); }
+.account-service-state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.account-service-state[data-state=signed-in] { color: var(--md-sage); }
+.meridian-account-panel .account-service-actions { gap: 12px; }
+.meridian-account-panel .account-service-actions > :is(button,a) { min-height: 44px; font-size: .8125rem; }
+.account-service-signout { margin-left: auto; }
+.account-service-pending { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr)); gap: 16px; }
+.account-service-pending section { padding: 20px; border: 1px solid var(--md-border); border-radius: 12px; background: var(--md-subtle); }
+.account-service-pending h3 { font-size: .875rem; font-weight: 550; margin: 0 0 8px; }
+.account-service-pending p { color: var(--md-muted); font-size: .8125rem; line-height: 1.7; margin: 0; }
+.meridian-account-spaces .service-state { font-size: .8125rem; line-height: 1.7; }
+.meridian-workspace .meridian-account-spaces > .panel-heading { grid-template-columns: minmax(0,1fr); }
+@container (min-width: 480px) { .meridian-workspace .meridian-account-spaces > .panel-heading { grid-template-columns: minmax(0,1fr) auto; } }
 
 /* Central retains manual rail sizing through the shared presentation owner. */
 .meridian-rail .sidebar-collapse {position:static;transform:none;display:flex;align-items:center;justify-content:center;width:100%;height:44px;min-height:44px;border-radius:var(--md-radius-small);cursor:pointer;}

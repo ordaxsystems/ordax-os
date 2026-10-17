@@ -138,6 +138,19 @@ try {
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
       assert.equal(await evaluate("!!document.querySelector('#meridian-prompt') && !!document.querySelector('[aria-label=\"Sua central OrdaX OS\"] img')"),true,'Meridian hero and contextual prompt remain available');
+      await click('.meridian-session-strip button');
+      await until("!!document.querySelector('.meridian-account-panel')");
+      assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-panel');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Account retains readable padding without horizontal overflow');
+      assert.equal(await evaluate("document.querySelector('.meridian-account-panel a').href"),'https://ordax.com.br/conta/','Account management belongs to the public portal');
+      const accountShot=await client.send('Page.captureScreenshot',{format:'png'});
+      await writeFile(join(evidence,'account-'+width+'x'+height+'.png'),Buffer.from(accountShot.data,'base64'));
+      await click('[aria-label="Fechar Minha conta"]');
+      await openSidebarDestination('Espaços');
+      await until("!!document.querySelector('.meridian-account-spaces')");
+      assert.equal(await evaluate("(()=>{const panel=document.querySelector('.meridian-account-spaces');return parseFloat(getComputedStyle(panel).paddingLeft)>=18&&panel.scrollWidth<=panel.clientWidth+1;})()"),true,'Spaces retains its account layout inset at every breakpoint');
+      const spacesShot=await client.send('Page.captureScreenshot',{format:'png'});
+      await writeFile(join(evidence,'spaces-'+width+'x'+height+'.png'),Buffer.from(spacesShot.data,'base64'));
+      await click('[aria-label="Fechar Espaços"]');
       if(width===1440){
         await openSidebarDestination('Loja');
         await until("!!document.querySelector('.meridian-store-presentation')?.shadowRoot?.querySelector('[data-meridian]')");

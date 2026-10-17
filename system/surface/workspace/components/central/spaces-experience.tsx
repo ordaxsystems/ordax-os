@@ -28,11 +28,16 @@ function SpacesPresentation({onOpen}:{onOpen:(title:string)=>void}){
  return <div ref={host} className="meridian-spaces-presentation" aria-label="Exemplos de espaços"/>;
 }
 export function SpacesExperience({children,onOpen}:{children:ReactNode;onOpen:(title:string)=>void}){
- const {authorized,identity}=useWebAccount();
+ const {authorized,identity,catalog,offline}=useWebAccount();
+ const accountStateLabel = offline ? "Sem conexão. Reconecte para consultar seus espaços."
+  : identity.state === "signed-out" ? "Entre na conta para consultar seus espaços."
+  : authorized.ready ? "Catálogo confirmado pelo serviço da conta."
+  : identity.state === "signed-in" ? (catalog.state === "loading" ? "Conta conectada · consultando seus espaços…" : "Conta conectada · consulta de espaços indisponível.")
+  : "Consulta real · conexão ainda não confirmada.";
  const [mode,setMode]=useState<'account'|'examples'>('account');
  const [visited,setVisited]=useState(false);
  return <div className="meridian-spaces-experience">
-  <div className="meridian-spaces-context"><span><strong>{mode==='account'?'Espaços da minha conta':'Espaços · exemplos'}</strong><small>{mode==='account'?(authorized.ready?'Catálogo confirmado pelo serviço da conta.':identity.state==='signed-out'?'Entre na conta para consultar seus espaços.':'Consulta real · conexão ainda não confirmada.'):'Dados fictícios. Nenhuma ação altera sua conta.'}</small></span><div className="meridian-spaces-context-actions">{mode==='account'&&!authorized.ready&&<Button variant="outline" onClick={()=>onOpen('Minha conta')}>Abrir minha conta</Button>}<Button variant="outline" onClick={()=>{setVisited(true);setMode(mode==='account'?'examples':'account');}}>{mode==='account'?'Ver exemplos completos':'Consultar meus espaços'}</Button></div></div>
+  <div className="meridian-spaces-context"><span><strong>{mode==='account'?'Espaços da minha conta':'Espaços · exemplos'}</strong><small>{mode==='account'?accountStateLabel:'Dados fictícios. Nenhuma ação altera sua conta.'}</small></span><div className="meridian-spaces-context-actions">{mode==='account'&&!authorized.ready&&<Button variant="outline" onClick={()=>onOpen('Minha conta')}>Abrir minha conta</Button>}<Button variant="outline" onClick={()=>{setVisited(true);setMode(mode==='account'?'examples':'account');}}>{mode==='account'?'Ver exemplos completos':'Consultar meus espaços'}</Button></div></div>
   <div hidden={mode!=='examples'}>{visited&&<SpacesPresentation onOpen={onOpen}/>}</div>
   {mode==='account'&&children}
   <details className="meridian-integration-note"><summary><span className="meridian-integration-status">Backend pendente</span> Integrações pendentes</summary><p>Capas, indicadores operacionais, atividade, templates, criação e gestão de membros aguardam contratos e serviços compatíveis. Os exemplos completos ficam preservados; o catálogo real consulta somente os Spaces autorizados.</p></details>
