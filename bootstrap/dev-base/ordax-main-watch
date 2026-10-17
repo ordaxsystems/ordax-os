@@ -101,27 +101,6 @@ handoff_runtime_drift_if_needed() {
     kill -TERM "$pid" >/dev/null 2>&1 || true
 }
 
-background_pull() {
-    if [ -s "$PINNED_FILE" ]; then
-        if [ ! -s "$BOOT_REJECTED_FILE" ]; then
-            if [ "$PIN_STATE" != manual ]; then
-                log "rollback manual fixado; sincronizacao automatica da main pausada ate ordax-pull explicito"
-                PIN_STATE=manual
-            fi
-            return 75
-        fi
-        if [ "$PIN_STATE" != automatic ]; then
-            log "rollback automatico fixado; main sera observada sem reabrir a entrega rejeitada"
-            PIN_STATE=automatic
-        fi
-        ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 "$BIN_DIR/ordax-pull"
-        return $?
-    fi
-
-    PIN_STATE=""
-    "$BIN_DIR/ordax-pull"
-}
-
 log "watch da main iniciado; intervalo=${INTERVAL}s"
 
 while :; do
@@ -141,33 +120,53 @@ while :; do
         OWNER_STATE=watcher
     fi
 
+    pull_mode=normal
+    if [ -s "$PINNED_FILE" ]; then
+        if [ ! -s "$BOOT_REJECTED_FILE" ]; then
+            if [ "$PIN_STATE" != manual ]; then
+                log "rollback manual fixado; sincronizacao automatica da main pausada ate ordax-pull explicito"
+                PIN_STATE=manual
+                LAST_PULL_FAILURE=""
+            fi
+            sleep "$INTERVAL"
+            continue
+        fi
+        pull_mode=automatic-recovery
+        if [ "$PIN_STATE" != automatic ]; then
+            log "rollback automatico fixado; main sera observada sem reabrir a entrega rejeitada"
+            PIN_STATE=automatic
+            LAST_PULL_FAILURE=""
+        fi
+    else
+        PIN_STATE=""
+    fi
+
     before=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    if output=$(background_pull 2>&1); then
+    status=0
+    if [ "$pull_mode" = automatic-recovery ]; then
+        ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 "$BIN_DIR/ordax-pull" >/dev/null 2>&1 || status=$?
+    else
+        "$BIN_DIR/ordax-pull" >/dev/null 2>&1 || status=$?
+    fi
+
+    if [ "$status" -eq 0 ]; then
         after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
         if [ -n "$after" ] && [ "$after" != "$before" ]; then
             log "main aplicada: ${before:-unknown} -> $after"
         fi
         LAST_PULL_FAILURE=""
         PIN_STATE=""
+    elif [ "$pull_mode" = automatic-recovery ]; then
+        if [ "$LAST_PULL_FAILURE" != automatic-rollback-wait ]; then
+            log "rollback automatico preservado; aguardando main avancar alem da entrega rejeitada"
+            LAST_PULL_FAILURE=automatic-rollback-wait
+        fi
     else
-        status=$?
-        case "$status:$PIN_STATE" in
-            75:manual)
-                ;;
-            *:automatic)
-                if [ "$LAST_PULL_FAILURE" != automatic-rollback-wait ]; then
-                    log "rollback automatico preservado; aguardando main avancar alem da entrega rejeitada"
-                    LAST_PULL_FAILURE=automatic-rollback-wait
-                fi
-                ;;
-            *)
-                failure="status=$status"
-                if [ "$LAST_PULL_FAILURE" != "$failure" ]; then
-                    log "checagem da main indisponivel ($failure); mantendo checkout local"
-                    LAST_PULL_FAILURE=$failure
-                fi
-                ;;
-        esac
+        failure="status=$status"
+        if [ "$LAST_PULL_FAILURE" != "$failure" ]; then
+            log "checagem da main indisponivel ($failure); mantendo checkout local"
+            LAST_PULL_FAILURE=$failure
+        fi
     fi
     sleep "$INTERVAL"
 done
