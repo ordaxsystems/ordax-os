@@ -1,14 +1,25 @@
 export const SPACE_MEMBERSHIP_ACTIONS_SCHEMA = "ordax.space-membership-actions/1";
 export const SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA = "ordax.space-membership-action-request/1";
+export const SPACE_MEMBERSHIP_ACTION_OUTCOME_SCHEMA = "ordax.space-membership-action-outcome/1";
 
 const ACTIONS = new Set(["change-role", "suspend", "reactivate", "remove"]);
 const ASSIGNABLE_ROLES = new Set(["admin", "member", "viewer"]);
+const MEMBER_STATES = new Set(["active", "suspended"]);
 const BASE_FIELDS = new Set([
   "schema",
   "action",
   "spaceId",
   "targetUserId",
   "idempotencyKey",
+]);
+const OUTCOME_FIELDS = new Set([
+  "schema",
+  "spaceId",
+  "targetUserId",
+  "role",
+  "state",
+  "removed",
+  "changed",
 ]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -41,6 +52,19 @@ function assertExactFields(raw) {
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) {
       throw new TypeError(`Space membership request contains unsupported field ${key}`);
+    }
+  }
+}
+
+function assertExactOutcomeFields(raw) {
+  for (const key of Object.keys(raw)) {
+    if (!OUTCOME_FIELDS.has(key)) {
+      throw new TypeError(`Space membership outcome contains unsupported field ${key}`);
+    }
+  }
+  for (const key of OUTCOME_FIELDS) {
+    if (!(key in raw)) {
+      throw new TypeError(`Space membership outcome is missing field ${key}`);
     }
   }
 }
@@ -85,6 +109,34 @@ export function validateSpaceMembershipActionRequest(value) {
   }
 
   return Object.freeze(request);
+}
+
+export function validateSpaceMembershipActionOutcome(value) {
+  const raw = objectValue(value, "Space membership action outcome");
+  if (raw.schema !== SPACE_MEMBERSHIP_ACTION_OUTCOME_SCHEMA) {
+    throw new TypeError("Space membership outcome schema is invalid");
+  }
+  assertExactOutcomeFields(raw);
+  const spaceId = boundedText(raw.spaceId, "Space membership outcome spaceId");
+  const targetUserId = boundedText(raw.targetUserId, "Space membership outcome targetUserId");
+  if (!ASSIGNABLE_ROLES.has(raw.role)) {
+    throw new TypeError("Space membership outcome role is invalid");
+  }
+  if (!MEMBER_STATES.has(raw.state)) {
+    throw new TypeError("Space membership outcome state is invalid");
+  }
+  if (typeof raw.removed !== "boolean" || typeof raw.changed !== "boolean") {
+    throw new TypeError("Space membership outcome flags must be boolean");
+  }
+  return Object.freeze({
+    schema: SPACE_MEMBERSHIP_ACTION_OUTCOME_SCHEMA,
+    spaceId,
+    targetUserId,
+    role: raw.role,
+    state: raw.state,
+    removed: raw.removed,
+    changed: raw.changed,
+  });
 }
 
 export function isSpaceMembershipActionSupported(snapshotValue, action) {
