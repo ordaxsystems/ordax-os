@@ -21,16 +21,27 @@ BASE_BOOT_ID_FILE=$UPDATE_RUN_DIR/base-boot-id
 CMDLINE_FILE=/proc/cmdline
 GUARDIAN_PID_FILE=$UPDATE_RUN_DIR/guardian.pid
 SUPERVISOR_PID_FILE=$UPDATE_RUN_DIR/supervisor.pid
+SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced
 GUARDIAN_LOG=$UPDATE_RUN_DIR/guardian.log
+HOST_POWER_REQUEST=$UPDATE_RUN_DIR/host-power-request
+POWER_STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}/power
+POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
+BASE_TELEMETRY_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.pid
+BASE_TELEMETRY_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.sh
+RESCUE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.pid
+RESCUE_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.sh
+BASE_UPDATE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/base-update/agent.pid
+BASE_UPDATE_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/base-update/agent.sh
 CHECK_INTERVAL=${ORDAX_GUARDIAN_CHECK_SECONDS:-10}
 STALE_SECONDS=${ORDAX_SUPERVISOR_STALE_SECONDS:-120}
 CRASH_LIMIT=${ORDAX_SUPERVISOR_CRASH_LIMIT:-3}
 STABLE_SECONDS=${ORDAX_SUPERVISOR_STABLE_SECONDS:-60}
 SUPERVISOR_PID=""
 STOPPING=0
+HOST_POWER_ACTION=""
 
-mkdir -p "$UPDATE_RUN_DIR"
-chmod 700 "$UPDATE_RUN_DIR"
+mkdir -p "$UPDATE_RUN_DIR" "$POWER_STATE_DIR"
+chmod 700 "$UPDATE_RUN_DIR" "$POWER_STATE_DIR"
 
 log() {
     printf '%s ordax-guardian: %s\n' "$(/bin/busybox date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf unknown)" "$*" >>"$GUARDIAN_LOG"
@@ -254,9 +265,221 @@ terminate_supervisor() {
     wait "$pid" 2>/dev/null || true
 }
 
+quiesce_supervisor_for_power_transition() {
+    pid=${SUPERVISOR_PID:-}
+    is_pid "$pid" || return 1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+
+    rm -f "$SUPERVISOR_POWER_QUIESCED_FILE" >/dev/null 2>&1 || true
+    kill "$pid" >/dev/null 2>&1 || return 1
+
+    # Surface stop is bounded to 5s and its Native authority proof to another
+    # 4s. Give that existing owner enough time to prove a clean handoff rather
+    # than racing it with the guardian's generic 5s termination budget.
+    remaining=12
+    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    if kill -0 "$pid" >/dev/null 2>&1; then
+        log "supervisor did not produce a bounded power-quiesce handoff; forcing pid $pid"
+        kill -KILL "$pid" >/dev/null 2>&1 || true
+        wait "$pid" 2>/dev/null || true
+        SUPERVISOR_PID=""
+        return 1
+    fi
+
+    wait "$pid" 2>/dev/null || true
+    SUPERVISOR_PID=""
+    proof=""
+    if [ -s "$SUPERVISOR_POWER_QUIESCED_FILE" ] && [ ! -L "$SUPERVISOR_POWER_QUIESCED_FILE" ]; then
+        IFS= read -r proof <"$SUPERVISOR_POWER_QUIESCED_FILE" || true
+    fi
+    [ "$proof" = "$pid" ] || {
+        log "supervisor exited without proving Surface/Native quiescence for host power transition"
+        return 1
+    }
+    rm -f "$SUPERVISOR_POWER_QUIESCED_FILE" >/dev/null 2>&1 || true
+    return 0
+}
+
+pid_matches_path() {
+    pid=${1:-}
+    expected_path=${2:-}
+    is_pid "$pid" || return 1
+    [ -n "$expected_path" ] || return 1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    command_line=$(/bin/busybox tr '\000' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)
+    case "$command_line" in
+        *"$expected_path"*) return 0 ;;
+    esac
+    return 1
+}
+
+terminate_persistent_agent() {
+    pid_file=$1
+    expected_path=$2
+    label=$3
+    pid=""
+    [ -s "$pid_file" ] && [ ! -L "$pid_file" ] || return 0
+    IFS= read -r pid <"$pid_file" || true
+    if ! pid_matches_path "$pid" "$expected_path"; then
+        rm -f "$pid_file" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    kill "$pid" >/dev/null 2>&1 || true
+    remaining=2
+    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    if kill -0 "$pid" >/dev/null 2>&1; then
+        log "forcing persistent $label pid $pid for host power transition"
+        kill -KILL "$pid" >/dev/null 2>&1 || true
+    fi
+    remaining=2
+    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    kill -0 "$pid" >/dev/null 2>&1 && return 1
+    rm -f "$pid_file" >/dev/null 2>&1 || true
+    return 0
+}
+
+terminate_persistent_host_agents() {
+    terminate_persistent_agent "$BASE_TELEMETRY_PID_FILE" "$BASE_TELEMETRY_AGENT" "telemetry agent" || return 1
+    terminate_persistent_agent "$RESCUE_PID_FILE" "$RESCUE_AGENT" "rescue agent" || return 1
+    terminate_persistent_agent "$BASE_UPDATE_PID_FILE" "$BASE_UPDATE_AGENT" "base update agent" || return 1
+    return 0
+}
+
+root_filesystem_is_read_only() {
+    root_options=$(/bin/busybox awk '$2 == "/" { print $4; exit }' /proc/mounts 2>/dev/null || true)
+    case ",$root_options," in
+        *,ro,*) return 0 ;;
+    esac
+    return 1
+}
+
+mark_power_request_failed() {
+    expected_action=$1
+    [ -s "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] || return 0
+    action=""
+    request_boot_id=""
+    request_epoch=""
+    status=""
+    IFS='|' read -r action request_boot_id request_epoch status <"$POWER_LAST_REQUEST" || return 0
+    [ "$action" = "$expected_action" ] && [ "$status" = "pending" ] || return 0
+    temporary=$POWER_LAST_REQUEST.tmp.$
+    printf '%s|%s|%s|failed\n' "$action" "$request_boot_id" "$request_epoch" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
+    return 0
+}
+
+prepare_host_power_channel() {
+    rm -f "$HOST_POWER_REQUEST" >/dev/null 2>&1 || true
+    /bin/busybox mkfifo "$HOST_POWER_REQUEST" || return 1
+    chmod 600 "$HOST_POWER_REQUEST" || return 1
+    exec 8<>"$HOST_POWER_REQUEST" || return 1
+    return 0
+}
+
+close_host_power_channel() {
+    exec 8>&- 2>/dev/null || true
+    rm -f "$HOST_POWER_REQUEST" >/dev/null 2>&1 || true
+}
+
+restore_runtime_after_power_failure() {
+    action=$1
+    reason=$2
+    mark_power_request_failed "$action" || true
+    STOPPING=0
+    log "$reason; restoring supervised runtime"
+    if ! start_supervisor; then
+        fail_closed "host power transition failed and supervisor could not be restored"
+    fi
+    return 1
+}
+
+perform_host_power_transition() {
+    action=$1
+    case "$action" in restart|shutdown) ;; *) return 1 ;; esac
+
+    STOPPING=1
+    log "host power owner accepted $action; stopping supervised runtime"
+    if ! quiesce_supervisor_for_power_transition; then
+        restore_runtime_after_power_failure "$action" "supervisor could not prove Surface/Native quiescence for $action"
+        return 1
+    fi
+
+    if ! terminate_persistent_host_agents; then
+        restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action"
+        return 1
+    fi
+    if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
+        restore_runtime_after_power_failure "$action" "filesystem sync failed before $action"
+        return 1
+    fi
+    if ! /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1; then
+        restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action"
+        return 1
+    fi
+    if ! root_filesystem_is_read_only; then
+        /bin/busybox mount -o remount,rw / >/dev/null 2>&1 || true
+        restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce"
+        return 1
+    fi
+
+    # Persistence is now sealed. Do not write regular files again unless the
+    # destructive kernel transition fails and root is restored read-write.
+    /bin/busybox sync >/dev/null 2>&1 || true
+    case "$action" in
+        restart)
+            /bin/busybox reboot -f >/dev/null 2>&1 || true
+            if [ -w /proc/sysrq-trigger ]; then
+                if printf 'b' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
+            fi
+            ;;
+        shutdown)
+            /bin/busybox poweroff -f >/dev/null 2>&1 || true
+            if [ -w /proc/sysrq-trigger ]; then
+                if printf 'o' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
+            fi
+            ;;
+    esac
+
+    if /bin/busybox mount -o remount,rw / >/dev/null 2>&1; then
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary"
+        return 1
+    fi
+
+    # Root is safely read-only but the kernel refused both transition paths.
+    # Stay alive rather than fabricating success or reopening persistence.
+    while :; do /bin/busybox sleep 3600; done
+}
+
+wait_guardian_interval() {
+    HOST_POWER_ACTION=""
+    if IFS= read -r -t "$CHECK_INTERVAL" HOST_POWER_ACTION <&8; then
+        case "$HOST_POWER_ACTION" in
+            restart|shutdown) return 0 ;;
+            *)
+                log "rejected unknown host power action: $HOST_POWER_ACTION"
+                HOST_POWER_ACTION=""
+                ;;
+        esac
+    fi
+    return 1
+}
+
 cleanup() {
     STOPPING=1
     terminate_supervisor
+    close_host_power_channel
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
 }
 
@@ -271,6 +494,7 @@ fail_closed() {
     log "$reason"
     terminate_supervisor
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
+    close_host_power_channel
     if [ -x "$RECOVERY_ENTRYPOINT" ]; then
         trap - EXIT HUP INT TERM
         exec "$RECOVERY_ENTRYPOINT"
@@ -354,6 +578,7 @@ fi
 trap cleanup EXIT
 trap terminate HUP INT TERM
 
+prepare_host_power_channel || fail_closed "host power request channel could not be initialized"
 write_pid "$GUARDIAN_PID_FILE" "$$"
 log "guardian started pid=$$"
 ensure_base_boot_id || fail_closed "boot session id could not be initialized"
@@ -368,7 +593,10 @@ while :; do
     stale_restart=0
 
     while is_pid "$SUPERVISOR_PID" && kill -0 "$SUPERVISOR_PID" >/dev/null 2>&1; do
-        /bin/busybox sleep "$CHECK_INTERVAL"
+        if wait_guardian_interval; then
+            perform_host_power_transition "$HOST_POWER_ACTION" || true
+            continue
+        fi
         [ "$STOPPING" -eq 0 ] || exit 0
 
         now=$(epoch_now)
