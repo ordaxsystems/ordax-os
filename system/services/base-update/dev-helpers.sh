@@ -7,6 +7,7 @@ TARGET_ROOT=${ORDAX_DEV_HELPER_TARGET_ROOT:-/}
 SOURCE_SHA=${ORDAX_SOURCE_SHA:-}
 RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 MAX_HELPER_BYTES=1048576
+HELPER_MANIFEST=$WORKTREE/system/services/base-update/dev-helper-manifest.tsv
 
 bb() {
     if [ -x /bin/busybox ]; then
@@ -185,15 +186,43 @@ EOF
     fi
 }
 
-stage_helper bootstrap/dev-base/ordax-dev-init sbin/ordax-dev-init
-stage_helper bootstrap/dev-base/ordax-diagnose usr/local/bin/ordax-diagnose
-stage_helper bootstrap/dev-base/ordax-network usr/local/bin/ordax-network
-stage_helper bootstrap/dev-base/ordax-main-watch usr/local/bin/ordax-main-watch
-stage_helper bootstrap/dev-base/ordax-pull usr/local/bin/ordax-pull
-stage_helper bootstrap/base-update/owner-development/ordax-remote usr/local/bin/ordax-remote
-stage_helper bootstrap/dev-base/ordax-rollback usr/local/bin/ordax-rollback
-stage_helper bootstrap/dev-base/ordax-run usr/local/bin/ordax-run
-stage_helper bootstrap/recovery/entrypoint ordax/bootstrap/recovery/entrypoint
+[ -f "$HELPER_MANIFEST" ] && [ ! -L "$HELPER_MANIFEST" ] || {
+    echo "ordax-dev-helpers: canonical helper manifest is missing or unsafe" >&2
+    exit 1
+}
+
+helper_count=0
+while IFS="$(printf '\t')" read -r source_relative target_relative; do
+    case "$source_relative" in
+        ""|\#*) continue ;;
+        /*|*".."*)
+            echo "ordax-dev-helpers: invalid source path in helper manifest: $source_relative" >&2
+            exit 1
+            ;;
+        bootstrap/dev-base/*|bootstrap/base-update/owner-development/*|bootstrap/recovery/entrypoint) ;;
+        *)
+            echo "ordax-dev-helpers: source path is outside the helper policy: $source_relative" >&2
+            exit 1
+            ;;
+    esac
+    case "$target_relative" in
+        ""|/*|*".."*)
+            echo "ordax-dev-helpers: invalid target path in helper manifest: $target_relative" >&2
+            exit 1
+            ;;
+        usr/local/bin/ordax-*|sbin/ordax-dev-init|ordax/bootstrap/recovery/entrypoint) ;;
+        *)
+            echo "ordax-dev-helpers: target path is outside the helper policy: $target_relative" >&2
+            exit 1
+            ;;
+    esac
+    stage_helper "$source_relative" "$target_relative"
+    helper_count=$((helper_count + 1))
+done <"$HELPER_MANIFEST"
+[ "$helper_count" -gt 0 ] || {
+    echo "ordax-dev-helpers: canonical helper manifest is empty" >&2
+    exit 1
+}
 
 while IFS="$(printf '\t')" read -r temporary target; do
     [ -n "$temporary" ] && [ -n "$target" ] || exit 1

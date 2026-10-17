@@ -1232,13 +1232,31 @@ classify_changes() {
         return 0
     fi
 
+    helper_manifest=$UPDATE_RUN_DIR/dev-helper-classification.$$.tsv
+    helper_manifest_ready=0
+    if "$GIT_BIN" -C "$WORKTREE" show "$new_sha:system/services/base-update/dev-helper-manifest.tsv" >"$helper_manifest" 2>>"$UPDATE_LOG"; then
+        helper_manifest_ready=1
+    else
+        rm -f "$helper_manifest"
+    fi
+
     while IFS= read -r path; do
         [ -n "$path" ] || continue
+        if [ "$path" = "system/services/base-update/dev-helper-manifest.tsv" ] || \
+           [ "$path" = "system/services/base-update/dev-helpers.sh" ]; then
+            DEV_HELPERS_CHANGED=1
+            continue
+        fi
+        if [ "$helper_manifest_ready" -eq 1 ] && \
+           /bin/busybox awk -F "$(printf '\t')" -v candidate="$path" '
+               $1 == candidate { found = 1 }
+               END { exit(found ? 0 : 1) }
+           ' "$helper_manifest"; then
+            DEV_HELPERS_CHANGED=1
+            continue
+        fi
         case "$path" in
             system/*.md|boot/*.md|bootstrap/*.md|boot/*/prove_*|bootstrap/*/prove_*)
-                ;;
-            bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-diagnose|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint|system/services/base-update/dev-helpers.sh)
-                DEV_HELPERS_CHANGED=1
                 ;;
             boot/*|bootstrap/*)
                 LOW_LEVEL_CHANGED=1
@@ -1259,6 +1277,7 @@ classify_changes() {
     done <<EOF
 $changed_paths
 EOF
+    rm -f "$helper_manifest"
 
     if [ "$supervisor_changed" -eq 1 ]; then
         APPLY_MODE=supervisor-restart
