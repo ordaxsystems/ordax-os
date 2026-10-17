@@ -1,4 +1,6 @@
 import { assertDeviceProfilePort } from "../../contracts/device-profile.mjs";
+import { assertKeyboardLayoutPort, validateKeyboardLayoutSnapshot } from "../../contracts/keyboard-layout.mjs";
+import { keyboardLayoutOption } from "../../services/input/keyboard-layout.mjs";
 import { assertFirstRunStateStore } from "../../contracts/first-run-state-store.mjs";
 import { FIRST_RUN_APP_SELECTION_SCHEMA } from "../../services/apps/first-run-selection.mjs";
 import {
@@ -86,6 +88,7 @@ export function mountFirstRunExperience(
     identityCredentials = null,
     localSession = null,
     deviceProfile = null,
+    keyboardLayout = null,
   },
 ) {
   if (!(root instanceof Element)) {
@@ -99,6 +102,7 @@ export function mountFirstRunExperience(
   const credentialsPort = identityCredentials === null ? null : assertIdentityCredentialsPort(identityCredentials);
   const localSessionPort = localSession === null ? null : assertLocalSessionPort(localSession);
   const deviceProfilePort = deviceProfile === null ? null : assertDeviceProfilePort(deviceProfile);
+  const keyboardLayoutPort = keyboardLayout === null ? null : assertKeyboardLayoutPort(keyboardLayout);
   const initial = validateFirstRunState(store.load());
   if (firstRunAppSelection !== null && (
     firstRunAppSelection.schema !== FIRST_RUN_APP_SELECTION_SCHEMA
@@ -186,6 +190,9 @@ export function mountFirstRunExperience(
   let deviceNameDraft = deviceProfileSnapshot?.displayName ?? "";
   let deviceNamePending = false;
   let deviceNameMessage = "";
+  let keyboardLayoutSnapshot = null;
+  let keyboardLayoutReadFailed = false;
+  let keyboardLayoutOrdinal = 0;
   let completionError = "";
   let unsubscribeSession = null;
   let unsubscribeActions = null;
@@ -201,6 +208,7 @@ export function mountFirstRunExperience(
     if (destroyed) return;
     destroyed = true;
     networkOrdinal += 1;
+    keyboardLayoutOrdinal += 1;
     passwordDraft = "";
     identityPasswordDraft = "";
     selectedIdentitySubjectId = null;
@@ -296,6 +304,48 @@ export function mountFirstRunExperience(
     zoneField.append(zone);
     form.append(localeField, zoneField);
     body.append(form);
+
+    if (keyboardLayoutPort) {
+      const status = el(documentObject, "section", "ordax-first-run-notice");
+      status.dataset.firstRunKeyboardStatus = "";
+      status.append(el(documentObject, "strong", "", "Teclado físico"));
+      if (keyboardLayoutSnapshot) {
+        const configured = keyboardLayoutOption(keyboardLayoutSnapshot.configuredLayoutId)?.label
+          ?? keyboardLayoutSnapshot.configuredLayoutId;
+        const applied = keyboardLayoutOption(keyboardLayoutSnapshot.appliedLayoutId)?.label
+          ?? keyboardLayoutSnapshot.appliedLayoutId;
+        const configuredLine = el(documentObject, "p");
+        configuredLine.append(
+          el(documentObject, "span", "", "Layout configurado:"),
+          documentObject.createTextNode(" " + configured),
+        );
+        const appliedLine = el(documentObject, "p");
+        appliedLine.append(
+          el(documentObject, "span", "", "Layout informado para esta sessão:"),
+          documentObject.createTextNode(" " + applied),
+        );
+        status.append(configuredLine, appliedLine);
+        if (keyboardLayoutSnapshot.restartRequired) {
+          status.append(el(documentObject, "p", "", "A nova configuração será usada no próximo início da Surface."));
+        }
+      } else {
+        status.append(el(
+          documentObject,
+          "p",
+          "",
+          keyboardLayoutReadFailed
+            ? "Não foi possível consultar o teclado nesta sessão."
+            : "Lendo configuração do teclado…",
+        ));
+      }
+      status.append(el(
+        documentObject,
+        "p",
+        "",
+        "Informação do host nativo. Este assistente ainda não altera o teclado.",
+      ));
+      body.append(status);
+    }
   };
 
   const renderNetwork = (body) => {
@@ -720,6 +770,22 @@ export function mountFirstRunExperience(
     card.append(body, footer);
   };
 
+  const refreshKeyboardLayout = async () => {
+    if (!keyboardLayoutPort || destroyed) return;
+    const ordinal = ++keyboardLayoutOrdinal;
+    try {
+      const snapshot = validateKeyboardLayoutSnapshot(await keyboardLayoutPort.read());
+      if (destroyed || ordinal !== keyboardLayoutOrdinal) return;
+      keyboardLayoutSnapshot = snapshot;
+      keyboardLayoutReadFailed = false;
+    } catch {
+      if (destroyed || ordinal !== keyboardLayoutOrdinal) return;
+      keyboardLayoutSnapshot = null;
+      keyboardLayoutReadFailed = true;
+    }
+    if (!destroyed && STEPS[stepIndex] === "regional") render();
+  };
+
   const go = (nextIndex) => {
     if (STEPS[stepIndex] === "network") passwordDraft = "";
     if (STEPS[stepIndex] === "security") {
@@ -1132,6 +1198,7 @@ export function mountFirstRunExperience(
   });
 
   render();
+  if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();
   }
