@@ -123,6 +123,39 @@ class FirstRunContractTests(unittest.TestCase):
                     0o600,
                 )
 
+    def test_durable_incomplete_resume_checkpoint_preserves_completed_receipt_authority(self):
+        host = load_host_server()
+        initial = host.initial_first_run_state()
+        incomplete = {**initial, "locale": "en-US", "resumeStep": "security"}
+        self.assertTrue(host.valid_first_run_state(incomplete))
+        for invalid in (
+            {**incomplete, "resumeStep": "name"},
+            {**incomplete, "resumeStep": {"step": "account"}},
+            {**incomplete, "accountMode": "identity"},
+            {**incomplete, "password": "never-persist"},
+            {**incomplete, "keyboardLayoutId": "us"},
+            {**incomplete, "subjectId": "account-A"},
+        ):
+            self.assertFalse(host.valid_first_run_state(invalid))
+        with tempfile.TemporaryDirectory() as directory:
+            host.FIRST_RUN_FILE = str(Path(directory) / "first-run.json")
+            host.write_first_run_state(incomplete)
+            self.assertEqual(host.read_first_run_state(), incomplete)
+            # A later visit to Privacy persists only a safe account re-entry.
+            account = {**incomplete, "resumeStep": "account"}
+            host.write_first_run_state(account)
+            self.assertEqual(host.read_first_run_state(), account)
+            completed = {k: v for k, v in account.items() if k != "resumeStep"}
+            completed.update(completed=True, accountMode="local-only")
+            self.assertTrue(host.valid_first_run_state(completed))
+            self.assertFalse(host.valid_first_run_state({**completed, "resumeStep": "account"}))
+            host.write_first_run_state(completed)
+            host.write_first_run_state(completed)
+            self.assertEqual(host.read_first_run_state(), completed)
+            with self.assertRaisesRegex(ValueError, "cannot be overwritten"):
+                host.write_first_run_state(account)
+            self.assertEqual(host.read_first_run_state(), completed)
+
     def test_first_run_completion_is_monotonic_and_exact_retry_is_idempotent(self):
         host = load_host_server()
         with tempfile.TemporaryDirectory() as directory:

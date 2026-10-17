@@ -50,10 +50,10 @@ async function scenario(modules,css) {
   b.click();await delay();
  };
  const defaultState=()=>({schema:'ordax.first-run-state/1',completed:false,locale:'pt-BR',timeZone:'America/Bahia',accountMode:null});
- async function fixture({identity=false,failSave=false}={}) {
+ async function fixture({identity=false,failSave=false,failProgress=false}={}) {
   let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:{state:'unavailable'};
-  let fail=failSave;let refreshSession=null;const writes=[],listeners=new Set();let prefs={};
-  let reads=0,posts=0;
+  let fail=failSave,failCheckpoint=failProgress;let refreshSession=null;const writes=[],listeners=new Set();let prefs={};
+  let reads=0,posts=0,completionPosts=0;
   // Disposable HTTP semantics; the real native JS adapter owns GET/POST handling.
   // Actual disk durability and native host authorization are tested separately.
   const transport={
@@ -67,8 +67,9 @@ async function scenario(modules,css) {
     if(options.method==='POST') {
      posts+=1;
      if(options.headers?.['Content-Type']!=='application/json')throw Error('Native JSON content-type missing');
-     if(fail)return new Response(null,{status:503});
      const next=JSON.parse(options.body);
+     if(next.completed)completionPosts+=1;
+     if((fail&&next.completed)||(failCheckpoint&&!next.completed))return new Response(null,{status:503});
      if(state.completed && JSON.stringify(state)!==JSON.stringify(next))return new Response(null,{status:409});
      state=next;writes.push(next);
      return new Response(null,{status:204});
@@ -86,9 +87,9 @@ async function scenario(modules,css) {
    subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(){throw Error('unavailable proof identity');}};
   return {ports:{stateStore,preferences,identitySession,identityActions},
    get state(){return state;},get writes(){return writes;},get prefs(){return prefs;},
-   get reads(){return reads;},get posts(){return posts;},
+   get reads(){return reads;},get posts(){return posts;},get completionPosts(){return completionPosts;},
    async freshStateStore(){return createNativeFirstRunStateStore(transport);},
-   failSave(v){fail=v;},onRefresh(next){refreshSession=next;},session(next){session=next;for(const fn of listeners)fn(next);}};
+   failSave(v){fail=v;},failProgress(v){failCheckpoint=v;},onRefresh(next){refreshSession=next;},session(next){session=next;for(const fn of listeners)fn(next);}};
  }
  async function reachAccount(){
   await click('next');
@@ -108,6 +109,7 @@ async function scenario(modules,css) {
   await click('finish');
  }
  const checks={};
+ const completedWrites=(entry)=>entry.writes.filter(snapshot=>snapshot.completed).length;
 
  // A native Surface relaunch must reread the keyboard owner; First Run must
  // not invent an intermediate receipt or pretend the physical layout changed.
@@ -130,7 +132,9 @@ async function scenario(modules,css) {
   && !document.querySelector('[data-first-run-keyboard-layout]')
   && keyboardMutations===0;
  keyboardFirst.destroy();
- checks.restartWithoutReceipt=!keyboardOwner.state.completed && keyboardOwner.writes.length===0;
+ checks.restartWithoutReceipt=!keyboardOwner.state.completed
+  && keyboardOwner.state.resumeStep==='regional'
+  && completedWrites(keyboardOwner)===0;
 
  keyboardState={
   configuredLayoutId:'us',appliedLayoutId:'us',
@@ -139,34 +143,71 @@ async function scenario(modules,css) {
  const keyboardSecond=mountFirstRunExperience(root,{
   ...keyboardOwner.ports,stateStore:await keyboardOwner.freshStateStore(),
  });
- await click('next');await delay();
+ await delay();
  const resumedStatus=document.querySelector('[data-first-run-keyboard-status]')?.textContent??'';
  checks.relaunchRefreshesNativeKeyboard=resumedStatus.includes('English (US)')
   && !resumedStatus.includes('ABNT2') && keyboardReads===2
   && keyboardMutations===0;
  checks.noKeyboardOwnerInReceipt=!Object.prototype.hasOwnProperty.call(keyboardOwner.state,'keyboardLayoutId')
-  && keyboardOwner.writes.length===0;
+  && keyboardOwner.writes.every(snapshot=>!Object.prototype.hasOwnProperty.call(snapshot,'keyboardLayoutId'));
+ checks.relaunchKeepsRegionalCheckpoint=keyboardOwner.state.resumeStep==='regional';
  keyboardSecond.destroy();
+
+ const resumeOwner=await fixture();
+ const preRestart=mountFirstRunExperience(root,resumeOwner.ports);
+ await click('next');await click('next');await click('next');
+ checks.progressIsDurable=resumeOwner.state.resumeStep==='security'
+  && !resumeOwner.state.completed && completedWrites(resumeOwner)===0;
+ preRestart.destroy();
+ const restored=mountFirstRunExperience(root,{
+  ...resumeOwner.ports,stateStore:await resumeOwner.freshStateStore(),
+ });
+ checks.resumeAtSecurity=!!document.querySelector('.ordax-first-run-body')?.textContent.includes('Segurança local')
+  && !get('account-local');
+ await click('next');
+ await click('account-local');
+ restored.destroy();
+ const identityRecheck=mountFirstRunExperience(root,{
+  ...resumeOwner.ports,stateStore:await resumeOwner.freshStateStore(),
+ });
+ checks.resumptionRequiresNewAccountChoice=!!get('account-local')
+  && resumeOwner.state.resumeStep==='account'
+  && !resumeOwner.state.completed
+  && !Object.prototype.hasOwnProperty.call(resumeOwner.state,'subjectId');
+ identityRecheck.destroy();
+
+ const blocked=await fixture({failProgress:true});
+ const blockedWizard=mountFirstRunExperience(root,blocked.ports);
+ await click('next');
+ checks.failedCheckpointDoesNotAdvance=!!document.querySelector('.ordax-first-run-error')
+  && !document.querySelector('[data-first-run-locale]')
+  && blocked.writes.length===0;
+ blocked.failProgress(false);
+ await click('next');
+ checks.checkpointCanRetry=blocked.state.resumeStep==='regional'
+  && !!document.querySelector('[data-first-run-locale]');
+ blockedWizard.destroy();
 
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
  checks.modalAccessibility=document.querySelector('.ordax-first-run')?.getAttribute('aria-modal')==='true';
  await reachAccount();await finishLocal();
- checks.offlineReceipt=offline.state.completed && offline.state.accountMode==='local-only';
- checks.onlyClosesAfterSave=offline.writes.length===1 && !document.querySelector('.ordax-first-run');
+ checks.offlineReceipt=offline.state.completed && offline.state.accountMode==='local-only'
+  && !Object.prototype.hasOwnProperty.call(offline.state,'resumeStep');
+ checks.onlyClosesAfterSave=completedWrites(offline)===1 && !document.querySelector('.ordax-first-run');
  checks.regionalPreference=offline.prefs['regional.locale']==='pt-BR';
  checks.privacyPreference=offline.prefs['memory.auto-capture']==='off';
  checks.restoredRoot=root.inert===false && root.getAttribute('aria-hidden')===null;
  checks.noOobeReplay=mountFirstRunExperience(root,{...offline.ports,
   stateStore:await offline.freshStateStore()}).shown===false;
- checks.adapterTransportRoundTrip=offline.reads===2 && offline.posts===1;
+ checks.adapterTransportRoundTrip=offline.reads===2 && offline.completionPosts===1 && offline.posts>1;
 
  const identity=await fixture({identity:true});
  mountFirstRunExperience(root,identity.ports);await reachAccount();
  await click('account-identity');await click('next');
  identity.session({state:'signed-out'});await delay();
- checks.revokedSessionReturnsToAccount=!!get('account-local') && !identity.state.completed && identity.writes.length===0;
+ checks.revokedSessionReturnsToAccount=!!get('account-local') && !identity.state.completed && completedWrites(identity)===0;
  await finishLocal();
  checks.localModeStillWorks=identity.state.completed && identity.state.accountMode==='local-only';
 
@@ -175,7 +216,7 @@ async function scenario(modules,css) {
  await click('account-identity');await click('next');await click('next');await click('finish');
  checks.activeIdentityReceipt=current.state.completed && current.state.accountMode==='identity'
   && !Object.prototype.hasOwnProperty.call(current.state,'subjectId')
-  && current.writes.length===1 && !document.querySelector('.ordax-first-run');
+  && completedWrites(current)===1 && !document.querySelector('.ordax-first-run');
 
  const expired=await fixture({identity:true});
  mountFirstRunExperience(root,expired.ports);await reachAccount();
@@ -183,7 +224,7 @@ async function scenario(modules,css) {
  expired.onRefresh({state:'signed-in',subjectId:'owner-B',displayName:'Other Proof User'});
  await click('next');await click('finish');
  checks.refreshChangedOwnerReturnsToAccount=!!get('account-local')
-  && !expired.state.completed && expired.writes.length===0;
+  && !expired.state.completed && completedWrites(expired)===0;
  await finishLocal();
  checks.refreshedIdentityAllowsLocalFallback=expired.state.completed
   && expired.state.accountMode==='local-only';
@@ -191,10 +232,10 @@ async function scenario(modules,css) {
  const storage=await fixture({failSave:true});
  mountFirstRunExperience(root,storage.ports);await reachAccount();await finishLocal();
  checks.failedSaveKeepsWizard=!!document.querySelector('.ordax-first-run-error') && !!get('finish')
-  && storage.writes.length===0 && !storage.state.completed;
+  && completedWrites(storage)===0 && !storage.state.completed;
  storage.failSave(false);await click('finish');
- checks.retryIsDurable=storage.state.completed && storage.writes.length===1 && !document.querySelector('.ordax-first-run');
- checks.failedWriteWasNotCached=storage.posts===2
+ checks.retryIsDurable=storage.state.completed && completedWrites(storage)===1 && !document.querySelector('.ordax-first-run');
+ checks.failedWriteWasNotCached=storage.completionPosts===2
   && (await storage.freshStateStore()).load().completed===true;
  for(const url of Object.values(urls))URL.revokeObjectURL(url);
  const failed=Object.entries(checks).filter(([,pass])=>!pass).map(([name])=>name);

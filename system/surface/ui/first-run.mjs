@@ -30,7 +30,7 @@ import {
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
 import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS } from "../../services/first-run/journey.mjs";
 import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
-import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
+import { checkpointFirstRunState, completeFirstRunState, matchesFirstRunIdentitySelection, resolveFirstRunResumeStep, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
   networkManagementFailureMessage,
@@ -131,7 +131,7 @@ export function mountFirstRunExperience(
 
   const draft = {
     locale: initial.locale,
-    timeZone: isSupportedRegionalTimeZone(detectedTimeZone) ? detectedTimeZone : initial.timeZone,
+    timeZone: initial.resumeStep ? initial.timeZone : (isSupportedRegionalTimeZone(detectedTimeZone) ? detectedTimeZone : initial.timeZone),
     accountMode: null,
   };
 
@@ -153,8 +153,10 @@ export function mountFirstRunExperience(
   overlay.append(shell);
   documentObject.body.append(overlay);
 
-  let stepIndex = 0;
+  let stepIndex = STEPS.indexOf(resolveFirstRunResumeStep(initial));
   let destroyed = false;
+  let navigationPending = false;
+  let navigationError = "";
   let finishing = false;
   let networkSnapshot = null;
   let networkPending = false;
@@ -753,8 +755,13 @@ export function mountFirstRunExperience(
     else if (step === "name") renderName(body);
     else renderReady(body);
 
+    if (navigationError) {
+      const error = el(documentObject, "p", "ordax-first-run-error", navigationError);
+      error.setAttribute("role", "alert");
+      body.append(error);
+    }
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
-    if (stepIndex > 0 && !finishing) footer.append(action(documentObject, "Voltar", "back"));
+    if (stepIndex > 0 && !finishing && !navigationPending) footer.append(action(documentObject, "Voltar", "back"));
     if (step !== "account") {
       const label = step === "ready"
         ? finishing ? "Salvando…" : "Entrar no OrdaX"
@@ -762,12 +769,14 @@ export function mountFirstRunExperience(
       const next = action(documentObject, label, step === "ready" ? "finish" : "next", true);
       next.disabled = (
         finishing
+        || navigationPending
         || (step === "security" && localSessionPending)
         || (step === "name" && deviceNamePending)
       );
       footer.append(next);
     }
     card.append(body, footer);
+    if (navigationPending) card.querySelectorAll("button").forEach((button) => { button.disabled = true; });
   };
 
   const refreshKeyboardLayout = async () => {
@@ -786,18 +795,36 @@ export function mountFirstRunExperience(
     if (!destroyed && STEPS[stepIndex] === "regional") render();
   };
 
-  const go = (nextIndex) => {
-    if (STEPS[stepIndex] === "network") passwordDraft = "";
-    if (STEPS[stepIndex] === "security") {
-      localSessionSecretDraft = "";
-      localSessionConfirmDraft = "";
-      localSessionMessage = "";
-    }
-    stepIndex = Math.max(0, Math.min(STEPS.length - 1, nextIndex));
-    completionError = "";
+  const go = async (nextIndex) => {
+    if (destroyed || navigationPending || finishing) return;
+    const targetIndex = Math.max(0, Math.min(STEPS.length - 1, nextIndex));
+    if (targetIndex === stepIndex) return;
+    navigationPending = true;
+    navigationError = "";
     render();
-    if (STEPS[stepIndex] === "network" && networkPort && networkSnapshot === null) {
-      void refreshNetwork(false);
+    try {
+      await store.save(checkpointFirstRunState(draft, STEPS[targetIndex]));
+      if (destroyed) return;
+      if (STEPS[stepIndex] === "network") passwordDraft = "";
+      if (STEPS[stepIndex] === "security") {
+        localSessionSecretDraft = "";
+        localSessionConfirmDraft = "";
+        localSessionMessage = "";
+      }
+      stepIndex = targetIndex;
+      completionError = "";
+    } catch {
+      if (!destroyed) {
+        navigationError = "Não foi possível salvar o progresso no pendrive. Tente novamente para continuar.";
+      }
+    } finally {
+      if (!destroyed) {
+        navigationPending = false;
+        render();
+        if (STEPS[stepIndex] === "network" && networkPort && networkSnapshot === null) {
+          void refreshNetwork(false);
+        }
+      }
     }
   };
 
@@ -1048,7 +1075,7 @@ export function mountFirstRunExperience(
 
   const onClick = (event) => {
     const button = event.target.closest("[data-first-run-action]");
-    if (!button || !overlay.contains(button) || button.disabled) return;
+    if (!button || !overlay.contains(button) || button.disabled || navigationPending) return;
     const kind = button.dataset.firstRunAction;
     if (kind === "back") go(stepIndex - 1);
     else if (kind === "next" && STEPS[stepIndex] === "security") void continueSecurity();
@@ -1198,6 +1225,7 @@ export function mountFirstRunExperience(
   });
 
   render();
+  if (STEPS[stepIndex] === "network" && networkPort) void refreshNetwork(false);
   if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();

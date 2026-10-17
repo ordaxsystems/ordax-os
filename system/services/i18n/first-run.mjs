@@ -135,7 +135,8 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Account authenticated. You can use it on this USB drive.",
     "A autenticação foi iniciada. O uso local continua disponível.": "Authentication was started. Local use remains available.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "The account action could not be completed. Local use remains available.",
-    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "First-use state could not be confirmed on the USB drive. The assistant remains open so the configuration is not lost."
+    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "First-use state could not be confirmed on the USB drive. The assistant remains open so the configuration is not lost.",
+    "Não foi possível salvar o progresso no pendrive. Tente novamente para continuar.": "Could not save progress to the USB drive. Try again to continue.",
   }),
   "es-ES": Object.freeze({
     "Primeiro uso": "Primer uso",
@@ -273,7 +274,8 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Cuenta autenticada. Puedes usarla en esta memoria USB.",
     "A autenticação foi iniciada. O uso local continua disponível.": "La autenticación se inició. El uso local sigue disponible.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "No se pudo completar la acción de cuenta. El uso local sigue disponible.",
-    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "No se pudo confirmar el guardado del primer uso en la memoria USB. El asistente permanece abierto para no perder la configuración."
+    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "No se pudo confirmar el guardado del primer uso en la memoria USB. El asistente permanece abierto para no perder la configuración.",
+    "Não foi possível salvar o progresso no pendrive. Tente novamente para continuar.": "No se pudo guardar el progreso en la memoria USB. Inténtalo de nuevo para continuar.",
   }),
   "de-DE": Object.freeze({
     "Primeiro uso": "Erste Einrichtung",
@@ -411,7 +413,8 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Konto authentifiziert. Du kannst es auf diesem USB-Stick verwenden.",
     "A autenticação foi iniciada. O uso local continua disponível.": "Die Authentifizierung wurde gestartet. Die lokale Nutzung bleibt verfügbar.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "Die Kontoaktion konnte nicht abgeschlossen werden. Die lokale Nutzung bleibt verfügbar.",
-    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "Der Einrichtungsstatus konnte nicht auf dem USB-Stick bestätigt werden. Der Assistent bleibt geöffnet, damit die Konfiguration nicht verloren geht."
+    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "Der Einrichtungsstatus konnte nicht auf dem USB-Stick bestätigt werden. Der Assistent bleibt geöffnet, damit die Konfiguration nicht verloren geht.",
+    "Não foi possível salvar o progresso no pendrive. Tente novamente para continuar.": "Der Fortschritt konnte nicht auf dem USB-Stick gespeichert werden. Versuche es erneut, um fortzufahren.",
   }),
   "fr-FR": Object.freeze({
     "Primeiro uso": "Première utilisation",
@@ -549,7 +552,8 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Compte authentifié. Vous pouvez l'utiliser sur cette clé USB.",
     "A autenticação foi iniciada. O uso local continua disponível.": "L'authentification a commencé. L'utilisation locale reste disponible.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "L'action du compte n'a pas pu être terminée. L'utilisation locale reste disponible.",
-    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "L'enregistrement de la première utilisation sur la clé USB n'a pas pu être confirmé. L'assistant reste ouvert afin de ne pas perdre la configuration."
+    "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "L'enregistrement de la première utilisation sur la clé USB n'a pas pu être confirmé. L'assistant reste ouvert afin de ne pas perdre la configuration.",
+    "Não foi possível salvar o progresso no pendrive. Tente novamente para continuar.": "Impossible d'enregistrer la progression sur la clé USB. Réessayez pour continuer.",
   })
 });
 

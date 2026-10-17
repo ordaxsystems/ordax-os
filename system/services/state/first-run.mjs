@@ -1,9 +1,11 @@
 import {
   FIRST_RUN_STATE_SCHEMA,
+  FIRST_RUN_RESUME_STEP_IDS,
   createInitialFirstRunState,
   validateFirstRunState,
 } from "../../contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../contracts/preference-store.mjs";
+import { FIRST_RUN_STEP_IDS } from "../first-run/journey.mjs";
 import { validateIdentitySessionSnapshot } from "../../contracts/identity-session.mjs";
 import {
   REGIONAL_LOCALE_PREFERENCE_ID,
@@ -15,6 +17,28 @@ export {
   createInitialFirstRunState,
   validateFirstRunState,
 };
+
+// Resume checkpoints stay in the existing first-run owner, never in a second store.
+// Privacy/name/ready require a new account decision after a Surface relaunch.
+export function checkpointFirstRunState({ locale, timeZone }, requestedStep) {
+  if (!FIRST_RUN_STEP_IDS.includes(requestedStep)) {
+    throw new TypeError(`Unknown first-run checkpoint step: ${String(requestedStep)}`);
+  }
+  const resumeStep = FIRST_RUN_RESUME_STEP_IDS.includes(requestedStep) ? requestedStep : "account";
+  return validateFirstRunState({
+    schema: FIRST_RUN_STATE_SCHEMA,
+    completed: false,
+    locale,
+    timeZone,
+    accountMode: null,
+    resumeStep,
+  });
+}
+
+export function resolveFirstRunResumeStep(snapshot) {
+  const state = validateFirstRunState(snapshot);
+  return state.completed ? "welcome" : (state.resumeStep ?? "welcome");
+}
 
 // Identity is a live session choice, not an identity receipt persisted in first-run.json.
 export function matchesFirstRunIdentitySelection(selectedSubjectId, candidateSession) {

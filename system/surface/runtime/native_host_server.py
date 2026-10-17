@@ -257,6 +257,7 @@ FIRST_RUN_TIME_ZONES = frozenset((
     "America/Noronha",
 ))
 FIRST_RUN_ACCOUNT_MODES = frozenset(("local-only", "identity"))
+FIRST_RUN_RESUME_STEPS = frozenset(("welcome", "regional", "network", "security", "account"))
 FIRST_RUN_LOCALES = frozenset(("pt-BR", "en-US", "es-ES", "de-DE", "fr-FR"))
 KEYBOARD_LAYOUT_IDS = ("br-abnt2", "us")
 KEYBOARD_LAYOUT_ID_SET = frozenset(KEYBOARD_LAYOUT_IDS)
@@ -722,9 +723,10 @@ def initial_first_run_state() -> dict:
 
 
 def valid_first_run_state(value: object) -> bool:
-    if not isinstance(value, dict) or set(value) != {
-        "schema", "completed", "locale", "timeZone", "accountMode"
-    }:
+    if not isinstance(value, dict):
+        return False
+    required = {"schema", "completed", "locale", "timeZone", "accountMode"}
+    if set(value) not in (required, required | {"resumeStep"}):
         return False
     if value.get("schema") != "ordax.first-run-state/1":
         return False
@@ -736,8 +738,13 @@ def valid_first_run_state(value: object) -> bool:
         return False
     account_mode = value.get("accountMode")
     if value["completed"]:
-        return account_mode in FIRST_RUN_ACCOUNT_MODES
-    return account_mode is None
+        return account_mode in FIRST_RUN_ACCOUNT_MODES and "resumeStep" not in value
+    return account_mode is None and (
+        "resumeStep" not in value or (
+            isinstance(value["resumeStep"], str)
+            and value["resumeStep"] in FIRST_RUN_RESUME_STEPS
+        )
+    )
 
 
 def read_first_run_state() -> dict:
