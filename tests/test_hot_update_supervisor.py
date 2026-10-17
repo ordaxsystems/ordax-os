@@ -335,20 +335,11 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             "check_for_update() {",
             1,
         )[0]
-        helper_case = (
-            "bootstrap/dev-base/ordax-dev-init|"
-            "bootstrap/dev-base/ordax-diagnose|"
-            "bootstrap/dev-base/ordax-network|"
-            "bootstrap/dev-base/ordax-pull|"
-            "bootstrap/dev-base/ordax-rollback|"
-            "bootstrap/dev-base/ordax-run|"
-            "bootstrap/recovery/entrypoint|"
-            "system/services/base-update/dev-helpers.sh)"
-        )
-        self.assertIn(helper_case, classification)
+        self.assertIn("dev-helper-manifest.tsv", classification)
+        self.assertIn('show "$new_sha:system/services/base-update/dev-helper-manifest.tsv"', classification)
         self.assertIn("DEV_HELPERS_CHANGED=1", classification)
         self.assertLess(
-            classification.index(helper_case),
+            classification.index("dev-helper-manifest.tsv"),
             classification.index("boot/*|bootstrap/*)"),
         )
         self.assertNotIn("configure_runtime_sparse_checkout()", text)

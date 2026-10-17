@@ -11,19 +11,22 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 REFRESH = ROOT / "system" / "services" / "base-update" / "dev-helpers.sh"
+MANIFEST = ROOT / "system" / "services" / "base-update" / "dev-helper-manifest.tsv"
 RUN = ROOT / "bootstrap" / "dev-base" / "ordax-run"
 PULL = (ROOT / "bootstrap" / "dev-base" / "ordax-pull").read_text(encoding="utf-8")
-SOURCE_TO_TARGET = {
-    "bootstrap/dev-base/ordax-dev-init": "sbin/ordax-dev-init",
-    "bootstrap/dev-base/ordax-diagnose": "usr/local/bin/ordax-diagnose",
-    "bootstrap/dev-base/ordax-network": "usr/local/bin/ordax-network",
-    "bootstrap/dev-base/ordax-main-watch": "usr/local/bin/ordax-main-watch",
-    "bootstrap/dev-base/ordax-pull": "usr/local/bin/ordax-pull",
-    "bootstrap/base-update/owner-development/ordax-remote": "usr/local/bin/ordax-remote",
-    "bootstrap/dev-base/ordax-rollback": "usr/local/bin/ordax-rollback",
-    "bootstrap/dev-base/ordax-run": "usr/local/bin/ordax-run",
-    "bootstrap/recovery/entrypoint": "ordax/bootstrap/recovery/entrypoint",
-}
+
+
+def load_source_to_target() -> dict[str, str]:
+    entries: dict[str, str] = {}
+    for raw in MANIFEST.read_text(encoding="utf-8").splitlines():
+        if not raw or raw.startswith("#"):
+            continue
+        source, target = raw.split("\t")
+        entries[source] = target
+    return entries
+
+
+SOURCE_TO_TARGET = load_source_to_target()
 SOURCE_SHA = "a" * 40
 
 
@@ -39,6 +42,9 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             destination = worktree / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+        manifest_destination = worktree / MANIFEST.relative_to(ROOT)
+        manifest_destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(MANIFEST, manifest_destination)
         return worktree, target, state
 
     def run_refresh(
