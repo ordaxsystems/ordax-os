@@ -19,9 +19,9 @@ function spacesPort(state = "ready", spaces = [{
   id: SPACE_ID,
   name: "Pizzaria",
   kind: "professional",
-  role: "owner",
   state: "active",
-  profileId: null,
+  ownerId: "user-owner",
+  profilePack: null,
   domain: "food",
   subtype: "pizzeria",
 }]) {
