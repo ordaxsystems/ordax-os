@@ -5,6 +5,7 @@ WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 TARGET_ROOT=${ORDAX_DEV_HELPER_TARGET_ROOT:-/}
 SOURCE_SHA=${ORDAX_SOURCE_SHA:-}
+RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 MAX_HELPER_BYTES=1048576
 
 bb() {
@@ -43,6 +44,14 @@ root_prefix=${TARGET_ROOT%/}
 stage_manifest=$STATE_DIR/.dev-helper-stage.$$
 receipt=$STATE_DIR/dev-helpers-sha
 receipt_tmp=$receipt.tmp.$$
+watcher_source=$WORKTREE/bootstrap/dev-base/ordax-main-watch
+watcher_target=$root_prefix/usr/local/bin/ordax-main-watch
+watcher_changed=1
+if [ -f "$watcher_source" ] && [ ! -L "$watcher_source" ] && \
+   [ -f "$watcher_target" ] && [ ! -L "$watcher_target" ] && \
+   bb cmp "$watcher_source" "$watcher_target" >/dev/null 2>&1; then
+    watcher_changed=0
+fi
 
 cleanup() {
     if [ -f "$stage_manifest" ]; then
@@ -106,6 +115,74 @@ stage_helper() {
     printf '%s\t%s\n' "$temporary" "$target" >>"$stage_manifest"
 }
 
+schedule_main_watch_refresh() {
+    [ "$TARGET_ROOT" = "/" ] || return 0
+    [ "$watcher_changed" -eq 1 ] || return 0
+    [ -x /usr/local/bin/ordax-main-watch ] || return 0
+
+    bb mkdir -p "$RUN_DIR"
+    watcher_pids=""
+    for proc in /proc/[0-9]*; do
+        [ -r "$proc/cmdline" ] || continue
+        pid=${proc#/proc/}
+        case "$pid" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        [ "$pid" != "$$" ] || continue
+        command_line=$(bb tr '\000' ' ' <"$proc/cmdline" 2>/dev/null || true)
+        case "$command_line" in
+            *"/usr/local/bin/ordax-main-watch"*) watcher_pids="$watcher_pids $pid" ;;
+        esac
+    done
+
+    if [ -z "$watcher_pids" ]; then
+        if [ -x /bin/setsid ]; then
+            /bin/setsid /usr/local/bin/ordax-main-watch >/dev/null 2>&1 </dev/null &
+        else
+            /usr/local/bin/ordax-main-watch >/dev/null 2>&1 </dev/null &
+        fi
+        return 0
+    fi
+
+    handoff=$RUN_DIR/main-watch-handoff.$$.sh
+    cat >"$handoff" <<EOF
+#!/bin/sh
+set -u
+pids="$watcher_pids"
+for pid in \$pids; do
+    kill -TERM "\$pid" >/dev/null 2>&1 || true
+done
+remaining=8
+while [ "\$remaining" -gt 0 ]; do
+    alive=0
+    for pid in \$pids; do
+        if kill -0 "\$pid" >/dev/null 2>&1; then
+            alive=1
+            break
+        fi
+    done
+    [ "\$alive" -eq 0 ] && break
+    sleep 1
+    remaining=\$((remaining - 1))
+done
+for pid in \$pids; do
+    kill -0 "\$pid" >/dev/null 2>&1 && kill -KILL "\$pid" >/dev/null 2>&1 || true
+done
+rm -rf "$RUN_DIR/main-watch.lock" >/dev/null 2>&1 || true
+rm -f "$handoff" >/dev/null 2>&1 || true
+if [ -x /bin/setsid ]; then
+    exec /bin/setsid /usr/local/bin/ordax-main-watch
+fi
+exec /usr/local/bin/ordax-main-watch
+EOF
+    bb chmod 700 "$handoff"
+    if [ -x /bin/setsid ]; then
+        /bin/setsid "$handoff" >/dev/null 2>&1 </dev/null &
+    else
+        "$handoff" >/dev/null 2>&1 </dev/null &
+    fi
+}
+
 stage_helper bootstrap/dev-base/ordax-dev-init sbin/ordax-dev-init
 stage_helper bootstrap/dev-base/ordax-diagnose usr/local/bin/ordax-diagnose
 stage_helper bootstrap/dev-base/ordax-network usr/local/bin/ordax-network
@@ -124,6 +201,8 @@ done <"$stage_manifest"
 printf '%s\n' "$SOURCE_SHA" >"$receipt_tmp"
 bb chmod 600 "$receipt_tmp"
 bb mv -f "$receipt_tmp" "$receipt"
+
+schedule_main_watch_refresh
 
 trap - EXIT HUP INT TERM
 bb rm -f "$stage_manifest"
