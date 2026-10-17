@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { validateSpaceMembersPage } from '../../../../contracts/space-members.mjs';
 import { useWebAccount } from './account-context';
+import './space-members-panel.css';
 
 type SpaceMember = ReturnType<typeof validateSpaceMembersPage>['members'][number];
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
