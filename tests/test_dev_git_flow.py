@@ -221,13 +221,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             {
                 "/system/",
                 "/bootstrap/base-update/",
-                "/bootstrap/dev-base/ordax-dev-init",
-                "/bootstrap/dev-base/ordax-diagnose",
-                "/bootstrap/dev-base/ordax-network",
-                "/bootstrap/dev-base/ordax-main-watch",
-                "/bootstrap/dev-base/ordax-pull",
-                "/bootstrap/dev-base/ordax-rollback",
-                "/bootstrap/dev-base/ordax-run",
+                "/bootstrap/dev-base/",
                 "/bootstrap/recovery/entrypoint",
                 "/bootstrap/trust/",
                 "/bootstrap/config/release-envelope-url",
@@ -536,6 +530,11 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("replace_runtime_checkout()", pull)
         self.assertIn('STAGING_PREFIX=$WORKSPACE_ROOT/.ordax-staging', pull)
         self.assertIn('RETIRED_PREFIX=$WORKSPACE_ROOT/.ordax-retired', pull)
+        self.assertIn('PULL_LOCK_DIR=$RUN_DIR/pull.lock', pull)
+        self.assertIn('acquire_pull_lock()', pull)
+        self.assertIn('recover_interrupted_checkout()', pull)
+        self.assertIn('cleanup_transaction_artifacts()', pull)
+        self.assertIn('/bootstrap/dev-base/', pull)
         self.assertIn('mv "$stage" "$WORKTREE"', pull)
         self.assertNotIn('pull --ff-only', pull)
 
@@ -618,6 +617,52 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
             self.commit_v2,
         )
+
+    def test_pull_lock_blocks_concurrent_owner_and_reclaims_stale_owner(self) -> None:
+        self._script(PULL)
+        run_dir = self.root / "run/ordax-update"
+        lock_dir = run_dir / "pull.lock"
+        lock_dir.mkdir(parents=True)
+        (lock_dir / "pid").write_text(f"{os.getpid()}\n", encoding="ascii")
+
+        blocked = self._script(PULL, check=False)
+        self.assertEqual(blocked.returncode, 75)
+        self.assertIn("another update transaction is active", blocked.stderr)
+
+        (lock_dir / "pid").write_text("99999999\n", encoding="ascii")
+        recovered = self._script(PULL)
+        self.assertIn("stale update lock reclaimed", recovered.stderr)
+        self.assertFalse(lock_dir.exists())
+
+    def test_interrupted_swap_restores_retired_known_good_before_remote_work(self) -> None:
+        self._script(PULL)
+        retired = self.worktree.parent / ".ordax-retired.4242"
+        staging = self.worktree.parent / ".ordax-staging.4242"
+        self.worktree.rename(retired)
+        staging.mkdir(parents=True)
+        (staging / "partial").write_text("incomplete\n", encoding="utf-8")
+
+        recovered = self._script(PULL)
+        self.assertIn("recovered interrupted checkout transaction", recovered.stderr)
+        self.assertTrue(self.worktree.is_dir())
+        self.assertFalse(retired.exists())
+        self.assertFalse(staging.exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+
+    def test_future_dev_helper_is_included_without_updater_sparse_list_change(self) -> None:
+        self._script(PULL)
+        future = self.source / "bootstrap/dev-base/ordax-future-helper"
+        future.write_text("#!/bin/sh\nprintf '%s\n' future-helper\n", encoding="utf-8")
+        future.chmod(0o755)
+        self._run(["git", "-C", str(self.source), "add", str(future)])
+        self._run(["git", "-C", str(self.source), "commit", "-m", "future-helper"])
+        self._run(["git", "-C", str(self.source), "push", "origin", "main"])
+
+        self._script(PULL)
+        self.assertTrue((self.worktree / "bootstrap/dev-base/ordax-future-helper").is_file())
 
     def test_remote_failure_preserves_last_local_checkout(self) -> None:
         self._script(PULL)

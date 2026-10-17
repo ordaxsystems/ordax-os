@@ -8,6 +8,9 @@ WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 INTERVAL=${ORDAX_UPDATE_INTERVAL_SECONDS:-5}
 LOG_FILE=$STATE_DIR/main-watch.log
 LOCK_DIR=$RUN_DIR/main-watch.lock
+LOCK_PID_FILE=$LOCK_DIR/pid
+PINNED_FILE=$STATE_DIR/pinned-commit
+BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 SUPERVISOR_HEARTBEAT_FILE=$RUN_DIR/supervisor-heartbeat
 RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha
 OWNER_STATE=""
@@ -18,11 +21,6 @@ esac
 [ "$INTERVAL" -ge 5 ] 2>/dev/null || INTERVAL=5
 
 mkdir -p "$STATE_DIR" "$RUN_DIR"
-
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    exit 0
-fi
-trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
 
 log() {
     printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown-time)" "$*" >>"$LOG_FILE"
@@ -53,6 +51,59 @@ read_state_value() {
     IFS= read -r value <"$source" || true
     printf '%s' "$value"
 }
+
+watch_lock_owner_alive() {
+    owner=$(read_state_value "$LOCK_PID_FILE")
+    is_pid "$owner" || return 1
+    kill -0 "$owner" >/dev/null 2>&1 || return 1
+    [ -r "/proc/$owner/cmdline" ] || return 1
+    command_line=$(tr '\000' ' ' <"/proc/$owner/cmdline" 2>/dev/null || true)
+    case "$command_line" in
+        *"ordax-main-watch"*) return 0 ;;
+    esac
+    return 1
+}
+
+acquire_watch_lock() {
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        printf '%s\n' "$$" >"$LOCK_PID_FILE"
+        return 0
+    fi
+
+    if watch_lock_owner_alive; then
+        return 1
+    fi
+    [ -d "$LOCK_DIR" ] && [ ! -L "$LOCK_DIR" ] || {
+        log "watch lock path is unsafe; refusing startup"
+        return 2
+    }
+    owner=$(read_state_value "$LOCK_PID_FILE")
+    is_pid "$owner" || {
+        log "watch lock has no trustworthy owner; preserving lock until reboot"
+        return 2
+    }
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || {
+        log "stale watch lock could not be reclaimed safely"
+        return 2
+    }
+    mkdir "$LOCK_DIR" 2>/dev/null || return 1
+    printf '%s\n' "$$" >"$LOCK_PID_FILE"
+    log "stale watch lock reclaimed"
+    return 0
+}
+
+lock_status=0
+acquire_watch_lock || lock_status=$?
+case "$lock_status" in
+    0) ;;
+    1) exit 0 ;;
+    *) exit 1 ;;
+esac
+trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 active_supervisor_pid() {
     pid=$(read_state_value "$SUPERVISOR_HEARTBEAT_FILE")
@@ -92,12 +143,53 @@ while :; do
         continue
     fi
 
+    pinned=$(read_state_value "$PINNED_FILE")
+    rejected=$(read_state_value "$BOOT_REJECTED_FILE")
+    before=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+
+    if [ -n "$pinned" ]; then
+        if ! is_sha "$pinned" || [ "$before" != "$pinned" ]; then
+            if [ "$OWNER_STATE" != pinned-invalid ]; then
+                log "rollback pin is inconsistent with checkout; automatic update blocked"
+                OWNER_STATE=pinned-invalid
+            fi
+            sleep "$INTERVAL"
+            continue
+        fi
+        if ! is_sha "$rejected" || [ "$rejected" = "$pinned" ]; then
+            if [ "$OWNER_STATE" != pinned ]; then
+                log "manual rollback pin active; automatic main update blocked until explicit ordax-pull"
+                OWNER_STATE=pinned
+            fi
+            sleep "$INTERVAL"
+            continue
+        fi
+
+        if [ "$OWNER_STATE" != recovery ]; then
+            log "automatic boot rollback active; main watcher will only recover to a new non-rejected commit"
+            OWNER_STATE=recovery
+        fi
+        if output=$(ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 "$BIN_DIR/ordax-pull" 2>&1); then
+            after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+            if [ -n "$after" ] && [ "$after" != "$before" ]; then
+                log "automatic rollback recovery applied: $before -> $after"
+            fi
+        else
+            status=$?
+            case "$output" in
+                *"rollback preservado"*|*"entrega rejeitada"*) ;;
+                *) log "automatic rollback recovery unavailable (status=$status); keeping known-good checkout" ;;
+            esac
+        fi
+        sleep "$INTERVAL"
+        continue
+    fi
+
     if [ "$OWNER_STATE" != watcher ]; then
         log "supervisor inativo; watch da main assumiu sincronizacao do checkout"
         OWNER_STATE=watcher
     fi
 
-    before=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
     if output=$("$BIN_DIR/ordax-pull" 2>&1); then
         after=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
         if [ -n "$after" ] && [ "$after" != "$before" ]; then

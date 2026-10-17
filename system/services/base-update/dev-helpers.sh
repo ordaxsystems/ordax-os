@@ -168,7 +168,9 @@ done
 for pid in \$pids; do
     kill -0 "\$pid" >/dev/null 2>&1 && kill -KILL "\$pid" >/dev/null 2>&1 || true
 done
-rm -rf "$RUN_DIR/main-watch.lock" >/dev/null 2>&1 || true
+# Do not delete the watcher lock here. A TERM-clean exit removes it itself;
+# after KILL, the replacement watcher validates the recorded PID and safely
+# reclaims only a demonstrably stale lock.
 rm -f "$handoff" >/dev/null 2>&1 || true
 if [ -x /bin/setsid ]; then
     exec /bin/setsid /usr/local/bin/ordax-main-watch
