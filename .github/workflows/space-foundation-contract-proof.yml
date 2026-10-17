@@ -14,6 +14,9 @@ on:
       - 'system/adapters/web/space-membership-actions.mjs'
       - 'system/composition/web/account-session.mjs'
       - 'system/surface/workspace/components/central/account-context.tsx'
+      - 'system/surface/workspace/components/central/spaces-experience.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.css'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
@@ -29,6 +32,7 @@ on:
       - 'tests/test_space_membership_actions_runtime.mjs'
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
+      - 'tests/test_space_members_surface_source.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   push:
@@ -45,6 +49,9 @@ on:
       - 'system/adapters/web/space-membership-actions.mjs'
       - 'system/composition/web/account-session.mjs'
       - 'system/surface/workspace/components/central/account-context.tsx'
+      - 'system/surface/workspace/components/central/spaces-experience.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.css'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
@@ -60,6 +67,7 @@ on:
       - 'tests/test_space_membership_actions_runtime.mjs'
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
+      - 'tests/test_space_members_surface_source.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   workflow_dispatch:
@@ -110,6 +118,7 @@ jobs:
           node --test tests/test_space_membership_actions_runtime.mjs
           node --test tests/test_web_space_membership_actions.mjs
           node --test tests/test_space_membership_gateway_source.mjs
+          node --test tests/test_space_members_surface_source.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs
