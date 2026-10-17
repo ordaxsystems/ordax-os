@@ -369,8 +369,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox reboot -f'))
         self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox poweroff -f'))
         self.assertNotIn("$HOST_LOG", transition[transition.index('quiesce_root_filesystem_for_power_transition "$action"') :])
-        self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', transition)
-        self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', transition)
+        self.assertIn('POWER_KERNEL_ACTION_TIMEOUT_SECONDS', transition)
+        self.assertIn('/bin/busybox timeout -k 1 "$POWER_KERNEL_ACTION_TIMEOUT_SECONDS" /bin/busybox reboot -f', transition)
+        self.assertIn('/bin/busybox timeout -k 1 "$POWER_KERNEL_ACTION_TIMEOUT_SECONDS" /bin/busybox poweroff -f', transition)
+        self.assertIn('power_console_status "failed: kernel $action returned after normal and emergency paths"', transition)
         termination = text[text.index("terminate()") : text.index("console_fallback()") ]
         self.assertIn("trap - EXIT", termination)
         self.assertIn("trap '' HUP INT TERM", termination)
@@ -389,6 +391,13 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("printf '%s|%s|%s|%s\\n'", text)
         self.assertIn('/bin/busybox sync', text)
         self.assertIn('queue_host_power_transition shutdown', text)
+        self.assertIn('POWER_SYNC_TIMEOUT_SECONDS=12', text)
+        self.assertIn('POWER_REMOUNT_TIMEOUT_SECONDS=5', text)
+        self.assertIn('POWER_KERNEL_ACTION_TIMEOUT_SECONDS=5', text)
+        for status in ("stopping", "syncing", "rebooting", "powering-off"):
+            self.assertIn(status, text)
+        self.assertIn('/bin/busybox timeout -k 1 "$POWER_SYNC_TIMEOUT_SECONDS" /bin/busybox sync', text)
+        self.assertIn('/bin/busybox timeout -k 1 "$POWER_REMOUNT_TIMEOUT_SECONDS" /bin/busybox mount -o remount,ro /', text)
         self.assertLess(
             text.index("record_power_request restart pending"),
             text.index("if ! queue_host_power_transition restart; then"),

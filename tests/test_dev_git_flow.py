@@ -204,6 +204,63 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             stdin=subprocess.DEVNULL,
         )
 
+    def test_preseeded_checkout_runs_with_remote_git_forbidden(self) -> None:
+        env = self._env()
+        env["ORDAX_REPO_URL"] = "https://github.invalid/ordaxsystems/ordax-os.git"
+        seeded = self._run(
+            [
+                "/bin/sh",
+                str(PULL),
+                "--seed-from-local",
+                str(self.source),
+                self.commit_v1,
+            ],
+            env=env,
+        )
+        self.assertIn(f"ORDAX_SOURCE_SHA={self.commit_v1}", seeded.stdout)
+
+        remote_marker = self.root / "unexpected-remote-git"
+        guarded_git = self.root / "git-local-only"
+        guarded_git.write_text(
+            "#!/bin/sh\n"
+            "for arg in \"$@\"; do\n"
+            "  case \"$arg\" in\n"
+            f"    ls-remote|fetch|clone) touch '{remote_marker}'; exit 97 ;;\n"
+            "  esac\n"
+            "done\n"
+            "exec git \"$@\"\n",
+            encoding="utf-8",
+        )
+        guarded_git.chmod(0o755)
+        env["ORDAX_GIT_BIN"] = str(guarded_git)
+
+        result = self._script(RUN, env=env)
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn(f"starting Owner/Development runtime at {self.commit_v1}", result.stdout)
+        self.assertFalse(remote_marker.exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+            "",
+        )
+
+    def test_ordax_run_rejects_dirty_or_unregistered_checkout(self) -> None:
+        self._script(PULL)
+        dirty = self.worktree / "system/local-dirty.txt"
+        dirty.write_text("dirty\n", encoding="utf-8")
+        result = self._script(RUN, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checkout local possui alteracoes", result.stderr)
+        self.assertNotIn("runtime-v1", result.stdout)
+
+        dirty.unlink()
+        (self.state / "current-commit").write_text("0" * 40 + "\n", encoding="ascii")
+        result = self._script(RUN, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checkout diverge do commit registrado", result.stderr)
+        self.assertNotIn("runtime-v1", result.stdout)
+
     def test_clone_pull_rollback_pin_and_explicit_unpin(self) -> None:
         first = self._script(PULL)
         self.assertIn(self.commit_v1, first.stdout)
@@ -619,6 +676,40 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
+    def test_interrupted_atomic_swap_restores_last_checkout_before_remote_access(self) -> None:
+        self._script(PULL)
+        old_sha = self.commit_v1
+        new_sha = self._commit_runtime("runtime-v2")
+
+        transaction_id = "4242"
+        retired = self.worktree.parent / f".ordax-retired.{transaction_id}"
+        self.worktree.rename(retired)
+        self.state.mkdir(parents=True, exist_ok=True)
+        (self.state / "pull-transaction.tsv").write_text(
+            f"{transaction_id}|retired|{new_sha}|{old_sha}|update\n",
+            encoding="utf-8",
+        )
+
+        offline_remote = self.root / "origin-temporarily-offline.git"
+        self.remote.rename(offline_remote)
+        try:
+            result = self._script(PULL, check=False)
+        finally:
+            offline_remote.rename(self.remote)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("atualizacao anterior foi interrompida", result.stderr)
+        self.assertIn(f"versao local {old_sha} restaurada", result.stderr)
+        self.assertIn(f"atualizacao falhou; usando versao local {old_sha}", result.stderr)
+        self.assertTrue(self.worktree.is_dir())
+        self.assertFalse(retired.exists())
+        self.assertFalse((self.state / "pull-transaction.tsv").exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            old_sha,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), old_sha)
+
     def test_remote_failure_preserves_last_local_checkout(self) -> None:
         self._script(PULL)
         before = self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip()
@@ -631,6 +722,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("main remota indisponivel", result.stderr)
+        self.assertIn(f"atualizacao falhou; usando versao local {before}", result.stderr)
         self.assertTrue(marker.is_file())
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),

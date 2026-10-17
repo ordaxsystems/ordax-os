@@ -47,6 +47,7 @@ ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
+SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
 SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json
 GIT_BIN=${ORDAX_GIT_BIN:-/usr/bin/git}
 PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
@@ -1015,6 +1016,15 @@ clear_surface_health() {
     rm -f "$HEALTH_FILE" "$SURFACE_HEARTBEAT_FILE"
 }
 
+write_surface_health_state() {
+    state=$1
+    expected_sha=$2
+    case "$state" in starting|provisioning|waiting-health|healthy|failed) ;; *) return 1 ;; esac
+    temporary=$SURFACE_HEALTH_STATE_FILE.tmp.$$
+    printf '%s|%s\n' "$state" "$expected_sha" >"$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$SURFACE_HEALTH_STATE_FILE"
+}
+
 surface_health_matches() {
     expected_sha=$1
     healthy_sha=$(read_state_value "$HEALTH_FILE")
@@ -1047,15 +1057,23 @@ wait_for_owner_initial_surface_health() {
         return $?
     fi
 
-    # Provisioning APKs and displaying a healthy Surface are separate phases.
-    # Only a marker from the current SHA extends the initial health wait.
+    # Provisioning and rendered health are separate bounded phases. Only an
+    # exact-SHA marker may suspend the normal health budget.
     normal_elapsed=0
     provisioning_elapsed=0
     provisioning_phase=0
+    published_state=starting
+    write_surface_health_state starting "$expected_sha" || true
     while :; do
-        supervisor_heartbeat || return 1
-        [ -n "$SURFACE_PID" ] && kill -0 "$SURFACE_PID" >/dev/null 2>&1 || return 1
-        surface_health_matches "$expected_sha" && return 0
+        supervisor_heartbeat || { write_surface_health_state failed "$expected_sha" || true; return 1; }
+        [ -n "$SURFACE_PID" ] && kill -0 "$SURFACE_PID" >/dev/null 2>&1 || {
+            write_surface_health_state failed "$expected_sha" || true
+            return 1
+        }
+        if surface_health_matches "$expected_sha"; then
+            write_surface_health_state healthy "$expected_sha" || true
+            return 0
+        fi
 
         marker_source=""
         if [ -r "$SURFACE_RUNTIME_PROVISION_MARKER" ]; then
@@ -1064,19 +1082,31 @@ wait_for_owner_initial_surface_health() {
         if [ "$marker_source" = "$expected_sha" ]; then
             provisioning_phase=1
             provisioning_elapsed=$((provisioning_elapsed + 1))
+            if [ "$published_state" != provisioning ]; then
+                published_state=provisioning
+                write_surface_health_state provisioning "$expected_sha" || true
+                log "Surface health state=provisioning for $expected_sha (budget ${OWNER_PROVISION_TIMEOUT}s)"
+            fi
             if [ "$provisioning_elapsed" -gt "$OWNER_PROVISION_TIMEOUT" ]; then
+                write_surface_health_state failed "$expected_sha" || true
                 log "first-boot runtime provisioning exceeded bounded budget"
                 return 1
             fi
         else
             if [ "$provisioning_phase" -eq 1 ]; then
-                # The packages were installed; the actual graphical health
-                # contract now gets its usual strict, independent time budget.
                 provisioning_phase=2
                 normal_elapsed=0
             fi
+            if [ "$published_state" != waiting-health ]; then
+                published_state=waiting-health
+                write_surface_health_state waiting-health "$expected_sha" || true
+                log "Surface health state=waiting-health for $expected_sha (budget ${normal_budget}s)"
+            fi
             normal_elapsed=$((normal_elapsed + 1))
-            [ "$normal_elapsed" -le "$normal_budget" ] || return 1
+            if [ "$normal_elapsed" -gt "$normal_budget" ]; then
+                write_surface_health_state failed "$expected_sha" || true
+                return 1
+            fi
         fi
         /bin/busybox sleep 1
     done

@@ -11,7 +11,12 @@ SCAN_FILE=/run/ordax-wifi-scan.tsv
 SSID_FILE=/run/ordax-wifi-ssids
 WPA_CTRL_DIR=/run/ordax-wpa-supplicant
 WPA_PID_FILE=/run/ordax-wpa-supplicant.pid
+NETWORK_STATUS_FILE=${ORDAX_NETWORK_STATUS_FILE:-/run/ordax-network-status}
+PROBE_REPO_URL=${ORDAX_REPO_URL:-https://github.com/ordaxsystems/ordax-os.git}
 CLOCK_SYNC_TIMEOUT=${ORDAX_CLOCK_SYNC_TIMEOUT_SECONDS:-5}
+DNS_PROBE_TIMEOUT=${ORDAX_DNS_PROBE_TIMEOUT_SECONDS:-4}
+HTTPS_PROBE_TIMEOUT=${ORDAX_HTTPS_PROBE_TIMEOUT_SECONDS:-6}
+GIT_PROBE_TIMEOUT=${ORDAX_GIT_PROBE_TIMEOUT_SECONDS:-8}
 DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}
 WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}
 WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}
@@ -29,6 +34,9 @@ normalize_timeout() {
 }
 
 CLOCK_SYNC_TIMEOUT=$(normalize_timeout "$CLOCK_SYNC_TIMEOUT" 5 2)
+DNS_PROBE_TIMEOUT=$(normalize_timeout "$DNS_PROBE_TIMEOUT" 4 2)
+HTTPS_PROBE_TIMEOUT=$(normalize_timeout "$HTTPS_PROBE_TIMEOUT" 6 3)
+GIT_PROBE_TIMEOUT=$(normalize_timeout "$GIT_PROBE_TIMEOUT" 8 3)
 DHCP_TIMEOUT=$(normalize_timeout "$DHCP_TIMEOUT" 6 3)
 WIFI_LINK_TIMEOUT=$(normalize_timeout "$WIFI_LINK_TIMEOUT" 8 3)
 WIFI_SETUP_ATTEMPTS=$(normalize_timeout "$WIFI_SETUP_ATTEMPTS" 3 1)
@@ -59,14 +67,39 @@ load_network_modules() {
 }
 
 load_network_modules
+write_network_status no-ip startup || true
 
 cleanup_runtime_files() {
     rm -f "$CANDIDATE_CONF" "$SCAN_FILE" "$SSID_FILE"
 }
 trap cleanup_runtime_files EXIT
 
+write_network_status() {
+    status=$1
+    detail=${2:-}
+    temporary=$NETWORK_STATUS_FILE.tmp.$$
+    printf '%s|%s\n' "$status" "$detail" >"$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$NETWORK_STATUS_FILE"
+}
+
 have_ipv4() {
     ip -4 -o addr show scope global 2>/dev/null | grep -q ' inet '
+}
+
+probe_dns() {
+    /bin/busybox timeout -k 1 "$DNS_PROBE_TIMEOUT" \
+        /bin/busybox nslookup github.com >/dev/null 2>&1
+}
+
+probe_https() {
+    /bin/busybox timeout -k 1 "$HTTPS_PROBE_TIMEOUT" \
+        /bin/busybox wget -q -T "$HTTPS_PROBE_TIMEOUT" -O /dev/null https://github.com/ >/dev/null 2>&1
+}
+
+probe_git_remote() {
+    GIT_TERMINAL_PROMPT=0 /bin/busybox timeout -k 1 "$GIT_PROBE_TIMEOUT" \
+        git -c http.lowSpeedLimit=1 -c http.lowSpeedTime="$GIT_PROBE_TIMEOUT" \
+        ls-remote --heads "$PROBE_REPO_URL" refs/heads/main >/dev/null 2>&1
 }
 
 sync_clock() {
@@ -88,9 +121,27 @@ sync_clock() {
 finish_network() {
     iface=$1
     echo "ordax-network: conectado em $iface"
+    write_network_status ip-ready "$iface" || true
     if ! sync_clock; then
-        echo "ordax-network: continuando com IP disponivel; Git validara HTTPS independentemente" >&2
+        echo "ordax-network: IP disponivel, mas relogio nao sincronizou dentro do limite" >&2
     fi
+    if ! probe_dns; then
+        write_network_status dns-failed "$iface" || true
+        echo "ordax-network: rede local disponivel, mas DNS nao respondeu; atualizacao remota indisponivel" >&2
+        return 0
+    fi
+    if ! probe_https; then
+        write_network_status https-failed "$iface" || true
+        echo "ordax-network: IP e DNS disponiveis, mas HTTPS falhou; confira relogio/TLS ou conectividade externa" >&2
+        return 0
+    fi
+    if ! probe_git_remote; then
+        write_network_status github-git-failed "$iface" || true
+        echo "ordax-network: HTTPS disponivel, mas GitHub/Git nao respondeu; sistema local permanece utilizavel" >&2
+        return 0
+    fi
+    write_network_status ready "$iface" || true
+    echo "ordax-network: DNS, HTTPS e Git remoto validados"
     return 0
 }
 
@@ -104,7 +155,7 @@ try_dhcp() {
 
 if [ "$force_choose" -eq 0 ] && have_ipv4; then
     echo "ordax-network: rede ja disponivel"
-    sync_clock
+    finish_network existing
     exit 0
 fi
 
