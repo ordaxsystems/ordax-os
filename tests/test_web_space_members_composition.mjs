@@ -39,9 +39,9 @@ function fixture() {
       }
       if (typeof path === 'string' && path.startsWith('/account/space-members?')) {
         return response({
-          schema: 'ordax.space-members-page/1',
+          schema: 'ordax.space-members-page/2',
           spaceId: SPACE_ID,
-          members: [{ spaceId: SPACE_ID, userId: USER_ID, role: 'owner', state: 'active' }],
+          members: [{ spaceId: SPACE_ID, userId: USER_ID, role: 'owner', state: 'active', actions: { canChangeRole: false, canSuspend: false, canReactivate: false, canRemove: false, assignableRoles: [] } }],
           nextCursor: null,
         });
       }
@@ -72,6 +72,7 @@ test('Web account session composes members as an on-demand authorized read', asy
     const page = await f.session.members.list({ spaceId: SPACE_ID });
     assert.equal(page.spaceId, SPACE_ID);
     assert.equal(page.members[0].role, 'owner');
+    assert.deepEqual(page.members[0].actions.assignableRoles, []);
 
     const memberRequest = f.requests.find(request => String(request.path).startsWith('/account/space-members?'));
     assert.ok(memberRequest);

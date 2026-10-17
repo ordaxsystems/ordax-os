@@ -13,7 +13,7 @@ import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIF
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
-const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/1";
+const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/2";
 const SPACE_ACTOR_CAPABILITY_SCHEMA = "ordax.space-actor-capability/1";
 const SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA = "ordax.space-membership-action-request/1";
 const SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA = "ordax.space-membership-action-result/1";
@@ -1394,10 +1394,30 @@ Deno.serve(async (req: Request) => {
           typeof raw.user_id !== "string" || !ACCOUNT_SPACE_UUID.test(raw.user_id) ||
           !["owner", "admin", "member", "viewer"].includes(String(raw.role)) ||
           !["active", "suspended"].includes(String(raw.state)) ||
+          typeof raw.can_change_role !== "boolean" ||
+          typeof raw.can_suspend !== "boolean" ||
+          typeof raw.can_reactivate !== "boolean" ||
+          typeof raw.can_remove !== "boolean" ||
+          !Array.isArray(raw.assignable_roles) || raw.assignable_roles.length > SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.size ||
+          raw.assignable_roles.some((role) => typeof role !== "string" || !SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.has(role)) ||
+          new Set(raw.assignable_roles).size !== raw.assignable_roles.length ||
+          raw.can_change_role !== (raw.assignable_roles.length > 0) ||
           (previousUserId !== null && raw.user_id <= previousUserId)
         ) return error(502, "space-members-read-failed", "Não foi possível validar os membros deste Space.");
         previousUserId = raw.user_id;
-        members.push({ spaceId, userId: raw.user_id, role: raw.role, state: raw.state });
+        members.push({
+          spaceId,
+          userId: raw.user_id,
+          role: raw.role,
+          state: raw.state,
+          actions: {
+            canChangeRole: raw.can_change_role,
+            canSuspend: raw.can_suspend,
+            canReactivate: raw.can_reactivate,
+            canRemove: raw.can_remove,
+            assignableRoles: raw.assignable_roles,
+          },
+        });
       }
 
       return json(200, {

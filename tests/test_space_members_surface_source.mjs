@@ -25,11 +25,17 @@ test('Space members Surface consumes canonical read, actor capability and member
   assert.doesNotMatch(membersSurface, /localStorage|sessionStorage|indexedDB/);
 });
 
-test('Surface does not infer management authority from member role', () => {
+test('Surface consumes target-specific server projection instead of inferring authority from role', () => {
   assert.doesNotMatch(membersSurface, /role\s*===\s*['"]admin['"]/);
   assert.doesNotMatch(membersSurface, /role\s*===\s*['"]owner['"]/);
+  assert.doesNotMatch(membersSurface, /memberRole !== 'owner'/);
   assert.match(membersSurface, /const canManageMembers = capabilityState === 'ready' && capability\?\.canManageMembers === true/);
-  assert.match(membersSurface, /memberRole !== 'owner'/);
+  assert.match(membersSurface, /member\.actions\.canChangeRole/);
+  assert.match(membersSurface, /member\.actions\.assignableRoles\.includes\(role\)/);
+  assert.match(membersSurface, /actions\.assignableRoles\.map/);
+  assert.match(membersSurface, /actions\.canSuspend/);
+  assert.match(membersSurface, /actions\.canReactivate/);
+  assert.match(membersSurface, /actions\.canRemove/);
 });
 
 test('Space members Surface invalidates stale same-Space reads and refreshes server authority after mutations', () => {
