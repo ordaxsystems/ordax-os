@@ -59,6 +59,18 @@ test("mutation preserves authorization-before-idempotency replay and consumes th
   assert.match(mutation, /v_role = any\(coalesce\(v_capability\.assignable_roles/);
 });
 
+test("members gateway rejects repeated or regressive provider pages after the requested cursor", () => {
+  const block = routeBlock();
+  assert.match(block, /const spaceId = requestedSpaceId\.toLowerCase\(\)/);
+  assert.match(block, /const cursor = requestedCursor === null \? null : requestedCursor\.toLowerCase\(\)/);
+  assert.match(block, /p_after_user_id: cursor/);
+  assert.match(block, /let previousUserId = cursor/);
+  assert.match(block, /previousUserId !== null && raw\.user_id <= previousUserId/);
+  assert.match(block, /previousUserId = raw\.user_id/);
+  assert.match(block, /raw\.user_id !== raw\.user_id\.toLowerCase\(\)/);
+  assert.match(block, /nextCursor: data\.length === MAX_SPACE_MEMBERS_PAGE_SIZE \? previousUserId : null/);
+});
+
 test("transport admits exact GET-only member read", () => {
   assert.match(admission, /["\/account\/space-members", Object\.freeze\({ method: "GET", preActivation: true })]/);
 });

@@ -1369,11 +1369,14 @@ Deno.serve(async (req: Request) => {
     }
     const spaceIds = url.searchParams.getAll("spaceId");
     const cursors = url.searchParams.getAll("cursor");
-    const spaceId = spaceIds.length === 1 ? spaceIds[0] : "";
-    const cursor = cursors.length === 0 ? null : cursors.length === 1 ? cursors[0] : "";
-    if (!ACCOUNT_SPACE_UUID.test(spaceId) || (cursor !== null && !ACCOUNT_SPACE_UUID.test(cursor))) {
+    const requestedSpaceId = spaceIds.length === 1 ? spaceIds[0] : "";
+    const requestedCursor = cursors.length === 0 ? null : cursors.length === 1 ? cursors[0] : "";
+    if (!ACCOUNT_SPACE_UUID.test(requestedSpaceId) || (requestedCursor !== null && !ACCOUNT_SPACE_UUID.test(requestedCursor))) {
       return error(400, "invalid-space-members-query", "Consulta de membros inválida.");
     }
+    // Canonical UUID text order agrees with PostgreSQL uuid order, including mixed-case input.
+    const spaceId = requestedSpaceId.toLowerCase();
+    const cursor = requestedCursor === null ? null : requestedCursor.toLowerCase();
 
     try {
       const supabase = client(session.access);
@@ -1387,11 +1390,14 @@ Deno.serve(async (req: Request) => {
       }
 
       const members = [];
-      let previousUserId = null;
+      // The first row must advance beyond the requested cursor; later rows beyond
+      // each predecessor. Never accept repeated or regressive provider pages.
+      let previousUserId = cursor;
       for (const raw of data as Array<Record<string, unknown>>) {
         if (
           typeof raw.space_id !== "string" || raw.space_id !== spaceId ||
           typeof raw.user_id !== "string" || !ACCOUNT_SPACE_UUID.test(raw.user_id) ||
+          raw.user_id !== raw.user_id.toLowerCase() ||
           !["owner", "admin", "member", "viewer"].includes(String(raw.role)) ||
           !["active", "suspended"].includes(String(raw.state)) ||
           typeof raw.can_change_role !== "boolean" ||
