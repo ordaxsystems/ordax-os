@@ -21,6 +21,10 @@ import {
   REGIONAL_TIME_ZONE_PREFERENCE_ID,
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
+import {
+  MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
+  memoryAutoCaptureEnabled,
+} from "../../services/preferences/memory.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
 import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS } from "../../services/first-run/journey.mjs";
 import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
@@ -586,6 +590,24 @@ export function mountFirstRunExperience(
       grid.append(item);
     });
     body.append(grid);
+
+    const memory = el(documentObject, "article", "ordax-first-run-tile");
+    memory.dataset.firstRunPrivacyMemory = "";
+    memory.append(
+      el(documentObject, "strong", "", "Memória automática"),
+      el(documentObject, "p", "", "Permite registrar memórias úteis localmente. Você pode alterar esta opção depois em Configurações."),
+    );
+    const memoryChoice = el(documentObject, "label", "ordax-first-run-field");
+    const memoryToggle = documentObject.createElement("input");
+    memoryToggle.type = "checkbox";
+    memoryToggle.checked = memoryAutoCaptureEnabled(preferencePort.getSnapshot());
+    memoryToggle.dataset.firstRunMemoryAutoCapture = "";
+    memoryChoice.append(
+      memoryToggle,
+      el(documentObject, "span", "", memoryToggle.checked ? "Ativada" : "Desativada"),
+    );
+    memory.append(memoryChoice);
+    body.append(memory);
   };
 
   const renderName = (body) => {
@@ -1033,6 +1055,12 @@ export function mountFirstRunExperience(
       render();
     } else if (event.target.matches("[data-first-run-time-zone]")) {
       draft.timeZone = event.target.value;
+    } else if (event.target.matches("[data-first-run-memory-auto-capture]")) {
+      preferencePort.set(
+        MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
+        event.target.checked === true ? "on" : "off",
+      );
+      render();
     } else if (event.target.matches("[data-first-run-registration-legal-acceptance]")) {
       registrationLegalAccepted = event.target.checked === true;
       render();

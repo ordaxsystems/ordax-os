@@ -112,6 +112,15 @@
     "identity_subject_in_first_run_receipt": false,
     "expired_or_changed_identity_returns_to_account_step": true
   },
+  "privacy": {
+    "owner": "preference-runtime",
+    "preference_contract": "system/contracts/preference-runtime.mjs",
+    "preference_definition": "system/services/preferences/memory.mjs",
+    "memory_auto_capture_preference": "memory.auto-capture",
+    "must_not_enter_first_run_state": true,
+    "memory_service_consumes_runtime_preference": true,
+    "cloud_sync_enabled_by_this_step": false
+  },
   "device_name": {
     "owner": "device-profile",
     "capability_driven": true,

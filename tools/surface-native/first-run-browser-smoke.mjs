@@ -98,6 +98,10 @@ async function scenario(modules,css) {
  }
  async function finishLocal(){
   await click('account-local');
+  const memoryToggle=document.querySelector('[data-first-run-memory-auto-capture]');
+  if(!(memoryToggle instanceof HTMLInputElement)||!memoryToggle.checked)throw Error('Missing canonical memory privacy control');
+  memoryToggle.checked=false;
+  memoryToggle.dispatchEvent(new Event('change',{bubbles:true}));
   await click('next');
   if(!document.querySelector('.ordax-first-run-note'))throw Error('Missing device-name fallback');
   await click('next');
@@ -112,6 +116,7 @@ async function scenario(modules,css) {
  checks.offlineReceipt=offline.state.completed && offline.state.accountMode==='local-only';
  checks.onlyClosesAfterSave=offline.writes.length===1 && !document.querySelector('.ordax-first-run');
  checks.regionalPreference=offline.prefs['regional.locale']==='pt-BR';
+ checks.privacyPreference=offline.prefs['memory.auto-capture']==='off';
  checks.restoredRoot=root.inert===false && root.getAttribute('aria-hidden')===null;
  checks.noOobeReplay=mountFirstRunExperience(root,{...offline.ports,
   stateStore:await offline.freshStateStore()}).shown===false;
