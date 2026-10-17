@@ -340,6 +340,8 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
     temp = Path(tempfile.mkdtemp(prefix="ordax-independent-build-"))
     try:
         archive = source_archive(source, cache)
+        download_cache = cache / "buildroot-downloads"
+        download_cache.mkdir(parents=True, exist_ok=True)
         br = safe_unpack(archive, temp, source["buildroot"]["version"])
         generated = temp / "ordax_minimal_defconfig"
         generated.write_text(
@@ -351,7 +353,8 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         )
         build_dir = temp / "br-output"
         cmd = ["make", "-C", str(br), f"O={build_dir}",
-               f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}"]
+               f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}",
+               f"BR2_DL_DIR={download_cache}"]
         run(*cmd, "defconfig")
         config = (build_dir / ".config").read_text(encoding="utf-8")
         for key in ('BR2_KERNEL_HEADERS_VERSION=y', f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
@@ -389,6 +392,7 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "source_commit": source_commit,
             "kernel_source_version": kernel["version"],
             "buildroot_sha256": digest(archive),
+            "buildroot_download_cache_enabled": True,
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
@@ -420,6 +424,8 @@ def verify(out: Path) -> dict:
         raise BaseError("invalid provenance schema")
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("unsafe artifact promotion flag")
+    if report.get("buildroot_download_cache_enabled") is not True:
+        raise BaseError("Buildroot download cache provenance missing")
     if report.get("busybox_handoff_config_fragment") != str(BUSYBOX_FRAGMENT.relative_to(ROOT)):
         raise BaseError("BusyBox handoff config fragment provenance drift")
     if report.get("busybox_handoff_config_sha256") != digest(BUSYBOX_FRAGMENT):

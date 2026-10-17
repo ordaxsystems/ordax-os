@@ -175,11 +175,19 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             entrypoint = worktree / "system" / "entrypoint"
             entrypoint.parent.mkdir(parents=True)
             run_dir = root / "run" / "ordax-update"
+            state_dir = root / "state" / "ordax"
+            state_dir.mkdir(parents=True)
+            (state_dir / "current-commit").write_text(SOURCE_SHA + "\n", encoding="ascii")
             marker = root / "run" / "ordax-surface" / "runtime-provisioning-source-sha"
             fake_git = root / "git"
 
             fake_git.write_text(
-                f"#!/bin/sh\nprintf '%s\\n' '{SOURCE_SHA}'\n",
+                "#!/bin/sh\n"
+                "case \"$*\" in\n"
+                f"  *'rev-parse HEAD'*) printf '%s\\n' '{SOURCE_SHA}' ;;\n"
+                "  *'status --porcelain'*) exit 0 ;;\n"
+                "  *) exit 2 ;;\n"
+                "esac\n",
                 encoding="utf-8",
             )
             fake_git.chmod(0o755)
@@ -201,6 +209,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             env.update(
                 {
                     "ORDAX_WORKTREE": str(worktree),
+                    "ORDAX_STATE_DIR": str(state_dir),
                     "ORDAX_GIT_BIN": str(fake_git),
                     "ORDAX_UPDATE_RUN_DIR": str(run_dir),
                     "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(marker),

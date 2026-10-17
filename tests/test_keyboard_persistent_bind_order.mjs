@@ -3,6 +3,8 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+// Git may check text sources out with CRLF on Windows; keep order and
+// integration proofs identical across platforms without relaxing invariants.
 const launcher = (await source("system/surface/bin/ordax-surface")).replace(/\r\n/g, "\n");
 const nativeHost = (await source("system/surface/runtime/native_host_server.py")).replace(/\r\n/g, "\n");
 const contract = JSON.parse(await source("docs/contracts/keyboard-layout.json"));

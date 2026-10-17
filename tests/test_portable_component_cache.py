@@ -47,6 +47,33 @@ class PortableComponentCacheTests(unittest.TestCase):
         (base / "bootstrap/kernel/PROVENANCE.md").write_text("docs-v1\n", encoding="utf-8")
         return base
 
+    def make_independent_root(self, base: Path) -> Path:
+        files = {
+            "bootstrap/independent-base/build.py": "build-v1\n",
+            "bootstrap/independent-base/source.json": '{"buildroot":"v1"}\n',
+            "bootstrap/independent-base/Config.in": "config ORDAX\n",
+            "bootstrap/independent-base/external.desc": "name: ORDAX_MINIMAL\n",
+            "bootstrap/independent-base/external.mk": "# external\n",
+            "bootstrap/independent-base/configs/ordax_minimal_defconfig": "BR2_INIT_NONE=y\n",
+            "bootstrap/independent-base/configs/portable-handoff.busybox.fragment": "CONFIG_TIMEOUT=y\n",
+            "bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init": "#!/bin/sh\n",
+            "bootstrap/independent-base/patches/iproute2/7.1.0/0001.patch": "patch-v1\n",
+            "bootstrap/independent-base/post-build.sh": "#!/bin/sh\n",
+            "bootstrap/kernel/source.json": '{"version":"6.6.0"}\n',
+            "bootstrap/stable-base/source.json": '{"rootfs":{"format":"erofs"}}\n',
+            "bootstrap/network/source.json": '{"network":"v1"}\n',
+            "bootstrap/network/bring-up": "#!/bin/sh\n",
+            "bootstrap/network/udhcpc.script": "#!/bin/sh\n",
+            "docs/contracts/portable-boot-handoff.json": '{"handoff":"v1"}\n',
+        }
+        for relative, content in files.items():
+            path = base / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        (base / "bootstrap/independent-base/README.md").write_text("docs-v1\n", encoding="utf-8")
+        (base / "bootstrap/independent-base/qemu_proof.py").write_text("proof-v1\n", encoding="utf-8")
+        return base
+
     def test_fingerprint_tracks_only_build_affecting_kernel_inputs(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_kernel_root(Path(td))
@@ -60,6 +87,43 @@ class PortableComponentCacheTests(unittest.TestCase):
 
             (root / "bootstrap/kernel/config/ordax.fragment").write_text("CONFIG_TEST=n\n", encoding="utf-8")
             self.assertNotEqual(first, CACHE.component_fingerprint("kernel", root))
+
+    def test_independent_base_fingerprint_tracks_build_inputs_not_proof_docs(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_independent_root(Path(td))
+            first = CACHE.component_fingerprint("independent-base", root)
+            self.assertRegex(first, r"^[0-9a-f]{64}$")
+
+            (root / "bootstrap/independent-base/README.md").write_text("docs-v2\n", encoding="utf-8")
+            (root / "bootstrap/independent-base/qemu_proof.py").write_text("proof-v2\n", encoding="utf-8")
+            self.assertEqual(first, CACHE.component_fingerprint("independent-base", root))
+
+            (root / "bootstrap/network/bring-up").write_text("#!/bin/sh\necho changed\n", encoding="utf-8")
+            self.assertNotEqual(first, CACHE.component_fingerprint("independent-base", root))
+
+    def test_independent_base_cache_keeps_original_provenance_on_reuse(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.make_independent_root(temp / "repo")
+            out = temp / "out"
+            out.mkdir()
+            (out / "independent-base.erofs").write_bytes(b"rootfs-bytes")
+            provenance = out / "provenance.json"
+            provenance.write_text(json.dumps({"source_commit": "1" * 40}) + "\n", encoding="utf-8")
+
+            CACHE.record_component("independent-base", out, "1" * 40, root)
+            before = provenance.read_bytes()
+            receipt = CACHE.verify_component(
+                "independent-base",
+                out,
+                "2" * 40,
+                temp / "independent-reuse.json",
+                cache_hit=True,
+                root=root,
+            )
+            self.assertTrue(receipt["reused"])
+            self.assertEqual(receipt["component"], "independent-base")
+            self.assertEqual(provenance.read_bytes(), before)
 
     def test_runner_environment_is_part_of_fingerprint(self):
         with tempfile.TemporaryDirectory() as td:
