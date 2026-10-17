@@ -74,17 +74,28 @@ record_boot_handoff() {
 
 start_network_background() {
     # A healthy local release must never wait for Wi-Fi, DHCP, NTP or Git.
-    # The supervisor will retry remote checks after connectivity appears.
     (
         "$BIN_DIR/ordax-network" >"$BOOT_NETWORK_LOG.tmp" 2>&1 || true
         mv -f "$BOOT_NETWORK_LOG.tmp" "$BOOT_NETWORK_LOG" 2>/dev/null || true
     ) &
 }
 
+start_main_watch_background() {
+    # Development follows main continuously, but remote Git is never on the
+    # critical boot path. ordax-main-watch owns cadence; ordax-pull remains the
+    # single owner of remote SHA validation and atomic checkout replacement.
+    "$BIN_DIR/ordax-main-watch" >/dev/null 2>&1 &
+}
+
+start_dev_background() {
+    start_network_background
+    start_main_watch_background
+}
+
 run_pinned_checkout() {
     pinned=$1
     printf 'Rollback fixado em %s.\n' "$pinned"
-    start_network_background
+    start_dev_background
     record_boot_handoff rollback-console
     printf 'Checkout conhecido como bom carregado. Entrando no console Dev.\n'
     maintenance_shell
@@ -121,7 +132,7 @@ maintenance_shell() {
     printf 'Voltar:       ordax-rollback\n'
     printf 'Rede:         ordax-network\n'
     printf 'Diagnostico:  ordax-diagnose (somente leitura)\n'
-    printf '\nBoot Dev = console local. Rede sobe em paralelo; Git atualiza somente quando voce executar ordax-pull.\n'
+    printf '\nBoot Dev = console local. Rede sobe em paralelo; main e verificada em segundo plano a cada 5s.\n'
     printf 'Mudancas normais do OrdaX nao exigem regravar o pendrive.\n\n'
 
     # switch_root leaves the development init attached to the console file
@@ -315,13 +326,13 @@ fi
 
 # Normal Owner/Development boot is intentionally console-first. A clean local
 # checkout is enough to make the machine usable; graphics/runtime provisioning
-# must never sit on the boot path. Network starts in the background and Git is
-# updated only by an explicit ordax-pull. ordax-run remains available manually.
+# must never sit on the boot path. Network and the lightweight main watcher
+# start in the background. ordax-run remains available manually.
 if local_checkout_bootable; then
     current=$(git -C "$WORKTREE" rev-parse HEAD)
     printf 'Checkout local saudavel: %s\n' "$current"
-    printf 'Boot rapido: console Dev local; rede inicia em paralelo.\n'
-    start_network_background
+    printf 'Boot rapido: console Dev local; rede e main watch iniciam em paralelo.\n'
+    start_dev_background
     record_boot_handoff fast-console
     maintenance_shell
 fi
@@ -362,6 +373,7 @@ fi
 if [ -x "$WORKTREE/system/entrypoint" ]; then
     record_boot_handoff cold-console
     printf '\nCheckout pronto. Entrando no console Dev.\n'
+    start_main_watch_background
     maintenance_shell
 else
     printf '\nAinda nao existe um checkout executavel em %s.\n' "$WORKTREE"

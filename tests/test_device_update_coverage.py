@@ -52,6 +52,8 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         self.assertIn('for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc', network)
         self.assertIn("load_network_modules", network)
         self.assertIn("start_network_background", init)
+        self.assertIn("start_main_watch_background", init)
+        self.assertIn('"$BIN_DIR/ordax-main-watch"', init)
 
     def test_runtime_pull_stays_lightweight_while_helpers_refresh_from_git(self):
         pull = PULL.read_text(encoding="utf-8")
@@ -67,6 +69,7 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         for source in (
             "bootstrap/dev-base/ordax-dev-init",
             "bootstrap/dev-base/ordax-network",
+            "bootstrap/dev-base/ordax-main-watch",
             "bootstrap/dev-base/ordax-pull",
             "bootstrap/dev-base/ordax-rollback",
             "bootstrap/dev-base/ordax-run",

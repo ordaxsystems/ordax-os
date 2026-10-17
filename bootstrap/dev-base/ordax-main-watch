@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+
+BIN_DIR=${ORDAX_BIN_DIR:-/usr/local/bin}
+STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
+RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+INTERVAL=${ORDAX_UPDATE_INTERVAL_SECONDS:-5}
+LOG_FILE=$STATE_DIR/main-watch.log
+LOCK_DIR=$RUN_DIR/main-watch.lock
+
+case "$INTERVAL" in
+    ''|*[!0-9]*) INTERVAL=5 ;;
+esac
+[ "$INTERVAL" -ge 5 ] 2>/dev/null || INTERVAL=5
+
+mkdir -p "$STATE_DIR" "$RUN_DIR"
+
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    exit 0
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
+
+log() {
+    printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf unknown-time)" "$*" >>"$LOG_FILE"
+}
+
+log "watch da main iniciado; intervalo=${INTERVAL}s"
+
+while :; do
+    before=$(git -C "${ORDAX_WORKTREE:-/workspace/ordax}" rev-parse HEAD 2>/dev/null || true)
+    if output=$("$BIN_DIR/ordax-pull" 2>&1); then
+        after=$(git -C "${ORDAX_WORKTREE:-/workspace/ordax}" rev-parse HEAD 2>/dev/null || true)
+        if [ -n "$after" ] && [ "$after" != "$before" ]; then
+            log "main aplicada: ${before:-unknown} -> $after"
+        fi
+    else
+        status=$?
+        log "checagem da main indisponivel (status=$status); mantendo checkout local"
+    fi
+    sleep "$INTERVAL"
+done

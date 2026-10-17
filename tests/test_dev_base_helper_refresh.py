@@ -17,6 +17,7 @@ SOURCE_TO_TARGET = {
     "bootstrap/dev-base/ordax-dev-init": "sbin/ordax-dev-init",
     "bootstrap/dev-base/ordax-diagnose": "usr/local/bin/ordax-diagnose",
     "bootstrap/dev-base/ordax-network": "usr/local/bin/ordax-network",
+    "bootstrap/dev-base/ordax-main-watch": "usr/local/bin/ordax-main-watch",
     "bootstrap/dev-base/ordax-pull": "usr/local/bin/ordax-pull",
     "bootstrap/base-update/owner-development/ordax-remote": "usr/local/bin/ordax-remote",
     "bootstrap/dev-base/ordax-rollback": "usr/local/bin/ordax-rollback",

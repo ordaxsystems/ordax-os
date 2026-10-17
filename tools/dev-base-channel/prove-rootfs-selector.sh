@@ -138,7 +138,7 @@ success_output="$(run_isolated_init "$SUCCESS_SEED" 2>&1)"
 printf '%s\n' "$success_output"
 grep -Fq "Base candidata $SOURCE_SHA preparada no slot b; iniciando ensaio unico." <<<"$success_output"
 grep -Fxq "Checkout local saudavel: $SOURCE_SHA" <<<"$success_output"
-grep -Fxq 'Boot rapido: console Dev local; rede inicia em paralelo.' <<<"$success_output"
+grep -Fxq 'Boot rapido: console Dev local; rede e main watch iniciam em paralelo.' <<<"$success_output"
 grep -Fxq 'OrdaX Dev pronto.' <<<"$success_output"
 if grep -Fq 'ORDAX_RUN_MUST_NOT_START_DURING_DEV_BOOT' <<<"$success_output"; then
   echo "rootfs-selector-proof: Dev boot auto-started ordax-run" >&2
