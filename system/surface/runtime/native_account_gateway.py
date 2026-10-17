@@ -274,6 +274,14 @@ class NativeAccountGateway:
         with self._lock:
             return self._request("GET", "/account/spaces")
 
+    def space_members(self, query: str = "") -> GatewayReply:
+        if (not isinstance(query, str) or len(query) > 2048
+                or re.search(r"[\\\x00-\x20\x7f#]", query)):
+            raise ValueError("Space members query is invalid")
+        suffix = f"?{query}" if query else ""
+        with self._lock:
+            return self._request("GET", "/account/space-members" + suffix)
+
     def memory_cloud_entitlement(self) -> GatewayReply:
         with self._lock:
             return self._request("GET", "/account/entitlements/memory-cloud")

@@ -315,6 +315,8 @@ All of these action paths derive the actor from the authenticated server session
 
 These backend capabilities do **not** imply that every Web/Native/Mobile UI is already wired or publicly available. Product surfaces must advertise an action only when their adapter/backend reports it supported; no UI may infer mutation capability merely because a contract exists in source.
 
+The membership read side is now separate from those mutation authorities. `ordax.space-members-read/1` projects only the canonical membership identity needed by product surfaces (`spaceId`, `userId`, `role`, `state`) through bounded keyset pages. It deliberately does not project another account's e-mail or display profile. The internal `/account/space-members` transport reads `ordax_space_members` with the authenticated user token so the existing RLS policy remains the access authority; Native proxies only that exact route over loopback. This route is not in the public-site bridge allowlist yet, so adding the read foundation does not silently publish member data on Web.
+
 Still intentionally absent from the current authority foundation:
 
 - invite creation/delivery/accept/decline/revoke/expiry;

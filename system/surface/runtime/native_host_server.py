@@ -113,6 +113,7 @@ ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_CLOSE_PATH = "/account/close"
 ACCOUNT_EXPORT_PATH = "/account/export"
 ACCOUNT_SPACES_PATH = "/account/spaces"
+ACCOUNT_SPACE_MEMBERS_PATH = "/account/space-members"
 ACCOUNT_MEMORY_ENTITLEMENT_PATH = "/account/entitlements/memory-cloud"
 ACCOUNT_SYNC_OBJECTS_PATH = "/sync/objects"
 ACCOUNT_SYNC_SNAPSHOT_PATH = "/sync/snapshot"
@@ -3677,7 +3678,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("GET", parsed_path)
             return
-        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+        if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_SPACE_MEMBERS_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
                 return
@@ -3712,6 +3713,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     reply = self.server.account_gateway.account_export()
                 elif parsed_path == ACCOUNT_SPACES_PATH:
                     reply = self.server.account_gateway.spaces()
+                elif parsed_path == ACCOUNT_SPACE_MEMBERS_PATH:
+                    reply = self.server.account_gateway.space_members(urlsplit(self.path).query)
                 elif parsed_path == ACCOUNT_SYNC_SNAPSHOT_PATH:
                     reply = self.server.account_gateway.sync_snapshot(urlsplit(self.path).query)
                 elif parsed_path == ACCOUNT_SYNC_CHANGES_PATH:

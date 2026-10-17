@@ -20,6 +20,9 @@ from urllib.request import Request, urlopen
 
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 MAX_VISIBLE_SPACES = 64
+SPACE_MEMBERS_PAGE_SIZE = 64
+SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/1"
+UUID_IDENTIFIER = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
 EXPORT_SCHEMA = "prototype-ordax.account-export/1"
 SPACE_SEMANTIC_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$")
 
@@ -257,3 +260,73 @@ class SupabaseAccountProvider:
                 projected["domain"], projected["subtype"] = semantics
             spaces.append(projected)
         return spaces
+
+    def list_space_members(
+        self,
+        access_token: str,
+        space_id: str,
+        cursor: str | None = None,
+    ) -> dict:
+        if not isinstance(access_token, str) or not access_token:
+            raise ValueError("Access token is invalid")
+        if not isinstance(space_id, str) or UUID_IDENTIFIER.fullmatch(space_id) is None:
+            raise ValueError("Space id is invalid")
+        if cursor is not None and (
+            not isinstance(cursor, str) or UUID_IDENTIFIER.fullmatch(cursor) is None
+        ):
+            raise ValueError("Space members cursor is invalid")
+        space_id = space_id.lower()
+        cursor = cursor.lower() if cursor is not None else None
+        headers = {
+            "Accept": "application/json",
+            "apikey": self.publishable_key,
+            "Authorization": f"Bearer {access_token}",
+        }
+        query = (
+            "/rest/v1/ordax_space_members"
+            "?select=space_id,user_id,role,state"
+            f"&space_id=eq.{space_id}"
+            "&order=user_id.asc"
+            f"&limit={SPACE_MEMBERS_PAGE_SIZE + 1}"
+        )
+        if cursor is not None:
+            query += f"&user_id=gt.{cursor}"
+        status, raw = self.transport.request(
+            "GET",
+            self.project_url + query,
+            headers,
+            None,
+        )
+        try:
+            value = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise SupabaseAccountError("provider-invalid-space-members-response", status=status) from exc
+        if status < 200 or status >= 300:
+            raise SupabaseAccountError("provider-space-members-read-failed", status=status)
+        if not isinstance(value, list) or len(value) > SPACE_MEMBERS_PAGE_SIZE + 1:
+            raise SupabaseAccountError("provider-invalid-space-members-response", status=status)
+
+        projected_rows: list[dict] = []
+        for row in value:
+            if (
+                not isinstance(row, dict)
+                or row.get("space_id") != space_id
+                or not isinstance(row.get("user_id"), str)
+                or UUID_IDENTIFIER.fullmatch(row["user_id"]) is None
+                or row.get("role") not in {"owner", "admin", "member", "viewer"}
+                or row.get("state") not in {"active", "suspended"}
+            ):
+                raise SupabaseAccountError("provider-invalid-space-members-response", status=status)
+            projected_rows.append({
+                "spaceId": space_id,
+                "userId": row["user_id"].lower(),
+                "role": row["role"],
+                "state": row["state"],
+            })
+        members = projected_rows[:SPACE_MEMBERS_PAGE_SIZE]
+        return {
+            "schema": SPACE_MEMBERS_PAGE_SCHEMA,
+            "spaceId": space_id,
+            "members": members,
+            "nextCursor": members[-1]["userId"] if len(value) > SPACE_MEMBERS_PAGE_SIZE else None,
+        }

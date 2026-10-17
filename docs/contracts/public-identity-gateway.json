@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-identity-gateway/1",
-  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-registration-disabled-close-disabled",
+  "status": "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v18-deployed-v17-revision-28-public-login-legal-receipt-guard-live-registration-disabled-close-disabled",
   "runtime": {
     "entrypoint": "services/public-identity/gateway.py:application",
     "protocol": "WSGI",
@@ -9,7 +9,7 @@
     "provider_adapter": "supabase-password-and-sync-rest",
     "provider_configuration": "runtime-environment",
     "deployed_edge_adapter": "infra/supabase/functions/ordax-account-gateway/index.ts",
-    "gateway_source_version": 17,
+    "gateway_source_version": 18,
     "edge_deployment_revision_observed": 28,
     "deployed_gateway_source_version": 17,
     "lifecycle_service_source": "infra/supabase/functions/ordax-account-lifecycle/index.ts",
@@ -89,6 +89,12 @@
       "path": "/account/spaces",
       "unconfigured_status": 503,
       "purpose": "authenticated-rls-scoped-read-only-spaces-catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/account/space-members",
+      "unconfigured_status": 503,
+      "purpose": "authenticated-rls-scoped-read-only-space-members-page-native-internal"
     },
     {
       "method": "GET",
@@ -203,6 +209,13 @@
     "account_spaces_max_visible_items": 64,
     "account_spaces_mutation_exposed": false,
     "account_spaces_edge_deployed": true,
+    "account_space_members_read_source_implemented": true,
+    "account_space_members_requires_authenticated_user": true,
+    "account_space_members_uses_user_bearer_rls": true,
+    "account_space_members_page_size": 64,
+    "account_space_members_edge_deployed": false,
+    "account_space_members_public_enabled": false,
+    "account_space_members_profile_metadata_exposed": false,
     "account_memory_entitlement_read_source_implemented": true,
     "account_memory_entitlement_route": "/account/entitlements/memory-cloud",
     "account_memory_entitlement_key": "memory.cloud.enabled",

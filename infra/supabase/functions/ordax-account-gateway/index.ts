@@ -9,6 +9,7 @@ import { readBoundedBody } from "../_shared/bounded_body.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
+import { SPACE_MEMBERS_TRANSPORT_PAGE_SIZE, parseSpaceMembersReadQuery, projectSpaceMembersPage } from "../_shared/space_members_read.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
@@ -1133,7 +1134,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (path === "/health" && req.method === "GET") {
-    return json(200, { status: "ok", service: "ordax-account-gateway", version: 17 });
+    return json(200, { status: "ok", service: "ordax-account-gateway", version: 18 });
   }
 
   if (path === NETWORK_SEND_PATH && req.method === "POST") {
@@ -1311,6 +1312,50 @@ Deno.serve(async (req: Request) => {
     return json(200, { $schema: ACCOUNT_SPACES_SCHEMA, spaces }, session.cookies);
   }
 
+  if (path === "/account/space-members") {
+    if (req.method !== "GET") {
+      return error(405, "method-not-allowed", "Método não permitido.");
+    }
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para ver os membros deste Space.",
+      }, session.cookies);
+    }
+
+    let membersRequest;
+    try {
+      membersRequest = parseSpaceMembersReadQuery(url);
+    } catch {
+      return error(400, "invalid-space-members-query", "Consulta de membros do Space inválida.");
+    }
+
+    const supabase = client(session.access);
+    let membersQuery = supabase
+      .from("ordax_space_members")
+      .select("space_id,user_id,role,state")
+      .eq("space_id", membersRequest.spaceId)
+      .order("user_id", { ascending: true })
+      .limit(SPACE_MEMBERS_TRANSPORT_PAGE_SIZE + 1);
+    if (membersRequest.cursor) {
+      membersQuery = membersQuery.gt("user_id", membersRequest.cursor);
+    }
+    const membersResult = await membersQuery;
+    if (membersResult.error || !Array.isArray(membersResult.data)) {
+      return error(502, "space-members-read-failed", "Não foi possível ler os membros deste Space.");
+    }
+    try {
+      return json(
+        200,
+        projectSpaceMembersPage(membersResult.data, membersRequest.spaceId),
+        session.cookies,
+      );
+    } catch {
+      return error(502, "space-members-read-failed", "Não foi possível validar os membros deste Space.");
+    }
+  }
   if (path === "/account/entitlements/memory-cloud") {
     if (req.method !== "GET") {
       return error(405, "method-not-allowed", "Método não permitido.");

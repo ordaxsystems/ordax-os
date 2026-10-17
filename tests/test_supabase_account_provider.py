@@ -172,6 +172,70 @@ class SupabaseAccountProviderTests(unittest.TestCase):
         with self.assertRaises(account_module.SupabaseAccountError):
             provider.list_spaces("user-access-token")
 
+    def test_space_members_list_uses_user_bearer_rls_and_keyset_cursor(self):
+        space_id = "11111111-1111-4111-8111-111111111111"
+        cursor = "22222222-2222-4222-8222-222222222222"
+        user_id = "33333333-3333-4333-8333-333333333333"
+        provider, transport = self.provider([(200, [{
+            "space_id": space_id,
+            "user_id": user_id,
+            "role": "admin",
+            "state": "active",
+        }])])
+
+        result = provider.list_space_members("user-access-token", space_id, cursor)
+
+        self.assertEqual(result, {
+            "schema": "ordax.space-members-page/1",
+            "spaceId": space_id,
+            "members": [{
+                "spaceId": space_id,
+                "userId": user_id,
+                "role": "admin",
+                "state": "active",
+            }],
+            "nextCursor": None,
+        })
+        method, url, headers, body = transport.calls[0]
+        self.assertEqual(method, "GET")
+        self.assertIn("/rest/v1/ordax_space_members?", url)
+        self.assertIn(f"space_id=eq.{space_id}", url)
+        self.assertIn(f"user_id=gt.{cursor}", url)
+        self.assertIn("order=user_id.asc", url)
+        self.assertIn("limit=65", url)
+        self.assertEqual(headers["Authorization"], "Bearer user-access-token")
+        self.assertIsNone(body)
+
+    def test_space_members_list_returns_bounded_next_cursor(self):
+        space_id = "11111111-1111-4111-8111-111111111111"
+        rows = []
+        for index in range(65):
+            rows.append({
+                "space_id": space_id,
+                "user_id": f"00000000-0000-4000-8000-{index + 1:012x}",
+                "role": "owner" if index == 0 else "member",
+                "state": "active",
+            })
+        provider, _ = self.provider([(200, rows)])
+        result = provider.list_space_members("user-access-token", space_id)
+        self.assertEqual(len(result["members"]), 64)
+        self.assertEqual(result["nextCursor"], rows[63]["user_id"])
+
+    def test_space_members_list_rejects_invalid_ids_and_provider_rows(self):
+        provider, transport = self.provider([])
+        with self.assertRaises(ValueError):
+            provider.list_space_members("user-access-token", "space-1")
+        self.assertEqual(transport.calls, [])
+
+        space_id = "11111111-1111-4111-8111-111111111111"
+        provider, _ = self.provider([(200, [{
+            "space_id": space_id,
+            "user_id": "33333333-3333-4333-8333-333333333333",
+            "role": "manager",
+            "state": "active",
+        }])])
+        with self.assertRaises(account_module.SupabaseAccountError):
+            provider.list_space_members("user-access-token", space_id)
     def test_provider_error_does_not_echo_bearer_token(self):
         provider, _ = self.provider([(500, {"message": "failure"})])
         with self.assertRaises(account_module.SupabaseAccountError) as caught:

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from typing import Mapping
@@ -38,6 +39,8 @@ from supabase_sync import SupabaseSyncError, SupabaseSyncProvider
 SESSION_SCHEMA = "prototype-ordax.public-identity-session/1"
 REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1"
 ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1"
+SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/1"
+UUID_IDENTIFIER = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.IGNORECASE)
 SYNC_BATCH_SCHEMA = "prototype-ordax.sync-batch/1"
 SYNC_SNAPSHOT_SCHEMA = "prototype-ordax.sync-snapshot/1"
 SYNC_CHANGES_SCHEMA = "prototype-ordax.sync-changes/1"
@@ -1002,6 +1005,57 @@ class PublicIdentityGateway:
             set_cookies=set_cookies,
         )
 
+    def _account_space_members(
+        self,
+        request_headers: Mapping[str, str],
+        query: str,
+    ) -> GatewayResponse:
+        if not self.provider or not self.account_provider:
+            return self._provider_unavailable()
+        access, set_cookies = self._authenticated_access(request_headers)
+        if not access:
+            return _json_response(
+                401,
+                {
+                    "$schema": ERROR_SCHEMA,
+                    "error": "authentication-required",
+                    "message": "Entre na Conta OrdaX para ver os membros deste Space.",
+                },
+                set_cookies=set_cookies,
+            )
+        try:
+            values = parse_qs(query, keep_blank_values=True, strict_parsing=False)
+            if set(values) - {"spaceId", "cursor"}:
+                raise ValueError("unsupported-space-members-query")
+            space_values = values.get("spaceId", [])
+            cursor_values = values.get("cursor", [])
+            if len(space_values) != 1 or UUID_IDENTIFIER.fullmatch(space_values[0]) is None:
+                raise ValueError("invalid-space-id")
+            if len(cursor_values) > 1 or (
+                cursor_values and UUID_IDENTIFIER.fullmatch(cursor_values[0]) is None
+            ):
+                raise ValueError("invalid-space-members-cursor")
+        except ValueError:
+            return _error(
+                400,
+                "invalid-space-members-query",
+                "Consulta de membros do Space inválida.",
+            )
+        try:
+            page = self.account_provider.list_space_members(
+                access,
+                space_values[0].lower(),
+                cursor_values[0].lower() if cursor_values else None,
+            )
+            if not isinstance(page, dict) or page.get("schema") != SPACE_MEMBERS_PAGE_SCHEMA:
+                raise ValueError("invalid-space-members-page")
+        except (ValueError, SupabaseAccountError):
+            return _error(
+                502,
+                "space-members-read-failed",
+                "Não foi possível ler os membros deste Space.",
+            )
+        return _json_response(200, page, set_cookies=set_cookies)
     def _account_memory_entitlement(
         self,
         request_headers: Mapping[str, str],
@@ -1261,6 +1315,11 @@ class PublicIdentityGateway:
             if method != "GET":
                 return self._method_not_allowed("GET")
             return self._account_spaces(request_headers)
+
+        if path == "/account/space-members":
+            if method != "GET":
+                return self._method_not_allowed("GET")
+            return self._account_space_members(request_headers, split.query)
 
         if path == "/account/entitlements/memory-cloud":
             if method != "GET":

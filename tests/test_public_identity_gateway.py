@@ -40,7 +40,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
         self.assertEqual(
             contract["status"],
-            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v17-deployed-v17-revision-28-public-login-legal-receipt-guard-live-registration-disabled-close-disabled",
+            "real-auth-sync-export-spaces-memory-entitlement-gateway-source-v18-deployed-v17-revision-28-public-login-legal-receipt-guard-live-registration-disabled-close-disabled",
         )
         self.assertFalse(contract["baseline"]["provider_configured"])
         self.assertTrue(contract["baseline"]["http_only_session_cookies"])
@@ -70,7 +70,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["registration_password_minimum_chars"], 12)
         self.assertTrue(contract["baseline"]["registration_password_policy_enforced_at_edge"])
         self.assertFalse(contract["baseline"]["existing_login_passwords_retroactively_rejected"])
-        self.assertEqual(contract["runtime"]["gateway_source_version"], 17)
+        self.assertEqual(contract["runtime"]["gateway_source_version"], 18)
         self.assertEqual(contract["runtime"]["deployed_gateway_source_version"], 17)
         self.assertTrue(contract["baseline"]["native_direct_auth_rate_limit_source_ready"])
         self.assertTrue(contract["baseline"]["native_direct_auth_rate_limit_deployed"])
@@ -119,6 +119,13 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(contract["baseline"]["account_spaces_max_visible_items"], 64)
         self.assertFalse(contract["baseline"]["account_spaces_mutation_exposed"])
         self.assertTrue(contract["baseline"]["account_spaces_edge_deployed"])
+        self.assertTrue(contract["baseline"]["account_space_members_read_source_implemented"])
+        self.assertTrue(contract["baseline"]["account_space_members_requires_authenticated_user"])
+        self.assertTrue(contract["baseline"]["account_space_members_uses_user_bearer_rls"])
+        self.assertEqual(contract["baseline"]["account_space_members_page_size"], 64)
+        self.assertFalse(contract["baseline"]["account_space_members_edge_deployed"])
+        self.assertFalse(contract["baseline"]["account_space_members_public_enabled"])
+        self.assertFalse(contract["baseline"]["account_space_members_profile_metadata_exposed"])
         self.assertTrue(contract["baseline"]["account_memory_entitlement_read_source_implemented"])
         self.assertEqual(
             contract["baseline"]["account_memory_entitlement_route"],
@@ -206,6 +213,14 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(spaces.status, 503)
         self.assertEqual(self.payload(spaces)["error"], "public-account-access-disabled")
 
+        members = self.gateway.handle(
+            "GET",
+            "/account/space-members?spaceId=11111111-1111-4111-8111-111111111111",
+            marker,
+        )
+        self.assertEqual(members.status, 503)
+        self.assertEqual(self.payload(members)["error"], "public-account-access-disabled")
+
         entitlement = self.gateway.handle(
             "GET",
             "/account/entitlements/memory-cloud",
@@ -262,6 +277,59 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(identity.last_token, "user-access-token")
         self.assertEqual(account.last_token, "user-access-token")
 
+    def test_space_members_route_reuses_authenticated_account_provider_and_stays_public_gated(self):
+        space_id = "11111111-1111-4111-8111-111111111111"
+        cursor = "22222222-2222-4222-8222-222222222222"
+
+        class FakeIdentityProvider:
+            def get_user(self, access_token):
+                self.last_token = access_token
+                return "user-1", "user@example.com"
+
+        class FakeAccountProvider:
+            def list_space_members(self, access_token, requested_space_id, requested_cursor):
+                self.last_call = (access_token, requested_space_id, requested_cursor)
+                return {
+                    "schema": "ordax.space-members-page/1",
+                    "spaceId": requested_space_id,
+                    "members": [],
+                    "nextCursor": None,
+                }
+
+        identity = FakeIdentityProvider()
+        account = FakeAccountProvider()
+        gateway = gateway_module.PublicIdentityGateway(
+            provider=identity,
+            sync_provider=None,
+            account_provider=account,
+            password_checker=SafePasswordChecker(),
+        )
+        response = gateway.handle(
+            "GET",
+            f"/account/space-members?spaceId={space_id}&cursor={cursor}",
+            {"cookie": "ordax_access=user-access-token"},
+        )
+        self.assertEqual(response.status, 200)
+        payload = self.payload(response)
+        self.assertEqual(payload["schema"], "ordax.space-members-page/1")
+        self.assertEqual(account.last_call, ("user-access-token", space_id, cursor))
+        self.assertEqual(identity.last_token, "user-access-token")
+
+        invalid = gateway.handle(
+            "GET",
+            "/account/space-members?spaceId=not-a-uuid",
+            {"cookie": "ordax_access=user-access-token"},
+        )
+        self.assertEqual(invalid.status, 400)
+        self.assertEqual(self.payload(invalid)["error"], "invalid-space-members-query")
+
+        public = gateway.handle(
+            "GET",
+            f"/account/space-members?spaceId={space_id}",
+            {"X-OrdaX-Public-Site": "1"},
+        )
+        self.assertEqual(public.status, 503)
+        self.assertEqual(self.payload(public)["error"], "public-account-access-disabled")
     def test_registration_rejects_compromised_password_before_provider(self):
         class FakeProvider:
             def __init__(self):

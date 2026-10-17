@@ -26,7 +26,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["session_refresh_implemented"])
         self.assertTrue(contract["backend"]["dedicated_or_isolated_target_required"])
         self.assertFalse(contract["backend"]["conflicting_auth_user_trigger_allowed"])
-        self.assertEqual(contract["backend"]["gateway_source_version"], 17)
+        self.assertEqual(contract["backend"]["gateway_source_version"], 18)
         self.assertEqual(contract["backend"]["deployed_gateway_source_version"], 17)
         self.assertTrue(contract["backend"]["native_direct_auth_rate_limit_source_ready"])
         self.assertTrue(contract["backend"]["native_direct_auth_rate_limit_deployed"])
@@ -63,6 +63,12 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertEqual(contract["backend"]["account_spaces_route"], "/account/spaces")
         self.assertTrue(contract["backend"]["account_spaces_edge_deployed"])
         self.assertFalse(contract["backend"]["account_spaces_mutation_exposed"])
+        self.assertTrue(contract["backend"]["account_space_members_read_source_implemented"])
+        self.assertEqual(contract["backend"]["account_space_members_route"], "/account/space-members")
+        self.assertFalse(contract["backend"]["account_space_members_edge_deployed"])
+        self.assertFalse(contract["backend"]["account_space_members_public_enabled"])
+        self.assertTrue(contract["backend"]["account_space_members_uses_user_bearer_rls"])
+        self.assertFalse(contract["backend"]["account_space_members_profile_metadata_exposed"])
         self.assertTrue(contract["backend"]["account_memory_entitlement_read_source_implemented"])
         self.assertEqual(
             contract["backend"]["account_memory_entitlement_route"],

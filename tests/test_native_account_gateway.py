@@ -250,6 +250,32 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(reply.status, 200)
             self.assertEqual(calls, [("GET", "/account/spaces", {})])
 
+    def test_space_members_read_is_get_only_and_preserves_bounded_query(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            calls = []
+
+            def fake_request(method, route, **kwargs):
+                calls.append((method, route, kwargs))
+                return gateway.GatewayReply(
+                    status=200,
+                    headers={},
+                    body=b'{"schema":"ordax.space-members-page/1","spaceId":"space-1","members":[],"nextCursor":null}',
+                )
+
+            client._request = fake_request
+            reply = client.space_members("spaceId=space-1&cursor=member-1")
+
+            self.assertEqual(reply.status, 200)
+            self.assertEqual(
+                calls,
+                [("GET", "/account/space-members?spaceId=space-1&cursor=member-1", {})],
+            )
+            with self.assertRaises(ValueError):
+                client.space_members("x" * 2049)
+            with self.assertRaises(ValueError):
+                client.space_members("spaceId=ok#fragment")
     def test_memory_entitlement_read_is_get_only_and_reuses_process_session(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
@@ -323,6 +349,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("legal_acceptance", source)
         self.assertIn("/account/export", source)
         self.assertIn("/account/spaces", source)
+        self.assertIn("/account/space-members", source)
         self.assertIn("/account/entitlements/memory-cloud", source)
         self.assertIn("/sync/objects", source)
         self.assertIn("/sync/snapshot", source)
