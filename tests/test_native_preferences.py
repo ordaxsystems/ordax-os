@@ -180,7 +180,7 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertIn('legacyNamespace: "appearance"', text)
         self.assertIn("identitySession,", text)
         self.assertIn("syncStateRegistry,", text)
-        self.assertIn("createPreferenceSyncRuntime(surface.preferences, syncStateRegistry === null", text)
+        self.assertIn("createPreferenceSyncRuntime(surface.preferences, {", text)
         self.assertNotIn('syncStateRegistry?.open("appearance")', text)
         self.assertNotIn("syncStateStore: appearanceSyncStateStore", text)
         self.assertNotIn('../../adapters/web/preferences.mjs', text)

@@ -80,10 +80,12 @@ export function createPreferenceSyncRuntime(
 ) {
   const preferences = assertPreferenceRuntimePort(preferenceRuntime);
   const partitioned = identitySession !== null || syncStateRegistry !== null;
-  if (partitioned && (!identitySession || !syncStateRegistry
-    || syncStateRegistry.schema !== SYNC_STATE_CONTAINER_SCHEMA
-    || typeof syncStateRegistry.open !== "function" || syncStateStore !== null)) {
-    throw new TypeError("Account appearance sync requires one canonical subject-partitioned state registry");
+  if (partitioned && (!identitySession || syncStateStore !== null
+    || (syncStateRegistry !== null && (
+      syncStateRegistry.schema !== SYNC_STATE_CONTAINER_SCHEMA
+      || typeof syncStateRegistry.open !== "function"
+    )))) {
+    throw new TypeError("Account appearance sync requires the canonical identity and optional subject-partitioned registry");
   }
   const identity = partitioned ? assertIdentitySessionPort(identitySession) : null;
   const signedSubject = () => {
@@ -92,8 +94,10 @@ export function createPreferenceSyncRuntime(
   };
   let currentSubject = partitioned ? signedSubject() : null;
   const nextIdempotencyKey = requireIdempotencyFactory(createIdempotencyKey);
+  const sessionPartitions = new Map();
   let store = partitioned
-    ? (currentSubject === null ? null : assertSyncStateStore(syncStateRegistry.open("appearance", {
+    ? (currentSubject === null || syncStateRegistry === null
+      ? null : assertSyncStateStore(syncStateRegistry.open("appearance", {
         partitionKey: currentSubject,
       })))
     : (syncStateStore === null ? null : assertSyncStateStore(syncStateStore));
@@ -116,7 +120,16 @@ export function createPreferenceSyncRuntime(
   });
 
   const persist = () => {
-    if (!store) return false;
+    if (!store) {
+      if (partitioned && currentSubject !== null) {
+        sessionPartitions.set(currentSubject, {
+          serverRevision,
+          mutations: queue.snapshot(),
+        });
+      }
+      queuePersistence = "session";
+      return false;
+    }
     try {
       const saved = store.save(serializeState(serverRevision, queue));
       lastSaveAccepted = saved === true;
@@ -160,9 +173,20 @@ export function createPreferenceSyncRuntime(
     // Do not ever migrate the old global slot. Its subject cannot be proven.
     // Existing per-subject pending mutations are restored verbatim, without
     // replacing their intent with the current device's theme on account switch.
-    const nextStore = nextSubject === null ? null
+    if (currentSubject !== null && store === null) {
+      sessionPartitions.set(currentSubject, {
+        serverRevision,
+        mutations: queue.snapshot(),
+      });
+    }
+    const nextStore = nextSubject === null || syncStateRegistry === null ? null
       : assertSyncStateStore(syncStateRegistry.open("appearance", { partitionKey: nextSubject }));
-    const next = recoverPersistedState(nextStore, requireServerRevision(initialServerRevision));
+    const next = nextStore
+      ? recoverPersistedState(nextStore, requireServerRevision(initialServerRevision))
+      : (sessionPartitions.get(nextSubject) ?? {
+        serverRevision: requireServerRevision(initialServerRevision),
+        mutations: [],
+      });
     currentSubject = nextSubject;
     store = nextStore;
     serverRevision = next.serverRevision;
@@ -240,6 +264,7 @@ export function createPreferenceSyncRuntime(
     async flushDurably() {
       if (partitioned && currentSubject === null) return false;
       if (store === null) return !partitioned;
+      if (partitioned && store.scope !== "device") return false;
       if (!lastSaveAccepted) return false;
       const owner = currentSubject;
       if (typeof store.flush !== "function") return store.scope !== "device";

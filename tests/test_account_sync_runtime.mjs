@@ -1164,3 +1164,28 @@ test("portable conflict rebase waits for durable ACK before sending a new idempo
   sync.destroy();
   appearance.destroy();
 });
+
+test("missing Native durable registry keeps account queues subject-bound only for this session", async () => {
+  const identity = changingIdentity();
+  const preferences = preferencesRuntime();
+  const appearance = createPreferenceSyncRuntime(preferences, {
+    identitySession: identity,
+    syncStateRegistry: null,
+    createIdempotencyKey: keyFactory("volatile-native"),
+  });
+  preferences.set("appearance.theme", "dark");
+  assert.equal(appearance.pendingMutations().length, 0, "guest remains local without Native store");
+  identity.change("account-A");
+  preferences.set("appearance.theme", "light");
+  assert.equal(appearance.pendingMutations().length, 1);
+  const ownerA = appearance.pendingMutations()[0];
+  assert.equal(await appearance.flushDurably(), false,
+    "session fallback must never report a device-durable cloud mutation");
+  identity.change(null);
+  identity.change("account-B");
+  assert.equal(appearance.pendingMutations().length, 0);
+  identity.change("account-A");
+  assert.deepEqual(appearance.pendingMutations(), [ownerA],
+    "A's in-memory queue is protected without borrowing another account's identity");
+  appearance.destroy();
+});

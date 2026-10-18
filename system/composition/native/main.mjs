@@ -797,15 +797,7 @@ async function start() {
     }
   }
   let syncMutationOrdinal = 0;
-  const preferenceSync = createPreferenceSyncRuntime(surface.preferences, syncStateRegistry === null
-    ? {
-        createIdempotencyKey() {
-          syncMutationOrdinal += 1;
-          const uuid = window.crypto?.randomUUID?.();
-          return `pref:${uuid ? uuid.replaceAll("-", "") : `${Date.now().toString(36)}:${syncMutationOrdinal}`}`;
-        },
-      }
-    : {
+  const preferenceSync = createPreferenceSyncRuntime(surface.preferences, {
     identitySession,
     syncStateRegistry,
     createIdempotencyKey() {
