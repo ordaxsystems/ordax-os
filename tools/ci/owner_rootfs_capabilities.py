@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -394,6 +395,56 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     }
 
 
+
+def verify_owner_stage(stage: Path, root: Path = ROOT) -> dict[str, object]:
+    """Prove that the final Creator stage contains exact canonical Owner helpers.
+
+    This runs after the real rootfs and source checkout have been copied to the
+    release staging tree. It performs only read-only local checks.
+    """
+    base = stage / "ORDAX" / "dev-base"
+    checkout = base / "workspace" / "ordax"
+    for directory in (stage, stage / "ORDAX", base, base / "workspace", checkout):
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError(f"unsafe or missing Owner stage directory: {directory}")
+    expected = owner_runtime_helpers(root)
+    actual = owner_runtime_helpers(checkout)
+    if actual != expected:
+        raise ValueError("staged Owner helper manifest differs from canonical SSOT")
+    manifest = checkout / DEV_HELPER_MANIFEST
+    canonical_manifest = root / DEV_HELPER_MANIFEST
+    if manifest.read_bytes() != canonical_manifest.read_bytes():
+        raise ValueError("staged Owner manifest bytes differ from canonical SSOT")
+
+    def checked_file(base_path: Path, relative: str) -> Path:
+        candidate = base_path
+        for component in relative.split("/"):
+            candidate = candidate / component
+            if candidate.is_symlink():
+                raise ValueError(f"unsafe symlink in staged Owner helper path: {relative}")
+        if not candidate.is_file():
+            raise ValueError(f"staged Owner helper is missing: {relative}")
+        return candidate
+
+    for source, target in expected:
+        origin = checked_file(root, source)
+        staged_source = checked_file(checkout, source)
+        installed = checked_file(base, target)
+        if installed.stat().st_mode & 0o111 == 0:
+            raise ValueError(f"staged Owner helper is not executable: {target}")
+        expected_sha = hashlib.sha256(origin.read_bytes()).digest()
+        if (hashlib.sha256(staged_source.read_bytes()).digest() != expected_sha
+                or hashlib.sha256(installed.read_bytes()).digest() != expected_sha):
+            raise ValueError(f"staged Owner helper bytes differ from canonical source: {target}")
+    return {
+        "$schema": "prototype-ordax.owner-staged-helper-proof/1",
+        "status": "pass",
+        "verified_helper_count": len(expected),
+        "manifest": DEV_HELPER_MANIFEST,
+        "physical_write_authorized": False,
+    }
+
+
 def _enabled_symbols(path: Path, prefix: str) -> set[str]:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"configuration is missing or unsafe: {path}")
@@ -427,6 +478,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("inventory")
+    stage_check = sub.add_parser("verify-owner-stage")
+    stage_check.add_argument("--stage-root", required=True, type=Path)
     check = sub.add_parser("check-buildroot")
     check.add_argument("--defconfig", type=Path, default=ROOT / "bootstrap/independent-base/configs/ordax_minimal_defconfig")
     check.add_argument("--busybox-fragment", type=Path, default=ROOT / "bootstrap/independent-base/configs/portable-handoff.busybox.fragment")
@@ -435,6 +488,9 @@ def main() -> int:
         if args.command == "inventory":
             result = owner_inventory(ROOT)
             ok = not result["missing_sources"] and not result["unknown_commands"]
+        elif args.command == "verify-owner-stage":
+            result = verify_owner_stage(args.stage_root, ROOT)
+            ok = result["status"] == "pass"
         else:
             result = check_buildroot(args.defconfig.resolve(), args.busybox_fragment.resolve(), ROOT)
             ok = result["status"] == "pass"
