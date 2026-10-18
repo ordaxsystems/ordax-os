@@ -107,7 +107,7 @@ def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
     try:
         descriptor = os.open("/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
         try:
-            os.write(descriptor, f"ORDAX_OWNER_WEBKIT_EVENT={event}\\n".encode("ascii"))
+            os.write(descriptor, f"ORDAX_OWNER_WEBKIT_EVENT={event}\n".encode("ascii"))
         finally:
             os.close(descriptor)
     except OSError:
