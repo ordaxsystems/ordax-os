@@ -420,6 +420,7 @@ export function mountSurface(
   const preferenceListeners = new Set();
   const preferencePersistence = createPreferencePersistence(store);
   let preferenceDispatching = false;
+  let workspaceDispatching = false;
 
   let state = createSurfaceState(host.getSnapshot(), preferenceSeed, workspaceSeed, catalog);
   const unsubscribePreferencePersistence = preferencePersistence.subscribe(() => {
@@ -883,13 +884,27 @@ export function mountSurface(
       finally { preferenceDispatching = false; }
     }
     if (workspacePort && WORKSPACE_PERSIST_ACTIONS.has(action?.type)) {
-      workspacePort.save(createWorkspaceSnapshot(state));
+      workspaceDispatching = true;
+      try { workspacePort.save(createWorkspaceSnapshot(state)); }
+      finally { workspaceDispatching = false; }
     }
     render();
     if (preferencesChanged) {
       for (const listener of [...preferenceListeners]) listener(state.preferences);
     }
   };
+
+  const unsubscribeWorkspace = typeof workspacePort?.subscribe === "function"
+    ? workspacePort.subscribe((snapshot) => {
+        if (!workspaceDispatching) {
+          if (dragSession) {
+            dragSession.titlebar.releasePointerCapture?.(dragSession.pointerId);
+            dragSession = null;
+          }
+          dispatch({ type: "workspace.restore", workspace: snapshot });
+        }
+      })
+    : () => {};
 
   const openLauncher = () => {
     if (!state.launcherOpen) dispatch({ type: "launcher.toggle" });
@@ -1286,6 +1301,7 @@ export function mountSurface(
       return () => renderListeners.delete(listener);
     },
     destroy() {
+      unsubscribeWorkspace();
       if (workspacePort) workspacePort.save(createWorkspaceSnapshot(state));
       sidebarFit.destroy();
       sidebarHints.destroy();

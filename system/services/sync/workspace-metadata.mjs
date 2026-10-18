@@ -32,20 +32,35 @@ export function createWorkspaceMetadataBridge(workspaceStore) {
   let workspace = baseStore.load();
   let snapshot = createWorkspaceMetadata(workspace);
   let fingerprint = metadataFingerprint(snapshot);
+  let recordFingerprint = metadataFingerprint(workspace);
   const listeners = new Set();
+  const workspaceListeners = new Set();
 
   const update = (workspaceRecord) => {
     workspace = validateWorkspaceRecord(workspaceRecord);
     const next = createWorkspaceMetadata(workspace);
     const nextFingerprint = metadataFingerprint(next);
-    if (nextFingerprint === fingerprint) return;
-    snapshot = next;
-    fingerprint = nextFingerprint;
-    for (const listener of [...listeners]) listener(snapshot);
+    const nextRecordFingerprint = metadataFingerprint(workspace);
+    if (nextFingerprint !== fingerprint) {
+      snapshot = next;
+      fingerprint = nextFingerprint;
+      for (const listener of [...listeners]) listener(snapshot);
+    }
+    if (nextRecordFingerprint !== recordFingerprint) {
+      recordFingerprint = nextRecordFingerprint;
+      for (const listener of [...workspaceListeners]) listener(workspace);
+    }
   };
 
   const store = Object.freeze({
     schema: WORKSPACE_STORE_SCHEMA,
+    // Trusted Surface and cloud restore share this existing store and its
+    // change notifications, rather than maintaining a second workspace.
+    subscribe(listener) {
+      if (typeof listener !== "function") throw new TypeError("Workspace listener must be a function");
+      workspaceListeners.add(listener);
+      return () => workspaceListeners.delete(listener);
+    },
     load() {
       const loaded = baseStore.load();
       update(loaded);

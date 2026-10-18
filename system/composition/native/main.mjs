@@ -386,7 +386,9 @@ async function start() {
   const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
   localAiProbeSupervisor.start();
 
+  const identitySession = createWebIdentitySession(window);
   const localWorkspaceStore = createNativeWorkspaceStore(window);
+  localWorkspaceStore.selectOwner(identitySession.getSnapshot());
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
     store: createNativeRecentFilesStore(window),
   });
@@ -406,7 +408,6 @@ async function start() {
   });
   const workspaceMetadata = createWorkspaceMetadataBridge(localWorkspaceStore);
   const workspaceStore = workspaceMetadata.store;
-  const identitySession = createWebIdentitySession(window);
   const syncStateRegistry = syncStateStore === null
     ? null
     : createSyncStateNamespaceRegistry(syncStateStore, { legacyNamespace: "appearance" });
@@ -757,6 +758,9 @@ async function start() {
     workspaceStore,
     appActivation,
   );
+  const unsubscribeWorkspaceIdentity = identitySession.subscribe((snapshot) => {
+    if (localWorkspaceStore.selectOwner(snapshot)) workspaceStore.load();
+  });
   const sidebarAccount = mountNativeSidebarAccount(root, identitySession, host, surface);
   bootLocale = surface.localization.getLocale();
   const notificationCenter = mountNotificationCenterControls(root, notifications, appActivation, surface);
@@ -1137,6 +1141,7 @@ async function start() {
       localSession?.dispose();
       componentManager.destroy();
       sidebarAccount.destroy();
+      unsubscribeWorkspaceIdentity();
       surface.destroy();
       identityActions.dispose();
       identitySession.dispose();

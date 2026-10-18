@@ -39,7 +39,9 @@ The Native account composition now reuses the **same canonical `ordax.sync-state
 - Empty or deleted cloud portable objects do not authorize automatic export of locally visible workspace/preferences from an earlier identity. Only account-context explicit changes or already-partitioned pending intent can be sent.
 - Each pending mutation uses the existing state store and must have a successful save and durable flush acknowledgment **before remote delivery**. A rejected write fails closed; an old Host flush success does not validate a rejected mutation.
 - A malformed, unknown, cross-subject, or corrupt pending envelope does not get silently reset to empty or replayed as another account's state; reconciliation requires recovery.
-- The local Surface preference/workspace *presentation* remains device local. These queue partitions protect cloud transport intent; full on-device workspace privacy between shared human users requires its own separate product design and physical test evidence. No public-cloud rollout is enabled by this change.
+- The Native workspace adapter now partitions its **local browser workspace** by verified account subject, while keeping the existing guest v1/v2 workspace under guest keys. Identity changes cause the existing metadata bridge to publish a full workspace replacement to the Surface; cloud restore uses the same store notification, never a second window store.
+- On unavailable identity, the Surface fails closed to guest windows instead of displaying the last signed-in subject's targets. Corrupt local account partitions remain preserved and cannot be silently overwritten. If localStorage is inaccessible, records remain volatile and separated only for that runtime.
+- These partitions implement **logical UI/data routing**, not filesystem encryption or OS user permissions. People sharing the same USB/browser storage can still inspect localStorage using privileged development access. Protecting arbitrary device files and per-person local secrets requires its own account/OS permission architecture and physical tests. No public-cloud rollout is enabled by this change.
 
 ### Conflict boundary
 

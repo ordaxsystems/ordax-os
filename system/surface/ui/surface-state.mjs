@@ -333,6 +333,18 @@ export function reduceSurfaceState(state, action, appCatalog = defaultAppRuntime
       const sidebarMode = resolveSidebarMode(state.presentation, action.value);
       return sidebarMode === state.sidebarMode ? state : freezeState({ ...state, sidebarMode });
     }
+    case "workspace.restore": {
+      // The selected local account partition is authoritative. Never retain
+      // window targets, focus or open app state from the previous identity.
+      const workspace = validateWorkspaceRecord(action.workspace);
+      return freezeState({
+        ...state,
+        launcherOpen: false,
+        activeAreaId: workspace.activeAreaId,
+        nextAreaOrdinal: workspace.nextAreaOrdinal,
+        areas: workspace.areas.map((area) => recoverArea(area, state.capabilityIds, appCatalog)),
+      });
+    }
     case "workspace.show-desktop": {
       const area = getActiveArea(state);
       if (!area.windows.some((item) => !item.minimized) && !state.launcherOpen) return state;
