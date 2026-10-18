@@ -34,8 +34,6 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         # The literal suffix .tmp.$ is NOT the process ID in BusyBox ash.
         # It causes concurrent Owner Git/guardian/health transactions to
         # overwrite one another before the atomic rename.
-        import re
-
         for relative in (
             "bootstrap/dev-base/ordax-dev-init",
             "bootstrap/dev-base/ordax-pull",
@@ -45,7 +43,7 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
             with self.subTest(relative=relative):
                 source = (ROOT / relative).read_text(encoding="utf-8")
                 self.assertNotRegex(source, r"\\.tmp\\.\\$(?!\\$)")
-                self.assertIn(".tmp.$", source)
+                self.assertIn(".tmp.$$", source)
                 subprocess.run(["/bin/sh", "-n", str(ROOT / relative)], check=True)
 
     def test_versioned_base_keeps_ephemeral_surface_mount_during_pivot(self):
