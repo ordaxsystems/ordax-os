@@ -13,7 +13,6 @@ credential-at-rest boundary for removable USB media.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import stat
@@ -213,12 +212,11 @@ class NativeAccountGateway:
                 return GatewayReply(
                     status=200,
                     headers={},
-                    body=json.dumps({
-                        "$schema": "prototype-ordax.public-identity-session/1",
-                        "authenticated": False,
-                        "provider": "ordax-native",
-                        "status": "anonymous",
-                    }).encode("utf-8"),
+                    body=(
+                        b'{"$schema":"prototype-ordax.public-identity-session/1",'
+                        b'"authenticated":false,"provider":"ordax-native",'
+                        b'"status":"anonymous"}'
+                    ),
                 )
             return self._request("GET", "/auth/session")
 
