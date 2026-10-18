@@ -12,10 +12,13 @@ import {
 
 const DIGEST_A = "a".repeat(64);
 const DIGEST_B = "b".repeat(64);
+const INSTANCE_ONE = "11111111-1111-4111-8111-111111111111";
+const INSTANCE_TWO = "22222222-2222-4222-8222-222222222222";
 
 function caller(appId = "orders", spaceId = "pizzaria", digest = DIGEST_A) {
   return {
-    appId, publisherId: "ordaxsystems", packageSha256: digest, accountId: "account-one",
+    appId, publisherId: "ordaxsystems", packageSha256: digest,
+    runtimeInstanceId: INSTANCE_ONE, accountId: "account-one",
     spaceId, deviceId: "ordax-device-one", verified: true,
   };
 }
@@ -201,4 +204,41 @@ test("OS account, Space or package change during in-flight policy read fails clo
     capabilityReader: reader(),
   });
   await assert.rejects(() => afterUninstall.capabilities(), /not a plain data object|must be a plain data object/);
+});
+
+
+test("host-issued instance changes invalidate the mounted reader even when app bytes and grants are unchanged", async () => {
+  let running = caller();
+  const port = createInstalledAppCapabilityReader({
+    mountCaller: running,
+    resolveCaller: async () => running,
+    readAllowedCapabilities: async identity =>
+      decision(identity, [{ id: "orders.update", modes: ["write"] }]),
+    capabilityReader: reader(),
+  });
+  assert.equal((await port.capabilities()).capabilities.length, 1);
+  running = { ...running, runtimeInstanceId: INSTANCE_TWO };
+  await assert.rejects(() => port.capabilities(), /mount identity is no longer current/);
+  const newlyMounted = createInstalledAppCapabilityReader({
+    mountCaller: running,
+    resolveCaller: async () => running,
+    readAllowedCapabilities: async identity =>
+      decision(identity, [{ id: "orders.update", modes: ["write"] }]),
+    capabilityReader: reader(),
+  });
+  assert.equal((await newlyMounted.capabilities()).capabilities.length, 1);
+  // Same hash is not enough to resurrect the previous mount after reinstall.
+  await assert.rejects(() => port.capabilities(), /mount identity is no longer current/);
+});
+
+test("missing, malformed or app-claimed runtime instance IDs cannot authorize discovery", async () => {
+  for (const bad of [undefined, null, "1".repeat(32), "12345678-1234-1234-1234-123456789abc"]) {
+    const actual = { ...caller(), runtimeInstanceId: bad };
+    const port = createInstalledAppCapabilityReader({
+      resolveCaller: async () => actual,
+      readAllowedCapabilities: async () => { throw new Error("must not run permission lookup"); },
+      capabilityReader: reader(),
+    });
+    await assert.rejects(() => port.capabilities(), /not a verified package/);
+  }
 });
