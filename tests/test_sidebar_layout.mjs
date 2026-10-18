@@ -25,7 +25,8 @@ test("Web and Native sidebar render one Meridian OrdaX OS wordmark", async () =>
   assert.ok(markup.includes('class="brand-sub">OS</span>'));
   assert.ok(!markup.includes("WEB"));
   assert.ok(webNavigation.includes("sidebarBrandMarkup()"));
-  assert.ok(nativeShell.includes("sidebarBrandMarkup()}</button>`"));
+  assert.ok(nativeShell.includes('class="meridian-sidebar-brand-row"><button type="button" class="meridian-brand-home"'));
+  assert.ok(nativeShell.includes('class="sidebar-collapse ordax-sidebar-toggle meridian-sidebar-toggle" data-sidebar-toggle'));
   assert.ok(sharedStyles.includes(".brand-wordmark { display:block; }"));
 });
 test("Web and Native share the Meridian rail destination order and grouping", async () => {
@@ -171,9 +172,14 @@ test("navigation capacity measures the Ecosystem heading once and preserves it a
   headingVisible = false;
   assert.equal(sidebarNavigationCapacity(nav), 4);
 });
-test("Native overflow keeps a launcher and recovers all shortcuts after growing", () => {
+test("Native overflow keeps home and a launcher, then restores the complete grouped navigation", () => {
+  const home = { hidden: false, getBoundingClientRect: () => ({ height: 44 }) };
   const apps = Array.from({ length: 6 }, () => ({ hidden: false, getBoundingClientRect: () => ({ height: 44 }) }));
   const more = { hidden: true, getBoundingClientRect: () => ({ height: 44 }) };
+  const groups = [
+    { hidden: false, querySelector: () => [home, ...apps.slice(0, 3)].find(button => !button.hidden) },
+    { hidden: false, querySelector: () => apps.slice(3).find(button => !button.hidden) },
+  ];
   let resize, disconnected = false;
   const nav = {
     clientHeight: 236,
@@ -181,17 +187,24 @@ test("Native overflow keeps a launcher and recovers all shortcuts after growing"
       getComputedStyle: () => ({ rowGap: "4px" }),
       ResizeObserver: class { constructor(fn) { resize = fn; } observe() {} disconnect() { disconnected = true; } },
     } },
-    querySelectorAll: selector => selector === ".meridian-nav-destination button" ? apps : [],
-    querySelector: selector => ["[data-nav-menu-more]", "[data-launcher-more]"].includes(selector) ? more : [...apps, more].find(button => !button.hidden),
+    querySelectorAll: selector => selector === ".meridian-nav-destination button" ? apps : selector === "[data-nav-group]" ? groups : [],
+    querySelector: selector => selector === ".meridian-home-destination" ? home : ["[data-nav-menu-more]", "[data-launcher-more]"].includes(selector) ? more : [home, ...apps, more].find(button => !button.hidden),
   };
   const fit = mountNativeSidebarFit(nav, () => {});
-  assert.equal(apps.filter(button => !button.hidden).length, 4);
+  assert.equal(home.hidden, false);
+  assert.equal(apps.filter(button => !button.hidden).length, 3);
   assert.equal(more.hidden, false);
+  assert.equal(groups[0].hidden, false);
+  assert.equal(groups[1].hidden, true);
   nav.clientHeight = 44; resize();
+  assert.equal(home.hidden, true);
   assert.ok(apps.every(button => button.hidden));
+  assert.ok(groups.every(group => group.hidden));
   assert.equal(more.hidden, false);
-  nav.clientHeight = 284; resize();
+  nav.clientHeight = 332; resize();
+  assert.equal(home.hidden, false);
   assert.ok(apps.every(button => !button.hidden));
+  assert.ok(groups.every(group => !group.hidden));
   assert.equal(more.hidden, true);
   fit.destroy();
   assert.equal(disconnected, true);
@@ -249,17 +262,18 @@ test("Native account binding clears stale identity and updates the shared indica
 
 test("Web and Native load one Meridian sidebar profile stylesheet owner", async () => {
   const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
-  const [shared,webStyles,native,web,nativeStyles]=await Promise.all([
+  const [shared,webStyles,native,web,nativeStyles,brandStyles]=await Promise.all([
     read("system/surface/ui/sidebar-layout.css"),
     read("system/surface/workspace/components/central/meridian.css"),
     read("system/composition/native/index.html"),
     read("system/composition/web/main.tsx"),
     read("system/surface/ui/identity.css"),
+    read("system/surface/ui/brand/symbol.css"),
   ]);
   assert.ok(shared.includes(".ordax-product-sidebar .meridian-rail-account {"));
   assert.ok(shared.includes(".meridian-workspace .ordax-product-sidebar { gap:16px; padding:27px 16px 18px; }"));
   assert.ok(shared.includes(":is(.ordax-space-switcher-trigger,.meridian-rail-space)"));
-  assert.ok(shared.includes('mask:url("./brand/ordax-symbol.png")'));
+  assert.ok(brandStyles.includes('background: url("./ordax-symbol.png")'));
   assert.doesNotMatch(native,/style="mask-image:/);
   assert.doesNotMatch(webStyles,/\.meridian-workspace \.meridian-rail \{padding:/);
   assert.doesNotMatch(nativeStyles,/\.meridian-native-workspace \.ordax-rail \[data-sidebar-slot=\"navigation\"\]/);

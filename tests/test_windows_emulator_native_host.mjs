@@ -1,13 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createServer} from "node:http";
-import {mkdtemp,rm,writeFile} from "node:fs/promises";
+import {mkdtemp,rm,writeFile,readFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createEmulatorNativeHost} from "../tools/windows-emulator/native-host.mjs";
 import {createNativePreferenceStore} from "../system/adapters/native/preferences.mjs";
 import {createNativeFirstRunStateStore} from "../system/adapters/native/first-run-state.mjs";
 import {completeFirstRunState,createInitialFirstRunState} from "../system/services/state/first-run.mjs";
+
+test("emulator development controls stay hidden unless explicitly requested",async()=>{
+  const [html,main]=await Promise.all([
+    readFile(new URL("../tools/windows-emulator/index.html",import.meta.url),"utf8"),
+    readFile(new URL("../tools/windows-emulator/main.mjs",import.meta.url),"utf8"),
+  ]);
+  assert.match(html,/<details class="ordax-emulator-controls" data-emulator-controls hidden>/);
+  assert.match(html,/body\[data-emulator-controls="visible"\] #ordax-emulator-surface \{grid-row:2;\}/);
+  assert.doesNotMatch(html,/Emulador · sem kernel/);
+  assert.match(main,/new URLSearchParams\(window\.location\.search\)\.get\("dev-controls"\) === "1"/);
+  assert.match(main,/developmentControls\.hidden = !showDevelopmentControls/);
+});
 
 test("emulator persists through the real Native adapters and never grants hardware authority",async()=>{
   const prefix=join(tmpdir(),"ordax-emulator-host-");
