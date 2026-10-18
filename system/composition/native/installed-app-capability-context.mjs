@@ -48,6 +48,9 @@ export function createNativeInstalledAppCapabilityContextProvider({
       resolveCaller: () => resolveCurrentInstalledApp(componentId),
       readAllowedCapabilities,
       capabilityReader: deviceReader,
+      // Pin the exact verified mount identity: an old module must NEVER
+      // inherit a new release's or different Space's permissions.
+      mountCaller: installed,
     });
     return Object.freeze({ capabilityReader: reader });
   };
