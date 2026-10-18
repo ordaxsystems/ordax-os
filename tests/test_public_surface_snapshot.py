@@ -52,6 +52,13 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         labels=dict(re.findall(r"\{ id: '([^']+)', label: '([^']+)'",catalog))
         tokens=re.findall(r"name:\s*(?:'([^']+)'|surfaceName\('([^']+)'\))",block)
         actual=[]
+        if '...MERIDIAN_RAIL_DESTINATIONS.map(' in block:
+            # This is the imported navigation SSOT, not a second hardcoded
+            # list in the public demo or test expectations.
+            meridian=(ROOT/'system/services/surface/meridian-navigation.mjs').read_text(encoding='utf-8')
+            shared=re.findall(r"\{key:'[^']+',name:'([^']+)'",meridian)
+            self.assertTrue(shared,'Meridian navigation catalog is unreadable')
+            actual.extend(shared)
         for literal,destination_id in tokens:
             if literal:
                 actual.append(literal)

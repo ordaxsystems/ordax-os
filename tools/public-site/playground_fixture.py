@@ -143,22 +143,29 @@ def _surface_home() -> dict[str, object]:
     messages = _surface_source_messages()
     rail_matches = RAIL_RE.findall(text)
     if not rail_matches:
-        # Surface desktop now composes its navigation from app identifiers.
-        # Derive the same localized titles without a duplicated list.
-        navigation = re.search(
-            r'navigation:\s*\[([^\]]+)\]\.map\(id\s*=>\s*railButton\(id,\s*t\(\`app\.\$\{id\}\.title\`\),\s*ICONS\[id\],\s*t\)\)',
-            text, re.DOTALL,
+        # Meridian renders navigation from the shared destination catalog,
+        # while Home quick actions remain actual first-party app launchers.
+        # Read their source array instead of constructing a second app list.
+        quick = re.search(
+            r'const QUICK_ACCESS_APP_IDS = Object\.freeze\(\[([^\]]+)\]\);',
+            text,
         )
-        if navigation:
+        if quick and re.search(
+            r'QUICK_ACCESS_APP_IDS\.map\(\(id\)\s*=>\s*railButton\(', text
+        ):
             rail_matches = [
                 (app_id, f"app.{app_id}.title")
-                for app_id in re.findall(r'"([a-z][a-z0-9-]*)"', navigation.group(1))
+                for app_id in re.findall(r'"([a-z][a-z0-9-]*)"', quick.group(1))
             ]
     space_matches = SPACE_RE.findall(text)
     area = AREA_RE.search(text)
     command = COMMAND_RE.search(text)
+    # Native Meridian search is a destination menu, not the retired launcher
+    # command. Preserve the fixture field but bind its presence to the
+    # actual current search control instead of an obsolete call site.
+    has_command = bool(command or "data-meridian-search" in text)
     space_label = SPACE_LABEL_RE.search(text)
-    if not area or not command or not space_label or not rail_matches or not space_matches:
+    if not area or not has_command or not space_label or not rail_matches or not space_matches:
         raise PlaygroundFixtureError("desktop shell is missing Home metadata required by the playground")
 
     rail = [
