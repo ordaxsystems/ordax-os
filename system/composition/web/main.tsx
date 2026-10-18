@@ -23,6 +23,7 @@ import '../../surface/ui/notification-center.css';
 import '../../surface/ui/sidebar-hints.css';
 import '../../surface/workspace/components/central/styles.css';
 import '../../surface/ui/sidebar-layout.css';
+import '../../surface/ui/brand/symbol.css';
 import '../../surface/ui/boot-screen.css';
 import '../../surface/ui/meridian.tokens.css';
 import '../../surface/ui/meridian.css';

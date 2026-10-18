@@ -492,6 +492,7 @@ export function mountSettingsOverviewControls(
           const preview = node(documentObject, "span", "ordax-settings-theme-preview");
           preview.dataset.themePreview = option.value === "native" ? "dark" : option.value;
           if (themePreference) {
+            preview.dataset.materialPreview = option.value === "light" ? "paper" : "ink";
             preview.dataset.ordaxPalette = option.value === "native" ? "native" : "standard";
             preview.dataset.palettePreview = option.value === "native" ? "native" : "standard-" + option.value;
           }

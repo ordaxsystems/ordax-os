@@ -1,3 +1,4 @@
+import { MERIDIAN_RAIL_DESTINATIONS } from '../../../../services/surface/meridian-navigation.mjs';
 import { HOME_SHORTCUTS } from '../../../../services/preferences/home-shortcuts.mjs';
 import { getSurfaceDestination, resolveSurfaceWindowTitle } from '../../../../services/surface/destination-catalog.mjs';
 import { House, Bell, Settings, Sparkles, Folder, FolderOpen, LayoutGrid, Globe, WalletCards, MonitorSmartphone, BriefcaseBusiness, CirclePlus, ListTodo, Compass, Workflow, ShoppingBag, Box, Terminal, FileBox, UserRound, type LucideIcon } from 'lucide-react';
@@ -8,13 +9,7 @@ export type AppItem = { name: string; icon: LucideIcon; tone: IconTone; caption?
 const surfaceName = (id: string): string => getSurfaceDestination(id).label;
 
 export const navigation: { name: string; icon: LucideIcon; target?: string; rail?: boolean; group?: 'principal' | 'ecossistema' }[] = [
-  { name: 'Início', icon: LayoutGrid, rail: true },
-  { name: 'Aura', icon: Sparkles, rail: true, group: 'principal' },
-  { name: 'Espaços', icon: WalletCards, rail: true, group: 'principal' },
-  { name: 'Aplicativos', icon: LayoutGrid, rail: true, group: 'principal' },
-  { name: 'Perfis profissionais', icon: BriefcaseBusiness, rail: true, group: 'ecossistema' },
-  { name: 'Dispositivos', icon: MonitorSmartphone, rail: true, group: 'ecossistema' },
-  { name: surfaceName('store'), icon: ShoppingBag, rail: true, group: 'ecossistema' },
+  ...MERIDIAN_RAIL_DESTINATIONS.map(item => ({name:item.name, icon:({LayoutGrid,Sparkles,WalletCards,BriefcaseBusiness,MonitorSmartphone,ShoppingBag} as Record<string,LucideIcon>)[item.icon], rail:true, group:item.group as 'principal'|'ecossistema'|undefined})),
   { name: surfaceName('projects'), icon: Folder }, { name: surfaceName('files'), icon: FolderOpen },
   { name: surfaceName('internet'), icon: Globe }, { name: 'Ajustes', icon: Settings, target: 'Configurações' },
 ];

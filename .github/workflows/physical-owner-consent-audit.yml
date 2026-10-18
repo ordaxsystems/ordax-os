@@ -1,0 +1,50 @@
+name: Physical Owner Consent Canonical Audit
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/physical-owner-consent-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  authorization-record:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'authorize/first-real-stable-mvp-usb-proof-20261018'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect exactly the canonical ungranted source
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("docs/contracts/physical-write-authorization.json")
+          a = json.loads(p.read_text(encoding="utf-8"))
+          assert a["status"] == "blocked-explicit-physical-authorization-pending"
+          assert a["explicit_owner_authorization"] is False
+          assert a["physical_write_allowed"] is False
+          print("ORDAX_PRECONSENT_CANONICAL=PASS", flush=True)
+          PY
+          python tools/creator/authorize_physical_write.py check --repo-root .
+      - name: Apply explicit owner consent using canonical authorizer only
+        run: |
+          python tools/creator/authorize_physical_write.py authorize --repo-root . --confirm-scope first-real-stable-mvp-usb-proof --confirm-release-sequence 1 --authorize AUTHORIZE_FIRST_REAL_STABLE_MVP_USB_PROOF
+      - name: Export only canonical authorized document, without repository writes
+        run: |
+          python - <<'PY'
+          import base64, hashlib, json
+          from pathlib import Path
+          data = Path("docs/contracts/physical-write-authorization.json").read_bytes()
+          doc = json.loads(data)
+          assert doc["status"] == "authorized" and doc["physical_write_allowed"] is True
+          assert doc["explicit_owner_authorization"] is True
+          assert doc["release_sequence"] == 1
+          print(f"ORDAX_CANONICAL_AUTH_BEGIN|{len(data)}|{hashlib.sha256(data).hexdigest()}", flush=True)
+          print(f"ORDAX_CANONICAL_AUTH_BASE64|{base64.b64encode(data).decode('ascii')}", flush=True)
+          print("ORDAX_CANONICAL_AUTH_END", flush=True)
+          PY

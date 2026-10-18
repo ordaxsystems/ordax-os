@@ -2,11 +2,15 @@ Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
 SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
 runtime owns the canonical Product PostgreSQL `/v3/device/transport` workflow
-and central-session attestation. The Native Host can pass its private
+and central-session attestation. The same Product transport now records
+`ordax-os` for a Runtime using the trusted Native credential provider and
+preserves `desktop-agent` for existing Windows heartbeats. The upstream
+compatibility contract is the only owner of that runtime-kind semantic.
+The Native Host can pass its private
 `ProductDeviceIdentityStore.read_enrolled_credential` as a provider to that
-same Runtime, with exact device-ID matching and no second token file. The OS reuses that provenance; it must not
-copy the claim/lease/report implementation or treat `ordax.intelligence/1`
-as a source of action grants. Source pinning **does not install** the headless
+same Runtime, with exact device-ID matching and no second token file. The OS
+reuses that provenance; it must not copy the claim/lease/report
+implementation or treat `ordax.intelligence/1` as a source of action grants. Source pinning **does not install** the headless
 runtime into the USB or enable device actions. Native action execution remains
 closed until a signed runtime component slot is installed, health-checked,
 session-attested and authorized under client OAuth, device grants, local policy
@@ -55,6 +59,13 @@ remain independent. See docs/contracts/product-device-presence.json and
 docs/INTELLIGENCE.md.
 
 # Current State
+
+Native Central home layout correction (2026-10-18): the persistent local-space
+card remains in the secondary column at desktop widths, while capability-backed
+continuation and pending-service cards occupy successive rows in the main column.
+At narrow widths these direct `.ordax-space` children flow in document order.
+This preserves the existing lifecycle owners and avoids overlapping grid areas;
+it changes presentation only and does not claim new backend or USB capability.
 
 Native emulator / Meridian First Run (2026-10-18): the Windows emulator now loads
 `system/composition/native/index.html` for both onboarding and desktop, with no
