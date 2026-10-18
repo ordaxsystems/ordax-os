@@ -1,4 +1,5 @@
 import { assertDeviceProfilePort } from "../../contracts/device-profile.mjs";
+import { assertFirstRunCursorPort, safeFirstRunResumeStep } from "../../contracts/first-run-cursor.mjs";
 import { assertKeyboardLayoutPort, validateKeyboardLayoutSnapshot } from "../../contracts/keyboard-layout.mjs";
 import { keyboardLayoutOption } from "../../services/input/keyboard-layout.mjs";
 import { assertFirstRunStateStore } from "../../contracts/first-run-state-store.mjs";
@@ -89,6 +90,7 @@ export function mountFirstRunExperience(
     localSession = null,
     deviceProfile = null,
     keyboardLayout = null,
+    resumeCursor = null,
   },
 ) {
   if (!(root instanceof Element)) {
@@ -103,6 +105,7 @@ export function mountFirstRunExperience(
   const localSessionPort = localSession === null ? null : assertLocalSessionPort(localSession);
   const deviceProfilePort = deviceProfile === null ? null : assertDeviceProfilePort(deviceProfile);
   const keyboardLayoutPort = keyboardLayout === null ? null : assertKeyboardLayoutPort(keyboardLayout);
+  const cursorPort = resumeCursor === null ? null : assertFirstRunCursorPort(resumeCursor);
   const initial = validateFirstRunState(store.load());
   if (firstRunAppSelection !== null && (
     firstRunAppSelection.schema !== FIRST_RUN_APP_SELECTION_SCHEMA
@@ -129,9 +132,17 @@ export function mountFirstRunExperience(
     detectedTimeZone = null;
   }
 
+  const storedRegional = preferencePort.getSnapshot();
+  const resumedStep = safeFirstRunResumeStep(cursorPort?.load().step);
+  const continuingSetup = resumedStep !== "welcome" && resumedStep !== "regional";
+  const savedLocale = storedRegional[REGIONAL_LOCALE_PREFERENCE_ID];
+  const savedTimeZone = storedRegional[REGIONAL_TIME_ZONE_PREFERENCE_ID];
   const draft = {
-    locale: initial.locale,
-    timeZone: isSupportedRegionalTimeZone(detectedTimeZone) ? detectedTimeZone : initial.timeZone,
+    locale: continuingSetup && REGIONAL_LOCALE_OPTIONS.some((entry) => entry.value === savedLocale)
+      ? savedLocale : initial.locale,
+    timeZone: continuingSetup && isSupportedRegionalTimeZone(savedTimeZone)
+      ? savedTimeZone
+      : isSupportedRegionalTimeZone(detectedTimeZone) ? detectedTimeZone : initial.timeZone,
     accountMode: null,
   };
 
@@ -153,7 +164,8 @@ export function mountFirstRunExperience(
   overlay.append(shell);
   documentObject.body.append(overlay);
 
-  let stepIndex = 0;
+  let stepIndex = Math.max(0, STEPS.indexOf(safeFirstRunResumeStep(cursorPort?.load().step)));
+  let cursorQueue = Promise.resolve();
   let destroyed = false;
   let finishing = false;
   let networkSnapshot = null;
@@ -787,6 +799,12 @@ export function mountFirstRunExperience(
   };
 
   const go = (nextIndex) => {
+    if (STEPS[stepIndex] === "regional" && nextIndex > stepIndex) {
+      // Region data has one authority: the regular preference runtime.
+      // The navigation cursor never duplicates these values.
+      preferencePort.set(REGIONAL_LOCALE_PREFERENCE_ID, draft.locale);
+      preferencePort.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, draft.timeZone);
+    }
     if (STEPS[stepIndex] === "network") passwordDraft = "";
     if (STEPS[stepIndex] === "security") {
       localSessionSecretDraft = "";
@@ -794,6 +812,11 @@ export function mountFirstRunExperience(
       localSessionMessage = "";
     }
     stepIndex = Math.max(0, Math.min(STEPS.length - 1, nextIndex));
+    if (cursorPort) {
+      const safeStep = safeFirstRunResumeStep(STEPS[stepIndex]);
+      cursorQueue = cursorQueue.catch(() => {}).then(() => cursorPort.save(safeStep));
+      void cursorQueue.catch(() => {});
+    }
     completionError = "";
     render();
     if (STEPS[stepIndex] === "network" && networkPort && networkSnapshot === null) {
