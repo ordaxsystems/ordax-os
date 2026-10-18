@@ -208,21 +208,22 @@ def _validate_receipts_before_mint(
     return validated
 
 
-def load_current_boot_app_data_bindings(
-    server,
+def _read_current_boot_verified_receipts(
     *,
     expected_uid: int,
-    index_path: str = DEFAULT_SESSION_INDEX_PATH,
-    handoff_path: str = DEFAULT_RELEASE_HANDOFF_PATH,
-    receipt_root: str = DEFAULT_RECEIPT_ROOT,
-    inventory_path: str = DEFAULT_FIRST_PARTY_IDENTITY_INVENTORY_PATH,
-    portable_root: str = DEFAULT_PORTABLE_ROOT,
-) -> tuple[TrustedAppDataPortBinding, ...]:
-    uid = _validate_uid(expected_uid)
-    mint_many = getattr(server, "bind_app_data_receipts", None)
-    if not callable(mint_many):
-        raise TypeError("Native App Data host must provide transactional bind_app_data_receipts")
+    index_path: str,
+    handoff_path: str,
+    receipt_root: str,
+    inventory_path: str,
+    portable_root: str,
+) -> tuple[tuple[str, str, object], ...]:
+    """Single verified current-boot identity check shared by read-only
+    consumers and the existing App Data transactional admission path.
 
+    This proves authenticated bundled release provenance, not process identity,
+    current account/Space, a grant, or package-specific executable attestation.
+    """
+    uid = _validate_uid(expected_uid)
     index = validate_session_receipt_index(_read_owned_index(index_path, expected_uid=uid))
     handoff = read_verified_system_release_handoff(
         handoff_path,
@@ -245,6 +246,59 @@ def load_current_boot_app_data_bindings(
         expected_uid=uid,
         receipt_root=receipt_root,
         inventory_path=inventory_path,
+    )
+    return tuple(validated)
+
+
+def read_current_boot_verified_app_provenance(
+    *,
+    expected_uid: int,
+    index_path: str = DEFAULT_SESSION_INDEX_PATH,
+    handoff_path: str = DEFAULT_RELEASE_HANDOFF_PATH,
+    receipt_root: str = DEFAULT_RECEIPT_ROOT,
+    inventory_path: str = DEFAULT_FIRST_PARTY_IDENTITY_INVENTORY_PATH,
+    portable_root: str = DEFAULT_PORTABLE_ROOT,
+) -> tuple[dict, ...]:
+    """Private read-only OS provenance; no credential, binding or grant minted.
+
+    A receipt is source-release scoped and must NOT be presented as the
+    SHA-256 of an individual app binary or as authorization to execute.
+    This function is deliberately not an HTTP endpoint or app-facing port.
+    """
+    verified = _read_current_boot_verified_receipts(
+        expected_uid=expected_uid, index_path=index_path,
+        handoff_path=handoff_path, receipt_root=receipt_root,
+        inventory_path=inventory_path, portable_root=portable_root,
+    )
+    return tuple({
+        "appId": app_id,
+        "publisherId": identity.publisher_principal_id,
+        "ownerScope": identity.owner_scope,
+        "receiptSha256": receipt_sha,
+        "sourceClass": identity.source_class,
+        "sourceVersion": identity.source_version,
+        "sourceDigest": identity.source_digest,
+    } for app_id, receipt_sha, identity in verified)
+
+
+def load_current_boot_app_data_bindings(
+    server,
+    *,
+    expected_uid: int,
+    index_path: str = DEFAULT_SESSION_INDEX_PATH,
+    handoff_path: str = DEFAULT_RELEASE_HANDOFF_PATH,
+    receipt_root: str = DEFAULT_RECEIPT_ROOT,
+    inventory_path: str = DEFAULT_FIRST_PARTY_IDENTITY_INVENTORY_PATH,
+    portable_root: str = DEFAULT_PORTABLE_ROOT,
+) -> tuple[TrustedAppDataPortBinding, ...]:
+    uid = _validate_uid(expected_uid)
+    mint_many = getattr(server, "bind_app_data_receipts", None)
+    if not callable(mint_many):
+        raise TypeError("Native App Data host must provide transactional bind_app_data_receipts")
+    validated = _read_current_boot_verified_receipts(
+        expected_uid=uid, index_path=index_path, handoff_path=handoff_path,
+        receipt_root=receipt_root, inventory_path=inventory_path,
+        portable_root=portable_root,
     )
     receipt_shas = tuple(receipt_sha for _app_id, receipt_sha, _verified in validated)
     bindings = mint_many(receipt_shas)
