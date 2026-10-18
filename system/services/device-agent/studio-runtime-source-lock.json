@@ -2,11 +2,11 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "fe0727e21d24ab3fbc00df16194f229da191a6fc",
+    "commit": "5b9e2452999fef19f0e4a7a16de1e6efc433f44c",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
-      "sha256": "184bf7881b74ef9b7fc3e9e3d1ee0793550495c0d2e247e051902e122e18e7c9",
+      "sha256": "b2e9785eb7e672c4f3581aae0786ff1c1bc3e06c20dc010171a17070aee9f859",
       "product_version": "0.4.7"
     }
   },
@@ -30,7 +30,11 @@
       "report",
       "recover-report"
     ],
-    "central_attestation_owner": "ordax_dev_agent.product_central_session.ProductCentralSessionClient"
+    "central_attestation_owner": "ordax_dev_agent.product_central_session.ProductCentralSessionClient",
+    "native_device_identity_provider": "ProductDeviceIdentityStore.read_enrolled_credential",
+    "native_identity_provider_supported": true,
+    "device_id_match_required": true,
+    "duplicate_persisted_token_forbidden": true
   },
   "distribution": {
     "runtime_packaged_in_stable": false,
@@ -62,6 +66,8 @@
     "requires_product_oauth_client_consent": true,
     "requires_device_scoped_grants": true,
     "requires_native_policy": true,
-    "intelligence_grants_do_not_authorize_remote_actions": true
+    "intelligence_grants_do_not_authorize_remote_actions": true,
+    "single_device_heartbeat_owner_required": true,
+    "verified_os_runtime_provenance_required": true
   }
 }
