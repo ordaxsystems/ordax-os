@@ -47,6 +47,7 @@ class ProductDeviceIdentityStore:
         self.root = root / "device-agent"
         self.local_path = self.root / "product-device-local.json"
         self.credential_path = self.root / "product-device.json"
+        self.connector_visibility_path = self.root / "product-connector-visibility.json"
 
     @staticmethod
     def _sha256(value: str) -> str:
@@ -69,7 +70,7 @@ class ProductDeviceIdentityStore:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.root, 0o700)
 
-    def _atomic_write(self, path: Path, payload: dict[str, str]) -> None:
+    def _atomic_write(self, path: Path, payload: dict[str, object]) -> None:
         self._ensure_root()
         temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}.{secrets.token_hex(4)}")
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
@@ -190,3 +191,41 @@ class ProductDeviceIdentityStore:
                 or not isinstance(token, str) or not HEX64_RE.fullmatch(token)):
             return None
         return {"device_id": device_id, "device_token": token}
+
+    def connector_visibility_enabled(self) -> bool:
+        """Read private Owner opt-in; missing/malformed state fails closed."""
+        path = self.connector_visibility_path
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(path, flags)
+        except OSError:
+            return False
+        try:
+            meta = os.fstat(descriptor)
+            if (not stat.S_ISREG(meta.st_mode)
+                    or meta.st_uid != os.geteuid()
+                    or meta.st_nlink != 1
+                    or stat.S_IMODE(meta.st_mode) != 0o600
+                    or not 0 < meta.st_size <= MAX_STATE_BYTES):
+                return False
+            raw = os.read(descriptor, MAX_STATE_BYTES + 1)
+            payload = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return False
+        finally:
+            os.close(descriptor)
+        return (
+            isinstance(payload, dict)
+            and set(payload) == {"schema", "enabled"}
+            and payload["schema"] == "ordax.product-connector-visibility/1"
+            and payload["enabled"] is True
+        )
+
+    def set_connector_visibility(self, enabled: bool) -> None:
+        """Persist only device discoverability, never OAuth or action grants."""
+        if type(enabled) is not bool:
+            raise TypeError("connector visibility must be a boolean")
+        self._atomic_write(self.connector_visibility_path, {
+            "schema": "ordax.product-connector-visibility/1",
+            "enabled": enabled,
+        })
