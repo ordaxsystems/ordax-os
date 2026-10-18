@@ -2,8 +2,15 @@ export const PREFERENCE_STORE_SCHEMA = "ordax.preference-store/1";
 
 const PREFERENCE_ID = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 
+// Shared record bounds mirror the Native host. Persistence transport is adapter-owned.
+export const MAX_PREFERENCE_ENTRIES = 128;
+export const MAX_PREFERENCE_STRING_LENGTH = 4096;
+
 function isScalar(value) {
-  return value === null || ["string", "number", "boolean"].includes(typeof value);
+  if (value === null || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  // Native Python counts Unicode code points rather than UTF-16 code units.
+  return typeof value === "string" && Array.from(value).length <= MAX_PREFERENCE_STRING_LENGTH;
 }
 
 export function validatePreferenceRecord(value) {
@@ -14,8 +21,12 @@ export function validatePreferenceRecord(value) {
     throw new TypeError("Preference store payload must be an object");
   }
 
+  const entries = Object.entries(value);
+  if (entries.length > MAX_PREFERENCE_ENTRIES) {
+    throw new TypeError("Preference store record exceeds the entry limit");
+  }
   const record = {};
-  for (const [preferenceId, preferenceValue] of Object.entries(value)) {
+  for (const [preferenceId, preferenceValue] of entries) {
     if (!PREFERENCE_ID.test(preferenceId)) {
       throw new TypeError(`Invalid preference id in store: ${preferenceId}`);
     }
