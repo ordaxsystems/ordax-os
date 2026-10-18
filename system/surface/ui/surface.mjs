@@ -619,10 +619,48 @@ export function mountSurface(
   const renderDock = () => {
     const area = getActiveArea(state);
     const retained = new Set();
+    const pinnedButtons = Array.from(root.querySelectorAll("[data-dock-pinned-app]"));
+    const pinnedAppIds = new Set(pinnedButtons.map((button) => button.dataset.dockPinnedApp));
+    for (const button of pinnedButtons) {
+      const appId = button.dataset.dockPinnedApp;
+      const app = catalog.get(appId);
+      const windowState = area.windows.find((item) => item.appId === appId) ?? null;
+      if (!app) {
+        button.hidden = true;
+        continue;
+      }
+      button.hidden = false;
+      const localizedTitle = appTitle(localization, app);
+      if (windowState) {
+        button.dataset.openWindow = windowState.id;
+        button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+        button.dataset.minimized = String(windowState.minimized);
+        button.removeAttribute("data-launch-app");
+        button.setAttribute("aria-label", localization.translate(
+          windowState.minimized ? "surface.dock.restore" : "surface.dock.focus",
+          { app: localizedTitle },
+        ));
+        button.title = `${localizedTitle} · ${localization.translate(
+          windowState.minimized ? "surface.dock.restore" : "surface.dock.focus",
+          { app: localizedTitle },
+        )}`;
+        if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      } else {
+        delete button.dataset.openWindow;
+        delete button.dataset.active;
+        delete button.dataset.minimized;
+        button.dataset.launchApp = appId;
+        button.setAttribute("aria-label", localization.translate("surface.launcher.open", { app: localizedTitle }));
+        button.title = localizedTitle;
+        button.removeAttribute("aria-current");
+      }
+    }
     let index = 0;
     for (const windowState of area.windows) {
       const app = catalog.get(windowState.appId);
       if (!app) continue;
+      if (pinnedAppIds.has(app.id)) continue;
       let button = Array.from(runningApps.children).find(
         (child) => child.dataset?.openWindow === windowState.id,
       ) ?? null;
@@ -631,7 +669,15 @@ export function mountSurface(
         button.type = "button";
         button.dataset.openWindow = windowState.id;
       }
-      button.textContent = app.monogram;
+      let icon = button.querySelector(".ordax-rail-icon");
+      if (!icon) {
+        button.replaceChildren();
+        icon = element("span", "ordax-rail-icon");
+        icon.setAttribute("aria-hidden", "true");
+        button.append(icon);
+      }
+      if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
+      else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
       const localizedTitle = appTitle(localization, app);
       button.setAttribute(
