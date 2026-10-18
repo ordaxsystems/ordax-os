@@ -528,7 +528,9 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('"ordax.preferences.v1"', adapter)
         self.assertIn("ordax.preference-store/1", contract)
         self.assertIn("assertPreferenceStore", surface)
-        self.assertIn("store.save(state.preferences)", surface)
+        self.assertIn("preferencePersistence.save(state.preferences)", surface)
+        self.assertIn("createPreferencePersistence(store)", surface)
+        self.assertNotIn("store.save(state.preferences)", surface)
 
     def test_app_source_is_platform_neutral(self):
         for path in APPS.rglob("*.mjs"):
