@@ -1,5 +1,5 @@
 import { HOME_SHORTCUTS } from '../../../../services/preferences/home-shortcuts.mjs';
-import { getSurfaceDestination, getSurfaceWindowTitle } from '../../../../services/surface/destination-catalog.mjs';
+import { getSurfaceDestination, resolveSurfaceWindowTitle } from '../../../../services/surface/destination-catalog.mjs';
 import { House, Bell, Settings, Sparkles, Folder, FolderOpen, LayoutGrid, Globe, WalletCards, MonitorSmartphone, BriefcaseBusiness, CirclePlus, ListTodo, Compass, Workflow, ShoppingBag, Box, Terminal, FileBox, UserRound, type LucideIcon } from 'lucide-react';
 
 export type IconTone = 'orange' | 'violet' | 'blue' | 'green' | 'red' | 'lime' | 'ink';
@@ -72,8 +72,7 @@ export function getWindowIcon(title: string): LucideIcon {
 
 // Presentation labels resolve through the canonical destination identity when possible.
 export function getWindowTitle(title: string): string {
-  const destination = HOME_SHORTCUTS.find(shortcut => shortcut.name === title);
-  return destination ? getSurfaceWindowTitle(destination.id) : title;
+  return resolveSurfaceWindowTitle(title);
 }
 
 // Search uses destination labels and canonical targets, with accent-insensitive tokens.

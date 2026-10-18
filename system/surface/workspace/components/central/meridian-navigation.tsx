@@ -65,7 +65,7 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
     measure();host.addEventListener('scroll',measure,{passive:true});const observer=new ResizeObserver(measure);observer.observe(host);return()=>{host.removeEventListener('scroll',measure);observer.disconnect();};
   },[state.windows]);
   const activeWindow=state.windows.find(window=>window.title===state.active&&!window.minimized);
-  const active=activeWindow?.title==='Inteligência'?'Aura':activeWindow?.title;
+  const active=activeWindow ? getWindowTitle(activeWindow.title) : undefined;
   const railDestinations=navigation.filter(item=>item.rail&&item.name!=='Início');
   const visible=railDestinations.slice(0,visibleCount>=railDestinations.length?railDestinations.length:Math.max(0,visibleCount-1));
   const menuItems=[...navigation,{name:'Atividades',icon:Clock3},{name:'Continuidade',icon:Clock3},{name:'Minha conta',icon:ShieldCheck},{name:'Notificações',icon:Bell}].filter(item=>item.name!=='Início'&&matchesNavigationQuery(item,search));
