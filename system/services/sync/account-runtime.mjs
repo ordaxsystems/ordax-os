@@ -762,11 +762,11 @@ export function createAccountSyncRuntime({
     }
 
     const subjectId = identitySnapshot.subjectId;
+    if (memoryRuntime) requireMemorySubject(subjectId);
     initialized = false;
     emit();
     try {
       if (activeSubjectId !== subjectId) recoverCheckpoint(subjectId);
-      if (memoryRuntime) requireMemorySubject(subjectId);
       if (checkpointLoaded) {
         await pullRemoteChanges(subjectId);
       } else {
