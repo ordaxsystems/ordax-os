@@ -493,7 +493,9 @@ export function createAccountSyncRuntime({
         current = preferenceSync.pendingMutations()[0] ?? null;
         if (!current) return;
       }
-
+      // A rebase creates a new idempotency key. Confirm that precise queue
+      // before first send or conflict retry; old Host ACKs are insufficient.
+      if (!(await preferenceSync.flushDurably?.() ?? true) || !isCurrentSubject(subjectId)) return;
       let ack;
       try {
         ack = await remote.applyMutation({ ...current, resolverVersion: 1 });
@@ -539,7 +541,7 @@ export function createAccountSyncRuntime({
         current = rebasePortablePending(objectId, expected);
         if (!current) return;
       }
-
+      if (!(await confirmPortablePending(subjectId)) || !isCurrentSubject(subjectId)) return;
       let ack;
       try {
         ack = await remote.applyMutation(current);
@@ -743,6 +745,7 @@ export function createAccountSyncRuntime({
         checkpointCursor = previousCursor;
         throw new Error("Account sync checkpoint durability could not be confirmed");
       }
+      if (!isCurrentSubject(subjectId)) return;
       checkpointLoaded = true;
       if (result.changes.length < PULL_PAGE_SIZE) return;
     }
@@ -781,6 +784,7 @@ export function createAccountSyncRuntime({
           checkpointLoaded = false;
           throw new Error("Account sync checkpoint durability could not be confirmed");
         }
+        if (!isCurrentSubject(subjectId)) return;
         checkpointLoaded = true;
       }
 
