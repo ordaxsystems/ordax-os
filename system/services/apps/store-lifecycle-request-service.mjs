@@ -24,7 +24,10 @@ import {
 
 export const APP_LIFECYCLE_DELEGATE_SCHEMA = "ordax.app-lifecycle-delegate/1";
 
-const MAX_COMPLETED_REQUESTS = 256;
+// Remember every request identity for the lifetime of this runtime instance.
+// Evicting an old decision would allow the same requestId to acquire a new
+// lifecycle plan after the Store/catalog changes.
+const MAX_REQUEST_IDENTITIES = 256;
 
 function assertExactKeys(value, expected, label) {
   const actual = Object.keys(value).sort();
@@ -104,14 +107,11 @@ export function createAppLifecycleRequestService({
   const inFlightByApp = new Map();
   const requests = new Map();
 
+  // A bounded instance cannot forget an earlier accepted or rejected ID.
+  // Fresh requests fail closed after the capacity is reached; the caller must
+  // establish a new lifecycle session rather than reusing stale identities.
   const remember = (requestId, fingerprint, promise) => {
     requests.set(requestId, { fingerprint, promise });
-    while (requests.size > MAX_COMPLETED_REQUESTS) {
-      const activeRequestIds = new Set(inFlightByApp.values());
-      const evictable = [...requests.keys()].find((requestId) => !activeRequestIds.has(requestId));
-      if (evictable === undefined) break;
-      requests.delete(evictable);
-    }
   };
 
   // Every valid requestId identifies one decision, including decisions rejected
@@ -132,6 +132,12 @@ export function createAppLifecycleRequestService({
         throw new TypeError("App lifecycle requestId replay identity mismatch");
       }
       return known.promise;
+    }
+
+    // Known requestIds remain idempotent even when the ledger is full.
+    // No new request can evict their decisions or reach Native authority.
+    if (requests.size >= MAX_REQUEST_IDENTITIES) {
+      return Promise.resolve(rejection(request, "lifecycle-request-capacity-exhausted"));
     }
 
     const currentRequestId = inFlightByApp.get(request.appId);
