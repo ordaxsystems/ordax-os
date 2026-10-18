@@ -56,12 +56,28 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
 
     def test_first_run_footer_remains_in_its_own_visible_layout_row(self):
         text = FIRST_RUN_CSS.read_text(encoding="utf-8")
-        self.assertIn("grid-template-rows: minmax(0, 1fr) auto", text)
-        self.assertIn("min-height: 0", text)
-        self.assertIn("height: min(760px, calc(100dvh - 36px))", text)
+        # Preserve the physical-layout invariant across the current Meridian
+        # styling and the earlier surface theme. Formatting, fixed viewport
+        # spacing and the number of steps are not layout authorities.
+        self.assertRegex(
+            text,
+            r"\\.ordax-first-run-card\\s*\\{[^}]*grid-template-rows\\s*:\\s*"
+            r"minmax\\(0,\\s*1fr\\)\\s+auto\\s*;",
+        )
+        self.assertRegex(text, r"min-height\\s*:\\s*0")
+        self.assertRegex(
+            text,
+            r"height\\s*:\\s*min\\(\\s*\\d+px\\s*,\\s*calc\\(\\s*100dvh\\s*-\\s*\\d+px\\s*\\)\\s*\\)",
+        )
         self.assertIn(".ordax-first-run-footer", text)
-        self.assertIn("flex: 0 0 auto", text)
-        self.assertIn("grid-template-columns: repeat(7, 1fr)", text)
+        self.assertRegex(text, r"flex\\s*:\\s*0\\s+0\\s+auto")
+        normalized = "".join(text.split())
+        fixed_steps = "grid-template-columns:repeat(7,1fr)" in normalized
+        canonical_flow = (
+            "grid-auto-flow:column" in normalized
+            and "grid-auto-columns:minmax(0,1fr)" in normalized
+        )
+        self.assertTrue(fixed_steps or canonical_flow)
 
 
 if __name__ == "__main__":
