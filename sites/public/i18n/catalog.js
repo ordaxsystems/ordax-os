@@ -1654,6 +1654,15 @@
   register("surface.a19efb971ab4", "Uso pessoal", "Personal use");
   register("surface.967bcf34a913", "Adicionar", "Add");
   register("surface.d03e41baf842", "Uso e limite de armazenamento indisponíveis.", "Storage usage and limit unavailable.");
+  register("surface.fafff14810a3", "O que importa, mais perto. O resto, no seu tempo.", "Keep what matters close. Let the rest wait.");
+  register("surface.b8156ea69df0", "SEU ESPAÇO PARA FAZER", "YOUR SPACE TO MAKE");
+  register("surface.cdabe6145230", "Uma ideia abre", "An idea opens");
+  register("surface.840d1a84187a", "novos caminhos.", "new paths.");
+  register("surface.1728c742cc00", "Suas ferramentas, seu contexto.", "Your tools, your context.");
+  register("surface.4997177a6591", "Um lugar para continuar.", "A place to continue.");
+  register("surface.e1a558cec483", "Loja e recursos", "Store and resources");
+  register("surface.cbeb99619b03", "Recursos pendentes · consultar Ajustes", "Pending resources · open Settings");
+  register("surface.dcc985fcad64", "Backend pendente", "Backend pending");
   register("surface.49a586ddbb8a", "Rede e Wi-Fi", "Network and Wi-Fi");
   register("surface.ddcd378ecaa7", "Conexão, rede protegida e uso offline.", "Connection, secure networks and offline use.");
   register("surface.195c60bb2325", "Áudio", "Audio");
@@ -1702,7 +1711,10 @@
   register("surface.eb9b2ff46c87", "Buscar espaços", "Search spaces");
   register("surface.e2489033d1b2", "Filtrar espaços", "Filter spaces");
   register("surface.669fdef01782", "Contexto dos espaços", "Space context");
+  register("surface.e61fd5d70b8d", "Sua central OrdaX OS", "Your OrdaX OS home");
   register("surface.5f4754991bbc", "Intelligence contextual", "Contextual Intelligence");
+  register("surface.e0459b8dc4cf", "Uma ideia, uma tarefa, um próximo passo…", "An idea, a task, a next step…");
+  register("surface.c7e072bd4fbd", "Enviar ao Aura", "Send to Aura");
   // END GENERATED SURFACE COPY
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);
