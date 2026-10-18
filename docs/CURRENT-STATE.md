@@ -1,3 +1,17 @@
+Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
+pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
+SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
+runtime owns the canonical Product PostgreSQL `/v3/device/transport` workflow
+and central-session attestation. The OS reuses that provenance; it must not
+copy the claim/lease/report implementation or treat `ordax.intelligence/1`
+as a source of action grants. Source pinning **does not install** the headless
+runtime into the USB or enable device actions. Native action execution remains
+closed until a signed runtime component slot is installed, health-checked,
+session-attested and authorized under client OAuth, device grants, local policy
+and the existing Action Gateway. No runtime network download at boot.
+See `docs/contracts/studio-runtime-integration.json` and the existing
+runtime-component-channel trust policy.
+
 MCP device presence verification (Owner/Development USB, 2026-10-18): the
 single ProductDevicePresenceWorker now retains the last accepted HTTPS
 presence receipt in memory with a monotonic bounded freshness window. The
