@@ -36,7 +36,7 @@ FIXED_INITRAMFS_COMMANDS = {
     "ordax-portable-mount": (
         "bootstrap/initramfs/portable_mount.c",
         "bootstrap/initramfs/build.py",
-        "sbin/ordax-portable-mount",
+        "/sbin/ordax-portable-mount",
     ),
 }
 
