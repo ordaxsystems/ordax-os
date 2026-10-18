@@ -59,7 +59,14 @@ export async function createNativeVerifiedAppStoreCatalog(
   };
 
   const refresh = async () => {
+    if (destroyed) return snapshot;
     const requestGeneration = ++generation;
+    // A prior signed snapshot is not an authorization for a new observation.
+    // Revoke it before awaiting Native verification, so the derived Store
+    // projection clears lifecycle actions during a slow or failed refresh.
+    if (snapshot.state === "ready") {
+      emit(unavailable("native-store-catalog-refreshing"));
+    }
     let next;
     try {
       next = await readSnapshot(windowRef);
@@ -97,6 +104,10 @@ export async function createNativeVerifiedAppStoreCatalog(
       if (destroyed) return;
       destroyed = true;
       generation += 1;
+      // A disposed verifier must not continue exposing trusted candidates to
+      // a retained read-only port or its subscribers.
+      snapshot = unavailable("native-store-catalog-disposed");
+      for (const listener of [...listeners]) listener(snapshot);
       listeners.clear();
     },
   });
