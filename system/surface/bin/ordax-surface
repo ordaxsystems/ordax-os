@@ -1604,6 +1604,16 @@ select_owner_virtio_webkit_transport() {
             [ -e /sys/module/virtio_gpu ] && detected=1
             ;;
     esac
+    # virtio-vga's DRM card0 may expose its *parent PCI device* as
+    # /sys/class/drm/card0/device (driver=virtio-pci). Require the documented
+    # exact modern VirtIO-GPU PCI vendor/device pair; never match the bus or
+    # vendor alone, which would misclassify other VirtIO devices.
+    if [ "$detected" -eq 0 ] && [ "$active_driver" = "/sys/bus/pci/drivers/virtio-pci" ] &&
+       [ -r "$drm_device/vendor" ] && [ -r "$drm_device/device" ] &&
+       /bin/busybox grep -qx '0x1af4' "$drm_device/vendor" &&
+       /bin/busybox grep -qx '0x1050' "$drm_device/device"; then
+        detected=1
+    fi
     if [ "$detected" -eq 1 ]; then
         export WEBKIT_DISABLE_DMABUF_RENDERER=1
         printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
@@ -1617,6 +1627,8 @@ select_owner_virtio_webkit_transport() {
         if [ -r "$drm_device/uevent" ]; then
             /bin/busybox grep '^DRIVER=' "$drm_device/uevent" || true
         fi
+        [ -r "$drm_device/vendor" ] && /bin/busybox sed -n '1s/^/ORDAX_OWNER_DRM_PCI_VENDOR=/p' "$drm_device/vendor" || true
+        [ -r "$drm_device/device" ] && /bin/busybox sed -n '1s/^/ORDAX_OWNER_DRM_PCI_DEVICE=/p' "$drm_device/device" || true
     fi
 }
 select_owner_virtio_webkit_transport
