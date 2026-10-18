@@ -138,7 +138,8 @@ done
         self.assertIn("owner_rootfs_inventory()", text)
         self.assertIn('set(inventory["explicit_busybox_applets"])', text)
         self.assertIn('for command in inventory["commands"]:', text)
-        self.assertIn('"usr/local/bin/ordax-main-watch"', text)
+        self.assertIn('helper["target"] for helper in inventory["runtime_helpers"]', text)
+        self.assertNotIn('"usr/local/bin/ordax-main-watch"', text)
         self.assertNotIn('required_applets = {"mount", "pivot_root", "reboot", "sync"}', text)
 
 
