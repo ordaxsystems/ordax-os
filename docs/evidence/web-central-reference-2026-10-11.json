@@ -1028,7 +1028,16 @@
       "target": "system/adapters/web/runtime.mjs",
       "owner": "OrdaX OS Web adapter",
       "purpose": "Stable canonical Surface snapshots for browser connectivity and advertised capabilities; no network probing or duplicate store",
-      "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894"
+      "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894",
+      "adaptedSha256": "518f8bad68a2dd1afc409ea198e366fb990c36c7b3c5cf962797e4f22574086f",
+      "adaptation": "2026-10-17: Web Surface host reads the same real identity and sync providers, but delegates the shared dependency and capability ID projection to the Account domain owner. Web browser connectivity remains only a hint; no grants, new storage or independent identity backend.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-17",
+          "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894",
+          "reason": "Before Account-owned identity/sync Surface capability projection"
+        }
+      ]
     },
     {
       "target": "system/adapters/web/json-read.mjs",
