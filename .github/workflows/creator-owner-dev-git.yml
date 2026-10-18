@@ -91,6 +91,7 @@ jobs:
           python -m unittest tests.test_owner_published_release -v
           python -m unittest tests.test_owner_dev_offline_runtime_release_gate -v
           python -m unittest tests.test_owner_qemu_offline_handoff -v
+          node --test tests/test_browser_proof_shutdown.mjs
 
       - name: Install build dependencies
         run: |

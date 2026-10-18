@@ -178,6 +178,55 @@ class CdpClient {
 }
 
 export { sleep };
+
+/**
+ * Stop only the process tree created by this browser proof.
+ *
+ * On Windows, child.kill() stops the Chrome parent without necessarily
+ * releasing descendants that hold its disposable profile lockfile.
+ * taskkill /T targets the owned PID and its children, never all Chrome
+ * instances or another user profile. The caller waits before deleting data.
+ */
+export async function stopOwnedBrowser(child, getExitState, platform = process.platform) {
+  if (getExitState() || !Number.isSafeInteger(child.pid) || child.pid <= 0) return;
+  if (platform === 'win32') {
+    await new Promise((resolvePromise, reject) => {
+      const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+      let finished = false;
+      const settle = (error) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(watchdog);
+        if (error) reject(error);
+        else resolvePromise();
+      };
+      const watchdog = setTimeout(() => {
+        killer.kill();
+        settle(new Error('Timed out terminating test-owned Chromium process tree'));
+      }, 10_000);
+      killer.once('error', settle);
+      killer.once('close', (code) => {
+        if (code !== 0 && !getExitState()) {
+          settle(new Error('Could not terminate test-owned Chromium process tree'));
+        } else settle();
+      });
+    });
+  } else {
+    child.kill('SIGTERM');
+  }
+  let deadline = Date.now() + 3000;
+  while (!getExitState() && Date.now() < deadline) await sleep(30);
+  if (!getExitState()) {
+    child.kill('SIGKILL');
+    deadline = Date.now() + 2000;
+    while (!getExitState() && Date.now() < deadline) await sleep(30);
+  }
+  if (!getExitState()) throw new Error('Test-owned Chromium did not exit; refusing to remove its profile');
+}
+
 export async function runBrowser(proof) {
   if (typeof WebSocket !== 'function') throw new Error('Node >=22.18 is required by browser proof');
   const browser = findBrowser();
@@ -238,24 +287,18 @@ export async function runBrowser(proof) {
     passed = true;
     return result;
   } finally {
-    // Ask Chromium to release its own profile before terminating the process.
-    if (client && child.exitCode === null) {
-      await client.send('Browser.close').catch(() => {});
-      await new Promise(done => {
-        if (child.exitCode !== null) return done();
-        const timer = setTimeout(done, 2000);
-        child.once('exit', () => { clearTimeout(timer); done(); });
-      });
+    // The Windows Chrome process tree must be stopped while its owned root
+    // PID still exists; Browser.close can orphan renderer/helper children.
+    // On other platforms first try the regular CDP shutdown.
+    if (process.platform !== 'win32' && client && !exitState) {
+      await Promise.race([
+        client.send('Browser.close').catch(() => {}),
+        sleep(1800),
+      ]);
     }
     client?.close();
-    if (child.exitCode === null) {
-      child.kill('SIGTERM');
-      await new Promise((resolvePromise) => {
-        const timer = setTimeout(() => { child.kill('SIGKILL'); resolvePromise(); }, 2_000);
-        child.once('exit', () => { clearTimeout(timer); resolvePromise(); });
-      });
-    }
-    await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await stopOwnedBrowser(child, () => exitState);
+    await rm(profile, { recursive: true, force: true, maxRetries: 25, retryDelay: 250 });
     if (!passed && stderr) {
       process.stderr.write(`CHROMIUM_STDERR_BEGIN\n${stderr}\nCHROMIUM_STDERR_END\n`);
     }
