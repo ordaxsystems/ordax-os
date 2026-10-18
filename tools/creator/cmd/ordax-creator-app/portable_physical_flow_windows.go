@@ -38,24 +38,27 @@ func executePhysicalWrite(state appRefreshState, target physicalTarget) error {
 func portableSourceSpecs(
 	directory string,
 	payload physicalchannel.PortablePayloadManifest,
+	bindings creatorcore.PortableMediaBindings,
 ) ([]string, error) {
-	specs := make([]string, 0, len(payload.Artifacts))
-	for _, artifact := range payload.Artifacts {
-		path, err := physicalchannel.PortablePayloadSourcePath(directory, artifact.ID)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Lstat(path)
-		if err != nil {
-			return nil, fmt.Errorf("source Portable %s indisponível: %w", artifact.ID, err)
-		}
-		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-			return nil, fmt.Errorf("source Portable %s não é arquivo regular", artifact.ID)
-		}
-		if info.Size() != artifact.SizeBytes {
-			return nil, fmt.Errorf("source Portable %s mudou de tamanho", artifact.ID)
-		}
-		specs = append(specs, artifact.ID+"="+path)
+	if len(payload.Artifacts) == 0 {
+		return nil, errors.New("payload Portable sem fontes assinadas")
+	}
+	// The physical channel already defines the version-relative source path.
+	// Derive its directory instead of introducing a second path constant.
+	firstPath, err := physicalchannel.PortablePayloadSourcePath(directory, payload.Artifacts[0].ID)
+	if err != nil {
+		return nil, err
+	}
+	// Reuse Creator Core's exact 17-file/hash/identity verifier before any
+	// backend preparation or UAC. The privileged writer must still independently
+	// re-open, lock and revalidate every source during destructive apply.
+	verified, err := creatorcore.VerifyPortableSources(bindings, filepath.Dir(firstPath))
+	if err != nil {
+		return nil, fmt.Errorf("verificar fontes Portable antes da elevação: %w", err)
+	}
+	specs := make([]string, 0, len(verified))
+	for _, source := range verified {
+		specs = append(specs, source.ArtifactID+"="+source.Path)
 	}
 	return specs, nil
 }
@@ -133,7 +136,7 @@ func executePortablePhysicalWrite(
 	if err != nil {
 		return err
 	}
-	sourceSpecs, err := portableSourceSpecs(directory, payload)
+	sourceSpecs, err := portableSourceSpecs(directory, payload, bindings)
 	if err != nil {
 		return err
 	}
