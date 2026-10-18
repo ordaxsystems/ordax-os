@@ -150,12 +150,26 @@ test("sidebar active state distinguishes account destinations by their target", 
 });
 
 test("available navigation height includes row gaps without hiding a slot that fits", () => {
-  const nav = { clientHeight: 236, ownerDocument: { defaultView: { getComputedStyle: () => ({ rowGap: "4px" }) } }, querySelector: () => ({ getBoundingClientRect: () => ({ height: 44 }) }) };
+  const nav = { clientHeight: 236, ownerDocument: { defaultView: { getComputedStyle: () => ({ rowGap: "4px" }) } }, querySelector: () => ({ getBoundingClientRect: () => ({ height: 44 }) }), querySelectorAll: () => [] };
   assert.equal(sidebarNavigationCapacity(nav), 5);
   nav.clientHeight = 235;
   assert.equal(sidebarNavigationCapacity(nav), 4);
   nav.querySelector = () => null;
   assert.equal(sidebarNavigationCapacity(nav), 0);
+});
+test("navigation capacity measures the Ecosystem heading once and preserves it after overflow hides the group", () => {
+  let headingVisible = true;
+  const firstButton = { getBoundingClientRect: () => ({ height: 44, top: 33, bottom: 77 }) };
+  const heading = { getBoundingClientRect: () => headingVisible ? ({ height: 30, top: 0, bottom: 30 }) : ({ height: 0, top: 0, bottom: 0 }), parentElement: { querySelector: () => firstButton } };
+  const nav = {
+    clientHeight: 236,
+    ownerDocument: { defaultView: { getComputedStyle: element => element === nav ? ({ rowGap: "4px" }) : ({ marginTop: "0px", marginBottom: "0px" }) } },
+    querySelector: () => firstButton,
+    querySelectorAll: selector => selector === ".meridian-nav-label" ? [heading] : [],
+  };
+  assert.equal(sidebarNavigationCapacity(nav), 4);
+  headingVisible = false;
+  assert.equal(sidebarNavigationCapacity(nav), 4);
 });
 test("Native overflow keeps a launcher and recovers all shortcuts after growing", () => {
   const apps = Array.from({ length: 6 }, () => ({ hidden: false, getBoundingClientRect: () => ({ height: 44 }) }));

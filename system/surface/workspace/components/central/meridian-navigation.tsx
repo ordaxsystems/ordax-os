@@ -58,7 +58,7 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
   useEffect(()=>{if(!hintHost.current||!sidebar.current)return;const hints=mountSidebarHints(hintHost.current,sidebar.current);return()=>hints.destroy();},[]);
   useLayoutEffect(()=>{
     const host=nav.current,rail=sidebar.current;if(!host||!rail)return;
-    const measure=()=>{const expanded=sidebarIsExpanded(rail);setExpanded(expanded);setVisibleCount(Math.max(0,sidebarNavigationCapacity(host)-(expanded?1:0)));};
+    const measure=()=>{const expanded=sidebarIsExpanded(rail);setExpanded(expanded);setVisibleCount(sidebarNavigationCapacity(host));};
     measure();const observer=new ResizeObserver(measure);observer.observe(host);observer.observe(rail);return()=>observer.disconnect();
   },[]);
   useLayoutEffect(()=>{
