@@ -19,7 +19,7 @@ test('Space members Surface consumes canonical read, actor capability and member
   assert.match(membersSurface, /crypto\.randomUUID\(\)/);
   assert.match(membersSurface, /attempts\.current\.begin/);
   assert.match(membersSurface, /attempt\.confirm\(\)/);
-  assert.match(membersSurface, /reloadRemoteState\(spaceId\)/);
+  assert.match(membersSurface, /reloadRemoteState\(spaceId, returnCursor\)/);
   assert.match(membersSurface, /page\.nextCursor/);
   assert.match(membersSurface, /Carregar mais/);
   assert.doesNotMatch(membersSurface, /\bfetch\s*\(/);
@@ -47,7 +47,7 @@ test('Space members Surface invalidates stale same-Space reads and refreshes ser
   assert.match(membersSurface, /const capabilityReadGeneration = useRef\(0\)/);
   assert.match(membersSurface, /membersReadGeneration\.current !== generation/);
   assert.match(membersSurface, /capabilityReadGeneration\.current !== generation/);
-  assert.match(membersSurface, /await Promise\.all\(\[\s*readPage\(targetSpaceId, null, false\),\s*readCapability\(targetSpaceId\),\s*\]\)/);
+  assert.match(membersSurface, /await Promise\.all\(\[\s*readPage\(targetSpaceId, cursor, false\),\s*readCapability\(targetSpaceId\),\s*\]\)/);
   assert.match(membersSurface, /setActionError\([\s\S]*?await readCapability\(spaceId\)/);
 });
 
@@ -72,14 +72,28 @@ test('Space members list serializes duplicate page requests and recovers a faile
   assert.match(membersSurface, /pending\?\.spaceId === targetSpaceId && pending\.cursor === cursor && pending\.append === append\) return/);
   assert.match(membersSurface, /membersReadInFlight\.current = \{ spaceId: targetSpaceId, cursor, append \}/);
   assert.match(membersSurface, /finally \{\s*if \(membersReadGeneration\.current === generation\) membersReadInFlight\.current = null/);
-  assert.match(membersSurface, /membersReadGeneration\.current \+= 1;\s*membersReadInFlight\.current = null;\s*setItems\(\[\]\)/);
+  assert.match(membersSurface, /membersReadGeneration\.current \+= 1;\s*membersReadInFlight\.current = null;\s*pageAnchors\.current\.reset\(\);\s*setWindowCursor\(cursor\);\s*setItems\(\[\]\)/);
   assert.match(membersSurface, /loadState === 'error' && items\.length > 0 && <span role="alert">/);
   assert.match(membersSurface, /Os membros já carregados foram preservados/);
   assert.match(membersSurface, /loadState === 'error' \? 'Tentar página novamente' : 'Carregar mais'/);
   assert.match(membersSurface, /Atualizar lista/);
-  assert.match(membersSurface, /if \(!membersReadInFlight\.current && !pendingAction\.current\) void reloadRemoteState\(spaceId\)/);
+  assert.match(membersSurface, /if \(!membersReadInFlight\.current && !pendingAction\.current\) \{ setActionNotice\(null\); void reloadRemoteState\(spaceId, windowCursor\); \}/);
   assert.equal((membersSurface.match(/readPage\(spaceId, nextCursor, true\)/g) ?? []).length, 1);
   assert.doesNotMatch(membersSurface, /loadState === 'error' && items\.length > 0 && <Button/);
+});
+
+test('confirmed member actions return to a freshly read page window, never stale rows', () => {
+  assert.match(membersSurface, /createMemberPageAnchors\(\)/);
+  assert.match(membersSurface, /pageAnchors\.current\.record\(\{ cursor, members: page\.members, append \}\)/);
+  assert.match(membersSurface, /const returnCursor = pageAnchors\.current\.cursorFor\(member\.userId\)/);
+  assert.match(membersSurface, /attempt\.confirm\(\);\s*if \(isCurrent\(\)\) \{\s*await reloadRemoteState\(spaceId, returnCursor\)/);
+  assert.match(membersSurface, /pageAnchors\.current\.reset\(\);\s*setWindowCursor\(cursor\)/);
+  assert.match(membersSurface, /membersReadGeneration\.current \+= 1;\s*membersReadInFlight\.current = null;\s*pageAnchors\.current\.reset\(\)/);
+  assert.match(membersSurface, /readPage\(spaceId, windowCursor, false\)/);
+  assert.match(membersSurface, /Atualizar trecho/);
+  assert.match(membersSurface, /Voltar ao início/);
+  assert.match(membersSurface, /actionNotice && <p/);
+  assert.doesNotMatch(membersSurface, /localStorage|sessionStorage|indexedDB/);
 });
 
 test('account context exposes only composed domain interfaces to the Surface', () => {

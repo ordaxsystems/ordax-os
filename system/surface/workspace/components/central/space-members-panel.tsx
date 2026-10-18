@@ -2,6 +2,7 @@ import { UsersRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { createScopedMemberActionAttempts } from '../../../../services/spaces/member-action-attempts.mjs';
+import { createMemberPageAnchors } from '../../../../services/spaces/member-page-anchors.mjs';
 import type { validateSpaceMembersPage } from '../../../../contracts/space-members.mjs';
 import type { validateSpaceActorCapability } from '../../../../contracts/space-actor-capability.mjs';
 import { useWebAccount } from './account-context';
@@ -40,16 +41,19 @@ export function SpaceMembersPanel() {
   const membersReadInFlight = useRef<{ spaceId: string; cursor: string | null; append: boolean } | null>(null);
   const capabilityReadGeneration = useRef(0);
   const attempts = useRef(createScopedMemberActionAttempts(() => crypto.randomUUID()));
+  const pageAnchors = useRef(createMemberPageAnchors());
   const lastKnownSubject = useRef<string | null>(subjectId);
   const actionGeneration = useRef(0);
   const pendingAction = useRef(false);
   const [items, setItems] = useState<readonly SpaceMember[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [windowCursor, setWindowCursor] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [capabilityState, setCapabilityState] = useState<LoadState>('idle');
   const [capability, setCapability] = useState<ActorCapability | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   async function readPage(targetSpaceId: string, cursor: string | null, append: boolean) {
     const pending = membersReadInFlight.current;
@@ -60,6 +64,7 @@ export function SpaceMembersPanel() {
     try {
       const page = await members.list({ spaceId: targetSpaceId, cursor });
       if (currentSpace.current !== targetSpaceId || membersReadGeneration.current !== generation) return;
+      pageAnchors.current.record({ cursor, members: page.members, append });
       setItems(previous => append ? [...previous, ...page.members] : page.members);
       setNextCursor(page.nextCursor);
       setLoadState('ready');
@@ -86,14 +91,16 @@ export function SpaceMembersPanel() {
     }
   }
 
-  async function reloadRemoteState(targetSpaceId: string) {
-    // Full refresh supersedes an in-flight append, even for the same Space.
+  async function reloadRemoteState(targetSpaceId: string, cursor: string | null = null) {
+    // Re-query only this page window. Never mix pre-mutation rows with fresh results.
     membersReadGeneration.current += 1;
     membersReadInFlight.current = null;
+    pageAnchors.current.reset();
+    setWindowCursor(cursor);
     setItems([]);
     setNextCursor(null);
     await Promise.all([
-      readPage(targetSpaceId, null, false),
+      readPage(targetSpaceId, cursor, false),
       readCapability(targetSpaceId),
     ]);
   }
@@ -102,18 +109,23 @@ export function SpaceMembersPanel() {
     if (spaceId === null || subjectId === null || offline || !capability?.canManageMembers || pendingAction.current || actionPending !== null || !isProjectedActionAllowed(member, action, role)) return;
     const generation = actionGeneration.current;
     const isCurrent = () => currentSpace.current === spaceId && actionGeneration.current === generation;
+    const returnCursor = pageAnchors.current.cursorFor(member.userId);
     const attempt = attempts.current.begin({ subjectId, spaceId, action, targetUserId: member.userId, role: role ?? null });
     const key = [action, member.userId, role ?? null].join(':');
     pendingAction.current = true;
     setActionPending(key);
     setActionError(null);
+    setActionNotice(null);
     try {
       if (action === 'change-role' && role) await membershipActions.changeMemberRole(spaceId, member.userId, role, attempt.idempotencyKey);
       else if (action === 'suspend') await membershipActions.suspendMember(spaceId, member.userId, attempt.idempotencyKey);
       else if (action === 'reactivate') await membershipActions.reactivateMember(spaceId, member.userId, attempt.idempotencyKey);
       else if (action === 'remove') await membershipActions.removeMember(spaceId, member.userId, attempt.idempotencyKey);
       attempt.confirm();
-      if (isCurrent()) await reloadRemoteState(spaceId);
+      if (isCurrent()) {
+        await reloadRemoteState(spaceId, returnCursor);
+        if (isCurrent()) setActionNotice('Ação confirmada pelo servidor. O trecho da lista foi consultado novamente; se a leitura falhar, tente novamente.');
+      }
     } catch {
       if (isCurrent()) {
         setActionError('A ação não foi confirmada pelo servidor. Você pode tentar novamente; a mesma tentativa reutilizará a chave de idempotência.');
@@ -141,13 +153,16 @@ export function SpaceMembersPanel() {
     currentSpace.current = spaceId;
     membersReadGeneration.current += 1;
     membersReadInFlight.current = null;
+    pageAnchors.current.reset();
     capabilityReadGeneration.current += 1;
     actionGeneration.current += 1;
     pendingAction.current = false;
     setItems([]);
     setNextCursor(null);
+    setWindowCursor(null);
     setCapability(null);
     setActionError(null);
+    setActionNotice(null);
     setActionPending(null);
     if (spaceId === null || offline) {
       setLoadState('idle');
@@ -177,9 +192,10 @@ export function SpaceMembersPanel() {
         : capabilityState === 'ready' ? <span>Modo somente leitura para esta sessão.</span> : null}
     </div>}
     {actionError && <div className="meridian-space-members-action-error" role="alert">{actionError}</div>}
+    {actionNotice && <p className="meridian-space-members-confirmation" role="status">{actionNotice}</p>}
     {offline ? <div className="meridian-space-members-state" role="status"><strong>Sem conexão</strong><span>Reconecte para consultar os membros deste Space.</span></div>
       : initialLoading ? <div className="meridian-space-members-state" role="status"><strong>Consultando membros…</strong><span>A lista vem do serviço autorizado da sua conta.</span></div>
-      : loadState === 'error' && items.length === 0 ? <div className="meridian-space-members-state" role="alert"><strong>Não foi possível consultar os membros.</strong><span>O Space continua selecionado, mas a lista não será simulada.</span><Button variant="outline" onClick={() => void readPage(spaceId, null, false)}>Tentar novamente</Button></div>
+      : loadState === 'error' && items.length === 0 ? <div className="meridian-space-members-state" role="alert"><strong>Não foi possível consultar os membros.</strong><span>O Space continua selecionado, mas a lista não será simulada.</span><Button variant="outline" onClick={() => void readPage(spaceId, windowCursor, false)}>Tentar novamente</Button>{windowCursor !== null && <Button variant="outline" onClick={() => { setActionNotice(null); void reloadRemoteState(spaceId); }}>Voltar ao início</Button>}</div>
       : <>
         {items.length > 0 ? <div className="meridian-space-members-list" role="list" aria-label="Membros carregados">{items.map(member => {
           const memberRole = String(member.role);
@@ -199,12 +215,14 @@ export function SpaceMembersPanel() {
             </div>}
           </article>;
         })}</div>
-          : <div className="meridian-space-members-state" role="status"><strong>Nenhum membro retornado.</strong><span>Esta é a resposta real do serviço para o Space selecionado.</span></div>}
+          : <div className="meridian-space-members-state" role="status"><strong>{windowCursor === null ? 'Nenhum membro retornado.' : 'Nenhum membro neste trecho.'}</strong><span>Esta é a resposta real do serviço para o trecho consultado. Você pode voltar ao início.</span></div>}
         <footer>
           <span>{items.length} {items.length === 1 ? 'membro carregado' : 'membros carregados'}{nextCursor ? ' · há mais resultados' : ''}</span>
+          {windowCursor !== null && <span className="meridian-space-members-window">Trecho da lista consultado após a última alteração.</span>}
           {loadState === 'error' && items.length > 0 && <span role="alert">Não foi possível carregar a próxima página. Os membros já carregados foram preservados.</span>}
           {nextCursor && <Button variant="outline" disabled={loadingMore || actionPending !== null} onClick={() => void readPage(spaceId, nextCursor, true)}>{loadingMore ? 'Carregando…' : loadState === 'error' ? 'Tentar página novamente' : 'Carregar mais'}</Button>}
-          {loadState !== 'loading' && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (!membersReadInFlight.current && !pendingAction.current) void reloadRemoteState(spaceId); }}>Atualizar lista</Button>}
+          {loadState !== 'loading' && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (!membersReadInFlight.current && !pendingAction.current) { setActionNotice(null); void reloadRemoteState(spaceId, windowCursor); } }}>{windowCursor === null ? 'Atualizar lista' : 'Atualizar trecho'}</Button>}
+          {windowCursor !== null && loadState !== 'loading' && <Button variant="outline" disabled={actionPending !== null} onClick={() => { if (!membersReadInFlight.current && !pendingAction.current) { setActionNotice(null); void reloadRemoteState(spaceId); } }}>Voltar ao início</Button>}
         </footer>
       </>}
   </section>;
