@@ -77,15 +77,18 @@ test("Native verified Store adapter exposes only authority-free snapshot port", 
   ]) {
     assert.equal(runtime.port[forbidden], undefined);
   }
-  assert.deepEqual(calls, [{
-    url: "/__ordax/native/store-catalog",
-    options: {
-      method: "GET",
-      cache: "no-store",
-      credentials: "same-origin",
-      redirect: "error",
-    },
-  }]);
+  assert.equal(calls.length, 1);
+  const [{ url, options }] = calls;
+  const { signal, ...requestOptions } = options;
+  assert.equal(url, "/__ordax/native/store-catalog");
+  assert.equal(signal instanceof AbortSignal, true);
+  assert.equal(signal.aborted, false);
+  assert.deepEqual(requestOptions, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+    redirect: "error",
+  });
   runtime.destroy();
 });
 
@@ -199,4 +202,60 @@ test("destroy during outstanding Native read leaves no usable catalog", async ()
   assert.equal(runtime.port.getSnapshot().state, "unavailable");
   assert.equal(runtime.port.getSnapshot().reason, "native-store-catalog-disposed");
   assert.deepEqual(runtime.port.getSnapshot().entries, []);
+});
+
+test("an uncooperative Native catalog read has a bounded deadline and cannot expose stale candidates", async () => {
+  let abortedSignal = null;
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    fetch(_url, options) {
+      abortedSignal = options.signal;
+      return new Promise(() => {}); // Host transport ignores AbortSignal.
+    },
+  }, { timeoutMs: 15 });
+  const snapshot = runtime.port.getSnapshot();
+  assert.equal(snapshot.state, "unavailable");
+  assert.equal(snapshot.reason, "native-store-catalog-unavailable");
+  assert.deepEqual(snapshot.entries, []);
+  assert.equal(abortedSignal.aborted, true);
+  runtime.destroy();
+});
+
+test("superseding or destroying a noncooperative catalog read settles its pending refresh", async () => {
+  let fetchCount = 0;
+  let abandonedSignal = null;
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    async fetch(_url, options) {
+      fetchCount += 1;
+      if (fetchCount === 2) {
+        abandonedSignal = options.signal;
+        return new Promise(() => {});
+      }
+      return response(ready(fetchCount + 3));
+    },
+  }, { timeoutMs: 2_000 });
+
+  const abandoned = runtime.refresh();
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  const newer = runtime.refresh();
+  await newer;
+  await abandoned;
+  assert.equal(abandonedSignal.aborted, true);
+  assert.equal(runtime.port.getSnapshot().state, "ready");
+  assert.equal(runtime.port.getSnapshot().sequence, 7);
+
+  const originalFetch = runtime.port.getSnapshot();
+  // Another unresolved Native read must not keep destroy() pending.
+  // A separate runtime is not necessary: the same adapter enforces teardown.
+  assert.equal(originalFetch.state, "ready");
+  runtime.destroy();
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  assert.equal(fetchCount, 3);
+});
+
+test("catalog deadline setting fails closed for invalid and unbounded values", async () => {
+  for (const invalid of [0, -1, 30_001, 2.5, Infinity, "5000", NaN]) {
+    await assert.rejects(createNativeVerifiedAppStoreCatalog({
+      async fetch() { throw new Error("must never fetch"); },
+    }, { timeoutMs: invalid }), /bounded positive integer/);
+  }
 });
