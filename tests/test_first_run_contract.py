@@ -2,6 +2,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 import json
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -202,6 +204,63 @@ class FirstRunContractTests(unittest.TestCase):
             self.assertEqual(count, 2)
             self.assertEqual(host.read_first_run_state(), completed)
             self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def test_native_first_run_completion_survives_fresh_native_process(self):
+        # Real native host implementation and real on-disk receipt; no mocked
+        # transport. The writer exits without Python shutdown hooks so a fresh
+        # interpreter must recover the fsynced state from durable bytes.
+        program = """
+import importlib.util
+import os
+import pathlib
+import sys
+spec = importlib.util.spec_from_file_location('ordax_native_restart_proof', sys.argv[1])
+host = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(host)
+host.FIRST_RUN_FILE = sys.argv[2]
+mode = sys.argv[3]
+if mode == 'write':
+    saved = {
+        **host.initial_first_run_state(),
+        'completed': True,
+        'accountMode': 'local-only',
+    }
+    host.write_first_run_state(saved)
+    os._exit(0)
+if mode == 'read':
+    saved = host.read_first_run_state()
+    if not host.valid_first_run_state(saved) or not saved.get('completed') or saved.get('accountMode') != 'local-only':
+        raise SystemExit('Native First Run completion was not recovered')
+    try:
+        host.write_first_run_state(host.initial_first_run_state())
+    except ValueError:
+        pass
+    else:
+        raise SystemExit('Native First Run reset was not blocked after restart')
+    if host.read_first_run_state() != saved:
+        raise SystemExit('Native First Run changed during rejected rollback')
+    print('NATIVE_FIRST_RUN_RESTART_OK')
+    raise SystemExit(0)
+raise SystemExit('Unknown subprocess proof mode')
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            receipt = Path(directory) / "first-run.json"
+            for mode in ("write", "read"):
+                child = subprocess.run(
+                    [sys.executable, "-c", program, str(HOST_SERVER), str(receipt), mode],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                if mode == "read":
+                    self.assertEqual(child.stdout.strip(), "NATIVE_FIRST_RUN_RESTART_OK")
+            recovered = json.loads(receipt.read_text(encoding="utf-8"))
+            self.assertTrue(recovered["completed"])
+            self.assertEqual(recovered["accountMode"], "local-only")
+            self.assertFalse("subjectId" in recovered)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+            self.assertEqual(stat.S_IMODE(receipt.stat().st_mode), 0o600)
 
     def test_native_adapter_and_host_use_separate_first_run_endpoint(self):
         adapter = ADAPTER.read_text(encoding="utf-8")
