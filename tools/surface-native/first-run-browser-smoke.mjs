@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // First-run DOM integration proof using real ESM modules in disposable Chromium.
 import {readFile} from 'node:fs/promises';
+import {createServer} from 'node:http';
 import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
 import {runBrowser} from '../browser-proof/chromium.mjs';
 const ROOT=resolve('.');
@@ -28,14 +29,48 @@ async function sources() {
     .replace(DYNAMIC,(all,sub)=>all.replace(sub,key(dependency(p,sub))))
  ]));
 }
-async function scenario(modules,css) {
+
+const SYMBOL_PATH='system/surface/ui/brand/ordax-symbol.png';
+
+// Serve the exact checked-out ESM sources and canonical brand asset from one
+// ephemeral loopback origin. A blob:null module cannot resolve import.meta.url
+// relative assets; an actual Native/Web Surface has a hierarchical origin.
+async function createProofSourceServer(modules) {
+ const symbol=await readFile(join(ROOT,SYMBOL_PATH));
+ const server=createServer((request,response)=>{
+  let path;
+  try { path=decodeURIComponent(new URL(request.url??'/', 'http://127.0.0.1').pathname.slice(1)); }
+  catch { response.writeHead(400);response.end();return; }
+  const isModule=Object.hasOwn(modules,path);
+  if(!isModule && path!==SYMBOL_PATH){response.writeHead(404);response.end();return;}
+  response.writeHead(200,{
+   'Content-Type':isModule?'text/javascript; charset=utf-8':'image/png',
+   'Access-Control-Allow-Origin':'*',
+   'Cache-Control':'no-store',
+   'X-Content-Type-Options':'nosniff',
+  });
+  response.end(isModule?modules[path]:symbol);
+ });
+ await new Promise((resolvePromise,reject)=>{
+  server.once('error',reject);
+  server.listen(0,'127.0.0.1',resolvePromise);
+ });
+ const address=server.address();
+ if(!address || typeof address==='string')throw Error('Proof source server has no port');
+ return {
+  origin:'http://127.0.0.1:'+address.port,
+  close:()=>new Promise(resolvePromise=>server.close(resolvePromise)),
+ };
+}
+
+async function scenario(modules,css,origin) {
  document.open();
  document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><main id="proof-root"></main></body></html>');
  document.close();
  const style=document.createElement('style');style.textContent=css;document.head.append(style);
  const urls={},map={};
- for(const [path,source] of Object.entries(modules)) {
-  urls[path]=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+ for(const path of Object.keys(modules)) {
+  urls[path]=origin+'/'+path.split('/').map(encodeURIComponent).join('/');
   map['ordax-oobe/'+path.split('/').map(encodeURIComponent).join('/')]=urls[path];
  }
  const script=document.createElement('script');script.type='importmap';
@@ -223,18 +258,26 @@ async function scenario(modules,css) {
  checks.retryIsDurable=storage.state.completed && storage.writes.length===1 && !document.querySelector('.ordax-first-run');
  checks.failedWriteWasNotCached=storage.posts===2
   && (await storage.freshStateStore()).load().completed===true;
- for(const url of Object.values(urls))URL.revokeObjectURL(url);
+ // HTTP module URLs and the canonical image are disposed with the source server.
  const failed=Object.entries(checks).filter(([,pass])=>!pass).map(([name])=>name);
  return {passed:failed.length===0,assertions:Object.keys(checks).length,failed,checks};
 }
 const modules=await sources();
 const css=(await Promise.all(['system/surface/ui/tokens.css','system/surface/ui/first-run.css'].map(p=>readFile(join(ROOT,p),'utf8')))).join('\n');
-const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+')';
-runBrowser(async client=>{
- const response=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});
- if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description??response.exceptionDetails.text);
- const result=response.result?.value;
- if(!result?.passed)throw Error('OOBE browser assertions: '+JSON.stringify(result));
- console.log('ORDAX_FIRST_RUN_CHROMIUM_E2E=PASS');
- console.log('ORDAX_FIRST_RUN_ASSERTIONS='+result.assertions);
-}).catch(error=>{console.error(error);process.exitCode=1;});
+const server=await createProofSourceServer(modules);
+const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+','+JSON.stringify(server.origin)+')';
+try {
+ await runBrowser(async client=>{
+  const response=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});
+  if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description??response.exceptionDetails.text);
+  const result=response.result?.value;
+  if(!result?.passed)throw Error('OOBE browser assertions: '+JSON.stringify(result));
+  console.log('ORDAX_FIRST_RUN_CHROMIUM_E2E=PASS');
+  console.log('ORDAX_FIRST_RUN_ASSERTIONS='+result.assertions);
+ });
+} catch (error) {
+ console.error(error);
+ process.exitCode=1;
+} finally {
+ await server.close();
+}
