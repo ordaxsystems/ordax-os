@@ -962,9 +962,13 @@ test("account A offline appearance and portable intent stays partitioned across 
 
   preferences.set("appearance.theme", "light");
   preferences.set("accessibility.contrast", "standard");
+  workspace.store.save({ ...workspace.store.load(), activeAreaId: "area-2" });
   await new Promise(resolve => setImmediate(resolve));
   const pendingA = registry.open("portable-pending", { partitionKey: "account-A" }).load();
   assert.ok(pendingA, "A's pending portable intent must use its own durable slot");
+  assert.deepEqual(JSON.parse(pendingA).mutations.map(x => x.objectId).sort(), [
+    "preferences/surface", "workspace/portable",
+  ]);
   assert.ok(registry.open("appearance", { partitionKey: "account-A" }).load());
   const mutationA = first.appearance.pendingMutations();
   assert.equal(mutationA.length, 1);
@@ -993,6 +997,7 @@ test("account A offline appearance and portable intent stays partitioned across 
   await rebooted.account.flush();
   const after = transmissions.filter(x => x.subject === "account-A");
   assert.ok(after.some(x => x.entry.objectId === "preferences/surface"));
+  assert.ok(after.some(x => x.entry.objectId === "workspace/portable"));
   assert.ok(after.some(x => x.entry.objectId === "appearance/theme"));
   assert.equal(transmissions.some(x => x.subject === "account-B"), false);
   rebooted.destroy();
@@ -1076,4 +1081,38 @@ test("a refused device write never authorizes offline pending appearance or port
   assert.equal(account.getSnapshot().queuePersistence, "session");
   account.destroy();
   appearance.destroy();
+});
+
+test("corrupt subject-bound portable queue prevents replay without destroying its evidence", async () => {
+  const root = partitionedPhysicalStore();
+  const registry = createSyncStateNamespaceRegistry(root);
+  const corrupted = registry.open("portable-pending", { partitionKey: "account-A" });
+  corrupted.save("{invalid-portable-queue");
+  const identity = changingIdentity();
+  const prefs = preferencesRuntime();
+  const preferenceSync = createPreferenceSyncRuntime(prefs, {
+    identitySession: identity, syncStateRegistry: registry,
+    createIdempotencyKey: keyFactory("corrupt-pref"),
+  });
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  let requests = 0;
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() { requests++; return { cursor: 0, objects: [] }; },
+    async pullChanges({ afterCursor }) { requests++; return { nextCursor: afterCursor, changes: [] }; },
+    async applyMutation() { requests++; throw Error("must not replay"); },
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: identity, syncStateRegistry: registry,
+    preferenceSync, preferences: prefs, transport,
+    workspaceMetadataSource: bridge.source, workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("corrupt-portable"),
+  });
+  identity.change("account-A");
+  await sync.refresh();
+  assert.equal(sync.getSnapshot().accountContinuity, "not-active");
+  assert.equal(requests, 0, "corruption must fail closed before any transport request");
+  assert.equal(corrupted.load(), "{invalid-portable-queue");
+  sync.destroy();
+  preferenceSync.destroy();
 });
