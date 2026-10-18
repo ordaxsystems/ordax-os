@@ -65,8 +65,10 @@ function sameCaller(a, b) {
 function verifiedCaller(value) {
   exactObject(value, ["appId", "publisherId", "packageSha256", "runtimeInstanceId", "accountId", "spaceId", "deviceId", "verified"],
     "Installed app caller");
-  if (value.verified !== true || !APP_ID_RE.test(value.appId)
-      || !SHA256_RE.test(value.packageSha256)
+  if (value.verified !== true
+      || typeof value.appId !== "string" || !APP_ID_RE.test(value.appId)
+      || typeof value.packageSha256 !== "string" || !SHA256_RE.test(value.packageSha256)
+      || typeof value.runtimeInstanceId !== "string"
       || !INSTANCE_RE.test(value.runtimeInstanceId)) {
     throw new TypeError("Installed app caller is not a verified package");
   }
