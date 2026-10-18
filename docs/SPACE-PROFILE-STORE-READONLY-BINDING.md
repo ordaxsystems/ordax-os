@@ -24,3 +24,5 @@ Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile
 ## CI baseline findings (2026-10-18)
 
 Foundation Contract and Surface Web Candidate failed on the branch for First Run tests unrelated to the added projector. The touched First Run source and smoke-test files have identical blob SHAs in `main` and this PR. Keep fixes to First Run in their owning code/PR, not in this projection, and do not bypass the CI gates.
+
+Resolution: PR #1972 corrected the First Run Chromium origin and strengthened its contract/layout assertions; it was merged to main before this PR's CI was revalidated.

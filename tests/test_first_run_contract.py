@@ -261,14 +261,14 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("getCurrentObservations()", composition)
         self.assertIn("currentObservations = Object.freeze([])", projection)
         self.assertIn('firstRunAppSelection.installedByThisPlan !== false', first_run)
-        self.assertIn("Nenhum aplicativo adicional foi instalado.", first_run)
+        self.assertIn("Esta lista é informativa e não instala aplicativos.", first_run)
         self.assertNotIn("installApp(", first_run)
         for text in (
             "Aplicativos essenciais",
-            "Pacotes independentes confirmados:",
+            "Aplicativos independentes verificados:",
             "Candidatos verificados para futura distribuição:",
-            "Remoção preservada ou fora do primeiro uso:",
-            "Ainda sem comprovação de distribuição:",
+            "Removidos ou fora desta configuração:",
+            "Distribuição ainda não verificada:",
         ):
             self.assertEqual(translated.count(json.dumps(text, ensure_ascii=False) + ":"), 4)
 
