@@ -5,7 +5,10 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import tempfile
+import tarfile
+import stat
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "tools/ci/owner_rootfs_capabilities.py"
@@ -121,6 +124,36 @@ done
             source.symlink_to(root / "outside")
             with self.assertRaisesRegex(ValueError, "unsafe"):
                 capabilities.owner_runtime_helpers(root)
+
+    def test_offline_seed_materializes_every_canonical_helper(self) -> None:
+        spec = importlib.util.spec_from_file_location(
+            "ordax_owner_alpine_core_under_test",
+            ROOT / "bootstrap/base/alpine_core.py",
+        )
+        assert spec is not None and spec.loader is not None
+        core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(core)
+        with tempfile.TemporaryDirectory() as td:
+            directory = Path(td)
+            archive = directory / "kernel-modules.tar"
+            with tarfile.open(archive, "w"):
+                pass
+            rootfs = directory / "rootfs"
+            rootfs.mkdir()
+            with patch.object(core, "select_dev_module_members", return_value=[]):
+                core.install_runtime(rootfs, archive)
+            helpers = capabilities.owner_runtime_helpers(ROOT)
+            for source, target in helpers:
+                staged = rootfs / target
+                self.assertTrue(staged.is_file(), target)
+                self.assertFalse(staged.is_symlink(), target)
+                self.assertEqual(staged.read_bytes(), (ROOT / source).read_bytes(), target)
+                self.assertEqual(stat.S_IMODE(staged.stat().st_mode), 0o755, target)
+            self.assertEqual(
+                {str(path.relative_to(rootfs)).replace("\\", "/")
+                 for path in rootfs.rglob("*") if path.is_file()},
+                {target for _, target in helpers},
+            )
 
     def test_initial_alpine_seed_and_preflight_consume_canonical_manifest(self) -> None:
         core = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
