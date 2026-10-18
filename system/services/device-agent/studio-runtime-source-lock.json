@@ -2,12 +2,12 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "218e049cc1364e270c566f41de048725ec692c26",
+    "commit": "fe0727e21d24ab3fbc00df16194f229da191a6fc",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
-      "sha256": "9fe0d913a8f679bb79bb95549aa390373fcba12070d01557334951da9b3e5a1f",
-      "product_version": "0.4.2"
+      "sha256": "184bf7881b74ef9b7fc3e9e3d1ee0793550495c0d2e247e051902e122e18e7c9",
+      "product_version": "0.4.7"
     }
   },
   "runtime": {
