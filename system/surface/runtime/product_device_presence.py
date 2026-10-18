@@ -79,10 +79,11 @@ class ProductDevicePresenceClient:
 
 
 class ProductDevicePresenceWorker:
-    """One lifecycle-owned sender, started only after verified Native login.
+    """One Native Host-owned presence loop; no per-login worker duplication.
 
-    All retries and offline delivery use the same one worker. Its network
-    failures never block Surface, boot, account login or local Intelligence.
+    Logout disables discovery without blocking the account reply. Rapid
+    login/logout transitions reuse the same worker, so an old offline sender
+    cannot race a newly spawned online worker. Shutdown joins it briefly.
     """
 
     def __init__(self, client: ProductDevicePresenceClient, *, interval_seconds: float = 120.0):
@@ -90,41 +91,58 @@ class ProductDevicePresenceWorker:
             raise ValueError("invalid presence interval")
         self.client = client
         self.interval_seconds = float(interval_seconds)
-        self._stop = threading.Event()
+        self._wake = threading.Event()
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
+        self._enabled = False
+        self._closed = False
 
     def start(self) -> None:
         with self._lock:
-            if self._thread is not None and self._thread.is_alive():
-                if not self._stop.is_set():
-                    return
-                # A previous logout is finishing its offline report. Do not
-                # reuse a stopped worker or overlap two device writers.
-                self._thread.join(timeout=11.0)
-                if self._thread.is_alive():
-                    raise ProductDevicePresenceError("device-presence-worker-stopping")
-            self._stop.clear()
-            worker = threading.Thread(target=self._run, name="ordax-product-presence", daemon=True)
-            self._thread = worker
-            worker.start()
+            if self._closed:
+                raise ProductDevicePresenceError("device-presence-worker-closed")
+            self._enabled = True
+            if self._thread is None:
+                self._thread = threading.Thread(
+                    target=self._run, name="ordax-product-presence", daemon=True,
+                )
+                self._thread.start()
+        self._wake.set()
 
-    def _run(self) -> None:
-        while not self._stop.is_set():
-            try:
-                self.client.report(True)
-            except (OSError, ValueError, ProductDevicePresenceError):
-                pass
-            if self._stop.wait(self.interval_seconds):
-                break
+    def _report(self, online: bool) -> None:
         try:
-            self.client.report(False)
+            self.client.report(online)
         except (OSError, ValueError, ProductDevicePresenceError):
             pass
 
+    def _run(self) -> None:
+        last_reported_state: bool | None = None
+        while True:
+            with self._lock:
+                enabled = self._enabled and not self._closed
+                closing = self._closed
+
+            if enabled:
+                self._report(True)
+                last_reported_state = True
+            elif last_reported_state is not False:
+                # Also send offline at shutdown, even if the first online
+                # heartbeat was interrupted by a crash or network failure.
+                self._report(False)
+                last_reported_state = False
+
+            if closing:
+                return
+
+            self._wake.wait(self.interval_seconds if enabled else None)
+            self._wake.clear()
+
     def stop(self, *, wait: bool = False) -> None:
         with self._lock:
-            self._stop.set()
+            self._enabled = False
+            if wait:
+                self._closed = True
             thread = self._thread
+        self._wake.set()
         if wait and thread is not None and thread is not threading.current_thread():
             thread.join(timeout=11.0)
