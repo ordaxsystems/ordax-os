@@ -431,6 +431,11 @@ export function createVerifiedAppStoreProjection({
       activeRefresh = null;
       currentObservations = Object.freeze([]);
       unsubscribeCatalog?.();
+      // A retained read-only Store port must fail closed after its runtime
+      // owner exits. Clearing listeners alone kept the last installable
+      // snapshot visible to other consumers after teardown.
+      snapshot = unavailable("verified-store-projection-disposed");
+      for (const listener of [...listeners]) listener(snapshot);
       listeners.clear();
     },
   });
