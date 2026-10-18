@@ -20,6 +20,32 @@ normais. **Não é um teste de hardware USB, de dados reais do App Data,
 quiescência de processos, recuperação do formato persistente ou integração
 de uma release assinada publicamente.** Esses gates continuam separados.
 
+## Limite da autorização física ao alterar a composição Native
+
+A integração de `expectedActivation` modifica
+`system/composition/native/main.mjs`, que integra o conjunto de fontes
+protegidas pelo contexto de autorização de gravação USB de
+`tools/creator/physical_promotion.py`. A autorização anterior do
+proprietário foi vinculada a **outros bytes** e não é válida para esta
+geração do código. Neste candidato, o único documento canônico
+`docs/contracts/physical-write-authorization.json` permanece no estágio
+`blocked-explicit-physical-authorization-pending`, com
+`explicit_owner_authorization:false`, `physical_write_allowed:false` e
+`authorization_context_sha256:null`. Os hashes de assinatura, a prova
+canônica de release e os demais bindings de integridade permanecem
+inalterados; o recibo anterior pode ser consultado no histórico Git,
+não em uma segunda autoridade.
+
+Esse estágio permite verificar contratos de software de maneira honesta,
+mas **não permite gerar um payload físico autorizado nem escrever no
+pendrive**. Após fechar o código e os gates, uma nova autorização deve
+ser preparada por `tools/creator/authorize_physical_write.py` e
+explicitamente confirmada pelo proprietário com o escopo e a sequência
+exatos, seguindo o fluxo oficial de três confirmações; só então a etapa
+física independente poderá ser considerada. Não copiar o hash antigo,
+não autorizar automaticamente no CI e não interpretar `QEMU PASS`
+como permissão para gravação.
+
 ## Proteção contra replay entre gerações da instalação
 
 A Loja emite somente planos `ordax.app-lifecycle-plan/2` que carregam a
