@@ -29,20 +29,6 @@
 .meridian-hero p:not(.meridian-eyebrow) {font-size:0.75rem;color:#f3f3e8;}
 .meridian-hero button {display:inline-flex;align-items:center;gap:20px;min-height:44px;padding:10px 14px;background:var(--md-canvas);color:var(--md-ink);border-radius:8px;border:0;margin-top:18px;font-size:0.6875rem;}
 .meridian-hero-caption {position:absolute;bottom:20px;right:24px;font-size:0.625rem;letter-spacing:.07em;}
-.meridian-session-strip {display:flex;align-items:center;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--md-border);padding:0 0 16px;margin-bottom:20px;color:var(--md-muted);font-size:0.75rem;}
-.meridian-session-strip>span,.meridian-session-strip button {display:flex;gap:7px;align-items:center;}
-.meridian-session-strip button {padding:0;border:0;background:transparent;}
-.meridian-mock-badge {display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;padding:3px 7px;background:var(--md-subtle);color:var(--md-muted);border:1px solid var(--md-border);border-radius:5px;font-size:0.5625rem;font-weight:450;line-height:1.4;}
-.meridian-session-strip>.meridian-mock-badge {margin-left:auto;}
-.meridian-command {display:grid;grid-template-columns:48px minmax(0,1fr);gap:0 12px;border:1px solid var(--md-border);border-radius:14px;padding:16px 20px;background:var(--md-surface);}
-.meridian-command-icon {grid-row:1/3;width:44px;height:44px;border-radius:14px;background:var(--md-sage-soft);color:var(--md-sage);display:grid;place-items:center;}
-.meridian-command form {display:flex;align-items:center;gap:10px;}
-.meridian-command input {min-height:44px;flex:1;width:0;min-width:0;outline:none;border:0;background:transparent;font:inherit;color:var(--md-ink);}
-.meridian-command form button {min-width:44px;min-height:44px;display:grid;place-items:center;background:transparent;border:0;padding:8px;border-radius:8px;}
-.meridian-command form button[type=submit] {background:var(--md-ink);color:var(--md-canvas);}
-.meridian-command>small {display:flex;align-items:center;gap:8px;font-size:0.5625rem;color:var(--md-muted);margin-top:8px;flex-wrap:wrap;}
-.meridian-command small i {width:3px;height:3px;background:var(--md-sage);border-radius:50%;}
-.meridian-command small button {display:flex;align-items:center;gap:5px;padding:0;border:0;background:transparent;margin-left:auto;font-size:0.5625rem;}
 .meridian-tabs {display:flex;gap:28px;border-bottom:1px solid var(--md-border);margin:26px 0;}
 .meridian-tabs button {min-height:44px;border:0;border-bottom:2px solid transparent;background:transparent;padding:12px 0;font-size:0.8125rem;color:var(--md-muted);}
 .meridian-tabs button[aria-pressed=true] {border-color:var(--md-accent);color:var(--md-ink);font-weight:600;}
@@ -172,8 +158,6 @@
 .desktop-window-body:has(>.meridian-spaces-experience){padding:0}
 
 /* Integration state is presentation only; ports and canonical authorization remain owners. */
-.meridian-workspace .meridian-integration-status{display:inline-flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--md-danger) 28%,var(--md-border));border-radius:6px;padding:3px 8px;background:color-mix(in srgb,var(--md-danger) 6%,var(--md-surface));color:var(--md-danger);font-size:.6875rem;line-height:1.5;white-space:normal;max-width:100%}
-.meridian-workspace .meridian-integration-status::before{content:'';width:5px;height:5px;flex-shrink:0;border-radius:50%;background:currentColor}
 .meridian-workspace .meridian-integration-note summary>.meridian-integration-status{margin:8px 8px 8px 0}
 .meridian-workspace .wm-topic-status,.meridian-workspace .wm-mock-label{color:var(--md-danger)}
 .os-panel.meridian-account-spaces{min-width:0;width:100%;max-width:1240px;padding:24px;margin:0 auto}.meridian-spaces-context-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.meridian-account-spaces-scope{font-size:.8125rem;line-height:1.7;color:var(--md-muted);margin:0 0 18px}

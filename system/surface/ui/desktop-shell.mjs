@@ -188,6 +188,21 @@ export function createDesktopShellMarkup(localization) {
                 <button type="button" class="ordax-welcome-action" data-launcher-toggle><span class="ordax-rail-icon">${ICONS.apps}</span><span data-home-hero-action>${t("shell.home.hero.action")}</span></button>
               </div>
             </section>
+            <div class="meridian-session-strip" role="group" aria-label="${t("shell.home.session.aria")}">
+              <span><span class="ordax-rail-icon">${ICONS.system}</span><span data-native-session-label>${t("shell.home.session.native")}</span></span>
+              <button type="button" data-launch-app="account"><span class="ordax-rail-icon">${ICONS.account}</span><span data-native-session-account>${t("shell.home.session.account")}</span></button>
+              <button type="button" data-launch-app="store"><span class="ordax-rail-icon">${ICONS.store}</span><span data-native-session-store>${t("shell.home.session.store")}</span></button>
+              <button type="button" class="meridian-integration-status" data-launch-app="settings"><span data-native-session-pending>${t("shell.home.session.pending")}</span></button>
+            </div>
+            <section class="meridian-command meridian-native-command" aria-label="${t("shell.home.aura.aria")}">
+              <span class="meridian-command-icon">${ICONS.aura}</span>
+              <div class="meridian-command-input-row">
+                <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" placeholder="${t("shell.home.aura.placeholder")}" disabled>
+                <button type="button" data-native-aura-voice disabled aria-label="${t("shell.home.aura.voice")}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg></button>
+                <button type="button" class="meridian-command-send" data-native-aura-send disabled aria-label="${t("shell.home.aura.send")}">${ICONS.arrow}</button>
+              </div>
+              <small>Intelligence <i aria-hidden="true"></i><span class="meridian-integration-status" data-native-aura-backend>${t("shell.home.aura.backend")}</span><span data-native-aura-description>${t("shell.home.aura.pendingDescription")}</span></small>
+            </section>
             <div class="ordax-home-meta" role="group" aria-label="${t("shell.home.datetime")}">
               <span class="ordax-home-meta-icon" aria-hidden="true">${ICONS.clock}</span>
               <span class="ordax-home-meta-copy"><time class="ordax-clock" data-ordax-clock>--:--</time>
@@ -341,6 +356,21 @@ export function syncDesktopShellLocalization(root, localization) {
   text("[data-home-hero-action]", "shell.home.hero.action");
   root.querySelector(".ordax-home-meta")?.setAttribute("aria-label", t("shell.home.datetime"));
   text("#ordax-home-actions-title", "shell.home.quickAccess");
+  aria(".meridian-session-strip", "shell.home.session.aria");
+  text("[data-native-session-label]", "shell.home.session.native");
+  text("[data-native-session-account]", "shell.home.session.account");
+  text("[data-native-session-store]", "shell.home.session.store");
+  text("[data-native-session-pending]", "shell.home.session.pending");
+  aria(".meridian-native-command", "shell.home.aura.aria");
+  const nativeAuraPrompt = root.querySelector("[data-native-aura-prompt]");
+  if (nativeAuraPrompt) {
+    nativeAuraPrompt.placeholder = t("shell.home.aura.placeholder");
+    nativeAuraPrompt.setAttribute("aria-label", t("shell.home.aura.aria"));
+  }
+  aria("[data-native-aura-voice]", "shell.home.aura.voice");
+  aria("[data-native-aura-send]", "shell.home.aura.send");
+  text("[data-native-aura-backend]", "shell.home.aura.backend");
+  text("[data-native-aura-description]", "shell.home.aura.pendingDescription");
   for (const button of root.querySelectorAll("[data-launcher-toggle]")) {
     if (button.hasAttribute("data-meridian-search")) continue;
     if (button.hasAttribute("data-meridian-application-launcher")) {
