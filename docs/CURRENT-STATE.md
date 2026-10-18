@@ -2,7 +2,9 @@ Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
 SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
 runtime owns the canonical Product PostgreSQL `/v3/device/transport` workflow
-and central-session attestation. The OS reuses that provenance; it must not
+and central-session attestation. The Native Host can pass its private
+`ProductDeviceIdentityStore.read_enrolled_credential` as a provider to that
+same Runtime, with exact device-ID matching and no second token file. The OS reuses that provenance; it must not
 copy the claim/lease/report implementation or treat `ordax.intelligence/1`
 as a source of action grants. Source pinning **does not install** the headless
 runtime into the USB or enable device actions. Native action execution remains
