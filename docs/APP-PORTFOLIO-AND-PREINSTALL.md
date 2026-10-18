@@ -2,6 +2,24 @@
 
 Status: **política de seleção implementada; pré-instalação física e publicação pendentes de comprovação**. Esta decisão não altera o payload USB atual nem a instalação dos usuários. A implementação de seleção sem autoridade está em `system/services/apps/first-run-selection.mjs`, com testes em `tests/test_first_run_selection.mjs`.
 
+## Prova isolada do ciclo Native assinado
+
+O teste Go `TestSignedStoreRoundTripAcrossHealthUpdateRemovalAndOfflineReinstall`
+usa a mesma geração real de envelope Ed25519, slots `release/2`, writer CAS,
+verificação de assinatura, estado `pending-health`, registro de probation,
+promoção e remoção. Em um diretório temporário isolado, executa
+instalação saudável → atualização com saúde falha (mantém a versão anterior)
+→ atualização saudável → rejeição de remoção antiga → remoção explícita
+→ releitura do tombstone → retry idempotente da mesma remoção
+→ reinstalação offline do slot assinado preservado → rejeição de replay antigo.
+A cada etapa, recarrega `activation-state.json` pelo leitor Go e verifica
+que um arquivo de usuário sentinela, fora do grafo de slots, permanece intacto.
+
+A prova roda pelo workflow `Runtime Component Candidate` com os testes Go
+normais. **Não é um teste de hardware USB, de dados reais do App Data,
+quiescência de processos, recuperação do formato persistente ou integração
+de uma release assinada publicamente.** Esses gates continuam separados.
+
 ## Proteção contra replay entre gerações da instalação
 
 A Loja emite somente planos `ordax.app-lifecycle-plan/2` que carregam a
