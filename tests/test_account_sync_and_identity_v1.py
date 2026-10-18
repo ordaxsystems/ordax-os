@@ -1,9 +1,11 @@
 import json
+import os
 import runpy
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SYNC_CONTRACT = ROOT / "docs" / "contracts" / "sync-model.json"
@@ -303,6 +305,23 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             worker.join(timeout=3)
+
+    def test_two_client_proof_rejects_sensitive_and_malformed_gateway_urls(self):
+        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
+        for origin in (
+            "https://name:secret@example.com/functions/v1/ordax-account-gateway",
+            "https://example.com:bogus/functions/v1/ordax-account-gateway",
+            "https://example.com/functions/v1/ordax-account-gateway?token=secret",
+            "http://example.com/functions/v1/ordax-account-gateway",
+        ):
+            with self.subTest(origin=origin.split("?")[0].split("@")[-1]):
+                with patch.dict(os.environ, {
+                    "ORDAX_PROOF_ACCOUNT_EMAIL": "synthetic@example.invalid",
+                    "ORDAX_PROOF_ACCOUNT_PASSWORD": "synthetic",
+                    "ORDAX_ACCOUNT_GATEWAY_BASE_URL": origin,
+                }):
+                    with self.assertRaisesRegex(SystemExit, "invalid-gateway-url"):
+                        scope["main"]()
 
     def test_session_revocation_proof_keeps_credentials_and_tokens_ephemeral(self):
         text = SESSION_REVOCATION_PROOF.read_text(encoding="utf-8")
