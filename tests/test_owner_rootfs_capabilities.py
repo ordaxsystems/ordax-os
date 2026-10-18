@@ -100,8 +100,8 @@ done
             manifest.parent.mkdir(parents=True)
             source = root / "bootstrap/dev-base/ordax-run"
             source.parent.mkdir(parents=True)
-            source.write_text("#!/bin/sh\\nexit 0\\n", encoding="utf-8")
-            good = "bootstrap/dev-base/ordax-run\\tusr/local/bin/ordax-run\\n"
+            source.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            good = "bootstrap/dev-base/ordax-run\tusr/local/bin/ordax-run\n"
             manifest.write_text(good, encoding="utf-8")
             self.assertEqual(
                 capabilities.owner_runtime_helpers(root),
@@ -111,7 +111,7 @@ done
             with self.assertRaisesRegex(ValueError, "conflicting"):
                 capabilities.owner_runtime_helpers(root)
             manifest.write_text(
-                "bootstrap/dev-base/../ordax-run\\tusr/local/bin/ordax-run\\n",
+                "bootstrap/dev-base/../ordax-run\tusr/local/bin/ordax-run\n",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "unsafe"):
