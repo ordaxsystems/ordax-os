@@ -694,6 +694,37 @@ test("irrelevant signed Store metadata cannot silently switch requested entry be
   assert.equal(delegated, 0);
 });
 
+
+test("malformed Store projections reject and preserve idempotent denial without Native calls", async () => {
+  for (const invalidOwner of ["catalog", "verified"]) {
+    let corrupt = false;
+    let delegated = 0;
+    const runtime = createAppLifecycleRequestService({
+      catalogPort: Object.freeze({
+        schema: APP_STORE_CATALOG_PORT_SCHEMA,
+        authority: "none",
+        getSnapshot() { return corrupt && invalidOwner === "catalog" ? { invalid: true } : ready(); },
+        subscribe() { return () => {}; },
+      }),
+      verifiedCatalogPort: Object.freeze({
+        schema: VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA,
+        authority: "none",
+        getSnapshot() { return corrupt && invalidOwner === "verified" ? { invalid: true } : verifiedReady(); },
+        subscribe() { return () => {}; },
+      }),
+      lifecycleDelegate: delegate((plan) => { delegated += 1; return resultFor(plan); }),
+    });
+    corrupt = true;
+    const ask = request("install", { requestId: "store:install:notes:invalid-" + invalidOwner });
+    const denied = await runtime.requestLifecycle(ask);
+    assert.equal(denied.state, "rejected", invalidOwner);
+    assert.equal(denied.reason, "verified-catalog-unavailable", invalidOwner);
+    corrupt = false;
+    assert.deepEqual(await runtime.requestLifecycle(ask), denied, "a later valid catalog must not replay prior denial");
+    assert.equal(delegated, 0);
+  }
+});
+
 test("bounded lifecycle request ledger never evicts a denied ID into a future install grant", async () => {
   let currentProjection = unavailable();
   let delegated = 0;
