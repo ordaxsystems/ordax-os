@@ -619,7 +619,15 @@ export function createAccountSyncRuntime({
     const metadata = remoteWorkspacePayload(object.payload);
     suppressWorkspace = true;
     try {
-      workspaceState.save(workspaceRecordFromMetadata(metadata));
+      const requested = workspaceRecordFromMetadata(metadata);
+      const saved = workspaceState.save(requested);
+      // Do not commit cloud cursors for workspace data that this subject
+      // cannot actually retain; rejected writes and volatile-only state
+      // need explicit recovery instead of a silently advanced checkpoint.
+      if (saved !== true
+        || fingerprint(workspaceState.load()) !== fingerprint(requested)) {
+        throw new Error("Remote workspace persistence could not be confirmed");
+      }
       lastWorkspaceFingerprint = fingerprint(metadata);
     } finally {
       suppressWorkspace = false;
@@ -661,7 +669,12 @@ export function createAccountSyncRuntime({
       if (pending.has(objectId) && serverRevision > previousRevision) {
         rebasePortablePending(objectId, serverRevision);
       } else if (!object.tombstone && !workspaceDirty && serverRevision > previousRevision) {
-        applyRemoteWorkspace(object);
+        try {
+          applyRemoteWorkspace(object);
+        } catch (error) {
+          revisions.set(objectId, previousRevision);
+          throw error;
+        }
       }
       return true;
     }
@@ -720,7 +733,12 @@ export function createAccountSyncRuntime({
       } else if (workspaceDirty) {
         queueWorkspace();
       } else {
-        applyRemoteWorkspace(workspace);
+        try {
+          applyRemoteWorkspace(workspace);
+        } catch (error) {
+          revisions.set(PORTABLE_WORKSPACE_OBJECT_ID, previous);
+          throw error;
+        }
       }
     } else if (!pending.has(PORTABLE_WORKSPACE_OBJECT_ID) && workspaceDirty) {
       queueWorkspace();
