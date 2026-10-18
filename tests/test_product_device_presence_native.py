@@ -128,7 +128,7 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
         original_thread = worker._thread
         worker.start()
         self.assertIs(worker._thread, original_thread)
-        worker.stop()
+        worker.stop(wait=True)
         self.assertEqual(client.calls, [True, False])
 
 
