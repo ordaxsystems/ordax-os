@@ -36,8 +36,12 @@ The portable preference runtime exposes `not-written`, `pending`,
 `saved` or `session-only`. Multiple pending writes never let an earlier
 acknowledgment confirm the latest edit, and teardown ignores late results.
 Neither a queued write nor an in-memory choice proves device durability,
-cloud sync or account backup. The native Surface reducer continues to use
-the canonical store without creating a separate persistence owner.
+cloud sync or account backup. The Native Surface reducer and portable Web runtime now use the same
+`createPreferencePersistence` owner for the save/ACK status. Native Settings
+displays `pending`, `saved` or `session-only` after an edit, obtained
+from the Surface preferences port. The initial `not-written` state is
+not displayed as a new durability confirmation. No extra store, sync
+backend or runtime authority is introduced.
 
 
 ## Surface favorite shortcuts

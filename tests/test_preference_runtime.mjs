@@ -139,3 +139,60 @@ test('late Native acknowledgment after disposal cannot publish false saved state
   assert.equal(runtime.getPersistenceSnapshot(), 'pending');
   assert.equal(signals, beforeDispose);
 });
+
+
+test('canonical confirmation controller preserves latest-write ownership', async () => {
+  const { createPreferencePersistence } = await import('../system/services/preferences/runtime.mjs');
+  const confirms = [];
+  const tracker = createPreferencePersistence({
+    schema: PREFERENCE_STORE_SCHEMA, load: () => ({}),
+    save: () => new Promise(resolve => confirms.push(resolve)),
+  });
+  const observed = [];
+  tracker.subscribe(state => observed.push(state));
+  tracker.save({ 'appearance.theme': 'dark' });
+  tracker.save({ 'appearance.theme': 'light' });
+  assert.equal(tracker.getSnapshot(), 'pending');
+  confirms[0](true);
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(tracker.getSnapshot(), 'pending');
+  confirms[1](false);
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(tracker.getSnapshot(), 'session-only');
+  assert.deepEqual(observed, ['not-written', 'pending', 'pending', 'session-only']);
+  tracker.dispose();
+});
+
+test('canonical confirmation controller handles no store, rejected host and late disposal', async () => {
+  const { createPreferencePersistence } = await import('../system/services/preferences/runtime.mjs');
+  const local = createPreferencePersistence(null);
+  assert.equal(local.getSnapshot(), 'not-written');
+  assert.equal(local.save({ 'appearance.theme': 'dark' }), 'session-only');
+  local.dispose();
+  assert.throws(() => local.save({}), /disposed/);
+  let reject;
+  const pending = createPreferencePersistence({
+    schema: PREFERENCE_STORE_SCHEMA, load: () => ({}),
+    save: () => new Promise((_, failure) => { reject = failure; }),
+  });
+  const statuses = [];
+  pending.subscribe(state => statuses.push(state));
+  pending.save({ 'appearance.theme': 'dark' });
+  reject(new Error('host unavailable'));
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(pending.getSnapshot(), 'session-only');
+  pending.dispose();
+  let accept;
+  const late = createPreferencePersistence({
+    schema: PREFERENCE_STORE_SCHEMA, load: () => ({}),
+    save: () => new Promise(resolve => { accept = resolve; }),
+  });
+  const seen = [];
+  late.subscribe(state => seen.push(state));
+  late.save({ 'appearance.theme': 'dark' });
+  late.dispose();
+  accept(true);
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(late.getSnapshot(), 'pending');
+  assert.deepEqual(seen, ['not-written', 'pending']);
+});

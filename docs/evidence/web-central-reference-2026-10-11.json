@@ -995,12 +995,16 @@
       "owner": "OrdaX OS preferences",
       "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
       "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
-      "adaptedSha256": "7c623da813a3f60f4a4c9d447cdcb1069cf5757397d2f749c6111f6b3b737344",
-      "adaptation": "2026-10-17: Preserve canonical preferences and synchronous UI mutation, but expose pending writes and only confirm durability after a successful Native host ACK. Earlier asynchronous acknowledgments cannot override newer preferences.",
+      "adaptedSha256": "5e0212264fc792a5c9981e9b4b19a0d8e8bf050fd3a96c41c2c66cbe2eb672d6",
+      "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner.",
       "adaptationHistory": [
         {
           "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
           "reason": "Previous synchronous persistence-status projection before Native host acknowledgment"
+        },
+        {
+          "sha256": "7c623da813a3f60f4a4c9d447cdcb1069cf5757397d2f749c6111f6b3b737344",
+          "reason": "Previous portable async ACK tracking before the Native Surface shared the owner"
         }
       ]
     },

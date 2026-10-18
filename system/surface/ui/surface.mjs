@@ -4,6 +4,7 @@ import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/ru
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../../contracts/preference-runtime.mjs";
+import { createPreferencePersistence } from "../../services/preferences/runtime.mjs";
 import { assertPreferenceStore, validatePreferenceRecord } from "../../contracts/preference-store.mjs";
 import { assertSurfaceHost } from "../../contracts/surface-host.mjs";
 import {
@@ -413,12 +414,24 @@ export function mountSurface(
   let dragSession = null;
   const renderListeners = new Set();
   const preferenceListeners = new Set();
+  const preferencePersistence = createPreferencePersistence(store);
+  let preferenceDispatching = false;
 
   let state = createSurfaceState(host.getSnapshot(), preferenceSeed, workspaceSeed, catalog);
+  const unsubscribePreferencePersistence = preferencePersistence.subscribe(() => {
+    // The reducer publishes a synchronous preference change after render.
+    // Only a later host ACK needs an independent UI notification.
+    if (!preferenceDispatching) {
+      for (const listener of [...preferenceListeners]) listener(state.preferences);
+    }
+  });
   const preferences = Object.freeze({
     schema: PREFERENCE_RUNTIME_SCHEMA,
     getSnapshot() {
       return state.preferences;
+    },
+    getPersistenceSnapshot() {
+      return preferencePersistence.getSnapshot();
     },
     set(preferenceId, value) {
       dispatch({ type: "preference.set", preferenceId, value });
@@ -771,8 +784,10 @@ export function mountSurface(
     if (next === state) return;
     state = next;
     const preferencesChanged = state.preferences !== previousPreferences;
-    if (preferencesChanged && store) {
-      store.save(state.preferences);
+    if (preferencesChanged) {
+      preferenceDispatching = true;
+      try { preferencePersistence.save(state.preferences); }
+      finally { preferenceDispatching = false; }
     }
     if (workspacePort && WORKSPACE_PERSIST_ACTIONS.has(action?.type)) {
       workspacePort.save(createWorkspaceSnapshot(state));
@@ -1111,6 +1126,8 @@ export function mountSurface(
       root.removeEventListener("pointercancel", onPointerCancel);
       root.removeEventListener("dblclick", onDoubleClick);
       root.removeEventListener("keydown", onKeyDown);
+      unsubscribePreferencePersistence();
+      preferencePersistence.dispose();
       preferenceListeners.clear();
       renderListeners.clear();
       delete root.dataset.ordaxTheme;
