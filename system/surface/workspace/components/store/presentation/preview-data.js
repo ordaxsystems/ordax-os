@@ -1,5 +1,5 @@
 // Presentation-only metadata. These fixtures never enter the official catalog port.
-import { catalog, kindMeta } from '../../../lib/store/catalog.ts';
+import { catalog, kindMeta } from '../../../lib/store/catalog.mjs';
 export { kindMeta };
 const sample = {
   studio: { version:'0.6.0', installedVersion:'0.6.0', size:'38 MB', date:'2026-10-10', license:'Licença OrdaX · exemplo', channel:'Beta', icon:'terminal', tone:'clay', screenshots:'studio', featured:true, collection:'create', changes:['Componentes visuais organizados por projeto.', 'Melhor navegação entre arquivos e referências.'] },

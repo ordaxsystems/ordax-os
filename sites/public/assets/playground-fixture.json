@@ -238,7 +238,7 @@
       },
       {
         "path": "system/services/i18n/catalog/store.mjs",
-        "sha256": "da47c4a1ec95dddda51b787595f44793132ea37c28f03b6d610de8f45b5c6e89"
+        "sha256": "37d84e0b5ad2def04f26d83cddc8e78d94a0dad34fa5571e4281e9d510400c37"
       },
       {
         "path": "system/services/i18n/catalog/system-diagnostics.mjs",

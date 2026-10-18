@@ -145,7 +145,7 @@ import { mountFirstRunExperience } from "../../surface/ui/first-run.mjs";
 import { createNativeFirstRunCursor } from "../../adapters/native/first-run-cursor.mjs";
 import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
-import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
+import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
@@ -978,7 +978,7 @@ async function start() {
       reportClientDiagnostic("store-lifecycle-composition", error);
     }
   }
-  storeOverviewControls = mountStoreOverviewControls(
+  storeOverviewControls = mountStoreWindows(
     root,
     storeCatalog,
     surface,

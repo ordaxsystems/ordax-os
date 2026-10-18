@@ -2,6 +2,23 @@
 
 Status: CANONICAL LEDGER
 
+## Shared Web/Native Store presentation — 2026-10-17
+
+The user explicitly authorized one Meridian visual source for both compositions.
+`system/surface/ui/store-experience.mjs` owns common chrome, mode switching and
+planned presentation lifecycle. `store-overview-controls.mjs` remains the one
+verified-catalog renderer and operation controller. Web mounts through React;
+Native mounts through the existing Surface window lifecycle. Capability ports,
+artifact verification, hardware checks, requests and installed state retain their
+existing owners. No mock enters the verified catalog. The original rich planned
+presentation, collections, library and simulated operations are preserved.
+
+Demo catalog and reducer runtime moved to browser-ready `.mjs` owners beside
+their typed `.ts` facades; there is no generated runtime copy or Native fork.
+The prior React Store body remains reference-only; current Web and Native use
+the shared DOM renderer. Validation: Store domain regressions, typecheck/build,
+reference provenance and `tools/surface-web/checks/store-shared-browser.mjs`.
+
 ## Meridian Web and Store integration — 2026-10-14
 
 BACKEND_PARITY=User requires planned features retained; additive active Profile consultation reuses canonical bundled loader/catalog. Other partial transports/lifecycles remain deferred per DESKTOP-IDENTITY compatibility matrix.

@@ -1,5 +1,16 @@
 # Current State
 
+Shared Store presentation (2026-10-17): Web and Native mount
+`system/surface/ui/store-experience.mjs` and its Meridian chrome stylesheet.
+Both use the existing planned presentation and the same verified-catalog DOM
+controls; Native retains lifecycle requests, model hardware/metrics and activation
+ports. Web remains unavailable without transport, with no lifecycle authority.
+Planned catalog/reducer runtime is browser-ready MJS, with typed TS facades;
+fixtures remain separate from the official catalog. Native window teardown
+releases requests/subscriptions and planned timers. No USB medium was modified.
+The older React Store body is retained as reference, not mounted by the current
+Web entry. Browser regression covers both ports and the built Web composition.
+
 Public device demonstration (2026-10-17): the notebook and compact phone
 viewport consume static markup rendered from current Meridian Home, header,
 sidebar, dock and app presentation components. The existing local controller
