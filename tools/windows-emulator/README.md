@@ -1,77 +1,60 @@
 # OrdaX Windows Emulator
 
-Development-only host for running the OrdaX post-boot experience on Windows without booting the Linux kernel, initramfs or USB image.
-
-## Purpose
-
-- reuse the real OrdaX first-run UI and contracts;
-- load the repository-backed Surface in the same development session;
-- enable fast UI work with Vite reload instead of rebuilding kernel/rootfs/media;
-- provide a stable browser window that MCP/Desktop tooling can inspect and interact with;
-- follow the same local-first `main` update cadence used by the Owner/Development USB;
-- keep the Dev USB as the authority for real boot, hardware, kernel and native integration.
-
-This is an execution target, not a third OrdaX distribution.
+Development host for the real Native composition used by OrdaX OS USB.
+The frame loads `system/composition/native/index.html` from First Run through
+the desktop. There is no emulator-owned welcome UI or Web preview handoff.
+All product markup, behavior, styles and Meridian tokens come from `system/`.
 
 ## Run
 
-From the repository root:
+From the repository root, with workspace dependencies already installed:
 
 ```bash
-npm install
 npm run emulator:windows
 ```
 
-The emulator listens on `127.0.0.1:4202` and opens `/tools/windows-emulator/index.html`.
+Open `http://127.0.0.1:4202/tools/windows-emulator/index.html`.
+The existing development supervisor watches origin/main and applies only a clean
+fast-forward. Local edits pause Git updates; Vite continues serving the checkout.
+Network failure or divergence never causes reset/discard of source work.
 
-For a Vite-only session without Git synchronization:
+For a server without automatic Git synchronization:
 
 ```bash
 npm run emulator:windows:vite
 ```
 
-## Development update behavior
+## Native capability boundary
 
-The normal `npm run emulator:windows` command starts `dev-supervisor.mjs` before Vite.
+`native-host.mjs` supplies development-only implementations of the existing
+Native preference, First Run receipt and safe navigation cursor endpoints.
+They validate canonical contracts and persist in `out/windows-emulator-state/`,
+separate from physical USB state. Resetting First Run preserves preferences.
+Unreadable persisted data is not silently overwritten.
 
-The supervisor mirrors the Owner/Development USB update cadence where that behavior is safe on a developer worktree:
+The emulator does not provide Linux/kernel boot, Wi-Fi control, power actions,
+disk access, local authentication credentials, verified package installation,
+privileged WebKit App Data or Intelligence host IPC. Unsupported endpoints fail
+closed; the existing Native UI reports their capability availability. No fake
+privileged browser bridge or authenticated identity is installed.
 
-- starts the local checkout immediately; network is not on the critical path;
-- targets `origin/main` by default (`ORDAX_REPO_BRANCH` may override it);
-- checks the remote every 5 seconds by default (`ORDAX_UPDATE_INTERVAL_SECONDS` may override it, minimum 5 seconds);
-- uses bounded `git ls-remote`/`git fetch` calls;
-- applies remote movement only as a clean `--ff-only` fast-forward;
-- if Git/network fails, the running emulator is preserved;
-- if the worktree contains local development edits, automatic Git application pauses instead of deleting those edits; Vite hot reload remains active;
-- if local HEAD and `origin/main` have diverged, automatic application pauses rather than resetting or force-updating the worktree.
+Existing older emulator browser-storage keys remain untouched; they are no longer
+runtime authorities. The canonical Native adapters now own the UI's ports.
 
-That last distinction is intentional. The physical Dev USB owns a disposable runtime checkout and may repair it automatically; the Windows emulator is also an active source-development worktree, so it must not erase edits made by the developer or GPT/MCP.
+The small development control can restart First Run. It is outside the Native
+frame and is not shipped as product UI.
 
-## Current host behavior
-
-- kernel: absent by design;
-- first-run: real `system/surface/ui/first-run.mjs`, with the same `tokens.css`, `color-palettes.css`, `first-run.css`, `meridian.tokens.css` and `meridian.css` owners used by Native; the former setup storyboard is archived under `docs/evidence/first-run-ssot-2026-10-17/` and is no longer exported by the runtime journey catalog;
-- first-run receipt: browser `localStorage`, isolated under the emulator-specific state key;
-- preferences: the same `createWebPreferenceStore` adapter and `createPreferenceRuntime` domain service consumed by the post-onboarding Surface; locale/time zone persist across that transition. Completed older emulator receipts seed only missing regional preferences through the same policy used by Native, preserving newer Settings choices;
-- online identity actions: unavailable for now, so local-only onboarding remains supported;
-- network/hardware management: unavailable for now and must stay visibly unavailable rather than being faked;
-- post-onboarding Surface: repository `system/composition/web/` with `?preview=layout`, through the canonical loopback-only preview gate; identity/host capabilities remain unavailable rather than simulated as authorized;
-- reset: use the `Reiniciar primeiro uso` development control.
-
-The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state and reset the flow without pretending that native kernel capabilities exist.
-
-## Smoke proof
-
-With the emulator running:
+## Verification
 
 ```bash
+node --test tests/test_windows_emulator_native_host.mjs tests/test_first_run_journey_ssot.mjs
 npm run emulator:windows:smoke
 ```
 
-The smoke proof opens an isolated Chromium/Edge session and validates the real OOBE contract. It also contains the full OOBE-to-Surface proof for execution on a machine with the complete workspace dependencies installed.
+The browser smoke requires fresh development state at the welcome step. Use the
+development reset control deliberately before a disposable OOBE proof; the smoke
+does not clear an existing session automatically. It asserts the Native entry,
+completes canonical First Run and checks persistence after reload.
 
-## Architecture rule
-
-Do not copy Surface/OOBE implementation into this directory. Emulator-only code may provide host adapters and development controls, while product UI and business rules remain owned by `system/`.
-
-Do not add kernel, Buildroot, initramfs or Creator steps to this target. Changes that only affect this emulator or shared UI should not require kernel/media builds.
+Native UI parity in this host is not a proof of physical USB boot, drivers,
+release provenance, stable/MVP promotion or on-device capability availability.

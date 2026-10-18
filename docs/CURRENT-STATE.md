@@ -40,6 +40,16 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+Native emulator / Meridian First Run (2026-10-18): the Windows emulator now loads
+`system/composition/native/index.html` for both onboarding and desktop, with no
+emulator-owned First Run or Web preview handoff. Development-only persistence
+implements existing Native contracts; unavailable hardware/privileged bridges
+remain unavailable. First Run CSS consumes Meridian tokens directly, uses the
+canonical symbol and fixes narrow-screen step wrapping/empty progress height.
+This supersedes the previous Web-backed emulator preference wiring below.
+Meridian is the sole accepted product identity; remaining legacy screens are
+migrated in stages while preserving functional ports and planned mocks.
+
 Shared sidebar account profile (2026-10-18): Web and Native/USB consume the same
 `projectSidebarAccount` identity/status/connection model and Meridian profile
 styles in `system/surface/ui/sidebar-layout.css`. The Web-only profile rules were
@@ -48,7 +58,7 @@ notification controls. Offline/logout/capability loss update the connection mark
 without inventing a session. Other shell/page composition differences remain;
 this increment does not claim full Web/Native equivalence.
 
-Emulator preference continuity (2026-10-18): Windows onboarding and its same-origin
+Historical emulator preference continuity (superseded by Native emulation above): Windows onboarding and its same-origin
 Surface now consume `createWebPreferenceStore` and `createPreferenceRuntime`,
 removing the emulator-only preference implementation/storage authority. Completed
 older onboarding receipts seed only missing regional values through Native's

@@ -253,7 +253,12 @@ export function mountFirstRunExperience(
   const renderProgress = () => {
     progress.replaceChildren();
     const brand = el(documentObject, "div", "ordax-first-run-brand");
-    brand.append(el(documentObject, "strong", "", "OrdaX"), el(documentObject, "span", "", "Primeiro uso"));
+    const mark = el(documentObject, "div", "ordax-first-run-brand-mark");
+    const symbol = el(documentObject, "img", "");
+    symbol.src = new URL("./brand/ordax-symbol.png", import.meta.url).href;
+    symbol.alt = "";
+    mark.append(symbol, el(documentObject, "strong", "", "OrdaX"));
+    brand.append(mark, el(documentObject, "span", "", "Primeiro uso"));
     const list = el(documentObject, "ol", "ordax-first-run-steps");
     STEP_LABELS.forEach((label, index) => {
       const item = el(documentObject, "li", "", label);
@@ -268,7 +273,7 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Bem-vindo",
       "Seu OrdaX começa aqui.",
-      "Vamos configurar este pendrive para uso diário. O MVP executa pelo USB e não instala o sistema no SSD, NVMe ou HD interno.",
+      "Escolha o idioma e prepare seu OrdaX para começar.",
     ));
     const grid = el(documentObject, "div", "ordax-first-run-grid");
     [
@@ -287,7 +292,7 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Idioma e região",
       "Ajuste idioma e horário.",
-      "Este assistente de primeiro uso já está disponível nos idiomas listados. A tradução do restante da Surface é expandida separadamente.",
+      "Escolha como o OrdaX apresenta os textos e o horário. Você pode alterar essas opções depois em Ajustes.",
     ));
     const form = el(documentObject, "div", "ordax-first-run-form");
     const localeField = el(documentObject, "label", "ordax-first-run-field");
@@ -757,6 +762,7 @@ export function mountFirstRunExperience(
     card.replaceChildren();
     const body = el(documentObject, "div", "ordax-first-run-body");
     const step = STEPS[stepIndex];
+    overlay.dataset.firstRunStep = step;
     if (step === "welcome") renderWelcome(body);
     else if (step === "regional") renderRegional(body);
     else if (step === "network") renderNetwork(body);

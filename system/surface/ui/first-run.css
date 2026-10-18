@@ -1,57 +1,25 @@
+/* Canonical Meridian First Run, shared unchanged by Native/USB and emulator. */
 .ordax-first-run {
-  position: fixed;
-  inset: 0;
-  z-index: 10001;
-  display: grid;
-  place-items: center;
-  padding: clamp(10px, 2vw, 24px);
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 78% 14%, color-mix(in srgb, var(--ordax-accent) 16%, transparent) 0, transparent 31%),
-    radial-gradient(circle at 14% 82%, color-mix(in srgb, var(--ordax-accent) 6%, transparent) 0, transparent 28%),
-    linear-gradient(145deg, var(--ordax-bg-start), var(--ordax-bg-middle) 58%, var(--ordax-bg-end));
-  color: var(--ordax-text);
+  position:fixed; inset:0; z-index:10001; display:grid; place-items:center;
+  padding:clamp(12px,3vw,40px); overflow:hidden;
+  background:var(--md-canvas); color:var(--md-ink); font-family:var(--md-font);
 }
 
 .ordax-first-run::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, transparent 0 49.9%, color-mix(in srgb, var(--ordax-border) 16%, transparent) 50%, transparent 50.1%),
-    linear-gradient(transparent 0 49.9%, color-mix(in srgb, var(--ordax-border) 12%, transparent) 50%, transparent 50.1%);
-  background-size: 84px 84px;
-  mask-image: radial-gradient(circle at 72% 28%, black, transparent 62%);
-  opacity: 0.22;
+  display:none;
 }
 
 .ordax-first-run-shell {
-  position: relative;
-  width: min(1080px, 100%);
-  height: min(760px, calc(100dvh - 36px));
-  max-height: calc(100dvh - 36px);
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid var(--ordax-border);
-  border-radius: var(--ordax-radius-xl);
-  background: color-mix(in srgb, var(--ordax-surface) 92%, transparent);
-  box-shadow: var(--ordax-shadow), var(--ordax-glow-soft);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  position:relative; width:min(1080px,100%); height:min(700px,calc(100dvh - 64px));
+  max-height:calc(100dvh - 64px); min-height:0; display:grid;
+  grid-template-columns:var(--md-rail-width) minmax(0,1fr); overflow:hidden;
+  border:1px solid var(--md-border); border-radius:var(--md-radius-large);
+  background:var(--md-surface); box-shadow:var(--md-shadow);
 }
 
 .ordax-first-run-progress {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  gap: 36px;
-  padding: 30px 24px;
-  border-inline-end: 1px solid var(--ordax-border-soft);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--ordax-panel) 76%, transparent), color-mix(in srgb, var(--ordax-bg) 72%, transparent));
+  display:flex; min-height:0; flex-direction:column; gap:32px; padding:32px 20px;
+  border-inline-end:1px solid var(--md-rail-border); background:var(--md-rail); color:var(--md-rail-text);
 }
 
 .ordax-first-run-brand {
@@ -60,17 +28,17 @@
 }
 
 .ordax-first-run-brand strong {
-  font-family: var(--ordax-font-display);
+  font-family: var(--md-font);
   font-size: 1.5rem;
   font-weight: 500;
-  letter-spacing: var(--ordax-tracking-tight);
+  letter-spacing: -.035em;
 }
 
 .ordax-first-run-brand span,
 .ordax-first-run-eyebrow,
 .ordax-first-run-field > span,
 .ordax-first-run-network-current span {
-  color: var(--ordax-muted);
+  color: var(--md-muted);
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -94,13 +62,13 @@
   padding: 6px 8px;
   padding-inline-start: 36px;
   border: 1px solid transparent;
-  border-radius: var(--ordax-radius-sm);
-  color: var(--ordax-muted);
+  border-radius: var(--md-radius-small);
+  color: var(--md-rail-muted);
   font-size: 0.78rem;
   transition:
-    color var(--ordax-motion-fast) var(--ordax-ease-standard),
-    background var(--ordax-motion-fast) var(--ordax-ease-standard),
-    border-color var(--ordax-motion-fast) var(--ordax-ease-standard);
+    color var(--md-duration) ease,
+    background var(--md-duration) ease,
+    border-color var(--md-duration) ease;
 }
 
 .ordax-first-run-steps li::before {
@@ -108,47 +76,35 @@
   content: counter(ordax-first-run-step, decimal-leading-zero);
   position: absolute;
   inset-inline-start: 9px;
-  color: var(--ordax-faint);
+  color: var(--md-rail-muted);
   font-size: 0.66rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
 .ordax-first-run-steps li[data-state="current"] {
-  border-color: var(--ordax-border-soft);
-  background: var(--ordax-hover-bg);
-  color: var(--ordax-text);
-  font-weight: 650;
+  border-color:var(--md-rail-border); background:var(--md-rail-selected);
+  color:var(--md-rail-text); font-weight:600; box-shadow:inset 3px 0 var(--md-art-clay);
 }
 
 .ordax-first-run-steps li[data-state="current"]::before,
 .ordax-first-run-steps li[data-state="done"]::before {
-  color: var(--ordax-accent);
+  color: var(--md-accent);
 }
 
 .ordax-first-run-steps li[data-state="done"] {
-  color: color-mix(in srgb, var(--ordax-accent) 82%, var(--ordax-muted));
+  color:var(--md-rail-text);
 }
 
 .ordax-first-run-card {
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--ordax-accent) 6%, transparent), transparent 30%),
-    color-mix(in srgb, var(--ordax-app-bg) 92%, transparent);
+  min-width:0; min-height:0; display:grid; grid-template-rows:minmax(0,1fr) auto;
+  overflow:hidden; background:var(--md-surface);
 }
 
 .ordax-first-run-body {
-  width: min(720px, 100%);
-  min-height: 0;
-  box-sizing: border-box;
-  margin: 0 auto;
-  padding: clamp(32px, 6vh, 64px) clamp(28px, 6vw, 72px) 28px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  width:min(760px,100%); min-height:0; box-sizing:border-box; margin:0 auto;
+  padding:clamp(28px,5vh,48px) clamp(24px,5vw,56px) 28px;
+  overflow:auto; overscroll-behavior:contain;
 }
 
 .ordax-first-run-header {
@@ -160,11 +116,11 @@
 .ordax-first-run-header h1 {
   max-width: 18ch;
   margin: 0;
-  font-family: var(--ordax-font-display);
-  font-size: clamp(2.35rem, 5vw, 4.35rem);
-  font-weight: 430;
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+  font-family: var(--md-font);
+  font-size: clamp(2.1rem, 3.4vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.04em;
 }
 
 .ordax-first-run-header p,
@@ -172,7 +128,7 @@
 .ordax-first-run-account p,
 .ordax-first-run-note {
   margin: 0;
-  color: var(--ordax-muted);
+  color: var(--md-muted);
   line-height: 1.6;
 }
 
@@ -188,10 +144,10 @@
   display: grid;
   gap: 9px;
   padding: 17px;
-  border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-lg);
-  background: color-mix(in srgb, var(--ordax-panel) 54%, transparent);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--ordax-bg) 18%, transparent);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius);
+  background: var(--md-surface);
+  box-shadow: none;
 }
 
 .ordax-first-run-form {
@@ -210,11 +166,11 @@
   width: 100%;
   min-height: 44px;
   box-sizing: border-box;
-  border: 1px solid var(--ordax-border);
-  border-radius: var(--ordax-radius-md);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-small);
   padding: 0 13px;
-  background: color-mix(in srgb, var(--ordax-window-bg) 88%, transparent);
-  color: var(--ordax-text);
+  background: var(--md-canvas);
+  color: var(--md-ink);
   font: inherit;
 }
 
@@ -246,13 +202,13 @@
 }
 
 .ordax-first-run-network-list small {
-  color: var(--ordax-muted);
+  color: var(--md-muted);
   font-weight: 400;
 }
 
 .ordax-first-run-network-list .ordax-first-run-action[data-selected="true"] {
-  border-color: var(--ordax-accent);
-  background: var(--ordax-selected-bg);
+  border-color: var(--md-accent);
+  background: var(--md-accent-soft);
 }
 
 .ordax-first-run-connect {
@@ -262,7 +218,7 @@
   gap: 12px;
   margin-top: 18px;
   padding-top: 18px;
-  border-top: 1px solid var(--ordax-border-soft);
+  border-top: 1px solid var(--md-border);
 }
 
 .ordax-first-run-account-actions {
@@ -274,30 +230,29 @@
 
 .ordax-first-run-action {
   min-height: 40px;
-  border: 1px solid var(--ordax-border);
-  border-radius: var(--ordax-radius-md);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-small);
   padding: 9px 15px;
-  background: color-mix(in srgb, var(--ordax-panel) 24%, transparent);
-  color: var(--ordax-text);
+  background: var(--md-surface);
+  color: var(--md-ink);
   font: inherit;
   font-weight: 620;
   cursor: pointer;
   transition:
-    background var(--ordax-motion-fast) var(--ordax-ease-standard),
-    border-color var(--ordax-motion-fast) var(--ordax-ease-standard),
-    transform var(--ordax-motion-fast) var(--ordax-ease-standard);
+    background var(--md-duration) ease,
+    border-color var(--md-duration) ease,
+    transform var(--md-duration) ease;
 }
 
 .ordax-first-run-action:hover:not(:disabled) {
-  background: var(--ordax-hover-bg);
-  transform: translateY(-1px);
+  background: var(--md-subtle);
 }
 
 .ordax-first-run-action-primary {
-  border-color: var(--ordax-button-bg);
-  background: var(--ordax-button-bg);
-  color: var(--ordax-button-text);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--ordax-accent) 12%, transparent);
+  border-color: var(--md-accent);
+  background: var(--md-accent);
+  color: var(--md-accent-text);
+  box-shadow: none;
 }
 
 .ordax-first-run-action:disabled {
@@ -308,7 +263,7 @@
 .ordax-first-run-action:focus-visible,
 .ordax-first-run-field select:focus-visible,
 .ordax-first-run-field input:focus-visible {
-  outline: 2px solid var(--ordax-focus);
+  outline: 2px solid var(--md-focus);
   outline-offset: 2px;
 }
 
@@ -318,16 +273,16 @@
 .ordax-first-run-empty {
   margin: 16px 0 0;
   padding: 12px 14px;
-  border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-md);
-  background: color-mix(in srgb, var(--ordax-panel) 45%, transparent);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-small);
+  background: var(--md-subtle);
   line-height: 1.45;
 }
 
 .ordax-first-run-error {
-  border-color: color-mix(in srgb, var(--ordax-danger) 56%, transparent);
-  background: var(--ordax-danger-bg);
-  color: var(--ordax-danger);
+  border-color: color-mix(in srgb, var(--md-danger) 56%, transparent);
+  background: var(--md-danger-soft);
+  color: var(--md-danger);
 }
 
 .ordax-first-run-summary {
@@ -335,20 +290,20 @@
   grid-template-columns: minmax(110px, 0.4fr) 1fr;
   margin: 0;
   overflow: hidden;
-  border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-lg);
-  background: color-mix(in srgb, var(--ordax-panel) 38%, transparent);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius);
+  background: var(--md-subtle);
 }
 
 .ordax-first-run-summary dt,
 .ordax-first-run-summary dd {
   margin: 0;
   padding: 13px 16px;
-  border-bottom: 1px solid var(--ordax-border-soft);
+  border-bottom: 1px solid var(--md-border);
 }
 
 .ordax-first-run-summary dt {
-  color: var(--ordax-muted);
+  color: var(--md-muted);
 }
 
 .ordax-first-run-summary dd {
@@ -370,10 +325,8 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 14px clamp(28px, 6vw, 72px);
-  border-top: 1px solid var(--ordax-border-soft);
-  background: color-mix(in srgb, var(--ordax-panel) 74%, var(--ordax-app-bg));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--md-border);
+  background: var(--md-surface);
 }
 
 .ordax-first-run-footer .ordax-first-run-action:first-child:not(:last-child) {
@@ -433,6 +386,7 @@
     max-height: 100dvh;
     min-height: 0;
     grid-template-columns: 1fr;
+    grid-template-rows:auto minmax(0,1fr);
     border: 0;
     border-radius: 0;
   }
@@ -441,11 +395,13 @@
     gap: 14px;
     padding: 18px 20px;
     border-inline-end: 0;
-    border-bottom: 1px solid var(--ordax-border-soft);
+    border-bottom: 1px solid var(--md-border);
   }
 
   .ordax-first-run-steps {
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns:none;
+    grid-auto-flow:column;
+    grid-auto-columns:minmax(0,1fr);
     gap: 6px;
   }
 
@@ -482,9 +438,9 @@
   display: grid;
   gap: 9px;
   padding: 13px;
-  border: 1px solid var(--ordax-border-soft);
-  border-radius: var(--ordax-radius-md);
-  background: color-mix(in srgb, var(--ordax-panel) 52%, transparent);
+  border: 1px solid var(--md-border);
+  border-radius: var(--md-radius-small);
+  background: var(--md-subtle);
 }
 
 .ordax-first-run-legal > strong {
@@ -493,7 +449,7 @@
 
 .ordax-first-run-legal > p {
   margin: 0;
-  color: var(--ordax-muted);
+  color: var(--md-muted);
   font-size: 0.7rem;
   line-height: 1.5;
 }
@@ -505,7 +461,7 @@
 }
 
 .ordax-first-run-legal-links a {
-  color: var(--ordax-accent);
+  color: var(--md-accent);
   font-size: 0.7rem;
   text-decoration: none;
 }
@@ -528,5 +484,15 @@
   height: 16px;
   flex: 0 0 auto;
   margin: 2px 0 0;
-  accent-color: var(--ordax-accent);
+  accent-color: var(--md-accent);
 }
+
+.ordax-first-run-brand strong {color:var(--md-rail-text);}
+.ordax-first-run-brand>span {color:var(--md-rail-muted);}
+.ordax-first-run-steps li:is([data-state="current"],[data-state="done"])::before {color:var(--md-art-clay);}
+.ordax-first-run-action-primary:hover:not(:disabled) {background:var(--md-accent-hover);border-color:var(--md-accent-hover);color:var(--md-accent-text);}
+.ordax-first-run-brand-mark {display:flex;align-items:center;gap:9px;}
+.ordax-first-run-brand-mark img {width:28px;height:28px;object-fit:contain;}
+.ordax-first-run[data-first-run-step="welcome"] .ordax-first-run-grid {grid-template-columns:1fr;gap:0;border-top:1px solid var(--md-border);}
+.ordax-first-run[data-first-run-step="welcome"] .ordax-first-run-tile {grid-template-columns:minmax(120px,1fr) minmax(0,2fr);align-items:baseline;gap:20px;padding:20px 0;border:0;border-bottom:1px solid var(--md-border);border-radius:0;}
+@media(max-width:600px) {.ordax-first-run-body {padding:28px 22px;} .ordax-first-run[data-first-run-step="welcome"] .ordax-first-run-tile {grid-template-columns:1fr;gap:6px;padding:16px 0;} .ordax-first-run-footer {padding-inline:22px;} }

@@ -1,40 +1,24 @@
 <!doctype html>
-<html lang="pt-BR" data-meridian>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OrdaX Windows Emulator</title>
-    <link rel="stylesheet" href="/system/surface/ui/tokens.css" />
-    <link rel="stylesheet" href="/system/surface/ui/color-palettes.css" />
-    <link rel="stylesheet" href="/system/surface/ui/first-run.css" />
-    <link rel="stylesheet" href="/system/surface/ui/meridian.tokens.css" />
-    <link rel="stylesheet" href="/system/surface/ui/meridian.css" />
-    <style>
-      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--ordax-bg); }
-      body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      #ordax-emulator-surface { width: 100%; height: 100%; border: 0; display: block; background: var(--ordax-bg); }
-      #ordax-emulator-root { position: fixed; inset: 0; pointer-events: none; }
-      .ordax-emulator-badge {
-        position: fixed; right: 12px; top: 12px; z-index: 2147483647;
-        padding: 7px 10px; border-radius: 999px; font-size: 12px;
-        background: rgba(10, 12, 18, .78); color: white; backdrop-filter: blur(14px);
-        border: 1px solid rgba(255,255,255,.14); pointer-events: auto;
-      }
-      .ordax-emulator-badge button { margin-left: 8px; cursor: pointer; }
-    </style>
-  </head>
-  <body>
-    <iframe
-      id="ordax-emulator-surface"
-      title="OrdaX Surface"
-      src="about:blank"
-      data-surface-src="/system/composition/web/?preview=layout"
-    ></iframe>
-    <div id="ordax-emulator-root" aria-hidden="true"></div>
-    <div class="ordax-emulator-badge">
-      Windows Emulator · sem kernel
-      <button id="ordax-emulator-reset" type="button">Reiniciar primeiro uso</button>
-    </div>
-    <script type="module" src="/tools/windows-emulator/main.mjs"></script>
-  </body>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OrdaX Windows Emulator</title>
+  <style>
+    html,body {margin:0;width:100%;height:100%;overflow:hidden;}
+    #ordax-emulator-surface {display:block;width:100%;height:100%;border:0;}
+    .ordax-emulator-controls {position:fixed;right:12px;top:12px;z-index:2147483647;font:12px system-ui;color:white;background:#18201e;border-radius:8px;padding:8px;}
+    .ordax-emulator-controls summary {cursor:pointer;}
+    .ordax-emulator-controls button {margin-top:8px;}
+  </style>
+</head>
+<body>
+  <iframe id="ordax-emulator-surface" title="OrdaX Surface Native" src="about:blank" data-surface-src="/system/composition/native/index.html"></iframe>
+  <details class="ordax-emulator-controls">
+    <summary>Emulador · sem kernel</summary>
+    <button id="ordax-emulator-reset" type="button">Reiniciar primeiro uso</button>
+    <span id="ordax-emulator-status" role="status"></span>
+  </details>
+  <script type="module" src="/tools/windows-emulator/main.mjs"></script>
+</body>
 </html>

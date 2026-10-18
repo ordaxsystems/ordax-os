@@ -1,5 +1,21 @@
 # Source Migration Ledger
 
+## Native emulator and Meridian First Run — 2026-10-18
+
+- User explicitly requires Meridian as the sole OS identity, staged from welcome.
+- Decision: REIMPLEMENTED emulator host wiring around the real Native composition;
+  removed its independent onboarding mount and Web preview handoff. Product UI
+  remains in system/, development persistence reuses existing Native contracts.
+- First Run's own stylesheet now consumes Meridian tokens directly; no second
+  style override, copied setup renderer, fake privileged bridge or hardware grant.
+- Privileged bootstrap/Intelligence binding only auto-starts with an actual WebKit
+  bridge. Explicit privileged bootstrap APIs still reject missing capabilities.
+- Preserve source mocks and Native operations. Old development browser state is
+  retained but no longer authoritative. Physical media is untouched.
+- Verification: Native entry/SSOT guards, state persistence through real Native
+  adapters, capability refusal, existing privileged-boundary regressions and real
+  browser interaction/screenshots through the emulator.
+
 ## Shared sidebar profile — 2026-10-18
 
 - Origin: canonical `main` at `bd9485c4`, existing Web Meridian profile CSS and

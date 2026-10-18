@@ -564,12 +564,16 @@ async function start() {
   const spaceExperience = createSpaceExperienceSource({
     providers: [selectedSpaceAuraCapability],
   });
-  installNativeIntelligenceHostBridge({
-    windowRef: window,
-    intelligencePort: selectedSpaceIntelligence,
-    identitySessionPort: identitySession,
-    spaceSelectionPort: spaceSelection,
-  });
+  // The shared Native UI may run in an unprivileged development browser.
+  // Only a real host bridge may expose Intelligence to privileged consumers.
+  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+    installNativeIntelligenceHostBridge({
+      windowRef: window,
+      intelligencePort: selectedSpaceIntelligence,
+      identitySessionPort: identitySession,
+      spaceSelectionPort: spaceSelection,
+    });
+  }
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(
