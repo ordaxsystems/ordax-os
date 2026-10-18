@@ -10,6 +10,9 @@ export const SIDEBAR_SOURCE_MESSAGES = Object.freeze({
   "sidebar.notifications": "Notificações",
   "sidebar.notifications.unavailable": "Notificações indisponíveis nesta prévia",
   "shell.sidebar.more": "Mais destinos",
+  "sidebar.native.planned": "Recurso planejado",
+  "sidebar.native.unavailable": "Ainda não conectado a um serviço",
+  "sidebar.native.workspace": "Área de trabalho OrdaX",
 });
 export const SIDEBAR_ENGLISH_MESSAGES = Object.freeze({
   "sidebar.account.unavailable": "Account not connected",
@@ -23,4 +26,7 @@ export const SIDEBAR_ENGLISH_MESSAGES = Object.freeze({
   "sidebar.notifications": "Notifications",
   "sidebar.notifications.unavailable": "Notifications unavailable in this preview",
   "shell.sidebar.more": "More destinations",
+  "sidebar.native.planned": "Planned feature",
+  "sidebar.native.unavailable": "Not yet connected to a service",
+  "sidebar.native.workspace": "Native workspace",
 });

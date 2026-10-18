@@ -679,7 +679,8 @@ export function mountSurface(
       }
       let icon = button.querySelector(".ordax-rail-icon");
       if (!icon) {
-        button.replaceChildren();
+        // Never destroy mounted button content during reconciliation.
+        // A missing icon needs only a stable child insertion.
         icon = element("span", "ordax-rail-icon");
         icon.setAttribute("aria-hidden", "true");
         button.append(icon);

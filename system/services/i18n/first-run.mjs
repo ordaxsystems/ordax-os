@@ -85,6 +85,7 @@ const TABLES = Object.freeze({
     "Senha": "Password",
     "Cadastro recebido. Confirme seu e-mail para entrar.": "Sign-up received. Confirm your email to sign in.",
     "Documentos vigentes": "Current documents",
+    "Leia os documentos canônicos antes de criar sua Conta OrdaX.": "Read the canonical documents before creating your OrdaX Account.",
     "Leia os Termos e a Política de Privacidade antes de criar sua conta.": "Read the Terms and Privacy Policy before creating your account.",
     "Li e aceito os documentos vigentes indicados acima.": "I have read and accept the current documents listed above.",
     "Continuar sem conta": "Continue without an account",

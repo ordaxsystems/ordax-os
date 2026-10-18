@@ -64,8 +64,10 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertFalse((SURFACE / "app-identity.css").exists())
 
         css = identity.read_text(encoding="utf-8")
-        self.assertIn("var(--ordax-accent)", css)
-        self.assertIn("var(--ordax-panel)", css)
+        # Meridian owns the live semantic palette; legacy --ordax tokens
+        # remain for compatibility but cannot replace the active identity.
+        self.assertIn("var(--md-accent)", css)
+        self.assertIn("var(--md-surface)", css)
         self.assertIn(".ordax-window", css)
         self.assertIn(".ordax-rail", css)
         self.assertIn(".ordax-launcher-panel", css)
@@ -75,7 +77,7 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#edf3fc"', html)
+            self.assertIn('name="theme-color" content="#f4f2ed"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
@@ -202,7 +204,9 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(wallpaper).hexdigest(),
                          '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
         css = (SURFACE / 'identity.css').read_text(encoding='utf-8')
-        self.assertIn('url("./brand/midnight-landscape.png")', css)
+        # The source-pinned artwork remains historical, while the current
+        # Meridian desktop uses the independently tracked vector backdrop.
+        self.assertIn('url("./brand/meridian-field.svg")', css)
         self.assertNotRegex(css, r'#[a-fA-F0-9]{3,8}\b')
         provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
         self.assertIn(hashlib.sha256(wallpaper).hexdigest(), provenance)
