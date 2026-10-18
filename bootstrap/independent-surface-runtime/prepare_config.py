@@ -121,13 +121,19 @@ def verify_resolved(config: Path) -> None:
     version = kernel_version()
     if not config.is_file():
         raise ConfigError(f"resolved Buildroot config missing: {config}")
-    text = config.read_text(encoding="utf-8")
+    # The builder owns Kconfig parsing. A commented-out or duplicated option
+    # must never count as an active build dependency in either verification.
+    settings = load_builder().resolved_kconfig(config)
     expected_version = f'BR2_DEFAULT_KERNEL_VERSION="{version}"'
     series = kernel_series_symbol(version)
-    missing = [marker for marker in (*REQUIRED_RESOLVED, expected_version, series) if marker not in text]
+    markers = (*REQUIRED_RESOLVED, expected_version, series)
+    missing = [
+        marker for marker in markers
+        if settings.get(marker.split("=", 1)[0]) != marker.split("=", 1)[1]
+    ]
     if missing:
         raise ConfigError(f"resolved Buildroot config lost required Surface/kernel settings: {missing}")
-    if "BR2_STATIC_LIBS=y" in text:
+    if settings.get("BR2_STATIC_LIBS") == "y":
         raise ConfigError("resolved graphical Surface config became static-only")
 
 
