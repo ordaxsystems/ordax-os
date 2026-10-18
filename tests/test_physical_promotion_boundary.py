@@ -39,6 +39,18 @@ def sha256(path: Path) -> str:
 
 
 class PhysicalPromotionBoundaryTests(unittest.TestCase):
+    def test_unsigned_v2_promotion_output_cannot_claim_portable_v3_write_ready(self):
+        workflow = PHYSICAL_PROMOTION_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("Package exact Portable writer release bytes and unsigned manifest v2", workflow)
+        self.assertIn("'$schema': 'prototype-ordax.creator-physical-manifest/2'", workflow)
+        self.assertIn("echo 'PHYSICAL_RELEASE_ENVELOPE_PRESENT=NO'", workflow)
+        self.assertIn("echo 'PORTABLE_V3_SIGNED_DELIVERY_READY=NO'", workflow)
+        self.assertIn("echo 'USB_PHYSICAL_WRITE_PROOF_READY=NO'", workflow)
+        # CI is an unsigned candidate/materialization producer. Publishing,
+        # key custody, live USB write/readback and boot evidence are separate.
+        self.assertIn("PRIVATE_KEY_REQUIRED_IN_CI=NO", workflow)
+
+
     def make_ready_fixture(self, root: Path) -> None:
         trust = {
             "$schema": "prototype-ordax.release-trust/1",

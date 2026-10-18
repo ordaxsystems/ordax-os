@@ -439,6 +439,11 @@ jobs:
           (cd tools/release-signing && go test -count=1 ./cmd/ordax-physical-release-signing)
           echo 'PORTABLE_PHYSICAL_RELEASE_PACKAGE_READY_FOR_OFFLINE_SIGNING=YES'
           echo 'PHYSICAL_RELEASE_ENVELOPE_PRESENT=NO'
+          # This artifact is an unsigned v2 writer *input*, not the signed
+          # v3 envelope with 17 exact Stable payload bindings. Never present
+          # it as a deployable USB candidate even when owner consent is set.
+          echo 'PORTABLE_V3_SIGNED_DELIVERY_READY=NO'
+          echo 'USB_PHYSICAL_WRITE_PROOF_READY=NO'
           echo 'PRIVATE_KEY_REQUIRED_IN_CI=NO'
 
       - name: Upload authorized candidate and signing inputs for publisher review only

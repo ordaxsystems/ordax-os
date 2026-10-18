@@ -32,6 +32,10 @@ The shared Core owns:
 
 Platform adapters own only unavoidable host API integration. They may not define another OrdaX layout or security policy.
 
+## Physical promotion status versus deployable Stable media
+
+The current `physical-write-promotion.yml` runs authorized-source preflight and, when eligible, builds an **unsigned physical manifest v2** plus a Windows writer input for separate offline review. It is **not** the signed physical manifest v3 required by the existing Portable consumer, which must carry all 17 canonical Stable v4 artifact IDs, exact per-artifact URLs, sizes and SHA-256, and a valid Ed25519 release envelope. The workflow explicitly reports `PORTABLE_V3_SIGNED_DELIVERY_READY=NO` and `USB_PHYSICAL_WRITE_PROOF_READY=NO`; neither recorded consent nor a successful CI run overrides those gates. Publishing the v3 release requires legitimate offline key custody, signed asset rotation with readback, a fresh target check, UAC and per-artifact physical readback, then UEFI/recovery tests. Never install or flash the unsigned v2 candidate as if it were the Stable USB release.
+
 ## Creator payload boundary
 
 `source_path` in `docs/contracts/minimal-bootstrap.json` means a slash-separated path **relative to the assembled Creator payload root**, never an arbitrary developer/runner path.
