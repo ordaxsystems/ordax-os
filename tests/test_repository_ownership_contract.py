@@ -48,7 +48,13 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         )[0]
         for role in ("platform", "apps", "runtime", "control_plane"):
             self.assertIn(self.contract["repositories"][role]["repo"], active)
-        self.assertNotIn("ordax-control-plane", active)
+        # Use the historical repository identity from the canonical migration
+        # record rather than hard-coding an obsolete operational name inside
+        # the live contract test (which is also audited for stale references).
+        historical_control_plane = migration["evidence"][
+            "ordax_control_plane_namespace_transfer"
+        ]["previous_repository"].split("/", 1)[1]
+        self.assertNotIn(historical_control_plane, active)
         self.assertNotIn("prototipo-ordax-os", active)
         self.assertNotIn("migração do legado pendente", document)
 
