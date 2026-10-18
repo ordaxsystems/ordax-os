@@ -4,7 +4,7 @@ import {createNativeProductConnector} from "../system/adapters/native/product-co
 import {validateProductConnectorSnapshot} from "../system/contracts/product-connector.mjs";
 
 const snapshot = (enabled = false) => ({
-  available: true, enabled, accountAuthenticated: true,
+  available: true, enabled, presenceState: enabled ? "connecting" : "disabled", accountAuthenticated: true,
   requiresClientOAuthAndGrants: true,
   remoteActionsEnabled: false, mode: "discovery-only",
 });
@@ -32,6 +32,10 @@ test("Reject forged action availability, mismatched policy, and invalid input", 
   assert.throws(() => validateProductConnectorSnapshot({...snapshot(), remoteActionsEnabled: true}));
   assert.throws(() => validateProductConnectorSnapshot({...snapshot(), requiresClientOAuthAndGrants: false}));
   assert.throws(() => validateProductConnectorSnapshot({...snapshot(true), available: false}));
+  assert.throws(() => validateProductConnectorSnapshot({...snapshot(true), presenceState: "disabled"}));
+  assert.throws(() => validateProductConnectorSnapshot({...snapshot(false), presenceState: "confirmed"}));
+  assert.throws(() => validateProductConnectorSnapshot({...snapshot(true), presenceState: "connected"}));
+  assert.equal(validateProductConnectorSnapshot({...snapshot(true), presenceState: "confirmed"}).presenceState, "confirmed");
   const port = await createNativeProductConnector({ fetch: async () => ({
     ok: true, json: async () => snapshot(false),
   })});
