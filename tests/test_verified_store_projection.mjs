@@ -563,3 +563,30 @@ test("new signed catalog immediately clears stale Store actions while Native ref
   assert.equal(fresh.entries[0].installable, true);
   projection.destroy();
 });
+
+test("disposing a ready Store projection revokes installable candidates for all retained readers", async () => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.equal(projection.port.getSnapshot().entries[0].installable, true);
+  assert.ok(projection.getCurrentObservations().length > 0);
+
+  const seen = [];
+  projection.port.subscribe((snapshot) => seen.push(snapshot.state));
+  projection.destroy();
+  const closed = projection.port.getSnapshot();
+  assert.equal(closed.state, "unavailable");
+  assert.equal(closed.reason, "verified-store-projection-disposed");
+  assert.deepEqual(closed.entries, []);
+  assert.deepEqual(projection.getCurrentObservations(), []);
+  assert.deepEqual(seen, ["unavailable"]);
+
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot(), closed);
+  assert.deepEqual(seen, ["unavailable"], "a disposed projection never publishes another candidate");
+});
