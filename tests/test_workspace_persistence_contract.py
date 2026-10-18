@@ -63,6 +63,17 @@ class WorkspacePersistenceContractTests(unittest.TestCase):
         self.assertIn("MAX_TARGET_LENGTH = 4096", contract)
         self.assertNotIn("fetch(", native)
 
+    def test_native_surface_reconciles_rejected_workspace_writes_with_canonical_store(self):
+        surface = SURFACE.read_text(encoding="utf-8")
+        bridge = (ROOT / "system" / "services" / "sync" / "workspace-metadata.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("const requested = createWorkspaceSnapshot(state)", surface)
+        self.assertIn("const effective = validateWorkspaceRecord(workspacePort.load())", surface)
+        self.assertIn('type: "workspace.restore"', surface)
+        self.assertIn("update(baseStore.load())", bridge)
+        self.assertNotIn("update(validated);", bridge)
+
     def test_area_controls_are_real_not_disabled_placeholders(self):
         surface = SURFACE.read_text(encoding="utf-8")
         shell = SHELL.read_text(encoding="utf-8")
