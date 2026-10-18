@@ -25,11 +25,11 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "5b9e2452999fef19f0e4a7a16de1e6efc433f44c");
+  assert.equal(lock.source.commit, "cde1beb45d36507247007fd044ac8584b60095b4");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
-    sha256: "b2e9785eb7e672c4f3581aae0786ff1c1bc3e06c20dc010171a17070aee9f859",
+    sha256: "45a309190c88a8f0251558c449186128f2b726e0be88a202c454609f27e52497",
     product_version: "0.4.7",
   });
 
@@ -59,6 +59,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.runtime.native_identity_provider_supported, true);
   assert.equal(lock.runtime.device_id_match_required, true);
   assert.equal(lock.runtime.duplicate_persisted_token_forbidden, true);
+  assert.equal(lock.runtime.runtime_kind_authority, "upstream-compatibility-contract:ordax_os.native_runtime_kind");
 });
 
 test("Studio runtime source lock is source-only and cannot silently activate dispatch", async () => {
