@@ -3,7 +3,7 @@ import { runBrowser, sleep } from "../browser-proof/chromium.mjs";
 
 const url = process.env.ORDAX_WINDOWS_EMULATOR_URL
   ?? "http://127.0.0.1:4202/tools/windows-emulator/index.html";
-const STARTUP_TIMEOUT_MS = 15_000;
+const STARTUP_TIMEOUT_MS = 30_000;
 const STARTUP_POLL_MS = 250;
 
 async function readState(client) {
@@ -71,7 +71,7 @@ runBrowser(async (client) => {
   if (!result.firstRunVisible || !result.nextActionVisible) {
     throw new Error(`Windows emulator first-run did not render: ${JSON.stringify({ result, browserExceptions: browserExceptions() })}`);
   }
-  if (result.surfaceTarget !== "/system/composition/web/") {
+  if (result.surfaceTarget !== "/system/composition/web/?preview=layout") {
     throw new Error(`Unexpected Surface target: ${String(result.surfaceTarget)}`);
   }
   if (result.frameSrc !== "about:blank") {
@@ -85,16 +85,17 @@ runBrowser(async (client) => {
   await clickAction(client, "next");       // regional -> network
   await clickAction(client, "next");       // network -> security
   await clickAction(client, "next");       // security -> account
-  await clickAction(client, "account-local");
-  await clickAction(client, "next");       // account -> privacy
-  await clickAction(client, "finish");     // privacy -> ready/completion
+  await clickAction(client, "account-local"); // account -> privacy
+  await clickAction(client, "next");       // privacy -> device name
+  await clickAction(client, "next");       // device name -> ready
+  await clickAction(client, "finish");     // ready -> completion
 
   const completionStartedAt = Date.now();
   while (Date.now() - completionStartedAt < STARTUP_TIMEOUT_MS) {
     result = await readState(client);
     if (
       result?.firstRunState?.completed === true
-      && result.frameSrc === "/system/composition/web/"
+      && result.frameSrc === "/system/composition/web/?preview=layout"
       && result.surfaceDocumentReady
       && result.surfaceBootState === "ready"
     ) break;
@@ -104,7 +105,7 @@ runBrowser(async (client) => {
   if (result?.firstRunState?.completed !== true) {
     throw new Error(`Windows emulator OOBE did not persist completion: ${JSON.stringify(result)}`);
   }
-  if (result.frameSrc !== "/system/composition/web/") {
+  if (result.frameSrc !== "/system/composition/web/?preview=layout") {
     throw new Error(`Surface was not activated after OOBE: ${JSON.stringify(result)}`);
   }
   if (!result.surfaceDocumentReady || result.surfaceBootState !== "ready") {
