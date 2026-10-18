@@ -31,7 +31,7 @@ from native_store_catalog import (
     guard_store_catalog_watermark,
 )
 
-PLAN_SCHEMA = "ordax.app-lifecycle-plan/1"
+PLAN_SCHEMA = "ordax.app-lifecycle-plan/2"
 REQUEST_SCHEMA = "ordax.app-lifecycle-request/1"
 RESULT_SCHEMA = "ordax.native-app-lifecycle-execution/1"
 DEFAULT_CHANNEL_BIN = "/srv/ordax-system/bin/ordax-runtime-component-channel"
@@ -113,12 +113,65 @@ def _candidate(value: object, *, app_id: str, catalog_commit: str) -> dict | Non
     }
 
 
+def _expected_activation(value: object, operation: str) -> dict:
+    current = _exact(
+        value,
+        {"source", "revision", "version", "sourceCommit"},
+        "app lifecycle expected activation",
+    )
+    revision = current["revision"]
+    if (
+        not isinstance(revision, int)
+        or isinstance(revision, bool)
+        or revision < 0
+    ):
+        raise NativeAppLifecycleError("app lifecycle activation revision is invalid")
+    source = current["source"]
+    if not isinstance(source, str):
+        raise NativeAppLifecycleError("app lifecycle expected activation source is invalid")
+    if source == "slot":
+        if (
+            operation == "install"
+            or revision == 0
+            or not isinstance(current["version"], str)
+            or SEMVER_RE.fullmatch(current["version"]) is None
+            or not isinstance(current["sourceCommit"], str)
+            or COMMIT_RE.fullmatch(current["sourceCommit"]) is None
+        ):
+            raise NativeAppLifecycleError("app lifecycle expected installed slot is invalid")
+    elif (
+        source not in {"absent", "removed"}
+        or operation != "install"
+        or current["version"] is not None
+        or current["sourceCommit"] is not None
+    ):
+        raise NativeAppLifecycleError("app lifecycle expected activation does not match operation")
+    return dict(current)
+
+
+def _assert_expected_activation(state: dict, expected: dict) -> None:
+    current = state.get("current")
+    if current is not None:
+        source = "slot"
+    else:
+        source = "removed" if state.get("user_removed") is True else "absent"
+    if (
+        state["revision"] != expected["revision"]
+        or source != expected["source"]
+        or (source == "slot" and current != {
+            "version": expected["version"],
+            "source_commit": expected["sourceCommit"],
+        })
+    ):
+        raise NativeAppLifecycleError("app lifecycle observed activation generation is stale")
+
+
 def validate_lifecycle_plan(value: object) -> dict:
     plan = _exact(
         value,
         {
             "schema", "request", "catalogSequence", "catalogSha256",
-            "catalogSourceCommit", "candidate", "authority",
+            "catalogSourceCommit", "candidate", "expectedActivation", "authority",
         },
         "app lifecycle plan",
     )
@@ -140,6 +193,7 @@ def validate_lifecycle_plan(value: object) -> dict:
         app_id=request["appId"],
         catalog_commit=plan["catalogSourceCommit"],
     )
+    expected_activation = _expected_activation(plan["expectedActivation"], request["operation"])
     if request["operation"] in {"install", "update"} and candidate is None:
         raise NativeAppLifecycleError("install/update requires verified candidate")
     return {
@@ -149,6 +203,7 @@ def validate_lifecycle_plan(value: object) -> dict:
         "catalogSha256": plan["catalogSha256"],
         "catalogSourceCommit": plan["catalogSourceCommit"],
         "candidate": candidate,
+        "expectedActivation": expected_activation,
         "authority": "none",
     }
 
@@ -301,6 +356,11 @@ def _stage_and_arm(
     candidate = plan["candidate"]
     assert candidate is not None
     with _materialized_cached_artifacts(candidate, artifact_root) as paths:
+        observed = _read_activation_state(
+            request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+            runner=runner,
+        )
+        _assert_expected_activation(observed, plan["expectedActivation"])
         verified = _key_values(
                 _run([
                     channel_bin,
@@ -386,6 +446,7 @@ def _stage_and_arm(
                 "--slot", slot,
                 "--trust", trust_path,
                 "--root", slot_root,
+                "--expected-revision", str(plan["expectedActivation"]["revision"]),
             ], runner=runner).stdout,
             {
                 "RUNTIME_COMPONENT_PENDING_ARMED",
@@ -466,6 +527,7 @@ def _remove(
         or not isinstance(state.get("current"), dict)
     ):
         raise NativeAppLifecycleError("runtime component current activation is not removable")
+    _assert_expected_activation(state, plan["expectedActivation"])
     current = state["current"]
     if (
         set(current) != {"version", "source_commit"}

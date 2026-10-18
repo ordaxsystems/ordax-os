@@ -9,7 +9,7 @@ import {
   validateAppArtifactIdentity,
 } from "./app-artifact-identity.mjs";
 
-export const APP_LIFECYCLE_PLAN_SCHEMA = "ordax.app-lifecycle-plan/1";
+export const APP_LIFECYCLE_PLAN_SCHEMA = "ordax.app-lifecycle-plan/2";
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -67,6 +67,43 @@ function validateCandidate(value, appId) {
   });
 }
 
+function validateExpectedActivation(value, operation) {
+  assertExactKeys(
+    value,
+    ["source", "revision", "version", "sourceCommit"],
+    "App lifecycle expected activation",
+  );
+  if (!Number.isSafeInteger(value.revision) || value.revision < 0) {
+    throw new TypeError("App lifecycle expected activation revision is invalid");
+  }
+  if (value.source === "slot") {
+    if (value.revision === 0 || typeof value.sourceCommit !== "string"
+        || !COMMIT_RE.test(value.sourceCommit)) {
+      throw new TypeError("App lifecycle expected slot identity is invalid");
+    }
+    if (operation === "install") {
+      throw new TypeError("Install requires absent or removed activation");
+    }
+    return Object.freeze({
+      source: "slot",
+      revision: value.revision,
+      version: validateComponentVersion(value.version),
+      sourceCommit: value.sourceCommit,
+    });
+  }
+  if (!["absent", "removed"].includes(value.source)
+      || value.version !== null || value.sourceCommit !== null
+      || operation !== "install") {
+    throw new TypeError("App lifecycle expected activation does not match operation");
+  }
+  return Object.freeze({
+    source: value.source,
+    revision: value.revision,
+    version: null,
+    sourceCommit: null,
+  });
+}
+
 export function validateAppLifecyclePlan(value) {
   assertExactKeys(
     value,
@@ -77,6 +114,7 @@ export function validateAppLifecyclePlan(value) {
       "catalogSha256",
       "catalogSourceCommit",
       "candidate",
+      "expectedActivation",
       "authority",
     ],
     "App lifecycle plan",
@@ -99,6 +137,7 @@ export function validateAppLifecyclePlan(value) {
     throw new TypeError("App lifecycle plan catalog identity is invalid");
   }
   const candidate = validateCandidate(value.candidate, request.appId);
+  const expectedActivation = validateExpectedActivation(value.expectedActivation, request.operation);
   if (["install", "update"].includes(request.operation) && candidate === null) {
     throw new TypeError("Install/update lifecycle plan requires verified candidate");
   }
@@ -115,6 +154,7 @@ export function validateAppLifecyclePlan(value) {
     catalogSha256: value.catalogSha256,
     catalogSourceCommit: value.catalogSourceCommit,
     candidate,
+    expectedActivation,
     authority: "none",
   });
 }
@@ -123,6 +163,7 @@ export function createAppLifecyclePlan({
   request,
   verifiedCatalog,
   candidate = null,
+  expectedActivation,
 } = {}) {
   return validateAppLifecyclePlan({
     schema: APP_LIFECYCLE_PLAN_SCHEMA,
@@ -130,6 +171,7 @@ export function createAppLifecyclePlan({
     catalogSequence: verifiedCatalog.sequence,
     catalogSha256: verifiedCatalog.catalogSha256,
     catalogSourceCommit: verifiedCatalog.source.commit,
+    expectedActivation,
     candidate: candidate === null
       ? null
       : {

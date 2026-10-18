@@ -13,6 +13,9 @@ import {
   validateAppStoreCatalogSnapshot,
 } from "../../contracts/app-store.mjs";
 import {
+  validateComponentRuntimeMetadata,
+} from "../../contracts/component-runtime-metadata.mjs";
+import {
   assertVerifiedAppStoreCatalogPort,
   validateVerifiedAppStoreCatalogSnapshot,
 } from "../../contracts/verified-app-store-catalog.mjs";
@@ -100,12 +103,44 @@ export function createAppLifecycleRequestService({
   catalogPort,
   verifiedCatalogPort,
   lifecycleDelegate,
+  getCurrentObservations,
 } = {}) {
+  if (typeof getCurrentObservations !== "function") {
+    throw new TypeError("Native Store lifecycle requires canonical current observations");
+  }
   const catalog = assertAppStoreCatalogPort(catalogPort);
   const verifiedCatalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const delegate = assertAppLifecycleDelegate(lifecycleDelegate);
   const inFlightByApp = new Map();
   const requests = new Map();
+
+  const expectedActivationFor = (request, entry) => {
+    const raw = getCurrentObservations();
+    if (!Array.isArray(raw)) {
+      throw new TypeError("Native Store current observations are unavailable");
+    }
+    const matches = raw.filter((item) => item?.componentId === request.appId);
+    if (matches.length !== 1) {
+      throw new TypeError("Native Store requires exactly one current activation observation");
+    }
+    const current = validateComponentRuntimeMetadata(matches[0], {
+      componentId: request.appId,
+      state: "current",
+    });
+    if (
+      (current.source === "slot" && current.version !== entry.installedVersion)
+      || (current.source !== "slot" && entry.installedVersion !== null)
+      || current.source === "bundled"
+    ) {
+      throw new TypeError("Store projection and Native current activation disagree");
+    }
+    return {
+      source: current.source,
+      revision: current.revision,
+      version: current.version,
+      sourceCommit: current.sourceCommit,
+    };
+  };
 
   // A bounded instance cannot forget an earlier accepted or rejected ID.
   // Fresh requests fail closed after the capacity is reached; the caller must
@@ -191,6 +226,7 @@ export function createAppLifecycleRequestService({
         request,
         verifiedCatalog: verified,
         candidate,
+        expectedActivation: expectedActivationFor(request, entry),
       });
       validateAppLifecyclePlan(plan);
     } catch {
@@ -229,6 +265,7 @@ export function createAppLifecycleRequestService({
           request,
           verifiedCatalog: latestCatalog,
           candidate: latestCandidate,
+          expectedActivation: expectedActivationFor(request, currentEntry),
         });
         return JSON.stringify(currentPlan) === JSON.stringify(plan);
       } catch {
