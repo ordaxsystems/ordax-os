@@ -127,3 +127,32 @@ test("Native context rejects accessor-based signed slot claims before evaluating
   });
   await assert.rejects(() => provider("orders"), /not a verified current slot/);
 });
+
+
+test("an old mount never inherits a newly authorized replacement package or Space", async () => {
+  let current = identity("orders");
+  const provider = createNativeInstalledAppCapabilityContextProvider({
+    capabilityReader: deviceReader,
+    resolveCurrentInstalledApp: async id => id === "orders" ? current : null,
+    // Simulate legitimately granted capabilities for *both* old and new
+    // generations. The pre-update module must not inherit the new generation.
+    readAllowedCapabilities: async caller =>
+      decision(caller, [{ id: "orders.update", modes: ["write"] }]),
+  });
+  const oldMount = await provider("orders");
+  assert.equal((await oldMount.capabilityReader.capabilities()).capabilities.length, 1);
+
+  current = identity("orders", "ordaxsystems", DIGEST_B);
+  await assert.rejects(() => oldMount.capabilityReader.capabilities(),
+    /mount identity is no longer current/);
+  const newMount = await provider("orders");
+  assert.equal((await newMount.capabilityReader.capabilities()).capabilities.length, 1);
+
+  current = identity("orders", "ordaxsystems", DIGEST_B, "space-two");
+  await assert.rejects(() => newMount.capabilityReader.capabilities(),
+    /mount identity is no longer current/);
+  const spaceTwoMount = await provider("orders");
+  assert.equal((await spaceTwoMount.capabilityReader.capabilities()).capabilities.length, 1);
+  await assert.rejects(() => oldMount.capabilityReader.capabilities(),
+    /mount identity is no longer current/);
+});
