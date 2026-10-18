@@ -1,0 +1,733 @@
+{
+  "status": "REFERENCE_ONLY",
+  "authority": "none",
+  "supersededBy": "system/surface/ui/first-run.mjs",
+  "journeyOwner": "system/services/first-run/journey.mjs",
+  "purpose": "Preserve planned design fields and failure examples without shipping another executable first-run workflow.",
+  "locales": {
+    "pt-BR": {
+      "label": "Bem-vindo ao OrdaX",
+      "icon": "sun",
+      "owner": "First-run / sessão local",
+      "summaryFields": [
+        {
+          "id": "accountChoice",
+          "label": "Conta OrdaX",
+          "options": [
+            {
+              "value": "connected",
+              "label": "Conta conectada"
+            },
+            {
+              "value": "local",
+              "label": "Usar sem conta"
+            }
+          ],
+          "value": "local"
+        },
+        {
+          "id": "networkChoice",
+          "label": "Rede",
+          "options": [
+            {
+              "value": "connected",
+              "label": "Estúdio"
+            },
+            {
+              "value": "offline",
+              "label": "Configurar depois"
+            }
+          ],
+          "value": "offline"
+        }
+      ],
+      "start": "welcome",
+      "fullscreen": true,
+      "screens": {
+        "boot": {
+          "title": "Seu OrdaX está começando.",
+          "text": "Estamos preparando seu espaço.",
+          "next": "welcome",
+          "phase": 12,
+          "nextLabel": "Continuar",
+          "conditions": [
+            {
+              "label": "Preciso de ajuda",
+              "target": "boot-error"
+            }
+          ]
+        },
+        "boot-error": {
+          "title": "Não foi possível iniciar.",
+          "text": "Tente novamente ou abra as opções de recuperação. Seus arquivos permanecem no dispositivo.",
+          "next": "boot",
+          "tone": "warning",
+          "nextLabel": "Tentar novamente",
+          "links": [
+            {
+              "label": "Opções de recuperação",
+              "action": "journey:recovery"
+            }
+          ]
+        },
+        "welcome": {
+          "title": "Seu espaço começa aqui.",
+          "text": "Vamos preparar o OrdaX do seu jeito. São apenas alguns passos, e você pode ajustar suas escolhas depois.",
+          "next": "language",
+          "nextLabel": "Começar",
+          "conditions": [
+            {
+              "label": "Preciso de ajuda para iniciar",
+              "target": "boot-error"
+            }
+          ],
+          "rows": [
+            {
+              "label": "No seu ritmo",
+              "value": "Use com ou sem conta"
+            },
+            {
+              "label": "Sob seu controle",
+              "value": "Escolha o que conectar e compartilhar"
+            }
+          ]
+        },
+        "language": {
+          "title": "Qual idioma você prefere?",
+          "text": "Escolha o idioma para usar no OrdaX.",
+          "next": "keyboard",
+          "fields": [
+            {
+              "id": "language",
+              "label": "Idioma",
+              "options": [
+                {
+                  "value": "pt-BR",
+                  "label": "Português (Brasil)"
+                },
+                {
+                  "value": "en-US",
+                  "label": "English (US)"
+                }
+              ],
+              "value": "pt-BR"
+            }
+          ]
+        },
+        "keyboard": {
+          "title": "Um teclado familiar.",
+          "text": "Escolha o layout que combina com o seu teclado.",
+          "next": "region",
+          "fields": [
+            {
+              "id": "keyboard",
+              "label": "Layout do teclado",
+              "options": [
+                {
+                  "value": "abnt2",
+                  "label": "Português · ABNT2"
+                },
+                {
+                  "value": "us",
+                  "label": "US internacional"
+                }
+              ],
+              "value": "abnt2"
+            }
+          ]
+        },
+        "region": {
+          "title": "Seu tempo, no lugar certo.",
+          "text": "Defina a região para manter seus horários em dia.",
+          "next": "network",
+          "fields": [
+            {
+              "id": "zone",
+              "label": "Fuso horário",
+              "options": [
+                {
+                  "value": "America/Bahia",
+                  "label": "Salvador · UTC−3"
+                },
+                {
+                  "value": "America/Sao_Paulo",
+                  "label": "São Paulo · UTC−3"
+                },
+                {
+                  "value": "Europe/Lisbon",
+                  "label": "Lisboa"
+                }
+              ],
+              "value": "America/Bahia"
+            }
+          ]
+        },
+        "network": {
+          "title": "Vamos conectar você.",
+          "text": "Escolha uma rede para acessar sua conta e manter o OrdaX atualizado. Você também pode continuar sem internet.",
+          "next": "security",
+          "network": true,
+          "nextLabel": "Continuar sem internet",
+          "actions": [
+            {
+              "label": "Conectar à rede Estúdio",
+              "target": "network-connecting"
+            }
+          ]
+        },
+        "network-connecting": {
+          "title": "Conectando ao Estúdio.",
+          "text": "Aguarde enquanto a conexão é preparada.",
+          "next": "security",
+          "phase": 65,
+          "nextLabel": "Continuar",
+          "conditions": [
+            {
+              "label": "Não consigo conectar",
+              "target": "network-error"
+            }
+          ]
+        },
+        "network-error": {
+          "title": "Não foi possível conectar.",
+          "text": "Confira a disponibilidade da rede e tente novamente, ou continue sem internet.",
+          "next": "network",
+          "tone": "warning",
+          "nextLabel": "Tentar novamente",
+          "actions": [
+            {
+              "label": "Continuar sem internet",
+              "target": "security"
+            }
+          ]
+        },
+        "security": {
+          "title": "Seu espaço, protegido.",
+          "text": "Escolha quando configurar a proteção da sessão neste dispositivo.",
+          "next": "account",
+          "fields": [
+            {
+              "id": "lock",
+              "label": "Proteção da sessão",
+              "options": [
+                {
+                  "value": "configured",
+                  "label": "Configurar proteção"
+                },
+                {
+                  "value": "none",
+                  "label": "Configurar depois"
+                }
+              ],
+              "value": "configured"
+            }
+          ],
+          "note": "A conta OrdaX e o acesso a este dispositivo são independentes."
+        },
+        "account": {
+          "title": "Tudo mais perto, com sua conta.",
+          "text": "Acesse seus Spaces e continue seu trabalho entre dispositivos. Você pode entrar agora ou fazer isso depois.",
+          "next": "privacy",
+          "nextLabel": "Agora não",
+          "primaryAction": "sign-in",
+          "actions": [
+            {
+              "label": "Entrar na Conta OrdaX",
+              "target": "sign-in"
+            },
+            {
+              "label": "Criar uma conta",
+              "target": "sign-up"
+            }
+          ]
+        },
+        "sign-in": {
+          "title": "Entre na sua Conta OrdaX.",
+          "text": "Continue com sua identidade para acessar seus Spaces e ferramentas.",
+          "next": "privacy",
+          "nextLabel": "Continuar com Conta OrdaX",
+          "conditions": [
+            {
+              "label": "Problemas para entrar",
+              "target": "identity-error"
+            }
+          ]
+        },
+        "sign-up": {
+          "title": "Um novo espaço para você.",
+          "text": "Crie sua identidade OrdaX e mantenha seu trabalho por perto.",
+          "next": "privacy",
+          "nextLabel": "Continuar",
+          "actions": [
+            {
+              "label": "Já tenho uma conta",
+              "target": "sign-in"
+            }
+          ]
+        },
+        "identity-error": {
+          "title": "Não foi possível entrar.",
+          "text": "Tente novamente ou continue sem conta. Você pode conectar sua identidade mais tarde.",
+          "next": "account",
+          "tone": "warning",
+          "nextLabel": "Tentar novamente",
+          "actions": [
+            {
+              "label": "Continuar sem conta",
+              "target": "privacy"
+            }
+          ]
+        },
+        "privacy": {
+          "title": "Seu contexto, suas escolhas.",
+          "text": "Defina como suas informações acompanham você. Essas preferências podem ser alteradas a qualquer momento.",
+          "next": "name",
+          "fields": [
+            {
+              "id": "sync",
+              "label": "Continuidade entre dispositivos",
+              "options": [
+                {
+                  "value": "local",
+                  "label": "Manter neste dispositivo"
+                },
+                {
+                  "value": "review",
+                  "label": "Revisar antes de sincronizar"
+                }
+              ],
+              "value": "local"
+            },
+            {
+              "id": "memory",
+              "label": "Memória da Intelligence",
+              "options": [
+                {
+                  "value": "review",
+                  "label": "Perguntar antes de guardar"
+                },
+                {
+                  "value": "off",
+                  "label": "Não guardar contexto"
+                }
+              ],
+              "value": "review"
+            }
+          ]
+        },
+        "name": {
+          "title": "Como vamos chamar este dispositivo?",
+          "text": "Escolha um nome fácil de reconhecer entre seus dispositivos.",
+          "next": "review",
+          "fields": [
+            {
+              "id": "deviceName",
+              "label": "Nome do dispositivo",
+              "value": "Meu OrdaX",
+              "max": 48
+            }
+          ]
+        },
+        "review": {
+          "title": "Está tudo do seu jeito?",
+          "text": "Revise suas escolhas antes de começar.",
+          "next": "complete",
+          "summary": true,
+          "nextLabel": "Concluir configuração",
+          "conditions": [
+            {
+              "label": "Não foi possível salvar",
+              "target": "save-error"
+            }
+          ]
+        },
+        "save-error": {
+          "title": "Não foi possível salvar.",
+          "text": "Suas escolhas continuam aqui. Tente novamente para concluir.",
+          "next": "review",
+          "tone": "warning",
+          "nextLabel": "Tentar novamente"
+        },
+        "complete": {
+          "title": "Seu espaço está pronto.",
+          "text": "Um lugar para suas ideias, suas ferramentas e seu próximo passo.",
+          "next": null,
+          "tone": "success",
+          "finish": "Começar a usar",
+          "effect": "setup-complete",
+          "links": [
+            {
+              "label": "Ir à área de trabalho",
+              "action": "journey-desktop"
+            }
+          ]
+        }
+      }
+    },
+    "en-US": {
+      "label": "Welcome to OrdaX",
+      "icon": "sun",
+      "owner": "First run / local session",
+      "summaryFields": [
+        {
+          "id": "accountChoice",
+          "label": "OrdaX Account",
+          "options": [
+            {
+              "value": "connected",
+              "label": "Account connected"
+            },
+            {
+              "value": "local",
+              "label": "Use without an account"
+            }
+          ],
+          "value": "local"
+        },
+        {
+          "id": "networkChoice",
+          "label": "Network",
+          "options": [
+            {
+              "value": "connected",
+              "label": "Studio"
+            },
+            {
+              "value": "offline",
+              "label": "Set up later"
+            }
+          ],
+          "value": "offline"
+        }
+      ],
+      "start": "welcome",
+      "fullscreen": true,
+      "screens": {
+        "boot": {
+          "title": "Your OrdaX is starting.",
+          "text": "We are preparing your space.",
+          "next": "welcome",
+          "phase": 12,
+          "nextLabel": "Continue",
+          "conditions": [
+            {
+              "label": "I need help",
+              "target": "boot-error"
+            }
+          ]
+        },
+        "boot-error": {
+          "title": "Could not start.",
+          "text": "Try again or open recovery options. Your files remain on the device.",
+          "next": "boot",
+          "tone": "warning",
+          "nextLabel": "Try again",
+          "links": [
+            {
+              "label": "Recovery options",
+              "action": "journey:recovery"
+            }
+          ]
+        },
+        "welcome": {
+          "title": "Your space starts here.",
+          "text": "Let's set up OrdaX your way. It takes just a few steps, and you can change your choices later.",
+          "next": "language",
+          "nextLabel": "Get started",
+          "conditions": [
+            {
+              "label": "I need help starting",
+              "target": "boot-error"
+            }
+          ],
+          "rows": [
+            {
+              "label": "At your pace",
+              "value": "Use with or without an account"
+            },
+            {
+              "label": "Under your control",
+              "value": "Choose what to connect and share"
+            }
+          ]
+        },
+        "language": {
+          "title": "Which language do you prefer?",
+          "text": "Choose the language to use in OrdaX.",
+          "next": "keyboard",
+          "fields": [
+            {
+              "id": "language",
+              "label": "Language",
+              "options": [
+                {
+                  "value": "pt-BR",
+                  "label": "Portuguese (Brazil)"
+                },
+                {
+                  "value": "en-US",
+                  "label": "English (US)"
+                }
+              ],
+              "value": "pt-BR"
+            }
+          ]
+        },
+        "keyboard": {
+          "title": "A familiar keyboard.",
+          "text": "Choose the layout that matches your keyboard.",
+          "next": "region",
+          "fields": [
+            {
+              "id": "keyboard",
+              "label": "Keyboard layout",
+              "options": [
+                {
+                  "value": "abnt2",
+                  "label": "Portuguese · ABNT2"
+                },
+                {
+                  "value": "us",
+                  "label": "US International"
+                }
+              ],
+              "value": "abnt2"
+            }
+          ]
+        },
+        "region": {
+          "title": "Your time, in the right place.",
+          "text": "Set your region to keep your times accurate.",
+          "next": "network",
+          "fields": [
+            {
+              "id": "zone",
+              "label": "Time zone",
+              "options": [
+                {
+                  "value": "America/Bahia",
+                  "label": "Salvador · UTC−3"
+                },
+                {
+                  "value": "America/Sao_Paulo",
+                  "label": "Sao Paulo · UTC−3"
+                },
+                {
+                  "value": "Europe/Lisbon",
+                  "label": "Lisbon"
+                }
+              ],
+              "value": "America/Bahia"
+            }
+          ]
+        },
+        "network": {
+          "title": "Let's get you connected.",
+          "text": "Choose a network to access your account and keep OrdaX updated. You can also continue offline.",
+          "next": "security",
+          "network": true,
+          "nextLabel": "Continue offline",
+          "actions": [
+            {
+              "label": "Connect to the Studio network",
+              "target": "network-connecting"
+            }
+          ]
+        },
+        "network-connecting": {
+          "title": "Connecting to Studio.",
+          "text": "Please wait while the connection is prepared.",
+          "next": "security",
+          "phase": 65,
+          "nextLabel": "Continue",
+          "conditions": [
+            {
+              "label": "I cannot connect",
+              "target": "network-error"
+            }
+          ]
+        },
+        "network-error": {
+          "title": "Could not connect.",
+          "text": "Check network availability and try again, or continue offline.",
+          "next": "network",
+          "tone": "warning",
+          "nextLabel": "Try again",
+          "actions": [
+            {
+              "label": "Continue offline",
+              "target": "security"
+            }
+          ]
+        },
+        "security": {
+          "title": "Your space, protected.",
+          "text": "Choose when to set up session protection on this device.",
+          "next": "account",
+          "fields": [
+            {
+              "id": "lock",
+              "label": "Session protection",
+              "options": [
+                {
+                  "value": "configured",
+                  "label": "Set up protection"
+                },
+                {
+                  "value": "none",
+                  "label": "Set up later"
+                }
+              ],
+              "value": "configured"
+            }
+          ],
+          "note": "Your OrdaX account and access to this device are independent."
+        },
+        "account": {
+          "title": "Everything closer, with your account.",
+          "text": "Access your Spaces and continue your work across devices. Sign in now or do it later.",
+          "next": "privacy",
+          "nextLabel": "Not now",
+          "primaryAction": "sign-in",
+          "actions": [
+            {
+              "label": "Sign in to OrdaX Account",
+              "target": "sign-in"
+            },
+            {
+              "label": "Create an account",
+              "target": "sign-up"
+            }
+          ]
+        },
+        "sign-in": {
+          "title": "Sign in to your OrdaX Account.",
+          "text": "Continue with your identity to access your Spaces and tools.",
+          "next": "privacy",
+          "nextLabel": "Continue with OrdaX Account",
+          "conditions": [
+            {
+              "label": "Trouble signing in",
+              "target": "identity-error"
+            }
+          ]
+        },
+        "sign-up": {
+          "title": "A new space for you.",
+          "text": "Create your OrdaX identity and keep your work close.",
+          "next": "privacy",
+          "nextLabel": "Continue",
+          "actions": [
+            {
+              "label": "I already have an account",
+              "target": "sign-in"
+            }
+          ]
+        },
+        "identity-error": {
+          "title": "Could not sign in.",
+          "text": "Try again or continue without an account. You can connect your identity later.",
+          "next": "account",
+          "tone": "warning",
+          "nextLabel": "Try again",
+          "actions": [
+            {
+              "label": "Continue without an account",
+              "target": "privacy"
+            }
+          ]
+        },
+        "privacy": {
+          "title": "Your context, your choices.",
+          "text": "Choose how your information follows you. You can change these preferences at any time.",
+          "next": "name",
+          "fields": [
+            {
+              "id": "sync",
+              "label": "Continuity across devices",
+              "options": [
+                {
+                  "value": "local",
+                  "label": "Keep on this device"
+                },
+                {
+                  "value": "review",
+                  "label": "Review before syncing"
+                }
+              ],
+              "value": "local"
+            },
+            {
+              "id": "memory",
+              "label": "Intelligence Memory",
+              "options": [
+                {
+                  "value": "review",
+                  "label": "Ask before saving"
+                },
+                {
+                  "value": "off",
+                  "label": "Do not save context"
+                }
+              ],
+              "value": "review"
+            }
+          ]
+        },
+        "name": {
+          "title": "What should we call this device?",
+          "text": "Choose a name that is easy to recognize among your devices.",
+          "next": "review",
+          "fields": [
+            {
+              "id": "deviceName",
+              "label": "Device name",
+              "value": "My OrdaX",
+              "max": 48
+            }
+          ]
+        },
+        "review": {
+          "title": "Is everything set your way?",
+          "text": "Review your choices before starting.",
+          "next": "complete",
+          "summary": true,
+          "nextLabel": "Finish setup",
+          "conditions": [
+            {
+              "label": "Could not save",
+              "target": "save-error"
+            }
+          ]
+        },
+        "save-error": {
+          "title": "Could not save.",
+          "text": "Your choices remain here. Try again to finish.",
+          "next": "review",
+          "tone": "warning",
+          "nextLabel": "Try again"
+        },
+        "complete": {
+          "title": "Your space is ready.",
+          "text": "A place for your ideas, your tools and your next step.",
+          "next": null,
+          "tone": "success",
+          "finish": "Start using OrdaX",
+          "effect": "setup-complete",
+          "links": [
+            {
+              "label": "Go to desktop",
+              "action": "journey-desktop"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "sourceCommit": "4f8ee045b902bc2805faf190774ce4ac7d8354d8",
+  "sourcePaths": [
+    "system/surface/ui/journeys/scenarios.mjs",
+    "system/surface/ui/journeys/view.mjs",
+    "system/surface/ui/journeys/styles.css"
+  ]
+}

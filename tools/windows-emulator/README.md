@@ -50,7 +50,7 @@ That last distinction is intentional. The physical Dev USB owns a disposable run
 ## Current host behavior
 
 - kernel: absent by design;
-- first-run: real `system/surface/ui/first-run.mjs`, with the same `tokens.css`, `color-palettes.css`, `first-run.css`, `meridian.tokens.css` and `meridian.css` owners used by Native; the separate `ui/journeys/` setup storyboard remains presentation-only and is not the boot entry;
+- first-run: real `system/surface/ui/first-run.mjs`, with the same `tokens.css`, `color-palettes.css`, `first-run.css`, `meridian.tokens.css` and `meridian.css` owners used by Native; the former setup storyboard is archived under `docs/evidence/first-run-ssot-2026-10-17/` and is no longer exported by the runtime journey catalog;
 - first-run persistence: browser `localStorage`, isolated under emulator-specific keys;
 - online identity actions: unavailable for now, so local-only onboarding remains supported;
 - network/hardware management: unavailable for now and must stay visibly unavailable rather than being faked;

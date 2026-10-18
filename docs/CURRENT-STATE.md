@@ -1,5 +1,15 @@
 # Current State
 
+First Run single owner (2026-10-17): Native/USB and Windows emulator use
+`system/surface/ui/first-run.mjs`, canonical journey metadata and the same
+Meridian visual owners. The dormant Meridian `setup` storyboard and its
+independent progress renderer were removed from the runtime catalog. Prior
+planned screens/fields remain reference-only in
+`docs/evidence/first-run-ssot-2026-10-17/`; other Settings/resource mocks remain
+available. Contract tests reject a second executable setup and check both entry
+points and visual imports. This does not establish the running commit of a
+physical USB; its OOBE update guard and physical verification remain unchanged.
+
 Shared Store presentation (2026-10-17): Web and Native mount
 `system/surface/ui/store-experience.mjs` and its Meridian chrome stylesheet.
 Both use the existing planned presentation and the same verified-catalog DOM

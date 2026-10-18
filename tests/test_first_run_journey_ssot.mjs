@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createJourneyScenarios } from "../system/surface/ui/journeys/scenarios.mjs";
+import { createJourneyView } from "../system/surface/ui/journeys/view.mjs";
 
 import { FIRST_RUN_JOURNEY, FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS, getFirstRunStep } from "../system/services/first-run/journey.mjs";
 
@@ -27,4 +29,41 @@ test("optional and skippable semantics live with canonical step metadata", () =>
   assert.equal(getFirstRunStep("security").optional, true);
   assert.equal(getFirstRunStep("account").optional, true);
   assert.throws(() => getFirstRunStep("unknown"), /Unknown first-run step/);
+});
+
+test("Native and emulator mount one first-run module and the same Meridian visual owners", async () => {
+  const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
+  const [native, emulator, nativeHtml, emulatorHtml] = await Promise.all([
+    read("system/composition/native/main.mjs"), read("tools/windows-emulator/main.mjs"),
+    read("system/composition/native/index.html"), read("tools/windows-emulator/index.html"),
+  ]);
+  for (const entry of [native, emulator]) {
+    assert.match(entry, /from ["'][^"']*surface\/ui\/first-run\.mjs["']/);
+    assert.match(entry, /mountFirstRunExperience\(root,/);
+    assert.doesNotMatch(entry, /journey=setup|storyboards\.setup/);
+  }
+  for (const html of [nativeHtml, emulatorHtml]) {
+    assert.match(html, /<html[^>]*data-meridian/);
+    let previous = -1;
+    for (const owner of ["tokens.css", "color-palettes.css", "first-run.css", "meridian.tokens.css", "meridian.css"]) {
+      const index = html.indexOf("surface/ui/" + owner);
+      assert.ok(index > previous, owner + " must retain shared visual policy order");previous = index;
+    }
+  }
+});
+
+test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {
+  for (const locale of ["pt-BR", "en-US"]) {
+    assert.equal(Object.hasOwn(createJourneyScenarios(locale).storyboards, "setup"), false);
+  }
+  const archive = JSON.parse(await readFile(new URL("../docs/evidence/first-run-ssot-2026-10-17/setup-design-reference.json", import.meta.url), "utf8"));
+  assert.equal(archive.status, "REFERENCE_ONLY");
+  assert.equal(archive.supersededBy, "system/surface/ui/first-run.mjs");
+  for (const design of Object.values(archive.locales)) {
+    for (const planned of ["keyboard", "network-connecting", "identity-error", "save-error"]) {
+      assert.ok(design.screens[planned], "Preserve planned reference: " + planned);
+    }
+    assert.throws(() => createJourneyView().journeyView("setup", design, {}, {}, {}), /First Run setup is owned/);
+    assert.throws(() => createJourneyView().journeyFrame("", "", true, "setup"), /First Run setup is owned/);
+  }
 });

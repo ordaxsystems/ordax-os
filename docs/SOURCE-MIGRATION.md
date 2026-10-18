@@ -2,6 +2,18 @@
 
 Status: CANONICAL LEDGER
 
+## First Run SSOT cleanup — 2026-10-17
+
+The user required one welcome/setup implementation across USB Dev and emulator.
+`system/surface/ui/first-run.mjs` remains the renderer and
+`system/services/first-run/journey.mjs` remains the order/identity owner.
+The unused `setup` definition and its independent progress layout were removed
+from `ui/journeys/`; that module retains Settings/resource simulations.
+The old design data is preserved as non-executable reference in
+`docs/evidence/first-run-ssot-2026-10-17/`, so planned fields and errors are not
+lost. No host authority, completion receipt, update guard or physical medium
+changed. Future setup capabilities belong to existing First Run/domain owners.
+
 ## Shared Web/Native Store presentation — 2026-10-17
 
 The user explicitly authorized one Meridian visual source for both compositions.
