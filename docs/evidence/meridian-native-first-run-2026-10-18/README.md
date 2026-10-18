@@ -47,3 +47,31 @@ The Python Native-host suite was attempted on Windows: five cases require Linux
 
 The emulator browser smoke source was updated to follow the Native frame and
 reload persistence; the observed end-to-end proof above used the real browser UI.
+
+## Follow-up: network, security and account UX
+
+The same Native renderer now presents unavailable capabilities as consistent
+Meridian status panels with product-facing copy. Security still explicitly states
+that the session lock does not encrypt USB files. Credential policy, legal consent,
+authentication and hardware capability gates remain unchanged.
+
+Account continuation is in the persistent footer alongside Back. Sign-in and
+registration controls remain present and disabled when unsupported. The local
+path was clicked in the actual emulator iframe and reached Privacy; Back returned
+to Account. No credential was entered or created. Wi-Fi choices now expose their
+selected state to assistive technology and use full-width rows; connection controls
+stack on narrow viewports. The hardware-enabled Wi-Fi/credential paths were not
+visually exercised because the emulator does not provide those capabilities.
+
+Observed the actual emulator iframe at CSS 389 × 843: no horizontal overflow;
+footer actions had bottom 829.29px, and the rightmost edge was 367.56px.
+Updated Portuguese copy has corresponding English, Spanish, German and French
+translations in the existing catalog. Verification: 25 Node tests passed (journey,
+state, i18n, capabilities, Native emulator host); 3 Python credential-policy tests
+passed. Syntax and whitespace checks passed. This does not replace the outstanding
+Linux-only and physical-media validation described above.
+
+![Account, desktop emulator](account-refined-desktop.png)
+![Account, narrow emulator](account-refined-mobile.png)
+![Network, desktop emulator](network-refined-desktop.png)
+![Security, desktop emulator](security-refined-desktop.png)

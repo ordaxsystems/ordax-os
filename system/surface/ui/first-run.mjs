@@ -70,6 +70,12 @@ function action(documentObject, label, id, primary = false) {
   return button;
 }
 
+function availabilityPanel(documentObject, title, detail) {
+  const panel = el(documentObject, "article", "ordax-first-run-availability");
+  panel.append(el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
+  return panel;
+}
+
 function signalLabel(dbm) {
   if (dbm >= -50) return "Sinal forte";
   if (dbm >= -60) return "Sinal bom";
@@ -370,14 +376,13 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Rede",
       "Conecte-se agora ou continue offline.",
-      "A rede é opcional. Este passo usa o mesmo broker Native de Wi-Fi da Surface; não existe um segundo gerenciador exclusivo do assistente.",
+      "Escolha uma rede Wi-Fi para acessar os serviços online. Você também pode continuar offline e conectar depois em Ajustes.",
     ));
     if (!capabilitySnapshot.networkManagement) {
-      body.append(el(
+      body.append(availabilityPanel(
         documentObject,
-        "p",
-        "ordax-first-run-notice",
-        "O gerenciamento de Wi-Fi não está disponível neste host. Continue offline e configure a rede quando o adapter estiver disponível.",
+        "Wi-Fi",
+        "Não é possível configurar o Wi-Fi nesta sessão. Você pode continuar; nenhuma conexão será alterada.",
       ));
       return;
     }
@@ -411,6 +416,7 @@ export function mountFirstRunExperience(
       const button = action(documentObject, entry.ssid, "network-select");
       button.dataset.firstRunSsid = entry.ssid;
       button.dataset.selected = String(selectedSsid === entry.ssid);
+      button.setAttribute("aria-pressed", String(selectedSsid === entry.ssid));
       button.disabled = networkPending || entry.connected;
       button.append(el(
         documentObject,
@@ -445,17 +451,15 @@ export function mountFirstRunExperience(
   const renderSecurity = (body) => {
     body.append(heading(
       "Segurança local",
-      "Proteja esta sessão sem depender da Conta.",
-      "Você pode configurar um PIN ou senha local agora. A credencial fica neste dispositivo. "
-        + "Este bloqueio protege a Surface em execução e não criptografa os arquivos do pendrive.",
+      "Proteja seu OrdaX.",
+      "Use um PIN ou senha local para proteger a sessão do OrdaX. A credencial fica neste dispositivo e não criptografa os arquivos do pendrive.",
     ));
 
     if (!capabilitySnapshot.localSession || !localSessionSnapshot) {
-      body.append(el(
+      body.append(availabilityPanel(
         documentObject,
-        "p",
-        "ordax-first-run-note",
-        "O owner de sessão local não está disponível nesta execução. Você pode continuar e configurar depois em Ajustes quando ele estiver disponível.",
+        "Segurança local",
+        "O bloqueio local não está disponível nesta sessão. Nenhum PIN ou senha será criado ao continuar.",
       ));
       return;
     }
@@ -464,7 +468,7 @@ export function mountFirstRunExperience(
       const configured = el(documentObject, "article", "ordax-first-run-account");
       configured.append(
         el(documentObject, "strong", "", "Bloqueio local configurado"),
-        el(documentObject, "p", "", "A próxima inicialização da Surface começará bloqueada e exigirá esta credencial local."),
+        el(documentObject, "p", "", "Na próxima inicialização, use seu PIN ou senha local para desbloquear o OrdaX."),
       );
       body.append(configured);
       return;
@@ -523,14 +527,14 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Conta OrdaX",
       "A conta é opcional.",
-      "Continuar sem conta é uma rota oficial do produto. Entrar e Criar conta só ficam ativos quando um provedor real anunciar essas capacidades.",
+      "Entre com sua Conta OrdaX ou comece sem conta. Seus aplicativos locais continuam disponíveis sem internet.",
     ));
     const state = el(documentObject, "article", "ordax-first-run-account");
     const copy = sessionSnapshot.state === "signed-in"
       ? `Conta autenticada como ${sessionSnapshot.displayName}.`
       : sessionSnapshot.state === "signed-out"
-        ? "O host oferece identidade, mas nenhuma sessão está ativa."
-        : "A identidade online ainda não está configurada neste host.";
+        ? "Entre para usar sua Conta OrdaX neste dispositivo."
+        : "O acesso à Conta OrdaX ainda não está disponível nesta sessão.";
     state.append(
       el(documentObject, "strong", "", sessionSnapshot.state === "signed-in" ? sessionSnapshot.displayName : "Conta OrdaX"),
       el(documentObject, "p", "", copy),
@@ -575,7 +579,7 @@ export function mountFirstRunExperience(
         const legal = el(documentObject, "div", "ordax-first-run-legal");
         legal.append(
           el(documentObject, "strong", "", "Documentos vigentes"),
-          el(documentObject, "p", "", "Leia os documentos canônicos antes de criar sua Conta OrdaX."),
+          el(documentObject, "p", "", "Leia os Termos e a Política de Privacidade antes de criar sua conta."),
         );
         const links = el(documentObject, "div", "ordax-first-run-legal-links");
         const privacy = documentObject.createElement("a");
@@ -622,9 +626,6 @@ export function mountFirstRunExperience(
       );
       buttons.append(signIn, register);
     }
-    const local = action(documentObject, "Continuar sem conta", "account-local");
-    local.disabled = identityPending !== null;
-    buttons.append(local);
     body.append(buttons);
 
     if (
@@ -636,7 +637,7 @@ export function mountFirstRunExperience(
         documentObject,
         "p",
         "ordax-first-run-note",
-        "Nenhuma senha fictícia é solicitada: as ações online permanecem desativadas até existir integração real de identidade.",
+        "Você pode começar sem conta e entrar depois em Ajustes. Entrar e criar conta ficam disponíveis quando o serviço de conta estiver conectado.",
       ));
     }
   };
@@ -774,10 +775,14 @@ export function mountFirstRunExperience(
 
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
     if (stepIndex > 0 && !finishing) footer.append(action(documentObject, "Voltar", "back"));
-    if (step !== "account") {
+    if (step === "account") {
+      const local = action(documentObject, "Continuar sem conta", "account-local", !capabilitySnapshot.identitySignIn && !capabilitySnapshot.identityRegister);
+      local.disabled = identityPending !== null;
+      footer.append(local);
+    } else {
       const label = step === "ready"
         ? finishing ? "Salvando…" : "Entrar no OrdaX"
-        : step === "network" ? "Continuar offline ou conectado" : "Continuar";
+        : "Continuar";
       const next = action(documentObject, label, step === "ready" ? "finish" : "next", true);
       next.disabled = (
         finishing
