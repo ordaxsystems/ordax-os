@@ -133,32 +133,40 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       assert.ok(launcher.includes(`aria-label="${localization.translate("shell.launcher.command")}"`));
       assert.ok(markup.includes('id="ordax-launcher"'));
       assert.ok(markup.includes('data-launcher-query'));
-      const navigation = buttons.filter(([, attributes]) =>
-        attributes.includes('class="ordax-rail-button"') &&
-        attributes.includes('data-launch-app='),
-      );
       const expected = ["files", "studio", "settings", "system"];
-      assert.equal(navigation.length, expected.length, "Every pinned destination has one launch control");
+      const navigation = buttons.filter(([, attributes]) =>
+        attributes.includes('class="ordax-rail-button os-nav-item"') &&
+        expected.some(id => attributes.includes(`data-sidebar-app="${id}"`)),
+      );
+      assert.equal(navigation.length, 0, "Device-only apps stay out of the Web-equivalent sidebar");
+      const deviceMenuApps = buttons.filter(([, attributes]) =>
+        attributes.includes('class="meridian-menu-item"') &&
+        expected.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
+      );
+      assert.equal(deviceMenuApps.length, expected.length, "Device-only apps remain available in the destinations menu");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
       for (const id of expected) {
-        const matches = navigation.filter(([, attributes]) => attributes.includes(`data-launch-app="${id}"`));
-        assert.equal(matches.length, 1, `One sidebar launcher for ${id}`);
+        const matches = deviceMenuApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
+        assert.equal(matches.length, 1, `One destination-menu entry for ${id}`);
         const [, attributes, content] = matches[0];
         const title = localization.translate(`app.${id}.title`);
-        assert.ok(attributes.includes(`data-sidebar-app="${id}"`));
-        assert.ok(attributes.includes(`title="${title}"`));
-        assert.ok(attributes.includes(`aria-label="${localization.translate("surface.launcher.open", { app: title })}"`));
+        assert.ok(attributes.includes(`data-launch-app="${id}"`));
         assert.ok(content.includes(`<span>${title}</span>`));
-        assert.ok(content.includes('<svg'), "The collapsed rail retains a visible icon");
+        assert.ok(content.includes('<svg'), "The destination menu retains a visible icon");
       }
       const account = buttons.filter(([, attributes]) => attributes.includes('data-launch-app="account"'));
-      assert.equal(account.length, 1, "Account has a single profile launcher, outside pinned app navigation");
-      const [, profile] = account[0];
+      const profileLaunchers = buttons.filter(([, attributes]) => attributes.includes('data-sidebar-account-open'));
+      assert.equal(profileLaunchers.length, 1, "Account has a single profile launcher");
+      const [, profile] = profileLaunchers[0];
       assert.ok(profile.includes('data-sidebar-account-open'));
       assert.ok(profile.includes('data-app-target="overview"'));
       assert.ok(profile.includes(`aria-label="${localization.translate("sidebar.account.open")}"`));
-      assert.ok(!navigation.some(([, attributes]) => attributes.includes('data-launch-app="account"')));
+      assert.ok(account.length >= 2, "Spaces and professional profiles use the existing Account service");
+      assert.ok(markup.includes('class="meridian-system-header ordax-native-header"'));
+      assert.ok(markup.includes('class="ordax-dock ordax-statusbar meridian-taskbar"'));
+      assert.ok(markup.includes('data-connectivity-tray'));
+      assert.ok(markup.includes('data-ordax-tray-clock'));
     } finally {
       localization.dispose();
     }

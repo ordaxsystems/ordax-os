@@ -41,7 +41,9 @@ test("emulator loads the Native composition without owning another UI or first-r
   assert.ok(emulator.includes('"/system/composition/native/index.html"'));
   assert.ok(wrapper.includes('data-surface-src="/system/composition/native/index.html"'));
   assert.doesNotMatch(emulator,/mountFirstRunExperience|createEmulatedPreferences|composition\/web|preview=layout/);
-  assert.doesNotMatch(wrapper,/<link[^>]+stylesheet|ordax-emulator-root/);
+  const wrapperStyles = [...wrapper.matchAll(/<link[^>]+href="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(wrapperStyles, ["/system/surface/ui/meridian.tokens.css"], "development chrome may share tokens, never product render styles");
+  assert.doesNotMatch(wrapper,/ordax-emulator-root/);
   let previous=-1;
   for(const owner of ["tokens.css","color-palettes.css","first-run.css","meridian.tokens.css","meridian.css"]){
     const index=html.indexOf("surface/ui/"+owner);

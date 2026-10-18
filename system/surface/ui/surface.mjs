@@ -18,11 +18,14 @@ import {
   ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID,
 } from "../../services/preferences/accessibility.mjs";
 import { resolveColorAppearance } from "../../services/preferences/color-palette.mjs";
+import { APPEARANCE_PREFERENCE_ID } from "../../services/preferences/appearance.mjs";
+import { COLOR_PALETTE_PREFERENCE_ID } from "../../services/preferences/color-palette.mjs";
 import {
   createDesktopShellMarkup,
   mountDesktopClock,
   syncDesktopShellLocalization,
   syncDesktopPresentationToggle,
+  syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
@@ -461,6 +464,8 @@ export function mountSurface(
 
   const workspace = root.querySelector("[data-workspace]");
   const launcher = root.querySelector("[data-launcher]");
+  const navigationMenu = root.querySelector("[data-native-navigation-menu]");
+  const navigationQuery = root.querySelector("[data-native-navigation-query]");
   const launcherToggle = root.querySelector("[data-launcher-toggle]");
   const launcherQuery = root.querySelector("[data-launcher-query]");
   const appLauncher = root.querySelector("[data-app-launcher]");
@@ -656,6 +661,11 @@ export function mountSurface(
       if (homeActive) homeButton.setAttribute("aria-current", "page");
       else homeButton.removeAttribute("aria-current");
     }
+    const currentDestination = root.querySelector("[data-current-destination]");
+    if (currentDestination) {
+      const activeApp = activeWindow ? catalog.get(activeWindow.appId) : null;
+      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : localization.translate("shell.home.title");
+    }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
       const app = catalog.get(appId);
@@ -727,7 +737,12 @@ export function mountSurface(
     root.dataset.ordaxTheme = appearance.scheme;
     root.dataset.theme = appearance.colorTheme;
     root.dataset.ordaxPalette = appearance.colorTheme === "native" ? "native" : "standard";
+    const themeToggle = root.querySelector("[data-native-theme-toggle]");
+    if (themeToggle) {
+      syncDesktopThemeToggle(themeToggle, appearance, localization);
+    }
     root.dataset.workspacePresentation = state.presentation;
+    root.dataset.view = state.presentation;
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
@@ -744,6 +759,15 @@ export function mountSurface(
       state.preferences[ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID];
     launcher.hidden = !state.launcherOpen;
     root.querySelectorAll("[data-launcher-toggle]").forEach(button => button.setAttribute("aria-expanded", String(state.launcherOpen)));
+    root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", String(!navigationMenu.hidden)));
+    const moreDestinations = root.querySelector("[data-nav-menu-more]");
+    if (moreDestinations) {
+      const label = localization.translate("shell.sidebar.more");
+      moreDestinations.setAttribute("aria-label", label);
+      moreDestinations.title = label;
+      const labelNode = moreDestinations.querySelector("span:last-child");
+      if (labelNode) labelNode.textContent = label;
+    }
 
     const connectivityMessage =
       CONNECTIVITY_MESSAGE_IDS[state.connectivity] ?? CONNECTIVITY_MESSAGE_IDS.unknown;
@@ -768,6 +792,15 @@ export function mountSurface(
       targetButton.title = available
         ? ""
         : localization.translate("surface.capability.destinationRequired");
+    }
+
+    const activeNavigationWindow = getActiveArea(state).windows.find(item => item.id === getActiveArea(state).activeWindowId) ?? null;
+    for (const targetButton of navigationMenu.querySelectorAll("[data-nav-menu-app]")) {
+      const app = catalog.get(targetButton.dataset.navMenuApp);
+      const available = catalog.isAvailable(app, state.capabilityIds);
+      targetButton.disabled = !available;
+      targetButton.setAttribute("aria-disabled", String(!available));
+      targetButton.dataset.active = String(activeNavigationWindow?.appId === targetButton.dataset.navMenuApp);
     }
 
     renderLauncher();
@@ -805,6 +838,33 @@ export function mountSurface(
       launcherQuery.select();
     });
   };
+  let navigationMenuTrigger = null;
+  const openNativeNavigation = (trigger = document.activeElement) => {
+    navigationMenuTrigger = trigger instanceof HTMLElement ? trigger : null;
+    navigationQuery.value = "";
+    filterNativeNavigation("");
+    navigationMenu.hidden = false;
+    root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", "true"));
+    queueMicrotask(() => navigationQuery.focus());
+  };
+  const closeNativeNavigation = ({ restoreFocus = false } = {}) => {
+    if (navigationMenu.hidden) return;
+    navigationMenu.hidden = true;
+    root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", "false"));
+    if (restoreFocus && navigationMenuTrigger?.isConnected) navigationMenuTrigger.focus({ preventScroll: true });
+    navigationMenuTrigger = null;
+  };
+  const filterNativeNavigation = query => {
+    const locale = localization.getLocale();
+    const normalized = String(query).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale).trim();
+    for (const button of navigationMenu.querySelectorAll("[data-nav-menu-item]")) {
+      const value = button.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale);
+      button.hidden = normalized !== "" && !value.includes(normalized);
+    }
+    for (const group of navigationMenu.querySelectorAll("[data-nav-menu-group]")) {
+      group.hidden = !group.querySelector("[data-nav-menu-item]:not([hidden])");
+    }
+  };
 
   const onClick = (event) => {
     const areaButton = event.target.closest("[data-area-id]");
@@ -823,6 +883,7 @@ export function mountSurface(
 
     const launcherButton = event.target.closest("[data-launcher-toggle]");
     if (launcherButton) {
+      closeNativeNavigation();
       if (state.launcherOpen) {
         dispatch({ type: "launcher.close" });
       } else {
@@ -831,8 +892,44 @@ export function mountSurface(
       return;
     }
 
+    const navigationToggle = event.target.closest("[data-navigation-menu-toggle]");
+    if (navigationToggle) {
+      if (navigationMenu.hidden) openNativeNavigation(navigationToggle);
+      else closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.target.closest("[data-navigation-menu-close]")) {
+      closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.target.closest("[data-native-navigation-home]")) {
+      closeNativeNavigation();
+      dispatch({ type: "workspace.presentation", value: "central" });
+      dispatch({ type: "workspace.show-desktop" });
+      workspace.focus({ preventScroll: true });
+      return;
+    }
+
+    if (!navigationMenu.hidden && !event.target.closest("[data-native-navigation-menu]")) {
+      closeNativeNavigation();
+    }
+
+    const themeToggle = event.target.closest("[data-native-theme-toggle]");
+    if (themeToggle) {
+      const appearance = resolveColorAppearance(state.preferences);
+      const nextScheme = appearance.scheme === "dark" ? "light" : "dark";
+      dispatch({ type: "preference.set", preferenceId: APPEARANCE_PREFERENCE_ID, value: nextScheme });
+      if (state.preferences[COLOR_PALETTE_PREFERENCE_ID] === "native") {
+        dispatch({ type: "preference.set", preferenceId: COLOR_PALETTE_PREFERENCE_ID, value: "standard" });
+      }
+      return;
+    }
+
     const appButton = event.target.closest("[data-launch-app]");
     if (appButton) {
+      closeNativeNavigation();
       const appId = appButton.dataset.launchApp;
       const requiredCapability = appButton.dataset.requiresCapability;
       const app = catalog.get(appId);
@@ -910,6 +1007,7 @@ export function mountSurface(
 
   const onInput = (event) => {
     if (event.target === launcherQuery) renderLauncher();
+    if (event.target === navigationQuery) filterNativeNavigation(navigationQuery.value);
   };
 
   // The embedded browser is an implementation detail of the native Surface.
@@ -1001,7 +1099,12 @@ export function mountSurface(
   const onKeyDown = (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
-      openLauncher();
+      openNativeNavigation(event.target);
+      return;
+    }
+
+    if (event.key === "Escape" && !navigationMenu.hidden) {
+      closeNativeNavigation({ restoreFocus: true });
       return;
     }
 

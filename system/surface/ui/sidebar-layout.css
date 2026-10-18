@@ -36,7 +36,7 @@
 .ordax-product-sidebar .account-identity > span { color: var(--ordax-muted); }
 .ordax-product-sidebar .account-identity strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ordax-product-sidebar .account-chevron { width: 16px; height: 16px; flex-shrink: 0; }
-.ordax-product-sidebar .storage-track { margin: 14px 0 8px; height: 5px; border-radius: 4px; background: var(--ordax-border-soft); overflow: hidden; }
+.ordax-product-sidebar .storage-track { margin: 14px 0 8px; height: 5px; border-radius: 4px; background: var(--md-rail-border); overflow: hidden; }
 .ordax-product-sidebar .storage-unavailable { --storage-progress: 0%; }
 .ordax-product-sidebar .account-storage-footer { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: .625rem; }
 .ordax-product-sidebar .account-storage-value { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -49,11 +49,16 @@
 @container sidebar-chrome (max-width: 100px) {
   [data-sidebar-slot="brand"] :is(.brand, .ordax-brand) { justify-content: center; width: 100%; gap: 0; }
   [data-sidebar-slot="brand"] :is(.brand > div, .ordax-brand-word) { display: none; }
+  .meridian-nav-label { display: none !important; }
   :is(.ordax-rail-button, .os-nav-item) { justify-content: center !important; padding-inline: 0 !important; }
-  :is(.ordax-rail-button, .os-nav-item) > span:last-child { display: none; }
+  :is(.ordax-rail-button, .os-nav-item) > span:not(.ordax-rail-icon) { display: none; }
   .sidebar-account { padding: 0 !important; border: 0 !important; background: transparent !important; }
   .account-open { justify-content: center; gap: 0; }
-  :is(.account-identity, .account-chevron, .account-storage-summary, .ordax-space-switcher-slot) { display: none !important; }
+  :is(.account-identity, .account-chevron, .account-storage-summary, .meridian-rail-context) { display: none !important; }
+  [data-sidebar-slot="home"] .ordax-space-switcher-trigger { justify-content: center; padding-inline: 0; border-color: transparent; }
+  [data-sidebar-slot="home"] .ordax-space-switcher-trigger-label,
+  [data-sidebar-slot="home"] .ordax-space-switcher-chevron { display: none !important; }
+  [data-sidebar-slot="account"] .meridian-rail-utilities { justify-content: center; flex-direction: column; gap: 4px; padding-top: 8px; }
   .account-storage-compact { display: inline !important; }
   .account-storage-footer { flex-direction: column; }
 }

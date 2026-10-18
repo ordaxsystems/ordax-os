@@ -1,15 +1,18 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-meridian>
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>OrdaX Windows Emulator</title>
+  <link rel="stylesheet" href="/system/surface/ui/meridian.tokens.css"/>
   <style>
     html,body {margin:0;width:100%;height:100%;overflow:hidden;}
-    #ordax-emulator-surface {display:block;width:100%;height:100%;border:0;}
-    .ordax-emulator-controls {position:fixed;right:12px;top:12px;z-index:2147483647;font:12px system-ui;color:white;background:#18201e;border-radius:8px;padding:8px;}
+    body {display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--md-canvas);color:var(--md-ink);}
+    #ordax-emulator-surface {display:block;grid-row:2;min-height:0;width:100%;height:100%;border:0;}
+    .ordax-emulator-controls {grid-row:1;font:12px/20px var(--md-font);background:var(--md-surface);border-bottom:1px solid var(--md-border);padding:6px 12px;}
     .ordax-emulator-controls summary {cursor:pointer;}
-    .ordax-emulator-controls button {margin-top:8px;}
+    .ordax-emulator-controls button {margin-top:8px;min-height:32px;border:1px solid var(--md-border);border-radius:var(--md-radius-small);background:var(--md-subtle);color:var(--md-ink);cursor:pointer;}
+    .ordax-emulator-controls :is(summary,button):focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
   </style>
 </head>
 <body>

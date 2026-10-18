@@ -21,12 +21,19 @@ export function sidebarNavigationCapacity(nav) {
   return pitch > 0 ? Math.max(0, Math.floor((nav.clientHeight + (parseFloat(style.rowGap) || 0)) / pitch)) : 0;
 }
 export function mountNativeSidebarFit(nav, onResize) {
-  const buttons = [...nav.querySelectorAll("[data-sidebar-app]")];
-  const more = nav.querySelector("[data-launcher-toggle]");
+  const buttons = [...nav.querySelectorAll(".meridian-nav-destination button")];
+  const more = nav.querySelector("[data-nav-menu-more]") ?? nav.querySelector("[data-launcher-more]") ?? nav.querySelector("[data-launcher-toggle]");
   function measure() {
-    const capacity = sidebarNavigationCapacity(nav);
+    const button = buttons.find(candidate => !candidate.hidden);
+    const style = nav.ownerDocument.defaultView.getComputedStyle(nav);
+    const pitch = button ? button.getBoundingClientRect().height + (parseFloat(style.rowGap) || 0) : 0;
+    const labelHeight = nav.querySelectorAll(".meridian-nav-label").length * 26;
+    const capacity = Math.max(0, sidebarNavigationCapacity(nav) - (pitch ? Math.ceil(labelHeight / pitch) : 0));
     const count = buttons.length > capacity ? Math.max(0, capacity - 1) : buttons.length;
     buttons.forEach((button, index) => { button.hidden = index >= count; });
+    nav.querySelectorAll("[data-nav-group]").forEach(group => {
+      group.hidden = !group.querySelector(".meridian-nav-destination button:not([hidden])");
+    });
     more.hidden = count === buttons.length;
     onResize();
   }
