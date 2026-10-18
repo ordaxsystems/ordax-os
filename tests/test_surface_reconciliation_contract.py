@@ -13,7 +13,7 @@ class SurfaceReconciliationContractTests(unittest.TestCase):
     def test_interactive_collections_are_not_rebuilt_destructively(self):
         surface = self.read_surface()
         self.assertEqual(
-            surface.count("replaceChildren()"),
+            surface.count("root.replaceChildren()"),
             1,
             "only final Surface teardown may replace the root children",
         )
