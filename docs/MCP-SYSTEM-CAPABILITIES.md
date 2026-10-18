@@ -85,6 +85,19 @@ ou a presença na Loja não conferem permissão.
   a operação. Sessões de convidado usam `accountId: null` e `spaceId: null`
   **somente quando o host tiver resolvido esse escopo de fato**; isso não
   infere permissões de conta inexistente.
+- O host Python ganhou `read_current_boot_verified_app_provenance()` em
+  `native_app_data_session_binding.py`: uma **consulta privada e somente
+  leitura** dos comprovantes de instalação *system-release-bundled* e do índice
+  atual, confrontados com o handoff do release e o inventário verificado. A
+  função reutiliza o mesmo validador que já precede a admissão App Data e
+  não emite bindings, endpoints ou grants. Os campos `sourceDigest`
+  identificam **o release inteiro**, não o binário individual de cada app;
+  o `receiptSha256` identifica o comprovante, não uma concessão de
+  execução. Essa prova ainda não identifica processo chamador nem a conta,
+  Space ou permissão efetiva, e **não está ligada** à porta JS do app.
+  A aquisição de apps externos por slots assinados continua exigindo a
+  identidade de pacote específica do slot e não deve ser confundida com
+  o inventário first-party bundled.
 - Manifestos de App Intelligence são declarativos (`authority=none`).
   A ligação de um intent a um adapter tipado exige autorização posterior.
 
