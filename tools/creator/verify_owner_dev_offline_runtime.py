@@ -23,7 +23,7 @@ RELATIVE_PIN = Path("etc/ordax/owner-surface-runtime.sha256")
 RELATIVE_PROVENANCE = RELATIVE_IMAGE.parent / "surface-runtime-provenance.json"
 GIB = 1024 ** 3
 MAX_OWNER_SEED_BYTES = 6 * GIB
-HASH = re.compile(r"[0-9a-f]{64}\\Z")
+HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class OfflineRuntimeError(ValueError):
@@ -101,11 +101,11 @@ def stage_runtime(stage: Path, producer: Path) -> None:
         if sha256(partial) != expected:
             raise OfflineRuntimeError("staged Surface EROFS SHA-256 mismatch")
         partial.replace(target)
-        receipt.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+        receipt.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         # The pathname is fixed by the bootstrap root; no source-defined paths
         # or untrusted metadata become shell arguments during boot.
         pin.write_text(
-            f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\\n",
+            f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\n",
             encoding="ascii",
         )
         verify(stage)
@@ -135,7 +135,7 @@ def verify(stage: Path) -> str:
             or provenance.get("image", {}).get("name") != source["artifact"]["name"]
             or provenance.get("image", {}).get("size") != image.stat().st_size):
         raise OfflineRuntimeError("Owner offline Surface receipt differs from canonical producer")
-    expected_pin = f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\\n"
+    expected_pin = f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\n"
     if pin.read_text(encoding="ascii") != expected_pin or sha256(image) != expected:
         raise OfflineRuntimeError("Owner offline Surface EROFS pin/digest mismatch")
     return source["runtime_id"]
@@ -170,7 +170,7 @@ def geometry(stage: Path, destination: Path) -> int:
         raise OfflineRuntimeError("Owner disposable geometry destination already exists")
     media["disposable_proof"]["image_bytes"] = size
     media["scope"] = "owner-development-offline-graphical-proof-derived-from-physical-media"
-    destination.write_text(json.dumps(media, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+    destination.write_text(json.dumps(media, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return size
 
 
