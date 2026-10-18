@@ -737,3 +737,73 @@ test("Memory capture, Surface favorites and color palette remain device-local an
   sync.destroy();
   preferenceSync.destroy();
 });
+
+test("late account A snapshot cannot overwrite B and B reconciliation is retried", async () => {
+  const preferences = preferencesRuntime();
+  const preferenceSync = createPreferenceSyncRuntime(preferences, {
+    createIdempotencyKey: keyFactory("pref-identity-race"),
+  });
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  let current = { state: "signed-in", subjectId: "account-A", displayName: "A" };
+  const listeners = new Set();
+  const identity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => current,
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(current);
+      return () => listeners.delete(listener);
+    },
+    change(subjectId) {
+      current = { state: "signed-in", subjectId, displayName: subjectId };
+      for (const listener of [...listeners]) listener(current);
+    },
+  };
+  const replies = [];
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    snapshot: () => new Promise(resolve => replies.push(resolve)),
+    pullChanges: async ({ afterCursor }) => ({ nextCursor: afterCursor, changes: [] }),
+    applyMutation: async value => ({
+      $schema: "prototype-ordax.sync-ack/1",
+      objectId: value.objectId,
+      dataClass: value.dataClass,
+      serverRevision: value.baseServerRevision + 1,
+      tombstone: false,
+      applied: true,
+      conflict: false,
+    }),
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: identity, transport,
+    preferenceSync, preferences,
+    workspaceMetadataSource: bridge.source,
+    workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("sync-race"),
+  });
+  assert.equal(replies.length, 1);
+  identity.change("account-B");
+  replies[0]({ cursor: 1, objects: [{
+    objectId: "preferences/surface", dataClass: "preferences",
+    objectSchemaVersion: 1, resolverVersion: 1, serverRevision: 1,
+    tombstone: false,
+    payload: { "accessibility.contrast": "high", "accessibility.motion": "reduced", "accessibility.text-scale": "large" },
+  }] });
+  for (let i = 0; i < 15 && replies.length < 2; i += 1) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(replies.length, 2, "B must start a new authoritative snapshot after A settles");
+  assert.equal(preferences.getSnapshot()["accessibility.contrast"], "standard", "A's delayed data cannot become B's");
+  replies[1]({ cursor: 2, objects: [{
+    objectId: "preferences/surface", dataClass: "preferences",
+    objectSchemaVersion: 1, resolverVersion: 1, serverRevision: 1,
+    tombstone: false,
+    payload: { "accessibility.contrast": "high", "accessibility.motion": "standard", "accessibility.text-scale": "standard" },
+  }] });
+  await sync.refresh();
+  assert.equal(preferences.getSnapshot()["accessibility.contrast"], "high");
+  assert.equal(preferences.getSnapshot()["accessibility.motion"], "standard");
+  assert.equal(sync.getSnapshot().accountContinuity, "active");
+  sync.destroy();
+  preferenceSync.destroy();
+});

@@ -188,6 +188,8 @@ export function createAccountSyncRuntime({
   let workspaceDirty = false;
   let syncing = false;
   let synchronizationPromise = null;
+  let synchronizingSubjectId = null;
+  let resynchronizeRequested = false;
   let retryRequested = false;
   let lastPreferenceFingerprint = fingerprint(portablePreferences(preferencePort.getSnapshot()));
   let lastWorkspaceFingerprint = fingerprint(workspaceSource.getSnapshot());
@@ -240,6 +242,11 @@ export function createAccountSyncRuntime({
     }
     checkpointLoaded = true;
     return true;
+  };
+
+  const isCurrentSubject = (subjectId) => {
+    const snapshot = identity.getSnapshot();
+    return !destroyed && snapshot.state === "signed-in" && snapshot.subjectId === subjectId;
   };
 
   const requireMemorySubject = (subjectId) => {
@@ -593,8 +600,10 @@ export function createAccountSyncRuntime({
         afterCursor: checkpointCursor,
         limit: PULL_PAGE_SIZE,
       });
+      if (!isCurrentSubject(subjectId)) return;
       for (const change of result.changes) applyRemoteObject(change);
       await reconcileMemoryObjects(result.changes, subjectId);
+      if (!isCurrentSubject(subjectId)) return;
       checkpointCursor = result.nextCursor;
       if (!(await persistCheckpointDurably())) {
         checkpointCursor = previousCursor;
@@ -629,7 +638,10 @@ export function createAccountSyncRuntime({
         await pullRemoteChanges(subjectId);
       } else {
         const snapshot = await remote.snapshot({ limit: 200 });
+        // A delayed response from account A must never hydrate account B.
+        if (!isCurrentSubject(subjectId)) return;
         await applyInitialSnapshot(snapshot.objects, subjectId);
+        if (!isCurrentSubject(subjectId)) return;
         checkpointCursor = snapshot.cursor;
         if (!(await persistCheckpointDurably())) {
           checkpointCursor = 0;
@@ -639,6 +651,7 @@ export function createAccountSyncRuntime({
         checkpointLoaded = true;
       }
 
+      if (!isCurrentSubject(subjectId)) return;
       initialized = true;
       emit();
       await flush();
@@ -649,9 +662,24 @@ export function createAccountSyncRuntime({
   }
 
   function synchronize() {
-    if (synchronizationPromise !== null) return synchronizationPromise;
+    const current = identity.getSnapshot();
+    const requestedSubject = current.state === "signed-in" ? current.subjectId : null;
+    if (synchronizationPromise !== null) {
+      // One network reconciliation at a time; switch to the new subject
+      // immediately after the old one settles, never reuse its response.
+      if (requestedSubject !== null && requestedSubject !== synchronizingSubjectId) {
+        resynchronizeRequested = true;
+      }
+      return synchronizationPromise;
+    }
+    synchronizingSubjectId = requestedSubject;
     synchronizationPromise = runSynchronization().finally(() => {
+      synchronizingSubjectId = null;
       synchronizationPromise = null;
+      if (resynchronizeRequested && !destroyed) {
+        resynchronizeRequested = false;
+        if (identity.getSnapshot().state === "signed-in") void synchronize();
+      }
     });
     return synchronizationPromise;
   }
@@ -686,9 +714,9 @@ export function createAccountSyncRuntime({
   });
 
   const unsubscribeIdentity = identity.subscribe((snapshot) => {
-    if (snapshot.state === "signed-in") {
-      void synchronize();
-    } else {
+    const subjectChanged = activeSubjectId !== null
+      && (snapshot.state !== "signed-in" || snapshot.subjectId !== activeSubjectId);
+    if (snapshot.state !== "signed-in" || subjectChanged) {
       initialized = false;
       activeSubjectId = null;
       checkpointCursor = 0;
@@ -696,6 +724,7 @@ export function createAccountSyncRuntime({
       resetRevisions();
       emit();
     }
+    if (snapshot.state === "signed-in") void synchronize();
   });
 
   return Object.freeze({
