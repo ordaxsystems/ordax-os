@@ -2093,6 +2093,14 @@ check_for_update() {
         return 0
     fi
 
+    # The welcome flow must not be interrupted by a Git hot update.
+    # This is the same persistent state bound to /var/lib/ordax in Cage.
+    first_run_receipt=$STATE_DIR/native-state/first-run.json
+    if [ ! -f "$first_run_receipt" ] || [ -L "$first_run_receipt" ] ||
+       ! /bin/busybox grep -q '"completed"[[:space:]]*:[[:space:]]*true' "$first_run_receipt"; then
+        return 0
+    fi
+
     if ! remote_output=$(run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" 2>>"$UPDATE_LOG"); then
         log "remote check failed or timed out after ${REMOTE_TIMEOUT}s; keeping running Surface"
         set_update_context error "" "" "remote-check-failed"
