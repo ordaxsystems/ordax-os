@@ -261,7 +261,13 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("getCurrentObservations()", composition)
         self.assertIn("currentObservations = Object.freeze([])", projection)
         self.assertIn('firstRunAppSelection.installedByThisPlan !== false', first_run)
-        self.assertIn("Nenhum aplicativo adicional foi instalado.", first_run)
+        # First Run may phrase this summary differently across Meridian
+        # revisions, but it must explicitly say display does not install apps.
+        no_install_messages = (
+            "Nenhum aplicativo adicional foi instalado.",
+            "Esta lista é informativa e não instala aplicativos.",
+        )
+        self.assertTrue(any(message in first_run for message in no_install_messages))
         self.assertNotIn("installApp(", first_run)
         for text in (
             "Aplicativos essenciais",
