@@ -15,6 +15,9 @@ on:
       - 'system/composition/native/main.mjs'
       - 'tests/test_workspace_identity_isolation.mjs'
       - 'tests/test_workspace_persistence_contract.py'
+      - 'tests/test_account_sync_and_identity_v1.py'
+      - 'tools/account-sync/prove_two_clients.py'
+      - '.github/workflows/account-sync-two-client-proof.yml'
       - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_native_sync_checkpoint_durability.mjs'
       - '.github/workflows/account-sync-checkpoint-durability.yml'
@@ -33,6 +36,9 @@ on:
       - 'system/composition/native/main.mjs'
       - 'tests/test_workspace_identity_isolation.mjs'
       - 'tests/test_workspace_persistence_contract.py'
+      - 'tests/test_account_sync_and_identity_v1.py'
+      - 'tools/account-sync/prove_two_clients.py'
+      - '.github/workflows/account-sync-two-client-proof.yml'
       - 'tests/test_account_memory_reinstall_restore.mjs'
       - 'tests/test_native_sync_checkpoint_durability.mjs'
       - '.github/workflows/account-sync-checkpoint-durability.yml'
@@ -76,4 +82,5 @@ jobs:
           node --test tests/test_account_sync_runtime.mjs
           node --test tests/test_workspace_identity_isolation.mjs
           python -m unittest tests.test_workspace_persistence_contract
+          python -m unittest tests.test_account_sync_and_identity_v1
           node --test tests/test_account_memory_sync_orchestration.mjs
