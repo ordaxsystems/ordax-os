@@ -472,7 +472,15 @@ export function mountSurface(
   const windowLayer = root.querySelector("[data-window-layer]");
   const runningApps = root.querySelector("[data-running-apps]");
   const areaSwitcher = root.querySelector("[data-area-switcher]");
+  const areaMenu = root.querySelector("[data-native-area-menu]");
+  const areaMenuToggle = root.querySelector("[data-area-menu-toggle]");
   const areaKicker = root.querySelector("[data-area-kicker]");
+
+  const setAreaMenuOpen = (open, { restoreFocus = false } = {}) => {
+    areaMenu.hidden = !open;
+    areaMenuToggle.setAttribute("aria-expanded", String(open));
+    if (restoreFocus) areaMenuToggle.focus();
+  };
 
   const findRenderedWindow = (windowId) => {
     const areaId = getActiveArea(state).id;
@@ -777,6 +785,7 @@ export function mountSurface(
       if (!retained.has(child)) child.remove();
     }
     areaKicker.textContent = areaLabel(activeArea, localization);
+    root.querySelector("[data-current-area]").textContent = areaLabel(activeArea, localization);
   };
 
   const render = () => {
@@ -915,9 +924,20 @@ export function mountSurface(
   };
 
   const onClick = (event) => {
+    const areaMenuButton = event.target.closest("[data-area-menu-toggle]");
+    if (areaMenuButton) {
+      setAreaMenuOpen(areaMenu.hidden);
+      return;
+    }
+
+    if (!areaMenu.hidden && !event.target.closest("[data-native-area-menu]")) {
+      setAreaMenuOpen(false);
+    }
+
     const areaButton = event.target.closest("[data-area-id]");
     if (areaButton) {
       dispatch({ type: "area.switch", areaId: areaButton.dataset.areaId });
+      setAreaMenuOpen(false);
       workspace.focus({ preventScroll: true });
       return;
     }
@@ -925,6 +945,7 @@ export function mountSurface(
     const areaCreate = event.target.closest("[data-area-create]");
     if (areaCreate) {
       dispatch({ type: "area.create" });
+      setAreaMenuOpen(false);
       workspace.focus({ preventScroll: true });
       return;
     }
@@ -1153,6 +1174,11 @@ export function mountSurface(
 
     if (event.key === "Escape" && !navigationMenu.hidden) {
       closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.key === "Escape" && !areaMenu.hidden) {
+      setAreaMenuOpen(false, { restoreFocus: true });
       return;
     }
 
