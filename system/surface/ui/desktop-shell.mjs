@@ -179,6 +179,11 @@ export function createDesktopShellMarkup(localization) {
               <h1 id="surface-home-title" class="ordax-home-title" data-home-greeting>${t("shell.home.greeting.morning")}</h1>
               <p class="ordax-home-tagline" data-home-tagline>${t("shell.home.tagline")}</p>
             </div>
+            <div class="ordax-home-meta" role="group" aria-label="${t("shell.home.datetime")}">
+              <span class="ordax-home-meta-icon" aria-hidden="true">${ICONS.clock}</span>
+              <span class="ordax-home-meta-copy"><time class="ordax-clock" data-ordax-clock>--:--</time>
+              <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p></span>
+            </div>
             <section class="ordax-home-hero" aria-label="${t("shell.home.hero.aria")}">
               <img class="ordax-home-hero-image" src="../../surface/workspace/assets/alpine-day.jpg" alt="" loading="eager">
               <div class="ordax-home-hero-copy">
@@ -203,11 +208,6 @@ export function createDesktopShellMarkup(localization) {
               </div>
               <small>Intelligence <i aria-hidden="true"></i><span class="meridian-integration-status" data-native-aura-backend>${t("shell.home.aura.backend")}</span><span data-native-aura-description>${t("shell.home.aura.pendingDescription")}</span></small>
             </section>
-            <div class="ordax-home-meta" role="group" aria-label="${t("shell.home.datetime")}">
-              <span class="ordax-home-meta-icon" aria-hidden="true">${ICONS.clock}</span>
-              <span class="ordax-home-meta-copy"><time class="ordax-clock" data-ordax-clock>--:--</time>
-              <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p></span>
-            </div>
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
               <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
               <div class="ordax-home-action-grid">
