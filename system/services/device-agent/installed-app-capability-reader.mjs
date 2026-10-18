@@ -49,7 +49,7 @@ function bounded(value, label) {
 }
 
 function verifiedCaller(value) {
-  exactObject(value, ["appId", "packageSha256", "accountId", "spaceId", "deviceId", "verified"],
+  exactObject(value, ["appId", "publisherId", "packageSha256", "accountId", "spaceId", "deviceId", "verified"],
     "Installed app caller");
   if (value.verified !== true || !APP_ID_RE.test(value.appId)
       || !SHA256_RE.test(value.packageSha256)) {
@@ -57,6 +57,7 @@ function verifiedCaller(value) {
   }
   return Object.freeze({
     appId: value.appId,
+    publisherId: bounded(value.publisherId, "Caller publisher"),
     packageSha256: value.packageSha256,
     accountId: bounded(value.accountId, "Caller account"),
     spaceId: bounded(value.spaceId, "Caller Space"),
@@ -65,10 +66,11 @@ function verifiedCaller(value) {
 }
 
 function allowedDecision(raw, caller) {
-  exactObject(raw, ["schema", "appId", "packageSha256", "accountId", "spaceId", "deviceId", "capabilities"],
+  exactObject(raw, ["schema", "appId", "publisherId", "packageSha256", "accountId", "spaceId", "deviceId", "capabilities"],
     "App capability decision");
   if (raw.schema !== INSTALLED_APP_CAPABILITY_DECISION_SCHEMA
-      || raw.appId !== caller.appId || raw.packageSha256 !== caller.packageSha256
+      || raw.appId !== caller.appId || raw.publisherId !== caller.publisherId
+      || raw.packageSha256 !== caller.packageSha256
       || raw.accountId !== caller.accountId || raw.spaceId !== caller.spaceId
       || raw.deviceId !== caller.deviceId) {
     throw new TypeError("App capability decision is not bound to the verified caller");
