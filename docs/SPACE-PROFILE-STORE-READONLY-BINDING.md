@@ -1,18 +1,26 @@
 # Space ↔ Profile Pack ↔ Store: read-only binding
 
-The Space snapshot contains a `profilePack` reference, not a pinned published Profile version. This boundary does **not** treat a reference as installation, launch permission, or app entitlement.
+The canonical Space contract already carries `profilePack` identifiers such as `pizzaria-br@1`. The same shape is used by the Space type catalog (`creation_default_profile` carries the slug/version separately). **Do not introduce a redundant Profile version field on Space.**
 
-`system/services/spaces/profile-store-status.mjs` composes the already canonical `projectProfileStoreAppStatus` projector:
+`system/services/spaces/profile-store-status.mjs` composes the existing canonical Store projector `projectProfileStoreAppStatus` and the validated published Profile Pack catalog:
+
 - No selected Space: `no-space`; no linked Profile: `no-profile`.
-- No published matching slug: `profile-not-listed`.
-- More than one published version for the slug: `profile-ambiguous`, **never choose latest implicitly**.
-- Exactly one matching published version: derive its app references against the validated Store snapshot.
-- Unavailable Store catalog: `store-unavailable` with unknown app states, never fake absence or installation.
+- A legacy/unpinned bare slug: `profile-unpinned`. A single published version is not sufficient evidence to bind it.
+- An invalid `slug@version` or unsafe integer: `profile-invalid-binding`.
+- An exact pinned published version absent from the catalog: `profile-not-listed` (no silent fallback).
+- A Profile of the wrong Space kind: `profile-kind-mismatch`.
+- A valid exact match: project the Profile's canonical app IDs against the **Store's own** verified snapshot.
+- An unavailable Store catalog: `store-unavailable` with unknown statuses, never fake installation, absence, permission, or entitlement.
+- Invalid or duplicate published Profile entries fail closed through `validateProfilePackCatalogList`.
 
-The projector is pure, bounded by the validated Space/Profile/Store contracts, does not mutate Space state, and creates no catalog, installation authority, permissions, or persistence.
+The projector is pure and read-only. It creates no independent package catalog, install/update/rollback capability, new version field, persistence, or authorization route.
 
 ## Integration gate
 
-This initial stage implements the safe domain projection and tests; it does **not** yet wire an authorized version-pinned Profile selection into the Web Surface. Before exposing an actual Space-scoped app list, the Space-to-Profile assignment must publish an unambiguous, versioned identity (or use an explicit authorized resolution port). Do not silently pair a slug with a latest Profile Pack version.
+This stage adds a version-safe domain projection and tests. It does **not** yet wire a live Space-scoped app list into Web/Native. The Surface must consume both the **authorized active Space** and the **published validated Profile catalog**, and use the canonical Store snapshot. For unpinned legacy spaces, offer a truthful unresolved state until the account/Space assignment authority supplies an exact `slug@version`; do not invent one in the client.
 
 Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs`.
+
+## CI baseline findings (2026-10-18)
+
+Foundation Contract and Surface Web Candidate failed on the branch for First Run tests unrelated to the added projector. The touched First Run source and smoke-test files have identical blob SHAs in `main` and this PR. Keep fixes to First Run in their owning code/PR, not in this projection, and do not bypass the CI gates.
