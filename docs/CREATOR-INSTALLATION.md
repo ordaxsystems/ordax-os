@@ -153,6 +153,8 @@ No user image/ISO selector, duplicate artifact catalog, mutable global cache or 
 
 The signed physical candidate cache accepts only its eight manifest-bound writer files (plus the existing Portable v3 receipt and source directory). It rejects unexpected root entries or symlinked roots, and rejects size-mismatched writer files before hashing. This is verification only; it cannot authorize physical writes.
 
+The signed Portable payload's release commit controls every artifact download URL: exactly one filename in the official GitHub release tag `ordax-stable-v4-<release_source_commit>` is accepted. Both Go validators and the existing Windows signing preflight reject cross-version and ambiguous asset paths; SHA-256 and size are independently verified, and no private signing key or secondary catalog is introduced.
+
 The signed Portable v3 physical-candidate consumer also checks producer provenance against its 17-artifact release source, proof SHA-256 and canonical HTTPS envelope while keeping the writer commit independent. No second release index or activation authority is introduced.
 
 All three Creator delivery channels now use the shared `tools/creator/internal/atomicfile` writer for their signed current/pending/previous envelope pointers. A failed pointer replacement preserves the previous signed offline pointer; version monotonicity, source re-verification and physical write authorization remain independent.

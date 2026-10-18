@@ -154,6 +154,8 @@
     "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true,
     "portable_v3_provenance_separates_writer_and_release_source": true,
     "portable_v3_provenance_requires_signed_release_proof_and_envelope": true,
-    "exact_17_flat_sources_rechecked_for_offline_and_online_candidates": true
+    "exact_17_flat_sources_rechecked_for_offline_and_online_candidates": true,
+    "each_portable_asset_url_bound_to_signed_release_commit": true,
+    "cross_release_asset_url_rejected_by_consumer_and_signer": true
   }
 }

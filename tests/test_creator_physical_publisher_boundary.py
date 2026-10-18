@@ -46,6 +46,8 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(media["revalidate_bytes_during_copy"], True)
         self.assertIs(media["new_candidate_final_validation_required"], True)
         self.assertIs(media["exact_17_flat_sources_rechecked_for_offline_and_online_candidates"], True)
+        self.assertIs(media["each_portable_asset_url_bound_to_signed_release_commit"], True)
+        self.assertIs(media["cross_release_asset_url_rejected_by_consumer_and_signer"], True)
         self.assertIs(media["additional_media_catalog_or_cache_allowed"], False)
         self.assertIs(media["physical_write_authority_unchanged"], True)
         self.assertIs(media["portable_v3_provenance_separates_writer_and_release_source"], True)

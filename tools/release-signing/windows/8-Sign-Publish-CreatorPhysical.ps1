@@ -220,10 +220,17 @@ if ($ManifestSchema -eq $ExpectedManifestSchema) {
         }
         $PortableTotalBytes += $size
         $url = [Uri]([string]$binding.url)
+        $releaseAssetPrefix = "/$Repository/releases/download/ordax-stable-v4-$ReleaseSourceCommit/"
         if ($url.Scheme -cne 'https' -or
             $url.Host -cne 'github.com' -or
-            -not $url.AbsolutePath.StartsWith("/$Repository/releases/download/", [StringComparison]::Ordinal)) {
-            throw "Portable payload URL is outside the canonical release namespace for $id"
+            -not $url.IsDefaultPort -or
+            -not $url.AbsolutePath.StartsWith($releaseAssetPrefix, [StringComparison]::Ordinal)) {
+            throw "Portable payload URL differs from the canonical signed release for $id"
+        }
+        $asset = $url.AbsolutePath.Substring($releaseAssetPrefix.Length)
+        if ([string]::IsNullOrWhiteSpace($asset) -or $asset.Contains('/') -or
+            $asset -eq '.' -or $asset -eq '..' -or $url.AbsolutePath.Contains('%')) {
+            throw "Portable payload URL must name one unescaped release asset for $id"
         }
         if (-not [string]::IsNullOrEmpty($url.Query) -or -not [string]::IsNullOrEmpty($url.Fragment) -or -not [string]::IsNullOrEmpty($url.UserInfo)) {
             throw "Portable payload URL contains forbidden query/fragment/userinfo for $id"

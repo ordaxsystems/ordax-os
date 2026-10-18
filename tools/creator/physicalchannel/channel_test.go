@@ -298,6 +298,35 @@ func TestExtractBundleRejectsUnexpectedAndTraversalFiles(t *testing.T) {
 }
 
 
+func TestVerifyEnvelopeRejectsPortableURLsOutsideSignedRelease(t *testing.T) {
+	trust, private, trustSHA := testTrust(t)
+	valid := validPortablePayload()
+	commit := valid.ReleaseSourceCommit
+	prefix := "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + commit + "/"
+	for _, tc := range []struct {
+		name string
+		url  string
+	}{
+		{"other-release", "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + strings.Repeat("b", 40) + "/kernel"},
+		{"adjacent-tag", "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + commit + "-extra/kernel"},
+		{"nested-asset", prefix + "nested/kernel"},
+		{"missing-asset", prefix},
+		{"escaped-separator", prefix + "%2Fkernel"},
+		{"query", prefix + "kernel?download=1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest := validManifest()
+			manifest.Schema = ManifestSchemaPortable
+			payload := validPortablePayload()
+			payload.Artifacts[0].URL = tc.url
+			manifest.PortablePayload = &payload
+			if _, err := VerifyEnvelope(signedEnvelope(t, manifest, private), trust, trustSHA); err == nil {
+				t.Fatal("signed Portable source URL outside declared release accepted")
+			}
+		})
+	}
+}
+
 func TestVerifyEnvelopeAcceptsPortableManifestV3(t *testing.T) {
 	trust, private, trustSHA := testTrust(t)
 	manifest := validManifest()

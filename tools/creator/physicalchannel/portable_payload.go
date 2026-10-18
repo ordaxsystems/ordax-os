@@ -60,19 +60,27 @@ var portablePayloadArtifactIDs = map[string]struct{}{
 	"release-envelope": {},
 }
 
-func validPortablePayloadURL(raw string) error {
+func validPortablePayloadURL(raw, releaseSourceCommit string) error {
 	parsed, err := url.Parse(raw)
 	if err != nil ||
 		parsed.Scheme != "https" ||
 		parsed.Host != "github.com" ||
 		parsed.User != nil ||
 		parsed.Fragment != "" ||
-		parsed.RawQuery != "" {
+		parsed.RawQuery != "" ||
+		parsed.ForceQuery ||
+		parsed.EscapedPath() != parsed.Path {
 		return errors.New("Portable payload URL must be canonical HTTPS github.com URL")
 	}
-	const prefix = "/ordaxsystems/ordax-os/releases/download/"
+	// The release source commit, not merely the repository namespace, owns
+	// the 17 signed sources. Reject cross-version or nested release paths.
+	prefix := "/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + releaseSourceCommit + "/"
 	if !strings.HasPrefix(parsed.Path, prefix) {
-		return errors.New("Portable payload URL must stay inside the OrdaX release namespace")
+		return errors.New("Portable payload URL differs from the signed release source commit")
+	}
+	asset := strings.TrimPrefix(parsed.Path, prefix)
+	if asset == "" || asset == "." || asset == ".." || strings.Contains(asset, "/") {
+		return errors.New("Portable payload URL requires one release asset filename")
 	}
 	return nil
 }
@@ -107,7 +115,7 @@ func validatePortablePayloadManifest(payload PortablePayloadManifest) error {
 			return errors.New("Portable payload total size exceeds allowed range")
 		}
 		total += artifact.SizeBytes
-		if err := validPortablePayloadURL(artifact.URL); err != nil {
+		if err := validPortablePayloadURL(artifact.URL, payload.ReleaseSourceCommit); err != nil {
 			return fmt.Errorf("Portable payload artifact %q URL: %w", artifact.ID, err)
 		}
 	}
