@@ -59,9 +59,17 @@
   --md-space-7:48px;
   --md-rail-width:208px;
   --md-rail-compact:72px;
+  --md-rail-responsive:178px;
   --md-bar:66px;
   --md-dock:66px;
+  --md-dock-control-size:44px;
+  --md-dock-icon-size:28px;
+  --md-dock-item-gap:6px;
   --md-font:var(--ordax-font,Inter,system-ui,sans-serif);
+  --ordax-sidebar-expanded-width:var(--md-rail-width);
+  --ordax-sidebar-collapsed-width:var(--md-rail-compact);
+  --ordax-navigation-height:var(--md-dock);
+  --ordax-navigation-control-height:var(--md-dock-control-size);
   --md-duration:180ms;
   color-scheme:light;
   color:var(--md-ink);
