@@ -78,6 +78,42 @@ TOP_LEVEL_NETWORK_SCHEMES = frozenset({"http", "https"})
 RESOURCE_NETWORK_SCHEMES = frozenset({"http", "https", "ws", "wss"})
 INTERNAL_RESOURCE_SCHEMES = frozenset({"about", "blob", "data"})
 LOCAL_HOST_SUFFIXES = (".localhost", ".local", ".home.arpa")
+OWNER_QEMU_GRAPHICS_PROBE_TOKEN = "ordax.owner_qemu_graphics_probe=1"
+# Fixed vocabulary only: never write page content, URLs or credentials to serial.
+OWNER_GRAPHICS_PROBE_EVENTS = frozenset({
+    "surface-page-load-started",
+    "surface-page-load-committed",
+    "surface-page-load-finished",
+    "surface-page-load-failed",
+    "surface-web-process-terminated",
+})
+
+
+def owner_qemu_graphics_probe_enabled(distribution_profile: str) -> bool:
+    if distribution_profile != "owner-development":
+        return False
+    try:
+        with open("/proc/cmdline", encoding="utf-8") as boot_arguments:
+            return OWNER_QEMU_GRAPHICS_PROBE_TOKEN in boot_arguments.read(8192).split()
+    except OSError:
+        return False
+
+
+def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
+    if not enabled or event not in OWNER_GRAPHICS_PROBE_EVENTS:
+        return
+    # Debug output is disabled on ordinary boots. In the isolated Owner QEMU
+    # gate, emit only genuine WebKit callbacks via the kernel serial device.
+    try:
+        descriptor = os.open("/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        try:
+            os.write(descriptor, f"ORDAX_OWNER_WEBKIT_EVENT={event}\\n".encode("ascii"))
+        finally:
+            os.close(descriptor)
+    except OSError:
+        pass
+
+
 HOST_SHORTCUTS = (
     ("<Primary>l", "focus-address", True),
     ("<Primary>f", "focus-page-find", True),
@@ -208,6 +244,8 @@ class OrdaXBrowserHost:
         self.component_slot_root = component_slot_root
         self.cache_root = os.path.abspath(cache_root)
         self.distribution_profile = distribution_profile
+        self.owner_graphics_probe_enabled = owner_qemu_graphics_probe_enabled(distribution_profile)
+        self.surface_web_process_failed = False
         if self.distribution_profile not in {"owner-development", "stable-mvp"}:
             raise ValueError("invalid OrdaX distribution profile")
         if self.distribution_profile == "stable-mvp":
@@ -268,6 +306,8 @@ class OrdaXBrowserHost:
         self.surface_view.set_hexpand(True)
         self.surface_view.set_vexpand(True)
         self.surface_view.connect("load-changed", self.on_surface_load_changed)
+        self.surface_view.connect("load-failed", self.on_surface_load_failed)
+        self.surface_view.connect("web-process-terminated", self.on_surface_web_process_terminated)
         self.surface_view.load_uri(self.start_uri)
 
         self.overlay = Gtk.Overlay()
@@ -655,14 +695,39 @@ class OrdaXBrowserHost:
             return False
         return True
 
+    def record_surface_loading_event(self, event: str) -> None:
+        if event not in OWNER_GRAPHICS_PROBE_EVENTS:
+            raise ValueError("unsupported native WebKit lifecycle event")
+        print(f"ordax-browser-host: {event}", file=sys.stderr, flush=True)
+        emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)
+
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
         if load_event == WebKit2.LoadEvent.STARTED:
+            self.record_surface_loading_event("surface-page-load-started")
             self.suspend_intelligence_listener()
             return
-        if load_event != WebKit2.LoadEvent.FINISHED or self.component_probation_started:
+        if load_event == WebKit2.LoadEvent.COMMITTED:
+            self.record_surface_loading_event("surface-page-load-committed")
+            return
+        if load_event != WebKit2.LoadEvent.FINISHED:
+            return
+        self.record_surface_loading_event("surface-page-load-finished")
+        if self.component_probation_started:
             return
         self.component_probation_started = True
         self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+
+    def on_surface_load_failed(
+        self, _view: object, _event: object, _failing_uri: str, _error: object
+    ) -> bool:
+        # No URLs or untrusted exception text in serial proof evidence.
+        self.record_surface_loading_event("surface-page-load-failed")
+        return False
+
+    def on_surface_web_process_terminated(self, _view: object, _reason: object) -> None:
+        self.record_surface_loading_event("surface-web-process-terminated")
+        self.surface_web_process_failed = True
+        Gtk.main_quit()
 
     def handle_component_probation_request(self, payload: dict) -> None:
         if set(payload) != {"type", "componentId"}:
@@ -1520,7 +1585,7 @@ def main() -> int:
         print("ordax-browser-host: Surface start URI must stay on loopback", file=sys.stderr)
         return 2
     try:
-        OrdaXBrowserHost(
+        host = OrdaXBrowserHost(
             args.start_uri,
             args.profile_root,
             args.component_channel_bin,
@@ -1535,6 +1600,8 @@ def main() -> int:
         print(f"ordax-browser-host: startup failed: {exc}", file=sys.stderr, flush=True)
         return 1
     Gtk.main()
+    if host.surface_web_process_failed:
+        return 4
     return 0
 
 
