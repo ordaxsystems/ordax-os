@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarNavigationCapacity, mountNativeSidebarFit } from "../system/surface/ui/sidebar-layout.mjs";
-import { projectSidebarAccount, sidebarAccountMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
+import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarNavigationCapacity, sidebarItemIsActive, mountNativeSidebarFit } from "../system/surface/ui/sidebar-layout.mjs";
+import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
 import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sidebar.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
+import { syncDesktopSidebarToggle } from "../system/surface/ui/desktop-shell.mjs";
 
 test("sidebar slots preserve the same brand, home, navigation, account and auxiliary order", () => {
   assert.deepEqual(SIDEBAR_LAYOUT.map(slot => slot.key), ["brand", "home", "navigation", "account", "auxiliary"]);
@@ -34,6 +35,7 @@ test("Native Meridian navigation markup has matching styles and a clean collapse
   }
   assert.match(sharedSidebarStyles, /\.meridian-nav-label \{ display: none !important; \}/);
   assert.match(sharedSidebarStyles, /span:not\(\.ordax-rail-icon\) \{ display: none; \}/);
+  assert.ok(nativeShell.includes('<span class="ordax-rail-icon">${ICONS.more}</span>'));
 });
 test("Native rail follows the Meridian Web destinations; local tools stay in its menu", async () => {
   const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
@@ -72,6 +74,43 @@ test("Native uses the canonical account target while preview notification and lo
   assert.ok(html.includes('Notifications unavailable in this preview'));
   assert.ok(html.includes('data-sidebar-notifications disabled'));
   assert.throws(() => projectSidebarAccount({ state: "signed-in" }), TypeError);
+});
+
+test("Native profile slot uses the shared compact Meridian account presentation", () => {
+  const view = projectSidebarAccount({ state: "unavailable" });
+  const html = sidebarProfileMarkup(view, true);
+  assert.ok(html.includes('class="account-open meridian-rail-account"'));
+  assert.ok(html.includes('data-launch-app="account" data-app-target="overview"'));
+  assert.ok(html.includes("data-sidebar-account-status"));
+  assert.ok(!html.includes("data-sidebar-storage"));
+  assert.ok(!html.includes("data-sidebar-notifications"));
+});
+
+test("Native collapse control uses Meridian's panel glyph and state label", () => {
+  const attributes = {};
+  let markup = "";
+  const button = {
+    setAttribute(name, value) { attributes[name] = value; },
+    querySelector() { return { set innerHTML(value) { markup = value; } }; },
+  };
+  const localization = { translate: id => id === "shell.sidebar.collapse" ? "Recolher sidebar" : "Expandir sidebar" };
+  syncDesktopSidebarToggle(button, true, localization);
+  assert.equal(attributes["aria-expanded"], "true");
+  assert.equal(attributes["aria-label"], "Recolher sidebar");
+  assert.equal(button.title, "Recolher sidebar");
+  assert.match(markup, /M9 3v18/);
+  syncDesktopSidebarToggle(button, false, localization);
+  assert.equal(attributes["aria-expanded"], "false");
+  assert.equal(attributes["aria-label"], "Expandir sidebar");
+  assert.match(markup, /m14 9 3 3-3 3/);
+});
+
+test("sidebar active state distinguishes account destinations by their target", () => {
+  const activeWindow = { appId: "account", target: "profiles" };
+  assert.equal(sidebarItemIsActive(activeWindow, { dataset: { sidebarApp: "account", appTarget: "profiles" } }), true);
+  assert.equal(sidebarItemIsActive(activeWindow, { dataset: { sidebarApp: "account", appTarget: "spaces" } }), false);
+  assert.equal(sidebarItemIsActive(activeWindow, { dataset: { sidebarApp: "account" } }), false);
+  assert.equal(sidebarItemIsActive(null, { dataset: { sidebarApp: "account", appTarget: "profiles" } }), false);
 });
 
 test("available navigation height includes row gaps without hiding a slot that fits", () => {
@@ -160,13 +199,20 @@ test("Native account binding clears stale identity and updates the shared indica
 
 test("Web and Native load one Meridian sidebar profile stylesheet owner", async () => {
   const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
-  const [shared,webStyles,native,web]=await Promise.all([
+  const [shared,webStyles,native,web,nativeStyles]=await Promise.all([
     read("system/surface/ui/sidebar-layout.css"),
     read("system/surface/workspace/components/central/meridian.css"),
     read("system/composition/native/index.html"),
     read("system/composition/web/main.tsx"),
+    read("system/surface/ui/identity.css"),
   ]);
   assert.ok(shared.includes(".ordax-product-sidebar .meridian-rail-account {"));
+  assert.ok(shared.includes(".meridian-workspace .ordax-product-sidebar { gap:16px; padding:27px 16px 18px; }"));
+  assert.ok(shared.includes(":is(.ordax-space-switcher-trigger,.meridian-rail-space)"));
+  assert.ok(shared.includes('mask:url("./brand/ordax-symbol.png")'));
+  assert.doesNotMatch(native,/style="mask-image:/);
+  assert.doesNotMatch(webStyles,/\.meridian-workspace \.meridian-rail \{padding:/);
+  assert.doesNotMatch(nativeStyles,/\.meridian-native-workspace \.ordax-rail \[data-sidebar-slot=\"navigation\"\]/);
   assert.doesNotMatch(webStyles,/^\.meridian-rail-account\s*\{/m);
   for(const entry of [native,web])assert.ok(entry.includes("surface/ui/sidebar-layout.css"));
 });

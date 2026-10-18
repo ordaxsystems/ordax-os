@@ -1,6 +1,6 @@
 import { createSidebarMarkup } from "./sidebar-layout.mjs";
 import { presentationDestination } from "../workspace/presentation.mjs";
-import { projectSidebarAccount, sidebarAccountMarkup } from "./sidebar-account.mjs";
+import { projectSidebarAccount, sidebarProfileMarkup } from "./sidebar-account.mjs";
 import { assertLocalizationPort } from "../../contracts/localization.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import {
@@ -47,11 +47,14 @@ const ICONS = Object.freeze({
   search: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>`,
   folder: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v10.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19z"/></svg>`,
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>`,
+  more: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`,
   networkWifi: `<svg class="ordax-network-symbol ordax-network-symbol-wifi" viewBox="0 0 24 24" aria-hidden="true"><path class="ordax-wifi-arc ordax-wifi-arc-outer" d="M4 9.5a12 12 0 0 1 16 0"/><path class="ordax-wifi-arc ordax-wifi-arc-middle" d="M7 13a7.5 7.5 0 0 1 10 0"/><path class="ordax-wifi-arc ordax-wifi-arc-inner" d="M10 16.4a3 3 0 0 1 4 0"/><circle class="ordax-wifi-dot" cx="12" cy="19" r="1"/></svg>`,
   networkEthernet: `<svg class="ordax-network-symbol ordax-network-symbol-ethernet" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="5" width="15" height="10" rx="1.5"/><path d="M8 15v4M16 15v4M8 19h8"/><path d="M9 9h6"/></svg>`,
   networkOther: `<svg class="ordax-network-symbol ordax-network-symbol-other" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="18" cy="17" r="2"/><path d="M8 11l8-3M8 13l8 3"/></svg>`,
   battery: `<svg class="ordax-battery-symbol" viewBox="0 0 28 16" aria-hidden="true"><rect x="1.5" y="2" width="22" height="12" rx="2"/><path d="M25 6h1.5v4H25"/><rect class="ordax-battery-segment ordax-battery-segment-1" x="4" y="4.5" width="3.5" height="7" rx="0.8"/><rect class="ordax-battery-segment ordax-battery-segment-2" x="8.5" y="4.5" width="3.5" height="7" rx="0.8"/><rect class="ordax-battery-segment ordax-battery-segment-3" x="13" y="4.5" width="3.5" height="7" rx="0.8"/><rect class="ordax-battery-segment ordax-battery-segment-4" x="17.5" y="4.5" width="3.5" height="7" rx="0.8"/><path class="ordax-battery-bolt" d="m14.7 1.8-4 6.1h3l-1 6.3 4.5-7h-3z"/></svg>`,
   clock: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/></svg>`,
+  sidebarClose: `<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>`,
+  sidebarOpen: `<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>`,
   aura: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/><path d="m19 15 .9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>`,
   spaces: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h18v12H3z"/><path d="M3 10.5h18M7 4h10M8 14h3m2 0h3"/></svg>`,
   apps: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
@@ -61,6 +64,14 @@ const ICONS = Object.freeze({
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.6 8.6 0 1 0 20.2 15.4z"/></svg>`,
 });
+
+export function syncDesktopSidebarToggle(button, expanded, localization) {
+  const label = localization.translate(expanded ? "shell.sidebar.collapse" : "shell.sidebar.expand");
+  button.setAttribute("aria-expanded", String(expanded));
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.querySelector("svg").innerHTML = expanded ? ICONS.sidebarClose : ICONS.sidebarOpen;
+}
 
 function railButton(appId, label, icon, t, className = "ordax-rail-button") {
   return `
@@ -90,7 +101,7 @@ function spaceLink(messageId, target, t) {
 const MERIDIAN_NATIVE_DESTINATION_TARGETS = Object.freeze({
   intelligence: { appId: "intelligence" },
   spaces: { appId: "account", target: "spaces" },
-  profiles: { appId: "account", target: "spaces" },
+  profiles: { appId: "account", target: "profiles" },
   devices: { appId: "account", target: "devices" },
   store: { appId: "store" },
 });
@@ -113,7 +124,7 @@ function meridianNavigation(localization, t) {
   const destinations = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.key !== "home");
   const primary = destinations.filter(item => item.group === "principal").map(item => meridianDestinationButton(item, localization)).join("");
   const ecosystem = destinations.filter(item => item.group === "ecossistema").map(item => meridianDestinationButton(item, localization)).join("");
-  return `<div class="meridian-native-nav-group" data-nav-group="principal">${primary}</div><div class="meridian-native-nav-group" data-nav-group="ecossistema"><p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>${ecosystem}</div><button type="button" class="ordax-rail-button os-nav-item meridian-nav-more" data-navigation-menu-toggle data-nav-menu-more aria-controls="ordax-native-navigation" aria-expanded="false" hidden><span class="ordax-rail-icon">${ICONS.presentation}</span><span>${t("shell.sidebar.more")}</span></button>`;
+  return `<div class="meridian-native-nav-group" data-nav-group="principal">${primary}</div><div class="meridian-native-nav-group" data-nav-group="ecossistema"><p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>${ecosystem}</div><button type="button" class="ordax-rail-button os-nav-item meridian-nav-more" data-navigation-menu-toggle data-nav-menu-more aria-controls="ordax-native-navigation" aria-expanded="false" hidden><span class="ordax-rail-icon">${ICONS.more}</span><span>${t("shell.sidebar.more")}</span></button>`;
 }
 
 function meridianNavigationMenu(localization, t) {
@@ -130,7 +141,8 @@ function meridianNavigationMenu(localization, t) {
   };
   const principal = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.key === "home" || item.group === "principal").map(destinationButton).join("");
   const ecosystem = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(destinationButton).join("");
-  const deviceApps = ["files", "studio", "settings", "system"].map(id => `<button type="button" class="meridian-menu-item" data-nav-menu-item data-launch-app="${id}" data-nav-menu-app="${id}"><span class="ordax-rail-icon">${ICONS[id]}</span><span>${t(`app.${id}.title`)}</span></button>`).join("");
+  const deviceApps = ["files", "studio", "settings", "system"].map(id => `<button type="button" class="meridian-menu-item" data-nav-menu-item data-launch-app="${id}" data-nav-menu-app="${id}"><span class="ordax-rail-icon">${ICONS[id]}</span><span>${t(`app.${id}.title`)}</span></button>`).join("")
+    + `<button type="button" class="meridian-menu-item" data-nav-menu-item data-launch-app="system" data-app-target="updates" data-nav-menu-app="system"><span class="ordax-rail-icon">${ICONS.system}</span><span>${t("system.updateShortcut.label")}</span></button>`;
   const english = localization.getLocale().toLowerCase().startsWith("en");
   return `<section id="ordax-native-navigation" class="meridian-navigation-menu ordax-native-navigation-menu" data-native-navigation-menu role="dialog" aria-modal="false" aria-labelledby="ordax-native-navigation-title" hidden><header class="ordax-native-navigation-heading"><div><p class="ordax-section-kicker">MERIDIAN</p><h2 id="ordax-native-navigation-title">${english ? "Navigation and apps" : "Navegação e aplicativos"}</h2></div><button type="button" class="ordax-quick-close" data-navigation-menu-close aria-label="${t("shell.quick.dateTimeClose")}">×</button></header><label class="ordax-native-navigation-search"><span class="ordax-command-icon">${ICONS.search}</span><input type="search" data-native-navigation-query data-meridian-navigation-query placeholder="${english ? "Search destinations and apps" : "Buscar destinos e aplicativos"}" autocomplete="off"></label><div class="ordax-native-navigation-list"><div data-nav-menu-group="principal">${principal}</div><div data-nav-menu-group="ecossistema"><p class="meridian-nav-label" data-nav-menu-group-label="ecossistema">${english ? "Ecosystem" : "Ecossistema"}</p>${ecosystem}</div><div data-nav-menu-group="dispositivo"><p class="meridian-nav-label" data-nav-menu-group-label="dispositivo">${english ? "On this device" : "Neste dispositivo"}</p>${deviceApps}</div></div></section>`;
 }
@@ -141,11 +153,11 @@ export function createDesktopShellMarkup(localization) {
   return `
     <div class="ordax-shell meridian-workspace meridian-native-workspace" data-ordax-shell data-meridian-native data-view="central">
       ${createSidebarMarkup({ id: "ordax-native-sidebar", label: t("shell.rail.aria"), content: {
-        brand: `<button type="button" class="ordax-sidebar-launcher-brand" data-launcher-toggle aria-label="${t("shell.launcher.command")}" title="${t("shell.launcher.command")}" aria-expanded="false" aria-controls="ordax-launcher"><span class="ordax-brand"><span class="ordax-brand-symbol" aria-hidden="true"></span><span class="ordax-brand-word">OrdaX <small>OS</small></span></span></button>`,
+        brand: `<button type="button" class="meridian-brand-home ordax-sidebar-launcher-brand" data-show-desktop aria-label="OrdaX OS" title="OrdaX OS"><span class="brand"><span class="meridian-brand-symbol" aria-hidden="true"></span><div><div class="brand-name">OrdaX</div><span class="brand-sub">OS</span></div></span></button>`,
         home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.apps}</span><span data-home-nav-label>${t("shell.home.title")}</span></button></div>`,
         navigation: meridianNavigation(localization, t),
-        account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span>${localization.getLocale().toLowerCase().startsWith("en") ? "This device" : "Este dispositivo"}<small>${localization.getLocale().toLowerCase().startsWith("en") ? "Native workspace" : "Área de trabalho OrdaX"}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button><button type="button" data-launch-app="system" data-app-target="updates" aria-label="${t("system.updateShortcut.label")}" title="${t("system.updateShortcut.label")}">${ICONS.system}</button></div>${sidebarAccountMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,
-        auxiliary: `<div class="ordax-power-slot" data-power-slot></div><button type="button" class="sidebar-collapse ordax-sidebar-toggle" data-sidebar-toggle aria-controls="ordax-native-sidebar" aria-expanded="true" aria-label="${t("shell.sidebar.collapse")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`,
+        account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span><span data-native-context-title>${localization.getLocale().toLowerCase().startsWith("en") ? "This device" : "Este dispositivo"}</span><small data-native-context-subtitle>${localization.getLocale().toLowerCase().startsWith("en") ? "Native workspace" : "Área de trabalho OrdaX"}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-native-rail-continuity data-launch-app="account" data-app-target="sync" aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}" title="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}">${ICONS.clock}</button><span class="meridian-rail-notification-slot" data-sidebar-notification-slot></span><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button></div>${sidebarProfileMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,
+        auxiliary: `<div class="ordax-power-slot" data-power-slot></div><button type="button" class="sidebar-collapse ordax-sidebar-toggle" data-sidebar-toggle aria-controls="ordax-native-sidebar" aria-expanded="true" aria-label="${t("shell.sidebar.collapse")}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.sidebarClose}</svg></button>`,
       } })}
 
       <header class="meridian-system-header ordax-native-header">
@@ -282,6 +294,7 @@ export function syncDesktopShellLocalization(root, localization) {
     const node = root.querySelector(selector);
     if (node) node.setAttribute("aria-label", t(messageId));
   };
+  const english = localizationPort.getLocale().toLowerCase().startsWith("en");
 
   aria(".ordax-rail", "shell.rail.aria");
   for (const appId of ["files", "studio", "notes", "settings", "account", "system"]) {
@@ -295,7 +308,16 @@ export function syncDesktopShellLocalization(root, localization) {
     }
   }
   text("[data-home-nav-label]", "shell.home.title");
-  root.querySelector("[data-show-desktop]")?.setAttribute("title", t("shell.home.title"));
+  root.querySelector(".meridian-home-destination")?.setAttribute("title", t("shell.home.title"));
+  const nativeContextTitle = root.querySelector("[data-native-context-title]");
+  const nativeContextSubtitle = root.querySelector("[data-native-context-subtitle]");
+  if (nativeContextTitle) nativeContextTitle.textContent = english ? "This device" : "Este dispositivo";
+  if (nativeContextSubtitle) nativeContextSubtitle.textContent = english ? "Native workspace" : "Área de trabalho OrdaX";
+  const continuityButton = root.querySelector("[data-native-rail-continuity]");
+  if (continuityButton) {
+    continuityButton.setAttribute("aria-label", english ? "Continuity" : "Continuidade");
+    continuityButton.title = english ? "Continuity" : "Continuidade";
+  }
   text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
   root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
   text("[data-home-tagline]", "shell.home.tagline");
@@ -380,6 +402,15 @@ export function syncDesktopShellLocalization(root, localization) {
     const destination = MERIDIAN_RAIL_DESTINATIONS.find(item => item.key === button.dataset.meridianMenuDestination);
     if (!destination) continue;
     const label = locale.startsWith("en") ? destination.englishName : destination.name;
+    const labelNode = button.querySelector("span:nth-child(2)");
+    if (labelNode) labelNode.textContent = label;
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  }
+  for (const button of root.querySelectorAll("[data-nav-menu-app]")) {
+    if (button.hasAttribute("data-meridian-menu-destination")) continue;
+    const appId = button.dataset.navMenuApp;
+    const label = button.dataset.appTarget === "updates" ? t("system.updateShortcut.label") : t(`app.${appId}.title`);
     const labelNode = button.querySelector("span:nth-child(2)");
     if (labelNode) labelNode.textContent = label;
     button.title = label;

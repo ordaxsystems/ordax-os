@@ -13,6 +13,11 @@ export function createSidebarMarkup({ id, label, content }) {
   return `<aside id="${escapeMarkup(id)}" class="ordax-rail ordax-product-sidebar" aria-label="${escapeMarkup(label)}">${SIDEBAR_LAYOUT.map(slot => `<${slot.tag} class="${slot.className}" data-sidebar-slot="${slot.key}">${content[slot.key] ?? ""}</${slot.tag}>`).join("")}</aside>`;
 }
 export function sidebarIsExpanded(sidebar) { return sidebar.getBoundingClientRect().width > 100; }
+export function sidebarItemIsActive(activeWindow, button) {
+  if (!activeWindow || !button?.dataset?.sidebarApp || activeWindow.appId !== button.dataset.sidebarApp) return false;
+  const target = button.dataset.appTarget;
+  return target ? activeWindow.target === target : activeWindow.target === null;
+}
 export function sidebarNavigationCapacity(nav) {
   const style = nav.ownerDocument.defaultView.getComputedStyle(nav);
   const button = nav.querySelector("button:not([hidden])");

@@ -1,4 +1,4 @@
-import { mountNativeSidebarFit, sidebarIsExpanded } from "./sidebar-layout.mjs";
+import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
@@ -25,6 +25,7 @@ import {
   mountDesktopClock,
   syncDesktopShellLocalization,
   syncDesktopPresentationToggle,
+  syncDesktopSidebarToggle,
   syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
@@ -457,8 +458,7 @@ export function mountSurface(
   function syncSidebarToggle() {
     const toggle = root.querySelector("[data-sidebar-toggle]");
     const expanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
-    toggle.setAttribute("aria-expanded", String(expanded));
-    toggle.setAttribute("aria-label", localization.translate(expanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+    syncDesktopSidebarToggle(toggle, expanded, localization);
   }
   const sidebarFit = mountNativeSidebarFit(root.querySelector('[data-sidebar-slot="navigation"]'), syncSidebarToggle);
 
@@ -654,7 +654,7 @@ export function mountSurface(
   const renderSidebar = () => {
     const area = getActiveArea(state);
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
-    const homeButton = root.querySelector("[data-show-desktop]");
+    const homeButton = root.querySelector(".meridian-home-destination");
     if (homeButton) {
       const homeActive = activeWindow === null && state.presentation === "central";
       homeButton.dataset.active = String(homeActive);
@@ -670,7 +670,10 @@ export function mountSurface(
       const appId = button.dataset.sidebarApp;
       const app = catalog.get(appId);
       button.disabled = !catalog.isAvailable(app, state.capabilityIds);
-      button.dataset.active = String(activeWindow?.appId === appId);
+      const active = sidebarItemIsActive(activeWindow, button);
+      button.dataset.active = String(active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     }
   };
 
@@ -747,8 +750,7 @@ export function mountSurface(
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
     sidebarToggle.hidden = state.presentation === "desktop";
-    sidebarToggle.setAttribute("aria-expanded", String(sidebarExpanded));
-    sidebarToggle.setAttribute("aria-label", localization.translate(sidebarExpanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+    syncDesktopSidebarToggle(sidebarToggle, sidebarExpanded, localization);
     root.querySelector("[data-central-presentation]").hidden = state.presentation !== "central";
     root.querySelector("[data-desktop-presentation]").hidden = state.presentation !== "desktop";
     const presentationToggle = root.querySelector("[data-presentation-toggle]");
