@@ -27,16 +27,24 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         cls.builder = load_builder()
         cls.source = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
 
-    def make_tar(self, paths):
+    def make_tar(self, paths, *, empty=(), nonexec=(), symlinks=None):
         tmp = tempfile.TemporaryDirectory()
         path = Path(tmp.name) / "rootfs.tar"
+        symlinks = symlinks or {}
         with tarfile.open(path, "w") as archive:
             for name in sorted(paths):
-                data = b"x"
                 info = tarfile.TarInfo(name)
-                info.size = len(data)
                 info.mode = 0o755 if "/bin/" in f"/{name}" or name.startswith(("bin/", "sbin/", "usr/bin/")) else 0o644
-                archive.addfile(info, io.BytesIO(data))
+                if name in nonexec:
+                    info.mode = 0o644
+                if name in symlinks:
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = symlinks[name]
+                    archive.addfile(info)
+                else:
+                    data = b"" if name in empty else b"x"
+                    info.size = len(data)
+                    archive.addfile(info, io.BytesIO(data))
         self.addCleanup(tmp.cleanup)
         return path
 
@@ -132,6 +140,67 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 tar_path = self.make_tar(self.buildroot_like_paths(omit={missing}))
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "Buildroot eudev did not provide"):
                     self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+
+    def test_runtime_rejects_empty_or_nonexecutable_graphical_dependencies(self):
+        required = self.buildroot_like_paths()
+        cases = (
+            ({"usr/lib/girepository-1.0/WebKit2-4.1.typelib"}, (), "empty"),
+            ({"usr/bin/cage"}, (), "empty"),
+            ((), {"usr/bin/cage"}, "not executable"),
+        )
+        for empty, nonexec, reason in cases:
+            with self.subTest(empty=empty, nonexec=nonexec):
+                tar_path = self.make_tar(required, empty=empty, nonexec=nonexec)
+                self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, reason):
+                    self.builder.inspect_rootfs_tar(tar_path, self.source)
+
+    def test_runtime_rejects_dangling_symlink_and_tar_shadowing(self):
+        required = self.buildroot_like_paths()
+        tar_path = self.make_tar(required, symlinks={"usr/bin/cage": "../../../../outside"})
+        self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+        with self.assertRaises(self.builder.SurfaceBuildError):
+            self.builder.inspect_rootfs_tar(tar_path, self.source)
+
+        tar_path = self.make_tar(required)
+        with tarfile.open(tar_path, "a:") as archive:
+            info = tarfile.TarInfo("usr/bin/cage")
+            data = b"replacement"
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+        with self.assertRaisesRegex(self.builder.SurfaceBuildError, "duplicate Surface runtime tar member"):
+            self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+
+    def test_runtime_rejects_unsafe_absolute_and_parent_tar_paths(self):
+        for injected in ("/etc/alpine-release", "../outside"):
+            with self.subTest(injected=injected):
+                tar_path = self.make_tar(self.buildroot_like_paths())
+                with tarfile.open(tar_path, "a:") as archive:
+                    data = b"unexpected"
+                    entry = tarfile.TarInfo(injected)
+                    entry.size = len(data)
+                    archive.addfile(entry, io.BytesIO(data))
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "unsafe Surface runtime tar member"):
+                    self.builder.ensure_surface_runtime_path_compatibility(tar_path)
+
+    def test_resolved_kconfig_only_counts_exact_active_unique_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".config"
+            path.write_text(
+                "# BR2_PACKAGE_CAGE=y\\n"
+                "BR2_PACKAGE_CAGE=n\\n"
+                "BR2_PACKAGE_WEBKITGTK=y\\n",
+                encoding="utf-8",
+            )
+            settings = self.builder.resolved_kconfig(path)
+            self.assertEqual(settings["BR2_PACKAGE_CAGE"], "n")
+            self.assertEqual(settings["BR2_PACKAGE_WEBKITGTK"], "y")
+            path.write_text(
+                "BR2_PACKAGE_CAGE=y\\nBR2_PACKAGE_CAGE=n\\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(self.builder.SurfaceBuildError, "duplicate resolved Buildroot option"):
+                self.builder.resolved_kconfig(path)
 
     def test_workflow_reuses_buildroot_downloads_and_compiler_outputs(self):
         text = WORKFLOW_PATH.read_text(encoding="utf-8")
