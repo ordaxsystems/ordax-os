@@ -1137,6 +1137,10 @@ export const MERIDIAN_SOURCE_MESSAGES = Object.freeze({
   "meridian.text.1155": "Aura",
   "meridian.text.1156": "Atividades",
   "meridian.text.1157": "Loja",
+  "meridian.native.plannedFeature": "Recurso planejado",
+  "meridian.native.notConnected": "Ainda não conectado a um serviço",
+  "meridian.native.planned": "Planejado",
+  "meridian.native.workspace": "Área de trabalho OrdaX",
   "meridian.common.items": "itens",
   "meridian.common.draft": "rascunho",
   "meridian.common.drafts": "rascunhos"
@@ -2279,6 +2283,10 @@ export const MERIDIAN_ENGLISH_MESSAGES = Object.freeze({
   "meridian.text.1155": "Aura",
   "meridian.text.1156": "Activity",
   "meridian.text.1157": "Store",
+  "meridian.native.plannedFeature": "Planned feature",
+  "meridian.native.notConnected": "Not yet connected to a service",
+  "meridian.native.planned": "Planned",
+  "meridian.native.workspace": "OrdaX workspace",
   "meridian.common.items": "items",
   "meridian.common.draft": "draft",
   "meridian.common.drafts": "drafts"
