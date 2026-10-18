@@ -84,7 +84,10 @@ export function createInstalledAppCapabilityReader({
   const reader = assertDeviceAgentCapabilityReaderPort(capabilityReader);
   return Object.freeze({
     schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
-    async capabilities() {
+    async capabilities(request = undefined) {
+      if (request !== undefined) {
+        throw new TypeError("App capability discovery must not select a caller or scope");
+      }
       // Both resolvers are OS-private ports. Fail closed if absent, stale, or
       // malformed. Do not return a previous/cached authorized snapshot.
       const caller = verifiedCaller(await resolveCaller());
