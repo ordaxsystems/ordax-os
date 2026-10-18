@@ -8,6 +8,7 @@ INIT = (ROOT / "bootstrap/dev-base/ordax-dev-init").read_text(encoding="utf-8")
 NETWORK = (ROOT / "bootstrap/dev-base/ordax-network").read_text(encoding="utf-8")
 SUPERVISOR = (ROOT / "system/supervisor").read_text(encoding="utf-8")
 WATCHER = (ROOT / "bootstrap/dev-base/ordax-main-watch").read_text(encoding="utf-8")
+SURFACE = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
 
 
 class OwnerGraphicalOfflineBootTests(unittest.TestCase):
@@ -53,6 +54,19 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
             code.index("for shared in state workspace home proc sys dev run; do"),
             code.index("/bin/busybox pivot_root . .ordax-base"),
         )
+
+    def test_owner_virtio_renderer_is_driver_scoped_and_does_not_affect_stable(self):
+        subprocess.run(["/bin/sh", "-n", str(ROOT / "system/surface/bin/ordax-surface")], check=True)
+        start = SURFACE.index("select_owner_virtio_webkit_transport() {")
+        end = SURFACE.index("\nselect_owner_virtio_webkit_transport\n", start)
+        body = SURFACE[start:end]
+        self.assertIn('[ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0', body)
+        self.assertIn('[ -L /sys/class/drm/card0/device/driver ] || return 0', body)
+        self.assertIn('/bin/busybox readlink -f /sys/class/drm/card0/device/driver', body)
+        self.assertIn("*/virtio_gpu)", body)
+        self.assertIn("export WEBKIT_DISABLE_DMABUF_RENDERER=1", body)
+        self.assertEqual(SURFACE.count("WEBKIT_DISABLE_DMABUF_RENDERER=1"), 1)
+        self.assertLess(end, SURFACE.index('START_URI="http://127.0.0.1:8765/'))
 
     def test_durable_first_run_state_blocks_both_update_owners(self):
         marker = "$STATE_DIR/native-state/first-run.json"

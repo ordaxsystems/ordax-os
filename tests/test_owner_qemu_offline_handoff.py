@@ -65,6 +65,8 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertFalse(PROOF.observed("OrdaX Development Base", "a" * 40)["native_surface_heartbeat"])
         self.assertTrue(PROOF.observed(PROOF.MARKER_HEALTH, "a" * 40)["native_surface_heartbeat"])
         self.assertFalse(PROOF.observed(PROOF.MARKER_HEALTH, "a" * 40)["privileged_webkit_page_loaded"])
+        self.assertFalse(PROOF.observed(PROOF.MARKER_HEALTH, "a" * 40)["virtual_drm_transport_selected"])
+        self.assertTrue(PROOF.observed(PROOF.MARKER_VIRTIO_WEBKIT, "a" * 40)["virtual_drm_transport_selected"])
         callbacks = "\n".join(PROOF.WEBKIT_EVENT_PREFIX + event for event in PROOF.WEBKIT_LOAD_ORDER)
         self.assertTrue(PROOF.observed(callbacks, "a" * 40)["privileged_webkit_page_loaded"])
         self.assertFalse(PROOF.observed("\n".join(reversed(callbacks.splitlines())), "a" * 40)["privileged_webkit_page_loaded"])

@@ -1580,6 +1580,24 @@ wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control s
 printf '\033[2J\033[H'
 printf 'OrdaX: iniciando Surface grafica...\n'
 
+# WebKitGTK 2.48 can negotiate DMA-BUF on a DRM device that cannot present
+# those buffers. Restrict shared-memory transport to the *active* virtio DRM
+# device in Owner Development; no global software-rendering switch, no
+# change to real Intel/AMD/NVIDIA devices, and no Stable/MVP contract change.
+# The driver identity comes from sysfs, not the QEMU proof's command line.
+select_owner_virtio_webkit_transport() {
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+    [ -L /sys/class/drm/card0/device/driver ] || return 0
+    active_driver=$(/bin/busybox readlink -f /sys/class/drm/card0/device/driver 2>/dev/null || true)
+    case "$active_driver" in
+        */virtio_gpu)
+            export WEBKIT_DISABLE_DMABUF_RENDERER=1
+            printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
+            ;;
+    esac
+}
+select_owner_virtio_webkit_transport
+
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \
     /usr/bin/seatd-launch -- /usr/bin/cage -s -- \

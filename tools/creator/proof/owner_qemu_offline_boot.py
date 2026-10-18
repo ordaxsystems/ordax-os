@@ -28,6 +28,7 @@ MAX_SECONDS = 300
 MARKER_BASE = "OrdaX Development Base"
 MARKER_OFFLINE = "OrdaX: iniciando a Surface local sem internet..."
 MARKER_HEALTH = "cold-boot Surface acknowledged healthy state"
+MARKER_VIRTIO_WEBKIT = "ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport"
 STABLE_SECONDS = 15
 BAD_SURFACE = (
     "cold-boot Surface did not become healthy",
@@ -148,6 +149,7 @@ def observed(text: str, source: str) -> dict[str, bool]:
         "offline_surface_handoff": MARKER_OFFLINE in text,
         "native_surface_heartbeat": MARKER_HEALTH in text,
         "privileged_webkit_page_loaded": webkit_page_loaded(text),
+        "virtual_drm_transport_selected": MARKER_VIRTIO_WEBKIT in text,
         "webkit_process_not_failed": not any(item in text for item in WEBKIT_FATAL_MARKERS),
         "recovery_not_entered": not any(item in text for item in RECOVERY),
         "no_surface_restart_or_failure": not any(item in text for item in BAD_SURFACE),
