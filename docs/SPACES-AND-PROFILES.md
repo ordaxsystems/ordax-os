@@ -273,6 +273,9 @@ This separation is what allows an already-shipped USB/Base to continue consuming
 
 ### Additive update rule
 
+**Store vs Space vs Profile versioning:** `Space` is the stable workspace/ownership boundary. The OrdaX Spaces service and its versioned contract can evolve without recreating Spaces. A Profile Pack (`pizzaria-br@1`, `@2`) changes the versioned **composition**, not the application binaries. The Store and component runtime own independently versioned signed app artifacts and their install/update/rollback lifecycle. Profile `apps[]` contains only references to those app IDs; its `components[]` cannot publish `kind: app`. Reusing one app across Spaces never shares their domain data. A Profile reference alone must never make a nonexistent/uninstalled app appear available, and Store install/update is not authorized by selecting or activating a Profile.
+
+
 Prefer additive evolution below stable ports:
 
 - add a capability provider instead of expanding the Spaces read port;

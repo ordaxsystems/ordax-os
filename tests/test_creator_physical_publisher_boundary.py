@@ -37,6 +37,17 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(publisher["active_alias_may_move_only_after_archive_readback"], True)
         self.assertIs(publisher["rotation_failure_requires_byte_exact_rollback"], True)
 
+        media = data["media_acquisition"]
+        self.assertEqual(media["owner"], "tools/creator/physicalchannel")
+        self.assertIs(media["consumer_selects_iso_or_image"], False)
+        self.assertIs(media["owner_development_offline_raw_seed_is_separate"], True)
+        self.assertIs(media["previous_version_source_reuse"], True)
+        self.assertIs(media["reject_size_mismatch_before_hashing"], True)
+        self.assertIs(media["revalidate_bytes_during_copy"], True)
+        self.assertIs(media["new_candidate_final_validation_required"], True)
+        self.assertIs(media["additional_media_catalog_or_cache_allowed"], False)
+        self.assertIs(media["physical_write_authority_unchanged"], True)
+
         integrity = data["physical_candidate_integrity"]
         self.assertIs(integrity["whole_disk_raw_image_required"], False)
         self.assertEqual(integrity["portable_artifact_count"], 17)

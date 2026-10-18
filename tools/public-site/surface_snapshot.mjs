@@ -8,6 +8,7 @@ import {resolve,relative} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
+import {stripGeneratedSurfaceCopy} from './generated_copy.mjs';
 const root=resolve(import.meta.dirname,'../..'),out=resolve(root,'out/public-surface-snapshot');
 const assets=resolve(root,'sites/public/assets');
 const generated=new Set();
@@ -20,8 +21,7 @@ await build({configFile:false,root,plugins:[{name:'public-snapshot-read-only-ada
 const {snapshot}=await import(pathToFileURL(resolve(out,'snapshot.mjs')).href);
 const data=snapshot();
 const catalogPath=resolve(assets,'../i18n/catalog.js');
-let catalogText=await readFile(catalogPath,'utf8');
-catalogText=catalogText.replace(/  \/\/ BEGIN GENERATED SURFACE COPY[\s\S]*?  \/\/ END GENERATED SURFACE COPY\n/g,'');
+let catalogText=stripGeneratedSurfaceCopy(await readFile(catalogPath,'utf8'));
 const scope=vm.createContext({window:{}});vm.runInContext(catalogText,scope);
 const existing=new Set(Object.values(scope.window.OrdaXPublicI18nCatalog.messages['pt-BR']));
 const html=[data.chrome,...Object.values(data.views)].join(' ');

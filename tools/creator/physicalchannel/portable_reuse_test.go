@@ -198,3 +198,30 @@ func TestPortableReuseSourceIdentityAlwaysComesFromSignedBinding(t *testing.T) {
 		t.Fatal(fmt.Errorf("new signed binding was not honored: %w", err))
 	}
 }
+
+func TestPortablePayloadSkipsOversizedSparseDonorBeforeHashing(t *testing.T) {
+	root := t.TempDir()
+	manifest, bodies, previous := seedPreviousPortableVersion(t, root)
+	kernel := filepath.Join(previous, "kernel")
+	// A stale version may contain a very large sparse file under a known ID.
+	// The signed size must be checked before reading any cached contents.
+	if err := os.Truncate(kernel, 64<<20); err != nil {
+		t.Skipf("sparse truncation unavailable: %v", err)
+	}
+	transport := &portableSourceTestTransport{bodies: bodies}
+	dest := filepath.Join(root, "candidate")
+	if err := os.Mkdir(dest, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := installPortablePayload(
+		&http.Client{Transport: transport}, dest, filepath.Join(root, "versions"), manifest,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if len(transport.requests) != 1 || transport.requests[0] != "kernel" {
+		t.Fatalf("only the oversized mismatched donor must be downloaded, got %v", transport.requests)
+	}
+	if err := verifyPortablePayloadInstalled(dest, manifest); err != nil {
+		t.Fatal(err)
+	}
+}
