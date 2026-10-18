@@ -24,6 +24,21 @@ saved/session-only status without inventing cloud continuity. Native's Surface
 reducer remains a consumer of the same catalog. Runtime bindings do not define
 new preference semantics or import browser storage.
 
+### Persistence confirmation
+
+The existing `ordax.preference-store/1` port keeps a synchronous `load()`
+and accepts either a boolean or a Promise of boolean from `save(snapshot)`.
+Web localStorage reports a synchronous result. Native retains the validated
+session snapshot immediately but returns a Promise that settles **true only
+after the same-origin host acknowledges its atomic POST**; a failed HTTP
+response or transport error settles false and does not block later writes.
+The portable preference runtime exposes `not-written`, `pending`,
+`saved` or `session-only`. Multiple pending writes never let an earlier
+acknowledgment confirm the latest edit, and teardown ignores late results.
+Neither a queued write nor an in-memory choice proves device durability,
+cloud sync or account backup. The native Surface reducer continues to use
+the canonical store without creating a separate persistence owner.
+
 
 ## Surface favorite shortcuts
 
