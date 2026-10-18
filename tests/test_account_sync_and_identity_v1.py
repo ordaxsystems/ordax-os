@@ -470,6 +470,73 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         # observer state. It does not authorize global cloud rollout.
         verify(SaturatedObserver([], []), "proof/two-client/not-present", 0)
 
+    def test_live_proof_logout_requires_anonymous_session_after_ack(self):
+        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
+        client = scope["Client"].__new__(scope["Client"])
+        calls = []
+
+        def false_logout(method, path, body=None, content_type=None):
+            calls.append((method, path))
+            if path == "/auth/logout":
+                return 200, {"signedOut": True}
+            return 200, {
+                "$schema": "prototype-ordax.public-identity-session/1",
+                "authenticated": True,
+                "status": "authenticated",
+            }
+
+        client.request = false_logout
+        with self.assertRaisesRegex(SystemExit, "logout-session-still-active"):
+            client.logout()
+        self.assertEqual(calls, [
+            ("POST", "/auth/logout"),
+            ("GET", "/auth/session"),
+        ])
+
+        def truly_anonymous(method, path, body=None, content_type=None):
+            if path == "/auth/logout":
+                return 200, {"signedOut": True}
+            return 200, {
+                "$schema": "prototype-ordax.public-identity-session/1",
+                "authenticated": False,
+                "status": "anonymous",
+            }
+
+        client.request = truly_anonymous
+        self.assertIsNone(client.logout())
+
+    def test_live_proof_rejects_foreign_or_forged_mutation_ack(self):
+        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
+        client = scope["Client"].__new__(scope["Client"])
+        target = scope["mutation"](
+            "proof/two-client/synthetic", 0, False, "proof-synthetic-000001",
+        )
+        good = {
+            "$schema": "prototype-ordax.sync-ack/1",
+            "objectId": target["objectId"],
+            "dataClass": target["dataClass"],
+            "tombstone": False,
+            "applied": True,
+            "conflict": False,
+            "serverRevision": 1,
+            "changeCursor": 1,
+        }
+        client.request = lambda *args, **kwargs: (200, dict(good))
+        self.assertEqual(client.mutate(target)["objectId"], target["objectId"])
+
+        for changes in (
+            {"objectId": "proof/two-client/someone-else"},
+            {"dataClass": "appearance"},
+            {"tombstone": True},
+            {"applied": False},
+            {"conflict": True},
+        ):
+            with self.subTest(changes=changes):
+                response = {**good, **changes}
+                client.request = lambda *args, **kwargs: (200, response)
+                with self.assertRaisesRegex(SystemExit, "mutate-ack-contract-mismatch"):
+                    client.mutate(target)
+
     def test_session_revocation_proof_keeps_credentials_and_tokens_ephemeral(self):
         text = SESSION_REVOCATION_PROOF.read_text(encoding="utf-8")
         self.assertIn("ORDAX_PROOF_ACCOUNT_EMAIL", text)
