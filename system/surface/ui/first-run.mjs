@@ -645,30 +645,33 @@ export function mountFirstRunExperience(
   const renderPrivacy = (body) => {
     body.append(heading(
       "Privacidade",
-      "Local primeiro.",
-      "Este assistente não ativa sincronização, backup ou cobrança. Identidade online e proteção local do dispositivo permanecem responsabilidades separadas.",
+      "Você no controle.",
+      "Escolha como o OrdaX usa a memória local. Esta configuração não ativa sincronização, backup ou cobrança.",
     ));
     const grid = el(documentObject, "div", "ordax-first-run-grid");
     [
       ["Dados locais", "Arquivos, Notas e preferências continuam no armazenamento persistente do USB."],
-      ["Conta independente", "O uso local não depende de sessão cloud e não deve falhar quando a internet cair."],
-      ["Sem disco interno", "A instalação permanente continua fora do MVP e não é oferecida neste fluxo."],
+      ["Conta independente", "Seus aplicativos locais continuam disponíveis sem conta e sem internet."],
+      ["Sem disco interno", "Esta configuração não instala o OrdaX no disco interno do computador."],
     ].forEach(([title, detail]) => {
       const item = el(documentObject, "article", "ordax-first-run-tile");
       item.append(el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
       grid.append(item);
     });
-    body.append(grid);
 
-    const memory = el(documentObject, "article", "ordax-first-run-tile");
+    const memory = el(documentObject, "article", "ordax-first-run-memory");
     memory.dataset.firstRunPrivacyMemory = "";
     memory.append(
       el(documentObject, "strong", "", "Memória automática"),
-      el(documentObject, "p", "", "Permite registrar memórias úteis localmente. Você pode alterar esta opção depois em Configurações."),
+      el(documentObject, "p", "", "Permite à OrdaX Intelligence registrar memórias úteis localmente, conforme as permissões do dispositivo. Você pode alterar esta opção em Ajustes."),
     );
-    const memoryChoice = el(documentObject, "label", "ordax-first-run-field");
+    memory.querySelector("p").id = "ordax-first-run-memory-description";
+    const memoryChoice = el(documentObject, "label", "ordax-first-run-memory-choice");
     const memoryToggle = documentObject.createElement("input");
     memoryToggle.type = "checkbox";
+    memoryToggle.setAttribute("role", "switch");
+    memoryToggle.setAttribute("aria-label", translateFirstRunText(draft.locale, "Memória automática"));
+    memoryToggle.setAttribute("aria-describedby", "ordax-first-run-memory-description");
     memoryToggle.checked = memoryAutoCaptureEnabled(preferencePort.getSnapshot());
     memoryToggle.dataset.firstRunMemoryAutoCapture = "";
     memoryChoice.append(
@@ -676,20 +679,19 @@ export function mountFirstRunExperience(
       el(documentObject, "span", "", memoryToggle.checked ? "Ativada" : "Desativada"),
     );
     memory.append(memoryChoice);
-    body.append(memory);
+    body.append(memory, grid);
   };
 
   const renderName = (body) => {
     body.append(heading(
       "Nome do dispositivo",
       "Identifique este OrdaX.",
-      "O nome é salvo pelo perfil nativo do dispositivo e não entra no recibo do First Run.",
+      "Dê um nome fácil de reconhecer ao seu dispositivo. Você pode alterá-lo depois em Ajustes.",
     ));
     if (!capabilitySnapshot.deviceProfile || !deviceProfilePort || !deviceProfileSnapshot) {
-      body.append(el(
+      body.append(availabilityPanel(
         documentObject,
-        "p",
-        "ordax-first-run-note",
+        "Nome do dispositivo",
         "O nome do dispositivo está indisponível agora. O OrdaX manterá o nome já gerenciado pelo sistema.",
       ));
       return;
@@ -715,8 +717,8 @@ export function mountFirstRunExperience(
   const renderReady = (body) => {
     body.append(heading(
       "Tudo pronto",
-      "Seu espaço está preparado.",
-      "O assistente só desaparece depois que o estado de conclusão for gravado com sucesso no armazenamento persistente do pendrive.",
+      "Revise suas escolhas.",
+      "Confira as opções abaixo. Ao entrar, o OrdaX salva a conclusão desta configuração no pendrive.",
     ));
     const summary = el(documentObject, "dl", "ordax-first-run-summary");
     const localeLabel = REGIONAL_LOCALE_OPTIONS.find((entry) => entry.value === draft.locale)?.label ?? draft.locale;
@@ -732,21 +734,21 @@ export function mountFirstRunExperience(
     });
     body.append(summary);
     if (firstRunAppSelection !== null) {
-      const appSummary = el(documentObject, "section", "ordax-first-run-tile");
+      const appSummary = el(documentObject, "details", "ordax-first-run-essentials");
       appSummary.dataset.firstRunEssentials = "";
-      appSummary.append(el(documentObject, "strong", "", "Aplicativos essenciais"));
+      appSummary.append(el(documentObject, "summary", "", "Aplicativos essenciais"));
       for (const [label, count] of [
-        ["Pacotes independentes confirmados:", firstRunAppSelection.alreadyInstalledAppIds.length],
+        ["Aplicativos independentes verificados:", firstRunAppSelection.alreadyInstalledAppIds.length],
         ["Candidatos verificados para futura distribuição:", firstRunAppSelection.eligibleCandidateAppIds.length],
-        ["Remoção preservada ou fora do primeiro uso:", firstRunAppSelection.suppressedAppIds.length],
-        ["Ainda sem comprovação de distribuição:", firstRunAppSelection.unavailableAppIds.length],
+        ["Removidos ou fora desta configuração:", firstRunAppSelection.suppressedAppIds.length],
+        ["Distribuição ainda não verificada:", firstRunAppSelection.unavailableAppIds.length],
       ]) {
         const line = el(documentObject, "p", "", label);
         line.append(documentObject.createTextNode(` ${count}`));
         appSummary.append(line);
       }
       appSummary.append(el(documentObject, "p", "",
-        "Resumo somente leitura. Nenhum aplicativo adicional foi instalado. Apps embutidos fora do catálogo verificado não são contabilizados como pacotes independentes."
+        "Esta lista é informativa e não instala aplicativos. Aplicativos integrados fora do catálogo verificado não entram nesta contagem."
       ));
       body.append(appSummary);
     }
