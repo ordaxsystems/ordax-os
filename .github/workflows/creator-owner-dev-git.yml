@@ -94,6 +94,7 @@ jobs:
           python -m unittest tests.test_first_run_contract.FirstRunContractTests.test_native_first_run_completion_survives_fresh_native_process -v
           node --test tests/test_browser_proof_shutdown.mjs
           python -m unittest tests.test_first_run_contract -v
+          python -m unittest tests.test_owner_first_run_http_restart -v
 
       - name: Prove Native First Run browser journey
         timeout-minutes: 5
