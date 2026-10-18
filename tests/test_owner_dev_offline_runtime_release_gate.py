@@ -137,7 +137,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertLess(source.index("mount-surface-runtime"), source.index("exec switch_root"))
         self.assertNotIn("ordax-pull", source)
         self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]', surface)
-        self.assertIn("verified boot requires the offline graphical runtime", surface)
+        self.assertIn("Owner USB offline graphical runtime is invalid", surface)
 
 
 if __name__ == "__main__":
