@@ -217,3 +217,51 @@ test("Native first-run selection shares Store current-state reads and never rest
   assert.ok(observe(false).suppressedAppIds.includes("notes"));
   composition.destroy();
 });
+
+test("Native Store revokes install actions and transient current observations while signed catalog refresh is pending", async () => {
+  let releaseCatalog;
+  let catalogReads = 0;
+  const windowRef = {
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        catalogReads += 1;
+        if (catalogReads === 2) {
+          return new Promise((resolve) => { releaseCatalog = resolve; });
+        }
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname === "/__ordax/native/component-runtime") {
+        return response(metadata(parsed.searchParams.get("component")));
+      }
+      return response({}, 404);
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef,
+    componentSource: componentSource(),
+  });
+  const initial = composition.port.getSnapshot();
+  assert.equal(initial.entries.find((entry) => entry.appId === "notes").installable, true);
+  assert.ok(composition.getCurrentObservations().length > 0);
+
+  const updating = composition.refresh();
+  assert.equal(catalogReads, 2);
+  assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "unavailable");
+  assert.equal(
+    composition.verifiedCatalogPort.getSnapshot().reason,
+    "native-store-catalog-refreshing",
+  );
+  assert.equal(composition.port.getSnapshot().state, "unavailable");
+  assert.deepEqual(composition.port.getSnapshot().entries, []);
+  assert.deepEqual(composition.getCurrentObservations(), []);
+
+  releaseCatalog(response(verifiedCatalog()));
+  await updating;
+  const refreshed = composition.port.getSnapshot();
+  assert.equal(refreshed.state, "ready");
+  assert.equal(refreshed.entries.find((entry) => entry.appId === "notes").installable, true);
+  composition.destroy();
+  assert.equal(composition.port.getSnapshot().state, "unavailable");
+  assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "unavailable");
+});
