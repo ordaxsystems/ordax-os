@@ -25,12 +25,12 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "218e049cc1364e270c566f41de048725ec692c26");
+  assert.equal(lock.source.commit, "5b9e2452999fef19f0e4a7a16de1e6efc433f44c");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
-    sha256: "9fe0d913a8f679bb79bb95549aa390373fcba12070d01557334951da9b3e5a1f",
-    product_version: "0.4.2",
+    sha256: "b2e9785eb7e672c4f3581aae0786ff1c1bc3e06c20dc010171a17070aee9f859",
+    product_version: "0.4.7",
   });
 
   assert.equal(lock.runtime.profile, "headless");
@@ -41,6 +41,24 @@ test("Studio runtime source lock pins the merged headless compatibility contract
     lock.runtime.capability_reader_schema,
     "ordax.device-agent-capability-reader/1",
   );
+  // Pin provenance only; runtime code, grant evaluation and execution stay
+  // in the canonical ordax-runtime/Platform owners, not in this OS lock.
+  assert.equal(
+    lock.runtime.product_transport_owner,
+    "ordax_dev_agent.product_device_control_plane.ProductDeviceControlPlane",
+  );
+  assert.equal(lock.runtime.product_transport_path, "/v3/device/transport");
+  assert.deepEqual(lock.runtime.product_transport_operations, [
+    "heartbeat", "claim", "start", "lease", "progress", "report", "recover-report",
+  ]);
+  assert.equal(
+    lock.runtime.central_attestation_owner,
+    "ordax_dev_agent.product_central_session.ProductCentralSessionClient",
+  );
+  assert.equal(lock.runtime.native_device_identity_provider, "ProductDeviceIdentityStore.read_enrolled_credential");
+  assert.equal(lock.runtime.native_identity_provider_supported, true);
+  assert.equal(lock.runtime.device_id_match_required, true);
+  assert.equal(lock.runtime.duplicate_persisted_token_forbidden, true);
 });
 
 test("Studio runtime source lock is source-only and cannot silently activate dispatch", async () => {
@@ -50,6 +68,8 @@ test("Studio runtime source lock is source-only and cannot silently activate dis
   assert.equal(lock.distribution.runtime_network_download_allowed, false);
   assert.equal(lock.distribution.runtime_artifact_claimed, false);
   assert.equal(lock.distribution.source_binding_only, true);
+  assert.equal(lock.distribution.signed_runtime_slot_available, false);
+  assert.equal(lock.distribution.activation_channel, "ordax-runtime-component-channel");
 
   for (const owner of [
     "identity_owner",
@@ -69,6 +89,15 @@ test("Studio runtime source lock is source-only and cannot silently activate dis
   assert.equal(lock.activation.dispatch_enabled, false);
   assert.equal(lock.activation.action_gateway_activation_required, true);
   assert.equal(lock.activation.boot_critical, false);
+  assert.equal(lock.activation.attestation_enabled, false);
+  assert.equal(lock.activation.requires_signed_runtime_slot, true);
+  assert.equal(lock.activation.requires_runtime_health_proof, true);
+  assert.equal(lock.activation.requires_product_oauth_client_consent, true);
+  assert.equal(lock.activation.requires_device_scoped_grants, true);
+  assert.equal(lock.activation.requires_native_policy, true);
+  assert.equal(lock.activation.intelligence_grants_do_not_authorize_remote_actions, true);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.activation.verified_os_runtime_provenance_required, true);
 });
 
 test("Studio integration consumes the source lock without widening Surface authority", async () => {

@@ -2,12 +2,12 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "218e049cc1364e270c566f41de048725ec692c26",
+    "commit": "5b9e2452999fef19f0e4a7a16de1e6efc433f44c",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
-      "sha256": "9fe0d913a8f679bb79bb95549aa390373fcba12070d01557334951da9b3e5a1f",
-      "product_version": "0.4.2"
+      "sha256": "b2e9785eb7e672c4f3581aae0786ff1c1bc3e06c20dc010171a17070aee9f859",
+      "product_version": "0.4.7"
     }
   },
   "runtime": {
@@ -18,13 +18,31 @@
       "ordax-device-agent"
     ],
     "device_agent_schema": "ordax.device-agent/1",
-    "capability_reader_schema": "ordax.device-agent-capability-reader/1"
+    "capability_reader_schema": "ordax.device-agent-capability-reader/1",
+    "product_transport_owner": "ordax_dev_agent.product_device_control_plane.ProductDeviceControlPlane",
+    "product_transport_path": "/v3/device/transport",
+    "product_transport_operations": [
+      "heartbeat",
+      "claim",
+      "start",
+      "lease",
+      "progress",
+      "report",
+      "recover-report"
+    ],
+    "central_attestation_owner": "ordax_dev_agent.product_central_session.ProductCentralSessionClient",
+    "native_device_identity_provider": "ProductDeviceIdentityStore.read_enrolled_credential",
+    "native_identity_provider_supported": true,
+    "device_id_match_required": true,
+    "duplicate_persisted_token_forbidden": true
   },
   "distribution": {
     "runtime_packaged_in_stable": false,
     "runtime_network_download_allowed": false,
     "runtime_artifact_claimed": false,
-    "source_binding_only": true
+    "source_binding_only": true,
+    "signed_runtime_slot_available": false,
+    "activation_channel": "ordax-runtime-component-channel"
   },
   "authority": {
     "identity_owner": "ordax-os",
@@ -41,6 +59,15 @@
     "capability_discovery_contract_pinned": true,
     "dispatch_enabled": false,
     "action_gateway_activation_required": true,
-    "boot_critical": false
+    "boot_critical": false,
+    "attestation_enabled": false,
+    "requires_signed_runtime_slot": true,
+    "requires_runtime_health_proof": true,
+    "requires_product_oauth_client_consent": true,
+    "requires_device_scoped_grants": true,
+    "requires_native_policy": true,
+    "intelligence_grants_do_not_authorize_remote_actions": true,
+    "single_device_heartbeat_owner_required": true,
+    "verified_os_runtime_provenance_required": true
   }
 }
