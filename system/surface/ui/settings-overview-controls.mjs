@@ -661,6 +661,20 @@ export function mountSettingsOverviewControls(
         ? "settings.connector.enabled" : "settings.connector.disabled"
       : connectorReadFailed ? "settings.connector.unavailable" : "settings.connector.unavailable";
     section.append(node(documentObject, "p", "ordax-settings-section-copy", t(status)));
+    if (connectorSnapshot?.available === true && connectorSnapshot.enabled) {
+      section.append(node(
+        documentObject, "p", "ordax-settings-section-copy",
+        t("settings.connector.presence." + connectorSnapshot.presenceState),
+      ));
+      const refresh = node(
+        documentObject, "button", "ordax-settings-action",
+        t("settings.connector.refresh"),
+      );
+      refresh.type = "button";
+      refresh.dataset.settingsConnectorRefresh = "";
+      refresh.disabled = connectorPending;
+      section.append(refresh);
+    }
     if (connectorSnapshot?.available === true && !connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled) {
       section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.loginRequired")));
     }
@@ -1489,6 +1503,11 @@ export function mountSettingsOverviewControls(
   };
 
   const onClick = (event) => {
+    const connectorRefresh = event.target.closest("[data-settings-connector-refresh]");
+    if (connectorRefresh && root.contains(connectorRefresh)) {
+      void refreshConnector();
+      return;
+    }
     const connectorToggle = event.target.closest("[data-settings-connector-toggle]");
     if (connectorToggle && root.contains(connectorToggle)) {
       void configureConnector();
