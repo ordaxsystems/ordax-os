@@ -239,3 +239,39 @@ test("failed receipt keeps First Run incomplete after confirmed preference save"
   assert.equal(incomplete.completed, false);
   assert.equal(seedMissingRegionalPreferencesFromFirstRun(staged, incomplete).changed, false);
 });
+test("account switch during Native preference ACK blocks identity receipt", async () => {
+  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
+  let current = { state: "signed-in", subjectId: "account-A", displayName: "Pessoa" };
+  const identity = { getSnapshot: () => current, refresh: async () => {} };
+  let confirm;
+  const preferences = {
+    set() {},
+    persistConfirmed: () => new Promise(resolve => { confirm = resolve; }),
+  };
+  let receiptWrites = 0;
+  const pending = persistFirstRunCompletion(
+    { save: async () => { receiptWrites++; } },
+    preferences,
+    { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "identity" },
+    { authorizeCommit: () => verifyFirstRunIdentitySession(identity, "account-A") },
+  );
+  current = { state: "signed-in", subjectId: "account-B", displayName: "Pessoa" };
+  confirm(true);
+  await assert.rejects(pending, /authorization changed before receipt/);
+  assert.equal(receiptWrites, 0);
+});
+
+test("identity commitment revalidates session after preference ACK", async () => {
+  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
+  const current = { state: "signed-in", subjectId: "account-A", displayName: "Pessoa" };
+  const identity = { getSnapshot: () => current, refresh: async () => {} };
+  let verified = false, receipt = null;
+  const completed = await persistFirstRunCompletion(
+    { save: async snapshot => { assert.equal(verified, true); receipt = snapshot; } },
+    { set() {}, persistConfirmed: async () => true },
+    { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "identity" },
+    { authorizeCommit: async () => { verified = true; return verifyFirstRunIdentitySession(identity, "account-A"); } },
+  );
+  assert.equal(completed, receipt);
+  assert.equal(receipt.accountMode, "identity");
+});

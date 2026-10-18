@@ -1071,7 +1071,11 @@ export function mountFirstRunExperience(
           return;
         }
       }
-      await persistFirstRunCompletion(store, preferencePort, draft);
+      await persistFirstRunCompletion(store, preferencePort, draft, {
+        authorizeCommit: draft.accountMode === "identity"
+          ? async () => !destroyed && verifyFirstRunIdentitySession(sessionPort, selectedIdentitySubjectId)
+          : null,
+      });
       close();
     } catch {
       if (destroyed) return;

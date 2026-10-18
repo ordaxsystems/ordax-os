@@ -56,7 +56,9 @@ export function completeFirstRunState({ locale, timeZone, accountMode }) {
 // regional preference snapshot is durably confirmed by the canonical store.
 // An interrupted receipt write may leave a staged non-secret preference, but
 // First Run remains incomplete and can retry without any parallel state.
-export async function persistFirstRunCompletion(store, preferences, draft) {
+export async function persistFirstRunCompletion(
+  store, preferences, draft, { authorizeCommit = null } = {},
+) {
   if (
     !store || typeof store.save !== "function"
     || !preferences || typeof preferences.set !== "function"
@@ -64,12 +66,20 @@ export async function persistFirstRunCompletion(store, preferences, draft) {
   ) {
     throw new TypeError("First Run completion requires durable state and preference ports");
   }
+  if (authorizeCommit !== null && typeof authorizeCommit !== "function") {
+    throw new TypeError("First Run commit authorization must be a function");
+  }
   const completed = completeFirstRunState(draft);
   preferences.set(REGIONAL_LOCALE_PREFERENCE_ID, completed.locale);
   preferences.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, completed.timeZone);
   const preferenceConfirmed = await preferences.persistConfirmed();
   if (preferenceConfirmed !== true) {
     throw new Error("First Run regional preferences were not durably confirmed");
+  }
+  // A session selected before slow Native I/O cannot authorize a later
+  // account-mode receipt after logout or account replacement.
+  if (authorizeCommit !== null && await authorizeCommit() !== true) {
+    throw new Error("First Run identity authorization changed before receipt");
   }
   await store.save(completed);
   return completed;
