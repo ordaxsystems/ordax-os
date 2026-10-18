@@ -173,7 +173,23 @@ def main() -> int:
         return 2
 
     base_url = gateway_url()
-    if not base_url.startswith("https://") or "?" in base_url or "#" in base_url:
+    try:
+        destination = urlsplit(base_url)
+        valid_gateway = (
+            destination.scheme == "https"
+            and bool(destination.hostname)
+            and destination.username is None
+            and destination.password is None
+            and destination.query == ""
+            and destination.fragment == ""
+            and bool(destination.path)
+            and not destination.path.endswith("/")
+            and destination.port != 0
+        )
+    except ValueError:
+        valid_gateway = False
+    if not valid_gateway:
+        # Never include the untrusted origin in a receipt or an error message.
         fail("invalid-gateway-url")
 
     client_a = Client(base_url)
