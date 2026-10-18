@@ -49,7 +49,9 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
         self.assertTrue(COMPONENT_SLOTS.is_file(), COMPONENT_SLOTS)
         self.assertTrue(ACCOUNT_GATEWAY.is_file(), ACCOUNT_GATEWAY)
         self.assertIn("from native_request_boundary import expected_surface_authority, request_is_trusted", source)
-        self.assertIn("from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError", source)
+        self.assertIn("from native_account_gateway import (", source)
+        self.assertIn("REGISTRATION_LEGAL_ACCEPTANCE_FIELD,", source)
+        self.assertIn("REGISTRATION_LEGAL_ACCEPTANCE_VALUE,", source)
         self.assertIn("from native_component_slots import (", source)
         self.assertIn("def _request_is_trusted(self)", source)
         self.assertIn("def guess_type(self, path: str) -> str:", source)
@@ -84,8 +86,12 @@ class NativeHostModuleIntegrityTests(unittest.TestCase):
         self.assertNotIn("ACCOUNT_CLOSE_ENABLED =", source)
         self.assertIn('payload["registrationEnabled"] = bool(', source)
         self.assertIn("and ACCOUNT_REGISTRATION_ENABLED", source)
-        self.assertIn('{"email", "password", "legalAcceptance"}', source)
-        self.assertIn('payload.get("legalAcceptance") is not True', source)
+        self.assertIn('{"email", "password", REGISTRATION_LEGAL_ACCEPTANCE_FIELD}', source)
+        self.assertIn('payload.get(REGISTRATION_LEGAL_ACCEPTANCE_FIELD) != REGISTRATION_LEGAL_ACCEPTANCE_VALUE', source)
+        gateway_source = ACCOUNT_GATEWAY.read_text(encoding="utf-8")
+        self.assertIn('REGISTRATION_LEGAL_ACCEPTANCE_FIELD = "legal_acceptance"', gateway_source)
+        self.assertIn('REGISTRATION_LEGAL_ACCEPTANCE_VALUE = "accepted"', gateway_source)
+        self.assertNotIn("legalAcceptance", source)
 
 
 if __name__ == "__main__":

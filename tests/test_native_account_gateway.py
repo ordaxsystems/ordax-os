@@ -157,7 +157,10 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual((method, route), ("POST", "/auth/register"))
             body = kwargs["body"].decode("utf-8")
             self.assertIn("email=person%40example.com", body)
-            self.assertIn("legal_acceptance=accepted", body)
+            self.assertIn(
+                f"{gateway.REGISTRATION_LEGAL_ACCEPTANCE_FIELD}={gateway.REGISTRATION_LEGAL_ACCEPTANCE_VALUE}",
+                body,
+            )
             self.assertNotIn("privacy_version", body)
             self.assertNotIn("terms_version", body)
 

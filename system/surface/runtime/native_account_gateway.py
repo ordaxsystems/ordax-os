@@ -27,6 +27,9 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 COOKIE_NAMES = frozenset(("ordax_access", "ordax_refresh"))
 COOKIE_VALUE_RE = re.compile(r"^[^;\r\n]{1,16384}$")
+# Single Native wire-contract owner for affirmative registration consent.
+REGISTRATION_LEGAL_ACCEPTANCE_FIELD = "legal_acceptance"
+REGISTRATION_LEGAL_ACCEPTANCE_VALUE = "accepted"
 
 
 class NativeAccountGatewayError(RuntimeError):
@@ -241,7 +244,7 @@ class NativeAccountGateway:
             payload = urlencode({
                 "email": email,
                 "password": password,
-                "legal_acceptance": "accepted",
+                REGISTRATION_LEGAL_ACCEPTANCE_FIELD: REGISTRATION_LEGAL_ACCEPTANCE_VALUE,
             }).encode("utf-8")
             return self._request(
                 "POST",

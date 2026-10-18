@@ -37,7 +37,12 @@ from native_local_ai_bridge import (
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
-from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_account_gateway import (
+    NativeAccountGateway,
+    NativeAccountGatewayError,
+    REGISTRATION_LEGAL_ACCEPTANCE_FIELD,
+    REGISTRATION_LEGAL_ACCEPTANCE_VALUE,
+)
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -4571,7 +4576,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     expected_keys = (
                         {"email", "password"}
                         if parsed_path == ACCOUNT_LOGIN_PATH
-                        else {"email", "password", "legal_acceptance"}
+                        else {"email", "password", REGISTRATION_LEGAL_ACCEPTANCE_FIELD}
                     )
                     if payload is None or set(payload) != expected_keys:
                         self._empty(400)
@@ -4584,7 +4589,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     # The same-origin form and Native gateway share the
                     # single canonical affirmative consent token. A boolean,
                     # blank or arbitrary string never implies legal acceptance.
-                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get("legal_acceptance") != "accepted":
+                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get(REGISTRATION_LEGAL_ACCEPTANCE_FIELD) != REGISTRATION_LEGAL_ACCEPTANCE_VALUE:
                         self._empty(400)
                         return
                     reply = (
