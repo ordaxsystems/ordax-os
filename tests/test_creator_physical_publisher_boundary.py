@@ -53,6 +53,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(media["physical_write_authority_unchanged"], True)
         self.assertIs(media["portable_v3_provenance_separates_writer_and_release_source"], True)
         self.assertIs(media["portable_v3_provenance_requires_signed_release_proof_and_envelope"], True)
+        self.assertIs(media["portable_v3_consumer_validates_signed_authorization_and_exact_release_proof_bindings"], True)
         self.assertIs(media["signed_envelope_pointer_prior_state_preserved_on_replace_failure"], True)
 
         integrity = data["physical_candidate_integrity"]
