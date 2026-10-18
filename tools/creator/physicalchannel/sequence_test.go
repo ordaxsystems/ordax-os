@@ -200,7 +200,6 @@ func TestReleaseSequenceRejectsPortableCandidateThatRequiresWholeDiskRaw(t *test
 	}
 }
 
-
 func canonicalV4TestEnvelope(commit string) string {
 	return "https://github.com/" + SourceRepository +
 		"/releases/download/ordax-stable-v4-" + commit + "/release-envelope.json"
@@ -212,20 +211,28 @@ func sequencedPortableTestCandidate(t *testing.T, root, writerCommit, releaseCom
 	payload := validPortablePayload()
 	payload.ReleaseSourceCommit = releaseCommit
 	sourceRoot := filepath.Join(installed.Directory, portablePayloadDirectory)
-	if err := os.Mkdir(sourceRoot, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(sourceRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	for i := range payload.Artifacts {
 		binding := &payload.Artifacts[i]
 		binding.URL = strings.Replace(binding.URL, "0123456789abcdef0123456789abcdef01234567", releaseCommit, 1)
 		body := []byte("v4 canonical fixture bytes:" + binding.ID)
-		if err := os.WriteFile(filepath.Join(sourceRoot, binding.ID), body, 0o600); err != nil { t.Fatal(err) }
+		if err := os.WriteFile(filepath.Join(sourceRoot, binding.ID), body, 0o600); err != nil {
+			t.Fatal(err)
+		}
 		sum := sha256.Sum256(body)
 		binding.SHA256, binding.SizeBytes = hex.EncodeToString(sum[:]), int64(len(body))
 	}
 	installed.Manifest.Schema = ManifestSchemaPortable
 	installed.Manifest.PortablePayload = &payload
 	receipt, err := canonicalPortablePayloadBytes(payload)
-	if err != nil { t.Fatal(err) }
-	if err := os.WriteFile(filepath.Join(installed.Directory, portablePayloadReceiptName), receipt, 0o600); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(installed.Directory, portablePayloadReceiptName), receipt, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	rewriteBoundProvenance(t, &installed, func(p *physicalProvenance) {
 		p.CanonicalV4ReleaseSourceCommit = releaseCommit
 		p.CanonicalV4ReleaseEnvelopeURL = canonicalV4TestEnvelope(releaseCommit)
@@ -237,13 +244,21 @@ func rewriteBoundProvenance(t *testing.T, installed *Installed, edit func(*physi
 	t.Helper()
 	path := filepath.Join(installed.Directory, "provenance.json")
 	data, err := os.ReadFile(path)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	var p physicalProvenance
-	if err := json.Unmarshal(data, &p); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(data, &p); err != nil {
+		t.Fatal(err)
+	}
 	edit(&p)
 	data, err = json.Marshal(p)
-	if err != nil { t.Fatal(err) }
-	if err := os.WriteFile(path, data, 0o600); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	for i := range installed.Manifest.Files {
 		if installed.Manifest.Files[i].Name == "provenance.json" {
 			sum := sha256.Sum256(data)
@@ -262,9 +277,13 @@ func TestCurrentAcceptsPortableV4ProductionShapedProvenance(t *testing.T) {
 	candidate := sequencedPortableTestCandidate(t, root, writer, release)
 	cacheSignedCandidate(t, root, candidate, private)
 	current, err := Current(root, trust, pin)
-	if err != nil { t.Fatalf("production provenance rejected: %v", err) }
+	if err != nil {
+		t.Fatalf("production provenance rejected: %v", err)
+	}
 	sequence, err := ReleaseSequence(current)
-	if err != nil || sequence != 7 { t.Fatalf("sequence=%d, error=%v", sequence, err) }
+	if err != nil || sequence != 7 {
+		t.Fatalf("sequence=%d, error=%v", sequence, err)
+	}
 }
 
 func TestCurrentRejectsSignedPortableV4ProvenanceIdentityMismatch(t *testing.T) {
