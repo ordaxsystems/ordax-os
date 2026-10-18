@@ -44,3 +44,7 @@ The Creator PR path now boots a disposable **copy** of the exact verified USB RA
 This direct-kernel TCG proof is **not** UEFI, proof of a rendered Welcome screen, Wi-Fi hardware or physical notebook. Those remain independent release gates.
 
 **QEMU device identity:** `usb-storage` defaults to a USB hard disk; the Owner initramfs intentionally rejects that as non-removable. The QEMU proof explicitly uses the documented `removable=on` property so it emulates an actual USB stick; the production removable-media validation is unchanged.
+
+## Stronger Owner QEMU health condition
+
+Following the first handoff-only success in CI run `39096292079`, the same disposable QEMU verification now requires a **real native Surface cold-boot heartbeat** acknowledged by the existing supervisor for the exact commit, absence of runtime failures/rollbacks, and 15 more seconds of observed guest stability. The runner remains offline and is still *not* proof of framebuffer pixels, physical notebook or Wi-Fi chip behavior. The Owner-first-run release decision must remain blocked if this stronger gate fails.

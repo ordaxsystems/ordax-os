@@ -62,6 +62,11 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn("ordax.distribution_profile=owner-development", command[command.index("-append") + 1])
         self.assertNotIn("user,hostfwd", " ".join(command))
         self.assertFalse(PROOF.observed("OrdaX Development Base", "a" * 40)["offline_surface_handoff"])
+        self.assertFalse(PROOF.observed("OrdaX Development Base", "a" * 40)["native_surface_heartbeat"])
+        self.assertTrue(PROOF.observed(PROOF.MARKER_HEALTH, "a" * 40)["native_surface_heartbeat"])
+        self.assertFalse(PROOF.observed("cold-boot Surface did not become healthy", "a" * 40)["no_surface_restart_or_failure"])
+        self.assertFalse(PROOF.observed("Surface exited with status 1", "a" * 40)["no_surface_restart_or_failure"])
+        self.assertEqual(PROOF.STABLE_SECONDS, 15)
         self.assertFalse(PROOF.observed("Checkout local verificado: " + "b" * 40, "a" * 40)["exact_local_checkout"])
         self.assertFalse(PROOF.observed("ordax-dev-bootstrap: entering local recovery shell", "a" * 40)["recovery_not_entered"])
 

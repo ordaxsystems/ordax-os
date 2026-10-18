@@ -26,6 +26,14 @@ COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 MAX_SECONDS = 300
 MARKER_BASE = "OrdaX Development Base"
 MARKER_OFFLINE = "OrdaX: iniciando a Surface local sem internet..."
+MARKER_HEALTH = "cold-boot Surface acknowledged healthy state"
+STABLE_SECONDS = 15
+BAD_SURFACE = (
+    "cold-boot Surface did not become healthy",
+    "Surface exited with status",
+    "supervisor exceeded crash budget",
+    "ordax-surface: native Cage/OrdaX WebKit host exited",
+)
 RECOVERY = ("entering local recovery shell", "ordax-dev-bootstrap: entering local recovery shell")
 
 
@@ -79,7 +87,7 @@ def validate(raw: Path, media_proof: Path, kernel: Path, initramfs: Path, source
 def qemu_command(image: Path, kernel: Path, initramfs: Path, serial: Path) -> list[str]:
     return [
         "qemu-system-x86_64", "-machine", "q35", "-accel", "tcg,thread=multi",
-        "-m", "2048", "-smp", "2",
+        "-m", "3072", "-smp", "2",
         "-kernel", str(kernel), "-initrd", str(initramfs),
         "-append", (
             "console=ttyS0,115200n8 rdinit=/init ordax.mode=normal "
@@ -101,7 +109,9 @@ def observed(text: str, source: str) -> dict[str, bool]:
         "dev_base_started": MARKER_BASE in text,
         "exact_local_checkout": f"Checkout local verificado: {source}" in text,
         "offline_surface_handoff": MARKER_OFFLINE in text,
+        "native_surface_heartbeat": MARKER_HEALTH in text,
         "recovery_not_entered": not any(item in text for item in RECOVERY),
+        "no_surface_restart_or_failure": not any(item in text for item in BAD_SURFACE),
     }
 
 
@@ -148,18 +158,24 @@ def main() -> int:
             try:
                 deadline = time.monotonic() + args.timeout_seconds
                 checks: dict[str, bool] = {}
+                healthy_since: float | None = None
                 while time.monotonic() < deadline:
                     text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
                     checks = observed(text, args.source_commit)
-                    if not checks["recovery_not_entered"]:
+                    if not checks["recovery_not_entered"] or not checks["no_surface_restart_or_failure"]:
                         # The guest is disposable and the tail is limited; emit
-                        # the genuine kernel/initramfs cause before removal.
+                        # the genuine kernel/initramfs/UI cause before removal.
                         raise ProofError(
-                            "Owner USB entered recovery during offline QEMU boot; "
+                            "Owner USB entered recovery or Surface failed during offline QEMU boot; "
                             f"checks={checks}; serial-tail={text[-3500:]!r}"
                         )
                     if all(checks.values()):
-                        break
+                        if healthy_since is None:
+                            healthy_since = time.monotonic()
+                        if time.monotonic() - healthy_since >= STABLE_SECONDS:
+                            break
+                    else:
+                        healthy_since = None
                     if guest.poll() is not None:
                         detail = text[-3500:]
                         errors = guest.stderr.read(1500).decode("utf-8", "replace") if guest.stderr else ""
@@ -168,17 +184,18 @@ def main() -> int:
                             f"returncode={guest.returncode}; serial-tail={detail!r}; qemu-stderr={errors!r}"
                         )
                     time.sleep(1)
-                if not checks or not all(checks.values()):
-                    detail = serial.read_text(encoding="utf-8", errors="replace")[-2500:] if serial.exists() else ""
-                    raise ProofError(f"Owner USB offline handoff timed out; checks={checks}; serial-tail={detail!r}")
+                if not checks or not all(checks.values()) or healthy_since is None or time.monotonic() - healthy_since < STABLE_SECONDS:
+                    detail = serial.read_text(encoding="utf-8", errors="replace")[-3500:] if serial.exists() else ""
+                    raise ProofError(f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}")
                 report = {
                     "$schema": SCHEMA, "status": "pass",
                     "source_commit": args.source_commit,
                     "raw_sha256": raw_sha, "checks": checks,
+                    "healthy_observation_seconds": STABLE_SECONDS,
                     "network_device_attached": False,
                     "physical_device_touched": False,
                     "physical_write_authorized": False,
-                    "qemu_boot_scope": "direct-kernel-owner-initramfs-to-local-surface-handoff",
+                    "qemu_boot_scope": "direct-kernel-owner-initramfs-to-real-surface-heartbeat",
                     "welcome_screen_rendered_proven": False,
                     "notebook_boot_proven": False,
                 }
