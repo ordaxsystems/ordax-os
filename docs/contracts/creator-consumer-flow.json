@@ -105,7 +105,8 @@
     "cached_writer_size_checked_before_hashing": true,
     "version_root_must_be_real_directory": true,
     "pre_uac_portable_preparation_confirms_device_capacity_and_serial": true,
-    "pre_uac_portable_authorization_requires_lowercase_sha256_shape": true
+    "pre_uac_portable_authorization_requires_lowercase_sha256_shape": true,
+    "windows_gui_revalidates_signed_candidate_before_prepare_and_uac": true
   },
   "physical_write_gate": {
     "development_channel_can_write": false,

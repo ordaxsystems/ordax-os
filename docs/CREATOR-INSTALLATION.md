@@ -151,6 +151,8 @@ The authoritative consumer-media behavior is `docs/contracts/creator-consumer-fl
 
 No user image/ISO selector, duplicate artifact catalog, mutable global cache or extra installer is allowed.
 
+Before the Windows Creator invokes the physical backend for preparation, and again immediately before UAC, it revalidates the exact previously verified and in-memory signed candidate using `physicalchannel.ReleaseSequence`: all eight signed writer file hashes, 17 Portable source hashes, manifest identities and signed provenance must still match. The privilege boundary cannot rely only on a backend path that was accepted during an earlier UI refresh. The same check does not independently grant physical authority, and the elevated backend must still reopen and reverify the live target and source files.
+
 The signed physical candidate cache accepts only its eight manifest-bound writer files (plus the existing Portable v3 receipt and source directory). It rejects unexpected root entries or symlinked roots, and rejects size-mismatched writer files before hashing. This is verification only; it cannot authorize physical writes.
 
 The signed Portable payload's release commit controls every artifact download URL: exactly one filename in the official GitHub release tag `ordax-stable-v4-<release_source_commit>` is accepted. Both Go validators and the existing Windows signing preflight reject cross-version and ambiguous asset paths; SHA-256 and size are independently verified, and no private signing key or secondary catalog is introduced.

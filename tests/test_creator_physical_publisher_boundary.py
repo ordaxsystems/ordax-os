@@ -63,6 +63,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(integrity["version_root_must_be_real_directory"], True)
         self.assertIs(integrity["pre_uac_portable_preparation_confirms_device_capacity_and_serial"], True)
         self.assertIs(integrity["pre_uac_portable_authorization_requires_lowercase_sha256_shape"], True)
+        self.assertIs(integrity["windows_gui_revalidates_signed_candidate_before_prepare_and_uac"], True)
         self.assertEqual(integrity["portable_application_operation_count"], 39)
         self.assertNotIn("ordax-bootstrap-seed.raw", integrity["critical_files_bound_by_sha256_and_size"])
         self.assertEqual(
