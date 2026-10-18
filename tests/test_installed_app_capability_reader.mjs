@@ -15,14 +15,14 @@ const DIGEST_B = "b".repeat(64);
 
 function caller(appId = "orders", spaceId = "pizzaria", digest = DIGEST_A) {
   return {
-    appId, packageSha256: digest, accountId: "account-one",
+    appId, publisherId: "ordaxsystems", packageSha256: digest, accountId: "account-one",
     spaceId, deviceId: "ordax-device-one", verified: true,
   };
 }
 function decision(subject, capabilities) {
   return {
     schema: INSTALLED_APP_CAPABILITY_DECISION_SCHEMA,
-    appId: subject.appId, packageSha256: subject.packageSha256,
+    appId: subject.appId, publisherId: subject.publisherId, packageSha256: subject.packageSha256,
     accountId: subject.accountId, spaceId: subject.spaceId,
     deviceId: subject.deviceId, capabilities,
   };
@@ -79,7 +79,7 @@ test("independent apps see only their own live OS-granted capabilities and modes
 
 test("host current identity and OS grant decision must match package, account, Space and device", async () => {
   const real = caller();
-  for (const key of ["appId", "packageSha256", "accountId", "spaceId", "deviceId"]) {
+  for (const key of ["appId", "publisherId", "packageSha256", "accountId", "spaceId", "deviceId"]) {
     const malicious = { ...real, [key]: key === "packageSha256" ? DIGEST_B : "other" };
     const port = createInstalledAppCapabilityReader({
       capabilityReader: reader(),
