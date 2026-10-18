@@ -233,11 +233,68 @@ func sequencedPortableTestCandidate(t *testing.T, root, writerCommit, releaseCom
 	if err := os.WriteFile(filepath.Join(installed.Directory, portablePayloadReceiptName), receipt, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// The signed publisher embeds this authorized v3 JSON alongside its
+	// provenance. Build a production-shaped fixture with internally coherent
+	// bindings, then keep the existing manifest's file hashes authoritative.
+	auth := physicalAuthorizationV3{
+		Schema: "prototype-ordax.physical-write-authorization/3",
+		Status: "authorized",
+		PhysicalWriteAllowed: true,
+		ExplicitOwnerAuthorization: true,
+		Scope: "first-real-stable-mvp-usb-proof",
+		SourceRepository: SourceRepository,
+		ReleaseSequence: 7,
+		AuthorizationContextSHA256: strings.Repeat("8", 64),
+		Requirements: map[string]bool{"canonical_v4_release_proof_bound": true},
+		ConsumerPolicy: map[string]bool{
+			"development_channel_may_satisfy_this_authorization": false,
+			"legacy_ordax_ext4_layout_may_satisfy_this_authorization": false,
+		},
+	}
+	auth.Bindings.MinimalBootstrapSHA256 = strings.Repeat("2", 64)
+	auth.Bindings.ReleaseTrustSHA256 = strings.Repeat("1", 64)
+	auth.Bindings.PortableUSBContractSHA256 = strings.Repeat("3", 64)
+	auth.Bindings.CreatorPortableMediaContractSHA256 = strings.Repeat("4", 64)
+	auth.Bindings.CanonicalV4ReleaseProofSHA256 = strings.Repeat("6", 64)
+	auth.ReleaseBinding.ProofPath = "docs/evidence/canonical-v4-release-proof.json"
+	auth.ReleaseBinding.ProofSchema = "prototype-ordax.portable-v4-canonical-release-proof/1"
+	auth.ReleaseBinding.SourceCommit = releaseCommit
+	auth.ReleaseBinding.CanonicalEnvelopeURL = canonicalV4TestEnvelope(releaseCommit)
+	auth.ReleaseBinding.ReleaseManifestSHA256 = strings.Repeat("d", 64)
+	auth.ReleaseBinding.ReleaseEnvelopeSHA256 = strings.Repeat("e", 64)
+	authorizationHash := rewriteBoundAuthorization(t, &installed, func(a *physicalAuthorizationV3) { *a = auth })
 	rewriteBoundProvenance(t, &installed, func(p *physicalProvenance) {
 		p.CanonicalV4ReleaseSourceCommit = releaseCommit
 		p.CanonicalV4ReleaseEnvelopeURL = canonicalV4TestEnvelope(releaseCommit)
+		p.PhysicalWriteAuthorizationSHA256 = authorizationHash
 	})
 	return installed
+}
+
+// rewriteBoundAuthorization updates both the fixture and its signed manifest
+// binding, so negative tests exercise semantic mismatches, not stale hashes.
+func rewriteBoundAuthorization(t *testing.T, installed *Installed, edit func(*physicalAuthorizationV3)) string {
+	t.Helper()
+	path := filepath.Join(installed.Directory, "physical-write-authorization.json")
+	var auth physicalAuthorizationV3
+	raw, err := os.ReadFile(path)
+	if err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(raw, &auth); err != nil { t.Fatal(err) }
+	edit(&auth)
+	data, err := json.Marshal(auth)
+	if err != nil { t.Fatal(err) }
+	if err := os.WriteFile(path, data, 0o600); err != nil { t.Fatal(err) }
+	sum := sha256.Sum256(data)
+	digest := hex.EncodeToString(sum[:])
+	for i := range installed.Manifest.Files {
+		if installed.Manifest.Files[i].Name == "physical-write-authorization.json" {
+			installed.Manifest.Files[i].SHA256 = digest
+			installed.Manifest.Files[i].Size = int64(len(data))
+			return digest
+		}
+	}
+	t.Fatal("physical authorization not bound")
+	return ""
 }
 
 func rewriteBoundProvenance(t *testing.T, installed *Installed, edit func(*physicalProvenance)) {
@@ -283,6 +340,49 @@ func TestCurrentAcceptsPortableV4ProductionShapedProvenance(t *testing.T) {
 	sequence, err := ReleaseSequence(current)
 	if err != nil || sequence != 7 {
 		t.Fatalf("sequence=%d, error=%v", sequence, err)
+	}
+}
+
+func TestCurrentRejectsPortableV4AuthorizationBindingMismatch(t *testing.T) {
+	for _, tc := range []struct{
+		name string
+		change func(*physicalAuthorizationV3)
+	}{
+		{"not-authorized", func(a *physicalAuthorizationV3) { a.Status = "blocked-explicit-physical-authorization-pending" }},
+		{"no-owner-consent", func(a *physicalAuthorizationV3) { a.ExplicitOwnerAuthorization = false }},
+		{"no-write-approval", func(a *physicalAuthorizationV3) { a.PhysicalWriteAllowed = false }},
+		{"wrong-sequence", func(a *physicalAuthorizationV3) { a.ReleaseSequence++ }},
+		{"wrong-source", func(a *physicalAuthorizationV3) { a.ReleaseBinding.SourceCommit = strings.Repeat("b", 40) }},
+		{"wrong-proof", func(a *physicalAuthorizationV3) { a.Bindings.CanonicalV4ReleaseProofSHA256 = strings.Repeat("f", 64) }},
+		{"wrong-envelope", func(a *physicalAuthorizationV3) { a.ReleaseBinding.CanonicalEnvelopeURL = canonicalV4TestEnvelope(strings.Repeat("b", 40)) }},
+		{"wrong-trust", func(a *physicalAuthorizationV3) { a.Bindings.ReleaseTrustSHA256 = strings.Repeat("f", 64) }},
+		{"wrong-bootstrap", func(a *physicalAuthorizationV3) { a.Bindings.MinimalBootstrapSHA256 = strings.Repeat("f", 64) }},
+		{"wrong-context", func(a *physicalAuthorizationV3) { a.AuthorizationContextSHA256 = "" }},
+		{"development-allowed", func(a *physicalAuthorizationV3) { a.ConsumerPolicy["development_channel_may_satisfy_this_authorization"] = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			trust, private, pin := testTrust(t)
+			installed := sequencedPortableTestCandidate(t, root, strings.Repeat("9", 40), strings.Repeat("a", 40))
+			rewriteBoundAuthorization(t, &installed, tc.change)
+			cacheSignedCandidate(t, root, installed, private)
+			if _, err := Current(root, trust, pin); err == nil {
+				t.Fatal("authorization mismatch accepted with freshly signed manifest")
+			}
+		})
+	}
+}
+
+func TestCurrentRejectsProvenanceAuthorizationHashDifferentFromSignedBytes(t *testing.T) {
+	root := t.TempDir()
+	trust, private, pin := testTrust(t)
+	installed := sequencedPortableTestCandidate(t, root, strings.Repeat("9", 40), strings.Repeat("a", 40))
+	rewriteBoundProvenance(t, &installed, func(p *physicalProvenance) {
+		p.PhysicalWriteAuthorizationSHA256 = strings.Repeat("f", 64)
+	})
+	cacheSignedCandidate(t, root, installed, private)
+	if _, err := Current(root, trust, pin); err == nil {
+		t.Fatal("provenance with incorrect but well-formed authorization SHA-256 accepted")
 	}
 }
 

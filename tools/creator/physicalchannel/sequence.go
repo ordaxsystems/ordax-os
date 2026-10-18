@@ -1,6 +1,8 @@
 package physicalchannel
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -40,6 +42,86 @@ type physicalProvenance struct {
 	PhysicalWriteAuthorizedInBinary    bool   `json:"physical_write_authorized_in_binary"`
 	ReleasePublished                   bool   `json:"release_published"`
 	PrivateKeyInCandidate              bool   `json:"private_key_in_candidate"`
+}
+
+// physicalAuthorizationV3 is the existing signed producer's v3 authorization
+// contract. Its precise shape is checked from the already manifest-bound file;
+// neither this projection nor its contents grant new local permission.
+type physicalAuthorizationV3 struct {
+	Schema string `json:"$schema"`
+	Status string `json:"status"`
+	PhysicalWriteAllowed bool `json:"physical_write_allowed"`
+	ExplicitOwnerAuthorization bool `json:"explicit_owner_authorization"`
+	Scope string `json:"scope"`
+	SourceRepository string `json:"source_repository"`
+	ReleaseSequence int64 `json:"release_sequence"`
+	AuthorizationContextSHA256 string `json:"authorization_context_sha256"`
+	Bindings struct {
+		MinimalBootstrapSHA256 string `json:"minimal_bootstrap_sha256"`
+		ReleaseTrustSHA256 string `json:"release_trust_sha256"`
+		PortableUSBContractSHA256 string `json:"portable_usb_contract_sha256"`
+		CreatorPortableMediaContractSHA256 string `json:"creator_portable_media_contract_sha256"`
+		CanonicalV4ReleaseProofSHA256 string `json:"canonical_v4_release_proof_sha256"`
+	} `json:"bindings"`
+	Requirements map[string]bool `json:"requirements"`
+	ConsumerPolicy map[string]bool `json:"consumer_policy"`
+	ReleaseBinding struct {
+		ProofPath string `json:"proof_path"`
+		ProofSchema string `json:"proof_schema"`
+		SourceCommit string `json:"source_commit"`
+		CanonicalEnvelopeURL string `json:"canonical_envelope_url"`
+		ReleaseManifestSHA256 string `json:"release_manifest_sha256"`
+		ReleaseEnvelopeSHA256 string `json:"release_envelope_sha256"`
+	} `json:"release_binding"`
+}
+
+// The publication recipe already enforces these authorization/provenance
+// relationships before signing. The consumer must not downgrade them to
+// "looks like a SHA-256" after offline cache reuse or an online refresh.
+func verifyPortableAuthorizationBinding(installed Installed, p physicalProvenance) error {
+	path := filepath.Join(installed.Directory, "physical-write-authorization.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read signed physical authorization: %w", err)
+	}
+	sha := sha256.Sum256(data)
+	if hex.EncodeToString(sha[:]) != p.PhysicalWriteAuthorizationSHA256 {
+		return errors.New("physical provenance authorization SHA-256 differs from signed file")
+	}
+	var auth physicalAuthorizationV3
+	if err := decodeStrict(data, 64<<10, &auth); err != nil {
+		return fmt.Errorf("decode signed physical authorization: %w", err)
+	}
+	payload := installed.Manifest.PortablePayload
+	if payload == nil ||
+		auth.Schema != "prototype-ordax.physical-write-authorization/3" ||
+		auth.Status != "authorized" ||
+		!auth.PhysicalWriteAllowed ||
+		!auth.ExplicitOwnerAuthorization ||
+		auth.Scope != "first-real-stable-mvp-usb-proof" ||
+		auth.SourceRepository != SourceRepository ||
+		!shaPattern.MatchString(auth.AuthorizationContextSHA256) ||
+		auth.ReleaseSequence != p.ReleaseSequence ||
+		!auth.Requirements["canonical_v4_release_proof_bound"] ||
+		auth.ConsumerPolicy["development_channel_may_satisfy_this_authorization"] ||
+		auth.ConsumerPolicy["legacy_ordax_ext4_layout_may_satisfy_this_authorization"] {
+		return errors.New("physical authorization contract state does not match signed Portable candidate")
+	}
+	if auth.Bindings.MinimalBootstrapSHA256 != p.MinimalBootstrapSHA256 ||
+		auth.Bindings.ReleaseTrustSHA256 != p.CanonicalTrustSHA256 ||
+		auth.Bindings.PortableUSBContractSHA256 != p.PortableUSBContractSHA256 ||
+		auth.Bindings.CreatorPortableMediaContractSHA256 != p.CreatorPortableMediaContractSHA256 ||
+		auth.Bindings.CanonicalV4ReleaseProofSHA256 != p.CanonicalV4ReleaseProofSHA256 ||
+		auth.ReleaseBinding.SourceCommit != payload.ReleaseSourceCommit ||
+		auth.ReleaseBinding.SourceCommit != p.CanonicalV4ReleaseSourceCommit ||
+		auth.ReleaseBinding.CanonicalEnvelopeURL != p.CanonicalV4ReleaseEnvelopeURL ||
+		auth.ReleaseBinding.ProofPath != "docs/evidence/canonical-v4-release-proof.json" ||
+		auth.ReleaseBinding.ProofSchema != "prototype-ordax.portable-v4-canonical-release-proof/1" ||
+		!shaPattern.MatchString(auth.ReleaseBinding.ReleaseManifestSHA256) ||
+		!shaPattern.MatchString(auth.ReleaseBinding.ReleaseEnvelopeSHA256) {
+		return errors.New("physical authorization and canonical v4 release proof bindings mismatch")
+	}
+	return nil
 }
 
 // ReleaseSequence reads the monotonic physical-release sequence from the
@@ -93,6 +175,9 @@ func ReleaseSequence(installed Installed) (int64, error) {
 			"/releases/download/ordax-stable-v4-" + payload.ReleaseSourceCommit + "/release-envelope.json"
 		if provenance.CanonicalV4ReleaseEnvelopeURL != expectedURL {
 			return 0, errors.New("physical provenance canonical v4 release envelope URL mismatch")
+		}
+		if err := verifyPortableAuthorizationBinding(installed, provenance); err != nil {
+			return 0, err
 		}
 	}
 	if provenance.ReleaseSequence <= 0 {
