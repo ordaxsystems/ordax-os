@@ -131,6 +131,15 @@ test("Native Store composition derives installability only from verified catalog
   assert.deepEqual(observations.map(item => item.componentId).sort(), [...listExternalFirstPartyComponentIds()].sort());
   assert.equal(observations.find(item => item.componentId === "notes").source, "absent");
   assert.equal(Object.isFrozen(observations), true);
+  const nativeMetadataReads = () => calls.filter(
+    (call) => String(call.url).includes("/__ordax/native/component-runtime"),
+  ).length;
+  const expectedReads = listExternalFirstPartyComponentIds().length;
+  assert.equal(nativeMetadataReads(), expectedReads,
+    "initial Store setup must reuse the one Native metadata sweep");
+  await composition.refresh();
+  assert.equal(nativeMetadataReads(), expectedReads * 2,
+    "one signed catalog refresh must run one additional metadata sweep, not two");
   composition.destroy();
   assert.deepEqual(composition.getCurrentObservations(), []);
 });
