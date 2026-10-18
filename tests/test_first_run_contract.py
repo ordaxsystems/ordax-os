@@ -269,14 +269,22 @@ class FirstRunContractTests(unittest.TestCase):
         )
         self.assertTrue(any(message in first_run for message in no_install_messages))
         self.assertNotIn("installApp(", first_run)
-        for text in (
-            "Aplicativos essenciais",
-            "Pacotes independentes confirmados:",
-            "Candidatos verificados para futura distribuição:",
-            "Remoção preservada ou fora do primeiro uso:",
-            "Ainda sem comprovação de distribuição:",
+        # Assert the actual UI labels are translated in all four locales.
+        # Their copy may evolve with Meridian without changing the no-install
+        # invariant or requiring a second source of truth for the labels.
+        for candidate_labels in (
+            ("Aplicativos essenciais",),
+            ("Pacotes independentes confirmados:", "Aplicativos independentes verificados:"),
+            ("Candidatos verificados para futura distribuição:",),
+            ("Remoção preservada ou fora do primeiro uso:", "Removidos ou fora desta configuração:"),
+            ("Ainda sem comprovação de distribuição:", "Distribuição ainda não verificada:"),
         ):
-            self.assertEqual(translated.count(json.dumps(text, ensure_ascii=False) + ":"), 4)
+            active = [text for text in candidate_labels if text in first_run]
+            self.assertEqual(len(active), 1)
+            self.assertEqual(
+                translated.count(json.dumps(active[0], ensure_ascii=False) + ":"),
+                4,
+            )
 
     def test_branding_records_first_run_without_claiming_early_graphics(self):
         branding = json.loads(BRANDING.read_text(encoding="utf-8"))
