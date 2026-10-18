@@ -1116,3 +1116,51 @@ test("corrupt subject-bound portable queue prevents replay without destroying it
   sync.destroy();
   preferenceSync.destroy();
 });
+
+test("portable conflict rebase waits for durable ACK before sending a new idempotency key", async () => {
+  let raw = null, sends = 0;
+  const physical = {
+    schema: SYNC_STATE_STORE_SCHEMA, scope: "device",
+    load: () => raw,
+    save(value) { raw = value; return true; },
+    async flush() { return !String(raw).includes("preferences-rebase"); },
+  };
+  const registry = createSyncStateNamespaceRegistry(physical);
+  const identity = changingIdentity();
+  const preferences = preferencesRuntime();
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  const appearance = createPreferenceSyncRuntime(preferences, {
+    identitySession: identity, syncStateRegistry: registry,
+    createIdempotencyKey: keyFactory("conflict-pref"),
+  });
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() { return { cursor: 0, objects: [] }; },
+    async pullChanges({ afterCursor }) { return { nextCursor: afterCursor, changes: [] }; },
+    async applyMutation(value) {
+      sends++;
+      assert.equal(value.objectId, "preferences/surface");
+      return {
+        $schema: "prototype-ordax.sync-ack/1",
+        objectId: value.objectId, dataClass: value.dataClass,
+        serverRevision: 1, tombstone: false, applied: false, conflict: true,
+      };
+    },
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: identity, syncStateRegistry: registry,
+    preferenceSync: appearance, preferences, transport,
+    workspaceMetadataSource: bridge.source, workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("conflict-check"),
+  });
+  identity.change("account-A");
+  await sync.refresh();
+  preferences.set("accessibility.contrast", "high");
+  await new Promise(resolve => setImmediate(resolve));
+  await sync.flush();
+  assert.equal(sends, 1, "rebase must not retry before the new queue is durable");
+  const record = registry.open("portable-pending", { partitionKey: "account-A" }).load();
+  assert.ok(record?.includes("preferences-rebase"), "rebased pending intent remains staged");
+  sync.destroy();
+  appearance.destroy();
+});
