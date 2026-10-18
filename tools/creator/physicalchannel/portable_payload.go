@@ -211,6 +211,12 @@ func reusePortablePayloadArtifact(versionsRoot string, binding PortablePayloadAr
 			continue
 		}
 		sourcePath := filepath.Join(sourceRoot, binding.ID)
+		// Skip oversized, undersized and unsafe donor files before hashing.
+		// The final digest and copy-time rehash remain mandatory for a match.
+		info, err := os.Lstat(sourcePath)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() != binding.SizeBytes {
+			continue
+		}
 		digest, size, err := fileDigest(sourcePath)
 		if err != nil || digest != binding.SHA256 || size != binding.SizeBytes {
 			continue

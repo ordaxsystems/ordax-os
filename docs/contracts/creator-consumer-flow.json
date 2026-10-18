@@ -131,5 +131,22 @@
     "target_changes_during_prepare": "abort",
     "uac_denied": "abort_without_write",
     "write_or_readback_failure": "report_failure_and_never_claim_success"
+  },
+  "media_acquisition": {
+    "owner": "tools/creator/physicalchannel",
+    "official_delivery": "ed25519-signed-portable-physical-release",
+    "official_format": "17-exact-artifacts-with-hashes-and-sizes-not-monolithic-disk-raw",
+    "consumer_selects_iso_or_image": false,
+    "owner_development_offline_raw_seed_is_separate": true,
+    "version_identity_authority": "signed-release-source-commit",
+    "previous_version_source_reuse": true,
+    "donor_eligibility": "regular-non-symlink-file-with-exact-signed-size-and-sha256",
+    "reject_size_mismatch_before_hashing": true,
+    "revalidate_bytes_during_copy": true,
+    "new_candidate_final_validation_required": true,
+    "download_only_missing_or_unmatched_signed_artifacts": true,
+    "offline_fallback": "last-signed-candidate-reverified-by-current",
+    "additional_media_catalog_or_cache_allowed": false,
+    "physical_write_authority_unchanged": true
   }
 }
