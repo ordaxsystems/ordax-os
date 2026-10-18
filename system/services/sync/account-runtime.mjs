@@ -373,11 +373,13 @@ export function createAccountSyncRuntime({
     return rebased;
   };
 
-  const flushAppearance = async () => {
+  const flushAppearance = async (subjectId) => {
+    if (!isCurrentSubject(subjectId)) return;
     let current = preferenceSync.pendingMutations()[0] ?? null;
     if (!current) return;
 
     for (let attempt = 0; attempt <= MAX_CONFLICT_REBASE_ATTEMPTS; attempt += 1) {
+      if (!isCurrentSubject(subjectId)) return;
       const expected = revisions.get(APPEARANCE_SYNC_OBJECT_ID) ?? 0;
       if (current.baseServerRevision !== expected) {
         preferenceSync.rebasePending(expected);
@@ -392,7 +394,9 @@ export function createAccountSyncRuntime({
         retryRequested = true;
         return;
       }
-
+      // A late ACK from a detached identity cannot touch another account's
+      // revisions, pending queue, or checkpoint.
+      if (!isCurrentSubject(subjectId)) return;
       const revision = requireRevision(ack.serverRevision);
       revisions.set(APPEARANCE_SYNC_OBJECT_ID, revision);
       persistCheckpoint();
@@ -416,10 +420,12 @@ export function createAccountSyncRuntime({
     }
   };
 
-  const flushPortableObject = async (objectId, initialMutation) => {
+  const flushPortableObject = async (objectId, initialMutation, subjectId) => {
+    if (!isCurrentSubject(subjectId)) return;
     let current = initialMutation;
 
     for (let attempt = 0; attempt <= MAX_CONFLICT_REBASE_ATTEMPTS; attempt += 1) {
+      if (!isCurrentSubject(subjectId)) return;
       const expected = revisions.get(objectId) ?? 0;
       if (current.baseServerRevision !== expected) {
         current = rebasePortablePending(objectId, expected);
@@ -433,7 +439,7 @@ export function createAccountSyncRuntime({
         retryRequested = true;
         return;
       }
-
+      if (!isCurrentSubject(subjectId)) return;
       const revision = requireRevision(ack.serverRevision);
       revisions.set(objectId, revision);
       persistCheckpoint();
@@ -461,16 +467,20 @@ export function createAccountSyncRuntime({
 
   async function flush() {
     const identitySnapshot = identity.getSnapshot();
-    if (destroyed || syncing || identitySnapshot.state !== "signed-in" || !initialized) {
+    if (destroyed || syncing || identitySnapshot.state !== "signed-in" || !initialized
+      || !isCurrentSubject(activeSubjectId)) {
       return;
     }
     syncing = true;
     retryRequested = false;
     try {
-      await flushAppearance();
+      await flushAppearance(identitySnapshot.subjectId);
+      if (!isCurrentSubject(identitySnapshot.subjectId)) return;
       for (const [objectId, pendingMutation] of [...pending]) {
-        await flushPortableObject(objectId, pendingMutation);
+        if (!isCurrentSubject(identitySnapshot.subjectId)) return;
+        await flushPortableObject(objectId, pendingMutation, identitySnapshot.subjectId);
       }
+      if (!isCurrentSubject(identitySnapshot.subjectId)) return;
       if (memoryRuntime) {
         requireMemorySubject(identitySnapshot.subjectId);
         await memoryRuntime.flush(remote);

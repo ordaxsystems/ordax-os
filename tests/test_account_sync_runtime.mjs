@@ -807,3 +807,71 @@ test("late account A snapshot cannot overwrite B and B reconciliation is retried
   sync.destroy();
   preferenceSync.destroy();
 });
+
+test("offline sign-out during a portable mutation discards its late ACK", async () => {
+  const preferences = preferencesRuntime();
+  const preferenceSync = createPreferenceSyncRuntime(preferences, {
+    createIdempotencyKey: keyFactory("pref-late-ack"),
+  });
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  const listeners = new Set();
+  let session = { state: "signed-in", subjectId: "account-A", displayName: "A" };
+  const identity = {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => session,
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(session);
+      return () => listeners.delete(listener);
+    },
+    signOut() {
+      session = { state: "signed-out" };
+      for (const listener of [...listeners]) listener(session);
+    },
+  };
+  let releasePending;
+  const sent = [];
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    snapshot: async () => ({ cursor: 1, objects: [] }),
+    pullChanges: async ({ afterCursor }) => ({ nextCursor: afterCursor, changes: [] }),
+    applyMutation(value) {
+      sent.push(value);
+      const ack = {
+        $schema: "prototype-ordax.sync-ack/1",
+        objectId: value.objectId,
+        dataClass: value.dataClass,
+        serverRevision: value.baseServerRevision + 1,
+        tombstone: false, applied: true, conflict: false,
+      };
+      if (value.objectId === "preferences/surface"
+        && value.payload["accessibility.contrast"] === "high") {
+        return new Promise(resolve => { releasePending = () => resolve(ack); });
+      }
+      return Promise.resolve(ack);
+    },
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: identity, transport,
+    preferenceSync, preferences,
+    workspaceMetadataSource: bridge.source,
+    workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("account-late-ack"),
+  });
+  await sync.refresh();
+  preferences.set("accessibility.contrast", "high");
+  for (let i = 0; i < 20 && !releasePending; i += 1) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(typeof releasePending, "function", "the A mutation must be in flight");
+  const submitted = sent.length;
+  identity.signOut();
+  releasePending();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sync.getSnapshot().accountContinuity, "not-active");
+  assert.equal(sync.getSnapshot().pendingMutationCount > 0, true,
+    "an old account ACK must not acknowledge pending data after logout");
+  assert.equal(sent.length, submitted, "no subsequent remote mutation is sent after logout");
+  sync.destroy();
+  preferenceSync.destroy();
+});
