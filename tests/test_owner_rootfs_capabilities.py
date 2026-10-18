@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import shutil
 import tempfile
 import tarfile
 import stat
@@ -169,6 +170,50 @@ done
         self.assertNotIn('for name in ("ordax-network", "ordax-pull"', core)
         self.assertIn('paths = owner_inventory(ROOT)["sources"]', preflight)
         self.assertNotIn("OWNER_PATHS = (", preflight)
+
+
+
+    def test_final_creator_stage_enforces_exact_manifest_and_helper_bytes(self) -> None:
+        entries = capabilities.owner_runtime_helpers(ROOT)
+        with tempfile.TemporaryDirectory() as td:
+            stage = Path(td)
+            base = stage / "ORDAX/dev-base"
+            checkout = base / "workspace/ordax"
+            manifest = checkout / capabilities.DEV_HELPER_MANIFEST
+            manifest.parent.mkdir(parents=True)
+            shutil.copy2(ROOT / capabilities.DEV_HELPER_MANIFEST, manifest)
+            for source, target in entries:
+                origin = ROOT / source
+                staged_source = checkout / source
+                installed = base / target
+                staged_source.parent.mkdir(parents=True, exist_ok=True)
+                installed.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(origin, staged_source)
+                shutil.copy2(origin, installed)
+                installed.chmod(0o755)
+            proof = capabilities.verify_owner_stage(stage, ROOT)
+            self.assertEqual(proof["status"], "pass")
+            self.assertEqual(proof["verified_helper_count"], len(entries))
+            self.assertFalse(proof["physical_write_authorized"])
+
+            target = base / entries[0][1]
+            target.write_bytes(b"modified")
+            with self.assertRaisesRegex(ValueError, "bytes differ"):
+                capabilities.verify_owner_stage(stage, ROOT)
+            shutil.copy2(ROOT / entries[0][0], target)
+            target.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "not executable"):
+                capabilities.verify_owner_stage(stage, ROOT)
+            target.chmod(0o755)
+            target.unlink()
+            target.symlink_to(ROOT / entries[0][0])
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                capabilities.verify_owner_stage(stage, ROOT)
+            target.unlink()
+            shutil.copy2(ROOT / entries[0][0], target)
+            manifest.write_text("# tampered\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "manifest"):
+                capabilities.verify_owner_stage(stage, ROOT)
 
     def test_alpine_fallback_verifier_consumes_the_same_inventory(self) -> None:
         text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
