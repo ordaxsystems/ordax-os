@@ -1,0 +1,15 @@
+/* Selected Space app references: read-only, responsive, Meridian tokens. */
+.os-panel.meridian-space-profile-apps{width:100%;max-width:1040px;margin:16px auto 0;padding:24px;container-type:inline-size}
+.meridian-space-app-intro,.meridian-space-app-footnote{font-size:.8125rem;line-height:1.7;color:var(--md-muted);margin:0 0 14px}
+.meridian-space-app-intro strong{color:var(--md-ink);font-weight:550;overflow-wrap:anywhere}
+.meridian-space-app-footnote{margin:16px 0 0;border-top:1px solid var(--md-border);padding-top:14px}
+.meridian-space-app-list{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}
+.meridian-space-app-list>li{min-width:0;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:16px;border:1px solid var(--md-border);border-radius:12px;background:var(--md-surface)}
+.meridian-space-app-details{min-width:0;display:grid;gap:5px;flex:1}
+.meridian-space-app-details strong{font-size:.875rem;font-weight:550;overflow-wrap:anywhere}
+.meridian-space-app-details small{font-size:.6875rem;line-height:1.6;color:var(--md-muted);overflow-wrap:anywhere}
+.meridian-space-app-state{display:inline-flex;align-items:center;flex:0 0 auto;max-width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--md-border);background:var(--md-subtle);color:var(--md-muted);font-size:.6875rem;line-height:1.5}
+.meridian-space-app-state[data-state=installed],.meridian-space-app-state[data-state=update-available]{color:var(--md-sage);background:var(--md-sage-soft)}
+.meridian-space-app-state[data-state=blocked],.meridian-space-app-state[data-state=failed-retained]{color:var(--md-danger)}
+.meridian-space-profile-apps [role=alert]{display:grid;justify-items:start;gap:12px;font-size:.8125rem;line-height:1.7}
+@media(max-width:640px){.os-panel.meridian-space-profile-apps{padding:18px}}
