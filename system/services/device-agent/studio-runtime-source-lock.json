@@ -18,13 +18,27 @@
       "ordax-device-agent"
     ],
     "device_agent_schema": "ordax.device-agent/1",
-    "capability_reader_schema": "ordax.device-agent-capability-reader/1"
+    "capability_reader_schema": "ordax.device-agent-capability-reader/1",
+    "product_transport_owner": "ordax_dev_agent.product_device_control_plane.ProductDeviceControlPlane",
+    "product_transport_path": "/v3/device/transport",
+    "product_transport_operations": [
+      "heartbeat",
+      "claim",
+      "start",
+      "lease",
+      "progress",
+      "report",
+      "recover-report"
+    ],
+    "central_attestation_owner": "ordax_dev_agent.product_central_session.ProductCentralSessionClient"
   },
   "distribution": {
     "runtime_packaged_in_stable": false,
     "runtime_network_download_allowed": false,
     "runtime_artifact_claimed": false,
-    "source_binding_only": true
+    "source_binding_only": true,
+    "signed_runtime_slot_available": false,
+    "activation_channel": "ordax-runtime-component-channel"
   },
   "authority": {
     "identity_owner": "ordax-os",
@@ -41,6 +55,13 @@
     "capability_discovery_contract_pinned": true,
     "dispatch_enabled": false,
     "action_gateway_activation_required": true,
-    "boot_critical": false
+    "boot_critical": false,
+    "attestation_enabled": false,
+    "requires_signed_runtime_slot": true,
+    "requires_runtime_health_proof": true,
+    "requires_product_oauth_client_consent": true,
+    "requires_device_scoped_grants": true,
+    "requires_native_policy": true,
+    "intelligence_grants_do_not_authorize_remote_actions": true
   }
 }
