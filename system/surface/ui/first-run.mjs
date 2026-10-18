@@ -612,7 +612,9 @@ export function mountFirstRunExperience(
 
     const buttons = el(documentObject, "div", "ordax-first-run-account-actions");
     if (sessionSnapshot.state === "signed-in") {
-      buttons.append(action(documentObject, "Usar esta conta", "account-identity", true));
+      const useAccount = action(documentObject, "Usar esta conta", "account-identity", true);
+      useAccount.disabled = identityPending !== null;
+      buttons.append(useAccount);
     } else {
       const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
       signIn.disabled = identityPending !== null || !capabilitySnapshot.identitySignIn;
@@ -776,7 +778,7 @@ export function mountFirstRunExperience(
     else renderReady(body);
 
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
-    if (stepIndex > 0 && !finishing) footer.append(action(documentObject, "Voltar", "back"));
+    if (stepIndex > 0 && !finishing && identityPending === null) footer.append(action(documentObject, "Voltar", "back"));
     if (step === "account") {
       const local = action(documentObject, "Continuar sem conta", "account-local", !capabilitySnapshot.identitySignIn && !capabilitySnapshot.identityRegister);
       local.disabled = identityPending !== null;
@@ -1051,13 +1053,18 @@ export function mountFirstRunExperience(
   };
 
   const chooseLocalOnly = async () => {
-    if (destroyed || identityPending || finishing) return;
+    if (destroyed || identityPending || finishing || STEPS[stepIndex] !== "account") return;
+    const accountStep = stepIndex;
     identityPending = "sign-out";
     identityMessage = "";
     render();
     const isolated = await ensureFirstRunLocalIsolation(sessionPort, actionsPort);
     if (destroyed) return;
     identityPending = null;
+    if (stepIndex !== accountStep) {
+      render();
+      return;
+    }
     if (!isolated) {
       identityMessage = "Não foi possível desconectar a Conta OrdaX deste dispositivo. Tente novamente antes de continuar sem conta.";
       render();
@@ -1136,6 +1143,7 @@ export function mountFirstRunExperience(
     } else if (kind === "account-sign-in") void runIdentity("sign-in");
     else if (kind === "account-register") void runIdentity("register");
     else if (kind === "account-identity") {
+      if (identityPending !== null) return;
       const currentSession = sessionPort.getSnapshot();
       if (currentSession.state !== "signed-in") {
         identityMessage = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
