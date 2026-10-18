@@ -80,7 +80,9 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#edf3fc"', html)
+            palette = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+            self.assertIn("--md-canvas:#f4f2ed;", palette)
+            self.assertIn('name="theme-color" content="#f4f2ed"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")

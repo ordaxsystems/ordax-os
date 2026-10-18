@@ -60,7 +60,7 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
             actual.append(labels[destination_id])
         shared=(ROOT/'system/services/surface/meridian-navigation.mjs').read_text(encoding='utf-8')
         self.assertIn('MERIDIAN_RAIL_DESTINATIONS.map(',block)
-        shared_names=re.findall(r"\\{key:'[^']+',name:'([^']+)'",shared)
+        shared_names=re.findall(r"\{key:'[^']+',name:'([^']+)'",shared)
         self.assertEqual(len(shared_names),7,'shared Meridian navigation owner must remain explicit')
         self.assertEqual([row['name'] for row in self.snapshot['navigation']],shared_names+actual)
         for destination_id in [destination_id for _,destination_id in tokens if destination_id]:
