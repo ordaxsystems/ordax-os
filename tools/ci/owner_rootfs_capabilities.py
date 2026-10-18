@@ -29,6 +29,36 @@ INTERNAL_COMMANDS = {
     "ordax-run", "ordax-diagnose", "ordax-main-watch", "ordax-release-agent",
     "ordax-portable-state", "ordax-remote", "entrypoint",
 }
+# Fixed initramfs utilities are not Dev rootfs packages or helper-manifest
+# entries. A use from bootstrap/dev/entrypoint is accepted only when the
+# authoritative initramfs builder explicitly installs its static producer.
+FIXED_INITRAMFS_COMMANDS = {
+    "ordax-portable-mount": (
+        "bootstrap/initramfs/portable_mount.c",
+        "bootstrap/initramfs/build.py",
+        "sbin/ordax-portable-mount",
+    ),
+}
+
+
+def fixed_initramfs_commands(root: Path = ROOT) -> set[str]:
+    installed: set[str] = set()
+    for name, (source, builder, target) in FIXED_INITRAMFS_COMMANDS.items():
+        source_file, builder_file = root / source, root / builder
+        if any(path.is_symlink() or not path.is_file() for path in (source_file, builder_file)):
+            continue
+        text = builder_file.read_text(encoding="utf-8")
+        if (
+            f'"{name}"' not in text
+            or f'"{target}"' not in text
+            or "build_portable_mount_helper" not in text
+            or "mount-surface-runtime" not in source_file.read_text(encoding="utf-8")
+        ):
+            continue
+        installed.add(name)
+    return installed
+
+
 BUILDROOT_PROGRAMS = {
     "git": "BR2_PACKAGE_GIT",
     "ip": "BR2_PACKAGE_IPROUTE2",
@@ -378,12 +408,14 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     internal = sorted(all_commands & INTERNAL_COMMANDS)
     programs = sorted(all_commands & BUILDROOT_PROGRAMS.keys())
     busybox = sorted(all_commands & BUSYBOX_SYMBOLS.keys())
-    known = set(internal) | set(programs) | set(busybox)
+    fixed = fixed_initramfs_commands(root)
+    known = set(internal) | set(programs) | set(busybox) | fixed
     return {
         "$schema": "prototype-ordax.owner-rootfs-capabilities/1",
         "sources": per_source,
         "commands": sorted(all_commands),
         "internal_commands": internal,
+        "fixed_initramfs_commands": sorted(all_commands & fixed),
         "buildroot_programs": programs,
         "busybox_applets": busybox,
         "explicit_busybox_applets": sorted(explicit_busybox),
