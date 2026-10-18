@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import posixpath
 from pathlib import Path
 import platform
 import re
@@ -197,9 +198,68 @@ def source_commit() -> str:
 
 
 def normalized_member_name(name: str) -> str:
+    # Only an explicit tar root entry may normalize to an empty path.
     while name.startswith("./"):
         name = name[2:]
-    return name.lstrip("/").rstrip("/")
+    if name in ("", "."):
+        return ""
+    path = name.rstrip("/")
+    if (
+        name.startswith("/")
+        or "\\" in name
+        or any(ord(char) < 32 or ord(char) == 127 for char in name)
+        or any(part in ("", ".", "..") for part in path.split("/"))
+    ):
+        raise SurfaceBuildError(f"unsafe Surface runtime tar member: {name!r}")
+    return path
+
+
+def indexed_rootfs_members(archive: tarfile.TarFile) -> dict[str, tarfile.TarInfo]:
+    """Never let a later tar member shadow an earlier verified member."""
+    result: dict[str, tarfile.TarInfo] = {}
+    for member in archive.getmembers():
+        name = normalized_member_name(member.name)
+        if not name:
+            if not member.isdir():
+                raise SurfaceBuildError("non-directory tar root entry")
+            continue
+        if name in result:
+            raise SurfaceBuildError(f"duplicate Surface runtime tar member: {name}")
+        result[name] = member
+    return result
+
+
+def resolve_runtime_file(
+    members: dict[str, tarfile.TarInfo], path: str
+) -> tarfile.TarInfo:
+    """Follow in-image file links; reject dangling, cyclic or escaping links."""
+    seen: set[str] = set()
+    current = path
+    for _ in range(32):
+        if current in seen:
+            break
+        seen.add(current)
+        member = members.get(current)
+        if member is None:
+            raise SurfaceBuildError(f"Surface runtime required path has no target: {path}")
+        if member.isfile():
+            if member.size <= 0:
+                raise SurfaceBuildError(f"Surface runtime required file is empty: {path}")
+            return member
+        if not (member.issym() or member.islnk()):
+            raise SurfaceBuildError(f"Surface runtime required path is not a file: {path}")
+        target = member.linkname
+        if not target or "\\" in target or any(ord(char) < 32 for char in target):
+            raise SurfaceBuildError(f"unsafe Surface runtime link target: {path}")
+        if member.issym():
+            current = posixpath.normpath(
+                posixpath.join(posixpath.dirname(current), target)
+                if not target.startswith("/") else target.lstrip("/")
+            )
+        else:
+            current = posixpath.normpath(target.lstrip("/"))
+        current = normalized_member_name(current)
+    raise SurfaceBuildError(f"cyclic or overlong Surface runtime link: {path}")
 
 
 def _compat_symlink(path: str, target: str) -> tarfile.TarInfo:
@@ -222,7 +282,7 @@ def ensure_surface_runtime_path_compatibility(rootfs_tar: Path) -> dict[str, str
     native Buildroot locations authoritative.
     """
     with tarfile.open(rootfs_tar, "r:") as archive:
-        members = {normalized_member_name(member.name): member for member in archive.getmembers()}
+        members = indexed_rootfs_members(archive)
 
     pending: list[tarfile.TarInfo] = []
     links: dict[str, str] = {}
@@ -251,13 +311,22 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     if not rootfs_tar.is_file() or rootfs_tar.is_symlink():
         raise SurfaceBuildError("Buildroot rootfs.tar missing")
     with tarfile.open(rootfs_tar, "r:") as archive:
-        members = archive.getmembers()
-    by_name = {normalized_member_name(member.name): member for member in members}
+        by_name = indexed_rootfs_members(archive)
     names = set(by_name)
     required = set(source["required_runtime_paths"])
     missing = sorted(required - names)
     if missing:
         raise SurfaceBuildError(f"Buildroot Surface runtime missing required paths: {missing}")
+    # Names alone are not proof: resolve required executables and typelibs
+    # to nonempty in-image files, including Buildroot's legitimate symlinks.
+    for path in required - set(SURFACE_COMPAT_LINKS):
+        target = resolve_runtime_file(by_name, path)
+        if path in {
+            "usr/bin/cage", "usr/bin/python3", "usr/bin/Xwayland",
+            "usr/bin/seatd-launch", "sbin/udevd", "bin/busybox",
+        } and target.mode & 0o111 == 0:
+            raise SurfaceBuildError(f"Surface runtime executable is not executable: {path}")
+
     native_requirements = {
         "usr/bin/udevadm": "Buildroot native /usr/bin/udevadm is missing",
         "lib/udev/rules.d/60-input-id.rules": "Buildroot native input udev rule is missing",
@@ -284,7 +353,7 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
         raise SurfaceBuildError(f"Alpine/APK payload leaked into Buildroot runtime: {sorted(set(forbidden_hits))[:20]}")
 
     return {
-        "member_count": len(members),
+        "member_count": len(by_name),
         "required_runtime_paths": sorted(required),
         "compatibility_links": dict(SURFACE_COMPAT_LINKS),
         "forbidden_runtime_paths_absent": True,
@@ -292,11 +361,27 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     }
 
 
+def resolved_kconfig(path: Path) -> dict[str, str]:
+    """Read exact active assignments, never substrings or commented options."""
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        value = line.strip()
+        if not value or value.startswith("#") or not value.startswith("BR2_"):
+            continue
+        if "=" not in value:
+            raise SurfaceBuildError(f"invalid resolved Buildroot option: {value!r}")
+        key, assigned = value.split("=", 1)
+        if key in values:
+            raise SurfaceBuildError(f"duplicate resolved Buildroot option: {key}")
+        values[key] = assigned
+    return values
+
+
 def verify_build_config(build_dir: Path) -> str:
     config = build_dir / ".config"
     if not config.is_file():
         raise SurfaceBuildError("Buildroot generated .config missing")
-    text = config.read_text(encoding="utf-8")
+    settings = resolved_kconfig(config)
     required = (
         "BR2_x86_64=y",
         "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
@@ -313,12 +398,12 @@ def verify_build_config(build_dir: Path) -> str:
         "BR2_PACKAGE_XWAYLAND=y",
         "BR2_PACKAGE_SEATD=y",
     )
-    missing = [marker for marker in required if marker not in text]
+    missing = [marker for marker in required if settings.get(marker.split("=", 1)[0]) != "y"]
     if missing:
         raise SurfaceBuildError(f"Buildroot resolved config lost Surface requirements: {missing}")
-    if "BR2_ROOTFS_MERGED_USR=y" in text:
+    if settings.get("BR2_ROOTFS_MERGED_USR") == "y":
         raise SurfaceBuildError("Surface eudev compatibility binding requires the validated split-/usr layout")
-    if "BR2_STATIC_LIBS=y" in text:
+    if settings.get("BR2_STATIC_LIBS") == "y":
         raise SurfaceBuildError("graphical Surface runtime cannot use static-only toolchain")
     return sha256_file(config)
 
