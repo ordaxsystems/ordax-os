@@ -90,6 +90,15 @@ ou a presença na Loja não conferem permissão.
   na Surface enquanto o bootstrap Native não fornecer resolvers
   autenticados e conectados ao Settings/Permissions. Seu contrato é testado
   com contextos independentes de dois aplicativos.
+- **A posse da porta termina junto com a montagem**, e não apenas quando
+  mudam pacote, conta ou Space: o `current-slot-loader.mjs` revoga a
+  projeção específica do app ao receber `destroy()`, e também se o slot
+  estiver ausente, mudar durante a montagem ou a importação falhar.
+  `revokeInstalledAppCapabilityReader` somente invalida leitores
+  conhecidos pelo mesmo serviço; nunca concede nem executa ações.
+  Leituras de permissão ainda em andamento negam o resultado após o
+  teardown, sem reutilizar snapshots. A prova exercita o loader real em
+  `tests/test_native_capability_mount_lifecycle.mjs`.
 - A consulta revalida a identidade depois das leituras assíncronas para
   recusar uma resposta autorizada por um Space/pacote que mudou durante
   a operação. Sessões de convidado usam `accountId: null` e `spaceId: null`
