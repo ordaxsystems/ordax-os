@@ -57,6 +57,14 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertLess(geometry, media)
         self.assertIn('--contract "$RUNNER_TEMP/owner-dev-physical-media.json"', workflow)
         self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
+        self.assertIn(
+            "ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}",
+            workflow,
+        )
+        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', workflow)
+        self.assertIn("os.environ['ORDAX_OWNER_SOURCE_COMMIT']", workflow)
+        self.assertNotIn('$GITHUB_SHA', workflow)
+        self.assertIn("if: github.event_name == 'push' && github.ref == 'refs/heads/main'", workflow)
 
     def test_checkout_alone_is_not_a_bootable_desktop(self):
         with tempfile.TemporaryDirectory() as work:
