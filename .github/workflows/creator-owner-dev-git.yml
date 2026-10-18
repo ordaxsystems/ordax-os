@@ -450,6 +450,7 @@ jobs:
             --initramfs out/initramfs/initramfs.cpio.gz \
             --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
             --output "$RUNNER_TEMP/owner-qemu-offline-handoff.json" \
+            --framebuffer-out "$RUNNER_TEMP/owner-qemu-framebuffer.ppm" \
             --timeout-seconds 300
           python3 - "$RUNNER_TEMP/owner-qemu-offline-handoff.json" <<'PY'
           import json, sys
@@ -462,7 +463,20 @@ jobs:
           assert proof['physical_write_authorized'] is False
           assert proof['welcome_screen_rendered_proven'] is False
           assert proof['notebook_boot_proven'] is False
+          assert proof['graphical_framebuffer_varied_proven'] is True
+          assert proof['qemu_framebuffer']['quantized_colors'] >= 24
           PY
+
+      - name: Retain actual disposable Owner QEMU framebuffer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owner-usb-qemu-framebuffer
+          path: |
+            ${{ runner.temp }}/owner-qemu-framebuffer.ppm
+            ${{ runner.temp }}/owner-qemu-offline-handoff.json
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build split Windows Creator bundle
         run: |
