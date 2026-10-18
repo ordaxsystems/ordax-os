@@ -117,6 +117,8 @@ class DevMainWatchSingleOwnerTest(unittest.TestCase):
                 text=True,
             ).stdout.strip()
             (state / "pinned-commit").write_text(head + "\n", encoding="ascii")
+            (state / "native-state").mkdir()
+            (state / "native-state/first-run.json").write_text('{"completed":true}\n', encoding="utf-8")
 
             process = subprocess.Popen(
                 ["/bin/sh", str(MAIN_WATCH)],

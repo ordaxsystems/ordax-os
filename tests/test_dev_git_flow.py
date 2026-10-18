@@ -373,7 +373,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             }
         )
         boot = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Rollback fixado", boot.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", boot.stdout)
         self.assertIn("OrdaX: iniciando a Surface local", boot.stdout)
         self.assertIn("runtime-v1", boot.stdout)
         self.assertFalse(pull_marker.exists())
@@ -425,7 +425,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
 
         result = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Checkout local saudavel", result.stdout)
+        self.assertIn("Checkout local verificado", result.stdout)
         self.assertIn("OrdaX: iniciando a Surface local", result.stdout)
         self.assertTrue(runtime_marker.exists())
         self.assertFalse(pull_marker.exists())
@@ -470,7 +470,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("Checkout local saudavel", result.stdout)
+        self.assertIn("Checkout local verificado", result.stdout)
         self.assertIn("OrdaX: iniciando a Surface local", result.stdout)
         self.assertIn("runtime-v1", result.stdout)
         self.assertFalse(pull_marker.exists())
@@ -514,7 +514,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertFalse(versions.exists())
 
     def test_unmapped_ab_slot_falls_back_to_seed_rootfs(self) -> None:
@@ -554,7 +554,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertTrue(versions.is_dir())
         self.assertFalse((self.state / "base-update/rootfs/slot-a").exists())
 

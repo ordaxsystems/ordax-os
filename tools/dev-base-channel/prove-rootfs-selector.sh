@@ -172,34 +172,3 @@ test ! -e "$FAIL_SEED/state/ordax/base-update/rootfs/slot-b"
 
 echo "ROOTFS_SELECTOR_DISPOSABLE_PROOF=PASS"
 echo "ROOTFS_SELECTOR_INVALID_CANDIDATE_REJECTED=PASS"
-fast-graphical\t' "$SUCCESS_SEED/state/ordax/boot-last.tsv"
-
-FAIL_SEED="$TMP/failure-seed"
-install_seed_root \
-  "$FAIL_SEED" \
-  "quiet ordax.mode=normal ordax.base_slot=b ordax.base_candidate=$SOURCE_SHA"
-install_candidate_root "$FAIL_SEED/versions/$SOURCE_SHA" "2222222222222222222222222222222222222222"
-
-set +e
-failure_output="$(run_isolated_init "$FAIL_SEED" 2>&1)"
-failure_rc=$?
-set -e
-printf '%s\n' "$failure_output"
-
-if [[ "$failure_rc" -eq 0 ]]; then
-  echo "rootfs-selector-proof: invalid candidate unexpectedly booted" >&2
-  exit 1
-fi
-if [[ "$failure_rc" -eq 124 ]]; then
-  echo "rootfs-selector-proof: invalid candidate did not terminate inside bounded namespace" >&2
-  exit 1
-fi
-grep -Fq 'Falha ao ativar Base candidata: rootfs exato nao esta materializado' <<<"$failure_output"
-if grep -Fq 'OrdaX Dev pronto.' <<<"$failure_output"; then
-  echo "rootfs-selector-proof: invalid candidate reached Dev console" >&2
-  exit 1
-fi
-test ! -e "$FAIL_SEED/state/ordax/base-update/rootfs/slot-b"
-
-echo "ROOTFS_SELECTOR_DISPOSABLE_PROOF=PASS"
-echo "ROOTFS_SELECTOR_INVALID_CANDIDATE_REJECTED=PASS"
