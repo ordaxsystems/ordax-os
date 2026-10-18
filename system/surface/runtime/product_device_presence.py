@@ -122,9 +122,9 @@ class ProductDevicePresenceWorker:
         except (OSError, ValueError, ProductDevicePresenceError):
             pass
 
-    def stop(self) -> None:
+    def stop(self, *, wait: bool = False) -> None:
         with self._lock:
             self._stop.set()
             thread = self._thread
-        if thread is not None and thread is not threading.current_thread():
+        if wait and thread is not None and thread is not threading.current_thread():
             thread.join(timeout=11.0)
