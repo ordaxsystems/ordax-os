@@ -1,5 +1,17 @@
 # Source Migration Ledger
 
+## Emulator preference SSOT — 2026-10-18
+
+- Origin: `tools/windows-emulator/main.mjs`, current canonical main; user-requested
+  SSOT correction across USB/Native/Web/emulator.
+- Decision: REIMPLEMENTED composition wiring with existing owners; remove the
+  emulator-local preference service and use `system/adapters/web/preferences.mjs`
+  plus `system/services/preferences/runtime.mjs`, also consumed by Web Surface.
+- Preserve completed receipts using Native's existing regional seed policy;
+  no new preference IDs, synchronization backend, hardware authority or UI fork.
+- Validation: first-run ownership regression and emulator OOBE-to-Surface smoke
+  with a non-default time zone persisted in the shared preference store.
+
 Status: CANONICAL LEDGER
 
 ## First Run SSOT cleanup — 2026-10-17

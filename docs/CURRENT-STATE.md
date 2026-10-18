@@ -27,6 +27,14 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+Emulator preference continuity (2026-10-18): Windows onboarding and its same-origin
+Surface now consume `createWebPreferenceStore` and `createPreferenceRuntime`,
+removing the emulator-only preference implementation/storage authority. Completed
+older onboarding receipts seed only missing regional values through Native's
+`seedMissingRegionalPreferencesFromFirstRun` policy; newer Settings choices win.
+The OOBE receipt stays emulator-specific. Hardware capabilities and the distinction
+between Native and Web composition remain unchanged; this is not a full parity claim.
+
 First Run single owner (2026-10-17): Native/USB and Windows emulator use
 `system/surface/ui/first-run.mjs`, canonical journey metadata and the same
 Meridian visual owners. The dormant Meridian `setup` storyboard and its
