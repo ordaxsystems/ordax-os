@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -84,7 +85,10 @@ def validate(raw: Path, media_proof: Path, kernel: Path, initramfs: Path, source
     return expected
 
 
-def qemu_command(image: Path, kernel: Path, initramfs: Path, serial: Path) -> list[str]:
+def qemu_command(
+    image: Path, kernel: Path, initramfs: Path, serial: Path,
+    qmp_socket: Path | None = None,
+) -> list[str]:
     return [
         "qemu-system-x86_64", "-machine", "q35", "-accel", "tcg,thread=multi",
         "-m", "3072", "-smp", "2",
@@ -101,6 +105,10 @@ def qemu_command(image: Path, kernel: Path, initramfs: Path, serial: Path) -> li
         "-device", "virtio-vga",
         "-net", "none", "-display", "none", "-monitor", "none",
         "-serial", f"file:{serial}", "-no-reboot",
+        *(
+            ["-qmp", f"unix:{qmp_socket},server=on,wait=off"]
+            if qmp_socket is not None else []
+        ),
     ]
 
 
@@ -115,6 +123,80 @@ def observed(text: str, source: str) -> dict[str, bool]:
     }
 
 
+
+def analyze_ppm(path: Path) -> dict[str, int | float]:
+    """Read actual QEMU P6 framebuffer pixels, rejecting blank or text-only VGA."""
+    data = path.read_bytes()
+    if len(data) > 48 * 1024 * 1024:
+        raise ProofError("QEMU framebuffer exceeds bounded evidence size")
+    # QEMU's P6 screendump has a simple fixed ASCII header (no comments).
+    match = re.match(rb"\AP6\s+([0-9]+)\s+([0-9]+)\s+([0-9]+)\s", data)
+    if match is None:
+        raise ProofError("QEMU did not produce a binary PPM P6 framebuffer")
+    width, height, depth = (int(s) for s in match.groups())
+    if (depth != 255 or not 320 <= width <= 4096 or
+            not 200 <= height <= 2160 or
+            len(data) - match.end() != width * height * 3):
+        raise ProofError("QEMU PPM dimensions/depth/bytes are inconsistent")
+    pixels = memoryview(data)[match.end():]
+    sample_stride = max(1, (width * height) // 60000)
+    distinct: set[tuple[int, int, int]] = set()
+    lit = 0
+    count = 0
+    for pixel in range(0, width * height, sample_stride):
+        offset = pixel * 3
+        red, green, blue = pixels[offset], pixels[offset + 1], pixels[offset + 2]
+        distinct.add((red >> 3, green >> 3, blue >> 3))
+        count += 1
+        if max(red, green, blue) > 35:
+            lit += 1
+    lit_fraction = lit / count
+    # Native GUI has a color composition. A black frame or plain tty glyph
+    # raster cannot qualify as an observed graphical surface.
+    if lit_fraction < 0.09 or len(distinct) < 24:
+        raise ProofError(
+            "QEMU graphical framebuffer is blank or console-like; "
+            f"lit_fraction={lit_fraction:.3f}, quantized_colors={len(distinct)}"
+        )
+    return {
+        "width": width, "height": height,
+        "lit_fraction": round(lit_fraction, 5),
+        "quantized_colors": len(distinct),
+        "pixel_count": width * height,
+    }
+
+
+def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, int | float]:
+    if image_path.exists() or image_path.is_symlink():
+        raise ProofError("QEMU framebuffer evidence destination already exists")
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(8)
+        connection.connect(str(socket_path))
+        with connection.makefile("rwb", buffering=0) as channel:
+            greeting = json.loads(channel.readline())
+            if "QMP" not in greeting:
+                raise ProofError("QEMU QMP greeting is invalid")
+            def request(command: str, arguments: dict | None = None) -> None:
+                payload: dict = {"execute": command}
+                if arguments is not None:
+                    payload["arguments"] = arguments
+                channel.write(json.dumps(payload).encode("utf-8") + b"\r\n")
+                for _ in range(32):
+                    line = channel.readline()
+                    if not line:
+                        raise ProofError("QMP disconnected before reply")
+                    reply = json.loads(line)
+                    if "error" in reply:
+                        raise ProofError(f"QMP {command} refused graphical proof: {reply['error']!r}")
+                    if "return" in reply:
+                        return
+                raise ProofError(f"QMP {command} reply was not observed")
+            request("qmp_capabilities")
+            request("screendump", {"filename": str(image_path)})
+    if image_path.is_symlink() or not image_path.is_file():
+        raise ProofError("QEMU screenshot was not created as a regular file")
+    return analyze_ppm(image_path)
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw", type=Path, required=True)
@@ -123,6 +205,7 @@ def main() -> int:
     parser.add_argument("--initramfs", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--framebuffer-out", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=210)
     args = parser.parse_args()
 
@@ -140,9 +223,14 @@ def main() -> int:
             raise ProofError("proof output exists; refusing overwrite")
         if not args.output.parent.is_dir() or args.output.parent.is_symlink():
             raise ProofError("proof output parent is unavailable or unsafe")
+        if (args.framebuffer_out.exists() or args.framebuffer_out.is_symlink()
+                or args.framebuffer_out.parent != args.output.parent):
+            raise ProofError("framebuffer destination must be new and beside the proof receipt")
         with tempfile.TemporaryDirectory(prefix="ordax-owner-qemu-") as temporary:
             root = Path(temporary)
-            disk, serial = root / "usb.raw", root / "serial.log"
+            disk, serial, qmp_socket = (
+                root / "usb.raw", root / "serial.log", root / "monitor.sock"
+            )
             subprocess.run(
                 ["cp", "--sparse=always", "--reflink=auto", "--", str(args.raw), str(disk)],
                 check=True, timeout=80,
@@ -150,7 +238,8 @@ def main() -> int:
             if digest(disk) != raw_sha:
                 raise ProofError("QEMU guest disk copy does not match verified Owner seed")
             command = qemu_command(
-                disk, regular(args.kernel, "kernel"), regular(args.initramfs, "initramfs"), serial
+                disk, regular(args.kernel, "kernel"), regular(args.initramfs, "initramfs"),
+                serial, qmp_socket
             )
             guest = subprocess.Popen(
                 command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
@@ -187,11 +276,14 @@ def main() -> int:
                 if not checks or not all(checks.values()) or healthy_since is None or time.monotonic() - healthy_since < STABLE_SECONDS:
                     detail = serial.read_text(encoding="utf-8", errors="replace")[-3500:] if serial.exists() else ""
                     raise ProofError(f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}")
+                framebuffer = capture_qmp_framebuffer(qmp_socket, args.framebuffer_out)
                 report = {
                     "$schema": SCHEMA, "status": "pass",
                     "source_commit": args.source_commit,
                     "raw_sha256": raw_sha, "checks": checks,
                     "healthy_observation_seconds": STABLE_SECONDS,
+                    "qemu_framebuffer": framebuffer,
+                    "graphical_framebuffer_varied_proven": True,
                     "network_device_attached": False,
                     "physical_device_touched": False,
                     "physical_write_authorized": False,
