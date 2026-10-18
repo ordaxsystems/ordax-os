@@ -165,3 +165,64 @@ func VerifyPortableSources(bindings PortableMediaBindings, sourcesRoot string) (
 	}
 	return verified, nil
 }
+
+ // BindPortableSources derives the exact flat 17-source binding set from the
+ // canonical portableMediaTargets inventory. This method never selects media,
+ // authorizes a writer, signs bytes or publishes a release.
+ func BindPortableSources(sourcesRoot string) (PortableMediaBindings, error) {
+     empty := PortableMediaBindings{}
+     if sourcesRoot == "" { return empty, errors.New("portable source root is required") }
+     root, err := filepath.Abs(sourcesRoot)
+     if err != nil { return empty, err }
+     parent, err := os.Lstat(root)
+     if err != nil { return empty, err }
+     if !parent.IsDir() || parent.Mode()&os.ModeSymlink != 0 {
+         return empty, errors.New("portable source root must be a real directory")
+     }
+     entries, err := os.ReadDir(root)
+     if err != nil { return empty, err }
+     if len(entries) != len(portableMediaTargets) {
+         return empty, fmt.Errorf("portable source set requires exactly %d files; got=%d", len(portableMediaTargets), len(entries))
+     }
+     bindings := PortableMediaBindings{
+         Schema: PortableMediaBindingsSchema,
+         Artifacts: make([]PortableMediaArtifactBinding, 0, len(entries)),
+     }
+     for _, entry := range entries {
+         id := entry.Name()
+         if _, ok := portableMediaTargets[id]; !ok {
+             return empty, fmt.Errorf("unexpected portable source %q", id)
+         }
+         sourcePath := filepath.Join(root, id)
+         before, err := os.Lstat(sourcePath)
+         if err != nil { return empty, err }
+         if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 ||
+            before.Size() <= 0 || uint64(before.Size()) > portableMediaMaxArtifact {
+             return empty, fmt.Errorf("unsafe, empty or oversized portable source %q", id)
+         }
+         file, err := os.Open(sourcePath)
+         if err != nil { return empty, err }
+         opened, statErr := file.Stat()
+         if statErr != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+             _ = file.Close()
+             return empty, fmt.Errorf("portable source identity changed: %s", id)
+         }
+         hash := sha256.New()
+         n, copyErr := io.Copy(hash, io.LimitReader(file, int64(portableMediaMaxArtifact)+1))
+         closeErr := file.Close()
+         if copyErr != nil || closeErr != nil || n != before.Size() {
+             return empty, fmt.Errorf("portable source changed during digest: %s", id)
+         }
+         bindings.Artifacts = append(bindings.Artifacts, PortableMediaArtifactBinding{
+             ID: id, SHA256: hex.EncodeToString(hash.Sum(nil)), SizeBytes: uint64(n),
+         })
+     }
+     sort.Slice(bindings.Artifacts, func(i, j int) bool {
+         return bindings.Artifacts[i].ID < bindings.Artifacts[j].ID
+     })
+     // Reuse the same existing Core readback that protects physical staging.
+     if _, err := VerifyPortableSources(bindings, root); err != nil {
+         return empty, fmt.Errorf("derived portable source verification: %w", err)
+     }
+     return bindings, nil
+ }

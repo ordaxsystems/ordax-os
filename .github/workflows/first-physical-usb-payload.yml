@@ -447,42 +447,15 @@ jobs:
           cp "$release/release-manifest.json" "$out/sources/release-manifest"
           cp "$release/release-envelope.json" "$out/sources/release-envelope"
 
-          python3 - "$out/sources" "$out/bindings.json" <<'PY'
-          import hashlib
-          import json
-          import pathlib
-          import sys
-
-          root = pathlib.Path(sys.argv[1])
-          output = pathlib.Path(sys.argv[2])
-          ids = [
-              'systemd-boot', 'loader-config', 'loader-normal', 'loader-recovery',
-              'kernel', 'initramfs', 'bootstrap-capsule', 'release-trust',
-              'stable-base', 'persistent-state', 'system-image',
-              'surface-runtime-image', 'surface-runtime-ref',
-              'local-ai-runtime-image', 'local-ai-runtime-ref',
-              'release-manifest', 'release-envelope',
-          ]
-          artifacts = []
-          for artifact_id in ids:
-              path = root / artifact_id
-              if not path.is_file():
-                  raise SystemExit(f'missing physical payload source: {artifact_id}')
-              digest = hashlib.sha256(path.read_bytes()).hexdigest()
-              artifacts.append({
-                  'id': artifact_id,
-                  'sha256': digest,
-                  'size_bytes': path.stat().st_size,
-              })
-          output.write_text(
-              json.dumps({
-                  '$schema': 'prototype-ordax.portable-media-bindings/1',
-                  'artifacts': artifacts,
-              }, indent=2) + '\n',
-              encoding='utf-8',
+          # Use only the Creator Core inventory, not an inline Python ID list.
+          (
+            cd operator/tools/creator
+            go run ./cmd/ordax-creator bind-portable-sources --sources-root "$out/sources" > "$out/bindings.json"
           )
-          print('PHYSICAL_PAYLOAD_SOURCE_COUNT=17')
-          PY
+          test -s "$out/bindings.json"
+          echo 'PHYSICAL_PAYLOAD_SOURCE_COUNT=17'
+          echo 'PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT'
+
 
       - name: Generate exact target-specific media and application plans
         shell: bash

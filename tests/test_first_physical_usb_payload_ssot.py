@@ -148,6 +148,16 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             source,
         )
 
+    def test_canonical_17_sources_derive_only_from_creator_core(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("go run ./cmd/ordax-creator bind-portable-sources", source)
+        self.assertIn("PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT", source)
+        self.assertNotIn("          ids = [", source)
+        core = (ROOT / "tools/creator/core/portable_sources.go").read_text(encoding="utf-8")
+        self.assertIn("func BindPortableSources(", core)
+        self.assertIn("portableMediaTargets", core)
+        self.assertIn("VerifyPortableSources(bindings, root)", core)
+
     def test_pre_authorization_real_sources_are_proved_but_never_uploaded(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("pull_request:", source)

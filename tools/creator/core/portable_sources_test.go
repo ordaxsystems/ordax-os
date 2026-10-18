@@ -112,3 +112,28 @@ func TestVerifyPortableSourcesRejectsSymlink(t *testing.T) {
 		t.Fatal("symlink source unexpectedly accepted")
 	}
 }
+
+func TestBindPortableSourcesCoreSSOT(t *testing.T) {
+    root, want := portableSourceFixture(t)
+    got, err := BindPortableSources(root)
+    if err != nil { t.Fatal(err) }
+    if got.Schema != want.Schema || len(got.Artifacts) != len(want.Artifacts) { t.Fatalf("bad bindings: %#v", got) }
+    for i := range want.Artifacts {
+        if got.Artifacts[i] != want.Artifacts[i] { t.Fatalf("binding %d mismatch", i) }
+    }
+    if _, err := VerifyPortableSources(got, root); err != nil { t.Fatal(err) }
+}
+func TestBindPortableSourcesRejectsMissingExtraSymlink(t *testing.T) {
+    root, _ := portableSourceFixture(t)
+    if err := os.Remove(filepath.Join(root, "kernel")); err != nil { t.Fatal(err) }
+    if _, err := BindPortableSources(root); err == nil { t.Fatal("missing source accepted") }
+    root, _ = portableSourceFixture(t)
+    if err := os.WriteFile(filepath.Join(root, "extra"), []byte("bad"), 0o600); err != nil { t.Fatal(err) }
+    if _, err := BindPortableSources(root); err == nil { t.Fatal("extra source accepted") }
+    root, _ = portableSourceFixture(t)
+    if err := os.Remove(filepath.Join(root, "kernel")); err != nil { t.Fatal(err) }
+    real := filepath.Join(t.TempDir(), "kernel-real")
+    if err := os.WriteFile(real, []byte("payload"), 0o600); err != nil { t.Fatal(err) }
+    if err := os.Symlink(real, filepath.Join(root, "kernel")); err != nil { t.Skipf("symlink unsupported: %v", err) }
+    if _, err := BindPortableSources(root); err == nil { t.Fatal("symlink source accepted") }
+}
