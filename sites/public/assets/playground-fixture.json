@@ -165,6 +165,14 @@
     ],
     "sources": [
       {
+        "path": "system/contracts/app-store.mjs",
+        "sha256": "fb92320bb856378c5c10d610fe43b13157be488139b9ce44f443b42b03d27099"
+      },
+      {
+        "path": "system/contracts/component-manifest.mjs",
+        "sha256": "36f75972c8c5f5d925a104a8e96ac3f5ec3697c6d0f4bf00076264fe58f8f23b"
+      },
+      {
         "path": "system/contracts/first-run-state-store.mjs",
         "sha256": "681185afaa63efbeaafa485ca7fccb7593a1dfff2a3597b5ba444c08516b84c3"
       },
@@ -195,6 +203,10 @@
       {
         "path": "system/contracts/product-version.mjs",
         "sha256": "863f834810f49f7e9e73ee283672e091cd372509d4f2e3568ab6ff8fb9587e01"
+      },
+      {
+        "path": "system/contracts/profile-app-references.mjs",
+        "sha256": "dcfaa1049de62a9b56cfce850d50fe571b50d7c7f6dbe18b1da18706ee07c243"
       },
       {
         "path": "system/services/i18n/catalog/account.mjs",
@@ -257,6 +269,10 @@
         "sha256": "9bb48720cbfe7bec0964f6b02dfbd9f97fc9310f7b00e53f64016a635ea14c55"
       },
       {
+        "path": "system/services/local-ai/model-candidate.generated.mjs",
+        "sha256": "332ffa266940ddb173c0eb61297d675fd12e40fef0b7a272c1d300ddfdbb8aee"
+      },
+      {
         "path": "system/services/preferences/accessibility.mjs",
         "sha256": "e2cd3f91db420fc928f6cc41395317e85bdcc7961e16f4841c2673b2609cd5f6"
       },
@@ -275,6 +291,10 @@
       {
         "path": "system/services/preferences/regional.mjs",
         "sha256": "e1c54f58136e3a1d50cdb7227938cdcb023033fbdf3c390ed42ffb51bc660fcc"
+      },
+      {
+        "path": "system/services/profile-packs/store-app-status.mjs",
+        "sha256": "0e99c3c21dfdb5383f794e703c877e0bba07d23dec991a23662929c30473c37c"
       },
       {
         "path": "system/services/surface/destination-catalog.mjs",
@@ -406,7 +426,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/profile-catalog.tsx",
-        "sha256": "7302b39ab6dd36f0d96a25de834520f80de5a9694d574e65a2081358c8495fa8"
+        "sha256": "7d3f368bc9a1c88dca625ad8ff025d04f7b065e3b9b85fcc5f33acc453842677"
       },
       {
         "path": "system/surface/workspace/components/central/service-overview.tsx",
@@ -425,12 +445,20 @@
         "sha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8"
       },
       {
+        "path": "system/surface/workspace/components/store/catalog-context.tsx",
+        "sha256": "f8c1dd9db5e08a4fb4b6f93074daa2902070d40aa4dc28f3294c6dfc49be9443"
+      },
+      {
         "path": "system/surface/workspace/components/ui/button.tsx",
         "sha256": "e39813b666ba434660ec088356a0349246b6803a4e99961295d0c82bab1ab862"
       },
       {
         "path": "system/surface/workspace/components/ui/dialog.tsx",
         "sha256": "ab44f965c932431216561bb1a1b5c708b4674472a79c01314953edc4a8367653"
+      },
+      {
+        "path": "system/surface/workspace/lib/store/official.ts",
+        "sha256": "7e1c77be19362196995644fb1d4639abf8c1d8d29812cb51698bd862f13c6cbc"
       },
       {
         "path": "system/surface/workspace/lib/utils.ts",
