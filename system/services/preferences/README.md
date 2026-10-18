@@ -77,3 +77,40 @@ The sync allowlist excludes the palette choice; no account sync is implied.
 The former Web-only palette module and preference ID were removed rather than
 retained as alternate consumers. Unknown previous preference IDs are ignored by
 the existing record recovery and disappear on the next canonical store write.
+
+
+## Read-only physical USB reboot witness
+
+The existing `ordax-mvp-smoke` collector supports an **optional**
+non-sensitive light/dark witness of `appearance.theme`. It only calls the
+same-origin Native GET endpoint and never modifies preferences, reboots the
+computer, or writes to USB partitions. No other preference values, account
+data or secrets are placed in evidence.
+
+After selecting **Dark** in Native Settings and receiving `saved`
+(meaning the host has confirmed the write), capture the first report on
+the running OrdaX USB:
+
+```sh
+ordax-mvp-smoke collect --expected-theme dark --label before-reboot --output /var/lib/ordax/mvp-smoke/prefs-before.json
+```
+
+After an **operator-controlled reboot of the same USB and notebook**, collect
+a second report, specifying the same expected cosmetic choice:
+
+```sh
+ordax-mvp-smoke collect --expected-theme dark --label after-reboot --output /var/lib/ordax/mvp-smoke/prefs-after.json
+ordax-mvp-smoke reboot-compare --baseline /var/lib/ordax/mvp-smoke/prefs-before.json --after /var/lib/ordax/mvp-smoke/prefs-after.json --label preference-reboot
+```
+
+The new `reboot-compare` preserves the canonical source/runtime/health
+checks but **requires different boot IDs** and the same recorded cosmetic
+choice on both boots. Normal `compare` still requires the same boot, as
+designed for the MVP tour. This witness does not attest the physical media,
+bind reports cryptographically to a machine, verify unrelated preferences or
+prove that a hardware reboot was actually performed. The operator must
+record hardware/USB identity and visually verify the boot separately.
+CI/QEMU simulations cannot replace the physical check.
+
+The only preference value serialized is the harmless expected cosmetic choice,
+`dark` or `light`; the Native GET body is never included in reports.
