@@ -666,7 +666,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .meridian-system-search kbd,
   .meridian-native-workspace .meridian-native-location-context { display: none; }
   .meridian-native-workspace .meridian-taskbar-start { overflow: hidden; }
-  .meridian-native-workspace .meridian-native-dock { width:100%; max-width:100%; min-width:0; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-color:var(--md-border-strong) transparent; scrollbar-width:thin; padding:0; }
+  .meridian-native-workspace .meridian-native-dock { width:100%; max-width:100%; min-width:0; overflow-x:auto; overscroll-behavior-inline:contain; scroll-padding-inline:4px; scrollbar-color:var(--md-border-strong) transparent; scrollbar-width:thin; padding:3px 4px; }
   .meridian-native-workspace .ordax-running-apps { width:max-content; max-width:none; flex:0 0 auto; overflow:visible; }
   .meridian-native-workspace .meridian-dock-shortcuts { gap:2px; }
   .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut,
