@@ -141,9 +141,13 @@ class ProductDeviceAccountGatewayProxy:
             session_reply = self._gateway.session()
             session_payload = json.loads(session_reply.body.decode("utf-8"))
             if isinstance(session_payload, dict) and session_payload.get("authenticated") is True:
-                self._authenticated = True
                 value = session_payload.get("subject")
-                self._subject = value if isinstance(value, str) and UUID_RE.fullmatch(value) else None
+                current_subject = value if isinstance(value, str) and UUID_RE.fullmatch(value) else None
+                if self._authenticated and self._subject != current_subject:
+                    # Switching accounts must not preserve the previous worker.
+                    self._coordinator.stop_presence()
+                self._authenticated = True
+                self._subject = current_subject
                 profile = self._device_profile_reader()
                 self._coordinator.after_authenticated_login(profile, subject=self._subject)
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError, AttributeError):
