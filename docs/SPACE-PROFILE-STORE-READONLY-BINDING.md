@@ -15,11 +15,17 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 
 The projector is pure and read-only. It creates no independent package catalog, install/update/rollback capability, new version field, persistence, or authorization route.
 
-## Integration gate
+## Surface Meridian Web consumption
 
-This stage adds a version-safe domain projection and tests. It does **not** yet wire a live Space-scoped app list into Web/Native. The Surface must consume both the **authorized active Space** and the **published validated Profile catalog**, and use the canonical Store snapshot. For unpinned legacy spaces, offer a truthful unresolved state until the account/Space assignment authority supplies an exact `slug@version`; do not invent one in the client.
+The selected account Space is read exclusively from `useWebAccount().authorized.activeSpace`; a signed-out, revoked, offline or unselected session renders no Space app rows. The `SpacesExperience` account view includes `SpaceProfileAppsPanel` between the real Space selection and members sections; fictional examples remain separate.
 
-Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs`.
+The component reads the published, validated Profile catalog using `useProfileCatalogReader()`, reads the Store through `useStoreCatalog()`, and passes both into `projectSpaceProfileStoreStatus`. It creates **no** new Store, installer, app entitlement, persisted cache or independent Profile version. Each selected Space receives a keyed presentation scope, and the Profile read is aborted on unmount/switch. A failed catalog is shown as an explicit error with retry rather than an empty success.
+
+This Web composition currently supplies an unavailable Store transport; the UI must therefore label app states **unknown** instead of claiming installation until an authorized verified Store snapshot is actually composed. Referenced app IDs remain visible after an exact published Profile binding has been verified. There are no install/update/launch actions in this projection.
+
+The same shared status labels are consumed by the Profile catalog and active Space view. Native app capability composition remains outside this Web-only change.
+
+Tests: `node --test tests/test_web_space_profile_apps.mjs tests/test_web_meridian_spaces.mjs tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs`.
 
 ## CI baseline findings (2026-10-18)
 
