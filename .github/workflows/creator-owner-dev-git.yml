@@ -12,6 +12,7 @@ on:
       - 'bootstrap/initramfs/**'
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
+      - 'bootstrap/surface-runtime/**'
       - 'bootstrap/recovery/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
@@ -73,6 +74,7 @@ jobs:
           python -m unittest tests.test_owner_dev_bundle_verifier -v
           python -m unittest tests.test_owner_dev_helper_storage_profile -v
           python -m unittest tests.test_owner_published_release -v
+          python -m unittest tests.test_owner_dev_offline_runtime_release_gate -v
 
       - name: Install build dependencies
         run: |
@@ -318,6 +320,17 @@ jobs:
           output.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
           PY
 
+      - name: Build and verify one canonical offline Surface runtime
+        run: |
+          set -euo pipefail
+          # The existing pinned APK lock is consumed at build time ONLY.
+          # There is no first-boot package installation or second lock.
+          sudo -E python3 bootstrap/surface-runtime/build.py build \
+            --out-dir "$RUNNER_TEMP/owner-dev-surface-runtime" \
+            --cache-dir "$RUNNER_TEMP/owner-dev-surface-cache"
+          sudo -E python3 bootstrap/surface-runtime/build.py verify \
+            --out-dir "$RUNNER_TEMP/owner-dev-surface-runtime"
+
       - name: Assemble boot payload and overlay Git development base
         run: |
           set -euo pipefail
@@ -332,6 +345,9 @@ jobs:
           popd >/dev/null
           sudo mkdir -p "$stage/ORDAX/dev-base"
           sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
+          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
+            --stage-root "$stage" \
+            --producer-out "$RUNNER_TEMP/owner-dev-surface-runtime"
           # A verified Git checkout is not a bootable desktop. The complete
           # graphical runtime must already be on the USB before publication.
           sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage \
@@ -342,6 +358,9 @@ jobs:
             echo 'development seed may not contain symlinks' >&2
             exit 1
           fi
+          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
+            --stage-root "$stage" \
+            --geometry-out "$RUNNER_TEMP/owner-dev-physical-media.json"
           echo "$stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
 
       - name: Materialize and verify RAW development seed
@@ -350,7 +369,7 @@ jobs:
           stage="$(cat "$RUNNER_TEMP/owner-prototype-stage-path")"
           proof="$RUNNER_TEMP/owner-prototype-media"
           sudo python tools/creator/proof/disposable_media.py \
-            --contract docs/contracts/physical-media.json \
+            --contract "$RUNNER_TEMP/owner-dev-physical-media.json" \
             --stage-root "$stage" \
             --output-root "$proof"
           sudo chown -R "$(id -u):$(id -g)" "$proof"
@@ -468,16 +487,17 @@ jobs:
           Esta distribuicao separa a interface normal do componente privilegiado de escrita RAW.
           O canal owner/development ainda nao possui assinatura Authenticode configurada.
 
-          Grave esta base uma vez. Ela contem boot, kernel, drivers, rede, Git e um checkout sparse limpo
-          de /workspace/ordax exatamente no source_commit deste bundle. O primeiro boot usa esse checkout
-          local imediatamente; rede e verificacao de atualizacao ficam fora do caminho critico do boot.
+          Esta imagem USB Dev inclui Kernel, drivers, checkout local e runtime grafico offline
+          verificado antes da distribuicao. Ao ligar, o OrdaX deve abrir as boas-vindas
+          automaticamente, sem PowerShell ou comandos manuais no notebook.
 
-          Fluxo normal no OrdaX:
-          ordax-pull     atualiza da main somente quando houver commit novo
-          ordax-run      executa o checkout atual
-          ordax-rollback volta ao commit anterior registrado
+          Na Surface: selecione o Wi-Fi (ou pule) e conclua a configuracao.
+          Depois, o mecanismo integrado consulta a main, atualiza de modo transacional
+          e preserva a versao anterior se a atualizacao nao for saudavel.
+          A falha de internet nunca deve impedir a utilizacao da versao local.
 
-          Mudancas normais do OrdaX nao exigem regravar o USB nem recompilar o kernel.
+          ordax-pull, ordax-run e ordax-rollback sao ferramentas de diagnostico/recuperacao,
+          nao etapas normais do primeiro uso.
           TXT
           cp "$bundle/LEIA-ME.txt" "$release/LEIA-ME.txt"
 
