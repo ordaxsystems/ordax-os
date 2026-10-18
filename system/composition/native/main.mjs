@@ -142,6 +142,7 @@ import { mountPowerControls } from "../../surface/ui/power-controls.mjs";
 import { mountSurface } from "../../surface/ui/surface.mjs";
 import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
 import { mountFirstRunExperience } from "../../surface/ui/first-run.mjs";
+import { createNativeFirstRunCursor } from "../../adapters/native/first-run-cursor.mjs";
 import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
@@ -1050,6 +1051,10 @@ async function start() {
       localSession,
       deviceProfile,
       keyboardLayout,
+      resumeCursor: await optionalNativeProbe(
+        "OrdaX native First Run cursor unavailable",
+        () => createNativeFirstRunCursor(window),
+      ),
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);

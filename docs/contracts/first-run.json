@@ -16,6 +16,18 @@
     "journey": "system/services/first-run/journey.mjs",
     "capabilities": "system/services/first-run/capabilities.mjs"
   },
+  "resume_cursor": {
+    "schema": "ordax.first-run-cursor/1",
+    "owner": "native-host",
+    "contract": "system/contracts/first-run-cursor.mjs",
+    "adapter": "system/adapters/native/first-run-cursor.mjs",
+    "native_path": "/var/lib/ordax/first-run-cursor.json",
+    "only_safe_navigation_step": true,
+    "never_store_identity_secret_or_keyboard": true,
+    "resume_later_steps_at_account": true,
+    "completion_receipt_unchanged": true,
+    "optional_cursor_does_not_block_boot": true
+  },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
     "persistent_usb_state": true,

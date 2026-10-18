@@ -95,6 +95,7 @@ KEYBOARD_LAYOUT_PATH = "/__ordax/native/keyboard-layout"
 KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"
 KEYBOARD_SESSION_RESTART_REQUEST = "/run/ordax-surface/keyboard-session-restart-request"
 FIRST_RUN_PATH = "/__ordax/native/first-run"
+FIRST_RUN_CURSOR_PATH = "/__ordax/native/first-run-cursor"
 DEVICE_PROFILE_PATH = "/__ordax/native/device-profile"
 LOCAL_SESSION_PATH = "/__ordax/native/local-session"
 MEMORY_PATH = "/__ordax/native/intelligence-memory"
@@ -152,6 +153,8 @@ HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
 FIRST_RUN_FILE = "/var/lib/ordax/first-run.json"
+FIRST_RUN_CURSOR_FILE = "/var/lib/ordax/first-run-cursor.json"
+FIRST_RUN_CURSOR_STEPS = frozenset(("welcome", "regional", "network", "security", "account"))
 # Threaded native host: serialize OOBE completion checks with persistent writes.
 _FIRST_RUN_WRITE_LOCK = threading.Lock()
 DEVICE_PROFILE_FILE = "/var/lib/ordax/device-profile.json"
@@ -719,6 +722,53 @@ def initial_first_run_state() -> dict:
         "timeZone": "America/Bahia",
         "accountMode": None,
     }
+
+
+def valid_first_run_cursor(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"schema", "step"}
+        and value["schema"] == "ordax.first-run-cursor/1"
+        and isinstance(value["step"], str)
+        and value["step"] in FIRST_RUN_CURSOR_STEPS
+    )
+
+
+def read_first_run_cursor() -> dict:
+    fallback = {"schema": "ordax.first-run-cursor/1", "step": "welcome"}
+    try:
+        with open(FIRST_RUN_CURSOR_FILE, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return fallback
+    return payload if valid_first_run_cursor(payload) else fallback
+
+
+def write_first_run_cursor(value: dict) -> None:
+    if not valid_first_run_cursor(value):
+        raise ValueError("invalid first-run cursor")
+    directory = os.path.dirname(FIRST_RUN_CURSOR_FILE)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    with _FIRST_RUN_WRITE_LOCK:
+        if read_first_run_state()["completed"]:
+            raise ValueError("cannot checkpoint a completed first-run")
+        if os.path.islink(FIRST_RUN_CURSOR_FILE):
+            raise ValueError("first-run cursor cannot be a symlink")
+        temporary = f"{FIRST_RUN_CURSOR_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
+        try:
+            with open(temporary, "x", encoding="utf-8") as handle:
+                os.fchmod(handle.fileno(), 0o600)
+                json.dump(value, handle, separators=(",", ":"), sort_keys=True)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, FIRST_RUN_CURSOR_FILE)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+        _fsync_first_run_directory(directory)
 
 
 def valid_first_run_state(value: object) -> bool:
@@ -3776,7 +3826,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, FIRST_RUN_CURSOR_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path == METRICS_PATH:
@@ -4274,6 +4324,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
         if parsed_path == FIRST_RUN_PATH:
             self._write_json(200, read_first_run_state())
+            return
+        if parsed_path == FIRST_RUN_CURSOR_PATH:
+            self._write_json(200, read_first_run_cursor())
             return
         if parsed_path == DEVICE_PROFILE_PATH:
             try:
@@ -4912,6 +4965,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._write_json(200, updated)
+            return
+
+        if parsed_path == FIRST_RUN_CURSOR_PATH:
+            payload = self._read_json_body(128)
+            if payload is None or not valid_first_run_cursor(payload):
+                self._empty(400)
+                return
+            try:
+                write_first_run_cursor(payload)
+            except (OSError, ValueError) as exc:
+                print(f"ordax-native-host: could not persist first-run cursor: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._empty(204)
             return
 
         if parsed_path == FIRST_RUN_PATH:

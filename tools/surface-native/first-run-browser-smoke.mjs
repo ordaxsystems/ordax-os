@@ -148,6 +148,33 @@ async function scenario(modules,css) {
   && keyboardOwner.writes.length===0;
  keyboardSecond.destroy();
 
+ const cursorFixture=await fixture();
+ let checkpoint={schema:'ordax.first-run-cursor/1',step:'security'};
+ const savedCursorSteps=[];
+ const cursorPort={
+  schema:'ordax.first-run-cursor/1',
+  load(){return checkpoint;},
+  async save(step){checkpoint={...checkpoint,step};savedCursorSteps.push(step);return checkpoint;},
+ };
+ const resumedSecurity=mountFirstRunExperience(root,{
+  ...cursorFixture.ports,resumeCursor:cursorPort,
+ });
+ checks.resumesIncompleteSecurity=!!document.querySelector('[data-first-run-local-session-secret]')
+  || !!document.querySelector('[data-first-run-action="next"]')
+   && document.querySelector('.ordax-first-run-header')?.textContent.includes('Segurança');
+ await click('next');await delay();
+ checks.cursorMovesToAccount=checkpoint.step==='account'
+  && !!get('account-local') && savedCursorSteps.includes('account');
+ resumedSecurity.destroy();
+ const resumedAccount=mountFirstRunExperience(root,{
+  ...cursorFixture.ports,
+  stateStore:await cursorFixture.freshStateStore(),
+  resumeCursor:cursorPort,
+ });
+ checks.resumesAccountWithoutIdentity=!!get('account-local')
+  && cursorFixture.writes.length===0 && !cursorFixture.state.completed;
+ resumedAccount.destroy();
+
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
