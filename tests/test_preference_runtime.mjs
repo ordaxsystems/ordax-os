@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPreferenceRuntime } from '../system/services/preferences/runtime.mjs';
+import { createPreferenceRuntime, createPreferencePersistence } from '../system/services/preferences/runtime.mjs';
 import { createWebPreferenceStore } from '../system/adapters/web/preferences.mjs';
 import { assertPreferenceRuntimePort } from '../system/contracts/preference-runtime.mjs';
 import { PREFERENCE_STORE_SCHEMA } from '../system/contracts/preference-store.mjs';

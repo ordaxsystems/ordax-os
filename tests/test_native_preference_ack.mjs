@@ -33,7 +33,7 @@ test("First Run confirmation uses the existing Native store and waits for its ac
   await Promise.resolve();
   assert.equal(requests.length, 1);
   requests[0].resolve({ ok: true });
-  await Promise.resolve(); await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(requests.length, 2);
   assert.equal(requests[1].data["regional.locale"], "en-US");
   requests[1].resolve({ ok: false, status: 507 });
