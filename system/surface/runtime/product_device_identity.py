@@ -173,6 +173,8 @@ class ProductDeviceIdentityStore:
         try:
             meta = os.fstat(fd)
             if (not stat.S_ISREG(meta.st_mode)
+                    or meta.st_uid != os.geteuid()
+                    or meta.st_nlink != 1
                     or stat.S_IMODE(meta.st_mode) != 0o600
                     or not 0 < meta.st_size <= MAX_STATE_BYTES):
                 return None
