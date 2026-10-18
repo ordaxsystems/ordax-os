@@ -21,6 +21,9 @@ class SurfaceReconciliationContractTests(unittest.TestCase):
         self.assertNotIn("appLauncher.replaceChildren()", surface)
         self.assertNotIn("runningApps.replaceChildren()", surface)
         self.assertNotIn("areaSwitcher.replaceChildren()", surface)
+        self.assertNotIn("button.replaceChildren()", surface)
+        self.assertIn("button.prepend(icon)", surface)
+        self.assertIn('icon.setAttribute("aria-hidden", "true")', surface)
 
     def test_connected_interactive_nodes_are_never_reinserted(self):
         surface = self.read_surface()
