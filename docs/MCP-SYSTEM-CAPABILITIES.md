@@ -70,6 +70,21 @@ ou a presença na Loja não conferem permissão.
   execução, seleção de outro app ou alteração de escopo. **O host ainda deve
   implementar e conectar os dois resolvedores confiáveis**: não aceitar
   conteúdo de renderer, manifesto ou modelo como atestação.
+- `system/composition/native/installed-app-capability-context.mjs`
+  implementa o **provider opcional de contexto Native** que injeta o leitor
+  anterior na composição de componentes de slot verificado. A identidade do
+  aplicativo vem de `resolveCurrentInstalledApp` privado do host, que deve
+  provar publisher, pacote atual, appId e escopos. Ausência de comprovação
+  não injeta o port, e atualização, troca de Space ou revogação são
+  rechecadas a cada consulta. O provider não é registrado automaticamente
+  na Surface enquanto o bootstrap Native não fornecer resolvers
+  autenticados e conectados ao Settings/Permissions. Seu contrato é testado
+  com contextos independentes de dois aplicativos.
+- A consulta revalida a identidade depois das leituras assíncronas para
+  recusar uma resposta autorizada por um Space/pacote que mudou durante
+  a operação. Sessões de convidado usam `accountId: null` e `spaceId: null`
+  **somente quando o host tiver resolvido esse escopo de fato**; isso não
+  infere permissões de conta inexistente.
 - Manifestos de App Intelligence são declarativos (`authority=none`).
   A ligação de um intent a um adapter tipado exige autorização posterior.
 
