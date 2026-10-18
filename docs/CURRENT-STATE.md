@@ -17,7 +17,9 @@ and restoring focus and original placement when closed. Phone expansion fits
 the host viewport; the notebook retains desktop geometry. Unexecuted demo actions
 show dismissible local feedback within each device, including the active modal,
 and return focus to the initiating control. They never claim that a service
-action succeeded or that the real product necessarily lacks that feature.
+action succeeded or that the real product necessarily lacks that feature. Escape dismisses
+the innermost navigation or notice before the enclosing device dialog; without
+an inner overlay it retains the native dialog dismissal and trigger focus.
 
 Public Account Web shortcuts (2026-10-17): sidebar, footer and mobile More
 menu now link directly to the canonical Web origin, matching the landing.

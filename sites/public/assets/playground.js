@@ -149,6 +149,15 @@
     }
     announce(message);
   }
+  function dismissPreview(screen) {
+    const notice=screen.querySelector('.public-demo-notice');
+    if(!notice || notice.hidden) return false;
+    notice.hidden=true;
+    const trigger=previewTriggers.get(screen);
+    const destination=trigger?.isConnected?trigger:screen.querySelector('[data-public-demo-content] h1,[data-public-demo-content] h2,[data-public-demo-content] h3');
+    destination?.focus({preventScroll:true});
+    return true;
+  }
   function render(screen) {
     const view = views.get(screen);
     const device = screen.dataset.device;
@@ -266,7 +275,15 @@
     render(screen);
     screen.addEventListener('submit',event=>event.preventDefault());
     screen.addEventListener('keydown',event=>{
-      if(event.key==='Escape') {closeNavigation(screen,true);return;}
+      if(event.key==='Escape') {
+        const menu=screen.querySelector('.public-demo-menu');
+        if(menu && !menu.hidden) {
+          event.preventDefault();event.stopPropagation();closeNavigation(screen,true);
+        } else if(dismissPreview(screen)) {
+          event.preventDefault();event.stopPropagation();
+        }
+        return;
+      }
       const menu=event.target.closest('.public-demo-menu');
       if(!menu || !['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
       const items=Array.from(menu.querySelectorAll('button'));
@@ -297,12 +314,7 @@
         control.setAttribute('aria-expanded','true');menu.querySelector('button')?.focus({preventScroll:true});return;
       }
       closeNavigation(screen);
-      if(action==='public-dismiss') {
-        const notice=control.closest('.public-demo-notice');notice.hidden=true;
-        const trigger=previewTriggers.get(screen);
-        const destination=trigger?.isConnected?trigger:screen.querySelector('[data-public-demo-content] h1,[data-public-demo-content] h2,[data-public-demo-content] h3');
-        destination?.focus({preventScroll:true});return;
-      }
+      if(action==='public-dismiss') {dismissPreview(screen);return;}
       if(action?.startsWith('spaces-') || action==='public-planned') {explainPreview(screen,control);return;}
       if (action === "analyze" || action === "accept-analysis") {
         if(action === "analyze") state.analysis = "ready";

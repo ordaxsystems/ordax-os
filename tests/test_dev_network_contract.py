@@ -78,7 +78,7 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
     def test_wifi_can_force_network_change_without_destroying_saved_config_first(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('--choose) force_choose=1', text)
-        self.assertIn('uso: ordax-network [--choose]', text)
+        self.assertIn('uso: ordax-network [--choose|--init-hardware]', text)
         self.assertIn('if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then', text)
         self.assertIn('if connect_saved_wifi; then', text)
         self.assertIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
