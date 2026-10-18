@@ -103,7 +103,9 @@
     "portable_source_preflight_is_destructive_authorization": false,
     "offline_writer_slot_rejects_unbound_root_entries": true,
     "cached_writer_size_checked_before_hashing": true,
-    "version_root_must_be_real_directory": true
+    "version_root_must_be_real_directory": true,
+    "pre_uac_portable_preparation_confirms_device_capacity_and_serial": true,
+    "pre_uac_portable_authorization_requires_lowercase_sha256_shape": true
   },
   "physical_write_gate": {
     "development_channel_can_write": false,
