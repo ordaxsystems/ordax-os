@@ -688,6 +688,8 @@ export function mountSurface(
       if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
       else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+      if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
       const localizedTitle = appTitle(localization, app);
       button.setAttribute(
         "aria-label",
