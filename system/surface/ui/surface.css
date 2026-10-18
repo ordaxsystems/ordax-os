@@ -833,6 +833,11 @@ button.ordax-tray-item {
   opacity: 0.65;
 }
 
+.ordax-tray-network-icon[data-state="online"][data-signal-level="0"] .ordax-wifi-arc,
+.ordax-tray-network-icon[data-state="online"][data-signal-level="0"] .ordax-wifi-dot {
+  opacity: 0.7;
+}
+
 .ordax-tray-network-icon[data-signal-level="1"] .ordax-wifi-dot,
 .ordax-tray-network-icon[data-signal-level="2"] .ordax-wifi-dot,
 .ordax-tray-network-icon[data-signal-level="3"] .ordax-wifi-dot,

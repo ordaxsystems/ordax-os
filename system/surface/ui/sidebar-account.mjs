@@ -18,6 +18,13 @@ export function sidebarAccountMarkup(view, native = false) {
     <div class="account-storage-footer"><span class="account-storage-value" title="${escapeMarkup(view.storageLabel)}"><span class="account-storage-summary" data-sidebar-storage-short>${escapeMarkup(view.storageShort)}</span><span class="account-storage-compact">—</span></span><div class="account-actions" data-sidebar-notification-slot><button type="button" data-sidebar-notifications ${native ? 'disabled' : ''} title="${escapeMarkup(native ? view.notificationsUnavailable : view.notificationsLabel)}" aria-label="${escapeMarkup(view.notificationsLabel)}">${BELL}</button></div></div>
   </section>`;
 }
+export function sidebarProfileButtonMarkup(view, native = false, active = false) {
+  const attributes = [native ? 'data-sidebar-app="account" data-launch-app="account" data-app-target="overview"' : '', active ? 'aria-current="page"' : ''].filter(Boolean).join(' ');
+  return `<button type="button" class="account-open meridian-rail-account" data-sidebar-account-open${attributes ? ` ${attributes}` : ''} aria-label="${escapeMarkup(view.openLabel)}" title="${escapeMarkup(`${view.displayName} · ${view.status}`)}"><span class="meridian-account-avatar" aria-hidden="true"><span class="avatar" data-sidebar-avatar>${view.initials ? escapeMarkup(view.initials) : USER_ICON}</span><i data-sidebar-account-connected data-connected="${view.connected}"></i></span><span class="account-identity"><strong data-sidebar-account-name>${escapeMarkup(view.displayName)}</strong><small data-sidebar-account-status>${escapeMarkup(view.status)}</small></span>${CHEVRON}</button>`;
+}
+export function sidebarProfileMarkup(view, native = false, active = false) {
+  return `<section class="account sidebar-account" aria-label="${escapeMarkup(view.displayName)}">${sidebarProfileButtonMarkup(view, native, active)}</section>`;
+}
 // Bind the existing Native identity port to the same presentation; no second session.
 export function mountNativeSidebarAccount(root, identity, host, surface) {
   const port = assertIdentitySessionPort(identity);
@@ -31,11 +38,14 @@ export function mountNativeSidebarAccount(root, identity, host, surface) {
     card.querySelector("[data-sidebar-account-name]").textContent = view.displayName;
     card.querySelector("[data-sidebar-account-status]").textContent = view.status;
     card.querySelector("[data-sidebar-account-connected]").setAttribute("data-connected", String(view.connected));
-    card.querySelector("[data-sidebar-storage-short]").textContent = view.storageShort;
-    card.querySelector("[data-sidebar-storage]").setAttribute("aria-label", view.storageLabel);
-    card.querySelector(".account-storage-value").setAttribute("title", view.storageLabel);
+    const storageShort = card.querySelector("[data-sidebar-storage-short]");
+    const storage = card.querySelector("[data-sidebar-storage]");
+    const storageValue = card.querySelector(".account-storage-value");
+    if (storageShort) storageShort.textContent = view.storageShort;
+    if (storage) storage.setAttribute("aria-label", view.storageLabel);
+    if (storageValue) storageValue.setAttribute("title", view.storageLabel);
     const open = card.querySelector("[data-sidebar-account-open]");
-    open.setAttribute("title", view.openLabel); open.setAttribute("aria-label", view.openLabel);
+    open.setAttribute("title", `${view.displayName} · ${view.status}`); open.setAttribute("aria-label", view.openLabel);
     const avatar = card.querySelector("[data-sidebar-avatar]");
     if (view.initials) avatar.textContent = view.initials; else avatar.innerHTML = USER_ICON;
   }

@@ -41,8 +41,9 @@ privileged browser bridge or authenticated identity is installed.
 Existing older emulator browser-storage keys remain untouched; they are no longer
 runtime authorities. The canonical Native adapters now own the UI's ports.
 
-The small development control can restart First Run. It is outside the Native
-frame and is not shipped as product UI.
+The development-only First Run reset stays outside the Native frame and is not
+shipped as product UI. It is hidden in the normal emulator view; append
+`?dev-controls=1` to the URL when you need the reset tool.
 
 ## Verification
 

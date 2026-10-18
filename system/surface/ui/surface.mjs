@@ -1,4 +1,4 @@
-import { mountNativeSidebarFit, sidebarIsExpanded } from "./sidebar-layout.mjs";
+import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
@@ -25,6 +25,7 @@ import {
   mountDesktopClock,
   syncDesktopShellLocalization,
   syncDesktopPresentationToggle,
+  syncDesktopSidebarToggle,
   syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
@@ -457,8 +458,7 @@ export function mountSurface(
   function syncSidebarToggle() {
     const toggle = root.querySelector("[data-sidebar-toggle]");
     const expanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
-    toggle.setAttribute("aria-expanded", String(expanded));
-    toggle.setAttribute("aria-label", localization.translate(expanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+    syncDesktopSidebarToggle(toggle, expanded, localization);
   }
   const sidebarFit = mountNativeSidebarFit(root.querySelector('[data-sidebar-slot="navigation"]'), syncSidebarToggle);
 
@@ -472,7 +472,15 @@ export function mountSurface(
   const windowLayer = root.querySelector("[data-window-layer]");
   const runningApps = root.querySelector("[data-running-apps]");
   const areaSwitcher = root.querySelector("[data-area-switcher]");
+  const areaMenu = root.querySelector("[data-native-area-menu]");
+  const areaMenuToggle = root.querySelector("[data-area-menu-toggle]");
   const areaKicker = root.querySelector("[data-area-kicker]");
+
+  const setAreaMenuOpen = (open, { restoreFocus = false } = {}) => {
+    areaMenu.hidden = !open;
+    areaMenuToggle.setAttribute("aria-expanded", String(open));
+    if (restoreFocus) areaMenuToggle.focus();
+  };
 
   const findRenderedWindow = (windowId) => {
     const areaId = getActiveArea(state).id;
@@ -619,10 +627,48 @@ export function mountSurface(
   const renderDock = () => {
     const area = getActiveArea(state);
     const retained = new Set();
+    const pinnedButtons = Array.from(root.querySelectorAll("[data-dock-pinned-app]"));
+    const pinnedAppIds = new Set(pinnedButtons.map((button) => button.dataset.dockPinnedApp));
+    for (const button of pinnedButtons) {
+      const appId = button.dataset.dockPinnedApp;
+      const app = catalog.get(appId);
+      const windowState = area.windows.find((item) => item.appId === appId) ?? null;
+      if (!app) {
+        button.hidden = true;
+        continue;
+      }
+      button.hidden = false;
+      const localizedTitle = appTitle(localization, app);
+      if (windowState) {
+        button.dataset.openWindow = windowState.id;
+        button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+        button.dataset.minimized = String(windowState.minimized);
+        button.removeAttribute("data-launch-app");
+        button.setAttribute("aria-label", localization.translate(
+          windowState.minimized ? "surface.dock.restore" : "surface.dock.focus",
+          { app: localizedTitle },
+        ));
+        button.title = `${localizedTitle} · ${localization.translate(
+          windowState.minimized ? "surface.dock.restore" : "surface.dock.focus",
+          { app: localizedTitle },
+        )}`;
+        if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      } else {
+        delete button.dataset.openWindow;
+        delete button.dataset.active;
+        delete button.dataset.minimized;
+        button.dataset.launchApp = appId;
+        button.setAttribute("aria-label", localization.translate("surface.launcher.open", { app: localizedTitle }));
+        button.title = localizedTitle;
+        button.removeAttribute("aria-current");
+      }
+    }
     let index = 0;
     for (const windowState of area.windows) {
       const app = catalog.get(windowState.appId);
       if (!app) continue;
+      if (pinnedAppIds.has(app.id)) continue;
       let button = Array.from(runningApps.children).find(
         (child) => child.dataset?.openWindow === windowState.id,
       ) ?? null;
@@ -631,7 +677,15 @@ export function mountSurface(
         button.type = "button";
         button.dataset.openWindow = windowState.id;
       }
-      button.textContent = app.monogram;
+      let icon = button.querySelector(".ordax-rail-icon");
+      if (!icon) {
+        button.replaceChildren();
+        icon = element("span", "ordax-rail-icon");
+        icon.setAttribute("aria-hidden", "true");
+        button.append(icon);
+      }
+      if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
+      else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
       const localizedTitle = appTitle(localization, app);
       button.setAttribute(
@@ -654,7 +708,7 @@ export function mountSurface(
   const renderSidebar = () => {
     const area = getActiveArea(state);
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
-    const homeButton = root.querySelector("[data-show-desktop]");
+    const homeButton = root.querySelector(".meridian-home-destination");
     if (homeButton) {
       const homeActive = activeWindow === null && state.presentation === "central";
       homeButton.dataset.active = String(homeActive);
@@ -664,13 +718,16 @@ export function mountSurface(
     const currentDestination = root.querySelector("[data-current-destination]");
     if (currentDestination) {
       const activeApp = activeWindow ? catalog.get(activeWindow.appId) : null;
-      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : localization.translate("shell.home.title");
+      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : "Central";
     }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
       const app = catalog.get(appId);
       button.disabled = !catalog.isAvailable(app, state.capabilityIds);
-      button.dataset.active = String(activeWindow?.appId === appId);
+      const active = sidebarItemIsActive(activeWindow, button);
+      button.dataset.active = String(active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     }
   };
 
@@ -728,6 +785,7 @@ export function mountSurface(
       if (!retained.has(child)) child.remove();
     }
     areaKicker.textContent = areaLabel(activeArea, localization);
+    root.querySelector("[data-current-area]").textContent = areaLabel(activeArea, localization);
   };
 
   const render = () => {
@@ -747,8 +805,7 @@ export function mountSurface(
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
     sidebarToggle.hidden = state.presentation === "desktop";
-    sidebarToggle.setAttribute("aria-expanded", String(sidebarExpanded));
-    sidebarToggle.setAttribute("aria-label", localization.translate(sidebarExpanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+    syncDesktopSidebarToggle(sidebarToggle, sidebarExpanded, localization);
     root.querySelector("[data-central-presentation]").hidden = state.presentation !== "central";
     root.querySelector("[data-desktop-presentation]").hidden = state.presentation !== "desktop";
     const presentationToggle = root.querySelector("[data-presentation-toggle]");
@@ -867,9 +924,20 @@ export function mountSurface(
   };
 
   const onClick = (event) => {
+    const areaMenuButton = event.target.closest("[data-area-menu-toggle]");
+    if (areaMenuButton) {
+      setAreaMenuOpen(areaMenu.hidden);
+      return;
+    }
+
+    if (!areaMenu.hidden && !event.target.closest("[data-native-area-menu]")) {
+      setAreaMenuOpen(false);
+    }
+
     const areaButton = event.target.closest("[data-area-id]");
     if (areaButton) {
       dispatch({ type: "area.switch", areaId: areaButton.dataset.areaId });
+      setAreaMenuOpen(false);
       workspace.focus({ preventScroll: true });
       return;
     }
@@ -877,6 +945,7 @@ export function mountSurface(
     const areaCreate = event.target.closest("[data-area-create]");
     if (areaCreate) {
       dispatch({ type: "area.create" });
+      setAreaMenuOpen(false);
       workspace.focus({ preventScroll: true });
       return;
     }
@@ -1105,6 +1174,11 @@ export function mountSurface(
 
     if (event.key === "Escape" && !navigationMenu.hidden) {
       closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.key === "Escape" && !areaMenu.hidden) {
+      setAreaMenuOpen(false, { restoreFocus: true });
       return;
     }
 
