@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
 )
 
 const (
@@ -323,14 +325,23 @@ func verifyPortablePayloadInstalled(directory string, manifest Manifest) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("Portable payload source directory is unavailable or unsafe")
 	}
+	// The Creator Core is the single owner of the exact, flat 17-artifact
+	// Portable source boundary. Reuse that validator for both newly acquired
+	// releases and cached offline candidates instead of maintaining a second
+	// independent file inventory/hash policy here.
+	bindings := creatorcore.PortableMediaBindings{
+		Schema: creatorcore.PortableMediaBindingsSchema,
+		Artifacts: make([]creatorcore.PortableMediaArtifactBinding, 0, len(payload.Artifacts)),
+	}
 	for _, artifact := range payload.Artifacts {
-		actualHash, actualSize, err := fileDigest(filepath.Join(sourceRoot, artifact.ID))
-		if err != nil {
-			return fmt.Errorf("verify Portable payload %s: %w", artifact.ID, err)
-		}
-		if actualSize != artifact.SizeBytes || actualHash != artifact.SHA256 {
-			return fmt.Errorf("bound Portable payload artifact changed: %s", artifact.ID)
-		}
+		bindings.Artifacts = append(bindings.Artifacts, creatorcore.PortableMediaArtifactBinding{
+			ID: artifact.ID,
+			SHA256: artifact.SHA256,
+			SizeBytes: uint64(artifact.SizeBytes),
+		})
+	}
+	if _, err := creatorcore.VerifyPortableSources(bindings, sourceRoot); err != nil {
+		return fmt.Errorf("bound Portable payload source changed or unsafe: %w", err)
 	}
 	return nil
 }
