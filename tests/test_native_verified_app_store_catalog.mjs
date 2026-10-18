@@ -241,11 +241,10 @@ test("superseding or destroying a noncooperative catalog read settles its pendin
   await abandoned;
   assert.equal(abandonedSignal.aborted, true);
   assert.equal(runtime.port.getSnapshot().state, "ready");
-  assert.equal(runtime.port.getSnapshot().sequence, 7);
+  assert.equal(runtime.port.getSnapshot().sequence, 6);
 
   const originalFetch = runtime.port.getSnapshot();
-  // Another unresolved Native read must not keep destroy() pending.
-  // A separate runtime is not necessary: the same adapter enforces teardown.
+  // Disposal never exposes the last ready catalog to retained readers.
   assert.equal(originalFetch.state, "ready");
   runtime.destroy();
   assert.equal(runtime.port.getSnapshot().state, "unavailable");
@@ -258,4 +257,25 @@ test("catalog deadline setting fails closed for invalid and unbounded values", a
       async fetch() { throw new Error("must never fetch"); },
     }, { timeoutMs: invalid }), /bounded positive integer/);
   }
+});
+
+test("disposing during a noncooperative Native fetch settles without awaiting host response", async () => {
+  let requestedSignal;
+  let fetchCount = 0;
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    fetch(_url, options) {
+      fetchCount += 1;
+      if (fetchCount === 1) return Promise.resolve(response(ready()));
+      requestedSignal = options.signal;
+      return new Promise(() => {});
+    },
+  }, { timeoutMs: 2_000 });
+  const pending = runtime.refresh();
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  runtime.destroy();
+  await pending;
+  assert.equal(requestedSignal.aborted, true);
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  assert.equal(runtime.port.getSnapshot().reason, "native-store-catalog-disposed");
+  assert.deepEqual(runtime.port.getSnapshot().entries, []);
 });
