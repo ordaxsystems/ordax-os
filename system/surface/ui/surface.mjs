@@ -887,8 +887,21 @@ export function mountSurface(
     }
     if (workspacePort && WORKSPACE_PERSIST_ACTIONS.has(action?.type)) {
       workspaceDispatching = true;
-      try { workspacePort.save(createWorkspaceSnapshot(state)); }
-      finally { workspaceDispatching = false; }
+      try {
+        const requested = createWorkspaceSnapshot(state);
+        workspacePort.save(requested);
+        // A denied/corrupt subject partition cannot leave a phantom window
+        // visible after its canonical store refused the requested state.
+        // A volatile-but-accepted session store, however, reads back exactly
+        // the requested state and remains usable when storage is unavailable.
+        const effective = validateWorkspaceRecord(workspacePort.load());
+        if (JSON.stringify(effective) !== JSON.stringify(requested)) {
+          state = reduceSurfaceState(state, {
+            type: "workspace.restore",
+            workspace: effective,
+          }, catalog);
+        }
+      } finally { workspaceDispatching = false; }
     }
     render();
     if (preferencesChanged) {
