@@ -74,11 +74,16 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertIn(".ordax-launcher-panel", css)
         self.assertIn("prefers-reduced-motion", css)
 
+        # The browser chrome color follows the Meridian light canvas;
+        # do not duplicate a superseded pre-Meridian hexadecimal palette.
+        meridian_tokens = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+        canvas = re.search(r"--md-canvas:\s*(#[a-fA-F0-9]{6})\s*;", meridian_tokens)
+        self.assertIsNotNone(canvas)
         for index in (NATIVE_INDEX,):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#edf3fc"', html)
+            self.assertIn(f'name="theme-color" content="{canvas.group(1)}"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
