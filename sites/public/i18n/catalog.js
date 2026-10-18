@@ -1663,6 +1663,7 @@
   register("surface.e1a558cec483", "Loja e recursos", "Store and resources");
   register("surface.cbeb99619b03", "Recursos pendentes · consultar Ajustes", "Pending resources · open Settings");
   register("surface.dcc985fcad64", "Backend pendente", "Backend pending");
+  register("surface.7d29239e60f5", "Planejado", "Planned");
   register("surface.49a586ddbb8a", "Rede e Wi-Fi", "Network and Wi-Fi");
   register("surface.ddcd378ecaa7", "Conexão, rede protegida e uso offline.", "Connection, secure networks and offline use.");
   register("surface.195c60bb2325", "Áudio", "Audio");
