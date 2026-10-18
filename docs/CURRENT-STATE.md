@@ -1,3 +1,17 @@
+Native Product Connector candidate (2026-10-17): Owner/Development USB
+reuses the existing Native Account login and private Product device
+identity to start one fail-soft HTTPS presence worker after authenticated
+enrollment. Logout and Native Host shutdown stop its lifecycle; no command
+shell, alternate model router, Studio ownership, or second OAuth backend.
+The matching Product MCP PostgreSQL device-only presence route is proposed
+in ordax-platform#205 and the OS origin points to its trusted device ingress.
+Until that route is deployed and physical USB proof passes, this is a
+**source/CI candidate**, not a claim of live OrdaX OS visibility in ChatGPT.
+The canonical Runtime OS action dispatcher, session attestation and explicit
+MCP grants remain separate disabled gates. Stable and anonymous/offline boot
+remain independent. See docs/contracts/product-device-presence.json and
+docs/INTELLIGENCE.md.
+
 # Current State
 
 First Run single owner (2026-10-17): Native/USB and Windows emulator use
