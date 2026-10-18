@@ -36,6 +36,7 @@ class FakeGateway:
         self.authenticated = authenticated
         self.login_calls = []
         self.session_calls = 0
+        self.subject = SUBJECT
 
     def login(self, email: str, password: str):
         self.login_calls.append((email, password))
@@ -43,7 +44,7 @@ class FakeGateway:
 
     def session(self):
         self.session_calls += 1
-        return Reply(200, {"authenticated": self.authenticated, "subject": SUBJECT})
+        return Reply(200, {"authenticated": self.authenticated, "subject": self.subject})
 
     def logout(self):
         return Reply(204)
@@ -84,6 +85,17 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         self.assertEqual(gateway.login_calls, [("owner@example.test", "secret")])
         self.assertEqual(gateway.session_calls, 1)
         self.assertEqual(coordinator.calls, [(profile, SUBJECT)])
+
+    def test_switching_accounts_stops_the_prior_device_presence(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+        proxy.login("first@example.test", "password")
+        self.assertEqual(coordinator.stop_calls, 0)
+        gateway.subject = "123e4567-e89b-42d3-a456-426614174001"
+        proxy.login("second@example.test", "password")
+        self.assertEqual(coordinator.stop_calls, 1)
+        self.assertEqual(coordinator.calls[-1][1], gateway.subject)
 
     def test_failed_or_anonymous_login_never_enrolls(self):
         for login_status, authenticated in ((401, True), (200, False)):
