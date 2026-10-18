@@ -45,6 +45,32 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
                 with patch.object(module,'ROOT',checkout):
                     self.assertEqual(module._current_surface_snapshot()['cssSha256'],self.snapshot['cssSha256'])
 
+    def test_native_device_menu_fixture_rejects_unmanaged_items(self):
+        spec = importlib.util.spec_from_file_location(
+            "public_demo_fixture_native_menu",
+            ROOT / "tools/public-site/playground_fixture.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fixture = json.loads(
+            (ROOT / "sites/public/assets/playground-fixture.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(module._surface_home(), fixture["home"])
+        source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
+        canonical = '["files", "studio", "settings", "system"]'
+        self.assertIn(canonical, source)
+        with tempfile.TemporaryDirectory(prefix="ordax-native-menu-proof-") as directory:
+            shell = Path(directory) / "desktop-shell.mjs"
+            for changed, issue in (
+                ('["files", "files"]', "duplicated"),
+                ('["files", unknownApp()]', "malformed"),
+            ):
+                with self.subTest(changed=changed):
+                    shell.write_text(source.replace(canonical, changed), encoding="utf-8")
+                    with patch.object(module, "DESKTOP_SHELL", shell):
+                        with self.assertRaisesRegex(module.PlaygroundFixtureError, issue):
+                            module._surface_home()
+
     def test_real_navigation_order_is_not_a_second_menu_catalog(self):
         source=(ROOT/'system/surface/workspace/components/central/config.ts').read_text(encoding='utf-8')
         block=source.split('export const navigation:')[1].split('];')[0]
