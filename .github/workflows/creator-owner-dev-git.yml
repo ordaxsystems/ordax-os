@@ -666,6 +666,22 @@ jobs:
           rm -f "$RUNNER_TEMP/owner-prototype-trust.json"
           rm -f out/owner-prototype/ordax-release-signing
 
+      # PR-only acceptance handoff: immutable tested ZIP, not a rolling release.
+      # The owner must still select/re-enumerate the physical USB and confirm
+      # the destructive action inside the canonical Windows Creator.
+      - name: Retain exact-commit verified USB Dev acceptance bundle
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
+          path: |
+            out/owner-prototype/release/OrdaX-Creator-Owner-Prototype.zip
+            out/owner-prototype/release/SHA256SUMS.txt
+            out/owner-prototype/release/creator-owner-update.json
+            out/owner-prototype/release/LEIA-ME.txt
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Publish development Creator bundle
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
