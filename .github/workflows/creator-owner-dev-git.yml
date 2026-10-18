@@ -332,6 +332,10 @@ jobs:
           popd >/dev/null
           sudo mkdir -p "$stage/ORDAX/dev-base"
           sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
+          # A verified Git checkout is not a bootable desktop. The complete
+          # graphical runtime must already be on the USB before publication.
+          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
+            --stage-root "$stage"
           if sudo find "$stage" -type l -print -quit | grep -q .; then
             echo 'development seed may not contain symlinks' >&2
             exit 1
