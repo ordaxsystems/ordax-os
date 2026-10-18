@@ -59,7 +59,7 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         text = FIRST_RUN_CSS.read_text(encoding="utf-8")
 
         def declarations(selector):
-            pattern = re.escape(selector) + r"\\s*\\{([^{}]*)\\}"
+            pattern = re.escape(selector) + r"\s*\{([^{}]*)\}"
             match = re.search(pattern, text)
             self.assertIsNotNone(match, f"Missing canonical First Run selector {selector}")
             return match.group(1)
@@ -70,18 +70,18 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         body = declarations(".ordax-first-run-body")
         footer = declarations(".ordax-first-run-footer")
         shell = declarations(".ordax-first-run-shell")
-        self.assertRegex(card, r"display\\s*:\\s*grid")
-        self.assertRegex(card, r"grid-template-rows\\s*:\\s*minmax\\(0,\\s*1fr\\)\\s+auto\\s*;")
-        self.assertRegex(card, r"min-height\\s*:\\s*0")
-        self.assertRegex(body, r"overflow\\s*:\\s*auto")
-        self.assertRegex(footer, r"flex\\s*:\\s*0\\s+0\\s+auto")
-        self.assertRegex(shell, r"height\\s*:\\s*min\\(\\d+px,\\s*calc\\(100dvh\\s*-\\s*\\d+px\\)\\)")
+        self.assertRegex(card, r"display\s*:\s*grid")
+        self.assertRegex(card, r"grid-template-rows\s*:\s*minmax\(0,\s*1fr\)\s+auto\s*;")
+        self.assertRegex(card, r"min-height\s*:\s*0")
+        self.assertRegex(body, r"overflow\s*:\s*auto")
+        self.assertRegex(footer, r"flex\s*:\s*0\s+0\s+auto")
+        self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*\d+px\)\)")
 
         # Eight canonical steps share a responsive column flow; an obsolete
         # seven-step fixed grid would hide the current navigation.
-        self.assertRegex(text, r"@media\\s*\\(max-width:\\s*820px\\)")
-        self.assertRegex(text, r"grid-auto-flow\\s*:\\s*column")
-        self.assertRegex(text, r"grid-auto-columns\\s*:\\s*minmax\\(0,\\s*1fr\\)")
+        self.assertRegex(text, r"@media\s*\(max-width:\s*820px\)")
+        self.assertRegex(text, r"grid-auto-flow\s*:\s*column")
+        self.assertRegex(text, r"grid-auto-columns\s*:\s*minmax\(0,\s*1fr\)")
 
 
 
