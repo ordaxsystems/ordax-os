@@ -139,7 +139,12 @@ export function createAppLifecycleRequestService({
       return rejectAndRemember(request, fingerprint, "lifecycle-request-in-flight");
     }
 
-    const snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    let snapshot;
+    try {
+      snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    } catch {
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
+    }
     if (snapshot.state !== "ready") {
       return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
@@ -151,7 +156,12 @@ export function createAppLifecycleRequestService({
       return rejectAndRemember(request, fingerprint, "lifecycle-operation-not-available");
     }
 
-    const verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    let verified;
+    try {
+      verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    } catch {
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
+    }
     if (verified.state !== "ready") {
       return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
