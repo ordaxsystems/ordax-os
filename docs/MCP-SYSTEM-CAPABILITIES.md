@@ -77,7 +77,14 @@ ou a presença na Loja não conferem permissão.
   provar publisher, pacote atual, appId e escopos. Ausência de comprovação
   não injeta o port, e atualização, troca de Space ou revogação são
   rechecadas a cada consulta. A porta é **fixada na identidade exata da
-  montagem**: um módulo antigo continua bloqueado mesmo que a política
+  montagem**, incluindo `runtimeInstanceId` (UUID v4 recém-emitido pelo
+  host para cada instância ativa). O `packageSha256` ou o digest do recibo
+  não substituem esse identificador: reinstalar o mesmo pacote não pode
+  ressuscitar um leitor de capacidades retido por um módulo antigo.
+  O host deve identificar a instância real em seu contexto privilegiado,
+  jamais aceitar UUID informado pelo app, manifesto ou IA; sem esse
+  resolvedor, o provider continua sem registro no boot. Assim, um módulo
+  antigo continua bloqueado mesmo que a política
   passe a autorizar um pacote novo ou outro Space; a composição deve criar
   uma nova porta depois da mudança. O provider não é registrado automaticamente
   na Surface enquanto o bootstrap Native não fornecer resolvers
