@@ -395,11 +395,22 @@ jobs:
           PY
 
           prepared_proof="$RUNNER_TEMP/owner-prototype-prepared-ext4-proof.json"
+          # Exercise actual ext4 growth from this exact, derived Owner seed.
+          # The old 768-MiB target is smaller than a graphical offline USB;
+          # never bypass the prepared-media oracle or change Stable geometry.
+          seed_bytes="$(stat -c '%s' "$proof/ordax-disposable.raw")"
+          target_bytes="$((seed_bytes + 512 * 1024 * 1024))"
+          max_target_bytes="$((7 * 1024 * 1024 * 1024))"
+          if [ "$target_bytes" -gt "$max_target_bytes" ] ||
+             [ "$((target_bytes % 512))" -ne 0 ]; then
+            echo 'Owner USB growth proof exceeds bounded 8-GB-media test capacity' >&2
+            exit 1
+          fi
           bash tools/creator/proof/prove_prepared_ext4_growth.sh \
             "$proof/ordax-disposable.raw" \
             out/initramfs-work/ordax-grow-ext4 \
             "$prepared_proof" \
-            805306368
+            "$target_bytes"
           python - "$prepared_proof" <<'PY'
           import json, os, pathlib, sys
           prepared = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
