@@ -288,6 +288,9 @@ export function mountSettingsOverviewControls(
     if (element.dataset.settingsLocalSessionCurrent !== undefined) {
       return Object.freeze({ kind: "local-session-current", value: "current" });
     }
+    if (element.dataset.settingsConnectorToggle !== undefined) {
+      return Object.freeze({ kind: "connector-toggle", value: "discovery" });
+    }
     if (element.dataset.settingsLocalSessionAction) {
       return Object.freeze({
         kind: "local-session-action",
