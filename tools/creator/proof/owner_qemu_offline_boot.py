@@ -206,6 +206,7 @@ def main() -> int:
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--framebuffer-out", type=Path, required=True)
+    parser.add_argument("--serial-out", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=210)
     args = parser.parse_args()
 
@@ -226,6 +227,9 @@ def main() -> int:
         if (args.framebuffer_out.exists() or args.framebuffer_out.is_symlink()
                 or args.framebuffer_out.parent != args.output.parent):
             raise ProofError("framebuffer destination must be new and beside the proof receipt")
+        if (args.serial_out.exists() or args.serial_out.is_symlink()
+                or args.serial_out.parent != args.output.parent):
+            raise ProofError("serial evidence destination must be new and beside the proof receipt")
         with tempfile.TemporaryDirectory(prefix="ordax-owner-qemu-") as temporary:
             root = Path(temporary)
             disk, serial, qmp_socket = (
@@ -295,6 +299,11 @@ def main() -> int:
                 print("ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=PASS")
                 return 0
             finally:
+                # Preserve real guest serial diagnostics on BOTH outcomes.
+                # No synthetic markers, disks, credentials or runtime state.
+                if serial.is_file() and not args.serial_out.exists():
+                    with serial.open("rb") as guest_serial, args.serial_out.open("xb") as evidence:
+                        evidence.write(guest_serial.read(128 * 1024))
                 if guest.poll() is None:
                     guest.terminate()
                     try:
