@@ -46,6 +46,10 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    env:
+      # Exact checkout identity for push and PR; github.sha on PR is the
+      # synthetic merge SHA, not the actual local source for Creator.
+      ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -183,13 +187,13 @@ jobs:
           ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
           ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
-              --seed-from-local "$GITHUB_WORKSPACE" "$GITHUB_SHA"
-          test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$GITHUB_SHA"
+              --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
+          test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
           test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
           test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
           test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
           test -x "$rootfs/workspace/ordax/system/entrypoint"
-          test "$(cat "$rootfs/state/ordax/current-commit")" = "$GITHUB_SHA"
+          test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
           sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
           sudo touch "$rootfs/dev/null"
           cleanup_dev_null() {
@@ -401,7 +405,7 @@ jobs:
           prepared = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert prepared['$schema'] == 'prototype-ordax.creator-prepared-ext4-growth-proof/1'
           assert prepared['status'] == 'pass'
-          assert prepared['source_commit'] == os.environ['GITHUB_SHA']
+          assert prepared['source_commit'] == os.environ['ORDAX_OWNER_SOURCE_COMMIT']
           assert prepared['ext4']['bootstrap_entrypoint_path'] == '/bootstrap/entrypoint'
           assert prepared['ext4']['bootstrap_entrypoint_mode_before'] == prepared['ext4']['bootstrap_entrypoint_mode_after']
           assert prepared['ext4']['bootstrap_entrypoint_sha256_before'] == prepared['ext4']['bootstrap_entrypoint_sha256_after']
@@ -443,7 +447,7 @@ jobs:
           data = {
               '$schema': 'prototype-ordax.creator-owner-physical/1',
               'status': 'owner-prototype-write-enabled',
-              'source_commit': os.environ['GITHUB_SHA'],
+              'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT'],
               'creator_version': json.loads(pathlib.Path('tools/creator/version.json').read_text(encoding='utf-8'))['version'],
               'canonical_public_release': False,
               'ephemeral_prototype_trust': True,
@@ -468,7 +472,7 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
               -tags 'ordax_raw_backend' \
-              -ldflags="-s -w -X main.buildSourceCommit=$GITHUB_SHA -X main.buildReleaseSourceCommit=$GITHUB_SHA -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildStorageProfile=owner-development -X main.buildPhysicalWriteAuthorized=YES" \
+              -ldflags="-s -w -X main.buildSourceCommit=$ORDAX_OWNER_SOURCE_COMMIT -X main.buildReleaseSourceCommit=$ORDAX_OWNER_SOURCE_COMMIT -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$manifest_sha -X main.buildSeedImageSHA256=$seed_sha -X main.buildSeedImageSize=$seed_size -X main.buildStorageProfile=owner-development -X main.buildPhysicalWriteAuthorized=YES" \
               -o "$bundle/ordax-creator-physical-test.exe" \
               ./cmd/ordax-creator-physical-test
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
@@ -535,7 +539,7 @@ jobs:
           zip_size="$(stat -c '%s' "$release/OrdaX-Creator-Owner-Prototype.zip")"
           printf '%s  %s\n' "$zip_sha" 'OrdaX-Creator-Owner-Prototype.zip' > "$release/SHA256SUMS.txt"
           version="$(python3 -c 'import json; print(json.load(open("tools/creator/version.json", encoding="utf-8"))["version"])')"
-          python - "$release/creator-owner-update.json" "$GITHUB_SHA" "$version" "$zip_sha" "$zip_size" <<'PY'
+          python - "$release/creator-owner-update.json" "$ORDAX_OWNER_SOURCE_COMMIT" "$version" "$zip_sha" "$zip_size" <<'PY'
           import json, pathlib, sys
           output, source, version, digest, size = sys.argv[1:]
           data = {
@@ -554,7 +558,7 @@ jobs:
 
           echo "OWNER_CREATOR_THEME_SHA256=$theme_sha"
           echo "OWNER_CREATOR_SYMBOL_SHA256=$symbol_sha"
-          echo "OWNER_BUNDLE_SOURCE=$GITHUB_SHA"
+          echo "OWNER_BUNDLE_SOURCE=$ORDAX_OWNER_SOURCE_COMMIT"
           echo "OWNER_BUNDLE_SHA256=$zip_sha"
           echo "OWNER_SEED_SHA256=$seed_sha"
           echo 'OWNER_GUI_RAW_BACKEND_LINKED=NO'
@@ -568,7 +572,7 @@ jobs:
             --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
             --metadata "$release/creator-owner-update.json" \
             --checksums "$release/SHA256SUMS.txt" \
-            --source-commit "$GITHUB_SHA"
+            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
 
       - name: Destroy ephemeral private key before publish
         run: |
@@ -588,7 +592,7 @@ jobs:
           repo='ordaxsystems/ordax-os'
           release="$GITHUB_WORKSPACE/out/owner-prototype/release"
           if ! gh release view creator-owner-prototype --repo "$repo" >/dev/null 2>&1; then
-            gh release create creator-owner-prototype --repo "$repo" --target "$GITHUB_SHA" \
+            gh release create creator-owner-prototype --repo "$repo" --target "$ORDAX_OWNER_SOURCE_COMMIT" \
               --title 'OrdaX Creator - Development Git USB' --prerelease \
               --notes 'Development-only Git USB.'
           fi
@@ -609,7 +613,7 @@ jobs:
             --metadata "$release/creator-owner-update.json" \
             --checksums "$release/SHA256SUMS.txt" \
             --readme "$release/LEIA-ME.txt" \
-            --source-commit "$GITHUB_SHA"
+            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
           echo 'OWNER_RELEASE_PIPELINE=SPLIT_BUNDLE'
           echo 'OWNER_STANDALONE_EXE_PUBLISHED=NO'
           echo 'OWNER_SPLIT_BUNDLE_PUBLISHED=YES'
