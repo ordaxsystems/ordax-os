@@ -40,7 +40,9 @@ test("Native and Web headers share Meridian dimensions and search styling", asyn
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
   ]);
-  assert.ok(sharedHeader.includes(".meridian-workspace {font:400 .8125rem/1.5 var(--md-font);}"));
+  assert.match(sharedHeader, /\.meridian-workspace\s*\{\s*font:400 \.8125rem\/1\.5 var\(--md-font\);/);
+  assert.match(sharedHeader, /--md-home-content-max:1320px;/);
+  assert.match(sharedHeader, /--md-home-heading-size:clamp\(1\.75rem,3vw,2\.625rem\);/);
   assert.match(sharedHeader, /\.meridian-system-header \{height:66px;flex-shrink:0;display:flex;/);
   assert.match(sharedHeader, /\.meridian-system-search \{display:flex;align-items:center;gap:12px;width:min\(350px,36%\);/);
   assert.match(sharedHeader, /\.meridian-system-search kbd \{padding:0;border:0;background:transparent;/);

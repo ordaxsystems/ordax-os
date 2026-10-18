@@ -1,5 +1,13 @@
 /* Shared Meridian visual policy. Existing preference IDs and service owners remain unchanged. */
-.meridian-workspace {font:400 .8125rem/1.5 var(--md-font);}
+.meridian-workspace {
+ font:400 .8125rem/1.5 var(--md-font);
+ --md-home-content-max:1320px;
+ --md-home-content-inline:32px;
+ --md-home-heading-size:clamp(1.75rem,3vw,2.625rem);
+ --md-home-hero-height:266px;
+ --md-home-hero-heading-size:clamp(1.625rem,2.8vw,2.25rem);
+ --md-home-hero-overlay:linear-gradient(90deg,color-mix(in srgb,var(--md-art-dark) 79%,transparent) 0%,color-mix(in srgb,var(--md-art-dark) 26%,transparent) 65%,color-mix(in srgb,var(--md-art-dark) 6%,transparent) 100%);
+}
 [data-meridian] {
  --ordax-sidebar-expanded-width:var(--md-rail-width);--ordax-sidebar-collapsed-width:var(--md-rail-compact);--ordax-navigation-height:var(--md-dock);--ordax-navigation-control-height:44px;
  --background:var(--md-canvas);--foreground:var(--md-ink);--card:var(--md-surface);--secondary:var(--md-subtle);--muted:var(--md-subtle);--muted-foreground:var(--md-muted);--primary:var(--md-accent);--primary-foreground:var(--md-accent-text);--accent:var(--md-accent-soft);--accent-foreground:var(--md-accent);--border:var(--md-border);--sidebar-surface:var(--md-rail);

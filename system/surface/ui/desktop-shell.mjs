@@ -176,16 +176,22 @@ export function createDesktopShellMarkup(localization) {
           <div class="ordax-home-panel" data-central-presentation>
             <div class="ordax-home-intro">
               <p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p>
-              <h1 id="surface-home-title" class="ordax-home-title">${localization.getLocale().toLowerCase().startsWith("en") ? "Your workspace" : "Seu espaço de trabalho"}</h1>
+              <h1 id="surface-home-title" class="ordax-home-title" data-home-greeting>${t("shell.home.greeting.morning")}</h1>
               <p class="ordax-home-tagline" data-home-tagline>${t("shell.home.tagline")}</p>
             </div>
-            <section class="ordax-home-hero" aria-label="OrdaX OS">
+            <section class="ordax-home-hero" aria-label="${t("shell.home.hero.aria")}">
               <img class="ordax-home-hero-image" src="../../surface/workspace/assets/alpine-day.jpg" alt="" loading="eager">
-    <div class="ordax-home-hero-copy"><p class="ordax-home-hero-label">OrdaX OS</p><h2>${localization.getLocale().toLowerCase().startsWith("en") ? "Everything you need, in one place." : "Tudo o que você precisa, em um só lugar."}</h2><p>${t("shell.home.tagline")}</p><button type="button" class="ordax-welcome-action" data-launcher-toggle><span class="ordax-rail-icon">${ICONS.apps}</span><span>${localization.getLocale().toLowerCase().startsWith("en") ? "Explore apps" : "Explorar aplicativos"}</span></button></div>
+              <div class="ordax-home-hero-copy">
+                <p class="ordax-home-hero-label" data-home-hero-label>${t("shell.home.hero.label")}</p>
+                <h2><span data-home-hero-title-first>${t("shell.home.hero.title.first")}</span><br><span data-home-hero-title-second>${t("shell.home.hero.title.second")}</span></h2>
+                <p><span data-home-hero-description-first>${t("shell.home.hero.description.first")}</span><br><span data-home-hero-description-second>${t("shell.home.hero.description.second")}</span></p>
+                <button type="button" class="ordax-welcome-action" data-launcher-toggle><span class="ordax-rail-icon">${ICONS.apps}</span><span data-home-hero-action>${t("shell.home.hero.action")}</span></button>
+              </div>
             </section>
-            <div class="ordax-home-meta">
-              <time class="ordax-clock" data-ordax-clock>--:--</time>
-              <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p>
+            <div class="ordax-home-meta" role="group" aria-label="${t("shell.home.datetime")}">
+              <span class="ordax-home-meta-icon" aria-hidden="true">${ICONS.clock}</span>
+              <span class="ordax-home-meta-copy"><time class="ordax-clock" data-ordax-clock>--:--</time>
+              <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p></span>
             </div>
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
               <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
@@ -324,7 +330,16 @@ export function syncDesktopShellLocalization(root, localization) {
   }
   text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
   root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
+  text("[data-home-greeting]", "shell.home.greeting.morning");
   text("[data-home-tagline]", "shell.home.tagline");
+  root.querySelector(".ordax-home-hero")?.setAttribute("aria-label", t("shell.home.hero.aria"));
+  text("[data-home-hero-label]", "shell.home.hero.label");
+  text("[data-home-hero-title-first]", "shell.home.hero.title.first");
+  text("[data-home-hero-title-second]", "shell.home.hero.title.second");
+  text("[data-home-hero-description-first]", "shell.home.hero.description.first");
+  text("[data-home-hero-description-second]", "shell.home.hero.description.second");
+  text("[data-home-hero-action]", "shell.home.hero.action");
+  root.querySelector(".ordax-home-meta")?.setAttribute("aria-label", t("shell.home.datetime"));
   text("#ordax-home-actions-title", "shell.home.quickAccess");
   for (const button of root.querySelectorAll("[data-launcher-toggle]")) {
     if (button.hasAttribute("data-meridian-search")) continue;
@@ -466,6 +481,7 @@ export function mountDesktopClock(
   const dateNode = root.querySelector("[data-ordax-date]");
   const quickDateNode = root.querySelector("[data-ordax-quick-date]");
   const timeZoneNode = root.querySelector("[data-ordax-timezone]");
+  const greetingNode = root.querySelector("[data-home-greeting]");
   if (!timeNode || !trayTimeNode || !quickTimeNode || !dateNode || !quickDateNode || !timeZoneNode) {
     throw new Error("OrdaX desktop clock requires clock, date and timezone nodes");
   }
@@ -473,6 +489,18 @@ export function mountDesktopClock(
   const render = () => {
     const { locale, timeZone } = regionalSettings(preferencePort?.getSnapshot() ?? {});
     const now = new Date();
+    const hour = Number(new Intl.DateTimeFormat(locale, {
+      timeZone,
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(now));
+    const greetingId = hour < 12
+      ? "shell.home.greeting.morning"
+      : hour < 18 ? "shell.home.greeting.afternoon" : "shell.home.greeting.evening";
+    if (greetingNode) {
+      greetingNode.textContent = localizationPort?.translate(greetingId)
+        ?? (hour < 12 ? "Bom dia." : hour < 18 ? "Boa tarde." : "Boa noite.");
+    }
     const formattedTime = new Intl.DateTimeFormat(locale, {
       timeZone,
       hour: "2-digit",
