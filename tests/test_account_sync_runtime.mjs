@@ -1218,3 +1218,83 @@ test("corrupt account appearance state stays intact and cannot be replayed or ov
   assert.equal(slot.load(), "{corrupt-appearance");
   appearance.destroy();
 });
+
+test("refused remote workspace restore cannot advance snapshot or incremental checkpoints", async () => {
+  const preferences = preferencesRuntime();
+  const preferenceSync = createPreferenceSyncRuntime(preferences, {
+    createIdempotencyKey: keyFactory("refused-workspace"),
+  });
+  let accepted = false;
+  let workspace = createDefaultWorkspaceRecord();
+  const store = {
+    schema: WORKSPACE_STORE_SCHEMA,
+    load: () => workspace,
+    save(next) {
+      if (!accepted) return false;
+      workspace = validateWorkspaceRecord(next);
+      return true;
+    },
+  };
+  const bridge = createWorkspaceMetadataBridge(store);
+  const checkpoints = checkpointStore();
+  const workspaceObject = (revision, appId) => ({
+    objectId: "workspace/portable",
+    dataClass: "workspace-metadata",
+    objectSchemaVersion: 1,
+    resolverVersion: 1,
+    serverRevision: revision,
+    tombstone: false,
+    payload: {
+      activeAreaId: "area-1",
+      areas: [
+        { id: "area-1", ordinal: 1, appIds: [appId] },
+        { id: "area-2", ordinal: 2, appIds: [] },
+      ],
+    },
+  });
+  const first = workspaceObject(3, "files");
+  const second = workspaceObject(4, "settings");
+  let pullCount = 0;
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() { return { cursor: 11, objects: [first] }; },
+    async pullChanges({ afterCursor }) {
+      if (afterCursor === 11) {
+        pullCount += 1;
+        return { afterCursor, nextCursor: 12, changes: [second] };
+      }
+      return { afterCursor, nextCursor: afterCursor, changes: [] };
+    },
+    async applyMutation() { throw new Error("Unexpected upload during restore proof"); },
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: signedInIdentity(),
+    transport, checkpointStore: checkpoints, preferenceSync, preferences,
+    workspaceMetadataSource: bridge.source, workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("refused-workspace-account"),
+  });
+  await sync.refresh();
+  assert.equal(sync.getSnapshot().accountContinuity, "not-active");
+  assert.equal(checkpoints.peek(), null, "rejected initial restore must not publish any cursor");
+  assert.equal(bridge.source.getSnapshot().areas[0].appIds.length, 0);
+
+  accepted = true;
+  await sync.refresh();
+  assert.equal(sync.getSnapshot().accountContinuity, "active");
+  assert.deepEqual(bridge.source.getSnapshot().areas[0].appIds, ["files"]);
+
+  accepted = false;
+  await sync.refresh();
+  assert.equal(sync.getSnapshot().accountContinuity, "not-active");
+  assert.deepEqual(bridge.source.getSnapshot().areas[0].appIds, ["files"]);
+  assert.equal(pullCount, 1, "first incremental attempt must reach the refused workspace");
+
+  accepted = true;
+  await sync.refresh();
+  assert.equal(sync.getSnapshot().accountContinuity, "active");
+  assert.deepEqual(bridge.source.getSnapshot().areas[0].appIds, ["settings"],
+    "same remote revision must be retried after the denied write is fixed");
+  assert.ok(pullCount >= 2, "failed incremental page must be retried, not skipped");
+  sync.destroy();
+  preferenceSync.destroy();
+});
