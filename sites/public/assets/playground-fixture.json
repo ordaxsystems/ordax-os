@@ -426,7 +426,11 @@
       },
       {
         "path": "system/surface/workspace/components/central/profile-catalog.tsx",
-        "sha256": "7d3f368bc9a1c88dca625ad8ff025d04f7b065e3b9b85fcc5f33acc453842677"
+        "sha256": "83842c5abf38a1a9409b656c9ad71592e7d303f553696f7bd31632a1285789bc"
+      },
+      {
+        "path": "system/surface/workspace/components/central/profile-store-app-rows.tsx",
+        "sha256": "48ec234ca94aa1096966f466872ef983970ea95424e3ea06637ff3edd5013ef1"
       },
       {
         "path": "system/surface/workspace/components/central/service-overview.tsx",
