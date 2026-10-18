@@ -69,7 +69,11 @@ export function createWorkspaceMetadataBridge(workspaceStore) {
     save(workspaceRecord) {
       const validated = validateWorkspaceRecord(workspaceRecord);
       const saved = baseStore.save(validated);
-      update(validated);
+      // A blocked or rejected account partition must not be projected as
+      // accepted workspace state. Session-only adapters may return false
+      // while still accepting a volatile record, so read the single owner
+      // back instead of interpreting the boolean as the entire state.
+      update(baseStore.load());
       return saved;
     },
   });
