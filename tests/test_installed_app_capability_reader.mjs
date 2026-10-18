@@ -134,3 +134,27 @@ test("unavailable device, malformed policy and extra authority never expose capa
     capabilityReader: reader(), resolveCaller: async () => current,
   }), /trusted host resolvers/);
 });
+
+test("host caller and policy decision reject accessor and symbol-based identity objects", async () => {
+  const base = caller();
+  const attacker = { ...base };
+  Object.defineProperty(attacker, "appId", {
+    enumerable: true,
+    get() { throw new Error("untrusted accessor must not be executed"); },
+  });
+  const hostileCaller = createInstalledAppCapabilityReader({
+    capabilityReader: reader(),
+    resolveCaller: async () => attacker,
+    readAllowedCapabilities: async () => { throw new Error("must never read a grant"); },
+  });
+  await assert.rejects(() => hostileCaller.capabilities(), /accessor fields/);
+
+  const scope = decision(base, [{ id: "orders.update", modes: ["write"] }]);
+  const extra = { ...scope, [Symbol("untrusted")]: "authority" };
+  const hostilePolicy = createInstalledAppCapabilityReader({
+    capabilityReader: reader(),
+    resolveCaller: async () => base,
+    readAllowedCapabilities: async () => extra,
+  });
+  await assert.rejects(() => hostilePolicy.capabilities(), /fields are incompatible/);
+});
