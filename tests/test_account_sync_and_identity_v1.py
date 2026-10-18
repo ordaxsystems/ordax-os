@@ -1,5 +1,8 @@
 import json
+import runpy
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -237,6 +240,69 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("retention-days: 14", text)
         self.assertNotIn("echo \"$ORDAX_PROOF_ACCOUNT_EMAIL\"", text)
         self.assertNotIn("echo \"$ORDAX_PROOF_ACCOUNT_PASSWORD\"", text)
+
+    def test_two_client_proof_receipt_is_owned_by_one_workflow_step(self):
+        text = TWO_CLIENT_WORKFLOW.read_text(encoding="utf-8")
+        producer = text.split("      - name: Prove two independent account-sync sessions", 1)[1].split(
+            "      - name: Validate sanitized receipt shape", 1
+        )[0]
+        validator = text.split("      - name: Validate sanitized receipt shape", 1)[1].split(
+            "      - name: Upload sanitized continuity proof only", 1
+        )[0]
+        uploader = text.split("      - name: Upload sanitized continuity proof only", 1)[1]
+
+        self.assertIn("id: continuity", producer)
+        self.assertIn('>> "$GITHUB_OUTPUT"', producer)
+        self.assertIn("test -s \"$ORDAX_PROOF_RECEIPT_PATH\"", producer)
+        self.assertIn("printf 'proof_receipt=%s\\n'", producer)
+        self.assertEqual(
+            text.count("${{ runner.temp }}/account-sync-two-client-proof.json"), 1,
+            "one canonical producer owns the proof receipt path",
+        )
+        output = "${{ steps.continuity.outputs.proof_receipt }}"
+        self.assertIn(output, validator)
+        self.assertIn("path: " + output, uploader)
+        self.assertNotIn("python - \"$ORDAX_PROOF_RECEIPT_PATH\"", validator)
+
+    def test_two_client_proof_refuses_redirects_before_transferring_credentials(self):
+        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
+        paths = []
+
+        class RedirectingGateway(BaseHTTPRequestHandler):
+            def do_POST(self):
+                paths.append(self.path)
+                self.send_response(302)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Location", "/unexpected")
+                self.end_headers()
+                self.wfile.write(b'{"error":"redirect-refused"}')
+
+            def do_GET(self):
+                paths.append(self.path)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"authenticated":true}')
+
+            def log_message(self, _format, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), RedirectingGateway)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            proof = scope["Client"](f"http://127.0.0.1:{server.server_port}")
+            status, result = proof.request(
+                "POST", "/auth/login", b"email=synthetic&password=synthetic",
+                "application/x-www-form-urlencoded",
+            )
+            self.assertEqual(status, 302)
+            self.assertEqual(result, {"error": "redirect-refused"})
+            self.assertEqual(paths, ["/auth/login"], "the proof must not follow a redirect")
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=3)
 
     def test_session_revocation_proof_keeps_credentials_and_tokens_ephemeral(self):
         text = SESSION_REVOCATION_PROOF.read_text(encoding="utf-8")
