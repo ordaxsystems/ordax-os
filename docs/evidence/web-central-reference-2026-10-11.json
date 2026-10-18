@@ -798,8 +798,8 @@
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "76a32ba6307cc1ba1f524c57b2e33ed058cb3ad1368ee508286c919fbf43e395",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup.",
+      "adaptedSha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup. 2026-10-18: Shared Meridian rail destinations and canonical Web/Native window label ownership.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -820,6 +820,11 @@
           "date": "2026-10-17",
           "sha256": "fe209c7522317ef35d144b8e150d526fdbc00b55ba132377be523da67679ced9",
           "reason": "Before canonical managed-window alias resolver and strict destination lookup"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "76a32ba6307cc1ba1f524c57b2e33ed058cb3ad1368ee508286c919fbf43e395",
+          "reason": "Before reviewed 2026-10-18 Native/Web Meridian alignment"
         }
       ]
     },
@@ -827,13 +832,18 @@
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "e6e318d5093b710e3e5c2e90e01a656d2e75bda8e72bf11bb2aa47e26e8036d6",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-16: Account keeps signup visible but disabled until the canonical server policy grants register; existing identity-actions own navigation, revalidation and session state. No credentials or legal acceptance are collected by this panel. 2026-10-16: authenticated account presentation separates confirmed identity from pending services; management links use the canonical public portal origin. Account redesign: in-system session/context and local shortcuts, canonical portal management in a labelled new tab; readable rail profile and status, without duplicating account authority.",
+      "adaptedSha256": "db4b8fdc2e108eb138d62bc1f58a483122f2df3a28f6678b5153fd8cb9fad663",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-16: Account keeps signup visible but disabled until the canonical server policy grants register; existing identity-actions own navigation, revalidation and session state. No credentials or legal acceptance are collected by this panel. 2026-10-16: authenticated account presentation separates confirmed identity from pending services; management links use the canonical public portal origin. Account redesign: in-system session/context and local shortcuts, canonical portal management in a labelled new tab; readable rail profile and status, without duplicating account authority. 2026-10-18: Unified Meridian chrome primitives and Home presentation retain existing state/host contracts.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
           "sha256": "7224aea796e80545360098973abb44e655b57777759d3f357dd4121583ea555d",
           "reason": "Baseline before explicitly requested Meridian integration"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "e6e318d5093b710e3e5c2e90e01a656d2e75bda8e72bf11bb2aa47e26e8036d6",
+          "reason": "Before reviewed 2026-10-18 Native/Web Meridian alignment"
         }
       ]
     },
@@ -882,8 +892,15 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12)"
+      "adaptedSha256": "6bc3435891a3350ffaadf9301d3a4e0b8cb8c39b6b3907c65c18f16b88980c81",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) 2026-10-18: Meridian visual tokens, grouped rail sizing and Native/Web layout continuity replace previous geometry.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-18",
+          "sha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8",
+          "reason": "Before reviewed 2026-10-18 Native/Web Meridian alignment"
+        }
+      ]
     },
     {
       "source": "src/assets/alpine-day.jpg",
