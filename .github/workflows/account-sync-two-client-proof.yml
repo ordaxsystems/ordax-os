@@ -35,15 +35,21 @@ jobs:
           echo 'ACCOUNT_SYNC_PROOF_CREDENTIALS_PRINTED=NO'
 
       - name: Prove two independent account-sync sessions
+        id: continuity
+        shell: bash
         env:
           ORDAX_PROOF_RECEIPT_PATH: ${{ runner.temp }}/account-sync-two-client-proof.json
-        run: python tools/account-sync/prove_two_clients.py
+        run: |
+          set -euo pipefail
+          python tools/account-sync/prove_two_clients.py
+          test -s "$ORDAX_PROOF_RECEIPT_PATH"
+          printf 'proof_receipt=%s\\n' "$ORDAX_PROOF_RECEIPT_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Validate sanitized receipt shape
         shell: bash
         run: |
           set -euo pipefail
-          python - "$ORDAX_PROOF_RECEIPT_PATH" <<'PY'
+          python - "${{ steps.continuity.outputs.proof_receipt }}" <<'PY'
           import json
           import pathlib
           import sys
@@ -74,6 +80,6 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: account-sync-two-client-proof-${{ github.sha }}
-          path: ${{ runner.temp }}/account-sync-two-client-proof.json
+          path: ${{ steps.continuity.outputs.proof_receipt }}
           if-no-files-found: error
           retention-days: 14
