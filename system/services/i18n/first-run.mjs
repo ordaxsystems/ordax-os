@@ -1,4 +1,4 @@
-const TABLES = Object.freeze({
+﻿const TABLES = Object.freeze({
   "en-US": Object.freeze({
     "Primeiro uso": "First use",
     "Início": "Start",
@@ -135,6 +135,11 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Account authenticated. You can use it on this USB drive.",
     "A autenticação foi iniciada. O uso local continua disponível.": "Authentication was started. Local use remains available.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "The account action could not be completed. Local use remains available.",
+    "Mostrar senha": "Show password",
+    "Ocultar senha": "Hide password",
+    "E-mail ou senha incorretos.": "Incorrect email or password.",
+    "Muitas tentativas. Tente novamente em alguns instantes.": "Too many attempts. Try again in a moment.",
+    "A Conta OrdaX está temporariamente indisponível. O uso local continua disponível.": "The OrdaX Account is temporarily unavailable. Local use remains available.",
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "First-use state could not be confirmed on the USB drive. The assistant remains open so the configuration is not lost."
   }),
   "es-ES": Object.freeze({
@@ -273,6 +278,11 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Cuenta autenticada. Puedes usarla en esta memoria USB.",
     "A autenticação foi iniciada. O uso local continua disponível.": "La autenticación se inició. El uso local sigue disponible.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "No se pudo completar la acción de cuenta. El uso local sigue disponible.",
+    "Mostrar senha": "Mostrar contraseña",
+    "Ocultar senha": "Ocultar contraseña",
+    "E-mail ou senha incorretos.": "Correo electrónico o contraseña incorrectos.",
+    "Muitas tentativas. Tente novamente em alguns instantes.": "Demasiados intentos. Inténtalo de nuevo en unos instantes.",
+    "A Conta OrdaX está temporariamente indisponível. O uso local continua disponível.": "La Cuenta OrdaX no está disponible temporalmente. El uso local sigue disponible.",
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "No se pudo confirmar el guardado del primer uso en la memoria USB. El asistente permanece abierto para no perder la configuración."
   }),
   "de-DE": Object.freeze({
@@ -411,6 +421,11 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Konto authentifiziert. Du kannst es auf diesem USB-Stick verwenden.",
     "A autenticação foi iniciada. O uso local continua disponível.": "Die Authentifizierung wurde gestartet. Die lokale Nutzung bleibt verfügbar.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "Die Kontoaktion konnte nicht abgeschlossen werden. Die lokale Nutzung bleibt verfügbar.",
+    "Mostrar senha": "Passwort anzeigen",
+    "Ocultar senha": "Passwort ausblenden",
+    "E-mail ou senha incorretos.": "E-Mail oder Passwort ist falsch.",
+    "Muitas tentativas. Tente novamente em alguns instantes.": "Zu viele Versuche. Versuche es gleich noch einmal.",
+    "A Conta OrdaX está temporariamente indisponível. O uso local continua disponível.": "Das OrdaX-Konto ist vorübergehend nicht verfügbar. Die lokale Nutzung bleibt verfügbar.",
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "Der Einrichtungsstatus konnte nicht auf dem USB-Stick bestätigt werden. Der Assistent bleibt geöffnet, damit die Konfiguration nicht verloren geht."
   }),
   "fr-FR": Object.freeze({
@@ -549,6 +564,11 @@ const TABLES = Object.freeze({
     "Conta autenticada. Você pode usá-la neste pendrive.": "Compte authentifié. Vous pouvez l'utiliser sur cette clé USB.",
     "A autenticação foi iniciada. O uso local continua disponível.": "L'authentification a commencé. L'utilisation locale reste disponible.",
     "A ação de conta não pôde ser concluída. O uso local continua disponível.": "L'action du compte n'a pas pu être terminée. L'utilisation locale reste disponible.",
+    "Mostrar senha": "Afficher le mot de passe",
+    "Ocultar senha": "Masquer le mot de passe",
+    "E-mail ou senha incorretos.": "E-mail ou mot de passe incorrect.",
+    "Muitas tentativas. Tente novamente em alguns instantes.": "Trop de tentatives. Réessayez dans un instant.",
+    "A Conta OrdaX está temporariamente indisponível. O uso local continua disponível.": "Le compte OrdaX est temporairement indisponible. L’utilisation locale reste disponible.",
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "L'enregistrement de la première utilisation sur la clé USB n'a pas pu être confirmé. L'assistant reste ouvert afin de ne pas perdre la configuration."
   })
 });

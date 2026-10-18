@@ -222,6 +222,45 @@
   font: inherit;
 }
 
+.ordax-first-run-password-control {
+  position: relative;
+  min-width: 0;
+}
+
+.ordax-first-run-password-control input {
+  padding-right: 54px;
+}
+
+.ordax-first-run-password-visibility {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  width: 44px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--ordax-radius-sm);
+  background: transparent;
+  color: var(--ordax-muted);
+  cursor: pointer;
+}
+
+.ordax-first-run-password-visibility:hover:not(:disabled),
+.ordax-first-run-password-visibility:focus-visible:not(:disabled) {
+  background: var(--ordax-hover-bg);
+  color: var(--ordax-text);
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: -1px;
+}
+
+.ordax-first-run-password-visibility svg {
+  width: 20px;
+  height: 20px;
+}
+
 .ordax-first-run-network-toolbar {
   display: flex;
   align-items: center;

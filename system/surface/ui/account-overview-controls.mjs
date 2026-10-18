@@ -70,6 +70,40 @@ function node(documentObject, tag, className, text) {
   return element;
 }
 
+function credentialActionFailureKey(error) {
+  const status = Number(error?.status);
+  if (status === 401) return "account.credentials.invalid";
+  if (status === 429) return "account.credentials.rateLimited";
+  if (status === 503) return "account.credentials.unavailable";
+  return "account.action.failed";
+}
+
+function passwordVisibilityIcon(documentObject, visible) {
+  const svg = documentObject.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const eye = documentObject.createElementNS("http://www.w3.org/2000/svg", "path");
+  eye.setAttribute("d", "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z");
+  const pupil = documentObject.createElementNS("http://www.w3.org/2000/svg", "circle");
+  pupil.setAttribute("cx", "12");
+  pupil.setAttribute("cy", "12");
+  pupil.setAttribute("r", "2.5");
+  svg.append(eye, pupil);
+  if (visible) {
+    const slash = documentObject.createElementNS("http://www.w3.org/2000/svg", "path");
+    slash.setAttribute("d", "m4 4 16 16");
+    svg.append(slash);
+  }
+  return svg;
+}
+
 function sessionLabel(snapshot, t) {
   if (snapshot.state === "signed-in") return t("account.identity.signedIn");
   if (snapshot.state === "signed-out") return t("account.identity.signedOut");
@@ -212,6 +246,7 @@ export function mountAccountOverviewControls(
   let pendingMemoryConflict = null;
   let credentialEmailDraft = "";
   let credentialPasswordDraft = "";
+  let credentialPasswordVisible = false;
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
@@ -394,16 +429,32 @@ export function mountAccountOverviewControls(
       emailInput.disabled = pendingAction !== null;
       emailLabel.append(emailInput);
 
-      const passwordLabel = node(documentObject, "label", "ordax-account-field");
+      const passwordLabel = node(documentObject, "div", "ordax-account-field");
       passwordLabel.append(node(documentObject, "span", "", t("account.credentials.password")));
+      const passwordControl = node(documentObject, "div", "ordax-account-password-control");
       const passwordInput = documentObject.createElement("input");
-      passwordInput.type = "password";
+      passwordInput.type = credentialPasswordVisible ? "text" : "password";
       passwordInput.autocomplete = "current-password";
       passwordInput.maxLength = 1024;
       passwordInput.value = credentialPasswordDraft;
       passwordInput.dataset.accountCredentialPassword = "";
       passwordInput.disabled = pendingAction !== null;
-      passwordLabel.append(passwordInput);
+      passwordInput.setAttribute("aria-label", t("account.credentials.password"));
+      const passwordVisibility = node(documentObject, "button", "ordax-account-password-visibility");
+      passwordVisibility.type = "button";
+      passwordVisibility.dataset.accountCredentialPasswordVisibility = "";
+      passwordVisibility.disabled = pendingAction !== null;
+      passwordVisibility.setAttribute("aria-pressed", String(credentialPasswordVisible));
+      passwordVisibility.setAttribute(
+        "aria-label",
+        t(credentialPasswordVisible ? "account.credentials.hidePassword" : "account.credentials.showPassword"),
+      );
+      passwordVisibility.title = t(
+        credentialPasswordVisible ? "account.credentials.hidePassword" : "account.credentials.showPassword",
+      );
+      passwordVisibility.append(passwordVisibilityIcon(documentObject, credentialPasswordVisible));
+      passwordControl.append(passwordInput, passwordVisibility);
+      passwordLabel.append(passwordControl);
 
       form.append(emailLabel, passwordLabel);
 
@@ -1262,6 +1313,7 @@ export function mountAccountOverviewControls(
         }
       : null;
     credentialPasswordDraft = "";
+    credentialPasswordVisible = false;
     const ordinal = ++actionOrdinal;
     pendingAction = action;
     actionMessage = "";
@@ -1283,9 +1335,11 @@ export function mountAccountOverviewControls(
         await actionsPort.execute(action);
       }
       if (destroyed || ordinal !== actionOrdinal) return;
-    } catch {
+    } catch (error) {
       if (destroyed || ordinal !== actionOrdinal) return;
-      actionMessage = t("account.action.failed");
+      actionMessage = credentialInput
+        ? t(credentialActionFailureKey(error))
+        : t("account.action.failed");
     } finally {
       if (!destroyed && ordinal === actionOrdinal) {
         pendingAction = null;
@@ -1391,6 +1445,19 @@ export function mountAccountOverviewControls(
   };
 
   const onClick = (event) => {
+    const passwordVisibility = event.target.closest("[data-account-credential-password-visibility]");
+    if (passwordVisibility && root.contains(passwordVisibility)) {
+      credentialPasswordVisible = !credentialPasswordVisible;
+      replaceView();
+      const passwordInput = root.querySelector("[data-account-credential-password]");
+      if (passwordInput instanceof HTMLInputElement) {
+        passwordInput.focus();
+        const caret = passwordInput.value.length;
+        passwordInput.setSelectionRange(caret, caret);
+      }
+      return;
+    }
+
     const sectionButton = event.target.closest("[data-account-section]");
     if (
       sectionButton
