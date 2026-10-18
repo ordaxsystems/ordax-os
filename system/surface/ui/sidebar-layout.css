@@ -101,7 +101,7 @@
 .meridian-workspace .ordax-product-sidebar .meridian-brand-home { display:block; width:100%; padding:0; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar .brand { display:flex; align-items:center; gap:10px; padding:0 8px; }
 .meridian-workspace .ordax-product-sidebar .brand-wordmark { display:block; }
-.meridian-workspace .ordax-product-sidebar .meridian-brand-symbol { display:block; flex:0 0 auto; width:30px; height:30px; background:currentColor; mask:url("./brand/ordax-symbol.png") center / contain no-repeat; -webkit-mask:url("./brand/ordax-symbol.png") center / contain no-repeat; }
+.meridian-workspace .ordax-product-sidebar .meridian-brand-symbol { display:block; flex:0 0 auto; width:30px; height:30px; }
 .meridian-workspace .ordax-product-sidebar .brand-name { font-size:1.5rem; font-weight:550; letter-spacing:-.06em; }
 .meridian-workspace .ordax-product-sidebar .brand-sub { display:block; color:var(--md-rail-muted); font-size:.5rem; font-weight:400; letter-spacing:.2em; }
 .meridian-workspace .ordax-product-sidebar :is(.sidebar-home-row,.meridian-native-home-nav) { display:flex; flex-direction:column; gap:14px; min-width:0; }
@@ -144,7 +144,9 @@
 .meridian-workspace .ordax-product-sidebar .ordax-space-switcher-mark svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
 .meridian-workspace .ordax-product-sidebar .ordax-space-switcher-chevron { color:var(--md-rail-muted); }
 .meridian-workspace .ordax-product-sidebar .ordax-sidebar-toggle,
-.meridian-workspace .ordax-product-sidebar .sidebar-collapse { position:static; display:flex; align-items:center; justify-content:center; width:100%; min-width:0; height:44px; min-height:44px; padding:0; transform:none; border:1px solid var(--md-border); border-radius:var(--md-radius-small); background:var(--md-surface); color:var(--md-ink); cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar .sidebar-collapse { position:static; display:flex; align-items:center; justify-content:center; width:36px; min-width:36px; height:36px; min-height:36px; margin-inline:auto; padding:0; transform:none; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--md-rail-muted); cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar .sidebar-collapse:hover { border-color:var(--md-rail-border); background:var(--md-rail-selected); color:var(--md-rail-text); }
+.meridian-workspace .ordax-product-sidebar .sidebar-collapse:focus-visible { outline:2px solid var(--md-focus); outline-offset:2px; }
 .meridian-workspace .ordax-product-sidebar :is(.ordax-sidebar-toggle,.sidebar-collapse) svg { display:block; width:16px; height:16px; stroke:currentColor; }
 .meridian-workspace .ordax-product-sidebar .ordax-power-slot { padding:0; margin:0; }
 .meridian-workspace[data-view="desktop"] .ordax-product-sidebar { gap:20px; padding:24px 10px 16px; }
