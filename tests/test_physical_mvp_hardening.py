@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import unittest
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 KERNEL_FRAGMENT = ROOT / "bootstrap" / "kernel" / "config" / "ordax.fragment"
@@ -56,12 +57,32 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
 
     def test_first_run_footer_remains_in_its_own_visible_layout_row(self):
         text = FIRST_RUN_CSS.read_text(encoding="utf-8")
-        self.assertIn("grid-template-rows: minmax(0, 1fr) auto", text)
-        self.assertIn("min-height: 0", text)
-        self.assertIn("height: min(760px, calc(100dvh - 36px))", text)
-        self.assertIn(".ordax-first-run-footer", text)
-        self.assertIn("flex: 0 0 auto", text)
-        self.assertIn("grid-template-columns: repeat(7, 1fr)", text)
+
+        def declarations(selector):
+            pattern = re.escape(selector) + r"\\s*\\{([^{}]*)\\}"
+            match = re.search(pattern, text)
+            self.assertIsNotNone(match, f"Missing canonical First Run selector {selector}")
+            return match.group(1)
+
+        # Meridian's canonical layout must retain the independently visible
+        # footer row: the body scrolls, the footer does not scroll out.
+        card = declarations(".ordax-first-run-card")
+        body = declarations(".ordax-first-run-body")
+        footer = declarations(".ordax-first-run-footer")
+        shell = declarations(".ordax-first-run-shell")
+        self.assertRegex(card, r"display\\s*:\\s*grid")
+        self.assertRegex(card, r"grid-template-rows\\s*:\\s*minmax\\(0,\\s*1fr\\)\\s+auto\\s*;")
+        self.assertRegex(card, r"min-height\\s*:\\s*0")
+        self.assertRegex(body, r"overflow\\s*:\\s*auto")
+        self.assertRegex(footer, r"flex\\s*:\\s*0\\s+0\\s+auto")
+        self.assertRegex(shell, r"height\\s*:\\s*min\\(\\d+px,\\s*calc\\(100dvh\\s*-\\s*\\d+px\\)\\)")
+
+        # Eight canonical steps share a responsive column flow; an obsolete
+        # seven-step fixed grid would hide the current navigation.
+        self.assertRegex(text, r"@media\\s*\\(max-width:\\s*820px\\)")
+        self.assertRegex(text, r"grid-auto-flow\\s*:\\s*column")
+        self.assertRegex(text, r"grid-auto-columns\\s*:\\s*minmax\\(0,\\s*1fr\\)")
+
 
 
 if __name__ == "__main__":
