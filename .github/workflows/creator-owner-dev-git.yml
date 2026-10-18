@@ -451,6 +451,7 @@ jobs:
             --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
             --output "$RUNNER_TEMP/owner-qemu-offline-handoff.json" \
             --framebuffer-out "$RUNNER_TEMP/owner-qemu-framebuffer.ppm" \
+            --serial-out "$RUNNER_TEMP/owner-qemu-serial.log" \
             --timeout-seconds 300
           python3 - "$RUNNER_TEMP/owner-qemu-offline-handoff.json" <<'PY'
           import json, sys
@@ -474,6 +475,7 @@ jobs:
           name: owner-usb-qemu-framebuffer
           path: |
             ${{ runner.temp }}/owner-qemu-framebuffer.ppm
+            ${{ runner.temp }}/owner-qemu-serial.log
             ${{ runner.temp }}/owner-qemu-offline-handoff.json
           if-no-files-found: ignore
           retention-days: 7
