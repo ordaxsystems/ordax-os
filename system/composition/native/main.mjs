@@ -796,10 +796,18 @@ async function start() {
       reportClientDiagnostic("network-tray-status", error);
     }
   }
-  const appearanceSyncStateStore = syncStateRegistry?.open("appearance") ?? null;
   let syncMutationOrdinal = 0;
-  const preferenceSync = createPreferenceSyncRuntime(surface.preferences, {
-    syncStateStore: appearanceSyncStateStore,
+  const preferenceSync = createPreferenceSyncRuntime(surface.preferences, syncStateRegistry === null
+    ? {
+        createIdempotencyKey() {
+          syncMutationOrdinal += 1;
+          const uuid = window.crypto?.randomUUID?.();
+          return `pref:${uuid ? uuid.replaceAll("-", "") : `${Date.now().toString(36)}:${syncMutationOrdinal}`}`;
+        },
+      }
+    : {
+    identitySession,
+    syncStateRegistry,
     createIdempotencyKey() {
       syncMutationOrdinal += 1;
       const uuid = window.crypto?.randomUUID?.();
@@ -812,6 +820,7 @@ async function start() {
     identitySession,
     transport: syncTransport,
     checkpointStore: syncCheckpointStore,
+    syncStateRegistry,
     preferenceSync,
     preferences: surface.preferences,
     workspaceMetadataSource: workspaceMetadata.source,

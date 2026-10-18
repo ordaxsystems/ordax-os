@@ -6,6 +6,8 @@ import {
 } from "../../contracts/sync-runtime.mjs";
 import { assertSyncCheckpointStore } from "../../contracts/sync-checkpoint-store.mjs";
 import { createSessionSyncCheckpointStore } from "./session-checkpoint-store.mjs";
+import { SYNC_STATE_CONTAINER_SCHEMA } from "./state-store-registry.mjs";
+import { assertSyncStateStore } from "../../contracts/sync-state-store.mjs";
 import { assertSyncTransportPort } from "../../contracts/sync-transport.mjs";
 import {
   assertWorkspaceMetadataSource,
@@ -43,6 +45,7 @@ const TRACKED_OBJECT_IDS = Object.freeze([
   PORTABLE_PREFERENCES_OBJECT_ID,
   PORTABLE_WORKSPACE_OBJECT_ID,
 ]);
+export const PORTABLE_PENDING_STATE_SCHEMA = "ordax.account-portable-pending/1";
 const PORTABLE_PREFERENCE_IDS = Object.freeze([
   ACCESSIBILITY_CONTRAST_PREFERENCE_ID,
   ACCESSIBILITY_MOTION_PREFERENCE_ID,
@@ -106,6 +109,46 @@ function mutation({ objectId, dataClass, baseServerRevision, payload, idempotenc
   });
 }
 
+function recoverPortablePending(store, subjectId) {
+  if (!store) return [];
+  const raw = store.load();
+  if (raw === null) return [];
+  const value = JSON.parse(raw);
+  if (
+    !value || value.$schema !== PORTABLE_PENDING_STATE_SCHEMA
+    || value.subjectId !== subjectId || !Array.isArray(value.mutations)
+    || value.mutations.length > 2
+  ) throw new Error("Account portable pending state requires explicit recovery");
+  const seen = new Set();
+  return value.mutations.map(item => {
+    const objectId = item?.objectId;
+    const kind = objectId === PORTABLE_PREFERENCES_OBJECT_ID
+      ? "preferences" : objectId === PORTABLE_WORKSPACE_OBJECT_ID
+        ? "workspace-metadata" : null;
+    if (
+      kind === null || seen.has(objectId) || item?.$schema !== SYNC_MUTATION_SCHEMA
+      || item.operation !== "upsert" || item.dataClass !== kind
+      || item.objectSchemaVersion !== 1 || item.resolverVersion !== 1
+      || typeof item.idempotencyKey !== "string"
+      || !/^[A-Za-z0-9._:-]{8,128}$/.test(item.idempotencyKey)
+    ) throw new Error("Account portable pending mutation requires explicit recovery");
+    seen.add(objectId);
+    const payload = kind === "preferences"
+      ? validatePortablePreferences(item.payload)
+      : remoteWorkspacePayload(item.payload);
+    return mutation({
+      objectId,
+      dataClass: kind,
+      baseServerRevision: requireRevision(item.baseServerRevision),
+      idempotencyKey: item.idempotencyKey,
+      payload: kind === "preferences" ? payload : {
+        activeAreaId: payload.activeAreaId,
+        areas: payload.areas,
+      },
+    });
+  });
+}
+
 function workspaceRecordFromMetadata(value) {
   const metadata = validateWorkspaceMetadata(value);
   const areas = metadata.areas.map((area) => {
@@ -156,6 +199,7 @@ export function createAccountSyncRuntime({
   identitySession,
   transport,
   checkpointStore = null,
+  syncStateRegistry = null,
   preferenceSync,
   preferences,
   workspaceMetadataSource,
@@ -173,9 +217,17 @@ export function createAccountSyncRuntime({
   const workspaceState = assertWorkspaceStore(workspaceStore);
   const memoryRuntime = optionalMemorySyncRuntime(memorySync);
   const nextKey = requireIdFactory(createIdempotencyKey);
+  if (syncStateRegistry !== null
+    && (syncStateRegistry.schema !== SYNC_STATE_CONTAINER_SCHEMA
+      || typeof syncStateRegistry.open !== "function")) {
+    throw new TypeError("Account portable pending state requires the canonical sync registry");
+  }
 
   const revisions = new Map(TRACKED_OBJECT_IDS.map((id) => [id, 0]));
   const pending = new Map();
+  let pendingStore = null;
+  let pendingPersisted = true;
+  let pendingOwner = null;
   const listeners = new Set();
   let activeSubjectId = null;
   let checkpointCursor = 0;
@@ -193,6 +245,49 @@ export function createAccountSyncRuntime({
   let retryRequested = false;
   let lastPreferenceFingerprint = fingerprint(portablePreferences(preferencePort.getSnapshot()));
   let lastWorkspaceFingerprint = fingerprint(workspaceSource.getSnapshot());
+  let lastIdentitySubject = null;
+
+  const persistPortablePending = () => {
+    if (syncStateRegistry === null || pendingOwner === null) return true;
+    if (!pendingStore) return false;
+    try {
+      pendingPersisted = false;
+      const payload = JSON.stringify({
+        $schema: PORTABLE_PENDING_STATE_SCHEMA,
+        subjectId: pendingOwner,
+        mutations: [...pending.values()],
+      });
+      const ok = pendingStore.save(payload);
+      return ok === true;
+    } catch {
+      return false;
+    }
+  };
+  const confirmPortablePending = async (subjectId) => {
+    if (syncStateRegistry === null) return true;
+    if (pendingOwner !== subjectId || !pendingStore) return false;
+    try {
+      if (await pendingStore.flush() !== true) return false;
+      if (!isCurrentSubject(subjectId) || pendingOwner !== subjectId) return false;
+      pendingPersisted = true;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const switchPortablePending = (subjectId) => {
+    pending.clear();
+    pendingOwner = null;
+    pendingStore = null;
+    pendingPersisted = true;
+    if (subjectId === null) return;
+    const nextStore = syncStateRegistry === null ? null
+      : assertSyncStateStore(syncStateRegistry.open("portable-pending", { partitionKey: subjectId }));
+    const restored = recoverPortablePending(nextStore, subjectId);
+    for (const entry of restored) pending.set(entry.objectId, entry);
+    pendingOwner = subjectId;
+    pendingStore = nextStore;
+  };
 
   const resetRevisions = () => {
     for (const id of TRACKED_OBJECT_IDS) revisions.set(id, 0);
@@ -225,6 +320,7 @@ export function createAccountSyncRuntime({
   };
 
   const recoverCheckpoint = (subjectId) => {
+    switchPortablePending(subjectId);
     activeSubjectId = subjectId;
     checkpointCursor = 0;
     checkpointLoaded = false;
@@ -294,8 +390,12 @@ export function createAccountSyncRuntime({
     const memorySnapshot = memoryRuntime?.getSnapshot() ?? null;
     const otherPending = pending.size + Number(preferencesDirty) + Number(workspaceDirty);
     const memoryPending = memorySnapshot?.pendingMutationCount ?? 0;
-    const anySessionPending = otherPending > 0
-      || (memoryPending > 0 && memorySnapshot?.queuePersistence === "session");
+    const anySessionPending = (
+      otherPending > 0 && (
+        preferencesDirty || workspaceDirty
+        || syncStateRegistry?.scope !== "device" || !pendingPersisted
+      )
+    ) || (memoryPending > 0 && memorySnapshot?.queuePersistence === "session");
     return validateSyncRuntimeSnapshot({
       transport: identitySnapshot.state === "unavailable" ? "host-required" : "available",
       accountContinuity:
@@ -328,6 +428,7 @@ export function createAccountSyncRuntime({
         idempotencyKey: nextKey("preferences"),
       }),
     );
+    persistPortablePending();
     emit();
     void flush();
   };
@@ -349,6 +450,7 @@ export function createAccountSyncRuntime({
         idempotencyKey: nextKey("workspace"),
       }),
     );
+    persistPortablePending();
     emit();
     void flush();
   };
@@ -369,6 +471,7 @@ export function createAccountSyncRuntime({
       idempotencyKey: nextKey(`${current.dataClass}-rebase`),
     });
     pending.set(objectId, rebased);
+    persistPortablePending();
     persistCheckpoint();
     return rebased;
   };
@@ -422,6 +525,7 @@ export function createAccountSyncRuntime({
 
   const flushPortableObject = async (objectId, initialMutation, subjectId) => {
     if (!isCurrentSubject(subjectId)) return;
+    if (!(await confirmPortablePending(subjectId))) return;
     let current = initialMutation;
 
     for (let attempt = 0; attempt <= MAX_CONFLICT_REBASE_ATTEMPTS; attempt += 1) {
@@ -456,6 +560,7 @@ export function createAccountSyncRuntime({
       const latest = pending.get(objectId);
       if (latest?.idempotencyKey === current.idempotencyKey) {
         pending.delete(objectId);
+        persistPortablePending();
       } else if (latest) {
         rebasePortablePending(objectId, revision);
         retryRequested = true;
@@ -474,6 +579,8 @@ export function createAccountSyncRuntime({
     syncing = true;
     retryRequested = false;
     try {
+      if (!(await preferenceSync.flushDurably?.() ?? true)) return;
+      if (!isCurrentSubject(identitySnapshot.subjectId)) return;
       await flushAppearance(identitySnapshot.subjectId);
       if (!isCurrentSubject(identitySnapshot.subjectId)) return;
       for (const [objectId, pendingMutation] of [...pending]) {
@@ -574,29 +681,41 @@ export function createAccountSyncRuntime({
 
     const prefs = byId.get(PORTABLE_PREFERENCES_OBJECT_ID);
     if (prefs) {
-      revisions.set(PORTABLE_PREFERENCES_OBJECT_ID, requireRevision(prefs.serverRevision));
-      if (prefs.tombstone) {
+      const previous = revisions.get(PORTABLE_PREFERENCES_OBJECT_ID) ?? 0;
+      const current = requireRevision(prefs.serverRevision);
+      revisions.set(PORTABLE_PREFERENCES_OBJECT_ID, current);
+      if (pending.has(PORTABLE_PREFERENCES_OBJECT_ID)) {
+        if (current > previous || pending.get(PORTABLE_PREFERENCES_OBJECT_ID).baseServerRevision !== current) {
+          rebasePortablePending(PORTABLE_PREFERENCES_OBJECT_ID, current);
+        }
+      } else if (prefs.tombstone) {
         queuePreferences();
       } else if (preferencesDirty) {
         queuePreferences();
       } else {
         applyRemotePreferences(prefs);
       }
-    } else {
+    } else if (!pending.has(PORTABLE_PREFERENCES_OBJECT_ID)) {
       queuePreferences();
     }
 
     const workspace = byId.get(PORTABLE_WORKSPACE_OBJECT_ID);
     if (workspace) {
-      revisions.set(PORTABLE_WORKSPACE_OBJECT_ID, requireRevision(workspace.serverRevision));
-      if (workspace.tombstone) {
+      const previous = revisions.get(PORTABLE_WORKSPACE_OBJECT_ID) ?? 0;
+      const current = requireRevision(workspace.serverRevision);
+      revisions.set(PORTABLE_WORKSPACE_OBJECT_ID, current);
+      if (pending.has(PORTABLE_WORKSPACE_OBJECT_ID)) {
+        if (current > previous || pending.get(PORTABLE_WORKSPACE_OBJECT_ID).baseServerRevision !== current) {
+          rebasePortablePending(PORTABLE_WORKSPACE_OBJECT_ID, current);
+        }
+      } else if (workspace.tombstone) {
         queueWorkspace();
       } else if (workspaceDirty) {
         queueWorkspace();
       } else {
         applyRemoteWorkspace(workspace);
       }
-    } else {
+    } else if (!pending.has(PORTABLE_WORKSPACE_OBJECT_ID)) {
       queueWorkspace();
     }
 
@@ -638,12 +757,11 @@ export function createAccountSyncRuntime({
     }
 
     const subjectId = identitySnapshot.subjectId;
-    if (activeSubjectId !== subjectId) recoverCheckpoint(subjectId);
-    if (memoryRuntime) requireMemorySubject(subjectId);
-
     initialized = false;
     emit();
     try {
+      if (activeSubjectId !== subjectId) recoverCheckpoint(subjectId);
+      if (memoryRuntime) requireMemorySubject(subjectId);
       if (checkpointLoaded) {
         await pullRemoteChanges(subjectId);
       } else {
@@ -698,7 +816,9 @@ export function createAccountSyncRuntime({
     const next = fingerprint(portablePreferences(snapshot));
     if (suppressPreferences || next === lastPreferenceFingerprint) return;
     lastPreferenceFingerprint = next;
-    if (initialized && identity.getSnapshot().state === "signed-in") {
+    const session = identity.getSnapshot();
+    if (session.state !== "signed-in") return;
+    if (initialized && activeSubjectId === session.subjectId) {
       queuePreferences();
     } else {
       preferencesDirty = true;
@@ -710,7 +830,9 @@ export function createAccountSyncRuntime({
     const next = fingerprint(snapshot);
     if (suppressWorkspace || next === lastWorkspaceFingerprint) return;
     lastWorkspaceFingerprint = next;
-    if (initialized && identity.getSnapshot().state === "signed-in") {
+    const session = identity.getSnapshot();
+    if (session.state !== "signed-in") return;
+    if (initialized && activeSubjectId === session.subjectId) {
       queueWorkspace();
     } else {
       workspaceDirty = true;
@@ -724,6 +846,17 @@ export function createAccountSyncRuntime({
   });
 
   const unsubscribeIdentity = identity.subscribe((snapshot) => {
+    const subject = snapshot.state === "signed-in" ? snapshot.subjectId : null;
+    if (lastIdentitySubject !== null && lastIdentitySubject !== subject) {
+      // Never carry one account's offline queue or unbound local dirty flags
+      // into another session. Per-subject durable queues are recovered below.
+      pending.clear();
+      pendingOwner = null;
+      pendingStore = null;
+      preferencesDirty = false;
+      workspaceDirty = false;
+    }
+    lastIdentitySubject = subject;
     const subjectChanged = activeSubjectId !== null
       && (snapshot.state !== "signed-in" || snapshot.subjectId !== activeSubjectId);
     if (snapshot.state !== "signed-in" || subjectChanged) {
@@ -732,6 +865,11 @@ export function createAccountSyncRuntime({
       checkpointCursor = 0;
       checkpointLoaded = false;
       resetRevisions();
+      if (subject === null) {
+        pending.clear();
+        pendingOwner = null;
+        pendingStore = null;
+      }
       emit();
     }
     if (snapshot.state === "signed-in") void synchronize();

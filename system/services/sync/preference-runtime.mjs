@@ -1,4 +1,6 @@
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
+import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
+import { SYNC_STATE_CONTAINER_SCHEMA } from "./state-store-registry.mjs";
 import {
   SYNC_RUNTIME_SCHEMA,
   validateSyncRuntimeSnapshot,
@@ -72,15 +74,30 @@ export function createPreferenceSyncRuntime(
     createIdempotencyKey,
     initialServerRevision = 0,
     syncStateStore = null,
+    identitySession = null,
+    syncStateRegistry = null,
   } = {},
 ) {
   const preferences = assertPreferenceRuntimePort(preferenceRuntime);
+  const partitioned = identitySession !== null || syncStateRegistry !== null;
+  if (partitioned && (!identitySession || !syncStateRegistry
+    || syncStateRegistry.schema !== SYNC_STATE_CONTAINER_SCHEMA
+    || typeof syncStateRegistry.open !== "function" || syncStateStore !== null)) {
+    throw new TypeError("Account appearance sync requires one canonical subject-partitioned state registry");
+  }
+  const identity = partitioned ? assertIdentitySessionPort(identitySession) : null;
+  const signedSubject = () => {
+    const snapshot = identity?.getSnapshot();
+    return snapshot?.state === "signed-in" ? snapshot.subjectId : null;
+  };
+  let currentSubject = partitioned ? signedSubject() : null;
   const nextIdempotencyKey = requireIdempotencyFactory(createIdempotencyKey);
-  const store = syncStateStore === null ? null : assertSyncStateStore(syncStateStore);
-  const recovered = recoverPersistedState(
-    store,
-    requireServerRevision(initialServerRevision),
-  );
+  let store = partitioned
+    ? (currentSubject === null ? null : assertSyncStateStore(syncStateRegistry.open("appearance", {
+        partitionKey: currentSubject,
+      })))
+    : (syncStateStore === null ? null : assertSyncStateStore(syncStateStore));
+  const recovered = recoverPersistedState(store, requireServerRevision(initialServerRevision));
   let serverRevision = recovered.serverRevision;
   let queue = createSyncMutationQueue(recovered.mutations);
   let destroyed = false;
@@ -116,6 +133,8 @@ export function createPreferenceSyncRuntime(
   };
 
   const queueTheme = (theme) => {
+    // Guest/device changes remain local, never become anonymous cloud mutations.
+    if (partitioned && currentSubject === null) return;
     const mutation = createAppearanceSyncMutation({
       theme,
       baseServerRevision: serverRevision,
@@ -128,9 +147,27 @@ export function createPreferenceSyncRuntime(
   };
 
   const recoveredPending = queue.snapshot()[0] ?? null;
-  if (recoveredPending && recoveredPending.payload.theme !== lastTheme) {
+  if (!partitioned && recoveredPending && recoveredPending.payload.theme !== lastTheme) {
     queueTheme(lastTheme);
   }
+
+  const unsubscribeIdentity = identity?.subscribe(() => {
+    const nextSubject = signedSubject();
+    if (nextSubject === currentSubject) return;
+    // Do not ever migrate the old global slot. Its subject cannot be proven.
+    // Existing per-subject pending mutations are restored verbatim, without
+    // replacing their intent with the current device's theme on account switch.
+    const nextStore = nextSubject === null ? null
+      : assertSyncStateStore(syncStateRegistry.open("appearance", { partitionKey: nextSubject }));
+    const next = recoverPersistedState(nextStore, requireServerRevision(initialServerRevision));
+    currentSubject = nextSubject;
+    store = nextStore;
+    serverRevision = next.serverRevision;
+    queue = createSyncMutationQueue(next.mutations);
+    lastTheme = preferences.getSnapshot()[APPEARANCE_PREFERENCE_ID];
+    queuePersistence = store?.scope ?? "session";
+    emit();
+  }) ?? (() => {});
 
   const unsubscribePreferences = preferences.subscribe((snapshot) => {
     const theme = snapshot[APPEARANCE_PREFERENCE_ID];
@@ -157,6 +194,7 @@ export function createPreferenceSyncRuntime(
       return queue.snapshot();
     },
     acknowledge(idempotencyKey, nextServerRevision) {
+      if (partitioned && currentSubject === null) return false;
       const revision = requireServerRevision(nextServerRevision);
       const removed = queue.acknowledge(idempotencyKey);
       if (!removed) return false;
@@ -195,9 +233,20 @@ export function createPreferenceSyncRuntime(
       emit();
       return true;
     },
+    async flushDurably() {
+      if (partitioned && currentSubject === null) return false;
+      if (store === null) return !partitioned;
+      if (typeof store.flush !== "function") return store.scope !== "device";
+      try {
+        return await store.flush() === true;
+      } catch {
+        return false;
+      }
+    },
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      unsubscribeIdentity();
       unsubscribePreferences();
       listeners.clear();
     },
