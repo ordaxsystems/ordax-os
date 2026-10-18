@@ -13,6 +13,15 @@ export function createPreferenceRuntime(preferenceStore) {
   let persistence = "not-written";
   let disposed = false;
   const listeners = new Set();
+  let latestWrite = 0;
+  const notify = () => {
+    for (const listener of [...listeners]) listener(snapshot);
+  };
+  const confirm = (revision, successful) => {
+    if (disposed || revision !== latestWrite) return;
+    persistence = successful === true ? "saved" : "session-only";
+    notify();
+  };
   return Object.freeze({
     schema: PREFERENCE_RUNTIME_SCHEMA,
     getSnapshot: () => snapshot,
@@ -21,10 +30,23 @@ export function createPreferenceRuntime(preferenceStore) {
       if (disposed) throw new Error("Preference runtime is disposed");
       const next = setPreferenceValue(snapshot, preferenceId, value);
       if (next === snapshot) return snapshot;
-      try { persistence = store.save(next) === true ? "saved" : "session-only"; }
-      catch { persistence = "session-only"; }
+      const revision = ++latestWrite;
+      let result;
+      try { result = store.save(next); }
+      catch { result = false; }
       snapshot = next;
-      for (const listener of [...listeners]) listener(snapshot);
+      if (result && typeof result.then === "function") {
+        // Native writes are asynchronous; never display "saved" before ACK.
+        persistence = "pending";
+        Promise.resolve(result).then(
+          (successful) => confirm(revision, successful),
+          () => confirm(revision, false),
+        );
+      } else {
+        // Web localStorage confirms synchronously.
+        persistence = result === true ? "saved" : "session-only";
+      }
+      notify();
       return snapshot;
     },
     subscribe(listener) {
