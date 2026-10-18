@@ -242,3 +242,19 @@ test("missing, malformed or app-claimed runtime instance IDs cannot authorize di
     await assert.rejects(() => port.capabilities(), /not a verified package/);
   }
 });
+
+
+test("changing only the Native execution instance while permission discovery is in flight fails closed", async () => {
+  let current = caller();
+  const original = current;
+  const port = createInstalledAppCapabilityReader({
+    mountCaller: original,
+    resolveCaller: async () => current,
+    readAllowedCapabilities: async identity => {
+      current = { ...original, runtimeInstanceId: INSTANCE_TWO };
+      return decision(identity, [{ id: "orders.update", modes: ["write"] }]);
+    },
+    capabilityReader: reader(),
+  });
+  await assert.rejects(() => port.capabilities(), /changed during capability discovery/);
+});
