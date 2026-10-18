@@ -24,27 +24,6 @@ BASE_CONFIG = HERE / "configs/ordax_surface_defconfig"
 KERNEL = ROOT / "bootstrap/kernel/source.json"
 BUILDER = HERE / "build.py"
 
-REQUIRED_RESOLVED = (
-    "BR2_x86_64=y",
-    "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
-    "BR2_SHARED_LIBS=y",
-    "BR2_KERNEL_HEADERS_VERSION=y",
-    "BR2_PACKAGE_EUDEV=y",
-    "BR2_PACKAGE_CAGE=y",
-    "BR2_PACKAGE_WEBKITGTK=y",
-    "BR2_PACKAGE_WEBKITGTK_WAYLAND=y",
-    "BR2_PACKAGE_WEBKITGTK_HTTPS=y",
-    "BR2_PACKAGE_WEBKITGTK_SANDBOX=y",
-    "BR2_PACKAGE_WEBKITGTK_MULTIMEDIA=y",
-    "BR2_PACKAGE_LIBGTK3=y",
-    "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
-    "BR2_PACKAGE_PYTHON3=y",
-    "BR2_PACKAGE_PYTHON_GOBJECT=y",
-    "BR2_PACKAGE_XWAYLAND=y",
-    "BR2_PACKAGE_SEATD=y",
-)
-
-
 class ConfigError(RuntimeError):
     pass
 
@@ -123,10 +102,19 @@ def verify_resolved(config: Path) -> None:
         raise ConfigError(f"resolved Buildroot config missing: {config}")
     # The builder owns Kconfig parsing. A commented-out or duplicated option
     # must never count as an active build dependency in either verification.
-    settings = load_builder().resolved_kconfig(config)
+    builder = load_builder()
+    try:
+        settings = builder.resolved_kconfig(config)
+    except builder.SurfaceBuildError as exc:
+        raise ConfigError(f"invalid resolved Buildroot Kconfig: {exc}") from exc
     expected_version = f'BR2_DEFAULT_KERNEL_VERSION="{version}"'
     series = kernel_series_symbol(version)
-    markers = (*REQUIRED_RESOLVED, expected_version, series)
+    markers = (
+        *builder.GRAPHICAL_KCONFIG_REQUIRED,
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        expected_version,
+        series,
+    )
     missing = [
         marker for marker in markers
         if settings.get(marker.split("=", 1)[0]) != marker.split("=", 1)[1]
