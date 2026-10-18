@@ -225,6 +225,8 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn('"credentials_persisted": False', text)
         self.assertIn('"account_identifier_recorded": False', text)
         self.assertIn('"sensitive_auth_material_recorded": False', text)
+        self.assertIn('"distinct_account_subjects_verified": True', text)
+        self.assertIn('"cross_account_isolation_proven": True', text)
         self.assertIn("proof/two-client/", text)
         self.assertNotIn("print(password", text)
         self.assertNotIn("print(email", text)
@@ -237,6 +239,10 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertNotIn("push:", text)
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_EMAIL", text)
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_PASSWORD", text)
+        self.assertIn("secrets.ORDAX_PROOF_OTHER_ACCOUNT_EMAIL", text)
+        self.assertIn("secrets.ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD", text)
+        self.assertIn('assert data["cross_account_isolation_proven"] is True', text)
+        self.assertIn('assert data["distinct_account_subjects_verified"] is True', text)
         self.assertIn("account-sync-two-client-proof.json", text)
         self.assertIn("ACCOUNT_SYNC_TWO_CLIENT_RECEIPT=PASS_SANITIZED", text)
         self.assertIn("retention-days: 14", text)
@@ -318,6 +324,8 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
                 with patch.dict(os.environ, {
                     "ORDAX_PROOF_ACCOUNT_EMAIL": "synthetic@example.invalid",
                     "ORDAX_PROOF_ACCOUNT_PASSWORD": "synthetic",
+                    "ORDAX_PROOF_OTHER_ACCOUNT_EMAIL": "other@example.invalid",
+                    "ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD": "synthetic",
                     "ORDAX_ACCOUNT_GATEWAY_BASE_URL": origin,
                 }):
                     with self.assertRaisesRegex(SystemExit, "invalid-gateway-url"):
