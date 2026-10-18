@@ -75,3 +75,41 @@ Linux-only and physical-media validation described above.
 ![Account, narrow emulator](account-refined-mobile.png)
 ![Network, desktop emulator](network-refined-desktop.png)
 ![Security, desktop emulator](security-refined-desktop.png)
+
+## Follow-up: privacy, device name and completion
+
+Privacy now places the real memory preference before explanatory information.
+The native checkbox has an accessible switch name and description, a 44px label
+hit area, keyboard focus styling and focus restoration after its existing rerender.
+No default, permission, persistence or capture policy was changed. Browser review
+read the existing enabled state; it did not toggle the user's privacy preference.
+The informational USB/offline/internal-disk boundaries remain visible below it.
+
+Device naming uses the same unavailable-capability panel as the other steps.
+It continues to depend on the actual device-profile adapter and confirmed rename;
+no local-only imitation was added. This emulator lacks that capability, so the
+real rename path was covered by its existing adapter tests, not a hardware claim.
+
+Completion now asks the user to review choices before entering. All application
+selection counters and their read-only limitations remain in a native expandable
+details element. Opening it in the actual emulator showed 0 verified independent
+apps, 0 future candidates, 0 suppressed apps and 15 unverified distributions; no
+apps were installed. No completion receipt was written during this follow-up.
+
+Real iframe review: Privacy, device-name fallback and Ready; details opened and
+closed through UI. At CSS 1440 x 900, Privacy and collapsed Ready fit the body
+without vertical overflow (scrollHeight/clientHeight both 626px). At 389 x 843,
+content scrolls inside the card, no horizontal overflow, and Ready footer buttons
+remain visible at bottom 829.29px. The page was left on Ready for review.
+
+Verification: 35 existing Node tests passed across journey ownership, localization,
+privacy preference authority, device-profile rename, app-selection rules and
+First Run state. MJS syntax and whitespace checks passed. The four translated
+locales were updated in the existing catalog. Physical-media validation remains
+outside this browser proof.
+
+![Privacy, desktop emulator](privacy-refined-desktop.png)
+![Privacy, narrow emulator](privacy-refined-mobile.png)
+![Device name, desktop emulator](device-name-refined-desktop.png)
+![Ready, desktop emulator](ready-refined-desktop.png)
+![Ready, narrow emulator](ready-refined-mobile.png)

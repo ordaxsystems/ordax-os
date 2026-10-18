@@ -138,7 +138,7 @@ async function scenario(modules,css,origin) {
   memoryToggle.checked=false;
   memoryToggle.dispatchEvent(new Event('change',{bubbles:true}));
   await click('next');
-  if(!document.querySelector('.ordax-first-run-note'))throw Error('Missing device-name fallback');
+  if(!document.querySelector('.ordax-first-run-availability')?.textContent.includes('nome do dispositivo está indisponível'))throw Error('Missing device-name fallback');
   await click('next');
   await click('finish');
  }
