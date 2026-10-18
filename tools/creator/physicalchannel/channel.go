@@ -516,7 +516,7 @@ func Acquire(client *http.Client, root, envelopeURL string, trustBytes []byte, e
 	if err := extractBundle(bundlePath, extracted, manifest); err != nil {
 		return Installed{}, false, err
 	}
-	if err := installPortablePayload(client, extracted, manifest); err != nil {
+	if err := installPortablePayload(client, extracted, versions, manifest); err != nil {
 		return Installed{}, false, err
 	}
 	if err := VerifyInstalled(extracted, manifest); err != nil {
