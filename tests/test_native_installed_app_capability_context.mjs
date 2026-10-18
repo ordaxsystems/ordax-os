@@ -10,6 +10,8 @@ import { INSTALLED_APP_CAPABILITY_DECISION_SCHEMA } from "../system/services/dev
 
 const DIGEST_A = "a".repeat(64);
 const DIGEST_B = "b".repeat(64);
+const INSTANCE_ONE = "11111111-1111-4111-8111-111111111111";
+const INSTANCE_TWO = "22222222-2222-4222-8222-222222222222";
 const deviceReader = {
   schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
   async capabilities() {
@@ -21,7 +23,7 @@ const deviceReader = {
 };
 function identity(appId, publisherId = "ordaxsystems", digest = DIGEST_A, spaceId = "space-one") {
   return { appId, publisherId, packageSha256: digest,
-    accountId: "account-one", spaceId, deviceId: "device-one", verified: true };
+    runtimeInstanceId: INSTANCE_ONE, accountId: "account-one", spaceId, deviceId: "device-one", verified: true };
 }
 function decision(caller, capabilities) {
   return { schema: INSTALLED_APP_CAPABILITY_DECISION_SCHEMA,
@@ -155,4 +157,33 @@ test("an old mount never inherits a newly authorized replacement package or Spac
   assert.equal((await spaceTwoMount.capabilityReader.capabilities()).capabilities.length, 1);
   await assert.rejects(() => oldMount.capabilityReader.capabilities(),
     /mount identity is no longer current/);
+});
+
+
+test("reinstalling identical app bytes in a new runtime instance never revives an old mount", async () => {
+  let current = identity("orders");
+  const provider = createNativeInstalledAppCapabilityContextProvider({
+    resolveCurrentInstalledApp: async id => id === "orders" ? current : null,
+    readAllowedCapabilities: async subject =>
+      decision(subject, [{ id: "orders.update", modes: ["write"] }]),
+    capabilityReader: deviceReader,
+  });
+  const first = await provider("orders");
+  assert.equal((await first.capabilityReader.capabilities()).capabilities.length, 1);
+  current = { ...current, runtimeInstanceId: INSTANCE_TWO };
+  await assert.rejects(() => first.capabilityReader.capabilities(),
+    /mount identity is no longer current/);
+  const second = await provider("orders");
+  assert.equal((await second.capabilityReader.capabilities()).capabilities.length, 1);
+  await assert.rejects(() => first.capabilityReader.capabilities(),
+    /mount identity is no longer current/);
+});
+
+test("Native context cannot install a capability reader without host runtime instance identity", async () => {
+  const provider = createNativeInstalledAppCapabilityContextProvider({
+    resolveCurrentInstalledApp: async () => ({ ...identity("orders"), runtimeInstanceId: null }),
+    readAllowedCapabilities: async () => { throw new Error("must not read grants"); },
+    capabilityReader: deviceReader,
+  });
+  await assert.rejects(() => provider("orders"), /not a verified package/);
 });
