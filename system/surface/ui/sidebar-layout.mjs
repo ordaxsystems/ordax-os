@@ -43,15 +43,14 @@ export function sidebarNavigationCapacity(nav) {
   return Math.max(0, Math.floor((nav.clientHeight - headingHeight + gap) / pitch));
 }
 export function mountNativeSidebarFit(nav, onResize) {
-  const home = nav.querySelector(".meridian-home-destination");
-  const buttons = [...(home ? [home] : []), ...nav.querySelectorAll(".meridian-nav-destination button")];
+  const buttons = [...nav.querySelectorAll(".meridian-nav-destination button")];
   const more = nav.querySelector("[data-nav-menu-more]") ?? nav.querySelector("[data-launcher-more]") ?? nav.querySelector("[data-launcher-toggle]");
   function measure() {
     const capacity = sidebarNavigationCapacity(nav);
     const count = buttons.length > capacity ? Math.max(0, capacity - 1) : buttons.length;
     buttons.forEach((button, index) => { button.hidden = index >= count; });
     nav.querySelectorAll("[data-nav-group]").forEach(group => {
-      group.hidden = !group.querySelector(".meridian-home-destination:not([hidden]), .meridian-nav-destination button:not([hidden])");
+      group.hidden = !group.querySelector(".meridian-nav-destination button:not([hidden])");
     });
     more.hidden = count === buttons.length;
     onResize();
