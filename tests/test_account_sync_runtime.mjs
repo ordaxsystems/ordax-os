@@ -1022,3 +1022,58 @@ test("legacy unscoped appearance slot is never replayed as an authenticated acco
   assert.equal(registry.open("appearance").load(), legacy, "legacy data is retained for explicit recovery");
   appearance.destroy();
 });
+
+test("a refused device write never authorizes offline pending appearance or portable upload", async () => {
+  let raw = null, allowSave = true;
+  const root = {
+    schema: SYNC_STATE_STORE_SCHEMA, scope: "device",
+    load: () => raw,
+    save(value) {
+      if (!allowSave) return false;
+      raw = value;
+      return true;
+    },
+    async flush() { return true; }, // Host ACK of old state must not validate a rejected save.
+  };
+  const registry = createSyncStateNamespaceRegistry(root, { legacyNamespace: "appearance" });
+  const identity = changingIdentity();
+  const preferences = preferencesRuntime();
+  const bridge = createWorkspaceMetadataBridge(workspaceStore());
+  let sent = 0;
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() { return { cursor: 0, objects: [] }; },
+    async pullChanges({ afterCursor }) { return { nextCursor: afterCursor, changes: [] }; },
+    async applyMutation(value) {
+      sent++;
+      return {
+        $schema: "prototype-ordax.sync-ack/1",
+        objectId: value.objectId, dataClass: value.dataClass,
+        serverRevision: value.baseServerRevision + 1,
+        applied: true, conflict: false, tombstone: false,
+      };
+    },
+  };
+  const appearance = createPreferenceSyncRuntime(preferences, {
+    identitySession: identity, syncStateRegistry: registry,
+    createIdempotencyKey: keyFactory("reject-appearance"),
+  });
+  const account = createAccountSyncRuntime({
+    identitySession: identity, syncStateRegistry: registry,
+    preferenceSync: appearance, transport, preferences,
+    workspaceMetadataSource: bridge.source, workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("reject-portable"),
+  });
+  identity.change("account-A");
+  await account.refresh();
+  allowSave = false;
+  preferences.set("appearance.theme", "dark");
+  preferences.set("accessibility.contrast", "high");
+  await new Promise(resolve => setImmediate(resolve));
+  await account.flush();
+  assert.equal(sent, 0, "rejected Native state saves must prevent remote mutations");
+  assert.equal(appearance.pendingMutations().length, 1);
+  assert.equal(account.getSnapshot().queuePersistence, "session");
+  account.destroy();
+  appearance.destroy();
+});

@@ -29,6 +29,18 @@ The shared state registry (`state-store-registry.mjs`) multiplexes logical sync 
 
 `account-memory-session-runtime.mjs` binds the Memory runtime to live identity. Signed-out identity has no account Memory sync runtime; account switch creates/reuses the new subject partition instead of mutating one runtime to impersonate another account; switching back recovers that account's durable coordination.
 
+### Native Appearance and portable pending account partitions
+
+The Native account composition now reuses the **same canonical `ordax.sync-state-store/1` physical store and namespace registry** for `appearance` and `portable-pending`, each opened with the verified `subjectId` partition. These are queue-coordination records, not a new identity store, provider, transport, cursor, or separate synchronization runtime.
+
+- A signed-out session cannot enqueue cloud appearance or portable workspace/preference mutations. Local guest edits never become implicit mutations on later sign-in.
+- Queued account A changes are not consumed, discarded, rebased using account B revisions, or uploaded during B's session. On return to A, exact validated pending intent and idempotency keys are recovered from A's partition.
+- Legacy unpartitioned Appearance state is preserved for explicit migration/recovery but is **not** silently attributed to a newly signed-in account.
+- Empty or deleted cloud portable objects do not authorize automatic export of locally visible workspace/preferences from an earlier identity. Only account-context explicit changes or already-partitioned pending intent can be sent.
+- Each pending mutation uses the existing state store and must have a successful save and durable flush acknowledgment **before remote delivery**. A rejected write fails closed; an old Host flush success does not validate a rejected mutation.
+- A malformed, unknown, cross-subject, or corrupt pending envelope does not get silently reset to empty or replayed as another account's state; reconciliation requires recovery.
+- The local Surface preference/workspace *presentation* remains device local. These queue partitions protect cloud transport intent; full on-device workspace privacy between shared human users requires its own separate product design and physical test evidence. No public-cloud rollout is enabled by this change.
+
 ### Conflict boundary
 
 Memory does not use the automatic rebase policy used by Appearance/preferences/workspace metadata. A concurrent/divergent Memory object is quarantined and blocks canonical account cursor advancement until the domain conflict is explicitly resolved.
