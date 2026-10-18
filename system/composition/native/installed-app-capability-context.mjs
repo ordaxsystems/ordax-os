@@ -34,8 +34,8 @@ export function createNativeInstalledAppCapabilityContextProvider({
     // renderer-controlled objects may run while validating mount identity.
     if (!installed || typeof installed !== "object" || Array.isArray(installed)
         || ![Object.prototype, null].includes(Object.getPrototypeOf(installed))
-        || Reflect.ownKeys(installed).length !== 7
-        || ["appId", "publisherId", "packageSha256", "accountId",
+        || Reflect.ownKeys(installed).length !== 8
+        || ["appId", "publisherId", "packageSha256", "runtimeInstanceId", "accountId",
             "spaceId", "deviceId", "verified"].some(key =>
           !Object.hasOwn(installed, key)
           || !Object.hasOwn(Object.getOwnPropertyDescriptor(installed, key), "value"))
@@ -48,6 +48,8 @@ export function createNativeInstalledAppCapabilityContextProvider({
       resolveCaller: () => resolveCurrentInstalledApp(componentId),
       readAllowedCapabilities,
       capabilityReader: deviceReader,
+      // This identity MUST contain a host-generated live runtimeInstanceId,
+      // not one supplied by the package or an app renderer.
       // Pin the exact verified mount identity: an old module must NEVER
       // inherit a new release's or different Space's permissions.
       mountCaller: installed,
