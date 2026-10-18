@@ -314,5 +314,35 @@ func TestVerifyPortablePayloadInstalledRejectsTamperedSource(t *testing.T) {
 	if err := VerifyInstalled(dir, manifest); err == nil || !strings.Contains(err.Error(), "changed") {
 		t.Fatalf("tampered Portable source unexpectedly accepted: %v", err)
 	}
+	// Restore the signed bytes, then verify the same consumer rejects directory
+	// contamination even though all 17 bound artifacts still match SHA-256.
+	if err := os.WriteFile(filepath.Join(sourceRoot, "kernel"), []byte("portable-source-kernel"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyInstalled(dir, manifest); err != nil {
+		t.Fatalf("restored signed candidate rejected: %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		create func(string) error
+	}{
+		{"extra-file", func(path string) error { return os.WriteFile(path, []byte("unbound"), 0o600) }},
+		{"extra-directory", func(path string) error { return os.Mkdir(path, 0o700) }},
+		{"extra-symlink", func(path string) error { return os.Symlink(filepath.Join(sourceRoot, "kernel"), path) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(sourceRoot, "unexpected-"+tc.name)
+			if err := tc.create(path); err != nil {
+				if tc.name == "extra-symlink" {
+					t.Skipf("symbolic link creation unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(path)
+			if err := VerifyInstalled(dir, manifest); err == nil || !strings.Contains(err.Error(), "exactly 17") {
+				t.Fatalf("unexpected Portable directory member accepted: %v", err)
+			}
+		})
+	}
 }
 
