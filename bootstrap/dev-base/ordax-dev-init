@@ -159,7 +159,9 @@ activate_versioned_rootfs() {
     mkdir -p "$root/.ordax-base"
     /bin/busybox mount -o bind "$root" "$root" || return 1
 
-    for shared in state workspace home proc sys dev; do
+    # Retain the ephemeral verified EROFS view across Dev Base A/B pivot.
+    # Without /run the next root would lose the mounted graphical runtime.
+    for shared in state workspace home proc sys dev run; do
         mkdir -p "$root/$shared"
         /bin/busybox mount -o bind "/$shared" "$root/$shared" || return 1
     done
