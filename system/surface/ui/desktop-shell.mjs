@@ -1,4 +1,4 @@
-import { createSidebarMarkup } from "./sidebar-layout.mjs";
+import { createSidebarMarkup, sidebarBrandMarkup } from "./sidebar-layout.mjs";
 import { presentationDestination } from "../workspace/presentation.mjs";
 import { projectSidebarAccount, sidebarProfileMarkup } from "./sidebar-account.mjs";
 import { assertLocalizationPort } from "../../contracts/localization.mjs";
@@ -153,7 +153,7 @@ export function createDesktopShellMarkup(localization) {
   return `
     <div class="ordax-shell meridian-workspace meridian-native-workspace" data-ordax-shell data-meridian-native data-view="central">
       ${createSidebarMarkup({ id: "ordax-native-sidebar", label: t("shell.rail.aria"), content: {
-        brand: `<button type="button" class="meridian-brand-home ordax-sidebar-launcher-brand" data-show-desktop aria-label="OrdaX OS" title="OrdaX OS"><span class="brand"><span class="meridian-brand-symbol" aria-hidden="true"></span><div><div class="brand-name">OrdaX</div><span class="brand-sub">OS</span></div></span></button>`,
+        brand: `<button type="button" class="meridian-brand-home" data-show-desktop aria-label="OrdaX OS" title="OrdaX OS">${sidebarBrandMarkup()}</button>`,
         home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.apps}</span><span data-home-nav-label>${t("shell.home.title")}</span></button></div>`,
         navigation: meridianNavigation(localization, t),
         account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span><span data-native-context-title>${localization.getLocale().toLowerCase().startsWith("en") ? "This device" : "Este dispositivo"}</span><small data-native-context-subtitle>${localization.getLocale().toLowerCase().startsWith("en") ? "Native workspace" : "Área de trabalho OrdaX"}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-native-rail-continuity data-launch-app="account" data-app-target="sync" aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}" title="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}">${ICONS.clock}</button><span class="meridian-rail-notification-slot" data-sidebar-notification-slot></span><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button></div>${sidebarProfileMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,

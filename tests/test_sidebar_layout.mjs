@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarNavigationCapacity, sidebarItemIsActive, mountNativeSidebarFit } from "../system/surface/ui/sidebar-layout.mjs";
+import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarBrandMarkup, sidebarNavigationCapacity, sidebarItemIsActive, mountNativeSidebarFit } from "../system/surface/ui/sidebar-layout.mjs";
 import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileButtonMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
 import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sidebar.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
@@ -13,6 +13,20 @@ test("sidebar slots preserve the same brand, home, navigation, account and auxil
   assert.ok(html.includes('id="test&quot;injection"'));
   assert.ok(html.includes('aria-label="&lt;unsafe&gt;"'));
   assert.ok(html.indexOf('data-sidebar-slot="navigation"') < html.indexOf('data-sidebar-slot="account"'));
+});
+test("Web and Native sidebar render one Meridian OrdaX OS wordmark", async () => {
+  const [webNavigation, nativeShell, sharedStyles] = await Promise.all([
+    readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
+  ]);
+  const markup = sidebarBrandMarkup();
+  assert.ok(markup.includes('class="brand-name">OrdaX</span>'));
+  assert.ok(markup.includes('class="brand-sub">OS</span>'));
+  assert.ok(!markup.includes("WEB"));
+  assert.ok(webNavigation.includes("sidebarBrandMarkup()"));
+  assert.ok(nativeShell.includes("sidebarBrandMarkup()}</button>`"));
+  assert.ok(sharedStyles.includes(".brand-wordmark { display:block; }"));
 });
 test("Web and Native share the Meridian rail destination order and grouping", async () => {
   const webConfig = await readFile(new URL("../system/surface/workspace/components/central/config.ts", import.meta.url), "utf8");
@@ -99,7 +113,13 @@ test("Web and Native profile slots share the same escaped account control and ac
   assert.ok(nativeMarkup.includes('class="account sidebar-account"'));
   assert.ok(nativeMarkup.includes('aria-label="&lt;img src=x onerror=&quot;run()&quot;&gt; Maria"'));
   assert.ok(webNavigation.includes("sidebarProfileButtonMarkup(sidebarAccount,false,activeWindow?.title==='Minha conta')"));
-  assert.match(webNavigation, /brand:<button type="button" className="meridian-brand-home"[^\n]+<Brand\/><\/button>/);
+  assert.ok(webNavigation.includes("brand:<button type=\"button\" className=\"meridian-brand-home\""));
+});
+test("Web sidebar collapse control stays available in Central and desktop views", async () => {
+  const webNavigation = await readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8");
+  assert.match(webNavigation, /auxiliary:<button type="button" className="sidebar-collapse"/);
+  assert.doesNotMatch(webNavigation, /auxiliary:view==='central'\?/);
+  assert.match(webNavigation, /aria-controls="workspace-sidebar" aria-expanded=\{expanded\}/);
 });
 
 test("Native collapse control uses Meridian's panel glyph and state label", () => {

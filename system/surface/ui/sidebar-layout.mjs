@@ -6,6 +6,9 @@ export const SIDEBAR_LAYOUT = Object.freeze([
   { key: "account", tag: "div", className: "sidebar-account-slot" },
   { key: "auxiliary", tag: "div", className: "sidebar-auxiliary" },
 ].map(slot => Object.freeze(slot)));
+export function sidebarBrandMarkup() {
+  return '<span class="brand"><span class="meridian-brand-symbol" aria-hidden="true"></span><span class="brand-wordmark"><span class="brand-name">OrdaX</span><span class="brand-sub">OS</span></span></span>';
+}
 export function escapeMarkup(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
