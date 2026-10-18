@@ -124,9 +124,16 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         workflow = self.workflow(OWNER_DEV)
         trigger = workflow.split("permissions:", 1)[0]
         self.assertIn("  push:\n    branches: [main]", trigger)
-        self.assertNotIn("  pull_request:", trigger)
+        # Non-publishing PRs can prove the actual Owner USB payload. Promotion
+        # remains restricted to an exact push of main, never a PR or dispatch.
+        self.assertIn("  pull_request:", trigger)
         publish = self.step_block(workflow, "Publish development Creator bundle")
+        self.assertIn(
+            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            publish,
+        )
         self.assertIn("gh release upload creator-owner-prototype", publish)
+        self.assertEqual(workflow.count("gh release upload creator-owner-prototype"), 1)
 
 
 if __name__ == "__main__":
