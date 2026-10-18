@@ -2,6 +2,32 @@
 
 Status: **política de seleção implementada; pré-instalação física e publicação pendentes de comprovação**. Esta decisão não altera o payload USB atual nem a instalação dos usuários. A implementação de seleção sem autoridade está em `system/services/apps/first-run-selection.mjs`, com testes em `tests/test_first_run_selection.mjs`.
 
+## Proteção contra replay entre gerações da instalação
+
+A Loja emite somente planos `ordax.app-lifecycle-plan/2` que carregam a
+**observação Native correspondente à projeção assinada atual**:
+`expectedActivation = {source, revision, version, sourceCommit}`. Para
+instalação, o estado deve ser `absent` ou `removed` naquela revisão;
+para atualização ou remoção, deve ser `slot` com identidade do release
+instalado. Sem observação confiável, o serviço nega o pedido.
+
+A mesma precondição é verificada novamente pelo executor Native contra
+`ordax-runtime-component-channel status`. Para `arm-pending`, a
+`revision` observada segue como `--expected-revision` do **writer Go
+canônico**. Para remover, o executor confirma a mesma revisão e
+versão/sourceCommit antes do `uninstall-state`, que já implementa CAS.
+Uma requisição antiga reapresentada após remoção, reinstalação ou mudança
+de revisão, mesmo sem troca de SemVer, **não pode ser reutilizada para
+modificar outra geração**. A UI não recebe novas permissões: o campo é
+apenas uma precondição derivada de observações verificadas, nunca uma
+capability de instalação.
+
+Esta defesa impede replays perigosos, mas **não promete repetição
+bem-sucedida** de uma resposta HTTP perdida depois de o Go ter confirmado
+a mutação. O resultado nesse caso permanece não confirmado para o
+solicitante e exige uma nova observação do estado Native. Não inferir
+sucesso de `requestId` nem introduzir um journal paralelo.
+
 ## Comprovação do estado Native após operação da Loja
 
 O executor oficial `native_app_lifecycle_executor.py` trata a resposta do
