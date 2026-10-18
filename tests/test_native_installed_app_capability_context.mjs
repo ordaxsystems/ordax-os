@@ -108,9 +108,9 @@ test("Unchanged mounts do not cache identity across package upgrade or Space swi
   assert.deepEqual((await context.capabilityReader.capabilities()).capabilities,
     [{ id: "orders.update", modes: ["write"] }]);
   current = identity("orders", "ordaxsystems", DIGEST_B, "space-one");
-  await assert.rejects(() => context.capabilityReader.capabilities(), /not bound to the verified caller/);
+  await assert.rejects(() => context.capabilityReader.capabilities(), /mount identity is no longer current/);
   current = identity("orders", "ordaxsystems", DIGEST_A, "another-space");
-  await assert.rejects(() => context.capabilityReader.capabilities(), /not bound to the verified caller/);
+  await assert.rejects(() => context.capabilityReader.capabilities(), /mount identity is no longer current/);
 });
 
 
