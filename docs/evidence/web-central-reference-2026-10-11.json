@@ -1045,8 +1045,8 @@
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
-      "adaptedSha256": "06e6fd830d263979f3f8fca8687f06528dda87b05e1481be63e14f6306a4ff6c",
-      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: Web composition injects the canonical provider-neutral Intelligence client through a fail-closed unavailable Web adapter; no provider API, secret, inference authority or tool execution is introduced. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Web composes the canonical bundled Profile catalog reader without activation, credentials or a new backend. 2026-10-16: reviewed current shared Meridian/journey imports; canonical Web ports and Native runtime boundaries are unchanged. 2026-10-16: Web production entry now fail-closes before mounting until the same-origin session is signed in; layout-proof bypass remains loopback-only and remote hosts retain normal authentication authority.",
+      "adaptedSha256": "80f6ebae4b652095f11d28f335b5c0e945589bc52c230ab1e456efe87fd83d4c",
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: Web composition injects the canonical provider-neutral Intelligence client through a fail-closed unavailable Web adapter; no provider API, secret, inference authority or tool execution is introduced. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Web composes the canonical bundled Profile catalog reader without activation, credentials or a new backend. 2026-10-16: reviewed current shared Meridian/journey imports; canonical Web ports and Native runtime boundaries are unchanged. 2026-10-16: Web production entry now fail-closes before mounting until the same-origin session is signed in; layout-proof bypass remains loopback-only and remote hosts retain normal authentication authority. 2026-10-18: Web composition delegates the latest unified Meridian navigation and Home layers while preserving the shared host/session boundaries.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -1057,6 +1057,11 @@
           "date": "2026-10-14",
           "sha256": "61132ad3670e13c8f93848ae66606882e8cdf757fc934e52ab5625a6fe6d3026",
           "reason": "Before additive read-only Profile catalog composition"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "06e6fd830d263979f3f8fca8687f06528dda87b05e1481be63e14f6306a4ff6c",
+          "reason": "Before current Meridian Web composition adaptation"
         }
       ]
     },
