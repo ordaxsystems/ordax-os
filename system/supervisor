@@ -85,6 +85,13 @@ INITIAL_SURFACE_HEALTH_TIMEOUT=${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS:-3
 RELOAD_HEALTH_TIMEOUT=${ORDAX_RELOAD_HEALTH_TIMEOUT_SECONDS:-8}
 RELOAD_FALLBACK_HEALTH_TIMEOUT=${ORDAX_RELOAD_FALLBACK_HEALTH_TIMEOUT_SECONDS:-$SURFACE_HEALTH_TIMEOUT}
 SURFACE_STALE_SECONDS=${ORDAX_SURFACE_STALE_SECONDS:-90}
+# Presence is device discovery only. The existing supervisor schedules the
+# single-shot Product reporter; no second daemon, capability grant, or command bus.
+PRODUCT_PRESENCE_REPORTER=$SYSTEM_ROOT/services/device-agent/product-presence-report.sh
+PRODUCT_PRESENCE_CREDENTIAL_FILE=$STATE_DIR/native-state/device-agent/product-device.json
+PRODUCT_PRESENCE_INTERVAL_SECONDS=120
+PRODUCT_PRESENCE_LAST_AT=0
+PRODUCT_PRESENCE_PID=""
 UPDATE_TARGET_SHA=""
 UPDATE_PHASE=idle
 UPDATE_ATTEMPT_ID=""
@@ -2382,6 +2389,47 @@ else
     fi
 fi
 
+product_device_presence_tick() {
+    # Owner/Development USB only; the Stable/Native paths have independent gates.
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ "$PRODUCT_MODE" = usb ] || return 0
+    [ -n "${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}" ] || return 0
+    [ -f "$PRODUCT_PRESENCE_CREDENTIAL_FILE" ] && [ ! -L "$PRODUCT_PRESENCE_CREDENTIAL_FILE" ] || return 0
+    [ -f "$PRODUCT_PRESENCE_REPORTER" ] && [ ! -L "$PRODUCT_PRESENCE_REPORTER" ] || return 0
+
+    # One outstanding request maximum; allow the reporter's bounded HTTPS
+    # request to complete without holding the boot/update/surface-health loop.
+    if [ -n "$PRODUCT_PRESENCE_PID" ]; then
+        if kill -0 "$PRODUCT_PRESENCE_PID" 2>/dev/null; then
+            return 0
+        fi
+        wait "$PRODUCT_PRESENCE_PID" 2>/dev/null || true
+        PRODUCT_PRESENCE_PID=""
+    fi
+    now=$(epoch_now)
+    case "$now" in ''|*[!0-9]*) return 0 ;; esac
+    [ "$now" -gt 0 ] || return 0
+    if [ "$PRODUCT_PRESENCE_LAST_AT" -gt 0 ] &&
+       [ "$now" -ge "$PRODUCT_PRESENCE_LAST_AT" ] &&
+       [ $((now - PRODUCT_PRESENCE_LAST_AT)) -lt "$PRODUCT_PRESENCE_INTERVAL_SECONDS" ]; then
+        return 0
+    fi
+
+    state=offline
+    if [ -n "$SURFACE_PID" ] && kill -0 "$SURFACE_PID" 2>/dev/null && surface_heartbeat_is_fresh; then
+        state=online
+    fi
+    # This reports only reachability with capability_digest=null.
+    # The MCP must still prove a separate client OAuth consent, explicit grants,
+    # and a Runtime-attested session before accepting any device action.
+    (
+        ORDAX_SOURCE_SHA=$(current_sha)
+        export ORDAX_SOURCE_SHA
+        /bin/sh "$PRODUCT_PRESENCE_REPORTER" "$state"
+    ) >/dev/null 2>&1 &
+    PRODUCT_PRESENCE_PID=$!
+    PRODUCT_PRESENCE_LAST_AT=$now
+}
+
 while :; do
     supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
     /bin/busybox sleep "$UPDATE_INTERVAL"
@@ -2396,5 +2444,6 @@ while :; do
     fi
 
     recover_stale_surface_if_needed
+    product_device_presence_tick
     check_for_update
  done
