@@ -27,6 +27,10 @@ class NativeAccountSessionContractTests(unittest.TestCase):
         self.assertFalse(invariants["session_survives_native_host_restart"])
         self.assertFalse(invariants["session_survives_device_reboot"])
         self.assertTrue(invariants["legacy_plaintext_session_path_is_purged_on_start"])
+        self.assertTrue(invariants["explicit_logout_always_discards_native_in_memory_access_refresh"])
+        self.assertTrue(invariants["offline_local_detach_must_not_claim_remote_token_revocation"])
+        self.assertTrue(invariants["locally_detached_session_may_report_anonymous_without_network"])
+        self.assertTrue(invariants["guest_oobe_must_require_local_detachment_proof"])
 
     def test_source_has_no_plaintext_cookie_persistence_path(self):
         source = MODULE.read_text(encoding="utf-8")
