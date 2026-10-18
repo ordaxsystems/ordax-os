@@ -36,13 +36,13 @@ class ProductConnectorActivationTests(unittest.TestCase):
     def test_private_opt_in_defaults_off_and_fails_closed(self):
         self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
         self.store.set_connector_visibility(True, SUBJECT)
-        self.assertTrue(self.store.connector_visibility_enabled())
+        self.assertTrue(self.store.connector_visibility_enabled(SUBJECT))
         self.assertEqual(self.store.connector_visibility_path.stat().st_mode & 0o777, 0o600)
         self.store.connector_visibility_path.chmod(0o644)
-        self.assertFalse(self.store.connector_visibility_enabled())
+        self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
         self.store.connector_visibility_path.chmod(0o600)
         self.store.set_connector_visibility(False)
-        self.assertFalse(self.store.connector_visibility_enabled())
+        self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
         with self.assertRaises(TypeError):
             self.store.set_connector_visibility("true", SUBJECT)
 
@@ -59,12 +59,12 @@ class ProductConnectorActivationTests(unittest.TestCase):
         self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
 
     def test_symlink_policy_rejected_without_following(self):
-        self.store.set_connector_visibility(True)
+        self.store.set_connector_visibility(True, SUBJECT)
         path = self.store.connector_visibility_path
         actual = path.with_name("policy-source")
         path.rename(actual)
         path.symlink_to(actual)
-        self.assertFalse(self.store.connector_visibility_enabled())
+        self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
 
     def test_login_without_owner_opt_in_does_not_start_presence(self):
         profile = {"displayName": "OrdaX USB"}
@@ -83,10 +83,10 @@ class ProductConnectorActivationTests(unittest.TestCase):
             self.assertFalse(coordinator.visibility_status(authenticated=True, subject=SUBJECT)["enabled"])
             coordinator.configure_visibility(True, profile, subject=SUBJECT)
             worker.return_value.start.assert_called_once()
-            self.assertTrue(self.store.connector_visibility_enabled())
+            self.assertTrue(self.store.connector_visibility_enabled(SUBJECT))
             coordinator.configure_visibility(False, profile)
             worker.return_value.stop.assert_called_once_with(wait=False)
-            self.assertFalse(self.store.connector_visibility_enabled())
+            self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
 
     def test_other_account_login_never_reuses_prior_discovery_consent(self):
         profile = {"displayName": "OrdaX USB"}
@@ -122,7 +122,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
                 control_plane_origin="https://cp.example", state_dir=self.tmp.name)
             with self.assertRaises(RuntimeError):
                 coordinator.configure_visibility(True, {"displayName": "USB"}, subject=SUBJECT)
-            self.assertFalse(self.store.connector_visibility_enabled())
+            self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
             worker.return_value.start.assert_not_called()
 
     def test_proxy_requires_canonical_authenticated_session_for_enable(self):
