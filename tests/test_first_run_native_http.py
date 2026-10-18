@@ -49,7 +49,7 @@ class NativeFirstRunHttpTests(unittest.TestCase):
         native.FIRST_RUN_FILE = self.original_receipt
         self.temporary.cleanup()
 
-    def request(self, method="GET", *, value=None, headers=None):
+    def request(self, method="GET", *, value=None, headers=None, path=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         outgoing = dict(headers or {})
         body = None
@@ -57,7 +57,7 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             body = json.dumps(value, separators=(",", ":")).encode("utf-8")
             outgoing["Content-Type"] = "application/json"
         try:
-            connection.request(method, native.FIRST_RUN_PATH, body=body, headers=outgoing)
+            connection.request(method, native.FIRST_RUN_PATH if path is None else path, body=body, headers=outgoing)
             response = connection.getresponse()
             status = response.status
             response_body = response.read()
@@ -114,6 +114,60 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             "Host": f"foreign.example:{self.port}",
         })[0], 403)
         self.assertFalse(self.receipt.exists())
+
+    def test_real_http_guest_detach_is_available_without_a_configured_gateway(self):
+        status, body = self.request("POST", path=native.ACCOUNT_LOGOUT_PATH)
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), {
+            "$schema": "ordax.native-account-detach/1",
+            "localSessionDetached": True,
+            "remoteRevocation": "not-applicable",
+        })
+        status, body = self.request(path=native.ACCOUNT_SESSION_PATH)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["provider"], "unconfigured")
+        # Guest completion is still handled by the same durable Native receipt.
+        self.assertEqual(self.request("POST", value=self.complete())[0], 204)
+
+    def test_real_http_offline_logout_detaches_existing_account_before_guest_receipt(self):
+        gateway = native.NativeAccountGateway(
+            "https://accounts.example", str(self.root / "legacy-session.json")
+        )
+        gateway._cookies = {"ordax_access": "old-access", "ordax_refresh": "old-refresh"}
+        def unreachable(*args, **kwargs):
+            raise native.NativeAccountGatewayError("gateway-unreachable")
+        gateway._request = unreachable
+        self.server.account_gateway = gateway
+
+        status, body = self.request("POST", path=native.ACCOUNT_LOGOUT_PATH)
+        self.assertEqual(status, 202)
+        self.assertEqual(json.loads(body), {
+            "$schema": "ordax.native-account-detach/1",
+            "localSessionDetached": True,
+            "remoteRevocation": "unconfirmed",
+        })
+        self.assertEqual(gateway._cookies, {})
+        self.assertFalse((self.root / "legacy-session.json").exists())
+        status, body = self.request(path=native.ACCOUNT_SESSION_PATH)
+        self.assertEqual(status, 200)
+        guest = json.loads(body)
+        self.assertFalse(guest["authenticated"])
+        self.assertEqual(guest["status"], "anonymous")
+        self.assertEqual(self.request("POST", value=self.complete())[0], 204)
+        self.assertEqual(json.loads(self.receipt.read_text(encoding="utf-8"))["accountMode"], "local-only")
+
+    def test_foreign_origin_cannot_detach_existing_authenticated_session(self):
+        gateway = native.NativeAccountGateway(
+            "https://accounts.example", str(self.root / "legacy-session.json")
+        )
+        gateway._cookies = {"ordax_access": "still-authorized"}
+        self.server.account_gateway = gateway
+        status, body = self.request("POST", path=native.ACCOUNT_LOGOUT_PATH, headers={
+            "Origin": "https://foreign.example",
+            "Sec-Fetch-Site": "cross-site",
+        })
+        self.assertEqual(status, 403)
+        self.assertEqual(gateway._cookies, {"ordax_access": "still-authorized"})
 
     def test_existing_corrupt_receipt_is_never_overwritten(self):
         self.receipt.write_text("{corrupt", encoding="utf-8")
