@@ -27,7 +27,7 @@ def fixture(stage: Path):
     producer = stage / "producer"
     producer.mkdir()
     image = producer / SOURCE["artifact"]["name"]
-    image.write_bytes(b"test-surface-erofs-content")
+    image.write_bytes(b"\0" * 1024 + bytes.fromhex("e2e1f5e0") + b"test-surface-erofs-content")
     sha = hashlib.sha256(image.read_bytes()).hexdigest()
     provenance = {
         "$schema": "prototype-ordax.surface-runtime-provenance/1",
