@@ -188,10 +188,18 @@ def assert_other_account_cannot_read(
     # HTTP status by itself says nothing about cross-subject data isolation.
     snapshot = observer.snapshot()
     changes = observer.changes(after_cursor)
-    if any(item.get("objectId") == object_id for item in snapshot.get("objects", [])):
+    other_objects = snapshot.get("objects", [])
+    other_changes = changes.get("changes", [])
+    if not isinstance(other_objects, list) or not isinstance(other_changes, list):
+        fail("cross-account-invalid-list")
+    if any(item.get("objectId") == object_id for item in other_objects):
         fail("cross-account-snapshot-leak")
-    if any(item.get("objectId") == object_id for item in changes.get("changes", [])):
+    if any(item.get("objectId") == object_id for item in other_changes):
         fail("cross-account-changes-leak")
+    # The protocol caps each unpaged proof request at 500. A saturated page
+    # cannot prove absence: the test object might lie on an unseen page.
+    if len(other_objects) >= 500 or len(other_changes) >= 500:
+        fail("cross-account-proof-window-saturated")
 
 
 def main() -> int:
@@ -251,6 +259,8 @@ def main() -> int:
         cursor = before.get("cursor")
         observer_before = observer.snapshot()
         observer_cursor = observer_before.get("cursor")
+        if len(observer_before.get("objects", [])) >= 500:
+            fail("cross-account-proof-window-saturated")
         if not isinstance(cursor, int) or isinstance(cursor, bool) or cursor < 0:
             fail("invalid-initial-cursor")
         if (
