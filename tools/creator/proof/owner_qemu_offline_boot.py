@@ -130,7 +130,7 @@ def analyze_ppm(path: Path) -> dict[str, int | float]:
     if len(data) > 48 * 1024 * 1024:
         raise ProofError("QEMU framebuffer exceeds bounded evidence size")
     # QEMU's P6 screendump has a simple fixed ASCII header (no comments).
-    match = re.match(rb"\AP6\s+([0-9]+)\s+([0-9]+)\s+([0-9]+)\s", data)
+    match = re.match(rb"\AP6\s+([0-9]+)\s+([0-9]+)\s+([0-9]+)\r?\n", data)
     if match is None:
         raise ProofError("QEMU did not produce a binary PPM P6 framebuffer")
     width, height, depth = (int(s) for s in match.groups())
