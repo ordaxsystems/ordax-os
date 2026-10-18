@@ -597,6 +597,45 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
         ):
             lifecycle.validate_lifecycle_plan(plan)
 
+    def test_activation_precondition_rejects_malformed_or_mismatched_sources(self) -> None:
+        for source in [{}, [], 1, "bundled", "slot"]:
+            plan = self.plan()
+            plan["expectedActivation"]["source"] = source
+            with self.subTest(source=source), self.assertRaises(
+                lifecycle.NativeAppLifecycleError
+            ):
+                lifecycle.validate_lifecycle_plan(plan)
+
+    def test_remove_replay_for_same_version_newer_revision_is_rejected(self) -> None:
+        calls = []
+
+        def runner(argv, **kwargs):
+            calls.append(argv[1])
+            self.assertEqual(argv[1], "status")
+            return Result(json.dumps({
+                "$schema": "prototype-ordax.runtime-component-activation-state/1",
+                "component_id": "notes",
+                "revision": 21,
+                "current": {"version": "0.4.3", "source_commit": COMMIT},
+                "previous": None,
+                "pending": None,
+                "rejected": None,
+                "pending_health": "unknown",
+            }) + "\n")
+
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError, "generation is stale"
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan("remove", candidate=False),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=runner,
+            )
+        self.assertEqual(calls, ["status"])
+
     def test_native_plan_validation_rejects_authority_or_ui_artifact_smuggling(self) -> None:
         plan = self.plan()
         plan["authority"] = "platform-component-lifecycle"
