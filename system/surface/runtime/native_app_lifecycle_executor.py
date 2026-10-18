@@ -193,6 +193,35 @@ def _key_values(stdout: str, expected: set[str], label: str) -> dict[str, str]:
     return values
 
 
+def _read_activation_state(
+    app_id: str,
+    *,
+    channel_bin: str,
+    slot_root: str,
+    runner: Callable[..., subprocess.CompletedProcess],
+) -> dict:
+    """Read the Go owner's canonical state; CLI command output is not a commit proof."""
+    status = _run([
+        channel_bin, "status",
+        "--component", app_id,
+        "--root", slot_root,
+    ], runner=runner)
+    try:
+        state = json.loads(status.stdout)
+    except json.JSONDecodeError as exc:
+        raise NativeAppLifecycleError("runtime component status is invalid JSON") from exc
+    if (
+        not isinstance(state, dict)
+        or state.get("$schema") != "prototype-ordax.runtime-component-activation-state/1"
+        or state.get("component_id") != app_id
+        or not isinstance(state.get("revision"), int)
+        or isinstance(state.get("revision"), bool)
+        or state["revision"] < 0
+    ):
+        raise NativeAppLifecycleError("runtime component canonical activation status is invalid")
+    return state
+
+
 def _assert_envelope_release_bytes(envelope_bytes: bytes, release_bytes: bytes, app_id: str) -> None:
     try:
         envelope = json.loads(envelope_bytes.decode("utf-8"))
@@ -381,6 +410,23 @@ def _stage_and_arm(
         if revision <= 0:
             raise NativeAppLifecycleError("pending component revision is invalid")
 
+        # A successful CLI line does not prove that the Go owner's atomic
+        # activation state contains the candidate. Never report accepted to
+        # the Store until the canonical pending generation is visible.
+        observed = _read_activation_state(
+            request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+            runner=runner,
+        )
+        if (
+            observed["revision"] != revision
+            or observed.get("pending") != {
+                "version": candidate["version"],
+                "source_commit": candidate["sourceCommit"],
+            }
+            or observed.get("pending_health") != "unknown"
+        ):
+            raise NativeAppLifecycleError("pending component activation was not durably observed")
+
         return {
             "schema": RESULT_SCHEMA,
             "requestId": request["requestId"],
@@ -405,16 +451,10 @@ def _remove(
     runner: Callable[..., subprocess.CompletedProcess],
 ) -> dict:
     request = plan["request"]
-    status = _run([
-        channel_bin,
-        "status",
-        "--component", request["appId"],
-        "--root", slot_root,
-    ], runner=runner)
-    try:
-        state = json.loads(status.stdout)
-    except json.JSONDecodeError as exc:
-        raise NativeAppLifecycleError("runtime component status is invalid JSON") from exc
+    state = _read_activation_state(
+        request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+        runner=runner,
+    )
     if (
         not isinstance(state, dict)
         or state.get("$schema") != "prototype-ordax.runtime-component-activation-state/1"
@@ -468,6 +508,25 @@ def _remove(
         raise NativeAppLifecycleError("runtime component uninstall revision is invalid") from exc
     if revision != state["revision"] + 1:
         raise NativeAppLifecycleError("runtime component uninstall revision drifted")
+
+    # The immutable uninstall identity and user-removed tombstone belong to
+    # the same Go activation state. Neither command stdout nor a second Store
+    # preference database may substitute for reading that committed state.
+    observed = _read_activation_state(
+        request["appId"], channel_bin=channel_bin, slot_root=slot_root,
+        runner=runner,
+    )
+    if (
+        observed["revision"] != revision
+        or observed.get("current") is not None
+        or observed.get("previous") is not None
+        or observed.get("pending") is not None
+        or observed.get("rejected") is not None
+        or observed.get("pending_health") != "unknown"
+        or observed.get("removed_identity") != current
+        or observed.get("user_removed") is not True
+    ):
+        raise NativeAppLifecycleError("runtime component uninstall was not durably observed")
     return {
         "schema": RESULT_SCHEMA,
         "requestId": request["requestId"],
