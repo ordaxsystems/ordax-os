@@ -184,7 +184,65 @@ func downloadPortablePayloadArtifact(client *http.Client, binding PortablePayloa
 	return nil
 }
 
-func installPortablePayload(client *http.Client, directory string, manifest Manifest) error {
+// reusePortablePayloadArtifact reuses exact signed bytes from an earlier verified
+// version. No independent source catalog or mutable shared cache is introduced:
+// the signed binding still controls identity, size and digest on every use.
+// Corrupt, missing or unsafe old files are ignored; a changed file during copying
+// fails closed rather than silently downgrading the trust boundary.
+func reusePortablePayloadArtifact(versionsRoot string, binding PortablePayloadArtifactBinding, destination string) (bool, error) {
+	rootInfo, err := os.Lstat(versionsRoot)
+	if err != nil {
+		return false, err
+	}
+	if !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+		return false, errors.New("Portable version cache root is not a regular directory")
+	}
+	versions, err := os.ReadDir(versionsRoot)
+	if err != nil {
+		return false, err
+	}
+	for _, version := range versions {
+		if !version.IsDir() || !commitPattern.MatchString(version.Name()) {
+			continue
+		}
+		sourceRoot := filepath.Join(versionsRoot, version.Name(), portablePayloadDirectory)
+		rootStat, err := os.Lstat(sourceRoot)
+		if err != nil || !rootStat.IsDir() || rootStat.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		sourcePath := filepath.Join(sourceRoot, binding.ID)
+		digest, size, err := fileDigest(sourcePath)
+		if err != nil || digest != binding.SHA256 || size != binding.SizeBytes {
+			continue
+		}
+		source, err := os.Open(sourcePath)
+		if err != nil {
+			return false, err
+		}
+		dest, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err != nil {
+			_ = source.Close()
+			return false, err
+		}
+		h := sha256.New()
+		n, copyErr := io.Copy(io.MultiWriter(dest, h), io.LimitReader(source, binding.SizeBytes+1))
+		closeSourceErr := source.Close()
+		syncErr := error(nil)
+		if copyErr == nil {
+			syncErr = dest.Sync()
+		}
+		closeDestErr := dest.Close()
+		if copyErr != nil || closeSourceErr != nil || syncErr != nil || closeDestErr != nil ||
+			n != binding.SizeBytes || hex.EncodeToString(h.Sum(nil)) != binding.SHA256 {
+			_ = os.Remove(destination)
+			return false, fmt.Errorf("previous Portable artifact changed during verified reuse: %s", binding.ID)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func installPortablePayload(client *http.Client, directory string, versionsRoot string, manifest Manifest) error {
 	if manifest.Schema == ManifestSchema {
 		return nil
 	}
@@ -201,11 +259,15 @@ func installPortablePayload(client *http.Client, directory string, manifest Mani
 		return err
 	}
 	for _, artifact := range payload.Artifacts {
-		if err := downloadPortablePayloadArtifact(
-			client,
-			artifact,
-			filepath.Join(sourceRoot, artifact.ID),
-		); err != nil {
+		target := filepath.Join(sourceRoot, artifact.ID)
+		reused, err := reusePortablePayloadArtifact(versionsRoot, artifact, target)
+		if err != nil {
+			return err
+		}
+		if reused {
+			continue
+		}
+		if err := downloadPortablePayloadArtifact(client, artifact, target); err != nil {
 			return err
 		}
 	}
