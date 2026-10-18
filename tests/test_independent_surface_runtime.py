@@ -187,16 +187,16 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / ".config"
             path.write_text(
-                "# BR2_PACKAGE_CAGE=y\\n"
-                "BR2_PACKAGE_CAGE=n\\n"
-                "BR2_PACKAGE_WEBKITGTK=y\\n",
+                "# BR2_PACKAGE_CAGE=y\n"
+                "BR2_PACKAGE_CAGE=n\n"
+                "BR2_PACKAGE_WEBKITGTK=y\n",
                 encoding="utf-8",
             )
             settings = self.builder.resolved_kconfig(path)
             self.assertEqual(settings["BR2_PACKAGE_CAGE"], "n")
             self.assertEqual(settings["BR2_PACKAGE_WEBKITGTK"], "y")
             path.write_text(
-                "BR2_PACKAGE_CAGE=y\\nBR2_PACKAGE_CAGE=n\\n",
+                "BR2_PACKAGE_CAGE=y\nBR2_PACKAGE_CAGE=n\n",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(self.builder.SurfaceBuildError, "duplicate resolved Buildroot option"):
