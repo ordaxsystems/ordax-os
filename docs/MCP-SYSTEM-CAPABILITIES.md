@@ -60,6 +60,16 @@ ou a presença na Loja não conferem permissão.
   consumidores MCP a validação de um grant apresentado e de capabilities atuais,
   **sem** executar, conceder ou provar a proveniência do grant
   (`dispatchAuthority: "none"`). A adaptação legada do Studio delega a ele.
+- `system/services/device-agent/installed-app-capability-reader.mjs` projeta
+  **somente descoberta** para um app de cada vez, usando duas dependências
+  estritamente OS-private: o resolvedor da identidade real do pacote/processo
+  e o leitor de permissões locais vigentes. A cada leitura, compara identidade
+  (appId + SHA-256 do pacote + conta + Space + dispositivo), cruza modos
+  permitidos com as capabilities efetivamente disponíveis e não reutiliza
+  cache após revogação ou troca de Space. Não expõe métodos de concessão,
+  execução, seleção de outro app ou alteração de escopo. **O host ainda deve
+  implementar e conectar os dois resolvedores confiáveis**: não aceitar
+  conteúdo de renderer, manifesto ou modelo como atestação.
 - Manifestos de App Intelligence são declarativos (`authority=none`).
   A ligação de um intent a um adapter tipado exige autorização posterior.
 
