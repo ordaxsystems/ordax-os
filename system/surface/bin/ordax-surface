@@ -1587,14 +1587,37 @@ printf 'OrdaX: iniciando Surface grafica...\n'
 # The driver identity comes from sysfs, not the QEMU proof's command line.
 select_owner_virtio_webkit_transport() {
     [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
-    [ -L /sys/class/drm/card0/device/driver ] || return 0
-    active_driver=$(/bin/busybox readlink -f /sys/class/drm/card0/device/driver 2>/dev/null || true)
-    case "$active_driver" in
-        */virtio_gpu)
-            export WEBKIT_DISABLE_DMABUF_RENDERER=1
-            printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
+    # A DRM card may be represented as a PCI or virtio child in sysfs.
+    # Inspect the bound device and its kernel uevent, not the presence of a
+    # loaded module or a test-only command-line parameter.
+    drm_device=/sys/class/drm/card0/device
+    active_driver=$(/bin/busybox readlink -f "$drm_device/driver" 2>/dev/null || true)
+    active_device=$(/bin/busybox readlink -f "$drm_device" 2>/dev/null || true)
+    detected=0
+    case "$active_driver" in */virtio_gpu) detected=1 ;; esac
+    if [ "$detected" -eq 0 ] && [ -r "$drm_device/uevent" ]; then
+        /bin/busybox grep -qx 'DRIVER=virtio_gpu' "$drm_device/uevent" && detected=1
+    fi
+    case "$active_device" in
+        */virtio[0-9]*)
+            # Only a kernel-bound virtio child, not an arbitrary PCI alias.
+            [ -e /sys/module/virtio_gpu ] && detected=1
             ;;
     esac
+    if [ "$detected" -eq 1 ]; then
+        export WEBKIT_DISABLE_DMABUF_RENDERER=1
+        printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
+        return 0
+    fi
+    if [ -r /proc/cmdline ] &&
+       /bin/busybox grep -qw 'ordax.owner_qemu_graphics_probe=1' /proc/cmdline; then
+        # Bounded non-sensitive QEMU-only evidence to correct DRM classification.
+        printf 'ORDAX_OWNER_DRM_DRIVER_PATH=%s\n' "${active_driver:-unavailable}"
+        printf 'ORDAX_OWNER_DRM_DEVICE_PATH=%s\n' "${active_device:-unavailable}"
+        if [ -r "$drm_device/uevent" ]; then
+            /bin/busybox grep '^DRIVER=' "$drm_device/uevent" || true
+        fi
+    fi
 }
 select_owner_virtio_webkit_transport
 

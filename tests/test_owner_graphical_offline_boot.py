@@ -61,9 +61,11 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         end = SURFACE.index("\nselect_owner_virtio_webkit_transport\n", start)
         body = SURFACE[start:end]
         self.assertIn('[ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0', body)
-        self.assertIn('[ -L /sys/class/drm/card0/device/driver ] || return 0', body)
-        self.assertIn('/bin/busybox readlink -f /sys/class/drm/card0/device/driver', body)
+        self.assertIn('drm_device=/sys/class/drm/card0/device', body)
+        self.assertIn('/bin/busybox readlink -f "$drm_device/driver"', body)
         self.assertIn("*/virtio_gpu)", body)
+        self.assertIn("grep -qx 'DRIVER=virtio_gpu'", body)
+        self.assertIn("*/virtio[0-9]*)", body)
         self.assertIn("export WEBKIT_DISABLE_DMABUF_RENDERER=1", body)
         self.assertEqual(SURFACE.count("WEBKIT_DISABLE_DMABUF_RENDERER=1"), 1)
         self.assertLess(end, SURFACE.index('START_URI="http://127.0.0.1:8765/'))

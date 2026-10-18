@@ -296,6 +296,12 @@ def main() -> int:
                             "Owner USB entered recovery or Surface failed during offline QEMU boot; "
                             f"checks={checks}; serial-tail={text[-3500:]!r}"
                         )
+                    if (checks["privileged_webkit_page_loaded"] and checks["native_surface_heartbeat"]
+                            and not checks["virtual_drm_transport_selected"]):
+                        raise ProofError(
+                            "Owner QEMU active virtio DRM renderer was not selected; "
+                            f"checks={checks}; serial-tail={text[-3500:]!r}"
+                        )
                     if all(checks.values()):
                         if healthy_since is None:
                             healthy_since = time.monotonic()
