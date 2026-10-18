@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -10,16 +11,9 @@ import shlex
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-OWNER_SHELL_SOURCES = (
+# Runtime helper sources belong only to DEV_HELPER_MANIFEST, not this list.
+OWNER_NON_HELPER_SHELL_SOURCES = (
     "bootstrap/dev/entrypoint",
-    "bootstrap/dev-base/ordax-dev-init",
-    "bootstrap/dev-base/ordax-network",
-    "bootstrap/dev-base/ordax-pull",
-    "bootstrap/dev-base/ordax-rollback",
-    "bootstrap/dev-base/ordax-run",
-    "bootstrap/dev-base/ordax-diagnose",
-    "bootstrap/dev-base/ordax-main-watch",
-    "bootstrap/recovery/entrypoint",
     "system/entrypoint",
     "system/supervisor",
 )
@@ -33,7 +27,7 @@ SHELL_ONLY = {
 INTERNAL_COMMANDS = {
     "ordax-dev-init", "ordax-network", "ordax-pull", "ordax-rollback",
     "ordax-run", "ordax-diagnose", "ordax-main-watch", "ordax-release-agent",
-    "ordax-portable-state", "entrypoint",
+    "ordax-portable-state", "ordax-remote", "entrypoint",
 }
 BUILDROOT_PROGRAMS = {
     "git": "BR2_PACKAGE_GIT",
@@ -54,6 +48,7 @@ BUSYBOX_SYMBOLS = {
     "od": "CONFIG_OD", "pivot_root": "CONFIG_PIVOT_ROOT", "poweroff": "CONFIG_POWEROFF",
     "printf": "CONFIG_PRINTF",
     "readlink": "CONFIG_READLINK", "reboot": "CONFIG_REBOOT", "rm": "CONFIG_RM",
+    "sha256sum": "CONFIG_SHA256SUM",
     "rmdir": "CONFIG_RMDIR", "sed": "CONFIG_SED", "setsid": "CONFIG_SETSID",
     "sh": "CONFIG_ASH", "sleep": "CONFIG_SLEEP", "stat": "CONFIG_STAT",
     "stty": "CONFIG_STTY", "switch_root": "CONFIG_SWITCH_ROOT", "sync": "CONFIG_SYNC",
@@ -72,6 +67,51 @@ _VAR_RE = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")
 CONTROL = {";", ";;", "&&", "||", "|", "(", "{"}
 CLOSERS = {")", "}"}
 
+
+
+DEV_HELPER_MANIFEST = "system/services/base-update/dev-helper-manifest.tsv"
+
+
+def owner_runtime_helpers(root: Path = ROOT) -> tuple[tuple[str, str], ...]:
+    """Canonical, fail-closed Owner helper source/target map for initial seed and refresh."""
+    manifest = root / DEV_HELPER_MANIFEST
+    if manifest.is_symlink() or not manifest.is_file():
+        raise ValueError("canonical Owner helper manifest is missing or unsafe")
+    entries: list[tuple[str, str]] = []
+    sources: set[str] = set()
+    targets: set[str] = set()
+    for lineno, raw in enumerate(manifest.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw or raw.startswith("#"):
+            continue
+        parts = raw.split("\t")
+        if len(parts) != 2:
+            raise ValueError(f"malformed Owner helper manifest line {lineno}")
+        source, target = parts
+        for value in (source, target):
+            if (not value or value.startswith("/") or "\\" in value
+                    or any(part in ("", ".", "..") for part in value.split("/"))):
+                raise ValueError(f"unsafe Owner helper path on line {lineno}")
+        name = source.rsplit("/", 1)[-1]
+        if source == "bootstrap/recovery/entrypoint":
+            expected_target = "ordax/bootstrap/recovery/entrypoint"
+        elif source == "bootstrap/dev-base/ordax-dev-init":
+            expected_target = "sbin/ordax-dev-init"
+        elif (source.startswith(("bootstrap/dev-base/", "bootstrap/base-update/owner-development/"))
+              and name.startswith("ordax-")):
+            expected_target = "usr/local/bin/" + name
+        else:
+            raise ValueError(f"Owner helper source outside canonical policy on line {lineno}")
+        if target != expected_target or source in sources or target in targets:
+            raise ValueError(f"conflicting Owner helper mapping on line {lineno}")
+        path = root / source
+        if path.is_symlink() or not path.is_file() or not (0 < path.stat().st_size <= 1048576):
+            raise ValueError(f"Owner helper source missing, unsafe or oversized: {source}")
+        sources.add(source)
+        targets.add(target)
+        entries.append((source, target))
+    if not entries:
+        raise ValueError("canonical Owner helper manifest must not be empty")
+    return tuple(entries)
 
 def _strip_heredocs(text: str) -> str:
     out: list[str] = []
@@ -324,7 +364,9 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     all_commands: set[str] = set()
     explicit_busybox: set[str] = set()
     missing_sources: list[str] = []
-    for relative in OWNER_SHELL_SOURCES:
+    runtime_helpers = owner_runtime_helpers(root)
+    sources = (*OWNER_NON_HELPER_SHELL_SOURCES, *(source for source, _ in runtime_helpers))
+    for relative in sources:
         path = root / relative
         if path.is_symlink() or not path.is_file():
             missing_sources.append(relative)
@@ -347,6 +389,59 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
         "explicit_busybox_applets": sorted(explicit_busybox),
         "unknown_commands": sorted(all_commands - known),
         "missing_sources": missing_sources,
+        "runtime_helpers": [
+            {"source": source, "target": target} for source, target in runtime_helpers
+        ],
+    }
+
+
+
+def verify_owner_stage(stage: Path, root: Path = ROOT) -> dict[str, object]:
+    """Prove that the final Creator stage contains exact canonical Owner helpers.
+
+    This runs after the real rootfs and source checkout have been copied to the
+    release staging tree. It performs only read-only local checks.
+    """
+    base = stage / "ORDAX" / "dev-base"
+    checkout = base / "workspace" / "ordax"
+    for directory in (stage, stage / "ORDAX", base, base / "workspace", checkout):
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError(f"unsafe or missing Owner stage directory: {directory}")
+    expected = owner_runtime_helpers(root)
+    actual = owner_runtime_helpers(checkout)
+    if actual != expected:
+        raise ValueError("staged Owner helper manifest differs from canonical SSOT")
+    manifest = checkout / DEV_HELPER_MANIFEST
+    canonical_manifest = root / DEV_HELPER_MANIFEST
+    if manifest.read_bytes() != canonical_manifest.read_bytes():
+        raise ValueError("staged Owner manifest bytes differ from canonical SSOT")
+
+    def checked_file(base_path: Path, relative: str) -> Path:
+        candidate = base_path
+        for component in relative.split("/"):
+            candidate = candidate / component
+            if candidate.is_symlink():
+                raise ValueError(f"unsafe symlink in staged Owner helper path: {relative}")
+        if not candidate.is_file():
+            raise ValueError(f"staged Owner helper is missing: {relative}")
+        return candidate
+
+    for source, target in expected:
+        origin = checked_file(root, source)
+        staged_source = checked_file(checkout, source)
+        installed = checked_file(base, target)
+        if installed.stat().st_mode & 0o111 == 0:
+            raise ValueError(f"staged Owner helper is not executable: {target}")
+        expected_sha = hashlib.sha256(origin.read_bytes()).digest()
+        if (hashlib.sha256(staged_source.read_bytes()).digest() != expected_sha
+                or hashlib.sha256(installed.read_bytes()).digest() != expected_sha):
+            raise ValueError(f"staged Owner helper bytes differ from canonical source: {target}")
+    return {
+        "$schema": "prototype-ordax.owner-staged-helper-proof/1",
+        "status": "pass",
+        "verified_helper_count": len(expected),
+        "manifest": DEV_HELPER_MANIFEST,
+        "physical_write_authorized": False,
     }
 
 
@@ -383,6 +478,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("inventory")
+    stage_check = sub.add_parser("verify-owner-stage")
+    stage_check.add_argument("--stage-root", required=True, type=Path)
     check = sub.add_parser("check-buildroot")
     check.add_argument("--defconfig", type=Path, default=ROOT / "bootstrap/independent-base/configs/ordax_minimal_defconfig")
     check.add_argument("--busybox-fragment", type=Path, default=ROOT / "bootstrap/independent-base/configs/portable-handoff.busybox.fragment")
@@ -391,6 +488,9 @@ def main() -> int:
         if args.command == "inventory":
             result = owner_inventory(ROOT)
             ok = not result["missing_sources"] and not result["unknown_commands"]
+        elif args.command == "verify-owner-stage":
+            result = verify_owner_stage(args.stage_root, ROOT)
+            ok = result["status"] == "pass"
         else:
             result = check_buildroot(args.defconfig.resolve(), args.busybox_fragment.resolve(), ROOT)
             ok = result["status"] == "pass"

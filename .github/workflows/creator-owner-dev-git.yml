@@ -334,6 +334,8 @@ jobs:
           sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
           # A verified Git checkout is not a bootable desktop. The complete
           # graphical runtime must already be on the USB before publication.
+          sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage \
+            --stage-root "$stage"
           sudo python tools/creator/verify_owner_dev_offline_runtime.py \
             --stage-root "$stage"
           if sudo find "$stage" -type l -print -quit | grep -q .; then

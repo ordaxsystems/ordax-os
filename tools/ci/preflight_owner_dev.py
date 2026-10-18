@@ -8,19 +8,12 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-OWNER_PATHS = (
-    "bootstrap/dev/entrypoint",
-    "bootstrap/dev-base/ordax-dev-init",
-    "bootstrap/dev-base/ordax-network",
-    "bootstrap/dev-base/ordax-pull",
-    "bootstrap/dev-base/ordax-rollback",
-    "bootstrap/dev-base/ordax-run",
-    "bootstrap/dev-base/ordax-diagnose",
-    "bootstrap/dev-base/ordax-main-watch",
-    "bootstrap/recovery/entrypoint",
-    "system/entrypoint",
-    "system/supervisor",
-)
+# Both script and module entrypoints consume the same canonical inventory.
+if __package__:
+    from .owner_rootfs_capabilities import owner_inventory
+else:
+    from owner_rootfs_capabilities import owner_inventory
+
 FORBIDDEN_OWNER_TOKENS = (
     "apk add",
     "apk update",
@@ -54,7 +47,11 @@ def run(cmd: list[str]) -> dict[str, object]:
 def check_owner_isolation() -> dict[str, object]:
     violations: list[dict[str, object]] = []
     missing: list[str] = []
-    for rel in OWNER_PATHS:
+    try:
+        paths = owner_inventory(ROOT)["sources"]
+    except (OSError, ValueError) as exc:
+        return {"missing": [f"Owner inventory: {exc}"], "violations": [], "ok": False}
+    for rel in paths:
         path = ROOT / rel
         if not path.is_file() or path.is_symlink():
             missing.append(rel)
