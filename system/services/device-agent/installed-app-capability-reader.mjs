@@ -26,6 +26,17 @@ const SHA256_RE = /^[0-9a-f]{64}$/;
 const INSTANCE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
+// Revocation belongs to trusted mount teardown, not the app port itself.
+// Never export grant or execution methods on this reader.
+const activeReaders = new WeakMap();
+export function revokeInstalledAppCapabilityReader(reader) {
+  const revoke = activeReaders.get(reader);
+  if (!revoke) return false;
+  activeReaders.delete(reader);
+  revoke();
+  return true;
+}
+
 function exactObject(value, fields, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
@@ -118,9 +129,14 @@ export function createInstalledAppCapabilityReader({
   // Only trusted composition may supply the mount-time identity. Without a
   // mount pin, a host-global reader is still valid for internal diagnostics.
   const pinnedCaller = mountCaller === null ? null : verifiedCaller(mountCaller);
-  return Object.freeze({
+  let active = true;
+  function assertActive() {
+    if (!active) throw new TypeError("Installed app capability reader is no longer mounted");
+  }
+  const port = Object.freeze({
     schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
     async capabilities(request = undefined) {
+      assertActive();
       if (request !== undefined) {
         throw new TypeError("App capability discovery must not select a caller or scope");
       }
@@ -139,6 +155,7 @@ export function createInstalledAppCapabilityReader({
       // A Space/account switch, package update or uninstall during the async
       // permission read cannot return a stale capability snapshot to the app.
       const currentCaller = verifiedCaller(await resolveCaller());
+      assertActive();
       if (!sameCaller(currentCaller, caller)) {
         throw new TypeError("Installed app caller changed during capability discovery");
       }
@@ -155,9 +172,13 @@ export function createInstalledAppCapabilityReader({
         const modes = capability.modes.filter(mode => allowById.get(capability.id)?.has(mode));
         return modes.length ? [{ id: capability.id, modes }] : [];
       });
-      return validateDeviceAgentCapabilitiesSnapshot({
+      const snapshot = validateDeviceAgentCapabilitiesSnapshot({
         schema: DEVICE_AGENT_CAPABILITIES_SCHEMA, state: "ready", capabilities: visible,
       });
+      assertActive();
+      return snapshot;
     },
   });
+  activeReaders.set(port, () => { active = false; });
+  return port;
 }
