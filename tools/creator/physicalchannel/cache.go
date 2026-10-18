@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/ordaxsystems/ordax-os/tools/creator/internal/atomicfile"
 )
 
 const currentEnvelopeName = "current-envelope.json"
@@ -29,44 +31,6 @@ func physicalRoot(root string) (string, error) {
 	return filepath.Join(home, ".ordax-creator-physical"), nil
 }
 
-func writeEnvelopeAtomic(path string, data []byte) error {
-	parent := filepath.Dir(path)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return err
-	}
-	temp, err := os.CreateTemp(parent, ".ordax-physical-envelope-*")
-	if err != nil {
-		return err
-	}
-	tempPath := temp.Name()
-	remove := true
-	defer func() {
-		_ = temp.Close()
-		if remove {
-			_ = os.Remove(tempPath)
-		}
-	}()
-	if _, err := temp.Write(data); err != nil {
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tempPath, 0o600); err != nil {
-			return err
-		}
-	}
-	_ = os.Remove(path)
-	if err := os.Rename(tempPath, path); err != nil {
-		return err
-	}
-	remove = false
-	return nil
-}
 
 // Current is deliberately strict: offline use is allowed only when the cached
 // pointer is itself the exact signed envelope, the referenced candidate still
@@ -150,7 +114,7 @@ func AcquireCached(client *http.Client, root, envelopeURL string, trustBytes []b
 	if err := ensureNotRollback(actualRoot, verified, trustBytes, expectedTrustSHA256); err != nil {
 		return Installed{}, false, err
 	}
-	if err := writeEnvelopeAtomic(filepath.Join(actualRoot, currentEnvelopeName), envelopeBytes); err != nil {
+	if err := atomicfile.Replace(filepath.Join(actualRoot, currentEnvelopeName), envelopeBytes); err != nil {
 		return installed, changed, nil
 	}
 	return verified, changed, nil

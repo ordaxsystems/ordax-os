@@ -47,6 +47,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(media["new_candidate_final_validation_required"], True)
         self.assertIs(media["additional_media_catalog_or_cache_allowed"], False)
         self.assertIs(media["physical_write_authority_unchanged"], True)
+        self.assertIs(media["signed_envelope_pointer_prior_state_preserved_on_replace_failure"], True)
 
         integrity = data["physical_candidate_integrity"]
         self.assertIs(integrity["whole_disk_raw_image_required"], False)
