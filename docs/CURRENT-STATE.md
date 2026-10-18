@@ -1,3 +1,16 @@
+MCP device presence verification (Owner/Development USB, 2026-10-18): the
+single ProductDevicePresenceWorker now retains the last accepted HTTPS
+presence receipt in memory with a monotonic bounded freshness window. The
+native Settings projection keeps private owner opt-in separate from actual
+server-acknowledged presence: `disabled`, `connecting`, `confirmed`,
+`unavailable`. "Confirmed" means only that Product PostgreSQL accepted a
+device presence report, **not** that an external ChatGPT OAuth client has
+grants, or that OS remote-action execution is installed. There is no
+second heartbeat or MCP endpoint. A local refresh reads the existing
+worker via the neutral Product Connector port. Source-of-truth contract:
+docs/contracts/product-device-presence.json. Physical USB proof and OS
+action Runtime/attestation remain independently blocked.
+
 Native Connector Settings opt-in (2026-10-18): Owner/Development USB now
 uses the private ProductDeviceIdentityStore as SSOT for a separate
 `product-connector-visibility.json` preference, default-off. Native Settings
@@ -26,6 +39,14 @@ remain independent. See docs/contracts/product-device-presence.json and
 docs/INTELLIGENCE.md.
 
 # Current State
+
+Emulator preference continuity (2026-10-18): Windows onboarding and its same-origin
+Surface now consume `createWebPreferenceStore` and `createPreferenceRuntime`,
+removing the emulator-only preference implementation/storage authority. Completed
+older onboarding receipts seed only missing regional values through Native's
+`seedMissingRegionalPreferencesFromFirstRun` policy; newer Settings choices win.
+The OOBE receipt stays emulator-specific. Hardware capabilities and the distinction
+between Native and Web composition remain unchanged; this is not a full parity claim.
 
 First Run single owner (2026-10-17): Native/USB and Windows emulator use
 `system/surface/ui/first-run.mjs`, canonical journey metadata and the same

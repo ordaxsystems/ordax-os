@@ -52,6 +52,20 @@ test("Native and emulator mount one first-run module and the same Meridian visua
   }
 });
 
+test("emulator and its post-onboarding Surface consume the canonical preference owners", async () => {
+  const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
+  const [emulator, web] = await Promise.all([
+    read("tools/windows-emulator/main.mjs"), read("system/composition/web/main.tsx"),
+  ]);
+  for (const entry of [emulator, web]) {
+    assert.match(entry, /import \{ createWebPreferenceStore \} from ["'][^"']*adapters\/web\/preferences\.mjs["']/);
+    assert.match(entry, /import \{ createPreferenceRuntime \} from ["'][^"']*services\/preferences\/runtime\.mjs["']/);
+    assert.match(entry, /createPreferenceRuntime\(/);
+  }
+  assert.match(emulator, /seedMissingRegionalPreferencesFromFirstRun\(preferenceStore\.load\(\), stateStore\.load\(\)\)/);
+  assert.doesNotMatch(emulator, /function createEmulatedPreferences|ordax\.windows-emulator\.preferences/);
+});
+
 test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {
   for (const locale of ["pt-BR", "en-US"]) {
     assert.equal(Object.hasOwn(createJourneyScenarios(locale).storyboards, "setup"), false);

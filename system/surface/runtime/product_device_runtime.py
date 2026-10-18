@@ -78,9 +78,14 @@ class ProductDevicePostLoginCoordinator:
 
     def visibility_status(self, *, authenticated: bool, subject: str | None = None) -> dict:
         enabled = bool(self.identity_store and self.identity_store.connector_visibility_enabled(subject))
+        presence_state = "disabled"
+        if enabled:
+            state = self.presence.connection_state() if self.presence is not None else "unavailable"
+            presence_state = state if state in {"connecting", "confirmed", "unavailable"} else "unavailable"
         return {
             "available": self.client is not None,
             "enabled": enabled,
+            "presenceState": presence_state,
             "accountAuthenticated": bool(authenticated),
             "remoteActionsEnabled": False,
             "requiresClientOAuthAndGrants": True,

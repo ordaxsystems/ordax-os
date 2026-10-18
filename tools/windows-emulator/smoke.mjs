@@ -22,6 +22,7 @@ async function readState(client) {
       surfaceTarget: window.__ORDAX_EMULATOR__?.surfaceTarget ?? null,
       frameSrc: document.querySelector("#ordax-emulator-surface")?.getAttribute("src") ?? null,
       firstRunState: window.__ORDAX_EMULATOR__?.getFirstRunState?.() ?? null,
+      regionalPreferences: JSON.parse(localStorage.getItem("ordax.preferences.v1") ?? "{}"),
       surfaceDocumentReady: Boolean(document.querySelector("#ordax-emulator-surface")?.contentDocument?.querySelector("#ordax-root")),
       surfaceBootState: document.querySelector("#ordax-emulator-surface")?.contentDocument?.querySelector("#ordax-boot-screen")?.getAttribute("data-state") ?? null,
       bodyText: document.body.innerText.slice(0, 500),
@@ -88,6 +89,17 @@ runBrowser(async (client) => {
 
   // Exercise the real first-run UI exactly as an offline/local Windows development host.
   await clickAction(client, "next");       // welcome -> regional
+  const region = await client.send("Runtime.evaluate", {
+    expression: `(() => {
+      const select = document.querySelector('[data-first-run-time-zone]');
+      if (!(select instanceof HTMLSelectElement)) return false;
+      select.value = 'America/Manaus';
+      select.dispatchEvent(new Event('change', {bubbles: true}));
+      return select.value === 'America/Manaus';
+    })()`,
+    returnByValue: true,
+  });
+  if (region.result?.value !== true) throw new Error("Regional selection was not available");
   await clickAction(client, "next");       // regional -> network
   await clickAction(client, "next");       // network -> security
   await clickAction(client, "next");       // security -> account
@@ -116,6 +128,10 @@ runBrowser(async (client) => {
   }
   if (!result.surfaceDocumentReady || result.surfaceBootState !== "ready") {
     throw new Error(`Surface document did not become ready after OOBE: ${JSON.stringify({ result, browserExceptions: browserExceptions() })}`);
+  }
+
+  if (result.regionalPreferences?.["regional.time-zone"] !== "America/Manaus") {
+    throw new Error("OOBE preferences did not reach the Surface's canonical storage");
   }
 
   console.log("ORDAX_WINDOWS_EMULATOR_SMOKE=PASS");

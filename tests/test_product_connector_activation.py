@@ -83,6 +83,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
             self.assertFalse(coordinator.visibility_status(authenticated=True, subject=SUBJECT)["enabled"])
             coordinator.configure_visibility(True, profile, subject=SUBJECT)
             worker.return_value.start.assert_called_once()
+            self.assertEqual(coordinator.visibility_status(authenticated=True, subject=SUBJECT)["presenceState"], "unavailable")
             self.assertTrue(self.store.connector_visibility_enabled(SUBJECT))
             coordinator.configure_visibility(False, profile)
             worker.return_value.stop.assert_called_once_with(wait=False)

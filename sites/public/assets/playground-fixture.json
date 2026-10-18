@@ -242,7 +242,7 @@
       },
       {
         "path": "system/services/i18n/catalog/settings.mjs",
-        "sha256": "d0c8ae176efa6e910513e08ae2b37684bc73bffefd175bc1edeed36e12e06dfa"
+        "sha256": "10c17cc2ae69e7f5fdfd2152c4ba8c8a42b0da8fd7dd377927078d9bb49f5a06"
       },
       {
         "path": "system/services/i18n/catalog/sidebar.mjs",

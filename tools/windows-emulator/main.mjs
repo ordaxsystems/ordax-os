@@ -1,4 +1,7 @@
 import { mountFirstRunExperience } from "/system/surface/ui/first-run.mjs";
+import { createWebPreferenceStore } from "/system/adapters/web/preferences.mjs";
+import { createPreferenceRuntime } from "/system/services/preferences/runtime.mjs";
+import { seedMissingRegionalPreferencesFromFirstRun } from "/system/services/state/first-run.mjs";
 import {
   FIRST_RUN_STATE_SCHEMA,
   FIRST_RUN_STATE_STORE_SCHEMA,
@@ -7,7 +10,6 @@ import {
 } from "/system/contracts/first-run-state-store.mjs";
 
 const STATE_KEY = "ordax.windows-emulator.first-run.v1";
-const PREFS_KEY = "ordax.windows-emulator.preferences.v1";
 // The canonical entry gate permits anonymous layout preview only on loopback.
 const SURFACE_TARGET = "/system/composition/web/?preview=layout";
 
@@ -51,28 +53,6 @@ function createEmulatedFirstRunStateStore() {
   });
 }
 
-function createEmulatedPreferences() {
-  let snapshot = loadJson(PREFS_KEY, {});
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) snapshot = {};
-  const listeners = new Set();
-
-  return Object.freeze({
-    schema: "ordax.preference-runtime/1",
-    getSnapshot() {
-      return snapshot;
-    },
-    set(key, value) {
-      snapshot = Object.freeze({ ...snapshot, [key]: value });
-      window.localStorage.setItem(PREFS_KEY, JSON.stringify(snapshot));
-      for (const listener of listeners) listener(snapshot);
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  });
-}
-
 function createUnavailableIdentitySession() {
   const snapshot = Object.freeze({ state: "unavailable" });
   return Object.freeze({
@@ -107,7 +87,16 @@ const root = document.querySelector("#ordax-emulator-root");
 if (!(root instanceof Element)) throw new Error("Windows emulator root is missing");
 
 const stateStore = createEmulatedFirstRunStateStore();
-const preferences = createEmulatedPreferences();
+// The post-OOBE same-origin Surface consumes this same adapter and domain service.
+// Recover completed onboarding through Native's existing seed policy; never
+// overwrite a newer preference selected in Settings.
+const preferenceStore = createWebPreferenceStore(window);
+const regionalSeed = seedMissingRegionalPreferencesFromFirstRun(preferenceStore.load(), stateStore.load());
+if (regionalSeed.changed) preferenceStore.save(regionalSeed.snapshot);
+const preferences = createPreferenceRuntime(preferenceStore);
+window.addEventListener("pagehide", event => {
+  if (!event.persisted) preferences.dispose();
+});
 const identitySession = createUnavailableIdentitySession();
 const identityActions = createUnavailableIdentityActions();
 
