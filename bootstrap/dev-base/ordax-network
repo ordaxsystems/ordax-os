@@ -68,6 +68,14 @@ load_network_modules() {
     done
 }
 
+write_network_status() {
+    status=$1
+    detail=${2:-}
+    temporary=$NETWORK_STATUS_FILE.tmp.$
+    printf '%s|%s\n' "$status" "$detail" >"$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$NETWORK_STATUS_FILE"
+}
+
 load_network_modules
 # Pure module discovery: do not claim a network, ask for credentials or probe Git.
 [ "$hardware_only" -eq 1 ] && exit 0
@@ -77,14 +85,6 @@ cleanup_runtime_files() {
     rm -f "$CANDIDATE_CONF" "$SCAN_FILE" "$SSID_FILE"
 }
 trap cleanup_runtime_files EXIT
-
-write_network_status() {
-    status=$1
-    detail=${2:-}
-    temporary=$NETWORK_STATUS_FILE.tmp.$$
-    printf '%s|%s\n' "$status" "$detail" >"$temporary" || return 1
-    /bin/busybox mv -f "$temporary" "$NETWORK_STATUS_FILE"
-}
 
 have_ipv4() {
     ip -4 -o addr show scope global 2>/dev/null | grep -q ' inet '
