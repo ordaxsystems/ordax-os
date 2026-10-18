@@ -1,8 +1,10 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import math
+import stat
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
@@ -44,6 +46,50 @@ class NativePreferenceTests(unittest.TestCase):
             host.write_preferences(expected)
             self.assertEqual(host.read_preferences(), expected)
             self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+
+    def test_host_preference_restart_preserves_last_confirmed_value_and_file_mode(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preferences.json"
+            host.PREFERENCES_FILE = str(path)
+            expected = {"appearance.theme": "dark", "regional.locale": "pt-BR"}
+            host.write_preferences(expected)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            # A new host module reads the device file, not the prior process memory.
+            restarted_host = load_host_server()
+            restarted_host.PREFERENCES_FILE = str(path)
+            self.assertEqual(restarted_host.read_preferences(), expected)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def test_failed_atomic_replace_keeps_last_durable_preference_across_restart(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preferences.json"
+            host.PREFERENCES_FILE = str(path)
+            expected = {"appearance.theme": "dark"}
+            host.write_preferences(expected)
+            with patch.object(host.os, "replace", side_effect=OSError("simulated disk failure")):
+                with self.assertRaises(OSError):
+                    host.write_preferences({"appearance.theme": "light"})
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")), "failed writes must not leak candidates")
+            restarted_host = load_host_server()
+            restarted_host.PREFERENCES_FILE = str(path)
+            self.assertEqual(restarted_host.read_preferences(), expected)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_invalid_utf8_preference_file_falls_back_without_breaking_host_startup(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preferences.json"
+            host.PREFERENCES_FILE = str(path)
+            path.write_bytes(bytes((0xFF, 0xFE, 0x80)))
+            self.assertEqual(host.read_preferences(), {})
+            # Repair uses the same canonical atomic writer and is restart-safe.
+            host.write_preferences({"regional.locale": "pt-BR"})
+            restarted_host = load_host_server()
+            restarted_host.PREFERENCES_FILE = str(path)
+            self.assertEqual(restarted_host.read_preferences(), {"regional.locale": "pt-BR"})
 
     def test_host_sync_state_write_is_atomic_bounded_and_round_trips(self):
         host = load_host_server()

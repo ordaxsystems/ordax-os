@@ -602,7 +602,7 @@ def read_preferences() -> dict:
             payload = json.load(handle)
     except FileNotFoundError:
         return {}
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return payload if valid_preference_record(payload) else {}
 
@@ -613,12 +613,22 @@ def write_preferences(preferences: dict) -> None:
     directory = os.path.dirname(PREFERENCES_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
     temporary = f"{PREFERENCES_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
-    with open(temporary, "w", encoding="utf-8") as handle:
-        json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temporary, PREFERENCES_FILE)
+    try:
+        with open(temporary, "w", encoding="utf-8") as handle:
+            # Preferences are device-local user data; do not depend on umask.
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, PREFERENCES_FILE)
+    finally:
+        # On a failed replace, keep the last durable record and remove only
+        # this writer's uncommitted candidate. Never touch the destination.
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
     try:
         directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     except OSError:

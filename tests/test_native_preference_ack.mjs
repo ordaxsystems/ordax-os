@@ -79,3 +79,87 @@ test("Native runtime does not report a first save until the host acknowledges it
   assert.deepEqual(observed, ["not-written", "pending", "saved"]);
   runtime.dispose();
 });
+
+
+// A Native runtime restart creates a new adapter and reads only the host's
+// last committed snapshot. An unconfirmed session edit is never promoted.
+test("Native preference state survives restart only after a confirmed host write", async () => {
+  let disk = { "appearance.theme": "light" };
+  let failNext = false;
+  const requests = [];
+  const windowRef = {
+    async fetch(url, options) {
+      assert.equal(url, "/__ordax/native/preferences");
+      assert.equal(options.credentials, "same-origin");
+      if (options.method === "GET") {
+        return { ok: true, json: async () => ({ ...disk }) };
+      }
+      assert.equal(options.method, "POST");
+      const record = JSON.parse(options.body);
+      requests.push(record);
+      if (failNext) {
+        failNext = false;
+        return { ok: false, status: 507 };
+      }
+      disk = { ...record };
+      return { ok: true, status: 204 };
+    },
+  };
+
+  const originalStore = await createNativePreferenceStore(windowRef);
+  const original = createPreferenceRuntime(originalStore);
+  assert.equal(original.getSnapshot()["appearance.theme"], "light");
+  original.set("appearance.theme", "dark");
+  assert.equal(original.getPersistenceSnapshot(), "pending");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(original.getPersistenceSnapshot(), "saved");
+  original.dispose();
+
+  const restartedStore = await createNativePreferenceStore(windowRef);
+  const restarted = createPreferenceRuntime(restartedStore);
+  assert.equal(restarted.getSnapshot()["appearance.theme"], "dark");
+  assert.equal(restarted.getPersistenceSnapshot(), "not-written");
+
+  failNext = true;
+  restarted.set("appearance.theme", "light");
+  assert.equal(restarted.getSnapshot()["appearance.theme"], "light");
+  assert.equal(restarted.getPersistenceSnapshot(), "pending");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(restarted.getPersistenceSnapshot(), "session-only");
+  assert.equal(disk["appearance.theme"], "dark", "failed POST cannot overwrite last confirmed value");
+  restarted.dispose();
+
+  const afterFailureStore = await createNativePreferenceStore(windowRef);
+  const afterFailure = createPreferenceRuntime(afterFailureStore);
+  assert.equal(afterFailure.getSnapshot()["appearance.theme"], "dark");
+  afterFailure.set("appearance.theme", "light");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(afterFailure.getPersistenceSnapshot(), "saved");
+  afterFailure.dispose();
+
+  const finalStore = await createNativePreferenceStore(windowRef);
+  const finalRuntime = createPreferenceRuntime(finalStore);
+  assert.equal(finalRuntime.getSnapshot()["appearance.theme"], "light");
+  assert.equal(finalRuntime.getPersistenceSnapshot(), "not-written");
+  assert.equal(requests.length, 3);
+  finalRuntime.dispose();
+});
+
+test("Native GET failure keeps the next Surface usable without fabricated durability", async () => {
+  const windowRef = {
+    async fetch(url, options) {
+      assert.equal(url, "/__ordax/native/preferences");
+      if (options.method === "GET") throw new Error("loopback host unavailable at startup");
+      return { ok: false, status: 503 };
+    },
+  };
+  const store = await createNativePreferenceStore(windowRef);
+  const runtime = createPreferenceRuntime(store);
+  assert.equal(runtime.getSnapshot()["appearance.theme"], "light");
+  assert.equal(runtime.getPersistenceSnapshot(), "not-written");
+  runtime.set("appearance.theme", "dark");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(runtime.getSnapshot()["appearance.theme"], "dark");
+  assert.equal(runtime.getPersistenceSnapshot(), "session-only");
+  runtime.dispose();
+});
