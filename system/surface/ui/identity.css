@@ -9,6 +9,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   gap: 0;
   background: var(--md-canvas);
 }
+.ordax-shell.meridian-native-workspace { --ordax-navigation-height: 56px; }
 .ordax-workspace { grid-row: 1; }
 .ordax-workspace::before {
   content: "";
@@ -575,16 +576,16 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-taskbar-end { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .meridian-native-workspace .meridian-taskbar-end { justify-content: flex-end; }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle,
-.meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle { width:40px; min-width:40px; height:44px; border:0; border-radius:10px; background:transparent; color:var(--md-muted); }
+.meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle { width:36px; min-width:36px; height:38px; border:0; border-radius:9px; background:transparent; color:var(--md-muted); }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle[aria-pressed="true"] { background:var(--md-subtle); color:var(--md-ink); }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle:hover { background:var(--md-subtle); color:var(--md-ink); }
-.meridian-native-workspace .meridian-native-dock { display:flex; align-items:center; justify-self:center; min-width:0; max-width:min(100%,570px); gap:4px; padding:4px 10px; border:1px solid var(--md-border); border-radius:14px; background:var(--md-surface); box-shadow:var(--md-shadow-small); }
+.meridian-native-workspace .meridian-native-dock { display:flex; align-items:center; justify-self:center; min-width:0; max-width:min(100%,570px); gap:4px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
 .meridian-native-workspace .meridian-dock-shortcuts { display:flex; flex:0 0 auto; align-items:center; gap:6px; }
-.meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut { display:grid; place-items:center; position:relative; width:44px; min-width:44px; height:44px; padding:0 4px 5px; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--md-ink); }
+.meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut { display:grid; place-items:center; position:relative; width:38px; min-width:38px; height:38px; padding:0 3px 4px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--md-ink); }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut:hover { background:var(--md-subtle); }
-.meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut[data-active="true"] { background:var(--md-accent-soft); outline:1px solid var(--md-accent); outline-offset:2px; }
+.meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut[data-active="true"] { background:var(--md-accent-soft); outline:1px solid var(--md-accent); outline-offset:1px; }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut[data-open-window]::after { position:absolute; bottom:2px; left:calc(50% - 6px); width:12px; height:3px; border-radius:3px; background:var(--md-accent); content:""; }
-.meridian-native-workspace .meridian-dock-shortcuts .ordax-rail-icon { display:grid; place-items:center; width:32px; height:32px; color:var(--md-ink); }
+.meridian-native-workspace .meridian-dock-shortcuts .ordax-rail-icon { display:grid; place-items:center; width:28px; height:28px; color:var(--md-ink); }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-rail-icon svg { width:21px; height:21px; }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut .ordax-rail-icon { border-radius:8px; }
 .meridian-native-workspace [data-dock-pinned-app="studio"] .ordax-rail-icon { background:var(--md-accent-soft); color:var(--md-accent); }
@@ -595,16 +596,16 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace [data-dock-pinned-app="system"] .ordax-rail-icon { background:var(--md-blue-soft); color:var(--md-blue); }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut > span:last-child { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .meridian-native-workspace .meridian-dock-divider { width:1px; height:25px; flex:0 0 1px; margin-inline:3px; background:var(--md-border); }
-.meridian-native-workspace .ordax-dock-launcher { display:grid; place-items:center; width:44px; min-width:44px; height:44px; padding:0; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--md-muted); }
+.meridian-native-workspace .ordax-dock-launcher { display:grid; place-items:center; width:38px; min-width:38px; height:38px; padding:0; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--md-muted); }
 .meridian-native-workspace .ordax-dock-launcher:hover { background:var(--md-subtle); color:var(--md-ink); }
-.meridian-native-workspace .ordax-dock-launcher .ordax-rail-icon { position:static; display:grid; place-items:center; width:32px; height:32px; overflow:visible; clip-path:none; }
+.meridian-native-workspace .ordax-dock-launcher .ordax-rail-icon { position:static; display:grid; place-items:center; width:28px; height:28px; overflow:visible; clip-path:none; }
 .meridian-native-workspace .ordax-dock-launcher .ordax-rail-icon svg { width:21px; height:21px; }
 .meridian-native-workspace .ordax-running-apps { display:flex; justify-self:center; flex:0 1 auto; min-width:0; max-width:100%; overflow-x:auto; gap:6px; padding:0; border:0; background:transparent; box-shadow:none; }
-.meridian-native-workspace .ordax-running-app { display:grid; place-items:center; width:44px; min-width:44px; height:44px; padding:0 4px 5px; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--md-ink); font-size:.66rem; }
+.meridian-native-workspace .ordax-running-app { display:grid; place-items:center; width:38px; min-width:38px; height:38px; padding:0 3px 4px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--md-ink); font-size:.66rem; }
 .meridian-native-workspace .ordax-running-app:hover { background:var(--md-subtle); }
 .meridian-native-workspace .ordax-running-app[data-active="true"] { border-color:var(--md-accent); background:var(--md-accent-soft); box-shadow:none; }
 .meridian-native-workspace .ordax-running-app[data-active="true"]::after { width:12px; height:3px; bottom:2px; border-radius:3px; background:var(--md-accent); }
-.meridian-native-workspace .ordax-running-app .ordax-rail-icon { display:grid; place-items:center; width:32px; height:32px; }
+.meridian-native-workspace .ordax-running-app .ordax-rail-icon { display:grid; place-items:center; width:28px; height:28px; }
 .meridian-native-workspace .ordax-running-app .ordax-rail-icon svg { width:21px; height:21px; }
 .meridian-native-workspace .meridian-taskbar-system-tray { display:flex; align-items:center; gap:2px; padding:0; border:0; color:var(--md-muted); }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-item { min-height:36px; height:36px; padding-inline:7px; border-radius:9px; font-size:.68rem; }
