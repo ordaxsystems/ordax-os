@@ -30,6 +30,14 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertLess(NETWORK.index('[ "$hardware_only" -eq 1 ] && exit 0'),
                         NETWORK.index("write_network_status no-ip startup"))
 
+    def test_versioned_base_keeps_ephemeral_surface_mount_during_pivot(self):
+        code = INIT
+        self.assertIn("for shared in state workspace home proc sys dev run; do", code)
+        self.assertLess(
+            code.index("for shared in state workspace home proc sys dev run; do"),
+            code.index("/bin/busybox pivot_root . .ordax-base"),
+        )
+
     def test_durable_first_run_state_blocks_both_update_owners(self):
         marker = "$STATE_DIR/native-state/first-run.json"
         self.assertIn(marker, SUPERVISOR)
