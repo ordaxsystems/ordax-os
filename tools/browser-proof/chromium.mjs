@@ -1,9 +1,8 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:net';
 function which(command) {
   const result = spawnSync('sh', ['-lc', `command -v ${JSON.stringify(command)}`], { encoding: 'utf8' });
   return result.status === 0 ? result.stdout.trim() : null;
@@ -43,73 +42,49 @@ function exitSummary(exitState) {
   return fields.length > 0 ? fields.join(', ') : 'exited';
 }
 
-async function reserveLoopbackPort() {
-  return new Promise((resolvePromise, reject) => {
-    const server = createServer();
-    server.unref();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      if (!address || typeof address === 'string') {
-        server.close();
-        reject(new Error('could not allocate a loopback CDP port'));
-        return;
-      }
-      const { port } = address;
-      server.close((error) => {
-        if (error) reject(error);
-        else resolvePromise(port);
-      });
-    });
-  });
+export function parseDevToolsActivePort(value) {
+  const raw = value.split(/\r?\n/, 1)[0]?.trim() ?? '';
+  if (!/^[0-9]{1,5}$/.test(raw)) throw new Error('Chrome DevToolsActivePort is malformed');
+  const port = Number(raw);
+  if (port < 1 || port > 65535) throw new Error('Chrome DevToolsActivePort is outside TCP range');
+  return port;
 }
 
-async function waitForDevTools(
-  port,
-  getExitState,
-  getSpawnError,
-  getStderr,
-  timeoutMs = STARTUP_TIMEOUT_MS,
-) {
-  const endpoint = `http://127.0.0.1:${port}/json/version`;
+async function waitForDevTools(profile, getExitState, getSpawnError, getStderr, timeoutMs = STARTUP_TIMEOUT_MS) {
+  // Windows Chrome may exit the launcher with code 0 while its profile-bound
+  // browser remains alive. The browser-owned DevToolsActivePort is authoritative.
+  const portFile = join(profile, 'DevToolsActivePort');
   const deadline = Date.now() + timeoutMs;
   let lastError = null;
-
-  while (true) {
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) break;
-
+  while (Date.now() < deadline) {
     const spawnError = getSpawnError();
-    if (spawnError) {
-      throw new Error(`failed to spawn Chromium: ${spawnError.message}`);
+    if (spawnError) throw new Error('failed to spawn Chromium: ' + spawnError.message);
+    const launchExit = getExitState();
+    if (launchExit && launchExit.code !== 0 && launchExit.code !== null) {
+      throw new Error('Chrome launcher failed before CDP (' + exitSummary(launchExit) + '); stderr=' + JSON.stringify(getStderr()));
     }
-    const exitState = getExitState();
-    if (exitState) {
-      throw new Error(
-        `Chromium exited before CDP became ready (${exitSummary(exitState)}); stderr=${JSON.stringify(getStderr())}`,
-      );
-    }
-
-    const controller = new AbortController();
-    const requestTimeoutMs = Math.min(CDP_PROBE_TIMEOUT_MS, remainingMs);
-    const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     try {
-      const response = await fetch(endpoint, { signal: controller.signal });
-      if (response.ok) return;
-      lastError = new Error(`HTTP ${response.status}`);
+      const port = parseDevToolsActivePort(await readFile(portFile, 'utf8'));
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), Math.min(remaining, CDP_PROBE_TIMEOUT_MS));
+      try {
+        const response = await fetch('http://127.0.0.1:' + port + '/json/version', {signal: controller.signal});
+        if (response.ok) return port;
+        lastError = new Error('CDP HTTP ' + response.status);
+      } finally {
+        clearTimeout(timer);
+      }
     } catch (error) {
       lastError = error;
-    } finally {
-      clearTimeout(timer);
     }
-
-    const pauseMs = Math.min(50, deadline - Date.now());
-    if (pauseMs > 0) await sleep(pauseMs);
+    const pause = Math.min(100, deadline - Date.now());
+    if (pause > 0) await sleep(pause);
   }
-
-  throw new Error(
-    `timed out waiting for Chromium CDP at ${endpoint}; process=${exitSummary(getExitState())}; last=${lastError?.message ?? 'none'}; stderr=${JSON.stringify(getStderr())}`,
-  );
+  throw new Error('timed out waiting for Chrome-owned DevToolsActivePort/CDP; launcher='
+    + exitSummary(getExitState()) + '; last=' + (lastError?.message ?? 'none')
+    + '; stderr=' + JSON.stringify(getStderr()));
 }
 
 class CdpClient {
@@ -180,6 +155,47 @@ class CdpClient {
 export { sleep };
 
 /**
+ * On Windows a Chrome launcher can exit while other browser processes remain.
+ * Identify only the unique temporary profile created by this harness.
+ */
+async function stopOwnedWindowsProfile(profile) {
+  const p = resolve(profile);
+  if (dirname(p) !== resolve(tmpdir()) || !basename(p).startsWith('ordax-browser-smoke-')) {
+    throw new Error('Refusing Chromium cleanup outside a disposable proof profile');
+  }
+  const safe = p.replaceAll("'", "''");
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    "$profile='"+safe+"'",
+    "$pattern='(?i)--user-data-dir=\"?'+[regex]::Escape($profile)+'\"?(?=\s|$)'",
+    "$owned={ @(Get-CimInstance Win32_Process -Filter \"Name='chrome.exe' OR Name='msedge.exe'\" | Where-Object { $_.CommandLine -match $pattern }) }",
+    "for($attempt=0;$attempt -lt 3;$attempt++){ $items=@(& $owned); if($items.Count -eq 0){exit 0}; foreach($item in $items){ try{ Stop-Process -Id $item.ProcessId -Force -ErrorAction Stop } catch { if(Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue){throw} } }; Start-Sleep -Milliseconds 350 }",
+    "if(@(& $owned).Count -gt 0){throw 'Test-owned Chrome processes still running'}",
+  ].join('; ');
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  await new Promise((resolvePromise, reject) => {
+    const process = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], {
+      windowsHide: true, stdio: ['ignore','ignore','pipe'],
+    });
+    let stderr = '';
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; process.kill(); }, 25_000);
+    process.stderr.setEncoding('utf8');
+    process.stderr.on('data', chunk => { stderr = appendDiagnostic(stderr, chunk); });
+    process.once('error', error => {
+      clearTimeout(timer);
+      reject(new Error('Unable to inspect test-owned Chromium: ' + error.message));
+    });
+    process.once('close', code => {
+      clearTimeout(timer);
+      if (timedOut || code !== 0) {
+        reject(new Error('Profile-scoped Chromium cleanup failed: ' + (timedOut ? 'timeout' : code) + ' ' + stderr.slice(-1000)));
+      } else resolvePromise();
+    });
+  });
+}
+
+/**
  * Stop only the process tree created by this browser proof.
  *
  * On Windows, child.kill() stops the Chrome parent without necessarily
@@ -187,7 +203,8 @@ export { sleep };
  * taskkill /T targets the owned PID and its children, never all Chrome
  * instances or another user profile. The caller waits before deleting data.
  */
-export async function stopOwnedBrowser(child, getExitState, platform = process.platform) {
+export async function stopOwnedBrowser(child, getExitState, platform = process.platform, profile = null) {
+  if (platform === 'win32' && profile !== null) await stopOwnedWindowsProfile(profile);
   if (getExitState() || !Number.isSafeInteger(child.pid) || child.pid <= 0) return;
   if (platform === 'win32') {
     await new Promise((resolvePromise, reject) => {
@@ -230,7 +247,6 @@ export async function stopOwnedBrowser(child, getExitState, platform = process.p
 export async function runBrowser(proof) {
   if (typeof WebSocket !== 'function') throw new Error('Node >=22.18 is required by browser proof');
   const browser = findBrowser();
-  const cdpPort = await reserveLoopbackPort();
   const profile = await mkdtemp(join(tmpdir(), 'ordax-browser-smoke-'));
   const args = [
     '--headless=new',
@@ -243,7 +259,7 @@ export async function runBrowser(proof) {
     '--no-first-run',
     '--no-default-browser-check',
     '--remote-debugging-address=127.0.0.1',
-    `--remote-debugging-port=${cdpPort}`,
+    '--remote-debugging-port=0',
     `--user-data-dir=${profile}`,
     'about:blank',
   ];
@@ -261,8 +277,8 @@ export async function runBrowser(proof) {
   let client = null;
   try {
     const startupStartedAt = Date.now();
-    await waitForDevTools(
-      cdpPort,
+    const cdpPort = await waitForDevTools(
+      profile,
       () => exitState,
       () => spawnError,
       () => stderr,
@@ -287,17 +303,16 @@ export async function runBrowser(proof) {
     passed = true;
     return result;
   } finally {
-    // The Windows Chrome process tree must be stopped while its owned root
-    // PID still exists; Browser.close can orphan renderer/helper children.
-    // On other platforms first try the regular CDP shutdown.
-    if (process.platform !== 'win32' && client && !exitState) {
+    // Graceful CDP shutdown first; then verify the exact disposable profile
+    // owns no surviving process before deleting its on-disk state.
+    if (client) {
       await Promise.race([
         client.send('Browser.close').catch(() => {}),
         sleep(1800),
       ]);
     }
     client?.close();
-    await stopOwnedBrowser(child, () => exitState);
+    await stopOwnedBrowser(child, () => exitState, process.platform, profile);
     await rm(profile, { recursive: true, force: true, maxRetries: 25, retryDelay: 250 });
     if (!passed && stderr) {
       process.stderr.write(`CHROMIUM_STDERR_BEGIN\n${stderr}\nCHROMIUM_STDERR_END\n`);

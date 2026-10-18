@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {stopOwnedBrowser} from '../tools/browser-proof/chromium.mjs';
+import {parseDevToolsActivePort,stopOwnedBrowser} from '../tools/browser-proof/chromium.mjs';
 
 function spawnOwnedNode(script) {
   const child=spawn(process.execPath,['-e',script],{
@@ -59,4 +59,18 @@ test('Windows cleanup terminates child processes retaining the disposable profil
       catch(error){if(error.code==='ESRCH')await rm(directory,{recursive:true,force:true});}
     }else await rm(directory,{recursive:true,force:true});
   }
+});
+
+test('Chrome-owned DevToolsActivePort is validated independently of launcher PID',()=>{
+  assert.equal(parseDevToolsActivePort('53402\n/devtools/browser/uuid\n'),53402);
+  for(const bad of ['', '0\n', '65536\n', 'not-a-port\n', '1.5\n']){
+    assert.throws(()=>parseDevToolsActivePort(bad),/DevToolsActivePort/);
+  }
+});
+
+test('Windows profile cleanup refuses paths not owned by this harness',async()=>{
+  await assert.rejects(
+    stopOwnedBrowser({pid:process.pid},()=>null,'win32','C:\\Windows\\Temp\\not-owned'),
+    /disposable proof profile/,
+  );
 });
