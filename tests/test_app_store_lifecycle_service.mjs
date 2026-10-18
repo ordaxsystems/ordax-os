@@ -141,6 +141,19 @@ function verifiedUnavailable() {
   };
 }
 
+function observationsForSnapshot(snapshot) {
+  return snapshot.entries.map((item) => ({
+    componentId: item.appId,
+    state: "current",
+    source: item.installedVersion === null ? "absent" : "slot",
+    revision: item.installedVersion === null ? 0 : 12,
+    version: item.installedVersion,
+    sourceCommit: item.installedVersion === null ? null : COMMIT,
+    entrypoint: item.installedVersion === null ? null : "src/main.mjs",
+    pendingHealth: null,
+  }));
+}
+
 function verifiedPort(snapshot) {
   return Object.freeze({
     schema: VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA,
@@ -183,6 +196,7 @@ function service({
   return createAppLifecycleRequestService({
     catalogPort: catalogPort(projection),
     verifiedCatalogPort: verifiedPort(verified),
+    getCurrentObservations: () => observationsForSnapshot(projection),
     lifecycleDelegate: delegate(executeLifecycle),
   });
 }
@@ -335,6 +349,7 @@ test("Store lifecycle delegate remains private platform authority while plan and
   assert.throws(
     () => createAppLifecycleRequestService({
       catalogPort: catalogPort(ready()),
+      getCurrentObservations: () => observationsForSnapshot(ready()),
       verifiedCatalogPort: verifiedPort(verifiedReady()),
       lifecycleDelegate: {
         schema: APP_LIFECYCLE_DELEGATE_SCHEMA,
@@ -352,6 +367,7 @@ test("Store lifecycle delegate remains private platform authority while plan and
       catalogSequence: 9,
       catalogSha256: "f".repeat(64),
       catalogSourceCommit: COMMIT,
+      expectedActivation: { source: "absent", revision: 0, version: null, sourceCommit: null },
       candidate: {
         appId: "notes",
         version: "0.4.3",
@@ -369,6 +385,7 @@ test("early rejection stays tied to its requestId when the verified catalog late
   let currentProjection = unavailable();
   let calls = 0;
   const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(currentProjection),
     catalogPort: Object.freeze({
       schema: APP_STORE_CATALOG_PORT_SCHEMA,
       authority: "none",
@@ -428,6 +445,7 @@ test("signed candidate mismatch denial cannot be replayed after catalog reconcil
   let currentVerified = verifiedUnavailable();
   let calls = 0;
   const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(ready()),
     catalogPort: catalogPort(ready()),
     verifiedCatalogPort: Object.freeze({
       schema: VERIFIED_APP_STORE_CATALOG_PORT_SCHEMA,
@@ -558,6 +576,7 @@ test("revoked signed catalog or activation projection cannot reach Native after 
     const state = { projection: ready(), signed: verifiedReady() };
     let delegated = 0;
     const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(state.projection),
       catalogPort: Object.freeze({
         schema: APP_STORE_CATALOG_PORT_SCHEMA,
         authority: "none",
@@ -590,6 +609,7 @@ test("unchanged canonical plan delegates exactly once even when snapshots are re
   const state = { projection: ready(), signed: verifiedReady() };
   let delegated = 0;
   const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(state.projection),
     catalogPort: Object.freeze({
       schema: APP_STORE_CATALOG_PORT_SCHEMA, authority: "none",
       getSnapshot() { return { ...state.projection, entries: state.projection.entries.map((e) => ({ ...e })) }; },
@@ -642,6 +662,7 @@ test("installed slot version drift blocks stale update and remove before Native 
     }));
     let delegated = 0;
     const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(current),
       catalogPort: Object.freeze({
         schema: APP_STORE_CATALOG_PORT_SCHEMA,
         authority: "none",
@@ -676,6 +697,7 @@ test("irrelevant signed Store metadata cannot silently switch requested entry be
   let current = ready();
   let delegated = 0;
   const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(current),
     catalogPort: Object.freeze({
       schema: APP_STORE_CATALOG_PORT_SCHEMA, authority: "none",
       getSnapshot() { return current; },
@@ -694,10 +716,37 @@ test("irrelevant signed Store metadata cannot silently switch requested entry be
   assert.equal(delegated, 0);
 });
 
+test("same installed version but a new Native activation revision revokes the deferred remove", async () => {
+  const current = ready(entry({
+    state: "installed", installedVersion: "0.4.3",
+    availableVersion: null, installable: false, updatable: false,
+    removable: true, artifactIdentityVerified: false, provenanceVerified: false,
+  }));
+  let revision = 12;
+  let delegated = 0;
+  const runtime = createAppLifecycleRequestService({
+    catalogPort: catalogPort(current),
+    verifiedCatalogPort: verifiedPort(verifiedReady()),
+    getCurrentObservations: () => observationsForSnapshot(current).map((value) => ({
+      ...value, revision,
+    })),
+    lifecycleDelegate: delegate((plan) => { delegated += 1; return resultFor(plan); }),
+  });
+  const pending = runtime.requestLifecycle(request("remove", {
+    requestId: "store:remove:notes:version-same-revision-changed",
+  }));
+  revision = 14; // Same semantic version; Go activation generation is different.
+  const result = await pending;
+  assert.equal(result.state, "rejected");
+  assert.equal(result.reason, "verified-lifecycle-plan-stale");
+  assert.equal(delegated, 0);
+});
+
 test("bounded lifecycle request ledger never evicts a denied ID into a future install grant", async () => {
   let currentProjection = unavailable();
   let delegated = 0;
   const runtime = createAppLifecycleRequestService({
+    getCurrentObservations: () => observationsForSnapshot(currentProjection),
     catalogPort: Object.freeze({
       schema: APP_STORE_CATALOG_PORT_SCHEMA,
       authority: "none",
