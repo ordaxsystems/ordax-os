@@ -494,7 +494,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 /* Native uses the same Meridian shell hierarchy as the Web workspace. */
 .ordax-shell.meridian-native-workspace {
   grid-template-columns: var(--ordax-rail-width) minmax(0, 1fr);
-  grid-template-rows: 66px minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
+  grid-template-rows: var(--md-system-header-height) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
   --workspace-rail: var(--ordax-rail-width);
   --sidebar-visual-width: var(--ordax-rail-width);
   background: var(--md-canvas);
@@ -646,7 +646,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-nav-more { flex-shrink: 0; }
 
 @media (max-width: 760px) {
-  .ordax-shell.meridian-native-workspace { grid-template-columns: var(--ordax-sidebar-collapsed-width) minmax(0, 1fr); grid-template-rows: 66px minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+  .ordax-shell.meridian-native-workspace { grid-template-columns: var(--ordax-sidebar-collapsed-width) minmax(0, 1fr); grid-template-rows: var(--md-system-header-height) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
   .meridian-native-workspace > .ordax-rail { grid-row: 1 / 4; padding-inline: 8px; }
   .meridian-native-workspace > .ordax-workspace { grid-column: 2; grid-row: 2; }
   .meridian-native-workspace > .ordax-native-header { grid-column: 2; grid-row: 1; }
@@ -687,7 +687,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .meridian-header-status-actions .ordax-status-action-label { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 }
 @media (max-width: 600px) {
-  .ordax-shell.meridian-native-workspace { grid-template-rows: 58px minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+  .ordax-shell.meridian-native-workspace { grid-template-rows: var(--md-system-header-height) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
   .meridian-native-workspace .meridian-mobile-menu { width:32px; height:32px; }
   .meridian-native-workspace .meridian-header-status-actions { display:none; }
   .meridian-native-workspace .meridian-system-tools { min-width:0; }

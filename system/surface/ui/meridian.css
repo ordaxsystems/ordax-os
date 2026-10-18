@@ -1,6 +1,7 @@
 /* Shared Meridian visual policy. Existing preference IDs and service owners remain unchanged. */
 .meridian-workspace {
  font:400 .8125rem/1.5 var(--md-font);
+ --md-system-header-height:66px;
  --md-home-content-max:1320px;
  --md-home-content-inline:32px;
  --md-home-heading-size:clamp(1.75rem,3vw,2.625rem);
@@ -52,7 +53,7 @@
 }
 
 /* One Meridian workspace header owner for both Web and Native. */
-.meridian-system-header {height:66px;flex-shrink:0;display:flex;align-items:center;gap:22px;justify-content:space-between;padding:0 30px;border-bottom:1px solid var(--md-border);background:var(--md-canvas);font-size:0.75rem;}
+.meridian-system-header {height:var(--md-system-header-height);flex-shrink:0;display:flex;align-items:center;gap:22px;justify-content:space-between;padding:0 30px;border-bottom:1px solid var(--md-border);background:var(--md-canvas);font-size:0.75rem;}
 .meridian-system-header button {font:inherit;color:inherit;cursor:pointer;}
 .meridian-system-location {display:flex;align-items:center;gap:14px;min-width:0;white-space:nowrap;}
 .meridian-system-location>span {font-weight:550;}
@@ -104,7 +105,8 @@
  .meridian-system-search {width:38%;}
 }
 @media(max-width:600px) {
- .meridian-system-header {height:58px;padding:0 15px;gap:10px;}
+ .meridian-workspace {--md-system-header-height:58px;}
+ .meridian-system-header {padding:0 15px;gap:10px;}
  .meridian-mobile-menu {display:flex;}
  .meridian-system-location {gap:9px;font-size:0.6875rem;}
  .meridian-system-location>button:not(.meridian-mobile-menu),.meridian-system-location>i {display:none;}
