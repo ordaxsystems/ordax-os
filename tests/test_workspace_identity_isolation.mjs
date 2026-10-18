@@ -135,3 +135,37 @@ test("workspace identity switching and remote restore use one store and replace 
   bridge.store.save(windowRecord("/remote-B"));
   assert.equal(changes.length, afterGuest, "disposal must remove live workspace listener");
 });
+
+test("rejected Native account write cannot publish a phantom workspace or cloud metadata", () => {
+  const localStorage = storage();
+  const key = "ordax.native.workspace.v2.subject.account-A";
+  localStorage.setItem(key, "{corrupt-account-workspace");
+  const native = createNativeWorkspaceStore({ localStorage });
+  native.selectOwner(subject("account-A"));
+  const bridge = createWorkspaceMetadataBridge(native);
+  const metadataBefore = bridge.source.getSnapshot();
+  const seenWorkspaces = [];
+  const seenMetadata = [];
+  const stopWindow = bridge.store.subscribe(record => seenWorkspaces.push(fileTarget(record)));
+  const stopMetadata = bridge.source.subscribe(snapshot => seenMetadata.push(snapshot));
+  assert.equal(bridge.store.save(windowRecord("/A-forged-or-rejected")), false);
+  assert.equal(fileTarget(bridge.store.load()), null);
+  assert.equal(bridge.source.getSnapshot(), metadataBefore);
+  assert.deepEqual(seenWorkspaces, [], "a refused write must not publish a workspace update");
+  assert.deepEqual(seenMetadata, [metadataBefore], "cloud metadata cannot reflect rejected window state");
+  assert.equal(localStorage.raw(key), "{corrupt-account-workspace");
+  stopWindow();
+  stopMetadata();
+});
+
+test("volatile Native workspace is still reflected by the canonical bridge without durable storage", () => {
+  const native = createNativeWorkspaceStore({});
+  native.selectOwner(subject("account-A"));
+  const bridge = createWorkspaceMetadataBridge(native);
+  const seen = [];
+  const stop = bridge.store.subscribe(record => seen.push(fileTarget(record)));
+  assert.equal(bridge.store.save(windowRecord("/volatile-but-local")), false);
+  assert.equal(fileTarget(bridge.store.load()), "/volatile-but-local");
+  assert.deepEqual(seen, ["/volatile-but-local"]);
+  stop();
+});
