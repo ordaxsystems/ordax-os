@@ -798,8 +798,8 @@
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "76a32ba6307cc1ba1f524c57b2e33ed058cb3ad1368ee508286c919fbf43e395",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup.",
+      "adaptedSha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup. 2026-10-18: navigation projects shared MERIDIAN_RAIL_DESTINATIONS through its canonical Surface owner and keeps app shortcuts, destination labels and planned gates separate; original upstream provenance retained.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -820,6 +820,11 @@
           "date": "2026-10-17",
           "sha256": "fe209c7522317ef35d144b8e150d526fdbc00b55ba132377be523da67679ced9",
           "reason": "Before canonical managed-window alias resolver and strict destination lookup"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "76a32ba6307cc1ba1f524c57b2e33ed058cb3ad1368ee508286c919fbf43e395",
+          "reason": "Before Meridian native/web shared rail destinations were projected into Central navigation"
         }
       ]
     },
