@@ -129,8 +129,74 @@ test("Native verified Store adapter refreshes subscribers without retaining stal
   await runtime.refresh();
   assert.equal(runtime.port.getSnapshot().state, "unavailable");
   assert.deepEqual(runtime.port.getSnapshot().entries, []);
-  assert.deepEqual(seen, ["unavailable"]);
+  assert.deepEqual(seen, ["unavailable", "unavailable"]);
 
   unsubscribe();
   runtime.destroy();
+});
+
+test("Native refresh revokes old candidates before an asynchronous verifier read settles", async () => {
+  let reads = 0;
+  let releaseSlow;
+  const slow = new Promise((resolve) => { releaseSlow = resolve; });
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    async fetch() {
+      reads += 1;
+      if (reads === 1) return response(ready(4));
+      if (reads === 2) return slow;
+      return response(ready(6));
+    },
+  });
+  const seen = [];
+  runtime.port.subscribe((next) => seen.push({
+    state: next.state, sequence: next.sequence, reason: next.reason,
+  }));
+
+  const pendingOld = runtime.refresh();
+  const revoked = runtime.port.getSnapshot();
+  assert.equal(revoked.state, "unavailable");
+  assert.equal(revoked.reason, "native-store-catalog-refreshing");
+  assert.equal(revoked.sequence, null);
+  assert.deepEqual(revoked.entries, []);
+
+  // A second verification supersedes the unfinished first read. Out-of-order
+  // completion cannot resurrect its old signed inventory.
+  const pendingNew = runtime.refresh();
+  await pendingNew;
+  assert.equal(runtime.port.getSnapshot().state, "ready");
+  assert.equal(runtime.port.getSnapshot().sequence, 6);
+  releaseSlow(response(ready(5)));
+  await pendingOld;
+  assert.equal(runtime.port.getSnapshot().sequence, 6);
+  assert.deepEqual(seen.map((item) => item.state), ["unavailable", "ready"]);
+  runtime.destroy();
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  assert.equal(runtime.port.getSnapshot().reason, "native-store-catalog-disposed");
+  assert.deepEqual(runtime.port.getSnapshot().entries, []);
+  assert.equal(seen.at(-1).state, "unavailable");
+
+  const before = reads;
+  await runtime.refresh();
+  assert.equal(reads, before, "disposed verifier must not make another Native request");
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+});
+
+test("destroy during outstanding Native read leaves no usable catalog", async () => {
+  let resolveDelayed;
+  const delayed = new Promise((resolve) => { resolveDelayed = resolve; });
+  let reads = 0;
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    async fetch() {
+      reads += 1;
+      return reads === 1 ? response(ready(4)) : delayed;
+    },
+  });
+  const pending = runtime.refresh();
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  runtime.destroy();
+  resolveDelayed(response(ready(8)));
+  await pending;
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  assert.equal(runtime.port.getSnapshot().reason, "native-store-catalog-disposed");
+  assert.deepEqual(runtime.port.getSnapshot().entries, []);
 });
