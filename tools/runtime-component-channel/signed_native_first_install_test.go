@@ -305,7 +305,6 @@ func TestNativeHostABIClassificationDoesNotWeakenSignedDependencyGraph(t *testin
 	}
 }
 
-
 // One end-to-end state-machine proof uses actual Ed25519-signed release/2 slots
 // and the existing Go activation writer for each transition. It represents a
 // disposable native state directory, NOT a physical USB boot or an App Data
