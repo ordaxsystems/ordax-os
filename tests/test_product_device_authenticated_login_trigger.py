@@ -109,7 +109,7 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         self.assertEqual(coordinator.stop_calls, 1)
         proxy.close_product_presence()
         self.assertEqual(coordinator.stop_calls, 2)
-        self.assertEqual(coordinator.wait_values, [False, True]
+        self.assertEqual(coordinator.wait_values, [False, True])
 
     def test_other_gateway_methods_delegate_unchanged(self):
         gateway = FakeGateway()
