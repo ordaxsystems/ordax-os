@@ -12,6 +12,7 @@ import json
 from product_device_enrollment import ProductDeviceEnrollmentClient
 from product_device_identity import ProductDeviceIdentityStore
 from product_device_post_login import PostLoginDeviceResult, enroll_product_device_after_login
+from product_device_presence import ProductDevicePresenceClient, ProductDevicePresenceWorker
 
 # Inside the graphical chroot, /var/lib/ordax is the existing private persistent
 # bind of the host's /state/ordax/native-state. Keep Product-device material on
@@ -32,6 +33,7 @@ class ProductDevicePostLoginCoordinator:
         self.distribution_profile = distribution_profile
         self.product_mode = product_mode
         self.client = None
+        self.presence = None
 
         if distribution_profile != "owner-development" or product_mode != "usb":
             return
@@ -45,6 +47,9 @@ class ProductDevicePostLoginCoordinator:
                 account_gateway,
                 identity_store,
             )
+            self.presence = ProductDevicePresenceWorker(
+                ProductDevicePresenceClient(control_plane_origin, identity_store),
+            )
         except (TypeError, ValueError):
             # Configuration errors must never make account login, boot or Surface
             # health depend on the development Control Plane.
@@ -53,12 +58,20 @@ class ProductDevicePostLoginCoordinator:
     def after_authenticated_login(self, device_profile: dict) -> PostLoginDeviceResult:
         if self.client is None:
             return PostLoginDeviceResult(status="inactive")
-        return enroll_product_device_after_login(
+        result = enroll_product_device_after_login(
             self.client,
             device_profile,
             distribution_profile=self.distribution_profile,
             product_mode=self.product_mode,
         )
+        if result.status == "enrolled" and self.presence is not None:
+            # Read-only discovery only; this never grants MCP actions.
+            self.presence.start()
+        return result
+
+    def stop_presence(self) -> None:
+        if self.presence is not None:
+            self.presence.stop()
 
 
 class ProductDeviceAccountGatewayProxy:
@@ -94,6 +107,15 @@ class ProductDeviceAccountGatewayProxy:
             # remains authoritative and must never fail because enrollment did.
             pass
         return reply
+
+    def logout(self):
+        reply = self._gateway.logout()
+        if getattr(reply, "status", None) in {200, 204, 303}:
+            self._coordinator.stop_presence()
+        return reply
+
+    def close_product_presence(self) -> None:
+        self._coordinator.stop_presence()
 
 
 def compose_product_device_account_gateway(
