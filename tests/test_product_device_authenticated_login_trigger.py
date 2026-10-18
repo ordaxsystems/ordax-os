@@ -22,6 +22,8 @@ assert spec.loader is not None
 spec.loader.exec_module(module)
 
 
+SUBJECT = "123e4567-e89b-42d3-a456-426614174000"
+
 class Reply:
     def __init__(self, status: int, payload: dict | None = None):
         self.status = status
@@ -41,7 +43,7 @@ class FakeGateway:
 
     def session(self):
         self.session_calls += 1
-        return Reply(200, {"authenticated": self.authenticated})
+        return Reply(200, {"authenticated": self.authenticated, "subject": SUBJECT})
 
     def logout(self):
         return Reply(204)
@@ -58,8 +60,8 @@ class FakeCoordinator:
         self.stop_calls += 1
         self.wait_values.append(wait)
 
-    def after_authenticated_login(self, profile: dict):
-        self.calls.append(profile)
+    def after_authenticated_login(self, profile: dict, *, subject=None):
+        self.calls.append((profile, subject))
         if self.raises is not None:
             raise self.raises
         return types.SimpleNamespace(status="enrolled")
@@ -81,7 +83,7 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         self.assertEqual(reply.status, 200)
         self.assertEqual(gateway.login_calls, [("owner@example.test", "secret")])
         self.assertEqual(gateway.session_calls, 1)
-        self.assertEqual(coordinator.calls, [profile])
+        self.assertEqual(coordinator.calls, [(profile, SUBJECT)])
 
     def test_failed_or_anonymous_login_never_enrolls(self):
         for login_status, authenticated in ((401, True), (200, False)):
