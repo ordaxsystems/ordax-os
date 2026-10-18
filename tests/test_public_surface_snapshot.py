@@ -51,7 +51,12 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         catalog=(ROOT/'system/services/surface/destination-catalog.mjs').read_text(encoding='utf-8')
         labels=dict(re.findall(r"\{ id: '([^']+)', label: '([^']+)'",catalog))
         tokens=re.findall(r"name:\s*(?:'([^']+)'|surfaceName\('([^']+)'\))",block)
-        actual=[]
+        shared=(ROOT/'system/services/surface/meridian-navigation.mjs').read_text(encoding='utf-8')
+        self.assertIn('...MERIDIAN_RAIL_DESTINATIONS.map(',block)
+        shared_names=re.findall(r"\{key:'[a-z][a-z0-9-]*',name:'([^']+)'",shared)
+        self.assertTrue(shared_names,'Canonical Meridian rail destinations must be declared')
+        # One shared owner for Web/Native rail; config adds only other app targets.
+        actual=list(shared_names)
         for literal,destination_id in tokens:
             if literal:
                 actual.append(literal)

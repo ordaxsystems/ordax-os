@@ -4,6 +4,7 @@ import {Button} from '@/components/ui/button';
 import {useWebAccount} from './account-context';
 import {useWebPreferences} from './preferences-context';
 import {SpaceMembersPanel} from './space-members-panel';
+import {SpaceProfileAppsPanel} from './space-profile-apps';
 import {mountSpacesPresentation} from '../../../ui/spaces/presentation/mount.mjs';
 import styles from '../../../ui/spaces/presentation/styles.css?inline';
 import tokens from '../../../ui/meridian.tokens.css?inline';
@@ -40,7 +41,7 @@ export function SpacesExperience({children,onOpen}:{children:ReactNode;onOpen:(t
  return <div className="meridian-spaces-experience">
   <div className="meridian-spaces-context"><span><strong>{mode==='account'?'Espaços da minha conta':'Espaços · exemplos'}</strong><small>{mode==='account'?accountStateLabel:'Dados fictícios. Nenhuma ação altera sua conta.'}</small></span><div className="meridian-spaces-context-actions">{mode==='account'&&!authorized.ready&&<Button variant="outline" onClick={()=>onOpen('Minha conta')}>Abrir minha conta</Button>}<Button variant="outline" onClick={()=>{setVisited(true);setMode(mode==='account'?'examples':'account');}}>{mode==='account'?'Ver exemplos completos':'Consultar meus espaços'}</Button></div></div>
   <div hidden={mode!=='examples'}>{visited&&<SpacesPresentation onOpen={onOpen}/>}</div>
-  {mode==='account'&&<>{children}<SpaceMembersPanel/></>}
-  <details className="meridian-integration-note"><summary><span className="meridian-integration-status">Parcialmente conectado</span> Integrações pendentes</summary><p>A lista e a gestão de membros do Space selecionado usam contratos reais da Conta OrdaX. A Surface só apresenta ações quando a capability server-authoritative autoriza a sessão; o servidor continua sendo a autoridade final. Capas, indicadores operacionais, atividade, templates e criação ainda aguardam contratos compatíveis de Surface. Os exemplos completos ficam preservados.</p></details>
+  {mode==='account'&&<>{children}<SpaceProfileAppsPanel/><SpaceMembersPanel/></>}
+  <details className="meridian-integration-note"><summary><span className="meridian-integration-status">Parcialmente conectado</span> Integrações pendentes</summary><p>A lista e a gestão de membros do Space selecionado usam contratos reais da Conta OrdaX. Os aplicativos referenciados são projetados em leitura a partir do Profile Pack exato e do estado oficial da Loja; esta consulta não instala nem autoriza execução. A Surface só apresenta ações de membros quando a capability server-authoritative autoriza a sessão; o servidor continua sendo a autoridade final. Capas, indicadores operacionais, atividade, templates e criação ainda aguardam contratos compatíveis de Surface. Os exemplos completos ficam preservados.</p></details>
  </div>;
 }

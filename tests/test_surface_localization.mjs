@@ -122,15 +122,17 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
     try {
       const markup = createDesktopShellMarkup(localization);
       const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
-      const launchers = buttons.filter(([, attributes]) =>
-        attributes.includes('class="ordax-sidebar-launcher-brand"'),
+      // Meridian brand is a Home destination, not a second app launcher.
+      const brands = buttons.filter(([, attributes]) =>
+        attributes.includes('ordax-sidebar-launcher-brand'),
       );
-      assert.equal(launchers.length, 1, "One sidebar brand opens the canonical launcher");
-      const [, launcher] = launchers[0];
-      assert.ok(launcher.includes('data-launcher-toggle'));
-      assert.ok(launcher.includes('aria-controls="ordax-launcher"'));
-      assert.ok(launcher.includes('aria-expanded="false"'));
-      assert.ok(launcher.includes(`aria-label="${localization.translate("shell.launcher.command")}"`));
+      assert.equal(brands.length, 1, "One sidebar brand returns to the canonical Home");
+      const [, brand] = brands[0];
+      assert.ok(brand.includes('data-show-desktop'));
+      assert.ok(brand.includes('aria-label="OrdaX OS"'));
+      assert.ok(!brand.includes('data-launcher-toggle'));
+      // The official launcher remains independently accessible via its actions.
+      assert.ok(buttons.some(([, attributes]) => attributes.includes('data-launcher-toggle')));
       assert.ok(markup.includes('id="ordax-launcher"'));
       assert.ok(markup.includes('data-launcher-query'));
       const expected = ["files", "studio", "settings", "system"];
@@ -143,11 +145,21 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
         attributes.includes('class="meridian-menu-item"') &&
         expected.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
       );
-      assert.equal(deviceMenuApps.length, expected.length, "Device-only apps remain available in the destinations menu");
+      // The dedicated System updates shortcut is distinct from its ordinary
+      // device-app destination. Both are canonical menu entries.
+      const ordinaryDeviceApps = deviceMenuApps.filter(([, attributes]) =>
+        !attributes.includes('data-app-target="updates"'),
+      );
+      assert.equal(ordinaryDeviceApps.length, expected.length, "Device apps remain in the destinations menu");
+      const updateDestinations = deviceMenuApps.filter(([, attributes]) =>
+        attributes.includes('data-app-target="updates"'),
+      );
+      assert.equal(updateDestinations.length, 1, "Exactly one System updates shortcut remains");
+      assert.ok(updateDestinations[0][1].includes('data-launch-app="system"'));
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
       for (const id of expected) {
-        const matches = deviceMenuApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
+        const matches = ordinaryDeviceApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
         assert.equal(matches.length, 1, `One destination-menu entry for ${id}`);
         const [, attributes, content] = matches[0];
         const title = localization.translate(`app.${id}.title`);

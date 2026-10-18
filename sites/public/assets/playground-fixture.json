@@ -23,27 +23,22 @@
       }
     ],
     "rail_apps": [
-      "files",
       "studio",
-      "settings",
-      "system"
+      "files",
+      "settings"
     ],
     "rail_labels": [
-      {
-        "id": "files",
-        "label": "Arquivos"
-      },
       {
         "id": "studio",
         "label": "ORDAX Studio"
       },
       {
-        "id": "settings",
-        "label": "Ajustes"
+        "id": "files",
+        "label": "Arquivos"
       },
       {
-        "id": "system",
-        "label": "Sistema"
+        "id": "settings",
+        "label": "Ajustes"
       }
     ]
   },
@@ -88,7 +83,7 @@
       "title": "Visão geral",
       "description": "Entrega, atualizações, conectividade e recursos desta execução do OrdaX.",
       "monogram": "SI",
-      "display_title": "Sistema"
+      "display_title": "Visão geral"
     }
   ],
   "surface": {
@@ -301,6 +296,10 @@
         "sha256": "186cff9d4e615d0cbca72e5ff59443ae2cc9141981572d214d07801329142764"
       },
       {
+        "path": "system/services/surface/meridian-navigation.mjs",
+        "sha256": "747744b79e494284382d33c34664c2897c85d98daefc68846cb7643f877410c0"
+      },
+      {
         "path": "system/surface/ui/brand/ordax-symbol.png",
         "sha256": "4720934dbb15c8e615e585c8e96f7498f8558a90467b63e150d45af7a5005fb9"
       },
@@ -338,7 +337,7 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "3c70ee71ea77a9a976773571844c3e6eaa0227915cf31f504fabd0a298ca2d4c"
+        "sha256": "e2d570a206f07a50b9a9ba893af3fc22d1fabdce7ad38ee0e5422025a6edf208"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
@@ -362,11 +361,11 @@
       },
       {
         "path": "system/surface/ui/sidebar-layout.css",
-        "sha256": "f96db532e85cdb3e7ee556167730be0e4ba0736de277ab257d0854d474b9fd0e"
+        "sha256": "81aa0fce46171ecc41e7dfd4df5b9af88004c8d78f6109ce7ebfe55dc2ee5a94"
       },
       {
         "path": "system/surface/ui/sidebar-layout.mjs",
-        "sha256": "761b2906935d56dc77e09286a86a6274342d40dbdcad12b4a288f67b5fb7ff50"
+        "sha256": "9ea196f918b9d3a260cca8fa9d6e22f6d182e2c6d0b4e02196d2545b1a2ac3a5"
       },
       {
         "path": "system/surface/ui/spaces/presentation/examples.mjs",
@@ -394,7 +393,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/config.ts",
-        "sha256": "76a32ba6307cc1ba1f524c57b2e33ed058cb3ad1368ee508286c919fbf43e395"
+        "sha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346"
       },
       {
         "path": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
@@ -414,7 +413,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/meridian.css",
-        "sha256": "b588f24c4a7811a0f8a52226d340e0b241b357d8debb7890a325dfe4623042e2"
+        "sha256": "8c9311c40341e20ed89604a2334f774c72f844f86dc08e494e7610b7ba721f3d"
       },
       {
         "path": "system/surface/workspace/components/central/primitives.tsx",
@@ -426,7 +425,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/profile-catalog.tsx",
-        "sha256": "7d3f368bc9a1c88dca625ad8ff025d04f7b065e3b9b85fcc5f33acc453842677"
+        "sha256": "e0d092b82b0c26adb60181d1aa8bf4fb6fd79123dd85c7756e7c8d70b02dcf56"
       },
       {
         "path": "system/surface/workspace/components/central/service-overview.tsx",
@@ -443,6 +442,10 @@
       {
         "path": "system/surface/workspace/components/central/styles.css",
         "sha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8"
+      },
+      {
+        "path": "system/surface/workspace/components/store/app-status-labels.ts",
+        "sha256": "9799df9b6f9391a1eee162c48058b24c3c1a83465ebf7add56965a61b30d4f0c"
       },
       {
         "path": "system/surface/workspace/components/store/catalog-context.tsx",
@@ -473,6 +476,6 @@
         "sha256": "cb3689153a78989f70ecaf61585288007aeb746bfb4e0466d930d5e0cf9d4759"
       }
     ],
-    "cssSha256": "f272a744b407c989a9bc6b31aa59d4005e79a7936ddba8961f59265c2974211e"
+    "cssSha256": "83fa3ec04e218a368c913df63ad18dc7139b31fa8386751072c735cf275b0e2b"
   }
 }
