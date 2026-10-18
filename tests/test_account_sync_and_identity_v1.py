@@ -442,6 +442,34 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
                     globals_["Client"] = previous_client
                     globals_["gateway_url"] = previous_gateway
 
+    def test_cross_account_absence_cannot_be_proven_from_truncated_pages(self):
+        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
+        verify = scope["assert_other_account_cannot_read"]
+
+        class SaturatedObserver:
+            def __init__(self, objects, changes):
+                self.objects = objects
+                self.changes_list = changes
+
+            def snapshot(self):
+                return {"cursor": 1000, "objects": self.objects}
+
+            def changes(self, _after_cursor):
+                return {"changes": self.changes_list}
+
+        untrusted_other_objects = [{"objectId": f"unrelated-{i}"} for i in range(500)]
+        untrusted_changes = [{"objectId": f"change-{i}"} for i in range(500)]
+        for observer in (
+            SaturatedObserver(untrusted_other_objects, []),
+            SaturatedObserver([], untrusted_changes),
+        ):
+            with self.assertRaisesRegex(SystemExit, "cross-account-proof-window-saturated"):
+                verify(observer, "proof/two-client/unseen-on-next-page", 0)
+
+        # A short, correctly bounded result is evidence only of the tested
+        # observer state. It does not authorize global cloud rollout.
+        verify(SaturatedObserver([], []), "proof/two-client/not-present", 0)
+
     def test_session_revocation_proof_keeps_credentials_and_tokens_ephemeral(self):
         text = SESSION_REVOCATION_PROOF.read_text(encoding="utf-8")
         self.assertIn("ORDAX_PROOF_ACCOUNT_EMAIL", text)
