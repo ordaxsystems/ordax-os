@@ -1,6 +1,59 @@
 # Source Migration Ledger
 
+## Native emulator and Meridian First Run — 2026-10-18
+
+- User explicitly requires Meridian as the sole OS identity, staged from welcome.
+- Decision: REIMPLEMENTED emulator host wiring around the real Native composition;
+  removed its independent onboarding mount and Web preview handoff. Product UI
+  remains in system/, development persistence reuses existing Native contracts.
+- First Run's own stylesheet now consumes Meridian tokens directly; no second
+  style override, copied setup renderer, fake privileged bridge or hardware grant.
+- Privileged bootstrap/Intelligence binding only auto-starts with an actual WebKit
+  bridge. Explicit privileged bootstrap APIs still reject missing capabilities.
+- Preserve source mocks and Native operations. Old development browser state is
+  retained but no longer authoritative. Physical media is untouched.
+- Verification: Native entry/SSOT guards, state persistence through real Native
+  adapters, capability refusal, existing privileged-boundary regressions and real
+  browser interaction/screenshots through the emulator.
+
+## Shared sidebar profile — 2026-10-18
+
+- Origin: canonical `main` at `bd9485c4`, existing Web Meridian profile CSS and
+  `system/surface/ui/sidebar-account.mjs`; explicit user request for shared UX/SSOT.
+- Decision: ADOPTED existing Web profile geometry into the shared sidebar CSS
+  owner, consumed by Native/USB and Web, removing those Web-only style rules.
+- Web reuses localized status/connection projection from the existing account
+  owner; Native binds the same connection indicator to real identity/capabilities.
+- Account actions, Native storage/notification controls and planned mocks remain;
+  no new authentication, device permissions, framework or backend was introduced.
+- Regression: identity/offline/logout/capability-loss and existing sidebar
+  geometry/hints; strict Web compilation and reference provenance verification.
+
+## Emulator preference SSOT — 2026-10-18
+
+- Origin: `tools/windows-emulator/main.mjs`, current canonical main; user-requested
+  SSOT correction across USB/Native/Web/emulator.
+- Decision: REIMPLEMENTED composition wiring with existing owners; remove the
+  emulator-local preference service and use `system/adapters/web/preferences.mjs`
+  plus `system/services/preferences/runtime.mjs`, also consumed by Web Surface.
+- Preserve completed receipts using Native's existing regional seed policy;
+  no new preference IDs, synchronization backend, hardware authority or UI fork.
+- Validation: first-run ownership regression and emulator OOBE-to-Surface smoke
+  with a non-default time zone persisted in the shared preference store.
+
 Status: CANONICAL LEDGER
+
+## First Run SSOT cleanup — 2026-10-17
+
+The user required one welcome/setup implementation across USB Dev and emulator.
+`system/surface/ui/first-run.mjs` remains the renderer and
+`system/services/first-run/journey.mjs` remains the order/identity owner.
+The unused `setup` definition and its independent progress layout were removed
+from `ui/journeys/`; that module retains Settings/resource simulations.
+The old design data is preserved as non-executable reference in
+`docs/evidence/first-run-ssot-2026-10-17/`, so planned fields and errors are not
+lost. No host authority, completion receipt, update guard or physical medium
+changed. Future setup capabilities belong to existing First Run/domain owners.
 
 ## Shared Web/Native Store presentation — 2026-10-17
 

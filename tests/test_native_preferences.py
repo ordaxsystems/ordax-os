@@ -1,8 +1,10 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import math
+import stat
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
@@ -44,6 +46,50 @@ class NativePreferenceTests(unittest.TestCase):
             host.write_preferences(expected)
             self.assertEqual(host.read_preferences(), expected)
             self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+
+    def test_host_preference_restart_preserves_last_confirmed_value_and_file_mode(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preferences.json"
+            host.PREFERENCES_FILE = str(path)
+            expected = {"appearance.theme": "dark", "regional.locale": "pt-BR"}
+            host.write_preferences(expected)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            # A new host module reads the device file, not the prior process memory.
+            restarted_host = load_host_server()
+            restarted_host.PREFERENCES_FILE = str(path)
+            self.assertEqual(restarted_host.read_preferences(), expected)
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")))
+
+    def test_failed_atomic_replace_keeps_last_durable_preference_across_restart(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preferences.json"
+            host.PREFERENCES_FILE = str(path)
+            expected = {"appearance.theme": "dark"}
+            host.write_preferences(expected)
+            with patch.object(host.os, "replace", side_effect=OSError("simulated disk failure")):
+                with self.assertRaises(OSError):
+                    host.write_preferences({"appearance.theme": "light"})
+            self.assertFalse(list(Path(directory).glob("*.tmp.*")), "failed writes must not leak candidates")
+            restarted_host = load_host_server()
+            restarted_host.PREFERENCES_FILE = str(path)
+            self.assertEqual(restarted_host.read_preferences(), expected)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_invalid_utf8_preference_file_falls_back_without_breaking_host_startup(self):
+        host = load_host_server()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "preferences.json"
+            host.PREFERENCES_FILE = str(path)
+            path.write_bytes(bytes((0xFF, 0xFE, 0x80)))
+            self.assertEqual(host.read_preferences(), {})
+            # Repair uses the same canonical atomic writer and is restart-safe.
+            host.write_preferences({"regional.locale": "pt-BR"})
+            restarted_host = load_host_server()
+            restarted_host.PREFERENCES_FILE = str(path)
+            self.assertEqual(restarted_host.read_preferences(), {"regional.locale": "pt-BR"})
 
     def test_host_sync_state_write_is_atomic_bounded_and_round_trips(self):
         host = load_host_server()
@@ -87,6 +133,28 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertIn('mount -o bind "$PERSISTENT_NATIVE_STATE" "$RUNTIME_ROOT/var/lib/ordax"', text)
         self.assertIn('umount "$RUNTIME_ROOT/var/lib/ordax"', text)
         self.assertIn("STATE_BOUND=1", text)
+
+    def test_native_preferences_share_the_persistent_bind_before_host_start(self):
+        launcher = SURFACE_LAUNCHER.read_text(encoding="utf-8").replace("\\r\\n", "\\n")
+        host = HOST_SERVER.read_text(encoding="utf-8")
+        self.assertIn('PREFERENCES_FILE = "/var/lib/ordax/preferences.json"', host)
+        self.assertIn('PERSISTENT_NATIVE_STATE=$STATE_ROOT/native-state', launcher)
+        self.assertIn('chmod 700 "$PERSISTENT_NATIVE_STATE" "$PERSISTENT_USER_HOME"', launcher)
+
+        bind_fn = launcher.split("bind_runtime_mounts() {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn('mount -o bind "$PERSISTENT_NATIVE_STATE" "$RUNTIME_ROOT/var/lib/ordax"', bind_fn)
+        self.assertLess(
+            bind_fn.index('mount -o bind "$PERSISTENT_NATIVE_STATE" "$RUNTIME_ROOT/var/lib/ordax"'),
+            bind_fn.index("STATE_BOUND=1"),
+        )
+
+        bind_start = launcher.index('bind_runtime_mounts || fallback_with_reason')
+        host_start = launcher.index('/usr/bin/python3 /srv/ordax-system/surface/runtime/native_app_data_runtime.py', bind_start)
+        self.assertLess(bind_start, host_start, "native state must mount before the host serves preferences")
+        cleanup = launcher.split("cleanup() {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn('umount "$RUNTIME_ROOT/var/lib/ordax"', cleanup)
+        self.assertNotIn('rm -rf "$PERSISTENT_NATIVE_STATE"', launcher)
+        self.assertNotIn('rm -f "$PERSISTENT_NATIVE_STATE/preferences.json"', launcher)
 
     def test_native_composition_no_longer_uses_web_preference_store(self):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")

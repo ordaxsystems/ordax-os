@@ -125,4 +125,7 @@ export function createTrustedNativeAppDataContextBootstrap({
   return Object.freeze({ schema: BOOTSTRAP_SCHEMA });
 }
 
-createTrustedNativeAppDataContextBootstrap();
+// A normal browser can render Native UI, but cannot bootstrap privileged App Data.
+if (typeof globalThis.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+  createTrustedNativeAppDataContextBootstrap();
+}

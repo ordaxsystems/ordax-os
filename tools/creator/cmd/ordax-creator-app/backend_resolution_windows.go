@@ -96,6 +96,7 @@ func resolveRefreshState() appRefreshState {
 		backendDirectory = physical.Directory
 		result.PhysicalMode = physical.Mode
 		result.PortablePayload = physical.PortablePayload
+		result.PhysicalCandidate = physical.Installed
 	}
 	return finishRefreshState(result, backendDirectory)
 }

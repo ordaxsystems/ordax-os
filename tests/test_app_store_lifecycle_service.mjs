@@ -724,3 +724,47 @@ test("malformed Store projections reject and preserve idempotent denial without 
     assert.equal(delegated, 0);
   }
 });
+
+test("bounded lifecycle request ledger never evicts a denied ID into a future install grant", async () => {
+  let currentProjection = unavailable();
+  let delegated = 0;
+  const runtime = createAppLifecycleRequestService({
+    catalogPort: Object.freeze({
+      schema: APP_STORE_CATALOG_PORT_SCHEMA,
+      authority: "none",
+      getSnapshot() { return currentProjection; },
+      subscribe() { return () => {}; },
+    }),
+    verifiedCatalogPort: verifiedPort(verifiedReady()),
+    lifecycleDelegate: delegate(async (plan) => {
+      delegated += 1;
+      return resultFor(plan);
+    }),
+  });
+
+  const oldest = request("install", { requestId: "store:install:notes:ledger:0" });
+  const oldestDecision = runtime.requestLifecycle(oldest);
+  assert.equal((await oldestDecision).reason, "verified-catalog-unavailable");
+
+  // Fill the finite ledger with previously rejected identities. These must
+  // not be silently forgotten, even when all decisions have resolved.
+  for (let i = 1; i < 256; i += 1) {
+    const denial = await runtime.requestLifecycle(request("install", {
+      requestId: `store:install:notes:ledger:${i}`,
+    }));
+    assert.equal(denial.reason, "verified-catalog-unavailable");
+  }
+
+  currentProjection = ready();
+  assert.strictEqual(runtime.requestLifecycle(oldest), oldestDecision);
+  assert.equal((await runtime.requestLifecycle(oldest)).state, "rejected");
+  assert.throws(() => runtime.requestLifecycle({ ...oldest, appId: "studio" }),
+    /requestId replay identity mismatch/);
+
+  const overflow = request("install", { requestId: "store:install:notes:ledger:256" });
+  const denied = await runtime.requestLifecycle(overflow);
+  assert.equal(denied.state, "rejected");
+  assert.equal(denied.reason, "lifecycle-request-capacity-exhausted");
+  assert.equal((await runtime.requestLifecycle(overflow)).reason, "lifecycle-request-capacity-exhausted");
+  assert.equal(delegated, 0, "capacity exhaustion must not delegate a fresh request");
+});

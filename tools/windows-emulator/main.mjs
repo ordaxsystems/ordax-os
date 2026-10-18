@@ -1,117 +1,19 @@
-import { mountFirstRunExperience } from "/system/surface/ui/first-run.mjs";
-import {
-  FIRST_RUN_STATE_SCHEMA,
-  FIRST_RUN_STATE_STORE_SCHEMA,
-  createInitialFirstRunState,
-  validateFirstRunState,
-} from "/system/contracts/first-run-state-store.mjs";
+// Development chrome only. Native owns the complete UI, including First Run.
+const SURFACE_TARGET = "/system/composition/native/index.html";
+const frame = document.querySelector("#ordax-emulator-surface");
+if (!(frame instanceof HTMLIFrameElement)) throw new Error("Native Surface frame is missing");
 
-const STATE_KEY = "ordax.windows-emulator.first-run.v1";
-const PREFS_KEY = "ordax.windows-emulator.preferences.v1";
-// The canonical entry gate permits anonymous layout preview only on loopback.
-const SURFACE_TARGET = "/system/composition/web/?preview=layout";
-
-const surfaceFrame = document.querySelector("#ordax-emulator-surface");
-if (!(surfaceFrame instanceof HTMLIFrameElement)) throw new Error("Windows emulator Surface frame is missing");
-
-function activateSurface() {
-  if (surfaceFrame.getAttribute("src") === SURFACE_TARGET) return;
-  surfaceFrame.setAttribute("src", SURFACE_TARGET);
+async function readFirstRun() {
+  const reply = await fetch("/__ordax/native/first-run", { cache: "no-store" });
+  if (!reply.ok) throw new Error("Emulator First Run state is unavailable");
+  return reply.json();
 }
 
-function loadJson(key, fallback) {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw === null ? fallback : JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
+async function resetFirstRun() {
+  const reply = await fetch("/__ordax/emulator/reset-first-run", { method: "POST" });
+  if (!reply.ok) throw new Error("Could not reset development First Run");
+  frame.contentWindow.location.reload();
 }
-
-function createEmulatedFirstRunStateStore() {
-  let state;
-  try {
-    state = validateFirstRunState(loadJson(STATE_KEY, createInitialFirstRunState()));
-  } catch {
-    state = createInitialFirstRunState();
-  }
-
-  return Object.freeze({
-    schema: FIRST_RUN_STATE_STORE_SCHEMA,
-    load() {
-      return state;
-    },
-    async save(snapshot) {
-      const next = validateFirstRunState(snapshot);
-      state = next;
-      window.localStorage.setItem(STATE_KEY, JSON.stringify(next));
-      if (next.completed) queueMicrotask(activateSurface);
-      return next;
-    },
-  });
-}
-
-function createEmulatedPreferences() {
-  let snapshot = loadJson(PREFS_KEY, {});
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) snapshot = {};
-  const listeners = new Set();
-
-  return Object.freeze({
-    schema: "ordax.preference-runtime/1",
-    getSnapshot() {
-      return snapshot;
-    },
-    set(key, value) {
-      snapshot = Object.freeze({ ...snapshot, [key]: value });
-      window.localStorage.setItem(PREFS_KEY, JSON.stringify(snapshot));
-      for (const listener of listeners) listener(snapshot);
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  });
-}
-
-function createUnavailableIdentitySession() {
-  const snapshot = Object.freeze({ state: "unavailable" });
-  return Object.freeze({
-    schema: "ordax.identity-session/1",
-    getSnapshot: () => snapshot,
-    subscribe(listener) {
-      listener(snapshot);
-      return () => {};
-    },
-    async refresh() {
-      return snapshot;
-    },
-  });
-}
-
-function createUnavailableIdentityActions() {
-  const snapshot = Object.freeze({ supportedActions: [] });
-  return Object.freeze({
-    schema: "ordax.identity-actions/1",
-    getSnapshot: () => snapshot,
-    subscribe(listener) {
-      listener(snapshot);
-      return () => {};
-    },
-    async execute() {
-      throw new Error("Online identity actions are not wired in the Windows emulator yet");
-    },
-  });
-}
-
-const root = document.querySelector("#ordax-emulator-root");
-if (!(root instanceof Element)) throw new Error("Windows emulator root is missing");
-
-const stateStore = createEmulatedFirstRunStateStore();
-const preferences = createEmulatedPreferences();
-const identitySession = createUnavailableIdentitySession();
-const identityActions = createUnavailableIdentityActions();
-
-if (stateStore.load().completed) activateSurface();
 
 window.__ORDAX_EMULATOR__ = Object.freeze({
   schema: "ordax.windows-emulator/1",
@@ -119,27 +21,14 @@ window.__ORDAX_EMULATOR__ = Object.freeze({
   host: "windows-development",
   repositoryBacked: true,
   surfaceTarget: SURFACE_TARGET,
-  isSurfaceActive: () => surfaceFrame.getAttribute("src") === SURFACE_TARGET,
-  getFirstRunState: () => stateStore.load(),
-  resetFirstRun() {
-    window.localStorage.removeItem(STATE_KEY);
-    window.location.reload();
-  },
+  getFirstRunState: readFirstRun,
+  resetFirstRun,
 });
-
-mountFirstRunExperience(root, {
-  stateStore,
-  preferences,
-  identitySession,
-  identityActions,
+document.querySelector("#ordax-emulator-reset")?.addEventListener("click", async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try { await resetFirstRun(); }
+  catch (error) { document.querySelector("#ordax-emulator-status").textContent = error.message; }
+  finally { button.disabled = false; }
 });
-
-document.querySelector("#ordax-emulator-reset")?.addEventListener("click", () => {
-  window.__ORDAX_EMULATOR__.resetFirstRun();
-});
-
-console.info("OrdaX Windows Emulator ready", {
-  schema: window.__ORDAX_EMULATOR__.schema,
-  kernel: false,
-  firstRunSchema: FIRST_RUN_STATE_SCHEMA,
-});
+frame.src = SURFACE_TARGET;

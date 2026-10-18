@@ -1,4 +1,100 @@
+Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
+pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
+SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
+runtime owns the canonical Product PostgreSQL `/v3/device/transport` workflow
+and central-session attestation. The same Product transport now records
+`ordax-os` for a Runtime using the trusted Native credential provider and
+preserves `desktop-agent` for existing Windows heartbeats. The upstream
+compatibility contract is the only owner of that runtime-kind semantic.
+The Native Host can pass its private
+`ProductDeviceIdentityStore.read_enrolled_credential` as a provider to that
+same Runtime, with exact device-ID matching and no second token file. The OS
+reuses that provenance; it must not copy the claim/lease/report
+implementation or treat `ordax.intelligence/1` as a source of action grants. Source pinning **does not install** the headless
+runtime into the USB or enable device actions. Native action execution remains
+closed until a signed runtime component slot is installed, health-checked,
+session-attested and authorized under client OAuth, device grants, local policy
+and the existing Action Gateway. No runtime network download at boot.
+See `docs/contracts/studio-runtime-integration.json` and the existing
+runtime-component-channel trust policy.
+
+MCP device presence verification (Owner/Development USB, 2026-10-18): the
+single ProductDevicePresenceWorker now retains the last accepted HTTPS
+presence receipt in memory with a monotonic bounded freshness window. The
+native Settings projection keeps private owner opt-in separate from actual
+server-acknowledged presence: `disabled`, `connecting`, `confirmed`,
+`unavailable`. "Confirmed" means only that Product PostgreSQL accepted a
+device presence report, **not** that an external ChatGPT OAuth client has
+grants, or that OS remote-action execution is installed. There is no
+second heartbeat or MCP endpoint. A local refresh reads the existing
+worker via the neutral Product Connector port. Source-of-truth contract:
+docs/contracts/product-device-presence.json. Physical USB proof and OS
+action Runtime/attestation remain independently blocked.
+
+Native Connector Settings opt-in (2026-10-18): Owner/Development USB now
+uses the private ProductDeviceIdentityStore as SSOT for a separate
+`product-connector-visibility.json` preference, default-off. Native Settings
+calls the loopback-only `/__ordax/native/product-connector` route. The existing
+Account gateway validates a live authenticated session before enabling
+discovery; disabling requires no cloud availability and stops the single Native
+presence worker. An authenticated login still enrolls the device, but does
+not publish discoverability without opt-in. This does not grant ChatGPT OAuth,
+filesystem, input, or remote execution. OS action attestation/Runtime remains
+unavailable, and physical USB proof remains pending. The account session is
+memory-only until the encrypted local vault gate; login may need repeating
+after Native Host restart. Stable is unaffected.
+
+Native Product Connector candidate (2026-10-17): Owner/Development USB
+reuses the existing Native Account login and private Product device
+identity to start one fail-soft HTTPS presence worker after authenticated
+enrollment. Logout and Native Host shutdown stop its lifecycle; no command
+shell, alternate model router, Studio ownership, or second OAuth backend.
+The matching Product MCP PostgreSQL device-only presence route is proposed
+in ordax-platform#205 and the OS origin points to its trusted device ingress.
+Until that route is deployed and physical USB proof passes, this is a
+**source/CI candidate**, not a claim of live OrdaX OS visibility in ChatGPT.
+The canonical Runtime OS action dispatcher, session attestation and explicit
+MCP grants remain separate disabled gates. Stable and anonymous/offline boot
+remain independent. See docs/contracts/product-device-presence.json and
+docs/INTELLIGENCE.md.
+
 # Current State
+
+Native emulator / Meridian First Run (2026-10-18): the Windows emulator now loads
+`system/composition/native/index.html` for both onboarding and desktop, with no
+emulator-owned First Run or Web preview handoff. Development-only persistence
+implements existing Native contracts; unavailable hardware/privileged bridges
+remain unavailable. First Run CSS consumes Meridian tokens directly, uses the
+canonical symbol and fixes narrow-screen step wrapping/empty progress height.
+This supersedes the previous Web-backed emulator preference wiring below.
+Meridian is the sole accepted product identity; remaining legacy screens are
+migrated in stages while preserving functional ports and planned mocks.
+
+Shared sidebar account profile (2026-10-18): Web and Native/USB consume the same
+`projectSidebarAccount` identity/status/connection model and Meridian profile
+styles in `system/surface/ui/sidebar-layout.css`. The Web-only profile rules were
+moved to that existing shared owner; Native retains account launch, storage and
+notification controls. Offline/logout/capability loss update the connection mark
+without inventing a session. Other shell/page composition differences remain;
+this increment does not claim full Web/Native equivalence.
+
+Historical emulator preference continuity (superseded by Native emulation above): Windows onboarding and its same-origin
+Surface now consume `createWebPreferenceStore` and `createPreferenceRuntime`,
+removing the emulator-only preference implementation/storage authority. Completed
+older onboarding receipts seed only missing regional values through Native's
+`seedMissingRegionalPreferencesFromFirstRun` policy; newer Settings choices win.
+The OOBE receipt stays emulator-specific. Hardware capabilities and the distinction
+between Native and Web composition remain unchanged; this is not a full parity claim.
+
+First Run single owner (2026-10-17): Native/USB and Windows emulator use
+`system/surface/ui/first-run.mjs`, canonical journey metadata and the same
+Meridian visual owners. The dormant Meridian `setup` storyboard and its
+independent progress renderer were removed from the runtime catalog. Prior
+planned screens/fields remain reference-only in
+`docs/evidence/first-run-ssot-2026-10-17/`; other Settings/resource mocks remain
+available. Contract tests reject a second executable setup and check both entry
+points and visual imports. This does not establish the running commit of a
+physical USB; its OOBE update guard and physical verification remain unchanged.
 
 Shared Store presentation (2026-10-17): Web and Native mount
 `system/surface/ui/store-experience.mjs` and its Meridian chrome stylesheet.

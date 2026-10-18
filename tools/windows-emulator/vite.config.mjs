@@ -1,8 +1,7 @@
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
+import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const surfaceWorkspace = fileURLToPath(new URL("../../system/surface/workspace", import.meta.url));
@@ -11,7 +10,8 @@ const surfaceBrand = fileURLToPath(new URL("../../system/surface/ui/brand", impo
 export default defineConfig({
   root: repoRoot,
   appType: "mpa",
-  plugins: [react(), tailwindcss()],
+  plugins: [nativeEmulatorPlugin(resolve(repoRoot, "out/windows-emulator-state"))],
+  optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
     alias: {
       "@ordax-brand": surfaceBrand,

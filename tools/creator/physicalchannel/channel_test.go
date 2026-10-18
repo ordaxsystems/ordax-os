@@ -192,6 +192,60 @@ func TestVerifyInstalledRehashesCriticalFilesEveryTime(t *testing.T) {
 	}
 }
 
+func TestVerifyInstalledRejectsUnboundWriterRootEntries(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		create func(root, path string) error
+	}{
+		{"extra-file", func(_, path string) error { return os.WriteFile(path, []byte("unbound"), 0o600) }},
+		{"extra-directory", func(_, path string) error { return os.Mkdir(path, 0o700) }},
+		{"extra-symlink", func(root, path string) error {
+			return os.Symlink(filepath.Join(root, "provenance.json"), path)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			manifest := writeBoundFiles(t, root)
+			if err := tc.create(root, filepath.Join(root, "unbound-"+tc.name)); err != nil {
+				if tc.name == "extra-symlink" {
+					t.Skipf("symbolic links unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			if err := VerifyInstalled(root, manifest); err == nil || !strings.Contains(err.Error(), "unexpected physical candidate entry") {
+				t.Fatalf("extra unsigned root entry accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestVerifyInstalledRejectsOversizedCachedWriterBeforeHashing(t *testing.T) {
+	root := t.TempDir()
+	manifest := writeBoundFiles(t, root)
+	if err := os.Truncate(filepath.Join(root, "provenance.json"), 1<<30); err != nil {
+		t.Skipf("sparse-file truncation unavailable: %v", err)
+	}
+	if err := VerifyInstalled(root, manifest); err == nil || !strings.Contains(err.Error(), "bound physical file changed") {
+		t.Fatalf("oversized cached writer accepted: %v", err)
+	}
+}
+
+func TestVerifyInstalledRejectsSymlinkedVersionSlot(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "candidate")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := writeBoundFiles(t, directory)
+	link := filepath.Join(root, "candidate-link")
+	if err := os.Symlink(directory, link); err != nil {
+		t.Skipf("symbolic links unavailable: %v", err)
+	}
+	if err := VerifyInstalled(link, manifest); err == nil || !strings.Contains(err.Error(), "version root") {
+		t.Fatalf("symlinked signed candidate root accepted: %v", err)
+	}
+}
+
 func zipWithEntries(t *testing.T, entries map[string][]byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "candidate.zip")
@@ -243,6 +297,35 @@ func TestExtractBundleRejectsUnexpectedAndTraversalFiles(t *testing.T) {
 	}
 }
 
+
+func TestVerifyEnvelopeRejectsPortableURLsOutsideSignedRelease(t *testing.T) {
+	trust, private, trustSHA := testTrust(t)
+	valid := validPortablePayload()
+	commit := valid.ReleaseSourceCommit
+	prefix := "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + commit + "/"
+	for _, tc := range []struct {
+		name string
+		url  string
+	}{
+		{"other-release", "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + strings.Repeat("b", 40) + "/kernel"},
+		{"adjacent-tag", "https://github.com/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + commit + "-extra/kernel"},
+		{"nested-asset", prefix + "nested/kernel"},
+		{"missing-asset", prefix},
+		{"escaped-separator", prefix + "%2Fkernel"},
+		{"query", prefix + "kernel?download=1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest := validManifest()
+			manifest.Schema = ManifestSchemaPortable
+			payload := validPortablePayload()
+			payload.Artifacts[0].URL = tc.url
+			manifest.PortablePayload = &payload
+			if _, err := VerifyEnvelope(signedEnvelope(t, manifest, private), trust, trustSHA); err == nil {
+				t.Fatal("signed Portable source URL outside declared release accepted")
+			}
+		})
+	}
+}
 
 func TestVerifyEnvelopeAcceptsPortableManifestV3(t *testing.T) {
 	trust, private, trustSHA := testTrust(t)
@@ -313,6 +396,36 @@ func TestVerifyPortablePayloadInstalledRejectsTamperedSource(t *testing.T) {
 	}
 	if err := VerifyInstalled(dir, manifest); err == nil || !strings.Contains(err.Error(), "changed") {
 		t.Fatalf("tampered Portable source unexpectedly accepted: %v", err)
+	}
+	// Restore the signed bytes, then verify the same consumer rejects directory
+	// contamination even though all 17 bound artifacts still match SHA-256.
+	if err := os.WriteFile(filepath.Join(sourceRoot, "kernel"), []byte("portable-source-kernel"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyInstalled(dir, manifest); err != nil {
+		t.Fatalf("restored signed candidate rejected: %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		create func(string) error
+	}{
+		{"extra-file", func(path string) error { return os.WriteFile(path, []byte("unbound"), 0o600) }},
+		{"extra-directory", func(path string) error { return os.Mkdir(path, 0o700) }},
+		{"extra-symlink", func(path string) error { return os.Symlink(filepath.Join(sourceRoot, "kernel"), path) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(sourceRoot, "unexpected-"+tc.name)
+			if err := tc.create(path); err != nil {
+				if tc.name == "extra-symlink" {
+					t.Skipf("symbolic link creation unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(path)
+			if err := VerifyInstalled(dir, manifest); err == nil || !strings.Contains(err.Error(), "exactly 17") {
+				t.Fatalf("unexpected Portable directory member accepted: %v", err)
+			}
+		})
 	}
 }
 

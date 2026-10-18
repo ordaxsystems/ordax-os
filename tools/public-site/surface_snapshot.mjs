@@ -13,7 +13,7 @@ const root=resolve(import.meta.dirname,'../..'),out=resolve(root,'out/public-sur
 const assets=resolve(root,'sites/public/assets');
 const generated=new Set();
 const adapters={
- 'account-context':`export function useWebAccount(){return {identity:{state:'signed-out'},actions:{supportedActions:[],pending:false},displayName:'Visitante',initials:null,offline:false,authorized:{ready:false,visibleSpaces:[],activeSpace:null}}}`,
+ 'account-context':`import {projectSidebarAccount} from ${JSON.stringify(resolve(root,'system/surface/ui/sidebar-account.mjs'))}; export function useWebAccount(translate){const identity={state:'signed-out'};const sidebarAccount=projectSidebarAccount(identity,false,translate);return {identity,actions:{supportedActions:[],pending:false},displayName:sidebarAccount.displayName,initials:sidebarAccount.initials,sidebarAccount,offline:false,authorized:{ready:false,visibleSpaces:[],activeSpace:null}}}`,
  'preferences-context':`export function useWebPreferences(){return {theme:'light',colorTheme:'light',snapshot:{},persistence:{state:'memory'},setColorTheme(){},setPreference(){}}}`,
  'client-context':`export function useIntelligenceClient(){return {snapshot:{state:'unavailable',inferenceAvailable:false}}}`,
 };

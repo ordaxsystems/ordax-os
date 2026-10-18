@@ -19,6 +19,7 @@ import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
+import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
@@ -282,6 +283,10 @@ async function start() {
       () => createNativeNetworkManagement(window),
     ),
     optionalNativeProbe(
+      "OrdaX native Product Connector unavailable",
+      () => createNativeProductConnector(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native keyboard layout unavailable",
       () => createNativeKeyboardLayout(window),
     ),
@@ -332,6 +337,7 @@ async function start() {
     fileSpace,
     networkStatus,
     networkManagement,
+    productConnector,
     keyboardLayout,
     deviceProfile,
     systemMetrics,
@@ -558,12 +564,16 @@ async function start() {
   const spaceExperience = createSpaceExperienceSource({
     providers: [selectedSpaceAuraCapability],
   });
-  installNativeIntelligenceHostBridge({
-    windowRef: window,
-    intelligencePort: selectedSpaceIntelligence,
-    identitySessionPort: identitySession,
-    spaceSelectionPort: spaceSelection,
-  });
+  // The shared Native UI may run in an unprivileged development browser.
+  // Only a real host bridge may expose Intelligence to privileged consumers.
+  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+    installNativeIntelligenceHostBridge({
+      windowRef: window,
+      intelligencePort: selectedSpaceIntelligence,
+      identitySessionPort: identitySession,
+      spaceSelectionPort: spaceSelection,
+    });
+  }
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(
@@ -906,6 +916,7 @@ async function start() {
       keyboardLayout,
       localSession,
       localAi,
+      productConnector,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -921,6 +932,7 @@ async function start() {
       keyboardLayout,
       localSession,
       localAi,
+      productConnector,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent

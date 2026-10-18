@@ -100,7 +100,13 @@
     "portable_source_preflight_implemented": true,
     "portable_source_preflight_owner": "tools/creator/core/portable_sources.go#VerifyPortableSources",
     "portable_source_preflight_requires_exact_17_flat_files": true,
-    "portable_source_preflight_is_destructive_authorization": false
+    "portable_source_preflight_is_destructive_authorization": false,
+    "offline_writer_slot_rejects_unbound_root_entries": true,
+    "cached_writer_size_checked_before_hashing": true,
+    "version_root_must_be_real_directory": true,
+    "pre_uac_portable_preparation_confirms_device_capacity_and_serial": true,
+    "pre_uac_portable_authorization_requires_lowercase_sha256_shape": true,
+    "windows_gui_revalidates_signed_candidate_before_prepare_and_uac": true
   },
   "physical_write_gate": {
     "development_channel_can_write": false,
@@ -148,6 +154,13 @@
     "offline_fallback": "last-signed-candidate-reverified-by-current",
     "additional_media_catalog_or_cache_allowed": false,
     "physical_write_authority_unchanged": true,
-    "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true
+    "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true,
+    "portable_v3_provenance_separates_writer_and_release_source": true,
+    "portable_v3_provenance_requires_signed_release_proof_and_envelope": true,
+    "exact_17_flat_sources_rechecked_for_offline_and_online_candidates": true,
+    "each_portable_asset_url_bound_to_signed_release_commit": true,
+    "cross_release_asset_url_rejected_by_consumer_and_signer": true,
+    "windows_gui_core_verification_before_elevation": true,
+    "portable_v3_consumer_validates_signed_authorization_and_exact_release_proof_bindings": true
   }
 }
