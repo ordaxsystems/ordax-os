@@ -234,6 +234,11 @@ def _serve_native_host(args) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        # Stop native Product presence on host teardown. No Studio, shell
+        # command, or separate MCP server owns this device lifecycle.
+        presence_close = getattr(server.account_gateway, "close_product_presence", None)
+        if callable(presence_close):
+            presence_close()
         server.server_close()
     return 0
 
