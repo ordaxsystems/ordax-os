@@ -95,6 +95,10 @@ done
         )
         self.assertIn("sha256sum", inventory["explicit_busybox_applets"])
         self.assertEqual(len(helpers), len(targets))
+        manifest_sources = {entry["source"] for entry in helpers}
+        non_helpers = set(capabilities.OWNER_NON_HELPER_SHELL_SOURCES)
+        self.assertFalse(manifest_sources & non_helpers)
+        self.assertEqual(set(inventory["sources"]), manifest_sources | non_helpers)
 
     def test_manifest_rejects_duplicate_targets_and_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as td:
