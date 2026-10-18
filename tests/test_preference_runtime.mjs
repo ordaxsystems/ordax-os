@@ -141,6 +141,28 @@ test('late Native acknowledgment after disposal cannot publish false saved state
 });
 
 
+test('durable confirmation waits for actual host ACK and rejects stale or failed writes', async () => {
+  const accepts = [];
+  const tracker = createPreferencePersistence({
+    schema: PREFERENCE_STORE_SCHEMA, load: () => ({}),
+    save: () => new Promise(resolve => accepts.push(resolve)),
+  });
+  const first = tracker.saveConfirmed({ "regional.locale": "en-US" });
+  assert.equal(tracker.getSnapshot(), "pending");
+  const second = tracker.saveConfirmed({ "regional.locale": "pt-BR" });
+  accepts[0](true);
+  assert.equal(await first, false, "superseded ACK cannot confirm the latest state");
+  assert.equal(tracker.getSnapshot(), "pending");
+  accepts[1](false);
+  assert.equal(await second, false);
+  assert.equal(tracker.getSnapshot(), "session-only");
+  const third = tracker.saveConfirmed({ "regional.locale": "en-US" });
+  accepts[2](true);
+  assert.equal(await third, true);
+  assert.equal(tracker.getSnapshot(), "saved");
+  tracker.dispose();
+});
+
 test('canonical confirmation controller preserves latest-write ownership', async () => {
   const { createPreferencePersistence } = await import('../system/services/preferences/runtime.mjs');
   const confirms = [];

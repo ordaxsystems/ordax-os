@@ -1071,11 +1071,7 @@ export function mountFirstRunExperience(
           return;
         }
       }
-      const receipt = await persistFirstRunCompletion(store, preferencePort, draft);
-      if (receipt.failedPreferenceIds.length > 0) {
-        // The Native receipt already committed; boot restores missing preferences.
-        console.warn("OrdaX First Run regional preferences pending durable recovery");
-      }
+      await persistFirstRunCompletion(store, preferencePort, draft);
       close();
     } catch {
       if (destroyed) return;

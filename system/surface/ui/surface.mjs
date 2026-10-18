@@ -437,6 +437,9 @@ export function mountSurface(
     getPersistenceSnapshot() {
       return preferencePersistence.getSnapshot();
     },
+    persistConfirmed() {
+      return preferencePersistence.saveConfirmed(state.preferences);
+    },
     set(preferenceId, value) {
       dispatch({ type: "preference.set", preferenceId, value });
       return state.preferences;

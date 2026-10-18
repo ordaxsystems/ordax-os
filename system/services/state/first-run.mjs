@@ -52,26 +52,27 @@ export function completeFirstRunState({ locale, timeZone, accountMode }) {
   });
 }
 
-// Durable First Run receipt is the commit point; portable preferences are
-// derived state, recovered from the receipt on next Native boot if needed.
+// The First Run receipt is monotonic. Never commit it until the complete
+// regional preference snapshot is durably confirmed by the canonical store.
+// An interrupted receipt write may leave a staged non-secret preference, but
+// First Run remains incomplete and can retry without any parallel state.
 export async function persistFirstRunCompletion(store, preferences, draft) {
-  if (!store || typeof store.save !== "function" || !preferences || typeof preferences.set !== "function") {
-    throw new TypeError("First Run completion requires state and preference ports");
+  if (
+    !store || typeof store.save !== "function"
+    || !preferences || typeof preferences.set !== "function"
+    || typeof preferences.persistConfirmed !== "function"
+  ) {
+    throw new TypeError("First Run completion requires durable state and preference ports");
   }
   const completed = completeFirstRunState(draft);
-  await store.save(completed);
-  const failedPreferenceIds = [];
-  for (const [key, value] of [
-    [REGIONAL_LOCALE_PREFERENCE_ID, completed.locale],
-    [REGIONAL_TIME_ZONE_PREFERENCE_ID, completed.timeZone],
-  ]) {
-    try {
-      await preferences.set(key, value);
-    } catch {
-      failedPreferenceIds.push(key);
-    }
+  preferences.set(REGIONAL_LOCALE_PREFERENCE_ID, completed.locale);
+  preferences.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, completed.timeZone);
+  const preferenceConfirmed = await preferences.persistConfirmed();
+  if (preferenceConfirmed !== true) {
+    throw new Error("First Run regional preferences were not durably confirmed");
   }
-  return Object.freeze({ completed, failedPreferenceIds: Object.freeze(failedPreferenceIds) });
+  await store.save(completed);
+  return completed;
 }
 
 export function seedMissingRegionalPreferencesFromFirstRun(preferenceRecord, firstRunState) {

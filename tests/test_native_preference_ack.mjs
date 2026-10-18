@@ -23,6 +23,31 @@ function fakeNativeHost() {
   return { windowRef, requests };
 }
 
+test("First Run confirmation uses the existing Native store and waits for its actual ACK", async () => {
+  const { windowRef, requests } = fakeNativeHost();
+  const store = await createNativePreferenceStore(windowRef);
+  const runtime = createPreferenceRuntime(store);
+  runtime.set("regional.locale", "en-US");
+  const ack = runtime.persistConfirmed();
+  assert.equal(runtime.getPersistenceSnapshot(), "pending");
+  await Promise.resolve();
+  assert.equal(requests.length, 1);
+  requests[0].resolve({ ok: true });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].data["regional.locale"], "en-US");
+  requests[1].resolve({ ok: false, status: 507 });
+  assert.equal(await ack, false);
+  assert.equal(runtime.getPersistenceSnapshot(), "session-only");
+  const retry = runtime.persistConfirmed();
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(requests.length, 3);
+  requests[2].resolve({ ok: true });
+  assert.equal(await retry, true);
+  assert.equal(runtime.getPersistenceSnapshot(), "saved");
+  runtime.dispose();
+});
+
 test("Native preference store saves serially and reports only host-confirmed durability", async () => {
   const { windowRef, requests } = fakeNativeHost();
   const store = await createNativePreferenceStore(windowRef);

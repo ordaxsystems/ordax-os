@@ -249,10 +249,11 @@ class FirstRunContractTests(unittest.TestCase):
         state_service = (ROOT / "system" / "services" / "state" / "first-run.mjs").read_text(encoding="utf-8")
         self.assertIn("export async function persistFirstRunCompletion(", state_service)
         self.assertLess(
+            state_service.index("await preferences.persistConfirmed()"),
             state_service.index("await store.save(completed)"),
-            state_service.index("await preferences.set(key, value)"),
-            "Durable receipt must be confirmed before portable preferences are published",
+            "First Run must durably confirm preferences before committing the receipt",
         )
+        self.assertIn("preferencePersistence.saveConfirmed(state.preferences)", (ROOT / "system" / "surface" / "ui" / "surface.mjs").read_text(encoding="utf-8"))
         self.assertNotIn("localStorage", ui)
         self.assertNotIn("sessionStorage", ui)
 
