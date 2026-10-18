@@ -34,9 +34,11 @@ CATALOG_IMPORT_RE = re.compile(
     re.MULTILINE,
 )
 SOURCE_SPREAD_RE = re.compile(r"\.\.\.([A-Z][A-Z0-9_]*_SOURCE_MESSAGES)\s*,?")
-RAIL_RE = re.compile(
-    r'railButton\("([a-z][a-z0-9-]*)",\s*t\("([^"]+)"\),\s*ICONS\.[a-zA-Z0-9]+,\s*t\)'
+DEVICE_APPS_RE = re.compile(
+    r'const\s+deviceApps\s*=\s*\[([^\]]+)\]\.map\(id\s*=>',
+    re.DOTALL,
 )
+DEVICE_APP_ID_RE = re.compile(r'"([a-z][a-z0-9-]*)"')
 SPACE_RE = re.compile(r'spaceLink\("([^"]+)",\s*"([^"]+)",\s*t\)')
 AREA_RE = re.compile(r't\("surface\.area\.label",\s*\{\s*ordinal:\s*"([^"]+)"\s*\}\)')
 COMMAND_RE = re.compile(r't\("shell\.launcher\.command"\)')
@@ -141,19 +143,24 @@ def _message(messages: dict[str, str], message_id: str, **values: str) -> str:
 def _surface_home() -> dict[str, object]:
     text = DESKTOP_SHELL.read_text(encoding="utf-8")
     messages = _surface_source_messages()
-    rail_matches = RAIL_RE.findall(text)
-    if not rail_matches:
-        # Surface desktop now composes its navigation from app identifiers.
-        # Derive the same localized titles without a duplicated list.
-        navigation = re.search(
-            r'navigation:\s*\[([^\]]+)\]\.map\(id\s*=>\s*railButton\(id,\s*t\(\`app\.\$\{id\}\.title\`\),\s*ICONS\[id\],\s*t\)\)',
-            text, re.DOTALL,
-        )
-        if navigation:
-            rail_matches = [
-                (app_id, f"app.{app_id}.title")
-                for app_id in re.findall(r'"([a-z][a-z0-9-]*)"', navigation.group(1))
-            ]
+    # Meridian owns device-app navigation in one canonical menu. The
+    # playground's rail_apps field remains stable for existing consumers,
+    # but its IDs are sourced from that live menu rather than the removed
+    # legacy railButton list or an independently hardcoded catalogue.
+    if (
+        "function meridianNavigationMenu(localization, t)" not in text
+        or "navigation: meridianNavigation(localization, t)" not in text
+        or "meridianNavigationMenu(localization, t)" not in text
+    ):
+        raise PlaygroundFixtureError("desktop shell has no canonical Meridian navigation")
+    device_apps = DEVICE_APPS_RE.search(text)
+    if not device_apps or 't(`app.${id}.title`)' not in text:
+        raise PlaygroundFixtureError("desktop shell is missing Meridian device-app metadata")
+    app_ids = DEVICE_APP_ID_RE.findall(device_apps.group(1))
+    if not app_ids or len(set(app_ids)) != len(app_ids):
+        raise PlaygroundFixtureError("desktop shell has empty or duplicated Meridian device apps")
+    rail_matches = [(app_id, f"app.{app_id}.title") for app_id in app_ids]
+
     space_matches = SPACE_RE.findall(text)
     area = AREA_RE.search(text)
     command = COMMAND_RE.search(text)
