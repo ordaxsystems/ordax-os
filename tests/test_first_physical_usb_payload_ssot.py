@@ -152,7 +152,15 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("go run ./cmd/ordax-creator bind-portable-sources", source)
         self.assertIn("PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT", source)
-        self.assertNotIn("          ids = [", source)
+        # Reject a second *literal* artifact catalog in the producer step.
+        # The disposable-media proof is allowed to derive IDs from the Core
+        # bindings.json already emitted by that producer.
+        producer_step = source.split(
+            "      - name: Assemble the exact 17-source physical payload", 1
+        )[1].split(
+            "      - name: Generate exact target-specific media and application plans", 1
+        )[0]
+        self.assertNotIn("          ids = [", producer_step)
         core = (ROOT / "tools/creator/core/portable_sources.go").read_text(encoding="utf-8")
         self.assertIn("func BindPortableSources(", core)
         self.assertIn("portableMediaTargets", core)
