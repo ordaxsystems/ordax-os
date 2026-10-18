@@ -61,16 +61,16 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         # spacing and the number of steps are not layout authorities.
         self.assertRegex(
             text,
-            r"\\.ordax-first-run-card\\s*\\{[^}]*grid-template-rows\\s*:\\s*"
-            r"minmax\\(0,\\s*1fr\\)\\s+auto\\s*;",
+            r"\.ordax-first-run-card\s*\{[^}]*grid-template-rows\s*:\s*"
+            r"minmax\(0,\s*1fr\)\s+auto\s*;",
         )
-        self.assertRegex(text, r"min-height\\s*:\\s*0")
+        self.assertRegex(text, r"min-height\s*:\s*0")
         self.assertRegex(
             text,
-            r"height\\s*:\\s*min\\(\\s*\\d+px\\s*,\\s*calc\\(\\s*100dvh\\s*-\\s*\\d+px\\s*\\)\\s*\\)",
+            r"height\s*:\s*min\(\s*\d+px\s*,\s*calc\(\s*100dvh\s*-\s*\d+px\s*\)\s*\)",
         )
         self.assertIn(".ordax-first-run-footer", text)
-        self.assertRegex(text, r"flex\\s*:\\s*0\\s+0\\s+auto")
+        self.assertRegex(text, r"flex\s*:\s*0\s+0\s+auto")
         normalized = "".join(text.split())
         fixed_steps = "grid-template-columns:repeat(7,1fr)" in normalized
         canonical_flow = (
