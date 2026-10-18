@@ -117,6 +117,8 @@ test("a failed mount or a substituted slot immediately invalidates the captured 
 
 test("revocation during an in-flight OS policy read denies the final result", async () => {
   let finishRead;
+  let signalRead;
+  const readStarted = new Promise(resolve => { signalRead = resolve; });
   policyRead = async subject => new Promise(resolve => {
     finishRead = () => resolve({
       schema: INSTALLED_APP_CAPABILITY_DECISION_SCHEMA,
@@ -125,13 +127,14 @@ test("revocation during an in-flight OS policy read denies the final result", as
       accountId: subject.accountId, spaceId: subject.spaceId,
       deviceId: subject.deviceId, capabilities: granted,
     });
+    signalRead();
   });
   const captured = run();
   const mount = await captured.request;
   assert.ok(mount);
   const pending = captured.captured().capabilities();
-  // Permission resolution enters a Promise after the caller is verified.
-  await Promise.resolve();
+  // Synchronize with the policy read; never rely on a microtask race.
+  await readStarted;
   mount.destroy();
   finishRead();
   await assert.rejects(pending, /no longer mounted/);
