@@ -29,9 +29,11 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
     def test_release_workflow_requires_gate_before_media_materialization(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         image_stage = workflow.index('sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"')
+        helpers = workflow.index("sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage")
         gate = workflow.index("sudo python tools/creator/verify_owner_dev_offline_runtime.py")
         media = workflow.index("- name: Materialize and verify RAW development seed")
-        self.assertLess(image_stage, gate)
+        self.assertLess(image_stage, helpers)
+        self.assertLess(helpers, gate)
         self.assertLess(gate, media)
 
     def test_checkout_alone_is_not_a_bootable_desktop(self):
