@@ -5,7 +5,6 @@ const COMPONENT_ID_PATTERN = /^[a-z][a-z0-9._-]{1,127}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const SEMVER_PATTERN = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const COMPONENT_KINDS = new Set([
-  "app",
   "knowledge-pack",
   "skill-pack",
   "model-pack",
@@ -53,6 +52,11 @@ export function validateProfileComponentInventoryEntry(
 ) {
   const entry = objectValue(value, label);
   const id = componentId(entry.id, `${label}.id`);
+  // Profile inventory is never an App Store installation ledger.
+  // Legacy or forged app records must not satisfy Profile provisioning.
+  if (entry.kind === "app") {
+    throw new TypeError(`${label} app packages belong exclusively to the Store`);
+  }
   if (!COMPONENT_KINDS.has(entry.kind)) {
     throw new TypeError(`${label}.kind is invalid`);
   }

@@ -221,3 +221,12 @@ test("available component without signed content identity fails closed", () => {
   unsafe.components[0].signature_required = false;
   assert.throws(() => validateProfileDistribution(unsafe), /must require signature/);
 });
+
+test("Profile component inventory rejects Store app receipts instead of claiming app installation", () => {
+  const app = installedEntry("pedidos", "app", "1.0.0", "a".repeat(64));
+  assert.throws(() => planProfileProvisioning({
+    distribution: developer,
+    installedInventory: inventory([app], "device"),
+    networkAvailable: false,
+  }), /app packages belong exclusively to the Store/);
+});
