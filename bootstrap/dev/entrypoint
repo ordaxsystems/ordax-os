@@ -32,14 +32,13 @@ RUNTIME_IMAGE=$DEV_ROOT/state/ordax/runtime/native-surface/offline/native-surfac
 RUNTIME_PIN=$DEV_ROOT/etc/ordax/owner-surface-runtime.sha256
 RUNTIME_RUN=$DEV_ROOT/run/ordax/runtime/native-surface
 cat "$RUNTIME_PIN" >/dev/null 2>&1 || fail "offline Surface EROFS pin is missing"
-cat "$RUNTIME_IMAGE" >/dev/null 2>&1 || fail "offline Surface EROFS image is missing"
 # The pin is generated only by the canonical Owner Creator from verified
 # bootstrap/surface-runtime build provenance.
 # The fixed initramfs BusyBox already guarantees the sha256sum applet.
- /bin/busybox sha256sum -c "$RUNTIME_PIN" >/dev/null 2>&1 ||
+/bin/busybox sha256sum -c "$RUNTIME_PIN" >/dev/null 2>&1 ||
     fail "offline Surface EROFS SHA-256 mismatch"
-set -- $(/bin/busybox sha256sum "$RUNTIME_IMAGE") ||
-    fail "offline Surface EROFS identity could not be read"
+# Read the already checked identity; never hash a 1-GiB USB image twice.
+set -- $(cat "$RUNTIME_PIN")
 RUNTIME_SHA256=$1
 
 # Keep the writable Surface overlay ephemeral. The EROFS lower remains
