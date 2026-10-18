@@ -28,7 +28,7 @@ class DevOfflineDiagnosticsTests(unittest.TestCase):
         manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")
         self.assertEqual(
             manifest.splitlines().count(
-                "bootstrap/dev-base/ordax-diagnose\\tusr/local/bin/ordax-diagnose"
+                "bootstrap/dev-base/ordax-diagnose\tusr/local/bin/ordax-diagnose"
             ),
             1,
         )
