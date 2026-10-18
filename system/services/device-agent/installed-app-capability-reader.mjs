@@ -48,6 +48,16 @@ function bounded(value, label) {
   return value;
 }
 
+function optionalScope(value, label) {
+  return value === null ? null : bounded(value, label);
+}
+
+function sameCaller(a, b) {
+  return a.appId === b.appId && a.publisherId === b.publisherId
+    && a.packageSha256 === b.packageSha256 && a.accountId === b.accountId
+    && a.spaceId === b.spaceId && a.deviceId === b.deviceId;
+}
+
 function verifiedCaller(value) {
   exactObject(value, ["appId", "publisherId", "packageSha256", "accountId", "spaceId", "deviceId", "verified"],
     "Installed app caller");
@@ -59,8 +69,10 @@ function verifiedCaller(value) {
     appId: value.appId,
     publisherId: bounded(value.publisherId, "Caller publisher"),
     packageSha256: value.packageSha256,
-    accountId: bounded(value.accountId, "Caller account"),
-    spaceId: bounded(value.spaceId, "Caller Space"),
+    // Guest/device-owner sessions intentionally have no account or Space.
+    // Only the trusted OS resolver may decide that a scope is null.
+    accountId: optionalScope(value.accountId, "Caller account"),
+    spaceId: optionalScope(value.spaceId, "Caller Space"),
     deviceId: bounded(value.deviceId, "Caller device"),
   });
 }
@@ -109,6 +121,12 @@ export function createInstalledAppCapabilityReader({
       ]);
       const allowed = allowedDecision(decision, caller);
       const current = validateDeviceAgentCapabilitiesSnapshot(available);
+      // A Space/account switch, package update or uninstall during the async
+      // permission read cannot return a stale capability snapshot to the app.
+      const currentCaller = verifiedCaller(await resolveCaller());
+      if (!sameCaller(currentCaller, caller)) {
+        throw new TypeError("Installed app caller changed during capability discovery");
+      }
       if (current.state !== "ready") {
         return validateDeviceAgentCapabilitiesSnapshot({
           schema: DEVICE_AGENT_CAPABILITIES_SCHEMA, state: "degraded", capabilities: [],
