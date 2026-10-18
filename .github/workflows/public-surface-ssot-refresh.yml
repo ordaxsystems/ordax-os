@@ -6,6 +6,15 @@ on:
   push:
     paths:
       - '.github/workflows/public-surface-ssot-refresh.yml'
+      - 'tools/public-site/playground_fixture.py'
+      - 'tools/public-site/surface_snapshot.mjs'
+      - 'tools/public-site/surface-snapshot-entry.tsx'
+      - 'system/surface/ui/desktop-shell.mjs'
+      - 'system/services/surface/meridian-navigation.mjs'
+      - 'system/services/i18n/surface.mjs'
+      - 'system/services/i18n/catalog/**'
+      - 'system/apps/catalog.mjs'
+      - 'system/apps/*/app.mjs'
 
 permissions:
   contents: write

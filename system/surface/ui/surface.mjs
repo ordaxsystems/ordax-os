@@ -683,10 +683,11 @@ export function mountSurface(
       }
       let icon = button.querySelector(".ordax-rail-icon");
       if (!icon) {
-        button.replaceChildren();
+        // Preserve existing, potentially focused controls and their children
+        // when repairing an absent icon during incremental reconciliation.
         icon = element("span", "ordax-rail-icon");
         icon.setAttribute("aria-hidden", "true");
-        button.append(icon);
+        button.prepend(icon);
       }
       if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
       else icon.textContent = app.monogram;

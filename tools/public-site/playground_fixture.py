@@ -157,7 +157,12 @@ def _surface_home() -> dict[str, object]:
         raise PlaygroundFixtureError(
             "Native Meridian menu is missing its canonical device-app shortcuts"
         )
-    app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', match.group(1))
+    # Reject unexpected expressions instead of silently ignoring them and
+    # producing a public menu that differs from the actual Native menu.
+    raw_ids = match.group(1).strip()
+    if not re.fullmatch(r'"[a-z][a-z0-9-]*"(?:\s*,\s*"[a-z][a-z0-9-]*")*', raw_ids):
+        raise PlaygroundFixtureError("Native Meridian device-app list is malformed")
+    app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', raw_ids)
     if not app_ids or len(app_ids) != len(set(app_ids)):
         raise PlaygroundFixtureError("Native Meridian device-app list is empty or duplicated")
 
