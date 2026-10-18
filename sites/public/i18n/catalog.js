@@ -1701,6 +1701,9 @@
   register("surface.669fdef01782", "Contexto dos espaços", "Space context");
   register("surface.5f4754991bbc", "Intelligence contextual", "Contextual Intelligence");
   // END GENERATED SURFACE COPY
+  // BEGIN GENERATED SURFACE COPY
+
+  // END GENERATED SURFACE COPY
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);
   });
