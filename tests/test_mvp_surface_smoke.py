@@ -308,6 +308,40 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "runtime digest"):
                 proof.evidence_context_from_environment()
 
+    def test_owner_verified_erofs_proof_is_development_scoped_and_digest_bound(self):
+        context = {
+            "ORDAX_PROOF_PROFILE": "owner-development",
+            "ORDAX_PROOF_RUNTIME_MODE": "verified-erofs-overlay",
+            "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
+            "ORDAX_PROOF_RUNTIME_SHA256": "b" * 64,
+        }
+        with mock.patch.dict("os.environ", context, clear=False):
+            self.assertEqual(
+                proof.evidence_context_from_environment(),
+                {
+                    "distribution_profile": "owner-development",
+                    "runtime_mode": "verified-erofs-overlay",
+                    "evidence_scope": "development",
+                    "runtime_sha256": "b" * 64,
+                },
+            )
+            self.assertIsNotNone(proof._evidence_context({"evidence_context": proof.evidence_context_from_environment()}))
+        for changes in (
+            {"ORDAX_PROOF_RUNTIME_SHA256": ""},
+            {"ORDAX_PROOF_EVIDENCE_SCOPE": "canonical-stable-mvp"},
+        ):
+            with self.subTest(changes=changes), mock.patch.dict(
+                "os.environ", {**context, **changes}, clear=False
+            ):
+                with self.assertRaises(ValueError):
+                    proof.evidence_context_from_environment()
+        self.assertIsNone(proof._evidence_context({"evidence_context": {
+            "distribution_profile": "owner-development",
+            "runtime_mode": "verified-erofs-overlay",
+            "evidence_scope": "development",
+            "runtime_sha256": None,
+        }}))
+
     def test_metrics_validator_rejects_impossible_values(self):
         with self.assertRaises(ValueError):
             proof.validate_metrics({

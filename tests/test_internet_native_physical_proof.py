@@ -200,6 +200,34 @@ class InternetNativePhysicalProofTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must not claim"):
                 proof.evidence_context_from_environment()
 
+    def test_owner_verified_erofs_digest_never_promotes_development_evidence(self):
+        valid = {
+            "ORDAX_PROOF_PROFILE": "owner-development",
+            "ORDAX_PROOF_RUNTIME_MODE": "verified-erofs-overlay",
+            "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
+            "ORDAX_PROOF_RUNTIME_SHA256": "f" * 64,
+        }
+        with mock.patch.dict("os.environ", valid, clear=False):
+            context = proof.evidence_context_from_environment()
+            self.assertEqual(context["runtime_sha256"], "f" * 64)
+            self.assertEqual(context["evidence_scope"], "development")
+            self.assertIsNotNone(proof._evidence_context({"evidence_context": context}))
+        for mutation in (
+            {"ORDAX_PROOF_RUNTIME_SHA256": ""},
+            {"ORDAX_PROOF_EVIDENCE_SCOPE": "canonical-stable-mvp"},
+        ):
+            with self.subTest(mutation=mutation), mock.patch.dict(
+                "os.environ", {**valid, **mutation}, clear=False
+            ):
+                with self.assertRaises(ValueError):
+                    proof.evidence_context_from_environment()
+        self.assertIsNone(proof._evidence_context({"evidence_context": {
+            "distribution_profile": "owner-development",
+            "runtime_mode": "verified-erofs-overlay",
+            "evidence_scope": "development",
+            "runtime_sha256": None,
+        }}))
+
     def test_compare_rejects_mixed_development_and_stable_evidence(self):
         before = {
             "schema": proof.SCHEMA,

@@ -1060,8 +1060,19 @@ publish_runtime_proof_context() {
 
     case "$DISTRIBUTION_PROFILE" in
         owner-development)
-            runtime_mode=dynamic-native-runtime
             evidence_scope=development
+            if [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
+                [ "$RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || return 1
+                [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || return 1
+                case "$VERIFIED_RUNTIME_SHA256" in
+                    *[!0-9a-f]*) return 1 ;;
+                esac
+                runtime_mode=verified-erofs-overlay
+                runtime_sha256=$VERIFIED_RUNTIME_SHA256
+            else
+                [ -z "$VERIFIED_RUNTIME_MODE" ] || return 1
+                runtime_mode=dynamic-native-runtime
+            fi
             ;;
         stable-mvp)
             [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1
