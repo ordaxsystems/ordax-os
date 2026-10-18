@@ -1,15 +1,15 @@
 /* Shared Meridian visual policy. Existing preference IDs and service owners remain unchanged. */
-.meridian-workspace {
+.meridian-workspace, .meridian-native-workspace {
  font:400 .8125rem/1.5 var(--md-font);
- --md-home-content-max:1320px;
- --md-home-content-inline:32px;
+ --md-home-content-max:clamp(1320px,70vw,2400px);
+ --md-home-content-inline:clamp(32px,1.6vw,48px);
  --md-home-heading-size:clamp(1.75rem,3vw,2.625rem);
- --md-home-hero-height:266px;
+ --md-home-hero-height:clamp(266px,14vw,360px);
  --md-home-hero-heading-size:clamp(1.625rem,2.8vw,2.25rem);
  --md-home-hero-overlay:linear-gradient(90deg,color-mix(in srgb,var(--md-art-dark) 79%,transparent) 0%,color-mix(in srgb,var(--md-art-dark) 26%,transparent) 65%,color-mix(in srgb,var(--md-art-dark) 6%,transparent) 100%);
 }
 [data-meridian] {
- --ordax-sidebar-expanded-width:var(--md-rail-width);--ordax-sidebar-collapsed-width:var(--md-rail-compact);--ordax-navigation-height:var(--md-dock);--ordax-navigation-control-height:44px;
+ --ordax-sidebar-expanded-width:var(--md-rail-width);--ordax-sidebar-collapsed-width:var(--md-rail-compact);--ordax-navigation-height:var(--md-dock);
  --background:var(--md-canvas);--foreground:var(--md-ink);--card:var(--md-surface);--secondary:var(--md-subtle);--muted:var(--md-subtle);--muted-foreground:var(--md-muted);--primary:var(--md-accent);--primary-foreground:var(--md-accent-text);--accent:var(--md-accent-soft);--accent-foreground:var(--md-accent);--border:var(--md-border);--sidebar-surface:var(--md-rail);
  --app-orange:var(--md-accent);--app-orange-soft:var(--md-accent-soft);--app-green:var(--md-sage);--app-green-soft:var(--md-sage-soft);--app-blue:var(--md-blue);--app-blue-soft:var(--md-blue-soft);--app-lime:var(--md-sage);--app-lime-soft:var(--md-sage-soft);--app-violet:var(--md-rose);--app-violet-soft:var(--md-rose-soft);--app-ink:var(--md-ink);--app-ink-soft:var(--md-subtle);
  --desktop-surface:var(--md-surface);--shadow-panel:var(--md-shadow-small);--desktop-shadow:var(--md-window-shadow);--os-font:var(--md-font);
