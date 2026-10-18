@@ -67,6 +67,12 @@
   color:var(--md-ink);
   font:0.875rem/1.5 var(--md-font);
 }
+@media(max-width:600px) {
+  [data-meridian] {
+    --md-bar:61px;
+    --md-dock:72px;
+  }
+}
 [data-meridian][data-theme="dark"], [data-meridian][data-theme="native"], [data-meridian][data-ordax-theme="dark"], [data-meridian][data-material="ink"], [data-meridian] [data-material-preview="ink"] {
   --md-canvas:#202824;
   --md-surface:#29332c;

@@ -9,10 +9,6 @@ body { background: var(--md-canvas); font-weight: 400; }
   gap: 0;
   background: var(--md-canvas);
 }
-.ordax-shell.meridian-native-workspace {
-  --ordax-navigation-height: 56px;
-  --ordax-navigation-control-height: 36px;
-}
 .ordax-workspace { grid-row: 1; }
 .ordax-workspace::before {
   content: "";
@@ -494,7 +490,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 /* Native uses the same Meridian shell hierarchy as the Web workspace. */
 .ordax-shell.meridian-native-workspace {
   grid-template-columns: var(--ordax-rail-width) minmax(0, 1fr);
-  grid-template-rows: var(--md-system-header-height) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
+  grid-template-rows: var(--md-bar) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
   --workspace-rail: var(--ordax-rail-width);
   --sidebar-visual-width: var(--ordax-rail-width);
   background: var(--md-canvas);
@@ -503,6 +499,11 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace > .ordax-workspace { grid-row: 2; }
 .meridian-native-workspace > .ordax-native-header { grid-column: 2; grid-row: 1; min-width: 0; }
 .meridian-native-workspace > .ordax-statusbar { grid-column: 2; grid-row: 3; }
+.meridian-native-workspace[data-view="desktop"] { grid-template-rows: minmax(0,1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+.meridian-native-workspace[data-view="desktop"] > .ordax-rail { grid-row: 1 / 3; }
+.meridian-native-workspace[data-view="desktop"] > .ordax-workspace { grid-row: 1; }
+.meridian-native-workspace[data-view="desktop"] > .ordax-native-header { display:none; }
+.meridian-native-workspace[data-view="desktop"] > .ordax-statusbar { grid-row: 2; }
 .meridian-native-workspace .meridian-system-location { min-width:0; }
 .meridian-native-location-context { color: var(--md-muted); font-size: .68rem; }
 .meridian-native-workspace .meridian-system-location { position:relative; }
@@ -582,7 +583,11 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle { width:var(--ordax-navigation-control-height); min-width:var(--ordax-navigation-control-height); height:var(--ordax-navigation-control-height); border:0; border-radius:9px; background:transparent; color:var(--md-muted); }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle[aria-pressed="true"] { background:var(--md-subtle); color:var(--md-ink); }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle:hover { background:var(--md-subtle); color:var(--md-ink); }
-.meridian-native-workspace .meridian-native-dock { display:flex; align-items:center; justify-self:center; min-width:0; max-width:min(100%,570px); gap:4px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.meridian-native-workspace .meridian-native-dock { display:flex; align-items:center; justify-self:center; min-width:0; max-width:min(100%,570px); gap:4px; padding:4px; overflow-x:auto; overscroll-behavior-inline:contain; scroll-padding-inline:4px; scrollbar-width:none; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.meridian-native-workspace .meridian-native-dock::-webkit-scrollbar { display:none; }
+.meridian-native-workspace .meridian-native-dock[data-scroll-before="true"][data-scroll-after="true"] { mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent); }
+.meridian-native-workspace .meridian-native-dock[data-scroll-before="true"]:not([data-scroll-after="true"]) { mask-image:linear-gradient(90deg,transparent,#000 18px); }
+.meridian-native-workspace .meridian-native-dock[data-scroll-after="true"]:not([data-scroll-before="true"]) { mask-image:linear-gradient(270deg,transparent,#000 18px); }
 .meridian-native-workspace .meridian-dock-shortcuts { display:flex; flex:0 0 auto; align-items:center; gap:6px; }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut { display:grid; place-items:center; position:relative; width:var(--ordax-navigation-control-height); min-width:var(--ordax-navigation-control-height); height:var(--ordax-navigation-control-height); padding:0 3px 4px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--md-ink); }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut:hover { background:var(--md-subtle); }
@@ -603,7 +608,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-dock-launcher:hover { background:var(--md-subtle); color:var(--md-ink); }
 .meridian-native-workspace .ordax-dock-launcher .ordax-rail-icon { position:static; display:grid; place-items:center; width:28px; height:28px; overflow:visible; clip-path:none; }
 .meridian-native-workspace .ordax-dock-launcher .ordax-rail-icon svg { width:21px; height:21px; }
-.meridian-native-workspace .ordax-running-apps { display:flex; justify-self:center; flex:0 1 auto; min-width:0; max-width:100%; overflow-x:auto; gap:6px; padding:0; border:0; background:transparent; box-shadow:none; }
+.meridian-native-workspace .ordax-running-apps { display:flex; justify-self:center; flex:0 0 auto; width:max-content; min-width:0; max-width:none; overflow:visible; gap:6px; padding:0; border:0; background:transparent; box-shadow:none; }
 .meridian-native-workspace .ordax-running-app { display:grid; place-items:center; width:var(--ordax-navigation-control-height); min-width:var(--ordax-navigation-control-height); height:var(--ordax-navigation-control-height); padding:0 3px 4px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--md-ink); font-size:.66rem; }
 .meridian-native-workspace .ordax-running-app:hover { background:var(--md-subtle); }
 .meridian-native-workspace .ordax-running-app[data-active="true"] { border-color:var(--md-accent); background:var(--md-accent-soft); box-shadow:none; }
@@ -646,7 +651,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-nav-more { flex-shrink: 0; }
 
 @media (max-width: 760px) {
-  .ordax-shell.meridian-native-workspace { grid-template-columns: var(--ordax-sidebar-collapsed-width) minmax(0, 1fr); grid-template-rows: var(--md-system-header-height) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+  .ordax-shell.meridian-native-workspace { grid-template-columns: var(--ordax-sidebar-collapsed-width) minmax(0, 1fr); grid-template-rows: var(--md-bar) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
   .meridian-native-workspace > .ordax-rail { grid-row: 1 / 4; padding-inline: 8px; }
   .meridian-native-workspace > .ordax-workspace { grid-column: 2; grid-row: 2; }
   .meridian-native-workspace > .ordax-native-header { grid-column: 2; grid-row: 1; }
@@ -666,7 +671,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .meridian-system-search kbd,
   .meridian-native-workspace .meridian-native-location-context { display: none; }
   .meridian-native-workspace .meridian-taskbar-start { overflow: hidden; }
-  .meridian-native-workspace .meridian-native-dock { width:100%; max-width:100%; min-width:0; overflow-x:auto; overscroll-behavior-inline:contain; scroll-padding-inline:4px; scrollbar-color:var(--md-border-strong) transparent; scrollbar-width:thin; padding:3px 4px; }
+  .meridian-native-workspace .meridian-native-dock { width:100%; max-width:100%; min-width:0; }
   .meridian-native-workspace .ordax-running-apps { width:max-content; max-width:none; flex:0 0 auto; overflow:visible; }
   .meridian-native-workspace .meridian-dock-shortcuts { gap:2px; }
   .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut,
@@ -687,7 +692,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .meridian-header-status-actions .ordax-status-action-label { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 }
 @media (max-width: 600px) {
-  .ordax-shell.meridian-native-workspace { grid-template-rows: var(--md-system-header-height) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+  .ordax-shell.meridian-native-workspace { grid-template-rows: var(--md-bar) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
   .meridian-native-workspace .meridian-mobile-menu { width:32px; height:32px; }
   .meridian-native-workspace .meridian-header-status-actions { display:none; }
   .meridian-native-workspace .meridian-system-tools { min-width:0; }
@@ -763,4 +768,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .ordax-shell.meridian-native-workspace { --ordax-rail-width: 72px; --sidebar-visual-width: 72px; grid-template-columns: 72px minmax(0,1fr); }
   [data-native-sidebar="expanded"] .ordax-shell.meridian-native-workspace { --ordax-rail-width: 72px; --sidebar-visual-width: 72px; }
   [data-native-sidebar="expanded"] .meridian-native-workspace > .ordax-rail { width: 72px; }
+}
+@media (min-width: 601px) {
+  .ordax-shell.meridian-native-workspace[data-view="desktop"] { --ordax-rail-width: var(--md-rail-compact); --sidebar-visual-width: var(--md-rail-compact); }
 }
