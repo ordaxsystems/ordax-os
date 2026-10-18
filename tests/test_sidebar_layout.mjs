@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarNavigationCapacity, sidebarItemIsActive, mountNativeSidebarFit } from "../system/surface/ui/sidebar-layout.mjs";
-import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
+import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileButtonMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
 import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sidebar.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
 import { syncDesktopSidebarToggle } from "../system/surface/ui/desktop-shell.mjs";
@@ -84,6 +84,22 @@ test("Native profile slot uses the shared compact Meridian account presentation"
   assert.ok(html.includes("data-sidebar-account-status"));
   assert.ok(!html.includes("data-sidebar-storage"));
   assert.ok(!html.includes("data-sidebar-notifications"));
+});
+test("Web and Native profile slots share the same escaped account control and active state", async () => {
+  const view = projectSidebarAccount({ state: "signed-in", subjectId: "private-id", displayName: '<img src=x onerror="run()"> Maria' });
+  const webButton = sidebarProfileButtonMarkup(view, false, true);
+  const nativeButton = sidebarProfileButtonMarkup(view, true);
+  const nativeMarkup = sidebarProfileMarkup(view, true);
+  const webNavigation = await readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8");
+  assert.ok(webButton.includes('aria-current="page"'));
+  assert.ok(webButton.includes("&lt;img"));
+  assert.ok(!webButton.includes('<img'));
+  assert.ok(!webButton.includes("data-launch-app"));
+  assert.ok(nativeButton.includes('data-launch-app="account" data-app-target="overview"'));
+  assert.ok(nativeMarkup.includes('class="account sidebar-account"'));
+  assert.ok(nativeMarkup.includes('aria-label="&lt;img src=x onerror=&quot;run()&quot;&gt; Maria"'));
+  assert.ok(webNavigation.includes("sidebarProfileButtonMarkup(sidebarAccount,false,activeWindow?.title==='Minha conta')"));
+  assert.match(webNavigation, /brand:<button type="button" className="meridian-brand-home"[^\n]+<Brand\/><\/button>/);
 });
 
 test("Native collapse control uses Meridian's panel glyph and state label", () => {
