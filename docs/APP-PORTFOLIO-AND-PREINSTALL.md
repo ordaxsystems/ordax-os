@@ -2,6 +2,26 @@
 
 Status: **política de seleção implementada; pré-instalação física e publicação pendentes de comprovação**. Esta decisão não altera o payload USB atual nem a instalação dos usuários. A implementação de seleção sem autoridade está em `system/services/apps/first-run-selection.mjs`, com testes em `tests/test_first_run_selection.mjs`.
 
+## Comprovação do estado Native após operação da Loja
+
+O executor oficial `native_app_lifecycle_executor.py` trata a resposta do
+`ordax-runtime-component-channel` como **resultado de comando**, não como
+comprovante isolado de persistência. Depois de `arm-pending`, relê via
+`status` o estado de ativação canônico Go e exige a mesma revisão,
+`pending.version`, `pending.source_commit` e saúde `unknown`. Depois
+de `uninstall-state`, exige a revisão avançada, ausência de
+`current/previous/pending/rejected`, `user_removed:true` e
+`removed_identity` igual à versão exata removida. Divergência, saída inválida
+ou falha na releitura **bloqueia o reconhecimento de sucesso**, mesmo quando
+o comando imprimiu `YES`.
+
+Essa conferência não cria banco de instalações, recibo paralelo ou política
+de assinatura: lê a única fonte de verdade do componente. Não substitui
+prova USB física, recibos de instalação, supervisor de quiescência ou
+rollback de dados stateful. Testes de regressão em
+`tests/test_native_app_lifecycle_executor.py` cobrem readback válido,
+pendência ausente, revisão/saúde divergente e tombstone ausente.
+
 ## Regra definitiva de ownership
 
 - `ordaxsystems/ordax-os`: sistema/base, Surface, App SDK, Identity, Intelligence, Memory, permissões, Loja estrutural, Conta, Ajustes, Sistema, verificação, ativação e desinstalação de pacotes.
