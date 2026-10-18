@@ -38,6 +38,7 @@ import { KEYBOARD_LAYOUT_OPTIONS } from "../../services/input/keyboard-layout.mj
 import { COLOR_THEME_OPTIONS, resolveColorAppearance, selectColorTheme } from "../../services/preferences/color-palette.mjs";
 import { listPreferenceDefinitions } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
 
 const SETTINGS_WINDOW_SELECTOR = '[data-window-id="settings"]';
 const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
@@ -190,6 +191,7 @@ export function mountSettingsOverviewControls(
   keyboardLayout = null,
   localSession = null,
   localAiPort = null,
+  productConnectorPort = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -209,6 +211,7 @@ export function mountSettingsOverviewControls(
   const localSessionPort =
     localSession === null ? null : assertLocalSessionPort(localSession);
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
+  const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -1304,23 +1307,11 @@ export function mountSettingsOverviewControls(
 
   const replaceView = () => renderView(true);
 
-  const connectorUrl = "/__ordax/native/product-connector";
-  const validConnectorSnapshot = (value) => value && typeof value === "object"
-    && typeof value.available === "boolean" && typeof value.enabled === "boolean"
-    && typeof value.accountAuthenticated === "boolean"
-    && value.remoteActionsEnabled === false && value.mode === "discovery-only";
-
   const refreshConnector = async () => {
-    if (destroyed || typeof globalThis.fetch !== "function") return;
+    if (destroyed || !connectorPort) return;
     const ordinal = ++connectorOrdinal;
     try {
-      const response = await globalThis.fetch(connectorUrl, {
-        method: "GET", credentials: "same-origin", cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) throw new Error("connector-unavailable");
-      const value = await response.json();
-      if (!validConnectorSnapshot(value)) throw new Error("invalid-connector-state");
+      const value = await connectorPort.status();
       if (destroyed || connectorOrdinal !== ordinal) return;
       connectorSnapshot = value;
       connectorReadFailed = false;
@@ -1333,23 +1324,14 @@ export function mountSettingsOverviewControls(
   };
 
   const configureConnector = async () => {
-    if (!connectorSnapshot?.available || connectorPending || destroyed) return;
+    if (!connectorPort || !connectorSnapshot?.available || connectorPending || destroyed) return;
     if (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled) return;
     const requested = !connectorSnapshot.enabled;
     connectorPending = true;
     connectorError = false;
     replaceView();
     try {
-      const response = await globalThis.fetch(connectorUrl, {
-        method: "POST", credentials: "same-origin", cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ enabled: requested }),
-      });
-      if (!response.ok) throw new Error("connector-setting-rejected");
-      const result = await response.json();
-      if (!validConnectorSnapshot(result) || result.enabled !== requested)
-        throw new Error("connector-state-mismatch");
-      connectorSnapshot = result;
+      connectorSnapshot = await connectorPort.configure(requested);
       connectorReadFailed = false;
     } catch {
       connectorError = true;
@@ -1358,8 +1340,6 @@ export function mountSettingsOverviewControls(
       if (!destroyed) replaceView();
     }
   };
-
-
 
   const refreshKeyboardLayout = async () => {
     if (!keyboardLayoutPort || destroyed || keyboardLayoutPending) return;
