@@ -13,7 +13,10 @@
     "path": "/state/ordax/native-state/device-agent/product-device.json",
     "nativeRuntimePath": "/var/lib/ordax/device-agent/product-device.json",
     "mode": "0600",
-    "fields": ["device_id", "device_token"],
+    "fields": [
+      "device_id",
+      "device_token"
+    ],
     "deviceId": "canonical-uuid",
     "deviceToken": "256-bit-lowercase-hex",
     "surfaceReadable": false,
@@ -25,14 +28,16 @@
     "ownsHeartbeatLoop": false,
     "schedulingOwner": "existing-runtime-heartbeat-after-coordinated-cutover",
     "enrollmentRequired": true,
-    "enrollmentImplemented": false,
+    "enrollmentImplemented": true,
     "withoutCredential": "inactive-fail-soft",
     "withoutNetwork": "offline-fail-soft",
     "bootDependency": false,
     "surfaceHealthDependency": false,
     "grantsRemoteActions": false,
     "opensInboundPort": false,
-    "dualWritesLegacyAndCanonical": false
+    "dualWritesLegacyAndCanonical": false,
+    "enrollmentSource": "system/surface/runtime/product_device_runtime.py",
+    "enrollmentCondition": "authenticated-native-account-owner-development-usb-only"
   },
   "production": {
     "enabled": false,
@@ -40,6 +45,18 @@
   },
   "ownerDevelopment": {
     "canaryAllowedAfterAuthenticatedEnrollment": true,
-    "automaticEnrollment": false
+    "automaticEnrollment": true,
+    "enrollmentTrigger": "after-successful-authenticated-native-account-login",
+    "requiresConfiguredHttpsControlPlane": true
+  },
+  "externalMcp": {
+    "accountLoginAutomaticallyConnectsExternalClient": false,
+    "oauthClientConsentRequired": true,
+    "deviceScopedCapabilityGrantRequired": true,
+    "devicePresenceRuntimeMounted": false,
+    "attestedMcpSessionImplementedInOs": false,
+    "remoteActionRuntimePackagedInOs": false,
+    "remoteActionDispatchEnabled": false,
+    "chatGptAccountDistinctFromOrdaxAccount": true
   }
 }
