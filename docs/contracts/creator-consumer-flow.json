@@ -148,6 +148,8 @@
     "offline_fallback": "last-signed-candidate-reverified-by-current",
     "additional_media_catalog_or_cache_allowed": false,
     "physical_write_authority_unchanged": true,
-    "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true
+    "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true,
+    "portable_v3_provenance_separates_writer_and_release_source": true,
+    "portable_v3_provenance_requires_signed_release_proof_and_envelope": true
   }
 }

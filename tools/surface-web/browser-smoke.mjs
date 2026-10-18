@@ -178,11 +178,8 @@ try {
       }
       if(width===1440){
         await openSidebarDestination('Loja');
-        // One Store owner for Native and Web. The optional planned preview is
-        // mounted in the shared Store experience, not a retired Web-only host.
-        const previewHost="[data-store-shared=\"true\"].ordax-store-experience[data-store-mode=\"planned\"] [data-store-preview-host]";
-        await until("!!document.querySelector("+JSON.stringify(previewHost)+")?.shadowRoot?.querySelector('[data-meridian]')");
-        assert.equal(await evaluate("(()=>{const host=document.querySelector("+JSON.stringify(previewHost)+");const root=host.shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Shared Store preview uses the canonical bundled stylesheet without inline style elements');
+        await until("!!document.querySelector('[data-store-shared].ordax-store-experience [data-store-preview-host]')?.shadowRoot?.querySelector('[data-meridian]')");
+        assert.equal(await evaluate("(()=>{const host=document.querySelector('[data-store-shared].ordax-store-experience');const root=host.querySelector('[data-store-preview-host]').shadowRoot;return host.dataset.storeMode==='planned'&&root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Shared Store examples use the canonical bundled stylesheet without inline style elements');
         await click('[aria-label="Fechar Loja"]');
         await openSidebarDestination('Espaços');
         await clickByText('.meridian-spaces-context-actions button','Ver exemplos completos');

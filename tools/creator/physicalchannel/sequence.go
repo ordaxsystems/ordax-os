@@ -16,6 +16,10 @@ type physicalProvenance struct {
 	Schema                            string `json:"$schema"`
 	Status                            string `json:"status"`
 	SourceCommit                      string `json:"source_commit"`
+	WriterSourceCommit                string `json:"writer_source_commit"`
+	CanonicalV4ReleaseProofSHA256     string `json:"canonical_v4_release_proof_sha256"`
+	CanonicalV4ReleaseSourceCommit    string `json:"canonical_v4_release_source_commit"`
+	CanonicalV4ReleaseEnvelopeURL     string `json:"canonical_v4_release_envelope_url"`
 	ReleaseSequence                   int64  `json:"release_sequence"`
 	ConsumerKeySetupRequired          bool   `json:"consumer_key_setup_required"`
 	DevelopmentChannel                bool   `json:"development_channel"`
@@ -70,6 +74,26 @@ func ReleaseSequence(installed Installed) (int64, error) {
 	}
 	if provenance.SourceCommit != installed.SourceCommit || provenance.SourceCommit != installed.Manifest.SourceCommit {
 		return 0, errors.New("physical provenance source commit does not match signed manifest")
+	}
+	// The signer owns two distinct identities: the writer build and the signed
+	// Stable release. Production provenance must survive strict JSON decoding
+	// without silently interchanging those identities.
+	if provenance.WriterSourceCommit != "" && provenance.WriterSourceCommit != provenance.SourceCommit {
+		return 0, errors.New("physical provenance writer source commit mismatch")
+	}
+	if installed.Manifest.Schema == ManifestSchemaPortable {
+		payload := installed.Manifest.PortablePayload
+		if payload == nil ||
+			provenance.WriterSourceCommit != installed.SourceCommit ||
+			!shaPattern.MatchString(provenance.CanonicalV4ReleaseProofSHA256) ||
+			provenance.CanonicalV4ReleaseSourceCommit != payload.ReleaseSourceCommit {
+			return 0, errors.New("physical provenance canonical v4 release identity mismatch")
+		}
+		expectedURL := "https://github.com/" + SourceRepository +
+			"/releases/download/ordax-stable-v4-" + payload.ReleaseSourceCommit + "/release-envelope.json"
+		if provenance.CanonicalV4ReleaseEnvelopeURL != expectedURL {
+			return 0, errors.New("physical provenance canonical v4 release envelope URL mismatch")
+		}
 	}
 	if provenance.ReleaseSequence <= 0 {
 		return 0, errors.New("physical release sequence must be positive")

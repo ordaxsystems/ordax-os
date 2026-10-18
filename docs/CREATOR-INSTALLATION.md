@@ -151,6 +151,8 @@ The authoritative consumer-media behavior is `docs/contracts/creator-consumer-fl
 
 No user image/ISO selector, duplicate artifact catalog, mutable global cache or extra installer is allowed.
 
+The signed Portable v3 physical-candidate consumer also checks producer provenance against its 17-artifact release source, proof SHA-256 and canonical HTTPS envelope while keeping the writer commit independent. No second release index or activation authority is introduced.
+
 All three Creator delivery channels now use the shared `tools/creator/internal/atomicfile` writer for their signed current/pending/previous envelope pointers. A failed pointer replacement preserves the previous signed offline pointer; version monotonicity, source re-verification and physical write authorization remain independent.
 
 
