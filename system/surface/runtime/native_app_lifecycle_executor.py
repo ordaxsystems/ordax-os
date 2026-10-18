@@ -127,6 +127,8 @@ def _expected_activation(value: object, operation: str) -> dict:
     ):
         raise NativeAppLifecycleError("app lifecycle activation revision is invalid")
     source = current["source"]
+    if not isinstance(source, str):
+        raise NativeAppLifecycleError("app lifecycle expected activation source is invalid")
     if source == "slot":
         if (
             operation == "install"
