@@ -24,11 +24,11 @@ jobs:
       - name: Checkout same branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          persist-credentials: true
+          persist-credentials: false
           fetch-depth: 1
 
       - name: Node 22
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
           cache: npm
@@ -53,6 +53,8 @@ jobs:
           python tools/public-site/playground_fixture.py
 
       - name: Commit only generated public artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git add -- sites/public/assets/surface-snapshot.json sites/public/assets/surface-snapshot.css \
@@ -67,5 +69,8 @@ jobs:
           git config user.name 'ordax-ssot-bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'chore(public): regenerate canonical Surface artifacts'
+          # A short-lived GitHub CLI credential helper uses the job token from
+          # environment. Checkout never persists credentials into the worktree.
+          gh auth setup-git --hostname github.com
           git push origin HEAD:"${GITHUB_REF_NAME}"
           echo 'PUBLIC_SURFACE_SSOT=UPDATED'
