@@ -334,6 +334,53 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertNotIn("Área da conta", landing)
 
 
+    def test_public_playground_uses_canonical_meridian_menu_without_silent_fallback(self):
+        import importlib.util
+        import tempfile
+        from unittest import mock
+
+        generator = ROOT / "tools" / "public-site" / "playground_fixture.py"
+        spec = importlib.util.spec_from_file_location("ordax_playground_fixture_test", generator)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        expected = json.loads(
+            (SITE / "assets" / "playground-fixture.json").read_text(encoding="utf-8")
+        )["home"]
+        self.assertEqual(module._surface_home(), expected)
+        desktop = module.DESKTOP_SHELL.read_text(encoding="utf-8")
+        canonical_ids = '["files", "studio", "settings", "system"]'
+        self.assertIn(canonical_ids, desktop)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            candidate = Path(temporary) / "desktop-shell.mjs"
+            for replacement, reason in (
+                ('["files", "files"]', "duplicated"),
+                ('["files", unknownApp()]', "malformed"),
+            ):
+                with self.subTest(replacement=replacement):
+                    candidate.write_text(
+                        desktop.replace(canonical_ids, replacement),
+                        encoding="utf-8",
+                    )
+                    with mock.patch.object(module, "DESKTOP_SHELL", candidate):
+                        with self.assertRaisesRegex(module.PlaygroundFixtureError, reason):
+                            module._surface_home()
+
+            candidate.write_text(
+                desktop.replace(
+                    "navigation: meridianNavigation(localization, t)",
+                    "navigation: unavailableNavigation(localization, t)",
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch.object(module, "DESKTOP_SHELL", candidate):
+                with self.assertRaisesRegex(
+                    module.PlaygroundFixtureError, "canonical Meridian navigation"
+                ):
+                    module._surface_home()
+
     def test_interactive_playground_remains_local_disposable_marketing_demo(self):
         landing = (SITE / "index.html").read_text(encoding="utf-8")
         script = (SITE / "assets" / "playground.js").read_text(encoding="utf-8")
