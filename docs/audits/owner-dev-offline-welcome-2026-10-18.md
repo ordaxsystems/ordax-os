@@ -77,4 +77,6 @@ The Owner-specific WebKit lifecycle probe now records only fixed status codes fr
 
 An independent Foundation failure in the previous run was caused by First Run contract tests tied to old copy and fixed Meridian pixel dimensions. Tests have been aligned with the **active UI labels** and the required non-install, scrolling-body/fixed-footer layout invariants. This is not a change to the First Run UX itself.
 
+**Follow-up gate:** the Owner QEMU proof now requires ordered `STARTED → COMMITTED → FINISHED` callback receipts from the *privileged* WebKit view, plus absence of its load-failed/web-process-terminated signals, before the 15-second stable observation qualifies. These are actual opt-in serial events from the same isolated guest, not synthetic markers or screenshot substitutes. The original QMP pixel threshold remains unchanged. This gate is a source change until CI runs on its exact head; it is not proof that WebKit currently paints the welcome screen.
+
 **Current state:** new WebKit diagnostics and regression assertions are committed on the draft PR. The exact new head has not yet produced a fully green Creator/visual QEMU test. Do not merge, publish or overwrite the physical USB on the strength of earlier green handoff/heartbeat checks.

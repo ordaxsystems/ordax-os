@@ -36,6 +36,16 @@ BAD_SURFACE = (
     "ordax-surface: native Cage/OrdaX WebKit host exited",
 )
 RECOVERY = ("entering local recovery shell", "ordax-dev-bootstrap: entering local recovery shell")
+WEBKIT_EVENT_PREFIX = "ORDAX_OWNER_WEBKIT_EVENT="
+WEBKIT_LOAD_ORDER = (
+    "surface-page-load-started",
+    "surface-page-load-committed",
+    "surface-page-load-finished",
+)
+WEBKIT_FATAL_MARKERS = (
+    WEBKIT_EVENT_PREFIX + "surface-page-load-failed",
+    WEBKIT_EVENT_PREFIX + "surface-web-process-terminated",
+)
 
 
 class ProofError(RuntimeError):
@@ -113,12 +123,32 @@ def qemu_command(
     ]
 
 
+def webkit_page_loaded(text: str) -> bool:
+    """Require ordered callbacks from the actual privileged native WebKit view.
+
+    A healthy process heartbeat cannot substitute for a page load. The separate
+    QMP framebuffer gate still proves rendering; these callbacks alone do not.
+    """
+    stage = 0
+    for line in text.splitlines():
+        if not line.startswith(WEBKIT_EVENT_PREFIX):
+            continue
+        event = line[len(WEBKIT_EVENT_PREFIX):].strip()
+        if event == WEBKIT_LOAD_ORDER[stage]:
+            stage += 1
+            if stage == len(WEBKIT_LOAD_ORDER):
+                return True
+    return False
+
+
 def observed(text: str, source: str) -> dict[str, bool]:
     return {
         "dev_base_started": MARKER_BASE in text,
         "exact_local_checkout": f"Checkout local verificado: {source}" in text,
         "offline_surface_handoff": MARKER_OFFLINE in text,
         "native_surface_heartbeat": MARKER_HEALTH in text,
+        "privileged_webkit_page_loaded": webkit_page_loaded(text),
+        "webkit_process_not_failed": not any(item in text for item in WEBKIT_FATAL_MARKERS),
         "recovery_not_entered": not any(item in text for item in RECOVERY),
         "no_surface_restart_or_failure": not any(item in text for item in BAD_SURFACE),
     }
@@ -256,7 +286,8 @@ def main() -> int:
                 while time.monotonic() < deadline:
                     text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
                     checks = observed(text, args.source_commit)
-                    if not checks["recovery_not_entered"] or not checks["no_surface_restart_or_failure"]:
+                    if (not checks["recovery_not_entered"] or not checks["no_surface_restart_or_failure"]
+                            or not checks["webkit_process_not_failed"]):
                         # The guest is disposable and the tail is limited; emit
                         # the genuine kernel/initramfs/UI cause before removal.
                         raise ProofError(

@@ -461,6 +461,8 @@ jobs:
           assert proof['status'] == 'pass'
           assert all(proof['checks'].values())
           assert proof['checks']['native_surface_heartbeat'] is True
+          assert proof['checks']['privileged_webkit_page_loaded'] is True
+          assert proof['checks']['webkit_process_not_failed'] is True
           assert proof['healthy_observation_seconds'] >= 15
           assert proof['network_device_attached'] is False
           assert proof['physical_write_authorized'] is False
