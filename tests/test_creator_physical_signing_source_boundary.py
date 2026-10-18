@@ -33,6 +33,13 @@ class CreatorPhysicalSigningSourceBoundaryTests(unittest.TestCase):
         signer_invocation = text.index("--private-key $PrivateKeyPath")
 
         self.assertLess(source_gate, promotion_gate)
+        self.assertIn('ordax-stable-v4-$ReleaseSourceCommit/', text)
+        self.assertIn('$url.AbsolutePath.StartsWith($releaseAssetPrefix', text)
+        self.assertIn("$url.AbsolutePath.Contains('%')", text)
+        self.assertLess(
+            text.index('$url.AbsolutePath.StartsWith($releaseAssetPrefix'),
+            private_key_resolution,
+        )
         self.assertLess(promotion_gate, private_key_resolution)
         self.assertLess(private_key_resolution, signer_invocation)
 
