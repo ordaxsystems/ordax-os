@@ -25,6 +25,41 @@ for directory in proc sys dev run; do
     mkdir -p "$DEV_ROOT/$directory"
 done
 
+# The Owner USB must provide the graphical runtime at image-build time. Reuse
+# the statically linked, independently tested portable EROFS/overlay mount
+# helper rather than installing packages, unpacking files or touching network.
+RUNTIME_IMAGE=$DEV_ROOT/state/ordax/runtime/native-surface/offline/native-surface-runtime.erofs
+RUNTIME_PIN=$DEV_ROOT/etc/ordax/owner-surface-runtime.sha256
+RUNTIME_RUN=$DEV_ROOT/run/ordax/runtime/native-surface
+cat "$RUNTIME_PIN" >/dev/null 2>&1 || fail "offline Surface EROFS pin is missing"
+cat "$RUNTIME_IMAGE" >/dev/null 2>&1 || fail "offline Surface EROFS image is missing"
+# The pin is generated only by the canonical Owner Creator from verified
+# bootstrap/surface-runtime build provenance.
+# The fixed initramfs BusyBox already guarantees the sha256sum applet.
+ /bin/busybox sha256sum -c "$RUNTIME_PIN" >/dev/null 2>&1 ||
+    fail "offline Surface EROFS SHA-256 mismatch"
+set -- $(/bin/busybox sha256sum "$RUNTIME_IMAGE") ||
+    fail "offline Surface EROFS identity could not be read"
+RUNTIME_SHA256=$1
+
+# Keep the writable Surface overlay ephemeral. The EROFS lower remains
+# immutable on ORDAX; neither a persistent rootfs extraction nor an APK
+# acquisition is needed at cold boot.
+mount -t tmpfs -o mode=0755 tmpfs "$DEV_ROOT/run" ||
+    fail "cannot mount ephemeral Owner runtime state"
+mkdir -p "$RUNTIME_RUN/lower" "$RUNTIME_RUN/upper" "$RUNTIME_RUN/work" "$RUNTIME_RUN/rootfs"
+/sbin/ordax-portable-mount mount-surface-runtime \
+    "$RUNTIME_IMAGE" \
+    "$RUNTIME_RUN/lower" \
+    "$RUNTIME_RUN/upper" \
+    "$RUNTIME_RUN/work" \
+    "$RUNTIME_RUN/rootfs" ||
+    fail "cannot compose offline graphical EROFS and ephemeral overlay"
+ORDAX_SURFACE_RUNTIME_MODE=verified-erofs-overlay
+ORDAX_SURFACE_RUNTIME_ROOT=/run/ordax/runtime/native-surface/rootfs
+ORDAX_SURFACE_RUNTIME_SHA256=$RUNTIME_SHA256
+export ORDAX_SURFACE_RUNTIME_MODE ORDAX_SURFACE_RUNTIME_ROOT ORDAX_SURFACE_RUNTIME_SHA256
+
 mount -o bind "$DEV_ROOT" "$DEV_ROOT" || fail "cannot bind development root"
 mount -o bind /proc "$DEV_ROOT/proc" || fail "cannot bind /proc"
 mount -o bind /sys "$DEV_ROOT/sys" || fail "cannot bind /sys"
