@@ -10,6 +10,14 @@ const INTEGRATION_PATH = new URL(
   "../docs/contracts/studio-runtime-integration.json",
   import.meta.url,
 );
+const TRUST_POLICY_PATH = new URL(
+  "../docs/contracts/runtime-component-trust-policy.json",
+  import.meta.url,
+);
+const PRESENCE_PATH = new URL(
+  "../docs/contracts/product-device-presence.json",
+  import.meta.url,
+);
 const ENROLLMENT_PATH = new URL(
   "../infra/supabase/development/functions/ordax-development-github-enroll/index.ts",
   import.meta.url,
@@ -99,6 +107,41 @@ test("Studio runtime source lock is source-only and cannot silently activate dis
   assert.equal(lock.activation.intelligence_grants_do_not_authorize_remote_actions, true);
   assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
   assert.equal(lock.activation.verified_os_runtime_provenance_required, true);
+});
+
+test("Product MCP action state cannot outrun the canonical signed-slot trust authority", async () => {
+  const [lock, trust, presence] = await Promise.all([
+    readJson(SOURCE_LOCK_PATH),
+    readJson(TRUST_POLICY_PATH),
+    readJson(PRESENCE_PATH),
+  ]);
+
+  assert.equal(trust.$schema, "prototype-ordax.runtime-component-trust-policy/1");
+  assert.equal(lock.distribution.activation_channel, "ordax-runtime-component-channel");
+  assert.equal(lock.activation.requires_signed_runtime_slot, true);
+  assert.equal(lock.activation.requires_runtime_health_proof, true);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.activation.verified_os_runtime_provenance_required, true);
+
+  const gates = trust.current_gates;
+  const trustReady = gates.canonical_component_trust_anchor_pinned === true
+    && gates.component_publish_allowed === true
+    && gates.production_component_slot_activation_allowed === true;
+
+  // This is a cross-contract invariant, not a second activation-state store:
+  // the OS lock and MCP discovery must never claim action availability while
+  // the existing component trust authority remains unready.
+  if (!trustReady) {
+    assert.equal(lock.distribution.signed_runtime_slot_available, false);
+    assert.equal(lock.distribution.runtime_artifact_claimed, false);
+    assert.equal(lock.activation.dispatch_enabled, false);
+    assert.equal(lock.activation.attestation_enabled, false);
+    assert.equal(presence.externalMcp.remoteActionRuntimePackagedInOs, false);
+    assert.equal(presence.externalMcp.remoteActionDispatchEnabled, false);
+    assert.equal(presence.externalMcp.attestedMcpSessionImplementedInOs, false);
+  }
+  assert.equal(presence.lifecycle.grantsRemoteActions, false);
+  assert.equal(presence.externalMcp.devicePresenceDoesNotGrantActions, true);
 });
 
 test("Studio integration consumes the source lock without widening Surface authority", async () => {
