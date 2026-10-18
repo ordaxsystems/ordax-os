@@ -834,10 +834,20 @@ upgrade_existing_runtime() {
 }
 
 ensure_runtime() {
-    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
+    # Owner USB reuses the canonical verified EROFS/overlay handoff. A missing
+    # or invalid preseed must fail closed: never fall through to APK downloads.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
        [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
         runtime_is_ready || {
-            echo "ordax-surface: verified boot requires the offline graphical runtime" >>"$HOST_LOG"
+            echo "ordax-surface: Owner USB offline graphical runtime is invalid" >>"$HOST_LOG"
+            return 1
+        }
+        echo "ordax-surface: using preverified Owner USB EROFS runtime" >>"$HOST_LOG"
+        return 0
+    fi
+    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+        runtime_is_ready || {
+            echo "ordax-surface: Stable/MVP requires the preverified offline graphical runtime" >>"$HOST_LOG"
             return 1
         }
         echo "ordax-surface: using verified immutable Surface runtime with ephemeral overlay" >>"$HOST_LOG"
