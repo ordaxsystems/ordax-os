@@ -112,3 +112,18 @@ test("Unchanged mounts do not cache identity across package upgrade or Space swi
   current = identity("orders", "ordaxsystems", DIGEST_A, "another-space");
   await assert.rejects(() => context.capabilityReader.capabilities(), /not bound to the verified caller/);
 });
+
+
+test("Native context rejects accessor-based signed slot claims before evaluating fields", async () => {
+  const fake = { ...identity("orders") };
+  Object.defineProperty(fake, "verified", {
+    enumerable: true,
+    get() { throw new Error("host must never evaluate this getter"); },
+  });
+  const provider = createNativeInstalledAppCapabilityContextProvider({
+    capabilityReader: deviceReader,
+    resolveCurrentInstalledApp: async () => fake,
+    readAllowedCapabilities: async () => { throw new Error("must not query grants"); },
+  });
+  await assert.rejects(() => provider("orders"), /not a verified current slot/);
+});
