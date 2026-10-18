@@ -361,6 +361,27 @@ def inspect_rootfs_tar(rootfs_tar: Path, source: dict) -> dict:
     }
 
 
+GRAPHICAL_KCONFIG_REQUIRED = (
+        "BR2_x86_64=y",
+        "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+        "BR2_SHARED_LIBS=y",
+        "BR2_PACKAGE_EUDEV=y",
+        "BR2_PACKAGE_CAGE=y",
+        "BR2_PACKAGE_WEBKITGTK=y",
+        "BR2_PACKAGE_WEBKITGTK_WAYLAND=y",
+        "BR2_PACKAGE_LIBGTK3=y",
+        "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
+        "BR2_PACKAGE_PYTHON3=y",
+        "BR2_PACKAGE_PYTHON_GOBJECT=y",
+        "BR2_PACKAGE_GOBJECT_INTROSPECTION=y",
+        "BR2_PACKAGE_XWAYLAND=y",
+        "BR2_PACKAGE_SEATD=y",
+    "BR2_PACKAGE_WEBKITGTK_HTTPS=y",
+    "BR2_PACKAGE_WEBKITGTK_SANDBOX=y",
+    "BR2_PACKAGE_WEBKITGTK_MULTIMEDIA=y",
+)
+
+
 def resolved_kconfig(path: Path) -> dict[str, str]:
     """Read exact active assignments, never substrings or commented options."""
     values: dict[str, str] = {}
@@ -382,23 +403,7 @@ def verify_build_config(build_dir: Path) -> str:
     if not config.is_file():
         raise SurfaceBuildError("Buildroot generated .config missing")
     settings = resolved_kconfig(config)
-    required = (
-        "BR2_x86_64=y",
-        "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
-        "BR2_SHARED_LIBS=y",
-        "BR2_PACKAGE_EUDEV=y",
-        "BR2_PACKAGE_CAGE=y",
-        "BR2_PACKAGE_WEBKITGTK=y",
-        "BR2_PACKAGE_WEBKITGTK_WAYLAND=y",
-        "BR2_PACKAGE_LIBGTK3=y",
-        "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
-        "BR2_PACKAGE_PYTHON3=y",
-        "BR2_PACKAGE_PYTHON_GOBJECT=y",
-        "BR2_PACKAGE_GOBJECT_INTROSPECTION=y",
-        "BR2_PACKAGE_XWAYLAND=y",
-        "BR2_PACKAGE_SEATD=y",
-    )
-    missing = [marker for marker in required if settings.get(marker.split("=", 1)[0]) != "y"]
+    missing = [marker for marker in GRAPHICAL_KCONFIG_REQUIRED if settings.get(marker.split("=", 1)[0]) != "y"]
     if missing:
         raise SurfaceBuildError(f"Buildroot resolved config lost Surface requirements: {missing}")
     if settings.get("BR2_ROOTFS_MERGED_USR") == "y":
