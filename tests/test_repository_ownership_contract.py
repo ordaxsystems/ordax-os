@@ -65,7 +65,12 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
             f"REPOSITORY={self.contract['repositories']['platform']['repo']}", section
         )
         self.assertIn("PROMOTED_TO_OFFICIAL=YES", section)
-        self.assertNotIn("washingtonmsdj/prototipo-ordax-os", section)
+        # The migration verifier is the single owner of obsolete namespace
+        # identities. The test checks the value, not a second stale literal.
+        from tools.verify.repository_namespace_transfer_preflight import (
+            PREVIOUS_OWNER, REPOSITORY_NAME,
+        )
+        self.assertNotIn(f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}", section)
         self.assertNotIn("PROMOTED_TO_OFFICIAL=NO", section)
 
     def test_agent_and_readme_entrypoints_follow_official_repo_ssot(self):
