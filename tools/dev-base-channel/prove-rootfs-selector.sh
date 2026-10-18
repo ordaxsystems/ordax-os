@@ -141,7 +141,7 @@ grep -Fxq 'OrdaX: iniciando a Surface local sem internet...' <<<"$success_output
 grep -Fxq 'ORDAX_GRAPHICAL_AUTOSTART_PROVED' <<<"$success_output"
 test "$(cat "$SUCCESS_SEED/state/ordax/base-update/rootfs/slot-b")" = "$SOURCE_SHA"
 test -f "$SUCCESS_SEED/state/ordax/boot-last.tsv"
-grep -Fq 
+grep -Fq "fast-graphical" "$SUCCESS_SEED/state/ordax/boot-last.tsv"
 
 FAIL_SEED="$TMP/failure-seed"
 install_seed_root \
