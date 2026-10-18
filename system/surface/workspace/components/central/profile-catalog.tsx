@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useProfileCatalogReader, type ProfileCatalogData } from './profile-catalog-context';
 import { Panel } from './primitives';
+import { ProfileStoreAppRows } from './profile-store-app-rows';
 import { useStoreCatalog } from '../store/catalog-context';
 import { projectProfileStoreAppStatus } from '../../../../services/profile-packs/store-app-status.mjs';
 
@@ -46,7 +47,7 @@ export function ProfileCatalogPanel() {
           <h4>{entry.title} <small>versão {entry.version}</small></h4>
           <p>Composição declarada · consulta</p>
           <details><summary>Referências da composição</summary>
-            <h5>IDs de aplicativos · Loja OrdaX</h5><ul>{projectProfileStoreAppStatus({ apps: entry.apps, storeSnapshot }).entries.map(app => <li key={app.appId}>{app.appId} — {({ unknown: 'Estado indisponível', 'not-listed': 'Não listado na Loja', installed: 'Instalado', 'update-available': 'Atualização disponível', available: 'Disponível na Loja', blocked: 'Bloqueado', 'failed-retained': 'Falha; versão preservada', 'in-progress': 'Operação em andamento', unavailable: 'Indisponível' } as Record<string, string>)[app.status] ?? 'Estado desconhecido'}{app.installedVersion ? ` · instalada ${app.installedVersion}` : ''}{app.availableVersion ? ` · catálogo ${app.availableVersion}` : ''}</li>)}</ul>
+            <h5>IDs de aplicativos · Loja OrdaX</h5><ProfileStoreAppRows entries={projectProfileStoreAppStatus({ apps: entry.apps, storeSnapshot }).entries}/>
             <h5>Templates referenciados</h5><ul>{entry.templates.map((template: string) => <li key={template}>{template}</li>)}</ul>
           </details>
           <p className="service-state">Aplicar este perfil ao Space pelo Web ainda não está conectado. A ativação não é realizada por esta consulta.</p>
