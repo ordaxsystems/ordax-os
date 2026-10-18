@@ -93,7 +93,7 @@ function Assert-StableV3SourceReadback([string]$Repo, [string]$Commit, [hashtabl
             throw 'Portable v3 source URL differs from canonical release.'
         }
         $name = $url.Substring($prefix.Length)
-        if ($name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*' -or $names.ContainsKey($name) -or
+        if ($name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or $names.ContainsKey($name) -or
             -not $published.ContainsKey($name)) {
             throw "Missing, duplicated or unsafe Stable asset: $name"
         }
