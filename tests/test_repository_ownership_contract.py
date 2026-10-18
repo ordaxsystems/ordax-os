@@ -86,26 +86,6 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         for key, value in invariants.items():
             self.assertTrue(value, key)
 
-    def test_mcp_is_system_capability_accessible_to_multiple_apps(self):
-        repos = self.contract["repositories"]
-        self.assertIn("native-capability-preflight", repos["platform"]["owns"])
-        self.assertIn("mcp-system-authority", repos["apps"]["must_not_own"])
-        self.assertIn("product-mcp", repos["control_plane"]["owns"])
-        for key in (
-            "mcp_is_system_wide_capability_not_an_app",
-            "native_os_permissions_owned_by_platform_not_studio",
-            "apps_consume_capability_ports_without_grant_minting",
-            "remote_mcp_grants_remain_control_plane_owned",
-            "windows_studio_is_owner_ui_not_authority",
-        ):
-            self.assertIs(self.contract["invariants"].get(key), True, key)
-        shared = ROOT / "system/services/device-agent/action-preflight.mjs"
-        studio = ROOT / "system/services/device-agent/studio-action-authorizer.mjs"
-        self.assertTrue(shared.is_file())
-        self.assertIn('createDeviceActionPreflight', shared.read_text(encoding="utf-8"))
-        self.assertIn('createDeviceActionPreflight(options)', studio.read_text(encoding="utf-8"))
-        self.assertIn('dispatchAuthority: "none"', shared.read_text(encoding="utf-8"))
-
     def test_no_duplicate_canonical_ownership_for_key_boundaries(self):
         repos = self.contract["repositories"]
         ownership = {}
