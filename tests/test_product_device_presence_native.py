@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import stat
 import sys
@@ -66,6 +67,17 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
         path.rename(saved)
         path.symlink_to(saved)
         self.assertIsNone(self.store.read_enrolled_credential())
+
+    def test_private_device_credential_rejects_hardlinks_or_other_owner(self):
+        path = self.store.credential_path
+        other = path.with_name("unexpected-hardlink")
+        os.link(path, other)
+        self.assertIsNone(self.store.read_enrolled_credential())
+        other.unlink()
+        self.assertEqual(self.store.read_enrolled_credential()["device_id"], DEVICE_ID)
+        with patch("product_device_identity.os.geteuid", return_value=-1):
+            self.assertIsNone(self.store.read_enrolled_credential())
+        self.assertEqual(self.store.read_enrolled_credential()["device_id"], DEVICE_ID)
 
     def test_successful_presence_is_device_only_and_no_token_on_argv(self):
         client = ProductDevicePresenceClient("https://cp.example", self.store)
