@@ -95,11 +95,21 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
 
     def plan(self, operation: str = "install", *, candidate: bool = True) -> dict:
         return {
-            "schema": "ordax.app-lifecycle-plan/1",
+            "schema": "ordax.app-lifecycle-plan/2",
             "request": request(operation),
             "catalogSequence": 9,
             "catalogSha256": "f" * 64,
             "catalogSourceCommit": COMMIT,
+            "expectedActivation": (
+                {"source": "absent", "revision": 0, "version": None, "sourceCommit": None}
+                if operation == "install"
+                else {
+                    "source": "slot",
+                    "revision": 2 if operation == "update" else 12,
+                    "version": "0.4.2" if operation == "update" else "0.4.3",
+                    "sourceCommit": COMMIT,
+                }
+            ),
             "candidate": (
                 {
                     "appId": "notes",
@@ -126,8 +136,9 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 root=str(self.cache),
             )
 
-    def install_runner(self):
+    def install_runner(self, operation: str = "install"):
         calls = []
+        status_reads = 0
 
         def runner(argv, **kwargs):
             calls.append((list(argv), dict(kwargs)))
@@ -175,6 +186,10 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                     ])
                 )
             if command == "arm-pending":
+                self.assertEqual(
+                    argv[argv.index("--expected-revision") + 1],
+                    "2" if operation == "update" else "0",
+                )
                 return Result(
                     "\n".join([
                         "RUNTIME_COMPONENT_PENDING_ARMED=YES",
@@ -188,14 +203,24 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                     ])
                 )
             if command == "status":
+                nonlocal status_reads
+                status_reads += 1
                 self.assertEqual(argv[argv.index("--component") + 1], "notes")
+                current = (
+                    {"version": "0.4.2", "source_commit": COMMIT}
+                    if operation == "update" else None
+                )
                 return Result(json.dumps({
                     "$schema": "prototype-ordax.runtime-component-activation-state/1",
                     "component_id": "notes",
-                    "revision": 3,
-                    "current": None,
+                    "revision": (2 if operation == "update" else 0)
+                    if status_reads == 1 else 3,
+                    "current": current,
                     "previous": None,
-                    "pending": {"version": "0.4.3", "source_commit": COMMIT},
+                    "pending": (
+                        None if status_reads == 1
+                        else {"version": "0.4.3", "source_commit": COMMIT}
+                    ),
                     "rejected": None,
                     "pending_health": "unknown",
                 }) + "\n")
@@ -217,7 +242,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
         )
         self.assertEqual(
             [argv[1] for argv, _kwargs in calls],
-            ["verify-envelope-v2", "stage-v2", "verify-slot-v2", "arm-pending", "status"],
+            ["status", "verify-envelope-v2", "stage-v2", "verify-slot-v2", "arm-pending", "status"],
         )
         for argv, kwargs in calls:
             self.assertNotIn("promote-state", argv)
@@ -233,7 +258,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
 
     def test_update_has_same_nonactivating_stage_boundary(self) -> None:
         self.cache_all()
-        calls, runner = self.install_runner()
+        calls, runner = self.install_runner("update")
         result = lifecycle.execute_offline_lifecycle_plan(
             self.plan("update"),
             artifact_root=str(self.cache),
@@ -366,7 +391,9 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
 
         def stale_runner(argv, **kwargs):
             result = valid_runner(argv, **kwargs)
-            if argv[1] == "status":
+            if argv[1] == "status" and any(
+                call[0][1] == "arm-pending" for call in calls
+            ):
                 state = json.loads(result.stdout)
                 state["pending"] = None
                 return Result(json.dumps(state) + "\n")
@@ -389,11 +416,13 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
     def test_install_rejects_wrong_persisted_revision_or_health(self) -> None:
         self.cache_all()
         for key, value in [("revision", 2), ("pending_health", "healthy")]:
-            _calls, valid_runner = self.install_runner()
+            calls, valid_runner = self.install_runner()
 
             def drift_runner(argv, **kwargs):
                 result = valid_runner(argv, **kwargs)
-                if argv[1] != "status":
+                if argv[1] != "status" or not any(
+                    call[0][1] == "arm-pending" for call in calls
+                ):
                     return result
                 state = json.loads(result.stdout)
                 state[key] = value
@@ -457,6 +486,64 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                 runner=runner,
             )
         self.assertEqual(calls, ["status", "uninstall-state", "status"])
+
+    def test_remove_replay_after_reinstall_cannot_uninstall_new_generation(self) -> None:
+        calls = []
+        new_commit = "b" * 40
+
+        def runner(argv, **kwargs):
+            calls.append(argv[1])
+            self.assertEqual(argv[1], "status", "stale removal must not execute")
+            return Result(json.dumps({
+                "$schema": "prototype-ordax.runtime-component-activation-state/1",
+                "component_id": "notes",
+                "revision": 21,
+                "current": {"version": "0.4.4", "source_commit": new_commit},
+                "previous": None,
+                "pending": None,
+                "rejected": None,
+                "pending_health": "unknown",
+            }) + "\n")
+
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError, "generation is stale"
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan("remove", candidate=False),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=runner,
+            )
+        self.assertEqual(calls, ["status"])
+
+    def test_install_replay_after_activation_generation_changes_is_rejected_before_writer(self) -> None:
+        self.cache_all()
+        calls, valid_runner = self.install_runner()
+
+        def changed_runner(argv, **kwargs):
+            result = valid_runner(argv, **kwargs)
+            if argv[1] == "status":
+                state = json.loads(result.stdout)
+                state["revision"] = 10
+                state["current"] = {"version": "0.4.3", "source_commit": COMMIT}
+                return Result(json.dumps(state) + "\n")
+            return result
+
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError, "generation is stale"
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan(),
+                artifact_root=str(self.cache),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=changed_runner,
+            )
+        self.assertEqual([argv[1] for argv, _ in calls], ["status"])
 
     def test_remove_refuses_pending_or_absent_current_before_uninstall(self) -> None:
         for state in [
